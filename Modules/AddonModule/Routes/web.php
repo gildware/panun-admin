@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use Modules\AddonModule\Http\Controllers\Web\Admin\AddonController;
+use Modules\AddonModule\Http\Controllers\Web\Admin\AddonActivationController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
+
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+
+    Route::group(['prefix' => 'addon', 'as' => 'addon.'], function () {
+        Route::get('/', [AddonController::class, 'index'])->name('index');
+        Route::post('publish', [AddonController::class, 'publish'])->name('publish');
+        Route::post('activation', [AddonController::class, 'activation'])->name('activation');
+        Route::post('upload', [AddonController::class, 'upload'])->name('upload');
+        Route::post('delete', [AddonController::class, 'deleteAddon'])->name('delete');
+    });
+
+    Route::group(['prefix' => 'add-on-activation', 'as' => 'add-on-activation.'], function () {
+        Route::get('index', [AddonActivationController::class, 'index'])->name('index');
+        Route::post('update/{type}', [AddonActivationController::class, 'update'])->name('update');
+    });
+});
