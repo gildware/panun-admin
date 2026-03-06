@@ -25,10 +25,12 @@ use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingAdditionalInformation;
 use Modules\BookingModule\Entities\BookingDetail;
+use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\BookingModule\Entities\BookingRepeatHistory;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
+use Modules\BookingModule\Entities\BookingPartialPayment;
 use Illuminate\Http\RedirectResponse;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Http\Traits\BookingTrait;
@@ -117,7 +119,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $bookings = $this->booking
-            ->with(['customer'])
+            ->with(['customer', 'assignee'])
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
                 $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
@@ -209,7 +211,20 @@ class BookingController extends Controller
             ->limit(100)
             ->get();
 
-        return view('bookingmodule::admin.booking.create', compact('zones', 'categories', 'subCategories', 'providers', 'servicemen', 'customers'));
+        // Assignees: super-admins and admin employees
+        $assignees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')
+            ->get();
+
+        $currentAdmin = auth()->user();
+
+        $additionalChargeEnabled = (bool) (business_config('booking_additional_charge', 'booking_setup'))?->live_values;
+        $additionalChargeLabel = (string) (business_config('additional_charge_label_name', 'booking_setup'))?->live_values ?: translate('extra_fee');
+        $additionalChargeDefaultAmount = (float) (business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values ?: 0;
+
+        return view('bookingmodule::admin.booking.create', compact('zones', 'categories', 'subCategories', 'providers', 'servicemen', 'customers', 'assignees', 'currentAdmin', 'additionalChargeEnabled', 'additionalChargeLabel', 'additionalChargeDefaultAmount'));
     }
 
     /**
@@ -236,19 +251,34 @@ class BookingController extends Controller
                 'category_id' => ['required', 'uuid'],
                 'sub_category_id' => ['required', 'uuid'],
                 'service_id' => ['required', 'uuid'],
+                'variant_key' => ['required', 'string'],
                 'service_schedule' => ['required', 'date'],
-                'service_address_id' => ['nullable', 'integer'],
+                'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
                 'service_location' => ['required', 'in:customer,provider'],
+                'booking_source' => ['required', 'in:app,call,whatsapp,social_media'],
                 'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
+                'advance_transaction_id' => ['nullable', 'string', 'max:191'],
+                'assignee_id' => ['nullable', 'exists:users,id'],
+                'service_description' => ['nullable', 'string', 'max:2000'],
+                'extra_fee' => ['nullable', 'numeric', 'min:0'],
             ]);
             
             // If service location is provider, clear service_address_id
             if ($data['service_location'] === 'provider') {
                 $data['service_address_id'] = null;
             }
+            $additionalChargeEnabled = (bool) (business_config('booking_additional_charge', 'booking_setup'))?->live_values;
+            if (!$additionalChargeEnabled) {
+                $data['extra_fee'] = 0;
+            } else {
+                $data['extra_fee'] = (float) ($data['extra_fee'] ?? 0);
+            }
         } catch (ValidationException $e) {
             return redirect()->back()->withErrors($e->errors())->withInput();
         }
+
+        // Normalize booking source for display
+        $data['booking_source'] = strtolower($data['booking_source']);
 
         // Load related data for preview
         $customer = User::find($data['customer_id']);
@@ -258,8 +288,37 @@ class BookingController extends Controller
         $subCategory = $this->category->find($data['sub_category_id']);
         $service = Service::find($data['service_id']);
         $address = $data['service_address_id'] ? $this->userAddress->find($data['service_address_id']) : null;
+        $assignee = $data['assignee_id'] ? User::find($data['assignee_id']) : null;
+        $variation = Variation::where('service_id', $data['service_id'])
+            ->where('zone_id', $data['zone_id'])
+            ->where('variant_key', $data['variant_key'])
+            ->first();
 
-        return view('bookingmodule::admin.booking.preview', compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address'));
+        $totalBilling = 0;
+        $dueBalance = 0;
+        if ($variation && $service) {
+            $serviceForCalc = Service::active()
+                ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+                ->find($data['service_id']);
+            if ($serviceForCalc) {
+                $quantity = 1;
+                $variationPrice = $variation->price ?? 0;
+                $basicDiscount = basic_discount_calculation($serviceForCalc, $variationPrice * $quantity);
+                $campaignDiscount = campaign_discount_calculation($serviceForCalc, $variationPrice * $quantity);
+                $subtotal = round($variationPrice * $quantity, 2);
+                $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
+                $tax = round((($variationPrice * $quantity - $applicableDiscount) * $serviceForCalc->tax) / 100, 2);
+                $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
+                $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
+                $extraFee = (float) ($data['extra_fee'] ?? 0);
+                $totalBilling = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
+                $advance = (float) ($data['advance_paid_amount'] ?? 0);
+                $dueBalance = max(0, $totalBilling - $advance);
+            }
+        }
+
+        return view('bookingmodule::admin.booking.preview',
+            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance'));
     }
 
     /**
@@ -279,6 +338,13 @@ class BookingController extends Controller
             return redirect()->back()->withInput();
         }
 
+        // Debug logging for admin booking store flow
+        \Log::info('ADMIN_BOOKING_STORE_REQUEST', [
+            'user_id' => auth()->id(),
+            'payload' => $request->all(),
+            'url' => $request->fullUrl(),
+        ]);
+
         $data = $request->validate([
             'customer_id' => ['required', 'exists:users,id'],
             'provider_id' => ['required', 'exists:providers,id'],
@@ -286,20 +352,73 @@ class BookingController extends Controller
             'category_id' => ['required', 'uuid'],
             'sub_category_id' => ['required', 'uuid'],
             'service_id' => ['required', 'uuid'],
+            'variant_key' => ['required', 'string'],
             'service_schedule' => ['required', 'date'],
-            'service_address_id' => ['nullable', 'integer'],
+            'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
             'service_location' => ['required', 'in:customer,provider'],
+            'booking_source' => ['required', 'in:app,call,whatsapp,social_media'],
             'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'advance_transaction_id' => ['nullable', 'string', 'max:191'],
+            'assignee_id' => ['nullable', 'exists:users,id'],
+            'service_description' => ['nullable', 'string', 'max:2000'],
+            'extra_fee' => ['nullable', 'numeric', 'min:0'],
         ]);
         
         // If service location is provider, clear service_address_id
         if ($data['service_location'] === 'provider') {
             $data['service_address_id'] = null;
         }
+        $additionalChargeEnabled = (bool) (business_config('booking_additional_charge', 'booking_setup'))?->live_values;
+        $data['extra_fee'] = $additionalChargeEnabled ? (float) ($data['extra_fee'] ?? 0) : 0;
+
+        // Normalize booking source
+        $data['booking_source'] = strtolower($data['booking_source']);
 
         DB::beginTransaction();
 
         try {
+            // Get service and variation for price calculation
+            $service = Service::active()
+                ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+                ->find($data['service_id']);
+            
+            $variation = Variation::where('service_id', $data['service_id'])
+                ->where('zone_id', $data['zone_id'])
+                ->where('variant_key', $data['variant_key'])
+                ->first();
+
+            if (!$service || !$variation) {
+                throw new \Exception('Service or variation not found');
+            }
+
+            // Calculate pricing
+            $quantity = 1; // Default quantity for admin-created bookings
+            $variationPrice = $variation->price ?? 0;
+            
+            if ($variationPrice <= 0) {
+                throw new \Exception('Variation price must be greater than 0');
+            }
+            $basicDiscount = basic_discount_calculation($service, $variationPrice * $quantity);
+            $campaignDiscount = campaign_discount_calculation($service, $variationPrice * $quantity);
+            $subtotal = round($variationPrice * $quantity, 2);
+            
+            $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
+            $tax = round((($variationPrice * $quantity - $applicableDiscount) * $service->tax) / 100, 2);
+            
+            $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
+            $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
+            
+            $extraFee = (float) ($data['extra_fee'] ?? 0);
+            $totalCost = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
+
+            $advanceAmount = (float) ($data['advance_paid_amount'] ?? 0);
+            if ($advanceAmount > $totalCost) {
+                throw ValidationException::withMessages([
+                    'advance_paid_amount' => [translate('Advance_amount_cannot_exceed_total_billing_amount')],
+                ]);
+            }
+
+            // Create booking
             $booking = new Booking();
             $booking->customer_id = $data['customer_id'];
             $booking->provider_id = $data['provider_id'];
@@ -312,14 +431,97 @@ class BookingController extends Controller
             $booking->service_schedule = $data['service_schedule'];
             $booking->service_address_id = $data['service_address_id'] ?? null;
             $booking->service_location = $data['service_location']; // 'customer' or 'provider'
+            $booking->assignee_id = $data['assignee_id'] ?? null;
+            $booking->service_description = $data['service_description'] ?? null;
             $booking->booking_otp = rand(100000, 999999);
+            $booking->extra_fee = $extraFee;
+            
+            // Set booking totals
+            $booking->total_booking_amount = $totalCost;
+            $booking->total_tax_amount = $tax;
+            $booking->total_discount_amount = $basicDiscount;
+            $booking->total_campaign_discount_amount = $campaignDiscount;
+            $booking->total_coupon_discount_amount = 0;
+            
             $booking->save();
+
+            // Record advance payment as an offline partial payment if provided
+            if (!empty($data['advance_paid_amount']) && $data['advance_paid_amount'] > 0) {
+                $paidAmount = min($data['advance_paid_amount'], $totalCost);
+                $dueAmount = max($totalCost - $paidAmount, 0);
+
+                BookingPartialPayment::create([
+                    'booking_id' => $booking->id,
+                    'paid_with' => 'offline',
+                    'transaction_id' => $data['advance_transaction_id'] ?? null,
+                    'paid_amount' => $paidAmount,
+                    'due_amount' => $dueAmount,
+                ]);
+            }
+
+            // Create booking detail
+            $detail = new BookingDetail();
+            $detail->booking_id = $booking->id;
+            $detail->service_id = $data['service_id'];
+            $detail->service_name = $service->name ?? 'service-not-found';
+            $detail->variant_key = $data['variant_key'];
+            $detail->quantity = $quantity;
+            $detail->service_cost = $variationPrice;
+            $detail->discount_amount = $basicDiscount;
+            $detail->campaign_discount_amount = $campaignDiscount;
+            $detail->overall_coupon_discount_amount = 0;
+            $detail->tax_amount = $tax;
+            $detail->total_cost = $totalCost; // includes extra_fee in total
+            $detail->save();
+
+            // Create booking details amount
+            // For admin-created bookings, discount splits default to 0
+            // These can be adjusted later if needed
+            $bookingDetailsAmount = new BookingDetailsAmount();
+            $bookingDetailsAmount->booking_details_id = $detail->id;
+            $bookingDetailsAmount->booking_id = $booking->id;
+            $bookingDetailsAmount->service_unit_cost = $variationPrice;
+            $bookingDetailsAmount->service_quantity = $quantity;
+            $bookingDetailsAmount->service_tax = $tax;
+            $bookingDetailsAmount->discount_by_admin = 0;
+            $bookingDetailsAmount->discount_by_provider = 0;
+            $bookingDetailsAmount->campaign_discount_by_admin = 0;
+            $bookingDetailsAmount->campaign_discount_by_provider = 0;
+            $bookingDetailsAmount->coupon_discount_by_admin = 0;
+            $bookingDetailsAmount->coupon_discount_by_provider = 0;
+            $bookingDetailsAmount->admin_commission = 0; // Will be calculated later if needed
+            $bookingDetailsAmount->save();
+
+            // Create schedule history
+            $schedule = new BookingScheduleHistory();
+            $schedule->booking_id = $booking->id;
+            $schedule->changed_by = auth()->id();
+            $schedule->schedule = date('Y-m-d H:i:s', strtotime($data['service_schedule'])) ?? now()->addHours(5);
+            $schedule->save();
+
+            // Create status history
+            $statusHistory = new BookingStatusHistory();
+            $statusHistory->changed_by = auth()->id();
+            $statusHistory->booking_id = $booking->id;
+            $statusHistory->booking_status = 'pending';
+            $statusHistory->save();
 
             DB::commit();
 
+            \Log::info('ADMIN_BOOKING_STORE_SUCCESS', [
+                'booking_id' => $booking->id,
+                'readable_id' => $booking->readable_id,
+            ]);
+
+            // Go to success screen with options: add new, view details, dashboard
             return redirect()->route('admin.booking.success', ['id' => $booking->id]);
         } catch (\Throwable $exception) {
             DB::rollBack();
+
+            \Log::error('ADMIN_BOOKING_STORE_EXCEPTION', [
+                'message' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
             Toastr::error(translate('failed_to_create_booking'));
 
             return redirect()->back()->withInput();
@@ -428,7 +630,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
-        $bookings = $this->booking->with(['customer'])
+        $bookings = $this->booking->with(['customer', 'assignee'])
             ->when($request->has('search'), function ($query) use ($request) {
                 $query->where(function ($query) use ($request) {
                     $keys = explode(' ', $request['search']);
@@ -533,11 +735,6 @@ class BookingController extends Controller
             $queryParams['end_date'] = null;
         }
 
-        if ($request->has('search')) {
-            $search = $request['search'];
-            $queryParams['search'] = $search;
-        }
-
         if ($request->has('booking_status')) {
             $bookingStatus = $request['booking_status'];
             $queryParams['booking_status'] = $bookingStatus;
@@ -545,19 +742,40 @@ class BookingController extends Controller
             $queryParams['booking_status'] = 'pending';
         }
 
+        $hasSearch = $request->has('search') || $request->has('keyword');
+        if ($request->has('search')) {
+            $queryParams['search'] = $request['search'];
+        } elseif ($request->has('keyword')) {
+            $queryParams['search'] = $request['keyword'];
+        }
+
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
-        $bookings = $this->booking->with(['customer'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $query->where(function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
+        $bookings = $this->booking->with(['customer', 'booking_partial_payments', 'assignee'])
+            ->when($hasSearch, function ($query) use ($request) {
+                $search = $request->input('search', $request->input('keyword', ''));
+                $query->where(function ($query) use ($search) {
+                    $keys = explode(' ', $search);
                     foreach ($keys as $key) {
                         $query->orWhere('readable_id', 'LIKE', '%' . $key . '%');
                     }
+                    // Also search by advance/offline partial payment transaction_id
+                    $query->orWhereHas('booking_partial_payments', function ($q) use ($search) {
+                        $q->where('paid_with', 'offline')
+                            ->where('transaction_id', 'LIKE', '%' . $search . '%');
+                    });
                 });
             })
             ->whereIn('booking_status', ['pending', 'accepted'])
-            ->where('payment_method', 'offline_payment')->where('is_paid', 0)
+            ->where(function ($query) {
+                // Include: full offline_payment bookings OR bookings with advance (offline) partial payment
+                $query->where(function ($q) {
+                    $q->where('payment_method', 'offline_payment')->where('is_paid', 0);
+                })->orWhereHas('booking_partial_payments', function ($q) {
+                    $q->where('paid_with', 'offline');
+                });
+            })
+            ->where('is_paid', 0)
             ->when($request->has('zone_ids'), function ($query) use ($request) {
                 $query->whereIn('zone_id', $request['zone_ids']);
             })->when($queryParams['start_date'] != null && $queryParams['end_date'] != null, function ($query) use ($request) {
@@ -599,8 +817,20 @@ class BookingController extends Controller
 
             $booking = $this->booking->with(['detail.service' => function ($query) {
                 $query->withTrashed();
-            }, 'detail.service.category', 'detail.service.subCategory', 'detail.variation', 'customer', 'provider', 'serviceman', 'status_histories.user'])
+            }, 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments'])
                 ->find($id);
+            
+            // Load variations for each detail with proper constraints (service_id and zone_id)
+            if ($booking && $booking->detail) {
+                foreach ($booking->detail as $detail) {
+                    if ($detail->variant_key && $detail->service_id && $booking->zone_id) {
+                        $detail->variation = Variation::where('variant_key', $detail->variant_key)
+                            ->where('service_id', $detail->service_id)
+                            ->where('zone_id', $booking->zone_id)
+                            ->first();
+                    }
+                }
+            }
 
             $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
@@ -676,7 +906,12 @@ class BookingController extends Controller
                 $area = json_decode($zoneCenter->coordinates[0]->toJson(), true);
             }
 
-            return view('bookingmodule::admin.booking.details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'currentlyAssignProvider'));
+            $assignees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
+                ->orderBy('first_name')->orderBy('last_name')
+                ->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')
+                ->get();
+
+            return view('bookingmodule::admin.booking.details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'currentlyAssignProvider', 'assignees'));
         } elseif ($request->web_page == 'status') {
             $booking = $this->booking->with(['detail.service', 'customer', 'provider', 'service_address', 'serviceman.user', 'service_address', 'status_histories.user'])->find($id);
 
@@ -740,6 +975,65 @@ class BookingController extends Controller
     }
 
     /**
+     * Remove the specified booking from storage.
+     *
+     * @param int $id
+     * @return RedirectResponse
+     * @throws AuthorizationException
+     */
+    public function destroy($id): RedirectResponse
+    {
+        $this->authorize('booking_delete');
+
+        $booking = $this->booking
+            ->with([
+                'detail',
+                'details_amounts',
+                'schedule_histories',
+                'status_histories',
+                'booking_offline_payments',
+                'ignores',
+                'reviews',
+                'booking_partial_payments',
+                'repeat.detail',
+                'repeat.details_amounts',
+                'repeat.statusHistories',
+                'repeat.scheduleHistories',
+                'repeat.repeatHistories',
+            ])
+            ->findOrFail($id);
+
+        DB::transaction(function () use ($booking) {
+            foreach ($booking->repeat as $repeat) {
+                $repeat->detail()->delete();
+                $repeat->details_amounts()->delete();
+                $repeat->statusHistories()->delete();
+                $repeat->scheduleHistories()->delete();
+                $repeat->repeatHistories()->delete();
+                $repeat->delete();
+            }
+
+            $booking->detail()->delete();
+            $booking->details_amounts()->delete();
+            $booking->schedule_histories()->delete();
+            $booking->status_histories()->delete();
+            $booking->booking_offline_payments()->delete();
+            $booking->ignores()->delete();
+            $booking->reviews()->delete();
+            $booking->booking_partial_payments()->delete();
+
+            $booking->delete();
+        });
+
+        Toastr::success(translate('Booking_deleted_successfully'));
+
+        return redirect()->route('admin.booking.list', [
+            'booking_status' => 'pending',
+            'service_type' => 'all',
+        ]);
+    }
+
+    /**
      * Display a listing of the resource.
      * @param $id
      * @param Request $request
@@ -756,9 +1050,21 @@ class BookingController extends Controller
 
         $booking = $this->booking->with(['repeat.detail.service','repeat.scheduleHistories','repeat.repeatHistories', 'detail.service' => function ($query) {
             $query->withTrashed();
-        }, 'detail.service.category', 'detail.service.subCategory', 'detail.variation', 'customer', 'provider',
+        }, 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider',
             'serviceman', 'status_histories.user'])
             ->find($id);
+        
+        // Load variations for each detail with proper constraints (service_id and zone_id)
+        if ($booking && $booking->detail) {
+            foreach ($booking->detail as $detail) {
+                if ($detail->variant_key && $detail->service_id && $booking->zone_id) {
+                    $detail->variation = Variation::where('variant_key', $detail->variant_key)
+                        ->where('service_id', $detail->service_id)
+                        ->where('zone_id', $booking->zone_id)
+                        ->first();
+                }
+            }
+        }
 
         $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
@@ -1557,6 +1863,34 @@ class BookingController extends Controller
     }
 
     /**
+     * Update booking info: assignee, booking_source, service_description.
+     *
+     * @param string $id Booking id
+     * @param Request $request
+     * @return RedirectResponse
+     * @throws AuthorizationException
+     */
+    public function updateBookingInfo($id, Request $request): RedirectResponse
+    {
+        $this->authorize('booking_edit');
+
+        $data = $request->validate([
+            'assignee_id' => ['nullable', 'exists:users,id'],
+            'booking_source' => ['required', 'in:app,call,whatsapp,social_media'],
+            'service_description' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $booking = $this->booking->findOrFail($id);
+        $booking->assignee_id = $data['assignee_id'] ?? null;
+        $booking->booking_source = strtolower($data['booking_source']);
+        $booking->service_description = $data['service_description'] ?? null;
+        $booking->save();
+
+        Toastr::success(translate('Booking_information_updated_successfully'));
+        return redirect()->back();
+    }
+
+    /**
      * Display a listing of the resource.
      * @param $service_address_id
      * @param Request $request
@@ -1927,6 +2261,59 @@ class BookingController extends Controller
         return response()->json([
             'view' => view('bookingmodule::admin.booking.partials.details.table-row', compact('data'))->render()
         ]);
+    }
+
+    /**
+     * Get billing summary for add-booking form (service cost, tax, total).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function ajaxGetBillingSummary(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'zone_id' => 'required|uuid',
+            'service_id' => 'required|uuid',
+            'variant_key' => 'required',
+            'quantity' => 'nullable|numeric',
+            'extra_fee' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 200);
+        }
+
+        $quantity = (float) ($request->input('quantity', 1));
+        $extraFee = (float) ($request->input('extra_fee', 0));
+        $service = Service::active()
+            ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+            ->where('id', $request['service_id'])
+            ->with(['variations' => fn($q) => $q->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])])
+            ->first();
+
+        if (!$service || !isset($service->variations[0])) {
+            return response()->json(response_formatter(DEFAULT_404, null), 200);
+        }
+
+        $variationPrice = $service->variations[0]->price ?? 0;
+        $basicDiscount = basic_discount_calculation($service, $variationPrice * $quantity);
+        $campaignDiscount = campaign_discount_calculation($service, $variationPrice * $quantity);
+        $subtotal = round($variationPrice * $quantity, 2);
+        $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
+        $tax = round((($variationPrice * $quantity - $applicableDiscount) * $service->tax) / 100, 2);
+        $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
+        $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
+        $totalCost = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
+
+        $data = [
+            'service_cost' => round($variationPrice * $quantity, 2),
+            'total_discount_amount' => round($basicDiscount + $campaignDiscount, 2),
+            'tax_amount' => $tax,
+            'extra_fee' => $extraFee,
+            'total_cost' => $totalCost,
+        ];
+
+        return response()->json(response_formatter(DEFAULT_200, $data, null), 200);
     }
 
     /**
@@ -2427,7 +2814,19 @@ class BookingController extends Controller
 
             $booking = $this->booking->with(['detail.service' => function ($query) {
                 $query->withTrashed();
-            }, 'detail.service.category', 'detail.service.subCategory', 'detail.variation', 'customer', 'provider', 'service_address', 'serviceman', 'service_address', 'status_histories.user'])->find($id);
+            }, 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'service_address', 'serviceman', 'service_address', 'status_histories.user'])->find($id);
+            
+            // Load variations for each detail with proper constraints (service_id and zone_id)
+            if ($booking && $booking->detail) {
+                foreach ($booking->detail as $detail) {
+                    if ($detail->variant_key && $detail->service_id && $booking->zone_id) {
+                        $detail->variation = Variation::where('variant_key', $detail->variant_key)
+                            ->where('service_id', $detail->service_id)
+                            ->where('zone_id', $booking->zone_id)
+                            ->first();
+                    }
+                }
+            }
 
             $servicemen = $this->serviceman->with(['user'])
                 ->where('provider_id', $booking?->provider_id)

@@ -40,6 +40,12 @@ class BookingDetail extends Model
     {
         return $this->belongsTo(Variation::class, 'variant_key', 'variant_key');
     }
+    
+    public function variationWithZone(): BelongsTo
+    {
+        return $this->belongsTo(Variation::class, 'variant_key', 'variant_key')
+            ->where('service_id', $this->service_id);
+    }
 
     protected static function newFactory()
     {

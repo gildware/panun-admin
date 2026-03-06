@@ -206,7 +206,11 @@
                                                             <span class="material-icons togglePassword">visibility_off</span>
                                                             <span class="material-icons">lock</span>
                                                         </div>
-                                                        <small class="text-danger d-flex mt-1">{{translate('Password_Must_be_at_Least_8_Digits')}}</small>
+                                                        @error('password')
+                                                            <small class="text-danger d-flex mt-1">{{ $message }}</small>
+                                                        @else
+                                                            <small class="text-muted d-flex mt-1">{{translate('Password_Must_be_at_Least_8_Digits')}}</small>
+                                                        @enderror
                                                     </div>
                                                     <div class="col-lg-4">
                                                         <div class="input-wrap m-0 form-floating form-floating__icon">

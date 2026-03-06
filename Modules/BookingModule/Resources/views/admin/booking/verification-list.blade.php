@@ -167,6 +167,8 @@
                                     <tr>
                                         <th>{{translate('SL')}}</th>
                                         <th>{{translate('Booking_ID')}}</th>
+                                        <th>{{ translate('Assignee') }}</th>
+                                        <th>{{ translate('Source') }}</th>
                                         <th>{{ translate('Where_Service_will_be_Provided') }}</th>
                                         <th>{{translate('Customer_Info')}}</th>
                                         <th>{{translate('Total_Amount')}}</th>
@@ -202,6 +204,30 @@
                                                     <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">
                                                         {{ $booking->readable_id }}</a>
                                                 @endif
+                                            </td>
+                                            <td>
+                                                @if($booking->assignee)
+                                                    <div>{{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}</div>
+                                                    <div class="text-muted small">
+                                                        {{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }}
+                                                        @if($booking->assignee->email)
+                                                            — {{ $booking->assignee->email }}
+                                                        @elseif($booking->assignee->phone)
+                                                            — {{ $booking->assignee->phone }}
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <span class="text-muted small">{{ translate('Unassigned') }}</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @switch(strtolower((string)($booking->booking_source ?? 'app')))
+                                                    @case('app'){{ translate('App') }}@break
+                                                    @case('call'){{ translate('Call') }}@break
+                                                    @case('whatsapp'){{ translate('Whatsapp') }}@break
+                                                    @case('social_media'){{ translate('Social_Media') }}@break
+                                                    @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
+                                                @endswitch
                                             </td>
                                             <td>
                                                 @if($booking->service_location == 'provider')

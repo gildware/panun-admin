@@ -63,10 +63,12 @@
 
                             <div class="table-responsive">
                                 <table id="example" class="table align-middle">
-                                    <thead class="text-nowrap">
-                                    <tr>
+                            <thead class="text-nowrap">
+                            <tr>
                                         <th>{{translate('SL')}}</th>
                                         <th>{{translate('Booking_ID')}}</th>
+                                        <th>{{ translate('Assignee') }}</th>
+                                        <th>{{ translate('Source') }}</th>
                                         <th>{{ translate('Where_Service_will_be_Provided') }}</th>
                                         <th>{{translate('Customer_Info')}}</th>
                                         <th>{{translate('Total_Amount')}}</th>
@@ -84,6 +86,30 @@
                                             <td>
                                                 <a href="{{route('admin.booking.details', [$booking->id,'web_page'=>'details'])}}">
                                                     {{$booking->readable_id}}</a>
+                                            </td>
+                                            <td>
+                                                @if($booking->assignee)
+                                                    <div>{{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}</div>
+                                                    <div class="text-muted small">
+                                                        {{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }}
+                                                        @if($booking->assignee->email)
+                                                            — {{ $booking->assignee->email }}
+                                                        @elseif($booking->assignee->phone)
+                                                            — {{ $booking->assignee->phone }}
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <span class="text-muted small">{{ translate('Unassigned') }}</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @switch(strtolower((string)($booking->booking_source ?? 'app')))
+                                                    @case('app'){{ translate('App') }}@break
+                                                    @case('call'){{ translate('Call') }}@break
+                                                    @case('whatsapp'){{ translate('Whatsapp') }}@break
+                                                    @case('social_media'){{ translate('Social_Media') }}@break
+                                                    @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
+                                                @endswitch
                                             </td>
                                             <td>
                                                 @if($booking->service_location == 'provider')
@@ -118,6 +144,17 @@
                                                     <span class="dot"></span>
                                                     {{$booking->is_paid?translate('paid'):translate('unpaid')}}
                                                 </span>
+                                                @php
+                                                    $advancePayment = $booking->booking_partial_payments->where('paid_with', 'offline')->first();
+                                                @endphp
+                                                @if($advancePayment)
+                                                    <div class="small text-muted mt-1">
+                                                        {{ translate('Advance') }}: {{ with_currency_symbol($advancePayment->paid_amount) }}
+                                                        @if($advancePayment->transaction_id)
+                                                            <br><span title="{{ $advancePayment->transaction_id }}">{{ translate('Txn') }}: {{ Str::limit($advancePayment->transaction_id, 12) }}</span>
+                                                        @endif
+                                                    </div>
+                                                @endif
                                             </td>
                                             <td>{{date('d-M-Y h:ia',strtotime($booking->service_schedule))}}</td>
                                             <td>{{date('d-M-Y h:ia',strtotime($booking->created_at))}}</td>

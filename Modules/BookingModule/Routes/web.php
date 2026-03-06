@@ -27,6 +27,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('schedule-update/{id}', [BookingController::class, 'scheduleUpdate'])->name('schedule_update');
         Route::any('up-coming-booking-schedule-update/{id}', [BookingController::class, 'upComingBookingScheduleUpdate'])->name('up_coming_booking_schedule_update');
         Route::put('serviceman-update/{id}', [BookingController::class, 'servicemanUpdate'])->name('serviceman_update');
+        Route::put('info-update/{id}', [BookingController::class, 'updateBookingInfo'])->name('info-update');
         Route::post('service-address-update/{id}', [BookingController::class, 'serviceAddressUpdate'])->name('service_address_update');
         Route::any('download', [BookingController::class, 'download'])->name('download');
         Route::any('invoice/{id}', [BookingController::class, 'invoice'])->name('invoice');
@@ -44,11 +45,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('switch-payment-method/{id}', [BookingController::class, 'switchPaymentMethod'])->name('switch-payment-method');
         Route::any('offline-payment/verify', [BookingController::class, 'verifyOfflinePayment'])->name('offline-payment.verify');
 
+        Route::delete('delete/{id}', [BookingController::class, 'destroy'])->name('delete');
+
         Route::group(['prefix' => 'service', 'as' => 'service.'], function () {
             Route::put('update-booking-service', [BookingController::class, 'updateBookingService'])->name('update_booking_service');
             Route::put('update-repeat-booking-service', [BookingController::class, 'updateRepeatBookingService'])->name('update_repeat_booking_service');
             Route::get('ajax-get-service-info', [BookingController::class, 'ajaxGetServiceInfo'])->name('ajax-get-service-info');
             Route::get('ajax-get-variation', [BookingController::class, 'ajaxGetVariant'])->name('ajax-get-variant');
+            Route::get('ajax-get-billing-summary', [BookingController::class, 'ajaxGetBillingSummary'])->name('ajax-get-billing-summary');
             Route::get('ajax-get-categories', [BookingController::class, 'ajaxGetCategories'])->name('ajax-get-categories');
             Route::get('ajax-get-subcategories', [BookingController::class, 'ajaxGetSubcategories'])->name('ajax-get-subcategories');
             Route::get('ajax-get-services', [BookingController::class, 'ajaxGetServices'])->name('ajax-get-services');

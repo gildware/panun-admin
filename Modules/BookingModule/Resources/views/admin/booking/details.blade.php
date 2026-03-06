@@ -7,10 +7,24 @@
 @endpush
 
 @section('content')
+    @php
+        $totalPaidFromPartials = ($booking->booking_partial_payments ?? collect())->sum('paid_amount');
+        $advanceOffline = ($booking->booking_partial_payments ?? collect())->where('paid_with', 'offline')->first();
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
-            <div class="page-title-wrap mb-3">
-                <h2 class="page-title">{{ translate('Booking_Details') }} </h2>
+            <div class="page-title-wrap mb-3 d-flex justify-content-between align-items-center">
+                <h2 class="page-title mb-0">{{ translate('Booking_Details') }} </h2>
+
+                @can('booking_delete')
+                    <button type="button"
+                            class="action-btn btn--danger rounded-circle"
+                            style="--size: 34px"
+                            data-bs-toggle="modal"
+                            data-bs-target="#bookingDeleteModal--{{ $booking['id'] }}">
+                        <span class="material-symbols-outlined">delete</span>
+                    </button>
+                @endcan
             </div>
 
             <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
@@ -150,7 +164,7 @@
                             </div>
                         @endif
 
-                        @if ((in_array($booking['booking_status'], ['accepted', 'ongoing']) &&
+                        @if ((in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing']) &&
                             $booking->booking_partial_payments->isEmpty() &&
                             empty($booking->customizeBooking)) &&
                             ($booking->is_guest == 1 && $booking->payment_method != "cash_after_service" ? false : true))
@@ -169,6 +183,100 @@
                     </div>
                 </div>
             </div>
+
+            @can('booking_delete')
+                <div class="modal fade" id="bookingDeleteModal--{{ $booking['id'] }}" tabindex="-1"
+                     aria-labelledby="bookingDeleteModalLabel--{{ $booking['id'] }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-body pt-5 p-md-5">
+                                <button type="button" class="btn-close"
+                                        data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+
+                                <div class="d-flex justify-content-center mb-4">
+                                    <img width="75" height="75"
+                                         src="{{ asset('assets/admin-module/img/media/delete.png') }}"
+                                         class="rounded-circle" alt="">
+                                </div>
+
+                                <h3 class="text-center mb-2 fw-medium">
+                                    {{ translate('Are_you_sure_you_want_to_delete_this_booking?') }}
+                                </h3>
+                                <p class="text-center fs-12 fw-medium text-muted">
+                                    {{ translate('This_action_will_permanently_remove_the_booking_and_its_related_data.') }}
+                                </p>
+
+                                <form method="POST"
+                                      action="{{ route('admin.booking.delete', [$booking->id]) }}">
+                                    @csrf
+                                    @method('DELETE')
+
+                                    <div class="d-flex justify-content-center gap-3 mt-3">
+                                        <button type="button"
+                                                class="btn btn--secondary"
+                                                data-bs-dismiss="modal">
+                                            {{ translate('cancel') }}
+                                        </button>
+                                        <button type="submit"
+                                                class="btn btn-danger">
+                                            {{ translate('Delete') }}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endcan
+
+            @can('booking_edit')
+            <div class="modal fade" id="bookingInfoModal--{{ $booking->id }}" tabindex="-1" aria-labelledby="bookingInfoModalLabel--{{ $booking->id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form action="{{ route('admin.booking.info-update', [$booking->id]) }}" method="POST" id="booking-info-form--{{ $booking->id }}">
+                            @csrf
+                            @method('PUT')
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="bookingInfoModalLabel--{{ $booking->id }}">{{ translate('Update_Booking_Information') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Assignee') }}</label>
+                                    <select name="assignee_id" class="form-control js-select">
+                                        <option value="">{{ translate('Unassigned') }}</option>
+                                        @foreach($assignees ?? [] as $a)
+                                            <option value="{{ $a->id }}" {{ (old('assignee_id', $booking->assignee_id) == $a->id) ? 'selected' : '' }}>
+                                                {{ $a->first_name }} {{ $a->last_name }} ({{ $a->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }}) — {{ $a->email ?? $a->phone }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Source') }}</label>
+                                    <select name="booking_source" class="form-control">
+                                        <option value="app" {{ (old('booking_source', $booking->booking_source ?? 'app') == 'app') ? 'selected' : '' }}>{{ translate('App') }}</option>
+                                        <option value="call" {{ (old('booking_source', $booking->booking_source) == 'call') ? 'selected' : '' }}>{{ translate('Call') }}</option>
+                                        <option value="whatsapp" {{ (old('booking_source', $booking->booking_source) == 'whatsapp') ? 'selected' : '' }}>{{ translate('Whatsapp') }}</option>
+                                        <option value="social_media" {{ (old('booking_source', $booking->booking_source) == 'social_media') ? 'selected' : '' }}>{{ translate('Social_Media') }}</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Service_Additional_Details') }}</label>
+                                    <textarea name="service_description" class="form-control" rows="3" maxlength="2000" placeholder="{{ translate('Optional_additional_notes_about_the_service') }}">{{ old('service_description', $booking->service_description) }}</textarea>
+                                    <small class="text-muted">{{ translate('Max_2000_characters') }}</small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn--primary">{{ translate('Update') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            @endcan
 
             <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
                 <ul class="nav nav--tabs nav--tabs__style2">
@@ -237,10 +345,23 @@
                                             </span>
                                         </h5>
                                         <p>
-                                            <span>{{ translate('Amount') }} : </span>
+                                            <span>{{ translate('Total_Amount') }} : </span>
                                             <span
                                                 class="c1">{{ with_currency_symbol($booking->total_booking_amount) }}</span>
                                         </p>
+                                        @if($totalPaidFromPartials > 0)
+                                            <p class="mb-1">
+                                                <span>{{ translate('Advance_Paid') }} : </span>
+                                                <span class="c1">{{ with_currency_symbol($totalPaidFromPartials) }}</span>
+                                                @if($advanceOffline && $advanceOffline->transaction_id)
+                                                    <span class="small text-muted">({{ translate('Txn') }}: {{ $advanceOffline->transaction_id }})</span>
+                                                @endif
+                                            </p>
+                                            <p class="mb-0">
+                                                <span>{{ translate('Due_Balance') }} : </span>
+                                                <span class="c1">{{ with_currency_symbol($booking->total_booking_amount - $totalPaidFromPartials) }}</span>
+                                            </p>
+                                        @endif
                                     </div>
                                     <div class="text-start text-sm-end">
                                         @if($booking->payment_method == 'offline_payment' && $booking->booking_offline_payments->isNotEmpty())
@@ -334,7 +455,11 @@
                                                             <a href="{{ route('admin.service.detail', [$detail->service->id]) }}"
                                                                 class="fw-bold">{{ Str::limit($detail->service->name, 30) }}</a>
                                                             <div class="text-capitalize">
-                                                                {{ Str::limit($detail ? $detail->variant_key : '', 50) }}
+                                                                @if(isset($detail->variation) && $detail->variation)
+                                                                    {{ Str::limit($detail->variation->variant ?? $detail->variant_key, 50) }}
+                                                                @else
+                                                                    {{ Str::limit($detail->variant_key ?? '', 50) }}
+                                                                @endif
                                                             </div>
                                                             @if ($detail->overall_coupon_discount_amount > 0)
                                                                 <small
@@ -433,8 +558,16 @@
                                                 @if ($booking->booking_partial_payments->isNotEmpty())
                                                     @foreach ($booking->booking_partial_payments as $partial)
                                                         <tr>
-                                                            <td>{{ translate('Paid_by') }}
-                                                                {{ str_replace('_', ' ', $partial->paid_with) }}</td>
+                                                            <td>
+                                                                @if($partial->paid_with === 'offline')
+                                                                    {{ translate('Advance_Paid') }} ({{ translate('offline') }})
+                                                                    @if($partial->transaction_id)
+                                                                        <span class="small text-muted">— {{ $partial->transaction_id }}</span>
+                                                                    @endif
+                                                                @else
+                                                                    {{ translate('Paid_by') }} {{ str_replace('_', ' ', $partial->paid_with) }}
+                                                                @endif
+                                                            </td>
                                                             <td class="text--end pe--4">
                                                                 {{ with_currency_symbol($partial->paid_amount) }}</td>
                                                         </tr>
@@ -444,16 +577,13 @@
                                                 <?php
                                                 $dueAmount = 0;
 
-                                                if (!$booking->is_paid && $booking?->booking_partial_payments?->count() == 1) {
-                                                    $dueAmount = $booking->booking_partial_payments->first()?->due_amount;
+                                                if (!$booking->is_paid) {
+                                                    // Due = total minus any amount already paid (advance/partial)
+                                                    $dueAmount = $booking->total_booking_amount - $totalPaidFromPartials;
                                                 }
 
                                                 if (in_array($booking->booking_status, ['pending', 'accepted', 'ongoing']) && $booking->payment_method != 'cash_after_service' && $booking->additional_charge > 0) {
                                                     $dueAmount += $booking->additional_charge;
-                                                }
-
-                                                if (!$booking->is_paid && $booking->payment_method == 'cash_after_service') {
-                                                    $dueAmount = $booking->total_booking_amount;
                                                 }
                                                 ?>
 
@@ -482,6 +612,55 @@
                     </div>
                 </div>
                 <div class="col-lg-4">
+                    {{-- Booking information: Assignee, Source, Additional service info --}}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                                <h3 class="c1 mb-0">{{ translate('Booking_Information') }}</h3>
+                                @can('booking_edit')
+                                    <button type="button" class="btn btn-sm btn--primary" data-bs-toggle="modal"
+                                            data-bs-target="#bookingInfoModal--{{ $booking->id }}">
+                                        <span class="material-symbols-outlined" style="font-size: 18px;">edit_square</span>
+                                        {{ translate('Update') }}
+                                    </button>
+                                @endcan
+                            </div>
+                            <hr>
+                            <div class="d-flex flex-column gap-2">
+                                <div>
+                                    <span class="title-color">{{ translate('Assignee') }}:</span>
+                                    <span id="booking-assignee-display">
+                                        @if($booking->assignee_id && $booking->assignee)
+                                            {{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}
+                                            ({{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }})
+                                            — {{ $booking->assignee->email ?? $booking->assignee->phone }}
+                                        @else
+                                            <span class="text-muted">{{ translate('Unassigned') }}</span>
+                                        @endif
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="title-color">{{ translate('Source') }}:</span>
+                                    <span id="booking-source-display">
+                                        @switch(strtolower((string)($booking->booking_source ?? 'app')))
+                                            @case('app'){{ translate('App') }}@break
+                                            @case('call'){{ translate('Call') }}@break
+                                            @case('whatsapp'){{ translate('Whatsapp') }}@break
+                                            @case('social_media'){{ translate('Social_Media') }}@break
+                                            @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
+                                        @endswitch
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="title-color">{{ translate('Service_Additional_Details') }}:</span>
+                                    <span id="booking-service-description-display" class="text-break">
+                                        {{ $booking->service_description ?: translate('Not_specified') }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card">
                         <div class="card-body">
                             <h3 class="c1">{{ translate('Booking Setup') }}</h3>

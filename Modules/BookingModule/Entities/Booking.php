@@ -79,7 +79,10 @@ class Booking extends Model
         'booking_otp',
         'is_verified',
         'service_address_location',
-        'service_location'
+        'service_location',
+        'assignee_id',
+        'booking_source',
+        'service_description'
     ];
 
     protected $appends = ['evidence_photos_full_path'];
@@ -118,6 +121,11 @@ class Booking extends Model
     public function serviceman(): BelongsTo
     {
         return $this->belongsTo(Serviceman::class, 'serviceman_id');
+    }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assignee_id');
     }
 
     public function detail(): HasMany

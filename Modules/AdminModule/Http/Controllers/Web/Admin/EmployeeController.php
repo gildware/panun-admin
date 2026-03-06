@@ -136,7 +136,8 @@ class EmployeeController extends Controller
             'last_name' => 'required',
             'email' => 'required|email|unique:users,email',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'password' => 'required',
+            'password' => 'required|string|min:8',
+            'confirm_password' => 'required|same:password',
             'profile_image' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'identity_type' => 'required|in:passport,driving_license,nid,trade_license',
             'identity_number' => 'required',
@@ -150,7 +151,7 @@ class EmployeeController extends Controller
 
         if (!$request->modules){
             Toastr::error(translate('Please select at latest one module'));
-            return back();
+            return back()->withInput();
         }
 
         $identityImages = [];

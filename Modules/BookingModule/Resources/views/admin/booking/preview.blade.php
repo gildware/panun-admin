@@ -21,6 +21,24 @@
                         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                     @endforeach
 
+                    {{-- 0. Booking Source --}}
+                    <div class="mb-4 border rounded-3 p-3">
+                        <h4 class="mb-3">{{ translate('Booking_Source') }}</h4>
+                        <p>
+                            <strong>{{ translate('Source') }}:</strong>
+                            @php
+                                $sourceLabelMap = [
+                                    'app' => translate('App'),
+                                    'call' => translate('Call'),
+                                    'whatsapp' => translate('Whatsapp'),
+                                    'social_media' => translate('Social_Media'),
+                                ];
+                                $sourceKey = strtolower($data['booking_source'] ?? 'app');
+                            @endphp
+                            {{ $sourceLabelMap[$sourceKey] ?? ucfirst($sourceKey) }}
+                        </p>
+                    </div>
+
                     {{-- 1. Customer Information --}}
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Customer_information') }}</h4>
@@ -58,6 +76,27 @@
                                 <p><strong>{{ translate('Service') }}:</strong> {{ $service->name ?? 'N/A' }}</p>
                             </div>
                         </div>
+                        @if($variation)
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <p><strong>{{ translate('variant') }}:</strong> {{ $variation->variant ?? 'N/A' }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>{{ translate('Price') }}:</strong>
+                                        {{ number_format($variation->price ?? 0, 2) }} {{ translate('currency') }}
+                                    </p>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if(!empty($data['service_description']))
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <p><strong>{{ translate('Service_Additional_Details') }}:</strong></p>
+                                    <p>{{ $data['service_description'] }}</p>
+                                </div>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- 3. Date & Time --}}
@@ -81,12 +120,39 @@
                         </div>
                     </div>
 
-                    {{-- 5. Payment Information --}}
+                    {{-- 5. Assignment --}}
+                    <div class="mb-4 border rounded-3 p-3">
+                        <h4 class="mb-3">{{ translate('Assignment') }}</h4>
+                        @if($assignee)
+                            <p><strong>{{ translate('Assignee') }}:</strong>
+                                {{ $assignee->first_name }} {{ $assignee->last_name }}
+                                ({{ $assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }})
+                                - {{ $assignee->email ?? $assignee->phone }}
+                            </p>
+                        @else
+                            <p><strong>{{ translate('Assignee') }}:</strong> {{ translate('Unassigned') }}</p>
+                        @endif
+                    </div>
+
+                    {{-- 6. Payment Information --}}
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Payment_information') }}</h4>
+                        @if(isset($totalBilling) && $totalBilling > 0)
+                            @if(!empty($data['extra_fee']) && (float)$data['extra_fee'] > 0)
+                                @php($additionalChargeLabelName = (business_config('additional_charge_label_name', 'booking_setup'))?->live_values ?? translate('extra_fee'))
+                                <p class="mb-1"><strong>{{ $additionalChargeLabelName }}:</strong> {{ with_currency_symbol($data['extra_fee']) }}</p>
+                            @endif
+                            <p class="mb-2"><strong>{{ translate('Total_Billing') }}:</strong> {{ with_currency_symbol($totalBilling) }}</p>
+                        @endif
                         <p><strong>{{ translate('Payment_Method') }}:</strong> {{ translate('Cash_After_Service') }}</p>
-                        <p><strong>{{ translate('Advance_Paid_Amount') }}:</strong> {{ number_format($data['advance_paid_amount'] ?? 0, 2) }} {{ translate('currency') }}</p>
-                        <p class="text-muted"><small>{{ translate('Final_payment_will_be_collected_upon_service_completion') }}</small></p>
+                        <p><strong>{{ translate('Advance_Paid_Amount') }}:</strong> {{ with_currency_symbol($data['advance_paid_amount'] ?? 0) }}</p>
+                        @if(!empty($data['advance_transaction_id']))
+                            <p><strong>{{ translate('Advance_Payment_Transaction_ID') }}:</strong> {{ $data['advance_transaction_id'] }}</p>
+                        @endif
+                        @if(isset($dueBalance) && $dueBalance > 0)
+                            <p><strong>{{ translate('Due_Balance') }}:</strong> {{ with_currency_symbol($dueBalance) }}</p>
+                        @endif
+                        <p class="text-muted mb-0"><small>{{ translate('Final_payment_will_be_collected_upon_service_completion') }}</small></p>
                     </div>
 
                     {{-- Action Buttons --}}

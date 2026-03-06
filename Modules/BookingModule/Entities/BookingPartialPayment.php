@@ -13,6 +13,7 @@ class BookingPartialPayment extends Model
     protected $fillable = [
         'booking_id',
         'paid_with',
+        'transaction_id',
         'paid_amount',
         'due_amount',
     ];

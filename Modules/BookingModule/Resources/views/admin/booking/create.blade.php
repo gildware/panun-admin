@@ -49,7 +49,8 @@
 
         <div class="card">
             <div class="card-body">
-                <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form">
+                <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form"
+                      data-currency="{{ currency_symbol() ?? '' }}">
                     @csrf
 
                     {{-- 1. Customer --}}
@@ -105,18 +106,6 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Service_Location_(Text)') }}</label>
-                                    <input type="text" name="service_location" class="form-control"
-                                           value="{{ old('service_location', request('service_location')) }}" placeholder="{{ translate('Optional_location_details') }}">
-                                    @error('service_location')
-                                    <span class="text-danger">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     {{-- 2. Service --}}
@@ -155,7 +144,7 @@
                         </div>
 
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Sub_Category') }}</label>
                                     <select name="sub_category_id" id="service-subcategory-select" class="form-control js-select" required disabled>
@@ -167,13 +156,37 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Service') }}</label>
                                     <select name="service_id" id="service-select" class="form-control js-select" required disabled>
                                         <option value="">{{ translate('Select_Service') }}</option>
                                     </select>
                                     @error('service_id')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Select_Service_Variant') }}</label>
+                                    <select name="variant_key" id="service-variant-select" class="form-control js-select" required disabled>
+                                        <option value="">{{ translate('Select Service Variant') }}</option>
+                                    </select>
+                                    @error('variant_key')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Service_Additional_Details_(Optional)') }}</label>
+                                    <textarea name="service_description" class="form-control" rows="3" placeholder="{{ translate('Add_any_extra_information_or_requirements_for_this_service') }}">{{ old('service_description', request('service_description')) }}</textarea>
+                                    @error('service_description')
                                     <span class="text-danger">{{ $message }}</span>
                                     @enderror
                                 </div>
@@ -191,6 +204,36 @@
                                     <input type="datetime-local" name="service_schedule" class="form-control"
                                            value="{{ old('service_schedule', request('service_schedule')) }}" required>
                                     @error('service_schedule')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- 3.1 Booking Source --}}
+                    <div class="mb-4 border rounded-3 p-3">
+                        <h4 class="mb-3">{{ translate('Booking_Source') }}</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('How_was_this_booking_created?') }}</label>
+                                    <select name="booking_source" class="form-control" required>
+                                        <option value="">{{ translate('Select_Booking_Source') }}</option>
+                                        <option value="app" {{ old('booking_source', request('booking_source')) == 'app' ? 'selected' : '' }}>
+                                            {{ translate('App_(Default_for_API)') }}
+                                        </option>
+                                        <option value="call" {{ old('booking_source', request('booking_source')) == 'call' ? 'selected' : '' }}>
+                                            {{ translate('Call') }}
+                                        </option>
+                                        <option value="whatsapp" {{ old('booking_source', request('booking_source')) == 'whatsapp' ? 'selected' : '' }}>
+                                            {{ translate('Whatsapp') }}
+                                        </option>
+                                        <option value="social_media" {{ old('booking_source', request('booking_source')) == 'social_media' ? 'selected' : '' }}>
+                                            {{ translate('Social_Media') }}
+                                        </option>
+                                    </select>
+                                    @error('booking_source')
                                     <span class="text-danger">{{ $message }}</span>
                                     @enderror
                                 </div>
@@ -246,16 +289,66 @@
                         </div>
                     </div>
 
-                    {{-- 5. Advance Payment --}}
-                    <div class="mb-4 border rounded-3 p-3">
-                        <h4 class="mb-3">{{ translate('5._Advance_Payment') }}</h4>
+                    {{-- Payment summary & Advance Payment --}}
+                    <div class="mb-4 border rounded-3 p-3" id="payment-section">
+                        <h4 class="mb-3">{{ translate('Payment_information') }}</h4>
+
+                        {{-- Total billing (shown when variant selected) --}}
+                        <div id="billing-summary-box" class="mb-4 p-3 bg-light rounded" style="display: none;">
+                            <h5 class="mb-2">{{ translate('Total_Billing') }}</h5>
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr>
+                                    <td>{{ translate('Service_Charges') }}</td>
+                                    <td class="text-end" id="billing-service-charges">—</td>
+                                </tr>
+                                <tr>
+                                    <td>{{ translate('Discount') }}</td>
+                                    <td class="text-end" id="billing-discount">—</td>
+                                </tr>
+                                <tr>
+                                    <td>{{ translate('Tax') }}</td>
+                                    <td class="text-end" id="billing-tax">—</td>
+                                </tr>
+                                @if(!empty($additionalChargeEnabled))
+                                <tr id="billing-extra-fee-row">
+                                    <td>{{ $additionalChargeLabel }}</td>
+                                    <td class="text-end">
+                                        <input type="number" step="0.01" min="0" name="extra_fee" id="extra-fee-input"
+                                               class="form-control form-control-sm d-inline-block text-end" style="width: 6rem;"
+                                               value="{{ old('extra_fee', request('extra_fee', $additionalChargeDefaultAmount)) }}" placeholder="0">
+                                    </td>
+                                </tr>
+                                @endif
+                                <tr class="fw-bold">
+                                    <td>{{ translate('Total_Amount') }}</td>
+                                    <td class="text-end c1" id="billing-total">—</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <h5 class="mb-2">{{ translate('Advance_Payment') }}</h5>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Advance_Paid_Amount') }}</label>
-                                    <input type="number" step="0.01" min="0" name="advance_paid_amount" class="form-control"
-                                           value="{{ old('advance_paid_amount', request('advance_paid_amount', 0)) }}">
+                                    <input type="number" step="0.01" min="0" name="advance_paid_amount" id="advance-paid-amount"
+                                           class="form-control" value="{{ old('advance_paid_amount', request('advance_paid_amount', 0)) }}"
+                                           placeholder="0">
                                     @error('advance_paid_amount')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                    <div id="due-balance-row" class="small mt-1" style="display: none;">
+                                        <strong>{{ translate('Due_Balance') }}:</strong> <span id="due-balance-amount">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Advance_Payment_Transaction_ID_(Optional)') }}</label>
+                                    <input type="text" name="advance_transaction_id" class="form-control"
+                                           value="{{ old('advance_transaction_id', request('advance_transaction_id')) }}"
+                                           placeholder="{{ translate('Enter_bank_or_wallet_transaction_id_if_available') }}">
+                                    @error('advance_transaction_id')
                                     <span class="text-danger">{{ $message }}</span>
                                     @enderror
                                 </div>
@@ -266,14 +359,51 @@
                         </p>
                     </div>
 
-                    <div class="mt-3">
+                    {{-- 6. Assignment --}}
+                    <div class="mb-4 border rounded-3 p-3">
+                        <h4 class="mb-3">{{ translate('Assignment') }}</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Assignee') }}</label>
+                                    <select name="assignee_id" id="assignee-select" class="form-control js-select">
+                                        {{-- Default: assign to self if no previous selection --}}
+                                        @if(isset($currentAdmin))
+                                            <option value="{{ $currentAdmin->id }}"
+                                                {{ (old('assignee_id', request('assignee_id', $currentAdmin->id)) == $currentAdmin->id) ? 'selected' : '' }}>
+                                                {{ translate('Assign_to_me') }}
+                                                ({{ $currentAdmin->first_name }} {{ $currentAdmin->last_name }}
+                                                - {{ $currentAdmin->email ?? $currentAdmin->phone }})
+                                            </option>
+                                        @endif
+
+                                        {{-- Other assignees --}}
+                                        @foreach($assignees as $assignee)
+                                            @if(!isset($currentAdmin) || $assignee->id !== $currentAdmin->id)
+                                                <option value="{{ $assignee->id }}"
+                                                    {{ old('assignee_id', request('assignee_id')) == $assignee->id ? 'selected' : '' }}>
+                                                    {{ $assignee->first_name }} {{ $assignee->last_name }}
+                                                    ({{ $assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }})
+                                                    - {{ $assignee->email ?? $assignee->phone }}
+                                                </option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted d-block mt-1">
+                                        {{ translate('Select_an_admin_or_employee_responsible_for_this_booking_or_leave_unassigned') }}.
+                                    </small>
+                                    @error('assignee_id')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 d-flex justify-content-end">
                         <button type="submit" class="btn btn-primary">
                             {{ translate('Continue_to_Preview') }}
                         </button>
-                        <a href="{{ route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']) }}"
-                           class="btn btn-secondary">
-                            {{ translate('Cancel') }}
-                        </a>
                     </div>
                 </form>
             </div>
@@ -559,6 +689,28 @@
             const $categorySelect = $('#service-category-select');
             const $subCategorySelect = $('#service-subcategory-select');
             const $serviceSelect = $('#service-select');
+            const $variantSelect = $('#service-variant-select');
+            var currentBillingTotal = null;
+            var currencySymbol = $('#booking-form').data('currency') || '';
+            function formatPrice(price) {
+                if (price == null || price === '') return '—';
+                var n = parseFloat(price);
+                return isNaN(n) ? '—' : (currencySymbol + ' ' + n.toFixed(2));
+            }
+            function updateDueBalance() {
+                var advance = parseFloat($('#advance-paid-amount').val()) || 0;
+                if (currentBillingTotal != null && currentBillingTotal >= 0) {
+                    if (advance > currentBillingTotal) {
+                        $('#advance-paid-amount').val(currentBillingTotal.toFixed(2));
+                        advance = currentBillingTotal;
+                    }
+                    var due = Math.max(0, currentBillingTotal - advance);
+                    $('#due-balance-amount').text(formatPrice(due));
+                    $('#due-balance-row').toggle(due >= 0 && currentBillingTotal > 0).show();
+                } else {
+                    $('#due-balance-row').hide();
+                }
+            }
 
             // Helper function to reinitialize Select2
             function reinitializeSelect2($select) {
@@ -572,29 +724,40 @@
 
             // Function to enable/disable service controls
             function toggleServiceControls(level) {
-                // level: 0 = all disabled, 1 = category enabled, 2 = subcategory enabled, 3 = service enabled
+                // level: 0 = all disabled, 1 = category enabled, 2 = subcategory enabled, 3 = service enabled, 4 = variant enabled
                 $categorySelect.prop('disabled', level < 1);
                 $subCategorySelect.prop('disabled', level < 2);
                 $serviceSelect.prop('disabled', level < 3);
+                $variantSelect.prop('disabled', level < 4);
 
                 // Clear dependent dropdowns when disabled
                 if (level < 1) {
                     $categorySelect.empty().append(new Option('{{ translate('Select_Category') }}', '', true, true));
                     $subCategorySelect.empty().append(new Option('{{ translate('Select_Sub_Category') }}', '', true, true));
                     $serviceSelect.empty().append(new Option('{{ translate('Select_Service') }}', '', true, true));
+                    $variantSelect.empty().append(new Option('{{ translate('Select Service Variant') }}', '', true, true));
                     reinitializeSelect2($categorySelect);
                     reinitializeSelect2($subCategorySelect);
                     reinitializeSelect2($serviceSelect);
+                    reinitializeSelect2($variantSelect);
                 }
                 if (level < 2) {
                     $subCategorySelect.empty().append(new Option('{{ translate('Select_Sub_Category') }}', '', true, true));
                     $serviceSelect.empty().append(new Option('{{ translate('Select_Service') }}', '', true, true));
+                    $variantSelect.empty().append(new Option('{{ translate('Select Service Variant') }}', '', true, true));
                     reinitializeSelect2($subCategorySelect);
                     reinitializeSelect2($serviceSelect);
+                    reinitializeSelect2($variantSelect);
                 }
                 if (level < 3) {
                     $serviceSelect.empty().append(new Option('{{ translate('Select_Service') }}', '', true, true));
+                    $variantSelect.empty().append(new Option('{{ translate('Select Service Variant') }}', '', true, true));
                     reinitializeSelect2($serviceSelect);
+                    reinitializeSelect2($variantSelect);
+                }
+                if (level < 4) {
+                    $variantSelect.empty().append(new Option('{{ translate('Select Service Variant') }}', '', true, true));
+                    reinitializeSelect2($variantSelect);
                 }
             }
 
@@ -700,7 +863,7 @@
                 $serviceSelect.empty().append(
                     new Option('{{ translate('Loading...') }}', '', true, true)
                 );
-                
+
                 reinitializeSelect2($serviceSelect);
 
                 let route = '{{ route('admin.booking.service.ajax-get-services') }}';
@@ -728,6 +891,102 @@
                     );
                     alert('{{ translate('Failed_to_load_services') }}');
                 });
+            });
+
+            // Load variants when service changes
+            $serviceSelect.on('change', function () {
+                const serviceId = $(this).val();
+                const zoneId = $zoneSelect.val();
+
+                if (!serviceId || !zoneId) {
+                    toggleServiceControls(3);
+                    return;
+                }
+
+                toggleServiceControls(3);
+                $variantSelect.prop('disabled', false);
+                $variantSelect.empty().append(
+                    new Option('{{ translate('Loading...') }}', '', true, true)
+                );
+
+                reinitializeSelect2($variantSelect);
+
+                let route = '{{ route('admin.booking.service.ajax-get-variant') }}';
+                $.get(route, {service_id: serviceId, zone_id: zoneId}, function (response) {
+                    $variantSelect.empty().append(
+                        new Option('{{ translate('Select Service Variant') }}', '', true, true)
+                    );
+
+                    if (response.content && Array.isArray(response.content)) {
+                        if (response.content.length > 0) {
+                            response.content.forEach(function (variation) {
+                                var label = variation.variant + ' — ' + formatPrice(variation.price);
+                                $variantSelect.append(
+                                    new Option(label, variation.variant_key, false, false)
+                                );
+                            });
+                            reinitializeSelect2($variantSelect);
+                            toggleServiceControls(4);
+                        } else {
+                            alert('{{ translate('No_services_found_for_this_subcategory') }}');
+                        }
+                    }
+                }).fail(function(xhr) {
+                    console.error('Failed to load variants:', xhr);
+                    $variantSelect.empty().append(
+                        new Option('{{ translate('Failed_to_load') }}', '', true, true)
+                    );
+                    alert('{{ translate('Failed_to_load_services') }}');
+                });
+            });
+
+            function fetchBillingSummary() {
+                var variantKey = $variantSelect.val();
+                var serviceId = $serviceSelect.val();
+                var zoneId = $zoneSelect.val();
+                if (!variantKey || !serviceId || !zoneId) return;
+                var extraFee = 0;
+                if ($('#extra-fee-input').length) {
+                    extraFee = parseFloat($('#extra-fee-input').val()) || 0;
+                }
+                var billingRoute = '{{ route('admin.booking.service.ajax-get-billing-summary') }}';
+                $.get(billingRoute, { zone_id: zoneId, service_id: serviceId, variant_key: variantKey, quantity: 1, extra_fee: extraFee }, function (res) {
+                    if (res.content && res.content.total_cost != null) {
+                        currentBillingTotal = parseFloat(res.content.total_cost);
+                        $('#billing-service-charges').text(formatPrice(res.content.service_cost));
+                        $('#billing-discount').text('-' + formatPrice(res.content.total_discount_amount));
+                        $('#billing-tax').text(formatPrice(res.content.tax_amount));
+                        $('#billing-total').text(formatPrice(res.content.total_cost));
+                        $('#billing-summary-box').show();
+                        $('#advance-paid-amount').attr('max', currentBillingTotal);
+                        updateDueBalance();
+                    }
+                });
+            }
+
+            // When variant is selected, fetch and show billing summary
+            $variantSelect.on('change', function () {
+                var variantKey = $(this).val();
+                var serviceId = $serviceSelect.val();
+                var zoneId = $zoneSelect.val();
+                $('#billing-summary-box').hide();
+                currentBillingTotal = null;
+                $('#advance-paid-amount').removeAttr('max');
+                $('#due-balance-row').hide();
+
+                if (!variantKey || !serviceId || !zoneId) return;
+
+                fetchBillingSummary();
+            });
+
+            $('#advance-paid-amount').on('input change', function () {
+                updateDueBalance();
+            });
+
+            $('#extra-fee-input').on('input change', function () {
+                if ($variantSelect.val() && $serviceSelect.val() && $zoneSelect.val()) {
+                    fetchBillingSummary();
+                }
             });
 
             // Provider section
@@ -905,11 +1164,13 @@
                 category_id: @json(old('category_id')) || getUrlParameter('category_id'),
                 sub_category_id: @json(old('sub_category_id')) || getUrlParameter('sub_category_id'),
                 service_id: @json(old('service_id')) || getUrlParameter('service_id'),
+                variant_key: @json(old('variant_key')) || getUrlParameter('variant_key'),
                 provider_id: @json(old('provider_id')) || getUrlParameter('provider_id'),
                 service_address_id: @json(old('service_address_id')) || getUrlParameter('service_address_id'),
                 service_location: @json(old('service_location')) || getUrlParameter('service_location') || 'customer',
                 service_schedule: @json(old('service_schedule')) || getUrlParameter('service_schedule'),
-                advance_paid_amount: @json(old('advance_paid_amount')) || getUrlParameter('advance_paid_amount')
+                advance_paid_amount: @json(old('advance_paid_amount')) || getUrlParameter('advance_paid_amount'),
+                assignee_id: @json(old('assignee_id')) || getUrlParameter('assignee_id')
             };
             
             // Restore service location radio button
@@ -977,6 +1238,18 @@
             }
             if (oldValues.advance_paid_amount) {
                 $('input[name="advance_paid_amount"]').val(oldValues.advance_paid_amount);
+            }
+
+            // Restore variant selection (after services & variants are loaded)
+            if (oldValues.variant_key) {
+                setTimeout(function () {
+                    $('#service-variant-select').val(oldValues.variant_key).trigger('change');
+                }, 1500);
+            }
+
+            // Restore assignee selection
+            if (oldValues.assignee_id) {
+                $('#assignee-select').val(oldValues.assignee_id).trigger('change');
             }
         });
     </script>

@@ -69,7 +69,7 @@ trait UploadSizeHelperTrait
         }
 
         Toastr::error($message);
-        return back();
+        return back()->withInput();
     }
 
 }
