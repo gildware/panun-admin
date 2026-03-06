@@ -1009,7 +1009,9 @@
     </div>
 
     @include('bookingmodule::admin.booking.partials.details._update-customer-address-modal')
-    @include('bookingmodule::admin.booking.partials.details._service-address-modal')
+    @if($booking->service_address_id)
+        @include('bookingmodule::admin.booking.partials.details._service-address-modal')
+    @endif
 
     @include('bookingmodule::admin.booking.partials.details._service-location-modal')
 

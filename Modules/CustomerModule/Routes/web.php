@@ -20,6 +20,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('list', [CustomerController::class, 'index'])->name('index');
         Route::any('create', [CustomerController::class, 'create'])->name('create');
         Route::post('store', [CustomerController::class, 'store'])->name('store');
+        Route::post('quick-store', [CustomerController::class, 'quickStore'])->name('quick-store');
+        Route::get('{id}/addresses', [CustomerController::class, 'addresses'])->name('addresses');
+        Route::post('{id}/addresses', [CustomerController::class, 'quickStoreAddress'])->name('address-quick-store');
         Route::any('detail/{id}', [CustomerController::class, 'show'])->name('detail');
         Route::get('edit/{id}', [CustomerController::class, 'edit'])->name('edit');
         Route::put('update/{id}', [CustomerController::class, 'update'])->name('update');

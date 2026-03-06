@@ -38,6 +38,7 @@ use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
 use Modules\UserManagement\Entities\Serviceman;
+use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\ZoneManagement\Entities\Zone;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -176,6 +177,178 @@ class BookingController extends Controller
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
 
         return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter'));
+    }
+
+    /**
+     * Show the form for creating a new booking from admin panel.
+     *
+     * @param Request $request
+     * @return Factory|View|Application
+     * @throws AuthorizationException
+     */
+    public function create(Request $request): Factory|View|Application
+    {
+        try {
+            $this->authorize('booking_view');
+        } catch (AuthorizationException $e) {
+            Toastr::error(translate('Access_denied'));
+            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+        }
+
+        // Merge query parameters with old input for form pre-filling
+        $request->merge(array_merge($request->query(), $request->old()));
+
+        $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name')->get();
+        $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
+        $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
+        $providers = $this->provider->with('owner')->get();
+        $servicemen = $this->serviceman->with('user')->get();
+        $customers = User::where('user_type', 'customer')
+            ->orderByDesc('created_at')
+            ->select('id', 'first_name', 'last_name', 'phone')
+            ->limit(100)
+            ->get();
+
+        return view('bookingmodule::admin.booking.create', compact('zones', 'categories', 'subCategories', 'providers', 'servicemen', 'customers'));
+    }
+
+    /**
+     * Preview booking before final submission
+     *
+     * @param Request $request
+     * @return Factory|View|Application|RedirectResponse
+     * @throws AuthorizationException
+     */
+    public function preview(Request $request): Factory|View|Application|RedirectResponse
+    {
+        try {
+            $this->authorize('booking_view');
+        } catch (AuthorizationException $e) {
+            Toastr::error(translate('Access_denied'));
+            return redirect()->back()->withInput();
+        }
+
+        try {
+            $data = $request->validate([
+                'customer_id' => ['required', 'exists:users,id'],
+                'provider_id' => ['required', 'exists:providers,id'],
+                'zone_id' => ['required', 'uuid'],
+                'category_id' => ['required', 'uuid'],
+                'sub_category_id' => ['required', 'uuid'],
+                'service_id' => ['required', 'uuid'],
+                'service_schedule' => ['required', 'date'],
+                'service_address_id' => ['nullable', 'integer'],
+                'service_location' => ['required', 'in:customer,provider'],
+                'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
+            ]);
+            
+            // If service location is provider, clear service_address_id
+            if ($data['service_location'] === 'provider') {
+                $data['service_address_id'] = null;
+            }
+        } catch (ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        // Load related data for preview
+        $customer = User::find($data['customer_id']);
+        $provider = $this->provider->with('owner')->find($data['provider_id']);
+        $zone = $this->zone->find($data['zone_id']);
+        $category = $this->category->find($data['category_id']);
+        $subCategory = $this->category->find($data['sub_category_id']);
+        $service = Service::find($data['service_id']);
+        $address = $data['service_address_id'] ? $this->userAddress->find($data['service_address_id']) : null;
+
+        return view('bookingmodule::admin.booking.preview', compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address'));
+    }
+
+    /**
+     * Store a newly created booking from admin panel.
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     * @throws AuthorizationException
+     * @throws ValidationException
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        try {
+            $this->authorize('booking_add');
+        } catch (AuthorizationException $e) {
+            Toastr::error(translate('Access_denied'));
+            return redirect()->back()->withInput();
+        }
+
+        $data = $request->validate([
+            'customer_id' => ['required', 'exists:users,id'],
+            'provider_id' => ['required', 'exists:providers,id'],
+            'zone_id' => ['required', 'uuid'],
+            'category_id' => ['required', 'uuid'],
+            'sub_category_id' => ['required', 'uuid'],
+            'service_id' => ['required', 'uuid'],
+            'service_schedule' => ['required', 'date'],
+            'service_address_id' => ['nullable', 'integer'],
+            'service_location' => ['required', 'in:customer,provider'],
+            'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+        
+        // If service location is provider, clear service_address_id
+        if ($data['service_location'] === 'provider') {
+            $data['service_address_id'] = null;
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $booking = new Booking();
+            $booking->customer_id = $data['customer_id'];
+            $booking->provider_id = $data['provider_id'];
+            $booking->zone_id = $data['zone_id'];
+            $booking->category_id = $data['category_id'];
+            $booking->sub_category_id = $data['sub_category_id'];
+            $booking->booking_status = 'pending';
+            $booking->payment_method = 'cash_after_service';
+            $booking->is_paid = 0;
+            $booking->service_schedule = $data['service_schedule'];
+            $booking->service_address_id = $data['service_address_id'] ?? null;
+            $booking->service_location = $data['service_location']; // 'customer' or 'provider'
+            $booking->booking_otp = rand(100000, 999999);
+            $booking->save();
+
+            DB::commit();
+
+            return redirect()->route('admin.booking.success', ['id' => $booking->id]);
+        } catch (\Throwable $exception) {
+            DB::rollBack();
+            Toastr::error(translate('failed_to_create_booking'));
+
+            return redirect()->back()->withInput();
+        }
+    }
+
+    /**
+     * Show booking success page with options.
+     *
+     * @param string $id
+     * @return Factory|View|Application|RedirectResponse
+     */
+    public function success(string $id): Factory|View|Application|RedirectResponse
+    {
+        try {
+            $this->authorize('booking_view');
+        } catch (AuthorizationException $e) {
+            Toastr::error(translate('Access_denied'));
+            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+        }
+
+        $booking = $this->booking->find($id);
+        
+        if (!$booking) {
+            Toastr::error(translate('Booking_not_found'));
+            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+        }
+
+        return view('bookingmodule::admin.booking.success', compact('booking'));
     }
 
     /**
@@ -1754,6 +1927,136 @@ class BookingController extends Controller
         return response()->json([
             'view' => view('bookingmodule::admin.booking.partials.details.table-row', compact('data'))->render()
         ]);
+    }
+
+    /**
+     * Get categories by zone
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function ajaxGetCategories(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'zone_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $categories = $this->category
+            ->withoutGlobalScope('translate')
+            ->where('position', 1)
+            ->where('is_active', 1)
+            ->whereHas('zones', function ($query) use ($request) {
+                $query->where('zones.id', $request['zone_id']);
+            })
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(response_formatter(DEFAULT_200, $categories), 200);
+    }
+
+    /**
+     * Get subcategories by category
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function ajaxGetSubcategories(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'category_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $subCategories = $this->category
+            ->withoutGlobalScope('translate')
+            ->where('position', 2)
+            ->where('is_active', 1)
+            ->where('parent_id', $request['category_id'])
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(response_formatter(DEFAULT_200, $subCategories), 200);
+    }
+
+    /**
+     * Get services by subcategory
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function ajaxGetServices(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'sub_category_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $services = Service::where('sub_category_id', $request['sub_category_id'])
+            ->where('is_active', 1)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(response_formatter(DEFAULT_200, $services), 200);
+    }
+
+    /**
+     * Get providers by subcategory with subscription status
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function ajaxGetProviders(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'sub_category_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        // Get subscribed provider IDs for this subcategory
+        $subscribedProviderIds = SubscribedService::where('sub_category_id', $request['sub_category_id'])
+            ->where('is_subscribed', 1)
+            ->pluck('provider_id')
+            ->toArray();
+
+        // Get only subscribed providers with contact person info
+        $providers = $this->provider
+            ->whereIn('id', $subscribedProviderIds)
+            ->get()
+            ->map(function ($provider) {
+                $companyName = $provider->company_name ?? '';
+                $contactPersonName = $provider->contact_person_name ?? '';
+                $contactPersonPhone = $provider->contact_person_phone ?? '';
+                
+                return [
+                    'id' => $provider->id,
+                    'company_name' => $companyName,
+                    'contact_person_name' => $contactPersonName,
+                    'contact_person_phone' => $contactPersonPhone,
+                    'is_subscribed' => true, // All are subscribed since we filtered
+                ];
+            })
+            ->filter(function($provider) {
+                // Filter out providers missing any required field
+                return !empty($provider['company_name']) && 
+                       !empty($provider['contact_person_name']) && 
+                       !empty($provider['contact_person_phone']);
+            })
+            ->sortBy('company_name')
+            ->values();
+
+        return response()->json(response_formatter(DEFAULT_200, $providers), 200);
     }
 
     /**

@@ -29,6 +29,7 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('dashboard', fn () => $this->checkAccess('dashboard', 'can_view'));
 
         Gate::define('booking_view', fn () => $this->checkAccess('booking', 'can_view'));
+        Gate::define('booking_add', fn () => $this->checkAccess('booking', 'can_add'));
         Gate::define('booking_edit', fn () => $this->checkAccess('booking', 'can_update'));
         Gate::define('booking_delete', fn () => $this->checkAccess('booking', 'can_delete'));
         Gate::define('booking_export', fn () => $this->checkAccess('booking', 'can_export'));

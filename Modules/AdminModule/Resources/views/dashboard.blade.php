@@ -192,7 +192,7 @@
                                         <div class="media align-items-center gap-3">
                                                 <div class="avatar avatar-lg">
                                                     <img class="avatar-img rounded"
-                                                         src="{{ $booking->detail[0]->service?->thumbnail_full_path }}"
+                                                         src="{{ $booking->detail->isNotEmpty() ? ($booking->detail[0]->service?->thumbnail_full_path ?? asset('assets/admin-module/img/icons/service-placeholder.png')) : asset('assets/admin-module/img/icons/service-placeholder.png') }}"
                                                          alt="{{ translate('provider-logo') }}">
                                                 </div>
                                                 <div class="media-body ">

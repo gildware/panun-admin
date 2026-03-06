@@ -219,6 +219,113 @@ class CustomerController extends Controller
         return back();
     }
 
+    /**
+     * Quickly store a new customer from admin (e.g., booking form) with a default password.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     * @throws AuthorizationException
+     */
+    public function quickStore(Request $request): JsonResponse
+    {
+        $this->authorize('customer_add');
+
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'required',
+            'last_name' => 'required',
+            'email' => 'required|email|unique:users,email',
+            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $defaultPassword = config('app.default_customer_password', '12345678');
+
+        $user = new User();
+        $user->first_name = $request->first_name;
+        $user->last_name = $request->last_name;
+        $user->email = $request->email;
+        $user->phone = $request->phone;
+        $user->profile_image = 'default.png';
+        $user->gender = 'male';
+        $user->password = bcrypt($defaultPassword);
+        $user->user_type = 'customer';
+        $user->is_active = 1;
+        $user->save();
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => trim($user->first_name . ' ' . $user->last_name),
+            'phone' => $user->phone,
+        ], 200);
+    }
+
+    /**
+     * Get all addresses for a given customer.
+     *
+     * @param string $id
+     * @return JsonResponse
+     * @throws AuthorizationException
+     */
+    public function addresses(string $id): JsonResponse
+    {
+        $this->authorize('customer_view');
+
+        $addresses = $this->address
+            ->where('user_id', $id)
+            ->get(['id', 'address_label', 'address', 'city', 'country', 'zip_code']);
+
+        return response()->json($addresses, 200);
+    }
+
+    /**
+     * Quickly store a new address for a customer.
+     *
+     * @param Request $request
+     * @param string $id
+     * @return JsonResponse
+     * @throws AuthorizationException
+     */
+    public function quickStoreAddress(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('customer_add');
+
+        $validator = Validator::make($request->all(), [
+            'city' => 'required|string',
+            'street' => 'required|string',
+            'country' => 'required|string',
+            'zip_code' => 'required|string',
+            'address' => 'required|string',
+            'address_label' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $address = $this->address;
+        $address->user_id = $id;
+        $address->city = $request->city;
+        $address->street = $request->street;
+        $address->country = $request->country;
+        $address->zip_code = $request->zip_code;
+        $address->address = $request->address;
+        $address->address_label = $request->address_label ?: 'home';
+        $address->save();
+
+        return response()->json([
+            'id' => $address->id,
+            'label' => $address->address_label,
+            'full_address' => $address->city . ', ' . $address->street . ', ' . $address->country . ' ' . $address->zip_code,
+        ], 200);
+    }
+
     public function overview(Request $request, string $id): JsonResponse
     {
         $search = $request->has('search') ? $request['search'] : '';

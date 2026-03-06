@@ -33,6 +33,7 @@ use Modules\ProviderManagement\Emails\NewJoiningRequestMail;
 use Modules\ProviderManagement\Emails\RegistrationApprovedMail;
 use Modules\ProviderManagement\Emails\RegistrationDeniedMail;
 use Modules\ProviderManagement\Entities\BankDetail;
+use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\ProviderManagement\Entities\SubscribedService;
@@ -53,6 +54,7 @@ class ProviderController extends Controller
     protected User $user;
     protected Service $service;
     protected SubscribedService $subscribedService;
+    protected Category $category;
     private Booking $booking;
     private Serviceman $serviceman;
     private SubscriptionPackage $subscriptionPackage;
@@ -80,6 +82,7 @@ class ProviderController extends Controller
         User $owner,
         Service $service,
         SubscribedService $subscribedService,
+        Category $category,
         Booking $booking,
         Zone $zone,
         BankDetail $bank_detail,
@@ -97,6 +100,7 @@ class ProviderController extends Controller
         $this->user = $owner;
         $this->service = $service;
         $this->subscribedService = $subscribedService;
+        $this->category = $category;
         $this->booking = $booking;
         $this->serviceman = $serviceman;
         $this->review = $review;
@@ -372,25 +376,79 @@ class ProviderController extends Controller
             $status = $request->has('status') ? $request['status'] : 'all';
             $queryParam = ['web_page' => $webPage, 'status' => $status, 'search' => $search];
 
+            // Get provider to access zone_id
+            $provider = $this->provider->find($id);
+            $zoneId = $provider->zone_id ?? null;
 
-            $subCategories = $this->subscribedService->where('provider_id', $id)
-                ->with(['sub_category' => function ($query) {
-                    return $query->withCount('services')->with(['services']);
-                }])
-                ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                    return $query->where('is_subscribed', (($request['status'] == 'subscribed') ? 1 : 0));
-                })
-                ->where(function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    foreach ($keys as $key) {
-                        $query->orWhereHas('sub_category', function ($query) use ($key) {
-                            $query->where('name', 'LIKE', '%' . $key . '%');
-                        });
+            if (!$zoneId) {
+                $subCategories = collect([]);
+            } else {
+                // Get all subcategories available for the provider's zone
+                $subCategoriesQuery = $this->category->withCount('services')
+                    ->with(['services'])
+                    ->whereHas('parent.zones', function ($query) use ($zoneId) {
+                        $query->where('zone_id', $zoneId);
+                    })
+                    ->whereHas('parent', function ($query) {
+                        $query->where('is_active', 1);
+                    })
+                    ->ofStatus(1)
+                    ->ofType('sub');
+
+                // Apply search filter
+                if ($search) {
+                    $keys = explode(' ', $search);
+                    $subCategoriesQuery->where(function ($query) use ($keys) {
+                        foreach ($keys as $key) {
+                            $query->orWhere('name', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                }
+
+                // Get all subcategories
+                $allSubCategories = $subCategoriesQuery->get();
+
+                // Ensure all subcategories have a subscribed_service record
+                foreach ($allSubCategories as $subCategory) {
+                    $existingService = $this->subscribedService
+                        ->where('provider_id', $id)
+                        ->where('sub_category_id', $subCategory->id)
+                        ->first();
+                    
+                    if (!$existingService) {
+                        // Create a subscribed_service record with is_subscribed = 0
+                        $this->subscribedService->create([
+                            'provider_id' => $id,
+                            'sub_category_id' => $subCategory->id,
+                            'category_id' => $subCategory->parent_id,
+                            'is_subscribed' => 0
+                        ]);
                     }
-                })
-                ->latest()->paginate(pagination_limit())->appends($queryParam);
+                }
 
-            //$subscribed_services = $this->subscribedService->with(['sub_category'])->withCount(['services'])->where('provider_id', $id)->latest()->paginate(pagination_limit())->appends($queryParam);
+                // Now get all subscribed_services for this provider with subcategory data
+                $subCategories = $this->subscribedService->where('provider_id', $id)
+                    ->whereIn('sub_category_id', $allSubCategories->pluck('id')->toArray())
+                    ->with(['sub_category' => function ($query) {
+                        return $query->withCount('services')->with(['services']);
+                    }])
+                    ->when($status != 'all', function ($query) use ($status) {
+                        return $query->where('is_subscribed', (($status == 'subscribed') ? 1 : 0));
+                    })
+                    ->where(function ($query) use ($search) {
+                        if ($search) {
+                            $keys = explode(' ', $search);
+                            foreach ($keys as $key) {
+                                $query->orWhereHas('sub_category', function ($query) use ($key) {
+                                    $query->where('name', 'LIKE', '%' . $key . '%');
+                                });
+                            }
+                        }
+                    })
+                    ->latest()
+                    ->paginate(pagination_limit())
+                    ->appends($queryParam);
+            }
 
             return view('providermanagement::admin.provider.detail.subscribed-services', compact('subCategories', 'webPage', 'status', 'search'));
 

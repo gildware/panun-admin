@@ -7,6 +7,10 @@ use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as Pro
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
+        Route::get('create', [BookingController::class, 'create'])->name('create');
+        Route::post('preview', [BookingController::class, 'preview'])->name('preview');
+        Route::post('store', [BookingController::class, 'store'])->name('store');
+        Route::get('success/{id}', [BookingController::class, 'success'])->name('success');
         Route::any('list', [BookingController::class, 'index'])->name('list');
         Route::any('list/verification', [BookingController::class, 'bookingVerificationList'])->name('list.verification');
         Route::any('list/verification/download', [BookingController::class, 'downloadBookingVerificationList'])->name('list.verification.download');
@@ -45,6 +49,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
             Route::put('update-repeat-booking-service', [BookingController::class, 'updateRepeatBookingService'])->name('update_repeat_booking_service');
             Route::get('ajax-get-service-info', [BookingController::class, 'ajaxGetServiceInfo'])->name('ajax-get-service-info');
             Route::get('ajax-get-variation', [BookingController::class, 'ajaxGetVariant'])->name('ajax-get-variant');
+            Route::get('ajax-get-categories', [BookingController::class, 'ajaxGetCategories'])->name('ajax-get-categories');
+            Route::get('ajax-get-subcategories', [BookingController::class, 'ajaxGetSubcategories'])->name('ajax-get-subcategories');
+            Route::get('ajax-get-services', [BookingController::class, 'ajaxGetServices'])->name('ajax-get-services');
+            Route::get('ajax-get-providers', [BookingController::class, 'ajaxGetProviders'])->name('ajax-get-providers');
         });
 
         Route::get('rebooking/details/{id}', [BookingController::class, 'reBookingDetails'])->name('rebooking.details');
