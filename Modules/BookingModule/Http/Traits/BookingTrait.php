@@ -919,6 +919,92 @@ trait BookingTrait
         });
     }
 
+    /**
+     * Update a booking detail's service, variant and quantity; recalc costs and booking totals.
+     */
+    protected function updateDetailServiceAndVariation(BookingDetail $detail, string $newServiceId, string $newVariantKey, int $newQuantity, string $zoneId): void
+    {
+        if ($newQuantity < 1) {
+            return;
+        }
+
+        DB::transaction(function () use ($detail, $newServiceId, $newVariantKey, $newQuantity, $zoneId) {
+            $booking = Booking::with(['detail', 'details_amounts'])->find($detail->booking_id);
+            $oldTotal = $detail->total_cost;
+            $oldTax = $detail->tax_amount;
+            $oldDiscount = $detail->discount_amount;
+            $oldCampaignDiscount = $detail->campaign_discount_amount ?? 0;
+
+            $booking->total_booking_amount -= $oldTotal;
+            $booking->total_tax_amount -= $oldTax;
+            $booking->total_discount_amount -= $oldDiscount;
+            $booking->total_campaign_discount_amount -= $oldCampaignDiscount;
+            $booking->additional_charge -= $oldTotal;
+            $booking->additional_tax_amount -= $oldTax;
+            $booking->additional_discount_amount -= $oldDiscount;
+            $booking->additional_campaign_discount_amount -= $oldCampaignDiscount;
+            $booking->save();
+
+            $service = Service::with('variations')->find($newServiceId);
+            $variation = $service->variations->where('variant_key', $newVariantKey)->where('zone_id', $zoneId)->first();
+            if (!$service || !$variation) {
+                throw new \InvalidArgumentException('Service or variation not found.');
+            }
+
+            if ($booking->total_coupon_discount_amount > 0) {
+                self::remove_coupon_from_booking($booking, $service);
+            }
+
+            $basicDiscount = basic_discount_calculation($service, $variation->price * $newQuantity);
+            $campaignDiscount = campaign_discount_calculation($service, $variation->price * $newQuantity);
+            $subtotal = round($variation->price * $newQuantity, 2);
+            $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
+            $tax = round(((($variation->price * $newQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
+            $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
+            $newTotal = round($subtotal - $basicDiscount - $campaignDiscount + $tax, 2);
+
+            $detail->service_id = $newServiceId;
+            $detail->service_name = $service->name ?? 'service-not-found';
+            $detail->variant_key = $newVariantKey;
+            $detail->quantity = $newQuantity;
+            $detail->service_cost = $variation->price;
+            $detail->discount_amount = $basicDiscount;
+            $detail->campaign_discount_amount = $campaignDiscount;
+            $detail->overall_coupon_discount_amount = 0;
+            $detail->tax_amount = round($tax, 2);
+            $detail->total_cost = $newTotal;
+            $detail->save();
+
+            $booking->total_booking_amount += $newTotal;
+            $booking->total_tax_amount += $tax;
+            $booking->total_discount_amount += $basicDiscount;
+            $booking->total_campaign_discount_amount += $campaignDiscount;
+            $booking->additional_charge += $newTotal;
+            $booking->additional_tax_amount += $tax;
+            $booking->additional_discount_amount += $basicDiscount;
+            $booking->additional_campaign_discount_amount += $campaignDiscount;
+            $booking->save();
+
+            $bookingDetailsAmount = BookingDetailsAmount::where('booking_id', $booking->id)->where('booking_details_id', $detail->id)->first();
+            if (!$bookingDetailsAmount) {
+                $bookingDetailsAmount = new BookingDetailsAmount();
+            }
+            $bookingDetailsAmount->booking_details_id = $detail->id;
+            $bookingDetailsAmount->booking_id = $booking->id;
+            $bookingDetailsAmount->service_unit_cost = $variation->price;
+            $bookingDetailsAmount->service_quantity = $newQuantity;
+            $bookingDetailsAmount->service_tax = $tax;
+            $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($basicDiscount)['admin'];
+            $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($basicDiscount)['provider'];
+            $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($campaignDiscount)['admin'];
+            $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($campaignDiscount)['provider'];
+            $bookingDetailsAmount->coupon_discount_by_admin = 0;
+            $bookingDetailsAmount->coupon_discount_by_provider = 0;
+            $bookingDetailsAmount->save();
+        });
+    }
+
     protected function increase_service_quantity_from_booking($request): void
     {
         if (!$request->has('booking_id', 'service_id', 'variant_key', 'zone_id')) return;

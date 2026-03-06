@@ -954,8 +954,14 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
     {
         $booking_partial_payment = BookingPartialPayment::where('booking_id', $booking->id)->where('paid_with', 'wallet')->first();
 
-        $paid_amount = $booking_partial_payment->paid_amount;
-        $due_amount = $booking['total_booking_amount'] - $paid_amount;
+        if ($booking_partial_payment) {
+            $paid_amount = $booking_partial_payment->paid_amount;
+            $due_amount = $booking['total_booking_amount'] - $paid_amount;
+        } else {
+            // No wallet partial (e.g. only offline partial or full CAS) – treat as full amount due at completion
+            $paid_amount = 0;
+            $due_amount = $booking['total_booking_amount'];
+        }
 
         $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
 

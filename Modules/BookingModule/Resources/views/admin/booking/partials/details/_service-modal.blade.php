@@ -89,41 +89,48 @@
                             </thead>
 
                             <tbody id="service-edit-tbody">
-                            @php($sub_total=0)
+                            @php $sub_total = 0; @endphp
                             @foreach($booking->detail as $key=>$detail)
-                                <tr id="service-row--{{$detail?->variant_key}}">
+                                @php
+                                    $zoneVariations = $detail->service ? $detail->service->variations->where('zone_id', $booking->zone_id) : collect();
+                                @endphp
+                                <tr id="service-row--{{ $detail->id }}" data-detail-id="{{ $detail->id }}">
                                     <td class="text-wrap ps-lg-3">
                                         @if(isset($detail->service))
-                                            <div class="d-flex flex-column">
-                                                <a href="{{route('admin.service.detail',[$detail->service->id])}}"
-                                                   class="fw-bold">{{Str::limit($detail->service->name, 30)}}</a>
-                                                <div>{{Str::limit($detail ? $detail->variant_key : '', 50)}}</div>
-                                            </div>
+                                            <select name="service_ids[]" class="theme-input-style row-service-select w-100" required
+                                                    data-zone-id="{{ $booking->zone_id }}">
+                                                @foreach($services as $svc)
+                                                    <option value="{{ $svc->id }}" {{ $detail->service_id === $svc->id ? 'selected' : '' }}>{{ Str::limit($svc->name, 40) }}</option>
+                                                @endforeach
+                                            </select>
+                                            <select name="variant_keys[]" class="theme-input-style row-variant-select w-100 mt-1" required>
+                                                @foreach($zoneVariations as $v)
+                                                    <option value="{{ $v->variant_key }}" {{ $detail->variant_key === $v->variant_key ? 'selected' : '' }}>{{ Str::limit($v->variant ?? $v->variant_key, 40) }}</option>
+                                                @endforeach
+                                            </select>
                                         @else
-                                            <span
-                                                class="badge badge-pill badge-danger">{{translate('Service_unavailable')}}</span>
+                                            <span class="badge badge-pill badge-danger">{{ translate('Service_unavailable') }}</span>
+                                            <input type="hidden" name="service_ids[]" value="{{ $detail->service_id }}">
+                                            <input type="hidden" name="variant_keys[]" value="{{ $detail->variant_key }}">
                                         @endif
                                     </td>
-                                    <td id="service-cost-{{$detail?->variant_key}}">{{$detail->service_cost}}</td>
+                                    <td class="row-service-cost">{{ $detail->service_cost }}</td>
                                     <td>
-                                        <input type="number" min="1" name="qty[]" class="form-control qty-width"
-                                               id="qty-{{$detail?->variant_key}}" value="{{$detail->quantity}}"
-                                               oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                               readonly>
+                                        <input type="number" min="1" name="qty[]" class="form-control qty-width row-qty"
+                                               value="{{ $detail->quantity }}"
+                                               oninput="this.value = this.value.replace(/[^0-9]/g, '');">
                                     </td>
-                                    <td id="discount-amount-{{$detail?->variant_key}}">{{$detail->discount_amount}}</td>
-                                    <td id="total-cost-{{$detail?->variant_key}}">{{$detail->total_cost}}</td>
+                                    <td class="row-discount-amount">{{ $detail->discount_amount }}</td>
+                                    <td class="row-total-cost">{{ $detail->total_cost }}</td>
                                     <td>
                                         <div class="d-flex justify-content-center">
                                             <span class="material-icons text-danger cursor-pointer remove-service-row"
-                                                  data-row="service-row--{{$detail?->variant_key}}">delete
-                                            </span>
+                                                  data-row="service-row--{{ $detail->id }}">delete</span>
                                         </div>
                                     </td>
-                                    <input type="hidden" name="service_ids[]" value="{{$detail->service->id}}">
-                                    <input type="hidden" name="variant_keys[]" value="{{$detail->variant_key}}">
+                                    <input type="hidden" name="booking_detail_ids[]" value="{{ $detail->id }}">
                                 </tr>
-                                @php($sub_total += $detail->service_cost*$detail->quantity)
+                                @php $sub_total += $detail->service_cost * $detail->quantity; @endphp
                             @endforeach
                             <input type="hidden" name="zone_id" value="{{$booking->zone_id}}">
                             <input type="hidden" name="booking_id" value="{{$booking->id}}">

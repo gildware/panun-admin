@@ -164,10 +164,7 @@
                             </div>
                         @endif
 
-                        @if ((in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing']) &&
-                            $booking->booking_partial_payments->isEmpty() &&
-                            empty($booking->customizeBooking)) &&
-                            ($booking->is_guest == 1 && $booking->payment_method != "cash_after_service" ? false : true))
+                        @if (in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing']))
                             @can('booking_edit')
                                 <button class="btn btn--primary" data-bs-toggle="modal"
                                     data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
@@ -746,10 +743,13 @@
 
                             @can('booking_can_manage_status')
                                 <div class="mt-3">
-                                    @if ($booking->booking_status != 'pending')
-                                        <select class="js-select without-search" id="booking_status">
-                                            <option value="0" disabled
-                                                {{ $booking['booking_status'] == 'accepted' ? 'selected' : '' }}>
+                                    <select class="js-select without-search" id="booking_status">
+                                        @if ($booking->booking_status == 'pending')
+                                            <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ translate('Pending') }}</option>
+                                            <option value="accepted">{{ translate('Accept') }} {{ translate('Booking') }}</option>
+                                            <option value="canceled">{{ translate('Cancel') }} {{ translate('Booking') }}</option>
+                                        @else
+                                            <option value="0" disabled {{ $booking['booking_status'] == 'accepted' ? 'selected' : '' }}>
                                                 {{ translate('Booking_Status') }}: {{ translate('Accepted') }}</option>
                                             <option value="ongoing"  @if ($booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmount ) disabled @endif
                                                 {{ $booking['booking_status'] == 'ongoing' ? 'selected' : '' }}>
@@ -762,8 +762,8 @@
                                                 {{ $booking['booking_status'] == 'canceled' ? 'selected' : '' }}>
                                                 {{ translate('Booking_Status') }}: {{ translate('Canceled') }}</option>
                                             @endif
-                                        </select>
-                                    @endif
+                                        @endif
+                                    </select>
                                 </div>
                             @endcan
 
@@ -1328,10 +1328,12 @@
 
         $("#booking_status").change(function() {
             var booking_status = $("#booking_status option:selected").val();
-            if (parseInt(booking_status) !== 0) {
+            if (booking_status && booking_status !== '0') {
                 var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
-                update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status',
-                    booking_status);
+                var message = booking_status === 'canceled'
+                    ? '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}'
+                    : '{{ translate('want_to_update_status') }}';
+                update_booking_details(route, message, 'booking_status', booking_status);
             } else {
                 toastr.error('{{ translate('choose_proper_status') }}');
             }
@@ -1513,7 +1515,33 @@
                     toastr.error('{{ translate('Failed to load') }}')
                 }
             });
-        })
+        });
+
+        $(document).on('change', '#serviceUpdateModal--{{ $booking["id"] }} .row-service-select', function() {
+            const $row = $(this).closest('tr');
+            const $variantSelect = $row.find('.row-variant-select');
+            const serviceId = $(this).val();
+            const zoneId = $(this).data('zone-id') || '{{ $booking->zone_id }}';
+            if (!serviceId) {
+                $variantSelect.html('<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+                return;
+            }
+            const route = '{{ route('admin.booking.service.ajax-get-variant') }}' + '?service_id=' + serviceId + '&zone_id=' + zoneId;
+            $.get({
+                url: route,
+                dataType: 'json',
+                success: function(response) {
+                    let options = '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>';
+                    (response.content || []).forEach(function(item) {
+                        options += '<option value="' + item.variant_key + '">' + (item.variant || item.variant_key) + '</option>';
+                    });
+                    $variantSelect.html(options);
+                },
+                error: function() {
+                    toastr.error('{{ translate('Failed to load') }}');
+                }
+            });
+        });
 
         $("#serviceUpdateModal--{{ $booking['id'] }}").on('hidden.bs.modal', function() {
             $('#service_selector__select').prop('selectedIndex', 0);

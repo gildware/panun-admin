@@ -23,6 +23,7 @@
     </td>
     <input type="hidden" name="service_ids[]" value="{{$data['service_id']}}">
     <input type="hidden" name="variant_keys[]" value="{{$data['variant_key']}}">
+    <input type="hidden" name="booking_detail_ids[]" value="">
 </tr>
 
 <script>

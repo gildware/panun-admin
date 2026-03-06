@@ -834,9 +834,9 @@ class BookingController extends Controller
 
             $booking = $this->booking->with(['detail.service' => function ($query) {
                 $query->withTrashed();
-            }, 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups'])
+            }, 'detail.service.variations', 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups'])
                 ->find($id);
-            
+
             // Load variations for each detail with proper constraints (service_id and zone_id)
             if ($booking && $booking->detail) {
                 foreach ($booking->detail as $detail) {
@@ -2570,63 +2570,115 @@ class BookingController extends Controller
             'variant_keys.*' => 'string',
             'zone_id' => 'required|uuid',
             'booking_id' => 'required|uuid',
+            'booking_detail_ids' => 'nullable|array',
+            'booking_detail_ids.*' => 'nullable|string',
         ])->validate();
 
-        $service_info = [];
-        foreach ($request['service_ids'] as $key => $service_id) {
-            $variant_key = $request['variant_keys'][$key] ?? null;
-            $quantity = $request['qty'][$key] ?? 0;
+        $bookingDetailIds = $request->input('booking_detail_ids', []);
+        $zoneId = $request['zone_id'];
+        $useDetailIds = !empty($bookingDetailIds) && count($bookingDetailIds) === count($request['service_ids']);
 
-            $service_info[] = [
-                'service_id' => $service_id,
-                'variant_key' => $variant_key,
-                'quantity' => $quantity,
-            ];
-        }
-        $request->merge(['service_info' => collect($service_info)]);
+        if ($useDetailIds) {
+            foreach ($request['service_ids'] as $key => $service_id) {
+                $variant_key = $request['variant_keys'][$key] ?? null;
+                $quantity = (int)($request['qty'][$key] ?? 0);
+                $detail_id = isset($bookingDetailIds[$key]) && $bookingDetailIds[$key] !== '' && $bookingDetailIds[$key] !== null
+                    ? $bookingDetailIds[$key]
+                    : null;
 
-        $existing_services = $this->bookingDetails->where('booking_id', $request['booking_id'])->get();
-        foreach ($existing_services as $item) {
-            if (!$request['service_info']->where('service_id', $item->service_id)->where('variant_key', $item->variant_key)->first()) {
-                $request['service_info']->push([
-                    'service_id' => $item->service_id,
-                    'variant_key' => $item->variant_key,
-                    'quantity' => 0,
-                ]);
+                if ($detail_id) {
+                    $detail = $this->bookingDetails->where('id', $detail_id)->where('booking_id', $request['booking_id'])->first();
+                    if (!$detail) {
+                        continue;
+                    }
+                    if ($quantity === 0) {
+                        $request->merge([
+                            'service_id' => $detail->service_id,
+                            'variant_key' => $detail->variant_key,
+                            'quantity' => 0,
+                        ]);
+                        $this->remove_service_from_booking($request);
+                        continue;
+                    }
+                    $serviceOrVariantChanged = $detail->service_id !== $service_id || $detail->variant_key !== $variant_key;
+                    if ($serviceOrVariantChanged) {
+                        $this->updateDetailServiceAndVariation($detail, $service_id, $variant_key, $quantity, $zoneId);
+                        continue;
+                    }
+                    if ($detail->quantity !== $quantity) {
+                        $request->merge([
+                            'service_id' => $service_id,
+                            'variant_key' => $variant_key,
+                            'old_quantity' => $detail->quantity,
+                            'new_quantity' => $quantity,
+                        ]);
+                        if ($detail->quantity < $quantity) {
+                            $this->increase_service_quantity_from_booking($request);
+                        } else {
+                            $this->decrease_service_quantity_from_booking($request);
+                        }
+                    }
+                    continue;
+                }
+
+                if ($quantity > 0) {
+                    $request->merge([
+                        'service_id' => $service_id,
+                        'variant_key' => $variant_key,
+                        'quantity' => $quantity,
+                    ]);
+                    $this->addNewBookingService($request);
+                }
             }
-        }
-
-        foreach ($request['service_info'] as $key => $item) {
-            $existing_service = $this->bookingDetails
-                ->where('booking_id', $request['booking_id'])
-                ->where('service_id', $item['service_id'])
-                ->where('variant_key', $item['variant_key'])
-                ->first();
-
-            if (!$existing_service) {
-                $request['service_id'] = $item['service_id'];
-                $request['variant_key'] = $item['variant_key'];
-                $request['quantity'] = $item['quantity'];
-                $this->addNewBookingService($request);
-            } else if ($existing_service && $item['quantity'] == 0) {
-                $request['service_id'] = $item['service_id'];
-                $request['variant_key'] = $item['variant_key'];
-                $request['quantity'] = $item['quantity'];
-
-                $this->remove_service_from_booking($request);
-            } else if ($existing_service && $existing_service->quantity < $item['quantity']) {
-                $request['service_id'] = $item['service_id'];
-                $request['variant_key'] = $item['variant_key'];
-                $request['old_quantity'] = $existing_service->quantity;
-                $request['new_quantity'] = (int)$item['quantity'];
-                $this->increase_service_quantity_from_booking($request);
-            } else if ($existing_service && $existing_service->quantity > $item['quantity']) {
-                $request['service_id'] = $item['service_id'];
-                $request['variant_key'] = $item['variant_key'];
-                $request['old_quantity'] = $existing_service->quantity;
-                $request['new_quantity'] = (int)$item['quantity'];
-
-                $this->decrease_service_quantity_from_booking($request);
+        } else {
+            $service_info = [];
+            foreach ($request['service_ids'] as $key => $sid) {
+                $vk = $request['variant_keys'][$key] ?? null;
+                $qty = $request['qty'][$key] ?? 0;
+                $service_info[] = ['service_id' => $sid, 'variant_key' => $vk, 'quantity' => $qty];
+            }
+            $request->merge(['service_info' => collect($service_info)]);
+            $existing_services = $this->bookingDetails->where('booking_id', $request['booking_id'])->get();
+            foreach ($existing_services as $item) {
+                if (!$request['service_info']->where('service_id', $item->service_id)->where('variant_key', $item->variant_key)->first()) {
+                    $request['service_info']->push([
+                        'service_id' => $item->service_id,
+                        'variant_key' => $item->variant_key,
+                        'quantity' => 0,
+                    ]);
+                }
+            }
+            foreach ($request['service_info'] as $item) {
+                $existing_service = $this->bookingDetails
+                    ->where('booking_id', $request['booking_id'])
+                    ->where('service_id', $item['service_id'])
+                    ->where('variant_key', $item['variant_key'])
+                    ->first();
+                if (!$existing_service) {
+                    if ((int)$item['quantity'] > 0) {
+                        $request->merge(['service_id' => $item['service_id'], 'variant_key' => $item['variant_key'], 'quantity' => $item['quantity']]);
+                        $this->addNewBookingService($request);
+                    }
+                } elseif ((int)$item['quantity'] === 0) {
+                    $request->merge(['service_id' => $item['service_id'], 'variant_key' => $item['variant_key'], 'quantity' => 0]);
+                    $this->remove_service_from_booking($request);
+                } elseif ($existing_service->quantity < (int)$item['quantity']) {
+                    $request->merge([
+                        'service_id' => $item['service_id'],
+                        'variant_key' => $item['variant_key'],
+                        'old_quantity' => $existing_service->quantity,
+                        'new_quantity' => (int)$item['quantity'],
+                    ]);
+                    $this->increase_service_quantity_from_booking($request);
+                } elseif ($existing_service->quantity > (int)$item['quantity']) {
+                    $request->merge([
+                        'service_id' => $item['service_id'],
+                        'variant_key' => $item['variant_key'],
+                        'old_quantity' => $existing_service->quantity,
+                        'new_quantity' => (int)$item['quantity'],
+                    ]);
+                    $this->decrease_service_quantity_from_booking($request);
+                }
             }
         }
 
