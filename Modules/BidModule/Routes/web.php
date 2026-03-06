@@ -24,6 +24,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::group(['prefix' => 'post', 'as' => 'post.'], function () {
+            Route::get('create', [AdminPostController::class, 'create'])->name('create');
+            Route::post('preview', [AdminPostController::class, 'preview'])->name('preview');
+            Route::post('store', [AdminPostController::class, 'store'])->name('store');
             Route::any('/', [AdminPostController::class, 'index'])->name('list');
             Route::any('export', [AdminPostController::class, 'export'])->name('export');
             Route::any('details/{id}', [AdminPostController::class, 'details'])->name('details');

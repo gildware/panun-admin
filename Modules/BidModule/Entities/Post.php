@@ -74,4 +74,9 @@ class Post extends Model
     {
         return $this->belongsTo(UserAddress::class, 'service_address_id');
     }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assignee_id');
+    }
 }

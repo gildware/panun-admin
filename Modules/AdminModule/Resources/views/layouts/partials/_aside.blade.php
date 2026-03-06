@@ -84,6 +84,12 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                             </a>
                         </li>
                         <li>
+                            <a href="{{ route('admin.booking.post.create') }}"
+                               class="{{ request()->is('admin/booking/post/create') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Add_New_Bidding') }}</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="{{route('admin.booking.post.list', ['type'=>'all'])}}"
                                class="{{request()->is('admin/booking/post') || request()->is('admin/booking/post/details*') ? 'active-menu' : ''}}">
                                 <span class="link-title">{{translate('Customized_Requests')}}
