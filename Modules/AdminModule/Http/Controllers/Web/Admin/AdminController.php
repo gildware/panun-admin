@@ -22,6 +22,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Contracts\View\Factory;
 use Modules\UserManagement\Entities\User;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingFollowup;
 use Illuminate\Contracts\Support\Renderable;
 use Modules\AdminModule\Services\AdvanceSearch;
 use Modules\ServiceManagement\Entities\Service;
@@ -148,6 +149,14 @@ class AdminController extends Controller
             ->groupBy('zone_id')
             ->get();
         $data[] = ['zone_wise_bookings' => $zone_wise_bookings, 'total_count' => $this->booking->count()];
+
+        $todays_pending_followups = BookingFollowup::with(['booking.assignee', 'booking.customer', 'booking.provider'])
+            ->where('status', 'scheduled')
+            ->whereDate('date', Carbon::today())
+            ->orderBy('date')
+            ->take(10)
+            ->get();
+        $data[] = ['todays_pending_followups' => $todays_pending_followups];
 
         $year = session()->has('dashboard_earning_graph_year') ? session('dashboard_earning_graph_year') : date('Y');
         $amounts = $this->booking_details_amount

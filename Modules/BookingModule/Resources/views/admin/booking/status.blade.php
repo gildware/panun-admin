@@ -174,6 +174,10 @@
                         <a class="nav-link {{ $webPage == 'status' ? 'active' : '' }}"
                             href="{{ url()->current() }}?web_page=status">{{ translate('status') }}</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'followups' ? 'active' : '' }}"
+                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'followups']) }}">{{ translate('Followups') }}</a>
+                    </li>
                 </ul>
 
                 @php($max_booking_amount = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0)
@@ -219,6 +223,57 @@
                     </div>
                 @endif
 
+            </div>
+
+            <div class="row mb-3 g-3">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body c1-light-bg">
+                            <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Provider') }}</h5>
+                            @if($booking->provider)
+                                <p class="mb-1 fw-semibold">{{ $booking->provider->company_name ?? '' }}</p>
+                                <p class="mb-1 small">
+                                    <a href="tel:{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '—' }}</a>
+                                </p>
+                            @endif
+                            @if($nextFollowupProvider ?? null)
+                                <p class="mb-0 fw-semibold">{{ $nextFollowupProvider->date->format('d-M-Y h:ia') }}
+                                    @if($nextFollowupProvider->reason)
+                                        <span class="text-muted">({{ Str::limit($nextFollowupProvider->reason, 60) }})</span>
+                                    @endif
+                                </p>
+                            @else
+                                <p class="mb-0 text-muted">—</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body c1-light-bg">
+                            <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Customer') }}</h5>
+                            @if(($customerName ?? '') || ($customerPhone ?? ''))
+                                <p class="mb-1 fw-semibold">{{ ($customerName ?? '') ?: '—' }}</p>
+                                <p class="mb-1 small">
+                                    @if($customerPhone ?? null)
+                                        <a href="tel:{{ $customerPhone }}">{{ $customerPhone }}</a>
+                                    @else
+                                        —
+                                    @endif
+                                </p>
+                            @endif
+                            @if($nextFollowupCustomer ?? null)
+                                <p class="mb-0 fw-semibold">{{ $nextFollowupCustomer->date->format('d-M-Y h:ia') }}
+                                    @if($nextFollowupCustomer->reason)
+                                        <span class="text-muted">({{ Str::limit($nextFollowupCustomer->reason, 60) }})</span>
+                                    @endif
+                                </p>
+                            @else
+                                <p class="mb-0 text-muted">—</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="row gy-3">

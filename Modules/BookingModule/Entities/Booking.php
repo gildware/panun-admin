@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Modules\BidModule\Entities\Post;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\BookingModule\Http\Traits\BookingScopes;
+use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BusinessSettingsModule\Emails\CashInHandOverflowMail;
 use Modules\BusinessSettingsModule\Emails\SubscriptionToCommissionMail;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
@@ -29,7 +31,7 @@ class Booking extends Model
     use HasFactory, HasUuid, BookingTrait, BookingScopes;
 
     protected $casts = [
-        'readable_id' => 'integer',
+        'readable_id' => 'string',
         'is_paid' => 'integer',
         'is_verified' => 'integer',
         'total_booking_amount' => 'float',
@@ -176,6 +178,11 @@ class Booking extends Model
         return $this->hasMany(BookingStatusHistory::class);
     }
 
+    public function followups(): HasMany
+    {
+        return $this->hasMany(BookingFollowup::class)->orderByDesc('date')->orderByDesc('created_at');
+    }
+
     public function booking_offline_payments(): HasMany
     {
         return $this->hasMany(BookingOfflinePayment::class, 'booking_id');
@@ -212,7 +219,38 @@ class Booking extends Model
         parent::boot();
 
         self::creating(function ($model) {
-            $model->readable_id = $model->count() + 100000;
+            // Format: PK-DD-MON-YY-NNN e.g. PK07MAR26001 (first booking of 7 March 2026)
+            if (!empty($model->readable_id)) {
+                return;
+            }
+            try {
+                $today = Carbon::today();
+                $dateKey = $today->format('Y-m-d');
+                $row = DB::table('booking_readable_id_daily')->where('booking_date', $dateKey)->lockForUpdate()->first();
+                if (!$row) {
+                    DB::table('booking_readable_id_daily')->insert(['booking_date' => $dateKey, 'next_value' => 1]);
+                    $seq = 1;
+                    DB::table('booking_readable_id_daily')->where('booking_date', $dateKey)->update(['next_value' => 2]);
+                } else {
+                    $seq = (int) $row->next_value;
+                    DB::table('booking_readable_id_daily')->where('booking_date', $dateKey)->update(['next_value' => $seq + 1]);
+                }
+                $dd = $today->format('d');
+                $mon = strtoupper($today->format('M'));
+                $yy = $today->format('y');
+                $nnn = str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
+                $model->readable_id = 'PK' . $dd . $mon . $yy . $nnn;
+            } catch (\Throwable $e) {
+                // Fallback: use daily sequence from bookings count for today
+                $today = Carbon::today();
+                $count = (int) DB::table('bookings')->whereDate('created_at', $today)->count();
+                $seq = $count + 1;
+                $dd = $today->format('d');
+                $mon = strtoupper($today->format('M'));
+                $yy = $today->format('y');
+                $nnn = str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
+                $model->readable_id = 'PK' . $dd . $mon . $yy . $nnn;
+            }
         });
 
         self::created(function ($model) {
@@ -241,6 +279,25 @@ class Booking extends Model
                 }
             }
 
+            // Auto-add next follow-up for customer and provider: 1 day before scheduled, or 1 hour before if same-day
+            if ($model->service_schedule) {
+                $scheduledAt = Carbon::parse($model->service_schedule);
+                $bookedAt = Carbon::parse($model->created_at);
+                $followUpAt = $scheduledAt->isSameDay($bookedAt)
+                    ? $scheduledAt->copy()->subHour()
+                    : $scheduledAt->copy()->subDay();
+                $reason = translate('Reminder_before_service');
+                foreach (['customer', 'provider'] as $for) {
+                    BookingFollowup::create([
+                        'booking_id' => $model->id,
+                        'date' => $followUpAt,
+                        'reason' => $reason,
+                        'for' => $for,
+                        'status' => 'scheduled',
+                        'created_by' => auth()->id(),
+                    ]);
+                }
+            }
         });
 
 

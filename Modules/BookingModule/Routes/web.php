@@ -17,6 +17,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('list/offline-payment', [BookingController::class, 'bookingOfflinePaymentList'])->name('offline.payment');
         Route::get('check', [BookingController::class, 'checkBooking'])->name('check');
         Route::get('details/{id}', [BookingController::class, 'details'])->name('details');
+        Route::get('todays-followups', [BookingController::class, 'todaysFollowups'])->name('todays_followups');
+        Route::post('followup/{id}', [BookingController::class, 'storeFollowup'])->name('followup.store');
+        Route::put('followup/{id}/{followupId}', [BookingController::class, 'updateFollowup'])->name('followup.update');
         Route::get('repeat-details/{id}', [BookingController::class, 'repeatDetails'])->name('repeat_details');
         Route::get('repeat-single-details/{id}', [BookingController::class, 'repeatSingleDetails'])->name('repeat_single_details');
         Route::get('status-update/{id}', [BookingController::class, 'statusUpdate'])->name('status_update');

@@ -168,6 +168,8 @@
                                         <th>{{translate('SL')}}</th>
                                         <th>{{translate('Booking_ID')}}</th>
                                         <th>{{ translate('Assignee') }}</th>
+                                        <th>{{ translate('Fup_Customer') }}</th>
+                                        <th>{{ translate('Fup_Provider') }}</th>
                                         <th>{{ translate('Source') }}</th>
                                         <th>{{ translate('Where_Service_will_be_Provided') }}</th>
                                         <th>{{translate('Customer_Info')}}</th>
@@ -220,6 +222,13 @@
                                                     <span class="text-muted small">{{ translate('Unassigned') }}</span>
                                                 @endif
                                             </td>
+                                            @php
+                                                $scheduled = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
+                                                $nextFuCustomer = $scheduled->where('for', 'customer')->first();
+                                                $nextFuProvider = $scheduled->where('for', 'provider')->first();
+                                            @endphp
+                                            <td>{{ $nextFuCustomer && $nextFuCustomer->date ? \Carbon\Carbon::parse($nextFuCustomer->date)->format('d-M-Y') : '—' }}</td>
+                                            <td>{{ $nextFuProvider && $nextFuProvider->date ? \Carbon\Carbon::parse($nextFuProvider->date)->format('d-M-Y') : '—' }}</td>
                                             <td>
                                                 @switch(strtolower((string)($booking->booking_source ?? 'app')))
                                                     @case('app'){{ translate('App') }}@break

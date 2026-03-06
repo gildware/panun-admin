@@ -119,7 +119,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $bookings = $this->booking
-            ->with(['customer', 'assignee'])
+            ->with(['customer', 'assignee', 'followups'])
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
                 $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
@@ -630,7 +630,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
-        $bookings = $this->booking->with(['customer', 'assignee'])
+        $bookings = $this->booking->with(['customer', 'assignee', 'followups'])
             ->when($request->has('search'), function ($query) use ($request) {
                 $query->where(function ($query) use ($request) {
                     $keys = explode(' ', $request['search']);
@@ -751,7 +751,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
-        $bookings = $this->booking->with(['customer', 'booking_partial_payments', 'assignee'])
+        $bookings = $this->booking->with(['customer', 'booking_partial_payments', 'assignee', 'followups'])
             ->when($hasSearch, function ($query) use ($request) {
                 $search = $request->input('search', $request->input('keyword', ''));
                 $query->where(function ($query) use ($search) {
@@ -799,6 +799,23 @@ class BookingController extends Controller
     }
 
     /**
+     * Today's pending (scheduled) follow-ups - full page.
+     *
+     * @return Renderable
+     * @throws AuthorizationException
+     */
+    public function todaysFollowups(): Renderable
+    {
+        $this->authorize('booking_view');
+        $followups = \Modules\BookingModule\Entities\BookingFollowup::with(['booking.assignee', 'booking.customer', 'booking.provider'])
+            ->where('status', 'scheduled')
+            ->whereDate('date', Carbon::today())
+            ->orderBy('date')
+            ->paginate(pagination_limit());
+        return view('bookingmodule::admin.booking.todays-followups', compact('followups'));
+    }
+
+    /**
      * Display a listing of the resource.
      * @param $id
      * @param Request $request
@@ -809,7 +826,7 @@ class BookingController extends Controller
     {
         $this->authorize('booking_view');
         Validator::make($request->all(), [
-            'web_page' => 'required|in:details,status',
+            'web_page' => 'required|in:details,status,followups',
         ]);
         $webPage = $request->has('web_page') ? $request['web_page'] : 'business_setup';
 
@@ -817,7 +834,7 @@ class BookingController extends Controller
 
             $booking = $this->booking->with(['detail.service' => function ($query) {
                 $query->withTrashed();
-            }, 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments'])
+            }, 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups'])
                 ->find($id);
             
             // Load variations for each detail with proper constraints (service_id and zone_id)
@@ -911,9 +928,15 @@ class BookingController extends Controller
                 ->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')
                 ->get();
 
-            return view('bookingmodule::admin.booking.details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'currentlyAssignProvider', 'assignees'));
+            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
+            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
+            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
+            $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($customerAddress->contact_person_name ?? '');
+            $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($customerAddress->contact_person_number ?? '');
+
+            return view('bookingmodule::admin.booking.details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'currentlyAssignProvider', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone'));
         } elseif ($request->web_page == 'status') {
-            $booking = $this->booking->with(['detail.service', 'customer', 'provider', 'service_address', 'serviceman.user', 'service_address', 'status_histories.user'])->find($id);
+            $booking = $this->booking->with(['detail.service', 'customer', 'provider', 'service_address', 'serviceman.user', 'service_address', 'status_histories.user', 'followups'])->find($id);
 
             $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
@@ -967,11 +990,93 @@ class BookingController extends Controller
                 : null;
 
             $sort_by = 'default';
-            return view('bookingmodule::admin.booking.status', compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by', 'currentlyAssignProvider'));
+            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
+            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
+            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
+            $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($customerAddress->contact_person_name ?? '');
+            $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($customerAddress->contact_person_number ?? '');
+            return view('bookingmodule::admin.booking.status', compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by', 'currentlyAssignProvider', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone'));
+        } elseif ($request->web_page == 'followups') {
+            $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address'])->find($id);
+            $webPage = 'followups';
+            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
+            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
+            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
+            $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($booking->service_address->contact_person_name ?? '');
+            $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($booking->service_address->contact_person_number ?? '');
+            return view('bookingmodule::admin.booking.followups', compact('booking', 'webPage', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone'));
         }
 
         Toastr::success(translate(ACCESS_DENIED['message']));
         return back();
+    }
+
+    public function storeFollowup(Request $request, $id): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        $validated = $request->validate([
+            'date' => ['required', 'date'],
+            'reason' => ['nullable', 'string', 'max:500'],
+            'for' => ['required', 'in:customer,provider'],
+        ]);
+        $validated['booking_id'] = $booking->id;
+        $validated['created_by'] = auth()->id();
+        $validated['status'] = 'scheduled';
+        $validated['date'] = Carbon::parse($validated['date'])->format('Y-m-d H:i:s');
+        \Modules\BookingModule\Entities\BookingFollowup::create($validated);
+        Toastr::success(translate('Follow_up_added_successfully'));
+        return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
+    }
+
+    public function updateFollowup(Request $request, $id, $followupId): RedirectResponse
+    {
+        $this->authorize('booking_view');
+        $booking = $this->booking->findOrFail($id);
+        $followup = $booking->followups()->findOrFail($followupId);
+        $validated = $request->validate([
+            'status' => ['required', 'in:completed,rescheduled'],
+            'remarks' => ['required_if:status,completed', 'nullable', 'string', 'max:2000'],
+            'reschedule_reason' => ['required_if:status,rescheduled', 'nullable', 'string', 'max:500'],
+            'reschedule_date' => ['required_if:status,rescheduled', 'nullable', 'date'],
+            'add_another_followup' => ['nullable', 'in:1'],
+            'add_another_date' => ['required_if:add_another_followup,1', 'nullable', 'date'],
+            'add_another_for' => ['required_if:add_another_followup,1', 'nullable', 'in:customer,provider'],
+            'add_another_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+        if ($validated['status'] === 'completed') {
+            $followup->update([
+                'status' => 'completed',
+                'remarks' => $validated['remarks'] ?? '',
+            ]);
+            if (!empty($validated['add_another_followup']) && !empty($validated['add_another_date']) && !empty($validated['add_another_for'])) {
+                \Modules\BookingModule\Entities\BookingFollowup::create([
+                    'booking_id' => $booking->id,
+                    'date' => Carbon::parse($validated['add_another_date'])->format('Y-m-d H:i:s'),
+                    'reason' => $validated['add_another_reason'] ?? null,
+                    'for' => $validated['add_another_for'],
+                    'status' => 'scheduled',
+                    'created_by' => auth()->id(),
+                ]);
+            }
+        } else {
+            $followup->update([
+                'status' => 'rescheduled',
+                'reschedule_reason' => $validated['reschedule_reason'] ?? '',
+            ]);
+            if (!empty($validated['reschedule_date'])) {
+                \Modules\BookingModule\Entities\BookingFollowup::create([
+                    'booking_id' => $booking->id,
+                    'date' => Carbon::parse($validated['reschedule_date'])->format('Y-m-d H:i:s'),
+                    'reason' => null,
+                    'for' => $followup->for,
+                    'status' => 'scheduled',
+                    'created_by' => auth()->id(),
+                ]);
+            }
+        }
+        Toastr::success(translate('Follow_up_updated_successfully'));
+        return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
     }
 
     /**

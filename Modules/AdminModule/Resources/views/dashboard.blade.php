@@ -2,6 +2,19 @@
 
 @section('title',translate('dashboard'))
 
+@push('css_or_js')
+    <style>
+        .main-content .container-fluid .row .card {
+            position: relative;
+            z-index: 0;
+        }
+        .main-content .container-fluid .row.g-4 {
+            display: flex;
+            flex-wrap: wrap;
+        }
+    </style>
+@endpush
+
 @section('content')
     @can('dashboard')
     <div class="main-content">
@@ -45,8 +58,72 @@
                         </div>
                     </div>
                 </div>
-                <div class="row g-4">
-                    <div class="col-lg-9">
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card dashboard-widget-todays-followups">
+                            <div class="card-header d-flex justify-content-between gap-10">
+                                <h5>{{translate('Todays_pending_followups')}}</h5>
+                                <a href="{{route('admin.booking.todays_followups')}}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
+                            <div class="card-body p-0">
+                                @if(isset($data[6]['todays_pending_followups']) && $data[6]['todays_pending_followups']->isNotEmpty())
+                                    <div class="table-responsive px-3">
+                                        <table class="table table-hover align-middle mb-0 fs-13">
+                                            <thead class="text-secondary border-bottom">
+                                                <tr>
+                                                    <th>{{translate('Booking_ID')}}</th>
+                                                    <th>{{translate('Follow_up_for')}}</th>
+                                                    <th>{{translate('Customer_Info')}}</th>
+                                                    <th>{{translate('Provider_Info')}}</th>
+                                                    <th>{{translate('Assignee')}}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($data[6]['todays_pending_followups'] as $followup)
+                                                    <tr class="cursor-pointer todays-followup-redirect"
+                                                        data-route="{{ $followup->booking ? (route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups'])) : '#' }}">
+                                                        <td>
+                                                            @if($followup->booking)
+                                                                <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}" class="text-primary text-decoration-none" onclick="event.stopPropagation();">{{ $followup->booking->readable_id }}</a>
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ translate(ucfirst($followup->for)) }}</td>
+                                                        <td>
+                                                            @if($followup->booking && $followup->booking->customer)
+                                                                <span>{{ Str::limit(trim(($followup->booking->customer->first_name ?? '') . ' ' . ($followup->booking->customer->last_name ?? '')), 15) ?: '—' }}</span>
+                                                                <br><span class="small">{{ $followup->booking->customer->phone ?? '—' }}</span>
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            @if($followup->booking && $followup->booking->provider)
+                                                                <span>{{ Str::limit($followup->booking->provider->company_name ?? '', 15) ?: '—' }}</span>
+                                                                <br><span class="small">{{ $followup->booking->provider->contact_person_phone ?? $followup->booking->provider->company_phone ?? '—' }}</span>
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ $followup->booking && $followup->booking->assignee ? $followup->booking->assignee->first_name . ' ' . $followup->booking->assignee->last_name : translate('Unassigned') }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="d-flex align-items-center justify-content-center p-4">
+                                        <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-4 mb-4">
+                    <div class="col-lg-9 col-12">
                         <div class="card earning-statistics">
                             <div class="card-body ps-0">
                                 <div class="ps-20 d-flex flex-wrap align-items-center justify-content-between gap-3">
@@ -81,7 +158,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-sm-6">
+                    <div class="col-lg-3 col-12 col-sm-6">
                         <div class="card recent-transactions h-100 w-100">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between gap-10">
@@ -147,7 +224,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-4 col-sm-6">
+                </div>
+                <div class="row g-4 mb-4">
+                    <div class="col-lg-4 col-12 col-sm-6">
                         <div class="card top-providers">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5>{{translate('top_providers')}}</h5>
@@ -177,7 +256,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-5 col-sm-6">
+                    <div class="col-lg-5 col-12 col-sm-6">
                         <div class="card recent-activities">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5>{{translate('recent_bookings')}}</h5>
@@ -213,7 +292,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-sm-6">
+                    <div class="col-lg-3 col-12 col-sm-6">
                         <div class="card top-providers">
                             <div class="card-header d-flex flex-column gap-10">
                                 <h5>{{translate('booking_statistics')}} - {{date('M, Y')}}</h5>
@@ -415,6 +494,11 @@
 
         $(".recent-booking-redirect").on('click', function(){
             location.href = $(this).data('route');
+        });
+
+        $(".todays-followup-redirect").on('click', function(){
+            var route = $(this).data('route');
+            if (route && route !== '#') location.href = route;
         });
     </script>
 @endpush
