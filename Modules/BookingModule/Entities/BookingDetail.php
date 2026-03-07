@@ -24,7 +24,19 @@ class BookingDetail extends Model
         'overall_coupon_discount_amount' => 'float',
     ];
 
-    protected $fillable = [];
+    /** Main booking detail lines are always "service" type for earning/commission (same concept as extra_services type). */
+    public const TYPE_SERVICE = 'service';
+
+    protected $fillable = ['type'];
+
+    protected static function booted()
+    {
+        static::creating(function (BookingDetail $detail) {
+            if (empty($detail->type)) {
+                $detail->type = self::TYPE_SERVICE;
+            }
+        });
+    }
 
     public function service(): BelongsTo
     {

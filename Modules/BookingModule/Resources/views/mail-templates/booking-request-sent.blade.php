@@ -247,10 +247,11 @@
                         </tr>
                         </thead>
                         <tbody>
-                        @php($sub_total=0)
+                        @php($sub_total=0; $sl = 0)
                         @foreach($booking->detail as $index=>$item)
+                            @php($sl++)
                             <tr>
-                                <td class="no">{{(strlen($index+1)<2?'0':'').$index+1}}</td>
+                                <td class="no">{{(strlen($sl)<2?'0':'').$sl}}</td>
                                 <td class="text-left">
                                     <h3>
                                         {{$item->service->name}}
@@ -263,6 +264,21 @@
                             </tr>
                             @php($sub_total+=$item->service_cost*$item->quantity)
                         @endforeach
+                        @php($extraServicesTotal = ($booking->extra_services ?? collect())->sum('total'))
+                        @foreach($booking->extra_services ?? [] as $extra)
+                            @php($sl++)
+                            <tr>
+                                <td class="no">{{(strlen($sl)<2?'0':'').$sl}}</td>
+                                <td class="text-left">
+                                    <h3>{{ $extra->title }}</h3>
+                                    @if($extra->details)<br>{{ Str::limit($extra->details, 50) }}@endif
+                                    <br><span class="text-capitalize">{{ $extra->type === 'spare_part' ? translate('Spare_Part') : translate('Service') }}</span>
+                                </td>
+                                <td class="unit">{{ with_currency_symbol($extra->price) }}</td>
+                                <td class="qty">{{ $extra->quantity }}</td>
+                                <td class="total">{{ with_currency_symbol($extra->total) }}</td>
+                            </tr>
+                        @endforeach
                         </tbody>
                         <tfoot>
                         <tr>
@@ -270,6 +286,13 @@
                             <td colspan="2" class="text-uppercase">{{translate('subtotal')}}</td>
                             <td>{{with_currency_symbol($sub_total)}}</td>
                         </tr>
+                        @if(isset($extraServicesTotal) && $extraServicesTotal > 0)
+                        <tr>
+                            <td colspan="2"></td>
+                            <td colspan="2" class="text-uppercase">{{ translate('Extra_Services') }}</td>
+                            <td>+ {{ with_currency_symbol($extraServicesTotal) }}</td>
+                        </tr>
+                        @endif
                         <tr>
                             <td colspan="2"></td>
                             <td colspan="2" class="text-uppercase">{{translate('Coupon_Discount')}} </td>
@@ -283,7 +306,7 @@
                         <tr>
                             <td colspan="2"></td>
                             <td colspan="2" class="text-uppercase">{{translate('grand_total')}}</td>
-                            <td>{{with_currency_symbol($booking->total_booking_amount)}}</td>
+                            <td>{{ with_currency_symbol($booking->total_booking_amount + ($extraServicesTotal ?? 0)) }}</td>
                         </tr>
                         </tfoot>
                     </table>

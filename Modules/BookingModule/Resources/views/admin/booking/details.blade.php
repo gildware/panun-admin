@@ -562,6 +562,7 @@
                                                                     {{ Str::limit($detail->variant_key ?? '', 50) }}
                                                                 @endif
                                                             </div>
+                                                            <span class="badge badge-primary mt-1" style="width: fit-content;">{{ translate('Service') }}</span>
                                                             @if ($detail->overall_coupon_discount_amount > 0)
                                                                 <small
                                                                     class="fz-10 text-capitalize">{{ translate('coupon_discount') }}

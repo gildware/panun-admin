@@ -31,7 +31,14 @@ class BookingMail extends Mailable
      */
     public function build(): static
     {
-        $pdf = PDF::loadView('bookingmodule::admin.booking.invoice', ['booking' => $this->booking]);
+        $this->booking->load(['detail.service', 'extra_services', 'booking_partial_payments']);
+        $sub_total = $this->booking->detail->sum(fn ($item) => $item->service_cost * $item->quantity);
+        $extraServicesTotal = ($this->booking->extra_services ?? collect())->sum('total');
+        $pdf = PDF::loadView('bookingmodule::admin.booking.invoice', [
+            'booking' => $this->booking,
+            'sub_total' => $sub_total,
+            'extraServicesTotal' => $extraServicesTotal,
+        ]);
         return $this->subject(translate('Booking Place'))->view('bookingmodule::mail-templates.booking-request-sent', ['booking' => $this->booking])->attachData($pdf->output(), "invoice.pdf");
     }
 }

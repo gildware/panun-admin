@@ -283,10 +283,11 @@ h1, h2,h3,h4, h5, h6 {
                         </tr>
                         </thead>
                         <tbody>
-                        @php($sub_total=0)
+                        @php($sub_total=0; $sl = 0)
                         @foreach($booking->detail as $index=>$item)
+                            @php($sl++)
                             <tr>
-                                <td class="border-bottom text-left">{{(strlen($index+1)<2?'0':'').$index+1}}</td>
+                                <td class="border-bottom text-left">{{(strlen($sl)<2?'0':'').$sl}}</td>
                                 <td class="border-bottom text-left">
                                     <div>{{$item->service->name??''}}</div>
                                     <div>{{$item->variant_key}}</div>
@@ -296,6 +297,21 @@ h1, h2,h3,h4, h5, h6 {
                                 <td class="border-bottom text-right">{{with_currency_symbol($item->total_cost)}}</td>
                             </tr>
                             @php($sub_total+=$item->service_cost*$item->quantity)
+                        @endforeach
+                        @php($mainBooking = $booking->booking ?? null; $extraServicesTotal = ($mainBooking && $mainBooking->relationLoaded('extra_services')) ? $mainBooking->extra_services->sum('total') : 0)
+                        @foreach(optional($mainBooking)->extra_services ?? [] as $extra)
+                            @php($sl++)
+                            <tr>
+                                <td class="border-bottom text-left">{{(strlen($sl)<2?'0':'').$sl}}</td>
+                                <td class="border-bottom text-left">
+                                    <div>{{ $extra->title }}</div>
+                                    @if($extra->details)<div class="text-muted">{{ Str::limit($extra->details, 50) }}</div>@endif
+                                    <div class="text-capitalize">{{ $extra->type === 'spare_part' ? translate('Spare_Part') : translate('Service') }}</div>
+                                </td>
+                                <td class="border-bottom text-center">{{ $extra->quantity }}</td>
+                                <td class="border-bottom text-right">{{ with_currency_symbol($extra->price) }}</td>
+                                <td class="border-bottom text-right">{{ with_currency_symbol($extra->total) }}</td>
+                            </tr>
                         @endforeach
                         </tbody>
                         <tfoot>
@@ -337,10 +353,17 @@ h1, h2,h3,h4, h5, h6 {
                                 <td>+ {{with_currency_symbol($booking->extra_fee)}}</td>
                             </tr>
                         @endif
+                        @if(isset($extraServicesTotal) && $extraServicesTotal > 0)
+                            <tr>
+                                <td colspan="3"></td>
+                                <td>{{ translate('Extra_Services') }}</td>
+                                <td>+ {{ with_currency_symbol($extraServicesTotal) }}</td>
+                            </tr>
+                        @endif
                         <tr>
                             <td colspan="3"></td>
                             <td class="fw-700 border-top">{{translate('Total')}}</td>
-                            <td class="fw-700 border-top">{{with_currency_symbol($booking->total_booking_amount)}}</td>
+                            <td class="fw-700 border-top">{{ with_currency_symbol($booking->total_booking_amount + ($extraServicesTotal ?? 0)) }}</td>
                         </tr>
 
                         @if($booking->payment_method != 'cash_after_service' && $booking->additional_charge < 0)

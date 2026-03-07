@@ -1248,7 +1248,7 @@ class BookingController extends Controller
     {
         $booking = $this->booking->with(['detail.service' => function ($query) {
             $query->withTrashed();
-        }, 'customer', 'provider', 'serviceman', 'status_histories.user'])->find($id);
+        }, 'customer', 'provider', 'serviceman', 'status_histories.user', 'extra_services', 'booking_partial_payments'])->find($id);
 
         $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
@@ -1266,7 +1266,7 @@ class BookingController extends Controller
     {
         $booking = $this->booking->with(['detail.service' => function ($query) {
             $query->withTrashed();
-        }, 'customer', 'provider', 'serviceman', 'status_histories.user','repeat'])->find($id);
+        }, 'customer', 'provider', 'serviceman', 'status_histories.user','repeat', 'extra_services'])->find($id);
 
         $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
@@ -1283,7 +1283,7 @@ class BookingController extends Controller
     {
         $booking = $this->bookingRepeat->with(['detail.service' => function ($query) {
             $query->withTrashed();
-        }, 'booking', 'provider', 'serviceman'])->find($id);
+        }, 'booking.extra_services', 'provider', 'serviceman'])->find($id);
 
         $booking->booking->service_address = $booking->booking->service_address_location != null ? json_decode($booking->booking->service_address_location) : $booking->booking->service_address;
 
