@@ -5,7 +5,7 @@ function initializePhoneInput(selector, outputSelector) {
     const countryCodeMatch = phoneNumber.replace(/[^0-9]/g, "");
     const initialCountry = countryCodeMatch
         ? `+${countryCodeMatch}`
-        : "bn".toLowerCase();
+        : "in".toLowerCase();
 
     let phoneInputInit = window.intlTelInput(phoneInput, {
         initialCountry: initialCountry.toLowerCase(),
@@ -14,7 +14,7 @@ function initializePhoneInput(selector, outputSelector) {
     if (!phoneInputInit.selectedCountryData.dialCode) {
         phoneInputInit.destroy();
         phoneInputInit = window.intlTelInput(phoneInput, {
-            initialCountry: "bn".toLowerCase(),
+            initialCountry: "in".toLowerCase(),
             showSelectedDialCode: true,
         });
     }
@@ -98,7 +98,7 @@ function initializeCountryCodeInput(selector, outputSelector, options = {}) {
 
     const phoneNumber = $phoneInput.val();
     const countryCodeMatch = phoneNumber.replace(/[^0-9]/g, "");
-    const initialCountry = countryCodeMatch ? `+${countryCodeMatch}` : "bd";
+    const initialCountry = countryCodeMatch ? `+${countryCodeMatch}` : "in";
 
     let itiInstance = window.intlTelInput($phoneInput[0], {
         initialCountry: initialCountry.toLowerCase(),
@@ -108,7 +108,7 @@ function initializeCountryCodeInput(selector, outputSelector, options = {}) {
     if (!itiInstance.selectedCountryData.dialCode) {
         itiInstance.destroy();
         itiInstance = window.intlTelInput($phoneInput[0], {
-            initialCountry: "bd",
+            initialCountry: "in",
             showSelectedDialCode: true,
         });
     }

@@ -102,7 +102,7 @@
 <script src="{{asset('assets/admin-module')}}/js/keyword-highlight.js"></script>
 
 {{--country code --}}
-<span class="system-default-country-code" data-value="us"></span>
+<span class="system-default-country-code" data-value="in" data-initial-country="in"></span>
 <link rel="stylesheet" href="{{asset('assets/libs/intl-tel-input/css/intlTelInput.css')}}"/>
 <script src="{{ asset('assets/libs/intl-tel-input/js/intlTelInput.js') }}"></script>
 <script src="{{ asset('assets/libs/intl-tel-input/js/utils.js') }}"></script>
