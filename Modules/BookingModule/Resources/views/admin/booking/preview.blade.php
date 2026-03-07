@@ -28,12 +28,11 @@
                             <strong>{{ translate('Source') }}:</strong>
                             @php
                                 $sourceLabelMap = [
-                                    'app' => translate('App'),
                                     'call' => translate('Call'),
                                     'whatsapp' => translate('Whatsapp'),
                                     'social_media' => translate('Social_Media'),
                                 ];
-                                $sourceKey = strtolower($data['booking_source'] ?? 'app');
+                                $sourceKey = strtolower($data['booking_source'] ?? 'whatsapp');
                             @endphp
                             {{ $sourceLabelMap[$sourceKey] ?? ucfirst($sourceKey) }}
                         </p>

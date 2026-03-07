@@ -220,14 +220,11 @@
                                     <label class="form-label">{{ translate('How_was_this_booking_created?') }}</label>
                                     <select name="booking_source" class="form-control" required>
                                         <option value="">{{ translate('Select_Booking_Source') }}</option>
-                                        <option value="app" {{ old('booking_source', request('booking_source')) == 'app' ? 'selected' : '' }}>
-                                            {{ translate('App_(Default_for_API)') }}
+                                        <option value="whatsapp" {{ old('booking_source', request('booking_source')) == 'whatsapp' ? 'selected' : '' }}>
+                                            {{ translate('Whatsapp') }}
                                         </option>
                                         <option value="call" {{ old('booking_source', request('booking_source')) == 'call' ? 'selected' : '' }}>
                                             {{ translate('Call') }}
-                                        </option>
-                                        <option value="whatsapp" {{ old('booking_source', request('booking_source')) == 'whatsapp' ? 'selected' : '' }}>
-                                            {{ translate('Whatsapp') }}
                                         </option>
                                         <option value="social_media" {{ old('booking_source', request('booking_source')) == 'social_media' ? 'selected' : '' }}>
                                             {{ translate('Social_Media') }}

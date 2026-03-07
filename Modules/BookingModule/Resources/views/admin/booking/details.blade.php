@@ -253,9 +253,8 @@
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Source') }}</label>
                                     <select name="booking_source" class="form-control">
-                                        <option value="app" {{ (old('booking_source', $booking->booking_source ?? 'app') == 'app') ? 'selected' : '' }}>{{ translate('App') }}</option>
+                                        <option value="whatsapp" {{ (old('booking_source', $booking->booking_source ?? 'whatsapp') == 'whatsapp') ? 'selected' : '' }}>{{ translate('Whatsapp') }}</option>
                                         <option value="call" {{ (old('booking_source', $booking->booking_source) == 'call') ? 'selected' : '' }}>{{ translate('Call') }}</option>
-                                        <option value="whatsapp" {{ (old('booking_source', $booking->booking_source) == 'whatsapp') ? 'selected' : '' }}>{{ translate('Whatsapp') }}</option>
                                         <option value="social_media" {{ (old('booking_source', $booking->booking_source) == 'social_media') ? 'selected' : '' }}>{{ translate('Social_Media') }}</option>
                                     </select>
                                 </div>

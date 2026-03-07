@@ -255,7 +255,7 @@ class BookingController extends Controller
                 'service_schedule' => ['required', 'date'],
                 'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
                 'service_location' => ['required', 'in:customer,provider'],
-                'booking_source' => ['required', 'in:app,call,whatsapp,social_media'],
+                'booking_source' => ['required', 'in:whatsapp,call,social_media'],
                 'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
                 'advance_transaction_id' => ['nullable', 'string', 'max:191'],
                 'assignee_id' => ['nullable', 'exists:users,id'],
@@ -356,7 +356,7 @@ class BookingController extends Controller
             'service_schedule' => ['required', 'date'],
             'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
             'service_location' => ['required', 'in:customer,provider'],
-            'booking_source' => ['required', 'in:app,call,whatsapp,social_media'],
+            'booking_source' => ['required', 'in:whatsapp,call,social_media'],
             'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
             'advance_transaction_id' => ['nullable', 'string', 'max:191'],
             'assignee_id' => ['nullable', 'exists:users,id'],
@@ -431,6 +431,7 @@ class BookingController extends Controller
             $booking->service_schedule = $data['service_schedule'];
             $booking->service_address_id = $data['service_address_id'] ?? null;
             $booking->service_location = $data['service_location']; // 'customer' or 'provider'
+            $booking->booking_source = $data['booking_source'];
             $booking->assignee_id = $data['assignee_id'] ?? null;
             $booking->service_description = $data['service_description'] ?? null;
             $booking->booking_otp = rand(100000, 999999);
@@ -1981,7 +1982,7 @@ class BookingController extends Controller
 
         $data = $request->validate([
             'assignee_id' => ['nullable', 'exists:users,id'],
-            'booking_source' => ['required', 'in:app,call,whatsapp,social_media'],
+            'booking_source' => ['required', 'in:whatsapp,call,social_media'],
             'service_description' => ['nullable', 'string', 'max:2000'],
         ]);
 
