@@ -135,6 +135,11 @@ class Booking extends Model
         return $this->hasMany(BookingDetail::class);
     }
 
+    public function extra_services(): HasMany
+    {
+        return $this->hasMany(BookingExtraService::class);
+    }
+
     public function repeatDetail(): HasMany
     {
         return $this->hasMany(BookingDetail::class);

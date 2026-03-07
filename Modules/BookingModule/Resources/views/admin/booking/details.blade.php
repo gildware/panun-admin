@@ -272,6 +272,56 @@
                     </div>
                 </div>
             </div>
+
+            <div class="modal fade" id="addExtraServiceModal--{{ $booking->id }}" tabindex="-1" aria-labelledby="addExtraServiceModalLabel--{{ $booking->id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form action="{{ route('admin.booking.extra-service.store', [$booking->id]) }}" method="POST" id="extra-service-form--{{ $booking->id }}">
+                            @csrf
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="addExtraServiceModalLabel--{{ $booking->id }}">{{ translate('Add_Extra_Service') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Title') }} <span class="text-danger">*</span></label>
+                                    <input type="text" name="title" class="form-control" value="{{ old('title') }}" required maxlength="255" placeholder="{{ translate('Title') }}">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Details_of_Service') }}</label>
+                                    <textarea name="details" class="form-control" rows="2" maxlength="2000" placeholder="{{ translate('Details_of_Service') }}">{{ old('details') }}</textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Type') }} <span class="text-danger">*</span></label>
+                                    <select name="type" class="form-control" required>
+                                        <option value="service" {{ old('type', 'service') == 'service' ? 'selected' : '' }}>{{ translate('Service') }}</option>
+                                        <option value="spare_part" {{ old('type') == 'spare_part' ? 'selected' : '' }}>{{ translate('Spare_Part') }}</option>
+                                    </select>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">{{ translate('Qty') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="quantity" class="form-control" value="{{ old('quantity', 1) }}" required min="1" step="1">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">{{ translate('Price') }} <span class="text-danger">*</span></label>
+                                        <input type="number" name="price" class="form-control extra-price-input" value="{{ old('price', 0) }}" required min="0" step="0.01">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">{{ translate('Discount') }}</label>
+                                        <input type="number" name="discount" class="form-control extra-discount-input" value="{{ old('discount', 0) }}" min="0" step="0.01">
+                                    </div>
+                                </div>
+                                <p class="mb-0 small text-muted">{{ translate('Total') }} = ({{ translate('Qty') }} × {{ translate('Price') }}) − {{ translate('Discount') }}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                <button type="submit" class="btn btn--primary">{{ translate('Add') }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
             @endcan
 
             <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
@@ -545,9 +595,46 @@
                                             </tr>
                                             @php($subTotal += $detail->service_cost * $detail->quantity)
                                         @endforeach
+                                        @php($extraServicesTotal = 0)
+                                        @foreach ($booking->extra_services ?? [] as $extra)
+                                            <tr class="table-light">
+                                                <td class="text-wrap ps-lg-3">
+                                                    <div class="d-flex flex-column">
+                                                        <span class="fw-bold">{{ Str::limit($extra->title, 40) }}</span>
+                                                        @if($extra->details)
+                                                            <small class="text-muted">{{ Str::limit($extra->details, 60) }}</small>
+                                                        @endif
+                                                        <span class="badge badge-{{ $extra->type === 'spare_part' ? 'info' : 'primary' }} mt-1" style="width: fit-content;">
+                                                            {{ $extra->type === 'spare_part' ? translate('Spare_Part') : translate('Service') }}
+                                                        </span>
+                                                        @can('booking_edit')
+                                                        <form method="post" action="{{ route('admin.booking.extra-service.destroy', [$booking->id, $extra->id]) }}" class="d-inline mt-1" onsubmit="return confirm('{{ translate('Remove_this_item') }}?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">{{ translate('Remove') }}</button>
+                                                        </form>
+                                                        @endcan
+                                                    </div>
+                                                </td>
+                                                <td>{{ with_currency_symbol($extra->price) }}</td>
+                                                <td>{{ $extra->quantity }}</td>
+                                                <td>{{ with_currency_symbol($extra->discount) }}</td>
+                                                <td>—</td>
+                                                <td class="text--end">{{ with_currency_symbol($extra->total) }}</td>
+                                            </tr>
+                                            @php($extraServicesTotal += $extra->total)
+                                        @endforeach
                                     </tbody>
                                 </table>
                             </div>
+                            @can('booking_edit')
+                            <div class="mt-3 mb-3">
+                                <button type="button" class="btn btn-sm btn--primary" data-bs-toggle="modal" data-bs-target="#addExtraServiceModal--{{ $booking->id }}">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                                    {{ translate('Add_Extra_Service') }}
+                                </button>
+                            </div>
+                            @endcan
                             <div class="row justify-content-end mt-3">
                                 <div class="col-sm-10 col-md-6 col-xl-5">
                                     <div class="table-responsive">
@@ -598,11 +685,17 @@
                                                             {{ with_currency_symbol($booking->extra_fee) }}</td>
                                                     </tr>
                                                 @endif
+                                                @if(isset($extraServicesTotal) && $extraServicesTotal > 0)
+                                                    <tr>
+                                                        <td class="text-capitalize">{{ translate('Extra_Services') }}</td>
+                                                        <td class="text--end pe--4">{{ with_currency_symbol($extraServicesTotal) }}</td>
+                                                    </tr>
+                                                @endif
 
                                                 <tr>
                                                     <td><strong>{{ translate('Grand_Total') }}</strong></td>
                                                     <td class="text--end pe--4">
-                                                        <strong>{{ with_currency_symbol($booking->total_booking_amount) }}</strong>
+                                                        <strong>{{ with_currency_symbol($booking->total_booking_amount + ($extraServicesTotal ?? 0)) }}</strong>
                                                     </td>
                                                 </tr>
 
@@ -627,10 +720,11 @@
 
                                                 <?php
                                                 $dueAmount = 0;
+                                                $grandTotalWithExtra = $booking->total_booking_amount + ($extraServicesTotal ?? 0);
 
                                                 if (!$booking->is_paid) {
-                                                    // Due = total minus any amount already paid (advance/partial)
-                                                    $dueAmount = $booking->total_booking_amount - $totalPaidFromPartials;
+                                                    // Due = grand total (including extra services) minus any amount already paid (advance/partial)
+                                                    $dueAmount = $grandTotalWithExtra - $totalPaidFromPartials;
                                                 }
 
                                                 if (in_array($booking->booking_status, ['pending', 'accepted', 'ongoing']) && $booking->payment_method != 'cash_after_service' && $booking->additional_charge > 0) {

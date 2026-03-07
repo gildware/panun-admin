@@ -31,6 +31,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('up-coming-booking-schedule-update/{id}', [BookingController::class, 'upComingBookingScheduleUpdate'])->name('up_coming_booking_schedule_update');
         Route::put('serviceman-update/{id}', [BookingController::class, 'servicemanUpdate'])->name('serviceman_update');
         Route::put('info-update/{id}', [BookingController::class, 'updateBookingInfo'])->name('info-update');
+        Route::post('extra-service/{id}', [BookingController::class, 'storeExtraService'])->name('extra-service.store');
+        Route::delete('extra-service/{id}/{extraId}', [BookingController::class, 'destroyExtraService'])->name('extra-service.destroy');
         Route::post('service-address-update/{id}', [BookingController::class, 'serviceAddressUpdate'])->name('service_address_update');
         Route::any('download', [BookingController::class, 'download'])->name('download');
         Route::any('invoice/{id}', [BookingController::class, 'invoice'])->name('invoice');

@@ -26,6 +26,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingAdditionalInformation;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
+use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\BookingModule\Entities\BookingRepeatHistory;
@@ -835,7 +836,7 @@ class BookingController extends Controller
 
             $booking = $this->booking->with(['detail.service' => function ($query) {
                 $query->withTrashed();
-            }, 'detail.service.variations', 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups'])
+            }, 'detail.service.variations', 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups', 'extra_services'])
                 ->find($id);
 
             // Load variations for each detail with proper constraints (service_id and zone_id)
@@ -1993,6 +1994,48 @@ class BookingController extends Controller
         $booking->save();
 
         Toastr::success(translate('Booking_information_updated_successfully'));
+        return redirect()->back();
+    }
+
+    /**
+     * Store an extra service item for a booking.
+     */
+    public function storeExtraService($id, Request $request): RedirectResponse
+    {
+        $this->authorize('booking_edit');
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'details' => ['nullable', 'string', 'max:2000'],
+            'type' => ['required', 'in:service,spare_part'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $booking = $this->booking->findOrFail($id);
+        $data['booking_id'] = $booking->id;
+        $data['discount'] = (float)($data['discount'] ?? 0);
+        $item = new BookingExtraService($data);
+        $item->recalculateTotal();
+        $item->save();
+
+        Toastr::success(translate('Extra_service_item_added'));
+        return redirect()->back();
+    }
+
+    /**
+     * Delete an extra service item.
+     */
+    public function destroyExtraService($id, $extraId): RedirectResponse
+    {
+        $this->authorize('booking_edit');
+
+        $booking = $this->booking->findOrFail($id);
+        $item = $booking->extra_services()->findOrFail($extraId);
+        $item->delete();
+
+        Toastr::success(translate('Extra_service_item_removed'));
         return redirect()->back();
     }
 
