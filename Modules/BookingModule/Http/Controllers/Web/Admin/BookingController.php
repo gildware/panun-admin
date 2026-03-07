@@ -120,7 +120,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $bookings = $this->booking
-            ->with(['customer', 'assignee', 'followups'])
+            ->with(['customer', 'assignee', 'followups', 'extra_services'])
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
                 $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
@@ -632,7 +632,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
-        $bookings = $this->booking->with(['customer', 'assignee', 'followups'])
+        $bookings = $this->booking->with(['customer', 'assignee', 'followups', 'extra_services'])
             ->when($request->has('search'), function ($query) use ($request) {
                 $query->where(function ($query) use ($request) {
                     $keys = explode(' ', $request['search']);
@@ -753,7 +753,7 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
 
-        $bookings = $this->booking->with(['customer', 'booking_partial_payments', 'assignee', 'followups'])
+        $bookings = $this->booking->with(['customer', 'booking_partial_payments', 'assignee', 'followups', 'extra_services'])
             ->when($hasSearch, function ($query) use ($request) {
                 $search = $request->input('search', $request->input('keyword', ''));
                 $query->where(function ($query) use ($search) {

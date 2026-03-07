@@ -264,7 +264,7 @@
                                                     <a href="tel:{{$booking->customer ? $booking?->customer?->phone : $booking?->service_address?->contact_person_number}}">{{$booking->customer ? $booking?->customer?->phone : $booking?->service_address?->contact_person_number}}</a>
                                                 </div>
                                             </td>
-                                            <td>{{with_currency_symbol($booking->total_booking_amount)}}</td>
+                                            <td>{{ with_currency_symbol($booking->total_booking_amount + ($booking->extra_services ?? collect())->sum('total')) }}</td>
                                             <td>
                                                 <span
                                                     class="badge badge badge-{{$booking->is_paid?'success':'danger'}} radius-50">

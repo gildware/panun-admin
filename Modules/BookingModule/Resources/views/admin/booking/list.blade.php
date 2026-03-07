@@ -363,7 +363,7 @@
                                                         data-bs-placement="bottom"
                                                         data-bs-title="{{ translate('This is a repeat booking.') }} <br> {{ translate('Customer has requested total ')}} {{count($booking->repeat)}}<br> {{ translate('bookings under this Bookings.') }} <br> {{ translate('Check the details') }}"
                                                     @endif
-                                                >{{ with_currency_symbol($booking->total_booking_amount) }}</td>
+                                                >{{ with_currency_symbol($booking->total_booking_amount + ($booking->extra_services ?? collect())->sum('total')) }}</td>
                                                 <td
                                                     @if($booking->is_repeated)
                                                         data-bs-custom-class="review-tooltip"
