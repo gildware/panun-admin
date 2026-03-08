@@ -976,6 +976,7 @@ class BookingController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -1033,6 +1034,9 @@ class BookingController extends Controller
 
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidence_photos;
+            if ($request['booking_status'] == 'completed' && $request->boolean('payment_received_confirmed')) {
+                $booking->provider_payment_confirmed_at = now();
+            }
 
             $bookingStatusHistory = $this->bookingStatusHistory;
             $bookingStatusHistory->booking_id = $bookingId;
@@ -1062,6 +1066,7 @@ class BookingController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -1105,6 +1110,9 @@ class BookingController extends Controller
 
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidence_photos;
+            if ($request['booking_status'] == 'completed' && $request->boolean('payment_received_confirmed')) {
+                $booking->provider_payment_confirmed_at = now();
+            }
 
             $bookingStatusHistory = $this->bookingStatusHistory;
             $bookingStatusHistory->booking_id = $booking->booking_id;

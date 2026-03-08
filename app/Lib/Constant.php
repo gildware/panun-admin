@@ -26,6 +26,7 @@ const BOOKING_STATUSES = [
     ['key' => 'ongoing', 'value' => 'Ongoing'],
     ['key' => 'completed', 'value' => 'Completed'],
     ['key' => 'canceled', 'value' => 'Canceled'],
+    ['key' => 'refunded', 'value' => 'Refunded'],
 ];
 
 const IMAGEEXTENSION = [

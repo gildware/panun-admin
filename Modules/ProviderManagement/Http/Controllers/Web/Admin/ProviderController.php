@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingDetailsAmount;
+use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
@@ -39,6 +41,7 @@ use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
@@ -345,12 +348,12 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,subscribed_services,bookings,serviceman_list,settings,bank_information,reviews,subscription',
+            'web_page' => 'in:overview,subscribed_services,bookings,serviceman_list,settings,bank_information,reviews,subscription,payment',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
 
-        //overview
+        //overview (no payment widgets; those are on the Payment tab)
         if ($request->web_page == 'overview') {
             $provider = $this->provider->with('owner.account')->withCount(['bookings'])->find($id);
             $bookingOverview = DB::table('bookings')->where('provider_id', $id)
@@ -459,7 +462,7 @@ class ProviderController extends Controller
             $queryParam = ['web_page' => $webPage, 'search' => $search];
 
             $bookings = $this->booking->where('provider_id', $id)
-                ->with(['customer'])
+                ->with(['customer', 'details_amounts'])
                 ->where(function ($query) use ($request) {
                     $keys = explode(' ', $request['search']);
                     foreach ($keys as $key) {
@@ -572,9 +575,174 @@ class ProviderController extends Controller
             return view('providermanagement::admin.provider.detail.subscription', compact('webPage','subscriptionDetails','commission', 'subscriptionStatus'));
 
         }
+        elseif ($request->web_page == 'payment') {
+            $provider = $this->provider->with('owner.account')->find($id);
+            $providerId = $provider->id;
+            $providerBookingIds = DB::table('bookings')->where('provider_id', $providerId)->pluck('id')->toArray();
+            $bookingIdsWithRepeats = DB::table('booking_repeats')->whereNotNull('booking_id')->distinct()->pluck('booking_id')->toArray();
+
+            $oneTimeQuery = DB::table('bookings')->where('provider_id', $providerId)->where('booking_status', 'completed');
+            if (!empty($bookingIdsWithRepeats)) {
+                $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
+            }
+            $completedOneTimeBookingIds = $oneTimeQuery->pluck('id');
+            $totalRevenueFromBookings = 0.0;
+            $oneTimeBookingsForRevenue = Booking::whereIn('id', $completedOneTimeBookingIds)->with('extra_services')->get();
+            foreach ($oneTimeBookingsForRevenue as $b) {
+                $totalRevenueFromBookings += get_booking_total_amount($b);
+            }
+            $totalRevenueFromRepeats = 0.0;
+            $completedRepeatIds = collect();
+            if (!empty($providerBookingIds)) {
+                $completedRepeatIds = DB::table('booking_repeats')->where('booking_status', 'completed')->whereIn('booking_id', $providerBookingIds)->pluck('id');
+                $repeatsForRevenue = BookingRepeat::whereIn('id', $completedRepeatIds)->with('booking.extra_services')->get();
+                foreach ($repeatsForRevenue as $r) {
+                    $totalRevenueFromRepeats += get_booking_total_amount($r);
+                }
+            }
+            $totalRevenue = $totalRevenueFromBookings + $totalRevenueFromRepeats;
+            $totalCompanyCommission = (float) BookingDetailsAmount::whereIn('booking_id', $completedOneTimeBookingIds)->sum('admin_commission');
+            $totalCompanyCommission += (float) BookingDetailsAmount::whereIn('booking_repeat_id', $completedRepeatIds)->sum('admin_commission');
+            $providerNetEarning = $totalRevenue - $totalCompanyCommission;
+
+            // Booking earning report: one row per completed booking/repeat (totals include extra_fee + extra_services)
+            $bookingEarningReport = collect();
+            $oneTimeBookings = Booking::whereIn('id', $completedOneTimeBookingIds)->with(['details_amounts', 'extra_services'])->get();
+            foreach ($oneTimeBookings as $b) {
+                $totalAmount = (float) get_booking_total_amount($b);
+                $partsCharges = (float) get_booking_spare_parts_amount($b);
+                $extraServicesTotal = (float) ($b->extra_services->sum('total') ?? 0);
+                $extraServiceCharges = (float) ($b->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
+                $serviceCharges = (float) $b->total_booking_amount;
+                $providerEarning = (float) $b->details_amounts->sum('provider_earning');
+                $adminCommission = (float) $b->details_amounts->sum('admin_commission');
+                $bookingEarningReport->push((object)[
+                    'readable_id' => $b->readable_id ?? $b->id,
+                    'total_amount' => $totalAmount,
+                    'service_charges' => $serviceCharges,
+                    'extra_service_charges' => $extraServiceCharges,
+                    'parts_charges' => $partsCharges,
+                    'provider_earning' => $providerEarning,
+                    'admin_commission' => $adminCommission,
+                ]);
+            }
+            $repeats = BookingRepeat::whereIn('id', $completedRepeatIds)->with(['details_amounts', 'booking.extra_services'])->get();
+            foreach ($repeats as $r) {
+                $totalAmount = (float) get_booking_total_amount($r);
+                $partsCharges = (float) get_booking_spare_parts_amount($r);
+                $extraServicesTotal = (float) ($r->booking->extra_services->sum('total') ?? 0);
+                $extraServiceCharges = (float) ($r->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
+                $serviceCharges = (float) $r->total_booking_amount;
+                $providerEarning = (float) $r->details_amounts->sum('provider_earning');
+                $adminCommission = (float) $r->details_amounts->sum('admin_commission');
+                $bookingEarningReport->push((object)[
+                    'readable_id' => $r->readable_id ?? $r->id,
+                    'total_amount' => $totalAmount,
+                    'service_charges' => $serviceCharges,
+                    'extra_service_charges' => $extraServiceCharges,
+                    'parts_charges' => $partsCharges,
+                    'provider_earning' => $providerEarning,
+                    'admin_commission' => $adminCommission,
+                ]);
+            }
+
+            $bookingReportPerPage = 20;
+            $bookingReportPage = (int) $request->get('booking_page', 1);
+            $bookingEarningReportPaginated = new \Illuminate\Pagination\LengthAwarePaginator(
+                $bookingEarningReport->forPage($bookingReportPage, $bookingReportPerPage)->values(),
+                $bookingEarningReport->count(),
+                $bookingReportPerPage,
+                $bookingReportPage,
+                ['path' => $request->url(), 'pageName' => 'booking_page']
+            );
+            $bookingEarningReportPaginated->withQueryString();
+
+            // Provider ledger: only company↔provider flows (money company sent to provider or received from provider)
+            $ledgerQuery = LedgerTransaction::query()
+                ->where('provider_id', $providerId)
+                ->with(['booking', 'repeat', 'creator'])
+                ->orderByDesc('date')
+                ->orderByDesc('created_at');
+            $providerLedger = $ledgerQuery->paginate(20)->withQueryString();
+
+            return view('providermanagement::admin.provider.detail.payment', compact('provider', 'webPage', 'totalRevenue', 'totalCompanyCommission', 'providerNetEarning', 'bookingEarningReportPaginated', 'providerLedger'));
+        }
         return back();
     }
 
+    /**
+     * Record a manual payment from company to provider (Add Payment to Provider).
+     * Reduces provider's account_receivable, creates ledger OUT and transactions.
+     */
+    public function addPaymentToProvider(string $id, Request $request): RedirectResponse
+    {
+        $this->authorize('provider_update');
+
+        $provider = $this->provider->with('owner.account')->find($id);
+        if (!$provider || !$provider->owner?->account) {
+            Toastr::error(translate('Provider_or_account_not_found'));
+            return back();
+        }
+
+        $maxAmount = (float) ($provider->owner->account->account_receivable ?? 0);
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:' . max(0.01, $maxAmount)],
+            'transaction_id' => ['nullable', 'string', 'max:255'],
+            'reference_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            recordPaymentToProvider(
+                (string) $provider->owner->id,
+                (float) $validated['amount'],
+                $validated['transaction_id'] ?? null,
+                $validated['reference_note'] ?? null,
+                $provider->id
+            );
+        } catch (\InvalidArgumentException $e) {
+            Toastr::error($e->getMessage());
+            return back();
+        }
+
+        Toastr::success(translate('Payment_recorded_successfully'));
+        return redirect()->route('admin.provider.details', [$id, 'web_page' => 'payment']);
+    }
+
+    /**
+     * Collect amount from provider (provider owes company). Records ledger IN and updates accounts.
+     */
+    public function collectAmountFromProvider(string $id, Request $request): RedirectResponse
+    {
+        $this->authorize('provider_update');
+
+        $provider = $this->provider->with('owner.account')->find($id);
+        if (!$provider || !$provider->owner?->account) {
+            Toastr::error(translate('Provider_or_account_not_found'));
+            return back();
+        }
+
+        $maxAmount = (float) ($provider->owner->account->account_payable ?? 0);
+        if ($maxAmount <= 0) {
+            Toastr::error(translate('No_amount_to_collect'));
+            return back();
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:' . round($maxAmount, 2)],
+            'transaction_id' => ['nullable', 'string', 'max:255'],
+            'reference_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        collectCashTransaction(
+            $id,
+            (float) $validated['amount'],
+            $validated['transaction_id'] ?? null,
+            $validated['reference_note'] ?? null
+        );
+
+        Toastr::success(translate('Amount_collected_successfully'));
+        return redirect()->route('admin.provider.details', [$id, 'web_page' => 'payment']);
+    }
 
     /**
      * Show the form for editing the specified resource.

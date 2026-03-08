@@ -591,6 +591,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         <span class="link-title">{{translate('All Transactions')}}</span>
                     </a>
                 </li>
+                <li>
+                    <a href="{{route('admin.ledger.index')}}"
+                       class="{{request()->is('admin/ledger')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('Ledger')}}">book</span>
+                        <span class="link-title">{{translate('Ledger')}}</span>
+                    </a>
+                </li>
             @endcan
 
             @can('report_view')

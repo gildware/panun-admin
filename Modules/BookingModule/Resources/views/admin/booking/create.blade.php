@@ -64,7 +64,7 @@
                                         <option value="">{{ translate('Select_Customer') }}</option>
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer->id }}"
-                                                {{ old('customer_id', request('customer_id')) == $customer->id ? 'selected' : '' }}>
+                                                {{ (old('customer_id', request('customer_id')) == $customer->id || ($customers->count() === 1 && $loop->first)) ? 'selected' : '' }}>
                                                 {{ $customer->first_name }} {{ $customer->last_name }} - {{ $customer->phone }}
                                             </option>
                                         @endforeach
@@ -119,7 +119,7 @@
                                         <option value="">{{ translate('Select_Zone') }}</option>
                                         @foreach($zones as $zone)
                                             <option value="{{ $zone->id }}"
-                                                {{ old('zone_id') == $zone->id ? 'selected' : '' }}>
+                                                {{ (old('zone_id', request('zone_id')) == $zone->id || ($zones->count() === 1 && $loop->first)) ? 'selected' : '' }}>
                                                 {{ $zone->name }}
                                             </option>
                                         @endforeach
@@ -329,7 +329,7 @@
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Advance_Paid_Amount') }}</label>
                                     <input type="number" step="0.01" min="0" name="advance_paid_amount" id="advance-paid-amount"
-                                           class="form-control" value="{{ old('advance_paid_amount', request('advance_paid_amount', 0)) }}"
+                                           class="form-control" value="{{ old('advance_paid_amount', request('advance_paid_amount', 100)) }}"
                                            placeholder="0">
                                     @error('advance_paid_amount')
                                     <span class="text-danger">{{ $message }}</span>
@@ -791,6 +791,9 @@
                                 );
                             });
                             reinitializeSelect2($categorySelect);
+                            if (response.content.length === 1) {
+                                $categorySelect.val(response.content[0].id).trigger('change');
+                            }
                         } else {
                             alert('{{ translate('No_categories_found_for_this_zone') }}');
                         }
@@ -834,6 +837,9 @@
                                 );
                             });
                             reinitializeSelect2($subCategorySelect);
+                            if (response.content.length === 1) {
+                                $subCategorySelect.val(response.content[0].id).trigger('change');
+                            }
                         } else {
                             alert('{{ translate('No_subcategories_found_for_this_category') }}');
                         }
@@ -877,6 +883,9 @@
                                 );
                             });
                             reinitializeSelect2($serviceSelect);
+                            if (response.content.length === 1) {
+                                $serviceSelect.val(response.content[0].id).trigger('change');
+                            }
                         } else {
                             alert('{{ translate('No_services_found_for_this_subcategory') }}');
                         }
@@ -924,6 +933,9 @@
                             });
                             reinitializeSelect2($variantSelect);
                             toggleServiceControls(4);
+                            if (response.content.length === 1) {
+                                $variantSelect.val(response.content[0].variant_key).trigger('change');
+                            }
                         } else {
                             alert('{{ translate('No_services_found_for_this_subcategory') }}');
                         }
@@ -1097,6 +1109,9 @@
                             
                             // Show service location section when providers are loaded
                             $serviceLocationSection.show();
+                            if (response.content.length === 1) {
+                                $providerSelect.val(response.content[0].id).trigger('change');
+                            }
                         } else {
                             alert('{{ translate('No_providers_found_for_this_subcategory') }}');
                             $serviceLocationSection.hide();
@@ -1184,9 +1199,18 @@
                 }, 100);
             }
 
+            // When customer has a value on load (e.g. single customer pre-selected), trigger change to load addresses
+            if ($customerSelect.val()) {
+                $customerSelect.trigger('change');
+            }
             // Restore customer selection
             if (oldValues.customer_id) {
                 $customerSelect.val(oldValues.customer_id).trigger('change');
+            }
+
+            // When zone has a value on load (e.g. single zone pre-selected), trigger change to load categories
+            if ($zoneSelect.val()) {
+                $zoneSelect.trigger('change');
             }
 
             // Restore zone and cascade

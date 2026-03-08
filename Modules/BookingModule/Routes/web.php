@@ -49,6 +49,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
         Route::any('switch-payment-method/{id}', [BookingController::class, 'switchPaymentMethod'])->name('switch-payment-method');
         Route::any('offline-payment/verify', [BookingController::class, 'verifyOfflinePayment'])->name('offline-payment.verify');
+        Route::post('add-payment/{id}', [BookingController::class, 'addPayment'])->name('add-payment');
+        Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
 
         Route::delete('delete/{id}', [BookingController::class, 'destroy'])->name('delete');
 

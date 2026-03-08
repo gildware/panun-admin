@@ -47,6 +47,7 @@ class Booking extends Model
         'evidence_photos' => 'array',
         'extra_fee' => 'float',
         'total_referral_discount_amount' => 'float',
+        'provider_payment_confirmed_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -80,6 +81,7 @@ class Booking extends Model
         'evidence_photos',
         'booking_otp',
         'is_verified',
+        'provider_payment_confirmed_at',
         'service_address_location',
         'service_location',
         'assignee_id',
@@ -307,6 +309,14 @@ class Booking extends Model
 
 
         self::updating(function ($model) {
+            // Prevent completion unless full payment received
+            if ($model->isDirty('booking_status') && $model->booking_status === 'completed') {
+                $b = Booking::with('booking_partial_payments')->find($model->id);
+                if ($b && !booking_can_be_completed($b)) {
+                    throw new \RuntimeException(translate('Booking cannot be completed until full payment is received.'));
+                }
+            }
+
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
             $permission = isNotificationActive(null, 'booking', 'notification', 'user');
             $providerPermission = isNotificationActive(null, 'booking', 'notification', 'provider');
@@ -396,7 +406,8 @@ class Booking extends Model
 
                 if ($model?->provider) {
                     if ($model->booking_partial_payments->isNotEmpty()) {
-                        if ($model['payment_method'] == 'cash_after_service') {
+                        $anyReceivedByProvider = $model->booking_partial_payments->contains(fn ($p) => ($p->received_by ?? '') === 'provider');
+                        if ($model['payment_method'] == 'cash_after_service' && $anyReceivedByProvider) {
                             $booking_partial_payment = new BookingPartialPayment;
                             $booking_partial_payment->booking_id = $model->id;
                             $booking_partial_payment->paid_with = 'cash_after_service';
@@ -405,6 +416,8 @@ class Booking extends Model
                             $booking_partial_payment->save();
 
                             completeBookingTransactionForPartialCas($model);
+                        } elseif ($model['payment_method'] == 'cash_after_service' && !$anyReceivedByProvider) {
+                            completeBookingTransactionForPartialDigital($model);
                         } elseif ($model['payment_method'] != 'wallet_payment') {
                             completeBookingTransactionForPartialDigital($model);
                         }

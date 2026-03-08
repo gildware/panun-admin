@@ -12,7 +12,11 @@ trait BookingScopes
 
     public function scopeOfBookingStatus($query, $status): void
     {
-        $query->where('booking_status', '=', $status);
+        if ($status === 'canceled') {
+            $query->whereIn('booking_status', ['canceled', 'refunded']);
+        } else {
+            $query->where('booking_status', '=', $status);
+        }
     }
     public function scopeOfRepeatBookingStatus($query, $status): void
     {

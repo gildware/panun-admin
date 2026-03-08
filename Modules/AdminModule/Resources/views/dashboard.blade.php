@@ -12,6 +12,10 @@
             display: flex;
             flex-wrap: wrap;
         }
+        .dashboard-top-cards .business-summary {
+            height: 8.5rem;
+            min-height: 8.5rem;
+        }
     </style>
 @endpush
 
@@ -20,38 +24,54 @@
     <div class="main-content">
         <div class="container-fluid">
             @if(access_checker('dashboard'))
-                <div class="row mb-4 g-4">
-                    <div class="col-lg-3 col-sm-6">
+                <div class="row mb-4 g-4 dashboard-top-cards">
+                    <div class="col-lg-2 col-sm-4">
                         <div class="business-summary business-summary-customers">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_commission_earning', 0) + data_get($data[0], 'top_cards.total_fee_earning', 0) + data_get($data[0], 'top_cards.total_subscription_earning', 0))}}</h2>
-                            <h3>{{translate('total_earning')}}</h3>
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_revenue', 0))}}</h2>
+                            <h3>{{translate('Total_Revenue')}}</h3>
                             <img src="{{asset('assets/admin-module')}}/img/icons/customers.png"
                                  class="absolute-img"
                                  alt="">
                         </div>
                     </div>
-                    <div class="col-lg-3 col-sm-6">
+                    <div class="col-lg-2 col-sm-4">
                         <div class="business-summary business-summary-earning">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_commission_earning', 0))}}</h2>
-                            <h3>{{translate('commission_earning')}}</h3>
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.service_charges_total', 0))}}</h2>
+                            <h3>{{translate('Service_Charges')}}</h3>
                             <img src="{{asset('assets/admin-module')}}/img/icons/total-earning.png"
                                  class="absolute-img" alt="">
                         </div>
                     </div>
-                    <div class="col-lg-3 col-sm-6">
+                    <div class="col-lg-2 col-sm-4">
                         <div class="business-summary business-summary-providers">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_fee_earning', 0))}}</h2>
-                            <h3>{{translate('Total Fee Earning')}}</h3>
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.spare_parts_total', 0))}}</h2>
+                            <h3>{{translate('Parts_Charges')}}</h3>
                             <img src="{{asset('assets/admin-module')}}/img/icons/providers.png"
                                  class="absolute-img"
                                  alt="">
                         </div>
                     </div>
-
-                    <div class="col-lg-3 col-sm-6">
+                    <div class="col-lg-2 col-sm-4">
+                        <div class="business-summary business-summary-earning">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.our_earning', 0))}}</h2>
+                            <h3>{{translate('Our_Earning')}}</h3>
+                            <img src="{{asset('assets/admin-module')}}/img/icons/total-earning.png"
+                                 class="absolute-img" alt="">
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-sm-4">
+                        <div class="business-summary business-summary-providers">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.payable_amount', 0))}}</h2>
+                            <h3>{{translate('Payable_Amount')}}</h3>
+                            <img src="{{asset('assets/admin-module')}}/img/icons/providers.png"
+                                 class="absolute-img"
+                                 alt="">
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-sm-4">
                         <div class="business-summary business-summary-services">
-                            <h2>{{$data[0]['top_cards']['total_provider']}}</h2>
-                            <h3>{{translate('providers')}}</h3>
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.balance_with_providers', 0))}}</h2>
+                            <h3>{{translate('Balance_With_Providers')}}</h3>
                             <img src="{{asset('assets/admin-module')}}/img/icons/services.png"
                                  class="absolute-img"
                                  alt="">
@@ -67,7 +87,7 @@
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body p-0">
-                                @if(isset($data[6]['todays_pending_followups']) && $data[6]['todays_pending_followups']->isNotEmpty())
+                                @if(isset($data[5]['todays_pending_followups']) && $data[5]['todays_pending_followups']->isNotEmpty())
                                     <div class="table-responsive px-3">
                                         <table class="table table-hover align-middle mb-0 fs-13">
                                             <thead class="text-secondary border-bottom">
@@ -80,7 +100,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach($data[6]['todays_pending_followups'] as $followup)
+                                                @foreach($data[5]['todays_pending_followups'] as $followup)
                                                     <tr class="cursor-pointer todays-followup-redirect"
                                                         data-route="{{ $followup->booking ? (route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups'])) : '#' }}">
                                                         <td>
@@ -166,15 +186,15 @@
                                     <a href="{{route('admin.transaction.list', ['trx_type'=>'all'])}}"
                                        class="btn-link">{{translate('view_all')}}</a>
                                 </div>
-                                @if(isset($data[2]['recent_transactions']) && count($data[2]['recent_transactions']) > 0)
+                                @if(isset($data[1]['recent_transactions']) && count($data[1]['recent_transactions']) > 0)
                                     <div class="d-flex align-items-center gap-3 mb-4">
                                         <img src="{{asset('assets/admin-module')}}/img/icons/arrow-up.png"
                                              alt="">
-                                        <p class="opacity-75">{{$data[2]['this_month_trx_count']}} {{translate('transactions_this_month')}}</p>
+                                        <p class="opacity-75">{{$data[1]['this_month_trx_count']}} {{translate('transactions_this_month')}}</p>
                                     </div>
                                 @endif
                                 <div class="events w-100">
-                                    @foreach($data[2]['recent_transactions'] as $transaction)
+                                    @foreach($data[1]['recent_transactions'] ?? [] as $transaction)
                                         <div class="event">
                                             <div class="knob"></div>
                                             <div class="d-flex align-items-center gap-1 justify-content-between">
@@ -211,7 +231,7 @@
                                     <div class="line"></div>
                                 </div>
 
-                                @if(count($data[2]['recent_transactions']) < 1)
+                                @if(count($data[1]['recent_transactions'] ?? []) < 1)
 
                                 <div class="d-flex flex-column justify-content-center align-items-center h-100 w-100">
                                     <div class="recent-transaction-no-data text-center">
@@ -235,7 +255,7 @@
                             </div>
                             <div class="card-body">
                                 <ul class="common-list">
-                                    @foreach($data[4]['top_providers'] as $provider)
+                                    @foreach($data[3]['top_providers'] as $provider)
                                         <li class="provider-redirect"
                                             data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
                                             <div class="media gap-3">
@@ -265,7 +285,7 @@
                             </div>
                             <div class="card-body">
                                 <ul class="common-list">
-                                    @foreach($data[3]['bookings'] as $booking)
+                                    @foreach($data[2]['bookings'] as $booking)
                                         <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer recent-booking-redirect"
                                             data-route="@if($booking->is_repeated) {{ route('admin.booking.repeat_details', [$booking->id]) }}?web_page=details @else {{ route('admin.booking.details', [$booking->id]) }}?web_page=details @endif">
                                         <div class="media align-items-center gap-3">
@@ -298,9 +318,9 @@
                                 <h5>{{translate('booking_statistics')}} - {{date('M, Y')}}</h5>
                             </div>
                             <div class="card-body booking-statistics-info">
-                                @if(isset($data[5]['zone_wise_bookings']))
+                                @if(isset($data[4]['zone_wise_bookings']))
                                     <ul class="common-list after-none gap-10 d-flex flex-column">
-                                        @foreach($data[5]['zone_wise_bookings'] as $booking)
+                                        @foreach($data[4]['zone_wise_bookings'] as $booking)
                                             <li>
                                                 <div
                                                     class="mb-2 d-flex align-items-center justify-content-between gap-10 flex-wrap">

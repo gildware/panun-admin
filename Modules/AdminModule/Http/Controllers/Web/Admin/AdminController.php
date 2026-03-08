@@ -34,6 +34,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\AdminModule\Entities\RouteSearchHistory;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
+use Modules\BookingModule\Entities\BookingRepeat;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
@@ -78,36 +79,37 @@ class AdminController extends Controller
         })->orWhereHas('repeat', function ($subQuery) {
             $subQuery->ofBookingStatus('completed');
         });
-        //->sum('admin_commission');
         $admin_commission = $baseQuery->sum('admin_commission');
         $discount_by_admin = $baseQuery->sum('discount_by_admin');
         $coupon_discount_by_admin = $baseQuery->sum('coupon_discount_by_admin');
         $campaign_discount_by_admin = $baseQuery->sum('campaign_discount_by_admin');
 
-        $commission_earning = $admin_commission - $discount_by_admin - $coupon_discount_by_admin - $campaign_discount_by_admin;
+        $our_earning = $admin_commission - $discount_by_admin - $coupon_discount_by_admin - $campaign_discount_by_admin;
 
-        $fee_amounts = $this->transaction->where('trx_type', TRX_TYPE['received_extra_fee'])->sum('credit');
-        $subscription_amounts = $this->transaction->whereIn('trx_type', ['subscription_purchase', 'subscription_renew', 'subscription_shift'])->sum('credit');
+        $total_revenue = (float) $this->booking->ofBookingStatus('completed')->get()->sum(fn ($b) => get_booking_total_amount($b))
+            + (float) BookingRepeat::ofBookingStatus('completed')->get()->sum(fn ($r) => get_booking_total_amount($r));
+
+        $spare_parts_total = (float) $this->booking->ofBookingStatus('completed')->get()->sum(fn ($b) => get_booking_spare_parts_amount($b))
+            + (float) BookingRepeat::ofBookingStatus('completed')->get()->sum(fn ($r) => get_booking_spare_parts_amount($r));
+        $service_charges_total = round($total_revenue - $spare_parts_total, 2);
+        $spare_parts_total = round($spare_parts_total, 2);
+
+        $providerUserIds = $this->provider->pluck('user_id')->filter()->toArray();
+        $payable_amount = $this->account->whereIn('user_id', $providerUserIds)->sum('account_receivable');
+        $balance_with_providers = $this->account->whereIn('user_id', $providerUserIds)->sum('account_payable');
 
         $data = [];
         $data[] = ['top_cards' => [
-            'total_commission_earning' => $commission_earning ?? 0,
-            'total_fee_earning' => $fee_amounts ?? 0,
-            'total_subscription_earning' => $subscription_amounts ?? 0,
-            'total_system_earning' => $this->account->sum('received_balance') + $this->account->sum('total_withdrawn'),
+            'total_revenue' => round($total_revenue, 2),
+            'service_charges_total' => $service_charges_total,
+            'spare_parts_total' => $spare_parts_total,
+            'our_earning' => round($our_earning ?? 0, 2),
+            'payable_amount' => round($payable_amount ?? 0, 2),
+            'balance_with_providers' => round($balance_with_providers ?? 0, 2),
             'total_customer' => $this->user->where(['user_type' => 'customer'])->count(),
             'total_provider' => $this->provider->where(['is_approved' => 1])->count(),
             'total_services' => $this->service->count()
         ]];
-
-        $total_earning = $this->booking_details_amount
-            ->whereHas('booking', function ($query) use ($request) {
-                $query->ofBookingStatus('completed');
-            })->orWhereHas('repeat', function ($subQuery) {
-                $subQuery->ofBookingStatus('completed');
-            })->get()->sum('admin_commission');
-
-        $data[] = ['admin_total_earning' => $total_earning];
 
         $recent_transactions = $this->transaction
             ->with(['booking'])

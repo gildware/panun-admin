@@ -32,6 +32,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('update/{id}', [ProviderController::class, 'update'])->name('update');
         Route::delete('delete/{id}', [ProviderController::class, 'destroy'])->name('delete');
         Route::any('details/{id}', [ProviderController::class, 'details'])->name('details');
+        Route::post('details/{id}/add-payment', [ProviderController::class, 'addPaymentToProvider'])->name('details.add_payment');
+        Route::post('details/{id}/collect-amount', [ProviderController::class, 'collectAmountFromProvider'])->name('details.collect_amount');
         Route::any('download', [ProviderController::class, 'download'])->name('download');
         Route::any('reviews/download', [ProviderController::class, 'reviewsDownload'])->name('reviews.download');
         Route::get('get-provider-info/{provider_id}', [ProviderController::class, 'getProviderInfo'])->name('get-provider-info')->withoutMiddleware('admin');

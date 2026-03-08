@@ -40,6 +40,16 @@ if (!function_exists('placeBookingTransactionForDigitalPayment')) {
                     'to_user_account' => ACCOUNT_STATES[0]['value'],
                     'is_guest' => $booking->is_guest
                 ]);
+
+                // Ledger IN: money received by company (digital/offline)
+                ledger_record_in([
+                    'amount' => $booking['total_booking_amount'],
+                    'transaction_id' => $booking->transaction_id ?? null,
+                    'booking_id' => $booking['id'],
+                    'payment_method' => $booking['payment_method'] ?? 'digital_payment',
+                    'date' => now()->toDateString(),
+                    'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                ]);
             });
         }
     }
@@ -254,6 +264,15 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
                 'from_user_account' => null,
                 'to_user_account' => 'user_wallet'
             ]);
+
+            ledger_record_in([
+                'amount' => $booking['total_booking_amount'],
+                'transaction_id' => $booking->transaction_id ?? null,
+                'booking_id' => $booking['id'],
+                'payment_method' => 'wallet_payment',
+                'date' => now()->toDateString(),
+                'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+            ]);
         });
     }
 }
@@ -340,34 +359,11 @@ if (!function_exists('removeBookingServiceTransactionForDigitalPayment')) {
 if (!function_exists('completeBookingTransactionForDigitalPayment')) {
     function completeBookingTransactionForDigitalPayment($booking): void
     {
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
-
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['extra_fee'];
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'];
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
@@ -484,34 +480,11 @@ if (!function_exists('completeBookingTransactionForDigitalPayment')) {
 if (!function_exists('completeBookingRepeatTransactionForDigitalPayment')) {
     function completeBookingRepeatTransactionForDigitalPayment($booking): void
     {
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
-
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->booking->id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['extra_fee'];
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'];
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
@@ -634,40 +607,23 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPayment')) {
 if (!function_exists('completeBookingTransactionForCashAfterService')) {
     function completeBookingTransactionForCashAfterService($booking): void
     {
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
-
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-        //total booking amount (for provider)
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-        //admin promotional cost will be deducted from admin commission
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['extra_fee'];
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'];
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider) {
+        $advance = get_booking_advance_paid_amount($booking);
+        $commission_net = max(0, $admin_commission - min($advance, $admin_commission));
+        $advance_remaining = max(0, $advance - $admin_commission);
+        $extra_fee = (float) ($booking['extra_fee'] ?? 0);
+        $extra_fee_net = max(0, $extra_fee - $advance_remaining);
+
+        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider, $commission_net, $extra_fee_net) {
 
             //Provider transactions
             $account = Account::where('user_id', $provider_user_id)->first();
@@ -687,10 +643,10 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
                 'to_user_account' => ACCOUNT_STATES[1]['value']
             ]);
 
-            if($admin_commission > 0) {
-                //Provider transactions (for commission)
+            if ($commission_net > 0) {
+                //Provider transactions (for commission; reduced by advance already received by company)
                 $account = Account::where('user_id', $provider_user_id)->first();
-                $account->account_payable += $admin_commission;
+                $account->account_payable += $commission_net;
                 $account->save();
 
                 Transaction::create([
@@ -698,7 +654,7 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['payable_commission'],
                     'debit' => 0,
-                    'credit' => $admin_commission,
+                    'credit' => $commission_net,
                     'balance' => $account->account_payable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $provider_user_id,
@@ -707,10 +663,10 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
                 ]);
             }
 
-            if($booking['extra_fee'] > 0){
-                //Provider transactions (for commission)
+            if ($extra_fee_net > 0) {
+                //Provider transactions (for extra fee; reduced by any remaining advance)
                 $account = Account::where('user_id', $provider_user_id)->first();
-                $account->account_payable += $booking['extra_fee'];
+                $account->account_payable += $extra_fee_net;
                 $account->save();
 
                 Transaction::create([
@@ -718,20 +674,19 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['payable_extra_fee'],
                     'debit' => 0,
-                    'credit' => $booking['extra_fee'],
+                    'credit' => $extra_fee_net,
                     'balance' => $account->account_payable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $provider_user_id,
                     'from_user_account' => ACCOUNT_STATES[2]['value'],
                     'to_user_account' => null
                 ]);
-
             }
 
-            if($admin_commission > 0) {
+            if ($commission_net > 0) {
                 //Admin transactions (for commission)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->account_receivable += $admin_commission;
+                $account->account_receivable += $commission_net;
                 $account->save();
 
                 Transaction::create([
@@ -739,7 +694,7 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['receivable_commission'],
                     'debit' => 0,
-                    'credit' => $admin_commission,
+                    'credit' => $commission_net,
                     'balance' => $account->account_receivable,
                     'from_user_id' => $admin_user_id,
                     'to_user_id' => $provider_user_id,
@@ -748,10 +703,10 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
                 ]);
             }
 
-            if($booking['extra_fee']){
-                //Admin transactions (for commission)
+            if ($extra_fee_net > 0) {
+                //Admin transactions (for extra fee)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->account_receivable += $booking['extra_fee'];
+                $account->account_receivable += $extra_fee_net;
                 $account->save();
 
                 Transaction::create([
@@ -759,7 +714,7 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['received_extra_fee'],
                     'debit' => 0,
-                    'credit' => $booking['extra_fee'],
+                    'credit' => $extra_fee_net,
                     'balance' => $account->account_receivable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $admin_user_id,
@@ -783,34 +738,11 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
 if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
     function completeBookingRepeatTransactionForCashAfterService($booking): void
     {
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
-
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-        //total booking amount (for provider)
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->booking_id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-        //admin promotional cost will be deducted from admin commission
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['extra_fee'];
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'];
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
@@ -963,46 +895,21 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
             $due_amount = $booking['total_booking_amount'];
         }
 
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'] - ($booking['additional_charge'] ?? 0);
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
-        if($booking['additional_charge'] > 0) {
-            $service_cost = $service_cost - $booking['additional_charge'] + $booking['additional_tax_amount'] + $booking['additional_discount_amount'] + $booking['additional_campaign_discount_amount'] -  $booking['total_coupon_discount_amount'];
-        }
-
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-        //total booking amount (for provider)
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        //admin commission
-
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['additional_charge'] - $booking['extra_fee'];
+        $advance = get_booking_advance_paid_amount($booking);
+        $commission_cas_portion = ($admin_commission * $due_amount) / $booking['total_booking_amount'];
+        $commission_cas_net = max(0, $commission_cas_portion - $advance);
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider, $paid_amount, $due_amount) {
+        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider, $paid_amount, $due_amount, $commission_cas_net) {
 
             /** digital */
             $account = Account::where('user_id', $admin_user_id)->first();
@@ -1118,10 +1025,10 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                 'to_user_account' => ACCOUNT_STATES[1]['value']
             ]);
 
-            if ($admin_commission > 0) {
-                //Provider (+account_payable) [commission]
+            if ($commission_cas_net > 0) {
+                //Provider (+account_payable) [commission; reduced by advance already received by company]
                 $account = Account::where('user_id', $provider_user_id)->first();
-                $account->account_payable += ($admin_commission * $due_amount) / $booking['total_booking_amount'];
+                $account->account_payable += $commission_cas_net;
                 $account->save();
 
                 Transaction::create([
@@ -1129,7 +1036,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['payable_commission'],
                     'debit' => 0,
-                    'credit' => ($admin_commission * $due_amount) / $booking['total_booking_amount'],
+                    'credit' => $commission_cas_net,
                     'balance' => $account->account_payable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $provider_user_id,
@@ -1138,10 +1045,10 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                 ]);
             }
 
-            if ($admin_commission > 0) {
-                //Provider (+account_receivable) [commission]
+            if ($commission_cas_net > 0) {
+                //Admin (+account_receivable) [commission]
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->account_receivable += ($admin_commission * $due_amount) / $booking['total_booking_amount'];
+                $account->account_receivable += $commission_cas_net;
                 $account->save();
 
                 Transaction::create([
@@ -1149,7 +1056,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['receivable_commission'],
                     'debit' => 0,
-                    'credit' => ($admin_commission * $due_amount) / $booking['total_booking_amount'],
+                    'credit' => $commission_cas_net,
                     'balance' => $account->account_receivable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $admin_user_id,
@@ -1172,44 +1079,20 @@ if (!function_exists('completeBookingTransactionForPartialDigital')) {
      */
     function completeBookingTransactionForPartialDigital($booking): void
     {
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
-        if($booking['additional_charge'] > 0) {
-            $service_cost = $service_cost - $booking['additional_charge'] + $booking['additional_tax_amount'] + $booking['additional_discount_amount'] + $booking['additional_campaign_discount_amount'] -  $booking['total_coupon_discount_amount'];
-        }
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'] - ($booking['additional_charge'] ?? 0);
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-        //total booking amount (for provider)
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        //admin commission
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['additional_charge'];
+        $advance = get_booking_advance_paid_amount($booking);
+        $commission_net = max(0, $admin_commission - $advance);
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider) {
+        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider, $commission_net) {
 
             $account = Account::where('user_id', $admin_user_id)->first();
             $account->balance_pending -= ($booking['total_booking_amount'] - $booking['additional_charge']);
@@ -1285,6 +1168,40 @@ if (!function_exists('completeBookingTransactionForPartialDigital')) {
                 'to_user_account' => null
             ]);
 
+            // Provider commission debt (net of advance) and admin receivable – so Net Payable shows correct collectible amount
+            if ($commission_net > 0) {
+                $account = Account::where('user_id', $provider_user_id)->first();
+                $account->account_payable += $commission_net;
+                $account->save();
+                Transaction::create([
+                    'ref_trx_id' => $primary_transaction['id'],
+                    'booking_id' => $booking['id'],
+                    'trx_type' => TRX_TYPE['payable_commission'],
+                    'debit' => 0,
+                    'credit' => $commission_net,
+                    'balance' => $account->account_payable,
+                    'from_user_id' => $provider_user_id,
+                    'to_user_id' => $provider_user_id,
+                    'from_user_account' => ACCOUNT_STATES[2]['value'],
+                    'to_user_account' => null
+                ]);
+                $account = Account::where('user_id', $admin_user_id)->first();
+                $account->account_receivable += $commission_net;
+                $account->save();
+                Transaction::create([
+                    'ref_trx_id' => $primary_transaction['id'],
+                    'booking_id' => $booking['id'],
+                    'trx_type' => TRX_TYPE['receivable_commission'],
+                    'debit' => 0,
+                    'credit' => $commission_net,
+                    'balance' => $account->account_receivable,
+                    'from_user_id' => $admin_user_id,
+                    'to_user_id' => $provider_user_id,
+                    'from_user_account' => ACCOUNT_STATES[3]['value'],
+                    'to_user_account' => null
+                ]);
+            }
+
             //expense
             $account = Account::where('user_id', $admin_user_id)->first();
             $account->total_expense += $promotional_cost_by_admin;
@@ -1300,34 +1217,11 @@ if (!function_exists('completeBookingTransactionForPartialDigital')) {
 if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService')) {
     function completeBookingTransactionForDigitalPaymentAndExtraService($booking): void
     {
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'];
-
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-        //total booking amount (for provider)
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['extra_fee'];
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'];
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
@@ -1445,6 +1339,8 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
             }
             $due_booking_amount = $booking['additional_charge'] + $booking['removed_booking_amount'] + $due_amount;
             $commission_for_cas =  round(($admin_commission * $due_booking_amount)/$booking['total_booking_amount'], 2);
+            $advance = get_booking_advance_paid_amount($booking);
+            $commission_for_cas_net = max(0, $commission_for_cas - $advance);
             $provider_earning_for_cas = ($booking_amount_without_commission * $due_booking_amount)/$booking['total_booking_amount'];
 
             //Provider transactions
@@ -1465,10 +1361,10 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
                 'to_user_account' => ACCOUNT_STATES[1]['value']
             ]);
 
-            if($admin_commission > 0) {
-                //Provider transactions (for commission)
+            if ($commission_for_cas_net > 0) {
+                //Provider transactions (for commission; reduced by advance already received by company)
                 $account = Account::where('user_id', $provider_user_id)->first();
-                $account->account_payable += $commission_for_cas;
+                $account->account_payable += $commission_for_cas_net;
                 $account->save();
 
                 Transaction::create([
@@ -1476,7 +1372,7 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['payable_commission'],
                     'debit' => 0,
-                    'credit' => $commission_for_cas,
+                    'credit' => $commission_for_cas_net,
                     'balance' => $account->account_payable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $provider_user_id,
@@ -1485,10 +1381,10 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
                 ]);
             }
 
-            if($admin_commission > 0) {
+            if ($commission_for_cas_net > 0) {
                 //Admin transactions (for commission)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->account_receivable += $commission_for_cas;
+                $account->account_receivable += $commission_for_cas_net;
                 $account->save();
 
                 Transaction::create([
@@ -1496,7 +1392,7 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['receivable_commission'],
                     'debit' => 0,
-                    'credit' => $commission_for_cas,
+                    'credit' => $commission_for_cas_net,
                     'balance' => $account->account_receivable,
                     'from_user_id' => $admin_user_id,
                     'to_user_id' => $provider_user_id,
@@ -1519,34 +1415,11 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
 if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraService')) {
     function completeBookingRepeatTransactionForDigitalPaymentAndExtraService($booking): void
     {
-        $service_cost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'];
-
-        //cost bearing (promotional)
-        $booking_details_amounts = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->get();
-        $promotional_cost_by_admin = 0;
-        $promotional_cost_by_provider = 0;
-        foreach($booking_details_amounts as $booking_details_amount) {
-            $promotional_cost_by_admin += $booking_details_amount['discount_by_admin'] + $booking_details_amount['coupon_discount_by_admin'] + $booking_details_amount['campaign_discount_by_admin'];
-            $promotional_cost_by_provider += $booking_details_amount['discount_by_provider'] + $booking_details_amount['coupon_discount_by_provider'] + $booking_details_amount['campaign_discount_by_provider'];
-        }
-
-        //total booking amount (for provider)
-        $provider_receivable_total_booking_amount = $service_cost - $promotional_cost_by_provider;
-
-        $bookingType = SubscriptionBookingType::where('booking_id', $booking->booking->id)->where('type', 'subscription')->exists();
-        if ($bookingType){
-            $admin_commission = 0;
-        }else{
-            //admin commission
-            $provider = Provider::find($booking['provider_id']);
-            $commission_percentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-            $admin_commission = ($provider_receivable_total_booking_amount*$commission_percentage)/100;
-
-            $admin_commission -= $promotional_cost_by_admin;
-        }
-
-        //total booking amount (without commission)
-        $booking_amount_without_commission = $booking['total_booking_amount'] - $admin_commission - $booking['extra_fee'];
+        $breakdown = get_commission_breakdown_for_booking($booking);
+        $admin_commission = $breakdown['commission_without_cost'];
+        $booking_amount_without_commission = $breakdown['booking_amount_without_commission'];
+        $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
+        $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
@@ -1747,11 +1620,12 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraS
 
 //*** (admin) collect cash from provider ***
 if (!function_exists('collectCashTransaction')) {
-    function collectCashTransaction($provider_id, $collect_amount) {
+    function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null): void
+    {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($provider_id, PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($collect_amount, $admin_user_id, $provider_user_id) {
+        DB::transaction(function () use ($provider_id, $collect_amount, $admin_user_id, $provider_user_id, $transaction_id, $reference_note) {
 
             $account = Account::where('user_id', $provider_user_id)->first();
             $account->account_payable -= $collect_amount;
@@ -1806,6 +1680,18 @@ if (!function_exists('collectCashTransaction')) {
                 'from_user_account' => ACCOUNT_STATES[3]['value'],
                 'to_user_account' => null
             ]);
+
+            ledger_record_in([
+                'amount' => $collect_amount,
+                'transaction_id' => $transaction_id,
+                'booking_id' => null,
+                'provider_id' => $provider_id,
+                'payment_method' => 'collect_from_provider',
+                'date' => now()->toDateString(),
+                'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                'reference_note' => $reference_note ?: 'Collected from provider',
+                'created_by' => auth()->id(),
+            ]);
         });
     }
 }
@@ -1859,8 +1745,16 @@ if (!function_exists('withdrawRequestTransaction')) {
 if (!function_exists('withdrawRequestAcceptTransaction')) {
     function withdrawRequestAcceptTransaction($provider_user_id, $withdrawal_amount) {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
+        $provider_id = Provider::where('user_id', $provider_user_id)->value('id');
 
-        DB::transaction(function () use ($admin_user_id, $withdrawal_amount, $provider_user_id) {
+        DB::transaction(function () use ($admin_user_id, $withdrawal_amount, $provider_user_id, $provider_id) {
+            ledger_record_out([
+                'amount' => $withdrawal_amount,
+                'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT,
+                'date' => now()->toDateString(),
+                'reference_note' => 'Provider withdrawal',
+                'provider_id' => $provider_id,
+            ]);
 
             //Provider transactions
             $account = Account::where('user_id', $provider_user_id)->first();
@@ -1977,6 +1871,89 @@ if (!function_exists('withdrawRequestAcceptForAdjustTransaction')) {
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => null,
                 'to_user_account' => ACCOUNT_STATES[2]['value']
+            ]);
+        });
+    }
+}
+
+/**
+ * Record a manual payment from company to provider (e.g. bank transfer).
+ * Reduces provider's account_receivable and admin's account_payable, creates ledger OUT and transactions.
+ */
+if (!function_exists('recordPaymentToProvider')) {
+    function recordPaymentToProvider(string $provider_user_id, float $amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $provider_id = null): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
+        $provider_account = Account::where('user_id', $provider_user_id)->first();
+        if (!$provider_account || $provider_account->account_receivable < $amount) {
+            throw new \InvalidArgumentException('Insufficient amount or invalid provider account.');
+        }
+
+        DB::transaction(function () use ($admin_user_id, $provider_user_id, $amount, $transaction_id, $reference_note, $provider_id) {
+            ledger_record_out([
+                'amount' => $amount,
+                'transaction_id' => $transaction_id,
+                'booking_id' => null,
+                'provider_id' => $provider_id,
+                'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT,
+                'date' => now()->toDateString(),
+                'reference_note' => $reference_note ?: 'Payment to provider',
+                'created_by' => auth()->id(),
+            ]);
+
+            $account = Account::where('user_id', $provider_user_id)->first();
+            $account->account_receivable -= $amount;
+            $account->save();
+
+            $primary_transaction = Transaction::create([
+                'ref_trx_id' => null,
+                'booking_id' => null,
+                'trx_type' => TRX_TYPE['withdrawable_amount'],
+                'debit' => $amount,
+                'credit' => 0,
+                'balance' => $account->account_receivable,
+                'from_user_id' => $provider_user_id,
+                'to_user_id' => $provider_user_id,
+                'from_user_account' => ACCOUNT_STATES[3]['value'],
+                'to_user_account' => null,
+            ]);
+
+            $account = Account::where('user_id', $provider_user_id)->first();
+            $account->total_withdrawn += $amount;
+            $account->save();
+
+            Transaction::create([
+                'ref_trx_id' => $primary_transaction['id'],
+                'booking_id' => null,
+                'trx_type' => TRX_TYPE['received_amount'],
+                'debit' => 0,
+                'credit' => $amount,
+                'balance' => $account->total_withdrawn,
+                'from_user_id' => $provider_user_id,
+                'to_user_id' => $admin_user_id,
+                'from_user_account' => ACCOUNT_STATES[4]['value'],
+                'to_user_account' => null,
+            ]);
+
+            $admin_account = Account::where('user_id', $admin_user_id)->first();
+            $admin_account->account_payable -= $amount;
+            $admin_account->save();
+
+            Transaction::create([
+                'ref_trx_id' => $primary_transaction['id'],
+                'booking_id' => null,
+                'trx_type' => TRX_TYPE['paid_amount'],
+                'debit' => $amount,
+                'credit' => 0,
+                'balance' => $admin_account->account_payable,
+                'from_user_id' => $provider_user_id,
+                'to_user_id' => $admin_user_id,
+                'from_user_account' => null,
+                'to_user_account' => ACCOUNT_STATES[2]['value'],
             ]);
         });
     }
@@ -2348,6 +2325,14 @@ if (!function_exists('refundTransactionForCanceledBooking')) {
 
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         DB::transaction(function () use ($booking, $admin_user_id, $refund_amount) {
+            // Ledger OUT: refund
+            ledger_record_out([
+                'amount' => $refund_amount,
+                'booking_id' => $booking['id'],
+                'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND,
+                'date' => now()->toDateString(),
+            ]);
+
             //Admin transaction
             $account = Account::where('user_id', $admin_user_id)->first();
             if ($account->balance_pending >= $refund_amount) {

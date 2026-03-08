@@ -110,7 +110,7 @@ trait BookingTrait
                 $booking->is_paid = $request['payment_method'] == 'cash_after_service' || $request['payment_method'] == 'offline_payment' ? 0 : 1;
                 $booking->payment_method = $request['payment_method'];
                 $booking->transaction_id = $transactionId;
-                $booking->total_booking_amount = $totalBookingAmount;
+                $booking->total_booking_amount = $totalBookingAmount - $extraFee;
                 $booking->total_tax_amount = $cartData->sum('tax_amount');
                 $booking->total_discount_amount = $cartData->sum('discount_amount');
                 $booking->total_campaign_discount_amount = $cartData->sum('campaign_discount');
@@ -415,7 +415,7 @@ trait BookingTrait
                 $booking->zone_id = $zoneId;
                 $booking->booking_status = 'pending';
                 $booking->payment_method = $request['payment_method'];
-                $booking->total_booking_amount = ($totalBookingAmount * $totalDate) + $extraFee;
+                $booking->total_booking_amount = ($totalBookingAmount * $totalDate);
                 $booking->total_tax_amount = $cartData->sum('tax_amount') * $totalDate;
                 $booking->total_discount_amount = $cartData->sum('discount_amount') * $totalDate;
                 $booking->total_campaign_discount_amount = $cartData->sum('campaign_discount') * $totalDate;
@@ -458,7 +458,7 @@ trait BookingTrait
                     $repeatBooking->booking_status = 'pending';
                     $repeatBooking->payment_method = $request['payment_method'];
                     $repeatBooking->service_schedule = date('Y-m-d H:i:s', strtotime($repeat['date'])) ?? now()->addHours(5);
-                    $repeatBooking->total_booking_amount = $index < 1 ? $totalBookingAmount + $extraFee : $totalBookingAmount;
+                    $repeatBooking->total_booking_amount = $totalBookingAmount;
                     $repeatBooking->total_tax_amount = $cartData->sum('tax_amount');
                     $repeatBooking->total_discount_amount = $cartData->sum('discount_amount');
                     $repeatBooking->total_campaign_discount_amount = $cartData->sum('campaign_discount');
@@ -678,7 +678,7 @@ trait BookingTrait
             $booking->is_paid = $data['payment_method'] == 'cash_after_service' || $request['payment_method'] == 'offline_payment' ? 0 : 1;;
             $booking->payment_method = $data['payment_method'];
             $booking->transaction_id = $transactionId;
-            $booking->total_booking_amount = $totalBookingAmount;
+            $booking->total_booking_amount = $totalBookingAmount - $extraFee;
             $booking->total_tax_amount = $tax;
             $booking->total_discount_amount = 0;
             $booking->total_campaign_discount_amount = 0;
@@ -1813,17 +1813,21 @@ trait BookingTrait
         $adminCommission = $commissionDetails['adminCommission'];
         $adminCommissionWithoutCost = $commissionDetails['adminCommissionWithoutCost'];
 
-        $bookingAmountWithoutCommission = $booking['total_booking_amount'] - $adminCommissionWithoutCost;
+        // Provider earning = grand total - commission (discounts already reflected in adminCommissionWithoutCost).
+        $grandTotal = get_booking_total_amount($booking);
+        $bookingAmountWithoutCommission = $grandTotal - $adminCommissionWithoutCost;
 
-        if (isset($booking->booking_id)){
+        if (isset($booking->booking_id)) {
             $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->first();
-        }else{
+        } else {
             $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_id', $booking->id)->first();
         }
 
-        $bookingAmountDetailAmount->admin_commission = $adminCommission;
-        $bookingAmountDetailAmount->provider_earning = $bookingAmountWithoutCommission;
-        $bookingAmountDetailAmount->save();
+        if ($bookingAmountDetailAmount) {
+            $bookingAmountDetailAmount->admin_commission = $adminCommission;
+            $bookingAmountDetailAmount->provider_earning = $bookingAmountWithoutCommission;
+            $bookingAmountDetailAmount->save();
+        }
     }
 
 
@@ -1838,29 +1842,23 @@ trait BookingTrait
         }
 
         $bookingType = SubscriptionBookingType::where('booking_id', $bookingId)->where('type', 'subscription')->first();
-        if($bookingType){
+        if ($bookingType) {
             return [
                 'adminCommission' => 0,
                 'adminCommissionWithoutCost' => 0,
             ];
         }
 
-        $serviceCost = $booking['total_booking_amount'] - $booking['total_tax_amount'] + $booking['total_discount_amount'] + $booking['total_campaign_discount_amount'] + $booking['total_coupon_discount_amount'] - $booking['extra_fee'];
+        // Commission on commissionable amount (grand total - spare parts). Rule: > threshold ? percentage% : flat.
+        $commissionResult = calculate_commission_for_booking($booking);
+        $adminCommission = $commissionResult['commission'];
 
+        // Keep existing discount logic: admin bears promotional cost (deduct from commission).
         $promotionalCostByAdmin = 0;
-        $promotionalCostByProvider = 0;
         foreach ($bookingDetailsAmounts as $bookingDetailsAmount) {
             $promotionalCostByAdmin += $bookingDetailsAmount['discount_by_admin'] + $bookingDetailsAmount['coupon_discount_by_admin'] + $bookingDetailsAmount['campaign_discount_by_admin'];
-            $promotionalCostByProvider += $bookingDetailsAmount['discount_by_provider'] + $bookingDetailsAmount['coupon_discount_by_provider'] + $bookingDetailsAmount['campaign_discount_by_provider'];
         }
-
-        $providerReceivableTotalAmount = $serviceCost - $promotionalCostByProvider;
-
-        $provider = Provider::find($booking['provider_id']);
-        $commissionPercentage = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
-        $adminCommission = ($providerReceivableTotalAmount * $commissionPercentage) / 100;
-
-        $adminCommissionWithoutCost = $adminCommission - $promotionalCostByAdmin;
+        $adminCommissionWithoutCost = max(0, $adminCommission - $promotionalCostByAdmin);
 
         return [
             'adminCommission' => $adminCommission,

@@ -36,6 +36,7 @@ class BookingRepeat extends Model
         'evidence_photos' => 'array',
         'extra_fee' => 'float',
         'total_referral_discount_amount' => 'float',
+        'provider_payment_confirmed_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -67,6 +68,7 @@ class BookingRepeat extends Model
         'evidence_photos',
         'booking_otp',
         'is_verified',
+        'provider_payment_confirmed_at',
         'service_address_location',
         'service_location',
     ];
@@ -154,6 +156,14 @@ class BookingRepeat extends Model
         parent::boot();
 
         self::updating(function ($model) {
+            // Prevent completion unless full payment received
+            if ($model->isDirty('booking_status') && $model->booking_status === 'completed') {
+                $r = BookingRepeat::find($model->id);
+                if ($r && !booking_can_be_completed($r)) {
+                    throw new \RuntimeException(translate('Booking cannot be completed until full payment is received.'));
+                }
+            }
+
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
             $permission = isNotificationActive(null, 'booking', 'notification', 'user');
             $providerPermission = isNotificationActive(null, 'booking', 'notification', 'provider');

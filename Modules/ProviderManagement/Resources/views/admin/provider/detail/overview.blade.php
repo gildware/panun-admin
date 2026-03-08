@@ -3,7 +3,24 @@
 @section('title',translate('provider_details'))
 
 @push('css_or_js')
-
+    <style>
+        /* Statistics and Booking Overview */
+        .provider-details-overview {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 0.625rem;
+        }
+        @media only screen and (max-width: 1199px) {
+            .provider-details-overview {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media only screen and (max-width: 767px) {
+            .provider-details-overview {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -26,6 +43,10 @@
                     <li class="nav-item">
                         <a class="nav-link {{$webPage=='bookings'?'active':''}}"
                            href="{{url()->current()}}?web_page=bookings">{{translate('Bookings')}}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{$webPage=='payment'?'active':''}}"
+                           href="{{url()->current()}}?web_page=payment">{{translate('Payment')}}</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{$webPage=='serviceman_list'?'active':''}}"
@@ -54,43 +75,7 @@
                 <div class="card-body p-30">
                     @if($provider->is_approved == 1)
                         <div class="provider-details-overview mb-30">
-                            <div class="provider-details-overview__collect-cash">
-                                <div class="statistics-card statistics-card__collect-cash h-100">
-                                    <h3>{{translate('Collect_Cash_From_Provider')}}</h3>
-                                    <h2>{{with_currency_symbol($provider->owner->account->account_payable)}}</h2>
-                                    @can('provider_update')
-                                        <a href="{{route('admin.provider.collect_cash.list', [$provider->id])}}"
-                                           class="btn btn--primary text-capitalize w-100 btn--lg mw-75">{{translate('Collect_Cash')}}</a>
-                                    @endcan
-                                </div>
-                            </div>
-                            <div class="provider-details-overview__statistics">
-
-                                <div
-                                    class="statistics-card statistics-card__style2 statistics-card__pending-withdraw">
-                                    <h2>{{with_currency_symbol($provider->owner->account->balance_pending)}}</h2>
-                                    <h3>{{translate('Pending_Withdrawn')}}</h3>
-                                </div>
-
-                                <div
-                                    class="statistics-card statistics-card__style2 statistics-card__already-withdraw">
-                                    <h2>{{with_currency_symbol($provider->owner->account->total_withdrawn)}}</h2>
-                                    <h3>{{translate('Already_Withdrawn')}}</h3>
-                                </div>
-
-                                <div
-                                    class="statistics-card statistics-card__style2 statistics-card__withdrawable-amount">
-                                    <h2>{{with_currency_symbol($provider->owner->account->account_receivable)}}</h2>
-                                    <h3>{{translate('Withdrawable_Amount')}}</h3>
-                                </div>
-
-                                <div
-                                    class="statistics-card statistics-card__style2 statistics-card__total-earning">
-                                    <h2>{{ with_currency_symbol($provider->owner->account->received_balance + $provider->owner->account->total_withdrawn) }}</h2>
-                                    <h3>{{translate('Total_Earning')}}</h3>
-                                </div>
-                            </div>
-                            <div class="provider-details-overview__order-overview">
+                            <div class="provider-details-overview__order-overview" style="grid-column: 1 / -1;">
                                 <div class="statistics-card statistics-card__order-overview h-100 pb-2">
                                     <h3 class="mb-0">{{translate('Booking_Overview')}}</h3>
                                     <div id="apex-pie-chart" class="d-flex justify-content-center"></div>

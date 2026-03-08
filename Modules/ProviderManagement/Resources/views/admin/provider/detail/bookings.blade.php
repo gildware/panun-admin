@@ -29,6 +29,10 @@
                            href="{{url()->current()}}?web_page=bookings">{{translate('Bookings')}}</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{$webPage=='payment'?'active':''}}"
+                           href="{{url()->current()}}?web_page=payment">{{translate('Payment')}}</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{$webPage=='serviceman_list'?'active':''}}"
                            href="{{url()->current()}}?web_page=serviceman_list">{{translate('Service_Man_List')}}</a>
                     </li>
@@ -87,7 +91,11 @@
                                     <tr>
                                         <th>{{translate('Booking_ID')}}</th>
                                         <th>{{translate('Customer_Info')}}</th>
-                                        <th>{{translate('Total_Amount')}}</th>
+                                        <th>{{translate('Status')}}</th>
+                                        <th>{{translate('Service_Charges')}}</th>
+                                        <th>{{translate('Parts_Charges')}}</th>
+                                        <th>{{translate('Total_Booking_Amount')}}</th>
+                                        <th>{{translate('Admin_Commission')}}</th>
                                         <th>{{translate('Payment_Status')}}</th>
                                         <th>{{translate('Schedule_Date')}}</th>
                                         <th>{{translate('Booking_Date')}}</th>
@@ -96,6 +104,14 @@
                                     </thead>
                                     <tbody>
                                     @foreach($bookings as $key=>$booking)
+                                        @php
+                                            $grandTotal = get_booking_total_amount($booking);
+                                            $partsCharges = get_booking_spare_parts_amount($booking);
+                                            $serviceCharges = round($grandTotal - $partsCharges, 2);
+                                            $commissionResult = calculate_commission_for_booking($booking);
+                                            $adminCommission = $commissionResult['commission'];
+                                            $statusBadge = $booking->booking_status == 'ongoing' ? 'warning' : ($booking->booking_status == 'completed' ? 'success' : ($booking->booking_status == 'canceled' ? 'danger' : ($booking->booking_status == 'refunded' ? 'secondary' : 'info')));
+                                        @endphp
                                         <tr>
                                             <td>
                                                 <a href="{{route('admin.booking.details', [$booking->id,'web_page'=>'details'])}}">
@@ -113,7 +129,15 @@
                                                     <span class="opacity-50">{{translate('Customer_not_available')}}</span>
                                                 @endif
                                             </td>
-                                            <td>{{$booking->total_booking_amount}}</td>
+                                            <td>
+                                                <span class="badge badge badge-{{ $statusBadge }} radius-50">
+                                                    {{ ucwords($booking->booking_status) }}
+                                                </span>
+                                            </td>
+                                            <td>{{ with_currency_symbol($serviceCharges) }}</td>
+                                            <td>{{ with_currency_symbol($partsCharges) }}</td>
+                                            <td>{{ with_currency_symbol($grandTotal) }}</td>
+                                            <td>{{ with_currency_symbol($adminCommission) }}</td>
                                             <td>
                                                 <span class="badge badge badge-{{$booking->is_paid?'success':'danger'}} radius-50">
                                                     <span class="dot"></span>
