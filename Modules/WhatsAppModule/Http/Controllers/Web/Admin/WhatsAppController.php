@@ -364,7 +364,8 @@ class WhatsAppController extends Controller
 
         $cacheKey = 'whatsapp_chat_full_' . md5($phone);
         $ttlChat = config('whatsappmodule.cache_ttl_chat', 20);
-        if ($request->boolean('full') && $ttlChat > 0) {
+        $markSeen = $request->boolean('mark_seen');
+        if ($request->boolean('full') && !$markSeen && $ttlChat > 0) {
             $cached = Cache::get($cacheKey);
             if ($cached !== null) {
                 return response()->json($cached);
@@ -414,6 +415,26 @@ class WhatsAppController extends Controller
         } catch (\Throwable $e) {
             \Log::warning('WhatsApp chatMessages failed.', ['phone' => $phone, 'error' => $e->getMessage()]);
             return response()->json(['data' => [], 'error' => 'Failed to load messages'], 500);
+        }
+
+        // If requested, mark all IN messages for this phone as seen by admin.
+        if ($markSeen) {
+            try {
+                DB::table($table)
+                    ->where('phone', $phone)
+                    ->where('direction', 'IN')
+                    ->whereNull('admin_seen_at')
+                    ->update([
+                        'admin_seen_at' => now(),
+                    ]);
+                // Clear active chats cache so unread counts refresh.
+                Cache::forget('whatsapp_active_chats_list');
+            } catch (\Throwable $e) {
+                \Log::warning('Failed to mark whatsapp messages as admin seen', [
+                    'phone' => $phone,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         $payload = ['data' => $messages];
@@ -556,7 +577,12 @@ class WhatsAppController extends Controller
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $cutoff = now()->subDays(30)->format('Y-m-d H:i:s');
         $rows = DB::select("
-            SELECT m.phone, m.direction, m.status, LEFT(m.message_text, 80) AS message_text, m.created_at
+            SELECT m.phone,
+                   m.direction,
+                   m.status,
+                   LEFT(m.message_text, 80) AS message_text,
+                   m.created_at,
+                   COALESCE(unread.unread_count, 0) AS unread_count
             FROM {$table} m
             INNER JOIN (
                 SELECT phone, MAX(created_at) AS max_created
@@ -564,6 +590,13 @@ class WhatsAppController extends Controller
                 WHERE created_at >= ?
                 GROUP BY phone
             ) t ON m.phone = t.phone AND m.created_at = t.max_created
+            LEFT JOIN (
+                SELECT phone, COUNT(*) AS unread_count
+                FROM {$table}
+                WHERE direction = 'IN'
+                  AND (admin_seen_at IS NULL)
+                GROUP BY phone
+            ) unread ON unread.phone = m.phone
             ORDER BY m.created_at DESC
             LIMIT 100
         ", [$cutoff]);

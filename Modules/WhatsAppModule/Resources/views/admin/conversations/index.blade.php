@@ -48,15 +48,16 @@
             {{-- Tab: Active Chats — left: scrollable list, right: open chat --}}
             @if(($tab ?? '') === 'chats')
                 <div class="row g-3">
-                    <div class="col-md-4 col-lg-3">
+                    <div class="col-md-4 col-lg-3 whatsapp-active-list-container">
                         <div class="card h-100 d-flex flex-column">
                             <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
                                 <strong>{{ translate('Chats') }}</strong>
                                 @php($handlerFilter = $handlerFilter ?? 'all')
                                 @if(!empty($chatHandlers ?? null))
-                                    <div class="ms-auto">
+                                    <div class="ms-auto" style="min-width: 220px;">
                                         <select id="chat-handler-filter"
-                                                class="form-select form-select-sm"
+                                                class="form-select form-select-sm w-100"
+                                                style="min-width: 220px; padding-right: 1.75rem;"
                                                 onchange="if(this.value){ window.location.href = this.value; }">
                                             @foreach($chatHandlers as $h)
                                                 <option value="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats', 'handler' => $h['key']]) }}"
@@ -80,6 +81,7 @@
                                             $direction = strtoupper($chat->direction ?? '');
                                             $status = strtolower($chat->status ?? '');
                                             $statusIcon = '';
+                                            $hasUnread = !empty($chat->unread_count);
                                             if ($direction === 'OUT') {
                                                 if ($status === 'sent') {
                                                     $statusIcon = '✓';
@@ -90,20 +92,29 @@
                                                 }
                                             }
                                         ?>
-                                        <div class="whatsapp-chat-item border-bottom p-3 cursor-pointer"
+                                        <div class="whatsapp-chat-item border-bottom p-3 cursor-pointer{{ $hasUnread ? ' bg-primary text-white' : '' }}"
                                              data-phone="{{ e($phone) }}"
                                              role="button">
                                             <div class="d-flex justify-content-between align-items-start">
-                                                <strong class="text-truncate" title="{{ e($display) }}">{{ $display }}</strong>
+                                                <strong class="text-truncate{{ $hasUnread ? ' text-white' : '' }}" title="{{ e($display) }}">{{ $display }}</strong>
                                                 <?php if ($created): ?>
-                                                    <span class="fz-12 text-muted">{{ \Carbon\Carbon::parse($created)->diffForHumans() }}</span>
+                                                    <span class="fz-12{{ $hasUnread ? ' text-white-50' : ' text-muted' }}">{{ \Carbon\Carbon::parse($created)->diffForHumans() }}</span>
                                                 <?php endif; ?>
                                             </div>
-                                            <div class="fz-12 text-muted text-truncate mt-1">
-                                                {{ \Illuminate\Support\Str::limit($chat->message_text ?? '', 40) }}
-                                                <?php if ($statusIcon): ?>
-                                                    <span class="ms-1 {{ $status === 'read' ? 'text-primary' : '' }}">{{ $statusIcon }}</span>
-                                                <?php endif; ?>
+                                            <div class="fz-12 text-truncate mt-1 d-flex justify-content-between align-items-center gap-2{{ $hasUnread ? ' text-white-50' : ' text-muted' }}">
+                                                <span class="{{ $hasUnread ? 'text-white' : '' }}">
+                                                    {{ \Illuminate\Support\Str::limit($chat->message_text ?? '', 40) }}
+                                                </span>
+                                                <span class="ms-2 text-nowrap">
+                                                    <?php if (!empty($chat->unread_count)): ?>
+                                                        <span class="badge me-1 {{ $hasUnread ? 'bg-light text-primary' : 'bg-danger-subtle text-danger border border-danger-subtle' }}">
+                                                            {{ (int) $chat->unread_count }}
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <?php if ($statusIcon): ?>
+                                                        <span class="{{ $hasUnread ? 'text-white' : ($status === 'read' ? 'text-primary' : '') }}">{{ $statusIcon }}</span>
+                                                    <?php endif; ?>
+                                                </span>
                                             </div>
                                             <?php
                                                 $handledByLabel = $chat->handled_by_label ?? 'AI';
@@ -111,7 +122,7 @@
                                                     ? 'Handled by AI'
                                                     : 'Handled by ' . $handledByLabel;
                                             ?>
-                                            <div class="fz-11 text-muted mt-1 text-end">
+                                            <div class="fz-11 mt-1 text-end{{ $hasUnread ? ' text-white-50' : ' text-muted' }}">
                                                 {{ $handledText }}
                                             </div>
                                         </div>
@@ -160,6 +171,7 @@
     var currentPhone = null;
     var pollTimer = null;
     var currentHandler = null;
+    var activeListTimer = null;
 
     function openChat(phone) {
         if (!phone) return;
@@ -168,8 +180,27 @@
         document.getElementById('whatsapp-chat-placeholder').classList.add('d-none');
         document.getElementById('whatsapp-chat-panel').classList.remove('d-none');
         document.getElementById('whatsapp-chat-panel').classList.add('d-flex');
+        // Clear unread styling immediately when opening this chat
         document.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
-            el.classList.toggle('bg-light', el.getAttribute('data-phone') === phone);
+            var isCurrent = el.getAttribute('data-phone') === phone;
+            if (!isCurrent) {
+                el.classList.remove('bg-light');
+            }
+            if (isCurrent) {
+                el.classList.remove('bg-primary', 'text-white');
+                el.querySelectorAll('.text-white, .text-white-50').forEach(function(node) {
+                    node.classList.remove('text-white', 'text-white-50');
+                });
+                el.querySelectorAll('.text-muted, .fz-12, .fz-11').forEach(function(node) {
+                    // ensure normal muted styling
+                    if (!node.classList.contains('fz-11') && !node.classList.contains('fz-12')) return;
+                });
+                // Remove unread badge if present
+                var badge = el.querySelector('.badge');
+                if (badge) {
+                    badge.parentNode.removeChild(badge);
+                }
+            }
         });
         currentPhone = phone;
         startPolling();
@@ -181,7 +212,11 @@
         if (!isPoll) {
             panel.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
         }
-        fetch(messagesUrl + '?phone=' + encodeURIComponent(phone) + '&full=1')
+        var url = messagesUrl + '?phone=' + encodeURIComponent(phone) + '&full=1';
+        if (!isPoll) {
+            url += '&mark_seen=1';
+        }
+        fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 var html = '';
@@ -358,12 +393,42 @@
         if (pollTimer) {
             clearInterval(pollTimer);
         }
+        if (activeListTimer) {
+            clearInterval(activeListTimer);
+        }
         if (!currentPhone) return;
         pollTimer = setInterval(function() {
             if (currentPhone) {
                 loadMessages(currentPhone, true);
             }
         }, 3000);
+        // Also refresh active chats list (left column)
+        activeListTimer = setInterval(function() {
+            try {
+                var listContainer = document.querySelector('.whatsapp-active-list-container');
+                if (!listContainer) return;
+                var url = new URL(window.location.href);
+                fetch(url.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(function(r) { return r.text(); })
+                  .then(function(html) {
+                    // Extract just the left list markup using a temporary DOM
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = html;
+                    var newList = tmp.querySelector('.whatsapp-active-list-container');
+                    if (newList) {
+                        listContainer.innerHTML = newList.innerHTML;
+                        // Re-bind click handlers
+                        listContainer.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
+                            el.addEventListener('click', function() {
+                                openChat(this.getAttribute('data-phone'));
+                            });
+                        });
+                    }
+                  })
+                  .catch(function() {});
+            } catch (e) {}
+        }, 5000);
     }
 
     document.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {

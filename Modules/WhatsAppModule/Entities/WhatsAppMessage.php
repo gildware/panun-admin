@@ -26,12 +26,14 @@ class WhatsAppMessage extends Model
         'wa_message_id',
         'status',
         'status_updated_at',
+        'admin_seen_at',
         'sent_by',
         'sent_by_id',
     ];
 
     protected $casts = [
         'status_updated_at' => 'datetime',
+        'admin_seen_at' => 'datetime',
     ];
 
     public function getBodyAttribute(): string

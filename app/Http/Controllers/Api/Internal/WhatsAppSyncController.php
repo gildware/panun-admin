@@ -305,10 +305,28 @@ class WhatsAppSyncController extends Controller
         ]);
 
         $user = WhatsAppUser::firstOrNew(['phone' => $data['phone']]);
-        $user->fill($data);
+        $isNew = !$user->exists;
+
+        // Fill regular attributes (excluding handled_by)
+        $fillData = $data;
+        unset($fillData['handled_by']);
+        $user->fill($fillData);
+
+        // handled_by logic:
+        // - On first creation, default to 'AI' if not explicitly provided.
+        // - On update, only change if a handled_by value is sent.
+        if ($isNew && empty($data['handled_by'])) {
+            $user->handled_by = 'AI';
+        } elseif (!empty($data['handled_by'])) {
+            $user->handled_by = $data['handled_by'];
+        }
+
         $user->save();
 
-        return response()->json(['ok' => true]);
+        return response()->json([
+            'ok' => true,
+            'user' => $user,
+        ]);
     }
 
     /**
