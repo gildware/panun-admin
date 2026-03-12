@@ -21,6 +21,7 @@ class WhatsAppUser extends Model
         'alternate_phone',
         'address',
         'type',
+        'handled_by',
     ];
 
     protected $casts = [

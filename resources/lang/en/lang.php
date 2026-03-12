@@ -6501,4 +6501,7 @@ _Message' => 'Customer notification for provider bid offer
   'Could not load WhatsApp users' => 'Could not load WhatsApp users',
   'No bookings' => 'No bookings',
   'No Payment Method List' => 'No Payment Method List',
+  'Handled by' => 'Handled by',
+  'All Chats' => 'All Chats',
+  'Handled by AI' => 'Handled by AI',
 );

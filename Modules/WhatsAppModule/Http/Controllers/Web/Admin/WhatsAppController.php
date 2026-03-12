@@ -35,12 +35,60 @@ class WhatsAppController extends Controller
 
         if ($tab === 'chats') {
             try {
-                $chats = $this->getActiveChatsList();
+                $handlerFilter = $request->get('handler', 'ai'); // all | ai | <admin-id>
+                $allChats = $this->getActiveChatsList();
+
+                // Build handler options: All, AI, then one per admin id present
+                $handledByKeys = $allChats
+                    ->pluck('handled_by_key')
+                    ->unique()
+                    ->filter()
+                    ->values();
+
+                $chatHandlers = [];
+                $chatHandlers[] = ['key' => 'all', 'label' => translate('All Chats')];
+
+                if ($handledByKeys->contains('AI')) {
+                    $chatHandlers[] = ['key' => 'ai', 'label' => translate('Handled by AI')];
+                }
+
+                $adminIds = $handledByKeys->reject(function ($v) {
+                    return $v === 'AI';
+                })->values();
+
+                if ($adminIds->isNotEmpty()) {
+                    $admins = DB::table('users')
+                        ->whereIn('id', $adminIds)
+                        ->get(['id', 'first_name', 'last_name']);
+                    foreach ($admins as $admin) {
+                        $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
+                        $chatHandlers[] = [
+                            'key' => (string) $admin->id,
+                            'label' => translate('Handled by') . ' ' . ($fullName ?: $admin->id),
+                        ];
+                    }
+                }
+
+                // Apply filter
+                $chats = $allChats->filter(function ($chat) use ($handlerFilter) {
+                    if ($handlerFilter === 'all') {
+                        return true;
+                    }
+                    if ($handlerFilter === 'ai') {
+                        return $chat->handled_by_key === 'AI';
+                    }
+                    return $chat->handled_by_key === $handlerFilter;
+                })->values();
             } catch (\Throwable $e) {
                 Toastr::error('Could not load chats. ' . $e->getMessage());
                 $chats = collect();
+                $chatHandlers = [
+                    ['key' => 'all', 'label' => translate('All Chats')],
+                    ['key' => 'ai', 'label' => translate('Handled by AI')],
+                ];
+                $handlerFilter = 'all';
             }
-            return view('whatsappmodule::admin.conversations.index', compact('tab', 'chats'));
+            return view('whatsappmodule::admin.conversations.index', compact('tab', 'chats', 'chatHandlers', 'handlerFilter'));
         }
 
         if ($tab === 'leads') {
@@ -370,6 +418,34 @@ class WhatsAppController extends Controller
 
         $payload = ['data' => $messages];
 
+        // Handler info: who currently owns this chat (AI or a specific admin)
+        $handler = [
+            'type' => 'AI',
+            'id' => null,
+            'name' => 'AI',
+        ];
+        try {
+            $waUser = WhatsAppUser::where('phone', $phone)->first();
+            if ($waUser && $waUser->handled_by) {
+                if ($waUser->handled_by === 'AI') {
+                    $handler = ['type' => 'AI', 'id' => null, 'name' => 'AI'];
+                } else {
+                    $adminRow = DB::table('users')->where('id', $waUser->handled_by)->first();
+                    $fullName = $adminRow
+                        ? trim(($adminRow->first_name ?? '') . ' ' . ($adminRow->last_name ?? ''))
+                        : null;
+                    $handler = [
+                        'type' => 'USER',
+                        'id' => $waUser->handled_by,
+                        'name' => $fullName ?: 'Agent',
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore handler lookup failures
+        }
+        $payload['handler'] = $handler;
+
         if ($request->boolean('full')) {
             $payload['booking_link'] = null;
             $payload['conversation_state'] = null;
@@ -412,6 +488,56 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * Change chat handler between AI and the current admin user.
+     */
+    public function handoff(Request $request): JsonResponse
+    {
+        $this->authorize('whatsapp_chat_reply');
+
+        $data = $request->validate([
+            'phone' => 'required|string|max:50',
+            'mode' => 'required|string|in:take,ai', // take => current admin, ai => hand back to AI
+        ]);
+
+        $waUser = WhatsAppUser::firstOrNew(['phone' => $data['phone']]);
+
+        if ($data['mode'] === 'ai') {
+            $waUser->handled_by = 'AI';
+        } else {
+            $admin = $request->user();
+            $waUser->handled_by = $admin ? (string) $admin->id : 'AI';
+        }
+        $waUser->save();
+
+        // Clear caches so next chatMessages call reflects new handler immediately.
+        Cache::forget('whatsapp_active_chats_list');
+        Cache::forget('whatsapp_chat_full_' . md5($waUser->phone));
+
+        $handler = [
+            'type' => 'AI',
+            'id' => null,
+            'name' => 'AI',
+        ];
+
+        if ($waUser->handled_by && $waUser->handled_by !== 'AI') {
+            $adminRow = DB::table('users')->where('id', $waUser->handled_by)->first();
+            $fullName = $adminRow
+                ? trim(($adminRow->first_name ?? '') . ' ' . ($adminRow->last_name ?? ''))
+                : null;
+            $handler = [
+                'type' => 'USER',
+                'id' => $waUser->handled_by,
+                'name' => $fullName ?: 'Agent',
+            ];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'handler' => $handler,
+        ]);
+    }
+
+    /**
      * List of active chats: one row per phone with last message. Last 30 days, max 100 chats.
      * Cached to reduce round trips to remote WhatsApp DB.
      */
@@ -444,13 +570,46 @@ class WhatsAppController extends Controller
         $result = collect($rows);
 
         $phones = $result->pluck('phone')->unique()->filter()->values()->all();
+        $names = [];
+        $handledByMap = [];
         if (!empty($phones)) {
-            $names = WhatsAppUser::whereIn('phone', $phones)->pluck('name', 'phone');
-            $result = $result->map(function ($row) use ($names) {
-                $row->name = $names[$row->phone] ?? null;
-                return $row;
-            });
+            $waUsers = WhatsAppUser::whereIn('phone', $phones)->get(['phone', 'name', 'handled_by']);
+            foreach ($waUsers as $u) {
+                $names[$u->phone] = $u->name;
+                $handledByMap[$u->phone] = $u->handled_by ?: 'AI';
+            }
         }
+        // Preload admin user names for handled_by IDs
+        $adminNamesById = [];
+        if (!empty($handledByMap)) {
+            $adminIds = collect($handledByMap)
+                ->filter(fn ($v) => $v && $v !== 'AI')
+                ->unique()
+                ->values()
+                ->all();
+            if (!empty($adminIds)) {
+                $adminRows = DB::table('users')
+                    ->whereIn('id', $adminIds)
+                    ->get(['id', 'first_name', 'last_name']);
+                foreach ($adminRows as $admin) {
+                    $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
+                    $adminNamesById[$admin->id] = $fullName ?: 'Agent';
+                }
+            }
+        }
+
+        $result = $result->map(function ($row) use ($names, $handledByMap, $adminNamesById) {
+            $phone = $row->phone ?? null;
+            $row->name = $names[$phone] ?? null;
+            $handledBy = $handledByMap[$phone] ?? 'AI';
+            $row->handled_by_key = $handledBy;
+            if ($handledBy === 'AI') {
+                $row->handled_by_label = 'AI';
+            } else {
+                $row->handled_by_label = $adminNamesById[$handledBy] ?? 'Agent';
+            }
+            return $row;
+        });
 
         if ($ttl > 0) {
             Cache::put($cacheKey, $result, $ttl);

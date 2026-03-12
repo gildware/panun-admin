@@ -14,6 +14,7 @@ Route::group([
         Route::get('conversations/chat', [WhatsAppController::class, 'chat'])->name('conversations.chat');
         Route::post('conversations/chat/reply', [WhatsAppController::class, 'sendReply'])->name('conversations.reply');
         Route::get('conversations/chat/messages', [WhatsAppController::class, 'chatMessages'])->name('conversations.chat.messages');
+        Route::post('conversations/handoff', [WhatsAppController::class, 'handoff'])->name('conversations.handoff');
         Route::get('users/details', [WhatsAppController::class, 'userDetails'])->name('users.details');
     });
 });

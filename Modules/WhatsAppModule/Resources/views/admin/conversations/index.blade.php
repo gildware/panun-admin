@@ -50,48 +50,75 @@
                 <div class="row g-3">
                     <div class="col-md-4 col-lg-3">
                         <div class="card h-100 d-flex flex-column">
-                            <div class="card-header py-2">
+                            <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
                                 <strong>{{ translate('Chats') }}</strong>
+                                @php($handlerFilter = $handlerFilter ?? 'all')
+                                @if(!empty($chatHandlers ?? null))
+                                    <div class="ms-auto">
+                                        <select id="chat-handler-filter"
+                                                class="form-select form-select-sm"
+                                                onchange="if(this.value){ window.location.href = this.value; }">
+                                            @foreach($chatHandlers as $h)
+                                                <option value="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats', 'handler' => $h['key']]) }}"
+                                                    {{ $handlerFilter === $h['key'] ? 'selected' : '' }}>
+                                                    {{ $h['label'] }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
                             </div>
                             <div class="card-body p-0 overflow-auto flex-grow-1" style="max-height: 65vh;">
-                                @forelse($chats ?? [] as $chat)
-                                    @php
-                                        $created = $chat->created_at ?? null;
-                                        $phone = $chat->phone ?? '';
-                                        $name = trim($chat->name ?? '');
-                                        $display = $name !== '' ? $name . ' (' . $phone . ')' : ($phone ?: '—');
-                                        $direction = strtoupper($chat->direction ?? '');
-                                        $status = strtolower($chat->status ?? '');
-                                        $statusIcon = '';
-                                        if ($direction === 'OUT') {
-                                            if ($status === 'sent') {
-                                                $statusIcon = '✓';
-                                            } elseif ($status === 'delivered') {
-                                                $statusIcon = '✓✓';
-                                            } elseif ($status === 'read') {
-                                                $statusIcon = '✓✓';
+                                <?php $chatCollection = $chats ?? collect(); ?>
+                                <?php if ($chatCollection->isNotEmpty()): ?>
+                                    <?php foreach ($chatCollection as $chat): ?>
+                                        <?php
+                                            $created = $chat->created_at ?? null;
+                                            $phone = $chat->phone ?? '';
+                                            $name = trim($chat->name ?? '');
+                                            $display = $name !== '' ? $name . ' (' . $phone . ')' : ($phone ?: '—');
+                                            $direction = strtoupper($chat->direction ?? '');
+                                            $status = strtolower($chat->status ?? '');
+                                            $statusIcon = '';
+                                            if ($direction === 'OUT') {
+                                                if ($status === 'sent') {
+                                                    $statusIcon = '✓';
+                                                } elseif ($status === 'delivered') {
+                                                    $statusIcon = '✓✓';
+                                                } elseif ($status === 'read') {
+                                                    $statusIcon = '✓✓';
+                                                }
                                             }
-                                        }
-                                    @endphp
-                                    <div class="whatsapp-chat-item border-bottom p-3 cursor-pointer"
-                                         data-phone="{{ e($phone) }}"
-                                         role="button">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <strong class="text-truncate" title="{{ e($display) }}">{{ $display }}</strong>
-                                            @if($created)
-                                                <span class="fz-12 text-muted">{{ \Carbon\Carbon::parse($created)->diffForHumans() }}</span>
-                                            @endif
+                                        ?>
+                                        <div class="whatsapp-chat-item border-bottom p-3 cursor-pointer"
+                                             data-phone="{{ e($phone) }}"
+                                             role="button">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <strong class="text-truncate" title="{{ e($display) }}">{{ $display }}</strong>
+                                                <?php if ($created): ?>
+                                                    <span class="fz-12 text-muted">{{ \Carbon\Carbon::parse($created)->diffForHumans() }}</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="fz-12 text-muted text-truncate mt-1">
+                                                {{ \Illuminate\Support\Str::limit($chat->message_text ?? '', 40) }}
+                                                <?php if ($statusIcon): ?>
+                                                    <span class="ms-1 {{ $status === 'read' ? 'text-primary' : '' }}">{{ $statusIcon }}</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <?php
+                                                $handledByLabel = $chat->handled_by_label ?? 'AI';
+                                                $handledText = $handledByLabel === 'AI'
+                                                    ? 'Handled by AI'
+                                                    : 'Handled by ' . $handledByLabel;
+                                            ?>
+                                            <div class="fz-11 text-muted mt-1 text-end">
+                                                {{ $handledText }}
+                                            </div>
                                         </div>
-                                        <div class="fz-12 text-muted text-truncate mt-1">
-                                            {{ \Illuminate\Support\Str::limit($chat->message_text ?? '', 40) }}
-                                            @if($statusIcon)
-                                                <span class="ms-1 {{ $status === 'read' ? 'text-primary' : '' }}">{{ $statusIcon }}</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @empty
+                                    <?php endforeach; ?>
+                                <?php else: ?>
                                     <div class="p-4 text-center text-muted">{{ translate('No active chats') }}</div>
-                                @endforelse
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -127,9 +154,12 @@
 (function() {
     var messagesUrl = '{{ route("admin.whatsapp.conversations.chat.messages") }}';
     var replyUrl = '{{ route("admin.whatsapp.conversations.reply") }}';
+    var handoffUrl = '{{ route("admin.whatsapp.conversations.handoff") }}';
     var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    var currentAdminId = '{{ (string) auth()->id() }}';
     var currentPhone = null;
     var pollTimer = null;
+    var currentHandler = null;
 
     function openChat(phone) {
         if (!phone) return;
@@ -210,6 +240,111 @@
                     span.className = 'badge bg-secondary';
                     span.textContent = (res.conversation_state.active_module || '') + ' · ' + (res.conversation_state.current_step || '');
                     actions.appendChild(span);
+                }
+
+                // Handler UI: who owns this chat, and override/assign-back controls
+                var handler = res.handler || currentHandler || { type: 'AI', id: null, name: 'AI' };
+                currentHandler = handler;
+                var replyForm = document.getElementById('whatsapp-reply-form');
+                var replyFooter = replyForm ? replyForm.closest('.card-footer') : null;
+                var canSend = handler.type === 'USER';
+                if (replyFooter) {
+                    replyFooter.style.display = canSend ? '' : 'none';
+                }
+
+                var handlerBadge = document.createElement('span');
+                handlerBadge.className = 'badge bg-light text-dark';
+                handlerBadge.textContent = handler.type === 'AI'
+                    ? 'Handled by AI'
+                    : 'Handled by ' + (handler.name || 'Agent');
+                actions.appendChild(handlerBadge);
+
+                if (handler.type === 'AI') {
+                    var btnTake = document.createElement('button');
+                    btnTake.type = 'button';
+                    btnTake.className = 'btn btn-sm btn--primary ms-2';
+                    btnTake.textContent = 'Override chat';
+                    btnTake.onclick = function () {
+                        Swal.fire({
+                            title: 'Are you sure you want to override this chat?',
+                            text: 'Overriding means AI will no longer respond to this chat until it is assigned back.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            cancelButtonColor: 'var(--bs-secondary)',
+                            confirmButtonColor: 'var(--bs-primary)',
+                            cancelButtonText: '{{ translate('Cancel') }}',
+                            confirmButtonText: '{{ translate('Yes') }}',
+                            reverseButtons: true,
+                            showLoaderOnConfirm: true,
+                            allowOutsideClick: () => !Swal.isLoading(),
+                            preConfirm: function () {
+                                return fetch(handoffUrl, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': csrf,
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: JSON.stringify({ phone: phone, mode: 'take' })
+                                }).then(function (response) {
+                                    if (!response.ok) {
+                                        throw new Error('Network response was not ok');
+                                    }
+                                    return response.json();
+                                }).catch(function (error) {
+                                    Swal.showValidationMessage('Request failed: ' + error.message);
+                                    throw error;
+                                });
+                            }
+                        }).then(function(result) {
+                            if (!result.isConfirmed) return;
+                            loadMessages(phone, false);
+                        });
+                    };
+                    actions.appendChild(btnTake);
+                } else if (handler.type === 'USER' && handler.id === currentAdminId) {
+                    var btnAI = document.createElement('button');
+                    btnAI.type = 'button';
+                    btnAI.className = 'btn btn-sm btn--secondary ms-2';
+                    btnAI.textContent = 'Assign back to AI';
+                    btnAI.onclick = function () {
+                        Swal.fire({
+                            title: 'Are you sure you want to assign this chat back to AI?',
+                            text: 'AI will take over responding to this chat again.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            cancelButtonColor: 'var(--bs-secondary)',
+                            confirmButtonColor: 'var(--bs-primary)',
+                            cancelButtonText: '{{ translate('Cancel') }}',
+                            confirmButtonText: '{{ translate('Yes') }}',
+                            reverseButtons: true,
+                            showLoaderOnConfirm: true,
+                            allowOutsideClick: () => !Swal.isLoading(),
+                            preConfirm: function () {
+                                return fetch(handoffUrl, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': csrf,
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: JSON.stringify({ phone: phone, mode: 'ai' })
+                                }).then(function (response) {
+                                    if (!response.ok) {
+                                        throw new Error('Network response was not ok');
+                                    }
+                                    return response.json();
+                                }).catch(function (error) {
+                                    Swal.showValidationMessage('Request failed: ' + error.message);
+                                    throw error;
+                                });
+                            }
+                        }).then(function(result) {
+                            if (!result.isConfirmed) return;
+                            loadMessages(phone, false);
+                        });
+                    };
+                    actions.appendChild(btnAI);
                 }
             })
             .catch(function() {
@@ -318,7 +453,8 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @forelse($leads ?? [] as $lead)
+                            @if(($leads ?? collect())->isNotEmpty())
+                                @foreach($leads as $lead)
                                 <tr>
                                     <td>{{ $lead->lead_id ?? $lead->id ?? '—' }}</td>
                                     <td>{{ $lead->phone ?? '—' }}</td>
@@ -327,11 +463,12 @@
                                     <td>{{ $lead->status ?? '—' }}</td>
                                     <td>{{ $lead->created_at?->format('M j, H:i') ?? '—' }}</td>
                                 </tr>
-                            @empty
+                                @endforeach
+                            @else
                                 <tr>
                                     <td colspan="6" class="text-center py-5 text-muted">{{ translate('No provider leads') }}</td>
                                 </tr>
-                            @endforelse
+                            @endif
                             </tbody>
                         </table>
                     </div>
@@ -360,7 +497,8 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @forelse($bookings ?? [] as $booking)
+                            @if(($bookings ?? collect())->isNotEmpty())
+                                @foreach($bookings as $booking)
                                 <tr>
                                     <td>{{ $booking->booking_id ?? $booking->id ?? '—' }}</td>
                                     <td>{{ $booking->phone ?? '—' }}</td>
@@ -369,11 +507,12 @@
                                     <td>{{ $booking->status ?? '—' }}</td>
                                     <td>{{ $booking->created_at?->format('M j, H:i') ?? '—' }}</td>
                                 </tr>
-                            @empty
+                                @endforeach
+                            @else
                                 <tr>
                                     <td colspan="6" class="text-center py-5 text-muted">{{ translate('No bookings') }}</td>
                                 </tr>
-                            @endforelse
+                            @endif
                             </tbody>
                         </table>
                     </div>
@@ -403,7 +542,8 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @forelse($users ?? [] as $waUser)
+                            @if(($users ?? collect())->isNotEmpty())
+                                @foreach($users as $waUser)
                                 <tr>
                                     <td>{{ $waUser->phone ?? '—' }}</td>
                                     <td>{{ $waUser->name ?? '—' }}</td>
@@ -416,11 +556,12 @@
                                         <button type="button" class="btn btn-sm btn--secondary wa-user-more" data-phone="{{ e($waUser->phone) }}">{{ translate('View more') }}</button>
                                     </td>
                                 </tr>
-                            @empty
+                                @endforeach
+                            @else
                                 <tr>
                                     <td colspan="7" class="text-center py-5 text-muted">{{ translate('No WhatsApp users') }}</td>
                                 </tr>
-                            @endforelse
+                            @endif
                             </tbody>
                         </table>
                     </div>

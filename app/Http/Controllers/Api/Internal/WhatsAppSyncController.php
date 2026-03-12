@@ -301,6 +301,7 @@ class WhatsAppSyncController extends Controller
             'alternate_phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
             'type' => 'nullable|string|max:20',
+            'handled_by' => 'nullable|string|max:64',
         ]);
 
         $user = WhatsAppUser::firstOrNew(['phone' => $data['phone']]);
