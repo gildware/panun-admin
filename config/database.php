@@ -79,6 +79,20 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'whatsapp' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_WHATSAPP_HOST', '127.0.0.1'),
+            'port' => env('DB_WHATSAPP_PORT', '5432'),
+            'database' => env('DB_WHATSAPP_DATABASE', 'whatsapp'),
+            'username' => env('DB_WHATSAPP_USERNAME', 'forge'),
+            'password' => env('DB_WHATSAPP_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'schema' => env('DB_WHATSAPP_SCHEMA', 'public'),
+            'sslmode' => env('DB_WHATSAPP_SSLMODE', 'prefer'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DATABASE_URL'),

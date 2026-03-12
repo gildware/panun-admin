@@ -851,6 +851,19 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
+            @can('whatsapp_chat_view')
+                <li class="nav-category" title="{{ translate('WhatsApp') }}">
+                    {{ translate('WhatsApp') }}
+                </li>
+                <li>
+                    <a href="{{ route('admin.whatsapp.conversations.index') }}"
+                       class="{{ request()->is('admin/whatsapp/*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('WhatsApp') }}">chat</span>
+                        <span class="link-title">{{ translate('WhatsApp') }} {{ translate('Conversations') }}</span>
+                    </a>
+                </li>
+            @endcan
+
             @canany(['addon_view', 'addon_add'])
                 <li class="nav-category" title="{{translate('system_addon')}}">
                     {{translate('system_addon')}}

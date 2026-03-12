@@ -363,6 +363,10 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('configuration_export', fn () => $this->checkAccess('configuration', 'can_export'));
         Gate::define('configuration_manage_status', fn () => $this->checkAccess('configuration', 'can_manage_status'));
         Gate::define('configuration_approve_or_deny', fn () => $this->checkAccess('configuration', 'can_approve_or_deny'));
+
+        Gate::define('whatsapp_chat_view', fn () => $this->checkAccess('whatsapp_chat', 'can_view'));
+        Gate::define('whatsapp_chat_reply', fn () => $this->checkAccess('whatsapp_chat', 'can_add'));
+        Gate::define('whatsapp_chat_assign', fn () => $this->checkAccess('whatsapp_chat', 'can_update'));
     }
 
     private function checkAccess($sectionName, $action): bool

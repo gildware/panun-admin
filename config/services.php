@@ -30,4 +30,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'whatsapp_cloud' => [
+        'token' => env('WHATSAPP_CLOUD_TOKEN'),
+        'phone_id' => env('WHATSAPP_CLOUD_PHONE_ID'),
+        'version' => env('WHATSAPP_CLOUD_VERSION', 'v19.0'),
+    ],
+
+    'whatsapp_internal' => [
+        'token' => env('INTERNAL_WHATSAPP_API_TOKEN'),
+    ],
+
 ];

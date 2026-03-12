@@ -798,6 +798,12 @@ const SYSTEM_MODULES = [
 
     ['key' => 'addon', 'value' => 'System Addon'],
 
+    ['key' => 'whatsapp', 'value' => 'WhatsApp',
+        'submodules' => [
+            ['key' => 'whatsapp_chat', 'value' => 'WhatsApp Conversations'],
+        ]
+    ],
+
 ];
 
 

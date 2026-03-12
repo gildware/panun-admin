@@ -21,5 +21,6 @@
     "AddonModule": true,
     "Gateways": true,
     "SystemModule": true,
-    "AI": true
+    "AI": true,
+    "WhatsAppModule": true
 }

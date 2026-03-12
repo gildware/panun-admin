@@ -1,0 +1,13 @@
+{
+    "name": "WhatsAppModule",
+    "alias": "whatsappmodule",
+    "description": "WhatsApp chat support for admin dashboard",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\WhatsAppModule\\Providers\\WhatsAppModuleServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}
