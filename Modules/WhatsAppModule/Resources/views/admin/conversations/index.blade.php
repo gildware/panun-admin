@@ -46,14 +46,14 @@
             </div>
 
             {{-- Tab: Active Chats — left: scrollable list, right: open chat --}}
-            @if(($tab ?? '') === 'chats')
+            <?php if (($tab ?? '') === 'chats'): ?>
                 <div class="row g-3">
                     <div class="col-md-4 col-lg-3 whatsapp-active-list-container">
                         <div class="card h-100 d-flex flex-column">
                             <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
                                 <strong>{{ translate('Chats') }}</strong>
                                 @php($handlerFilter = $handlerFilter ?? 'all')
-                                @if(!empty($chatHandlers ?? null))
+                                <?php if (!empty($chatHandlers ?? null)) { ?>
                                     <div class="ms-auto" style="min-width: 220px;">
                                         <select id="chat-handler-filter"
                                                 class="form-select form-select-sm w-100"
@@ -67,7 +67,7 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                @endif
+                                <?php } ?>
                             </div>
                             <div class="card-body p-0 overflow-auto flex-grow-1" style="max-height: 65vh;">
                                 <?php $chatCollection = $chats ?? collect(); ?>
@@ -144,18 +144,78 @@
                                     <div id="whatsapp-chat-actions"></div>
                                 </div>
                                 <div id="whatsapp-chat-messages" class="card-body overflow-auto flex-grow-1" style="min-height: 280px; max-height: 50vh;"></div>
-                                @can('whatsapp_chat_reply')
+                                <?php if(auth()->check() && auth()->user()->can('whatsapp_chat_reply')): ?>
                                     <div class="card-footer border-top">
-                                        <form id="whatsapp-reply-form" class="d-flex gap-2">
+                                        <form id="whatsapp-reply-form" class="d-flex align-items-center gap-2">
                                             @csrf
                                             <input type="hidden" name="phone" id="whatsapp-reply-phone" value="">
-                                            <textarea name="body" class="form-control flex-grow-1" rows="2" required placeholder="{{ translate('Type your reply...') }}"></textarea>
-                                            <button type="submit" class="btn btn--primary align-self-end">
-                                                <span class="material-icons">send</span> {{ translate('Send') }}
+
+                                            <button type="button"
+                                                    class="btn btn-link text-decoration-none p-0 d-flex align-items-center justify-content-center"
+                                                    id="wa-emoji-toggle"
+                                                    style="width: 40px; height: 40px;"
+                                                    title="{{ translate('Insert emoji') }}">
+                                                😊
+                                            </button>
+
+                                            <label class="btn btn-link text-decoration-none p-0 d-flex align-items-center justify-content-center mb-0"
+                                                   for="wa-attachment-input"
+                                                   style="width: 40px; height: 40px;"
+                                                   title="{{ translate('Attach file') }}">
+                                                📎
+                                            </label>
+                                            <input type="file" id="wa-attachment-input" name="attachments[]" class="d-none" accept="image/*,application/pdf,video/*,audio/*" multiple>
+
+                                            <div class="flex-grow-1 position-relative">
+                                                <div id="wa-attachment-preview" class="mb-1 d-none d-flex flex-wrap gap-2"></div>
+                                                <textarea name="body"
+                                                          id="wa-reply-body"
+                                                          class="form-control rounded-pill ps-3 pe-3"
+                                                          rows="1"
+                                                          style="resize:none; min-height: 40px; max-height: 120px; line-height: 1.4; padding-top: 8px; padding-bottom: 8px; overflow-y:auto;"
+                                                          placeholder="{{ translate('Type a message') }}"></textarea>
+                                                <div id="wa-emoji-panel"
+                                                     class="border rounded bg-light d-none flex-wrap gap-1 p-2 position-absolute"
+                                                     style="bottom: 120%; left: 0; max-width: 280px; font-size: 1.2rem; z-index: 5;">
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😀">😀</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😁">😁</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😂">😂</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="🤣">🤣</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😊">😊</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😍">😍</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😎">😎</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😢">😢</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😡">😡</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="👍">👍</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="🙏">🙏</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="👌">👌</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="🔥">🔥</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="🎉">🎉</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="❤️">❤️</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="💔">💔</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="🤔">🤔</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😮">😮</button>
+                                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 wa-emoji-btn" data-emoji="😴">😴</button>
+                                                </div>
+                                            </div>
+
+                                            <button type="submit"
+                                                    class="btn btn--primary d-flex align-items-center justify-content-center p-0"
+                                                    style="width: 40px; height: 40px; border-radius: 50%;"
+                                                    disabled>
+                                                <svg width="22" height="22" viewBox="0 0 512.001 512.001" aria-hidden="true">
+                                                    <path fill="currentColor"
+                                                          d="M483.927,212.664L66.967,25.834C30.95,9.695-7.905,42.023,1.398,80.368l21.593,89.001
+                                                             c3.063,12.622,11.283,23.562,22.554,30.014l83.685,47.915c6.723,3.85,6.738,13.546,0,17.405l-83.684,47.915
+                                                             c-11.271,6.452-19.491,17.393-22.554,30.015l-21.594,89c-9.283,38.257,29.506,70.691,65.569,54.534l416.961-186.83
+                                                             C521.383,282.554,521.333,229.424,483.927,212.664z M359.268,273.093l-147.519,66.1c-9.44,4.228-20.521,0.009-24.752-9.435
+                                                             c-4.231-9.44-0.006-20.523,9.434-24.752l109.37-49.006l-109.37-49.006c-9.44-4.231-13.665-15.313-9.434-24.752
+                                                             c4.229-9.44,15.309-13.666,24.752-9.435l147.519,66.101C373.996,245.505,374.007,266.49,359.268,273.093z"/>
+                                                </svg>
                                             </button>
                                         </form>
                                     </div>
-                                @endcan
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -209,6 +269,11 @@
 
     function loadMessages(phone, isPoll) {
         var panel = document.getElementById('whatsapp-chat-messages');
+        var wasNearBottom = true;
+        if (isPoll && panel) {
+            var threshold = 100;
+            wasNearBottom = (panel.scrollHeight - panel.scrollTop - panel.clientHeight) <= threshold;
+        }
         if (!isPoll) {
             panel.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
         }
@@ -228,6 +293,13 @@
                         time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
                     }
                     var body = (m.message_text || m.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                    var mediaUrl = m.media_url || '';
+                    var msgType = (m.message_type || '').toUpperCase();
+                    var isDocument = msgType === 'DOCUMENT';
+                    var isVideo = msgType === 'VIDEO';
+                    var isAudio = msgType === 'AUDIO';
+                    var isImage = msgType === 'IMAGE' || msgType === 'MEDIA';
+                    var isMedia = isImage || isVideo || isAudio || isDocument;
                     var status = (m.status || '').toLowerCase();
                     var statusIcon = '';
                     var statusLabel = '';
@@ -256,10 +328,63 @@
                         html += '<span></span>';
                     }
                     html += '</div>';
-                    html += '<div class="mt-1">' + body + '</div></div></div>';
+                    if (isDocument && mediaUrl) {
+                        var docName = (body || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        html += '<div class="mt-1 d-flex align-items-center gap-2"><a href="' + mediaUrl.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" class="text-decoration-none d-flex align-items-center gap-2">';
+                        html += '<span class="opacity-90">📄</span><span class="text-break">' + docName + '</span></a></div>';
+                    } else if (isVideo && mediaUrl) {
+                        var safeVideoUrl = mediaUrl.replace(/"/g, '&quot;');
+                        html += '<div class="mt-1">';
+                        html += '<button type="button" class="btn p-0 border-0 bg-transparent whatsapp-video-thumb" data-video-url="' + safeVideoUrl + '">';
+                        html += '<div class="position-relative bg-dark" style="width:220px; height:140px; border-radius:8px; overflow:hidden;">';
+                        html += '<div class="position-absolute top-50 start-50 translate-middle text-white d-flex flex-column align-items-center justify-content-center">';
+                        html += '<div style="width:58px; height:58px; border-radius:50%; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center;">';
+                        html += '<span style="border-style:solid; border-width:10px 0 10px 16px; border-color:transparent transparent transparent white; margin-left:3px;"></span>';
+                        html += '</div>';
+                        html += '</div>';
+                        html += '</div>';
+                        html += '</button>';
+                        html += '</div>';
+                    } else if (isAudio && mediaUrl) {
+                        var safeAudioUrl = mediaUrl.replace(/"/g, '&quot;');
+                        html += '<div class="mt-1">';
+                        html += '<button type="button" class="btn p-0 border-0 bg-transparent whatsapp-audio-thumb" data-audio-url="' + safeAudioUrl + '">';
+                        html += '<div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill bg-white text-dark border">';
+                        html += '<span class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width:32px; height:32px;">';
+                        html += '<span style="border-style:solid; border-width:6px 0 6px 10px; border-color:transparent transparent transparent #fff; margin-left:2px;"></span>';
+                        html += '</span>';
+                        html += '<span class="small">Play audio</span>';
+                        html += '</div>';
+                        html += '</button>';
+                        html += '</div>';
+                    } else if (isImage && mediaUrl) {
+                        html += '<div class="mt-1"><img src="' + mediaUrl.replace(/"/g, '&quot;') + '" alt="" style="max-width:100%; max-height:280px; object-fit:contain; border-radius:6px;" /></div>';
+                    }
+                    if (body && !(isDocument && mediaUrl)) {
+                        html += '<div class="mt-1">' + body + '</div>';
+                    }
+                    html += '</div></div>';
                 });
                 panel.innerHTML = html || '<p class="text-muted text-center py-4">No messages yet</p>';
-                panel.scrollTop = panel.scrollHeight;
+                // Bind video preview buttons
+                panel.querySelectorAll('.whatsapp-video-thumb').forEach(function(btn) {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        var url = this.getAttribute('data-video-url');
+                        openVideoPreview(url);
+                    });
+                });
+                // Bind audio preview buttons
+                panel.querySelectorAll('.whatsapp-audio-thumb').forEach(function(btn) {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        var url = this.getAttribute('data-audio-url');
+                        openAudioPreview(url);
+                    });
+                });
+                if (!isPoll || wasNearBottom) {
+                    panel.scrollTop = panel.scrollHeight;
+                }
                 var actions = document.getElementById('whatsapp-chat-actions');
                 actions.innerHTML = '';
                 if (res.booking_link) {
@@ -440,11 +565,258 @@
     var initialPhone = new URLSearchParams(window.location.search).get('phone');
     if (initialPhone) openChat(initialPhone);
 
-    document.getElementById('whatsapp-reply-form').addEventListener('submit', function(e) {
+    var replyFormEl = document.getElementById('whatsapp-reply-form');
+    var replyBodyEl = document.getElementById('wa-reply-body');
+    var attachmentInputEl = document.getElementById('wa-attachment-input');
+    var attachmentNameEl = document.getElementById('wa-attachment-name');
+    var attachmentPreviewEl = document.getElementById('wa-attachment-preview');
+    var emojiToggleEl = document.getElementById('wa-emoji-toggle');
+    var emojiPanelEl = document.getElementById('wa-emoji-panel');
+    var sendBtnEl = replyFormEl ? replyFormEl.querySelector('button[type="submit"]') : null;
+    var attachmentFiles = []; // keep our own list of files across changes
+
+    // Lazy-init simple Bootstrap modal for media (video/audio) preview
+    var waVideoModalEl = null;
+    var waVideoModalBody = null;
+    var waVideoModalInstance = null;
+
+    function ensureVideoModal() {
+        if (waVideoModalEl) return;
+        waVideoModalEl = document.createElement('div');
+        waVideoModalEl.className = 'modal fade';
+        waVideoModalEl.id = 'waVideoPreviewModal';
+        waVideoModalEl.tabIndex = -1;
+        waVideoModalEl.innerHTML =
+            '<div class="modal-dialog modal-lg modal-dialog-centered">' +
+                '<div class="modal-content bg-dark text-white">' +
+                    '<div class="modal-header border-0">' +
+                        '<h5 class="modal-title">{{ translate('Media') }}</h5>' +
+                        '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>' +
+                    '</div>' +
+                    '<div class="modal-body d-flex justify-content-center" id="waVideoPreviewBody">' +
+                        '<div class="text-center py-4 text-muted">{{ translate('Loading…') }}</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(waVideoModalEl);
+        waVideoModalBody = waVideoModalEl.querySelector('#waVideoPreviewBody');
+    }
+
+    function openVideoPreview(url) {
+        if (!url) return;
+        ensureVideoModal();
+        if (!waVideoModalBody) return;
+        var safeUrl = url.replace(/"/g, '&quot;');
+        waVideoModalBody.innerHTML =
+            '<video controls style="max-width:100%; max-height:70vh; border-radius:8px;"><source src="' + safeUrl + '"></video>';
+        if (typeof bootstrap !== 'undefined') {
+            waVideoModalInstance = waVideoModalInstance || new bootstrap.Modal(waVideoModalEl);
+            waVideoModalInstance.show();
+        } else {
+            window.open(url, '_blank');
+        }
+    }
+
+    function openAudioPreview(url) {
+        if (!url) return;
+        ensureVideoModal();
+        if (!waVideoModalBody) return;
+        var safeUrl = url.replace(/"/g, '&quot;');
+        waVideoModalBody.innerHTML =
+            '<audio controls style="width:100%;"><source src="' + safeUrl + '"></audio>';
+        if (typeof bootstrap !== 'undefined') {
+            waVideoModalInstance = waVideoModalInstance || new bootstrap.Modal(waVideoModalEl);
+            waVideoModalInstance.show();
+        } else {
+            window.open(url, '_blank');
+        }
+    }
+
+    function updateSendDisabled() {
+        if (!sendBtnEl) return;
+        var hasText = replyBodyEl && replyBodyEl.value.trim().length > 0;
+        var hasFiles = attachmentFiles && attachmentFiles.length > 0;
+        sendBtnEl.disabled = !(hasText || hasFiles);
+    }
+
+    if (emojiToggleEl && emojiPanelEl) {
+        emojiToggleEl.addEventListener('click', function (e) {
+            e.stopPropagation();
+            emojiPanelEl.classList.toggle('d-none');
+        });
+        emojiPanelEl.querySelectorAll('.wa-emoji-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var emoji = this.getAttribute('data-emoji') || '';
+                if (!replyBodyEl) return;
+                var start = replyBodyEl.selectionStart || replyBodyEl.value.length;
+                var end = replyBodyEl.selectionEnd || replyBodyEl.value.length;
+                var text = replyBodyEl.value;
+                replyBodyEl.value = text.slice(0, start) + emoji + text.slice(end);
+                replyBodyEl.focus();
+                var pos = start + emoji.length;
+                replyBodyEl.setSelectionRange(pos, pos);
+                // Make sure send button reacts to emoji-only messages
+                updateSendDisabled();
+            });
+        });
+        // Close emoji panel when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!emojiPanelEl || emojiPanelEl.classList.contains('d-none')) return;
+            if (emojiPanelEl.contains(e.target) || (emojiToggleEl && emojiToggleEl.contains(e.target))) return;
+            emojiPanelEl.classList.add('d-none');
+        });
+    }
+
+    if (replyBodyEl) {
+        var autoResize = function () {
+            replyBodyEl.style.height = 'auto';
+            var newHeight = Math.min(replyBodyEl.scrollHeight, 120);
+            replyBodyEl.style.height = newHeight + 'px';
+            updateSendDisabled();
+        };
+        replyBodyEl.addEventListener('input', autoResize);
+        // Initialize height and button state
+        autoResize();
+    } else {
+        updateSendDisabled();
+    }
+
+    function renderAttachmentPreview() {
+        if (!attachmentPreviewEl) return;
+        attachmentPreviewEl.innerHTML = '';
+        if (!attachmentFiles || !attachmentFiles.length) {
+            attachmentPreviewEl.classList.add('d-none');
+            return;
+        }
+        attachmentPreviewEl.classList.remove('d-none');
+
+        // Show total count badge
+        var countBadge = document.createElement('div');
+        countBadge.className = 'w-100 mb-1 d-flex justify-content-end';
+        countBadge.innerHTML = '<span class="badge bg-secondary">' + attachmentFiles.length + ' file' + (attachmentFiles.length > 1 ? 's' : '') + '</span>';
+        attachmentPreviewEl.appendChild(countBadge);
+
+        attachmentFiles.forEach(function (entry, index) {
+            var file = entry.file;
+            var item = document.createElement('div');
+            item.className = 'position-relative me-2 mb-1 d-inline-block';
+            var isImage = file.type && file.type.indexOf('image/') === 0;
+            var isPdf = file.name && (file.name.toLowerCase().endsWith('.pdf') || (file.type && file.type === 'application/pdf'));
+            if (isImage) {
+                var img = document.createElement('img');
+                img.className = 'img-thumbnail';
+                img.style.maxHeight = '80px';
+                img.style.maxWidth = '120px';
+                img.style.objectFit = 'contain';
+                img.src = URL.createObjectURL(file);
+                item.appendChild(img);
+            } else if (isPdf) {
+                var docWrap = document.createElement('div');
+                docWrap.className = 'border rounded px-2 py-2 bg-light d-flex align-items-center gap-2';
+                docWrap.style.minWidth = '140px';
+                var docIcon = document.createElement('span');
+                docIcon.className = 'text-danger';
+                docIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/></svg>';
+                var docName = document.createElement('span');
+                docName.className = 'small text-break';
+                docName.textContent = file.name;
+                docWrap.appendChild(docIcon);
+                docWrap.appendChild(docName);
+                item.appendChild(docWrap);
+            } else {
+                var span = document.createElement('span');
+                span.className = 'badge bg-secondary';
+                span.textContent = file.name;
+                item.appendChild(span);
+            }
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 translate-middle p-0 d-flex align-items-center justify-content-center';
+            removeBtn.style.width = '18px';
+            removeBtn.style.height = '18px';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+                attachmentFiles.splice(index, 1);
+                if (attachmentInputEl && window.DataTransfer) {
+                    var dt = new DataTransfer();
+                    attachmentFiles.forEach(function (entry2) { dt.items.add(entry2.file); });
+                    attachmentInputEl.files = dt.files;
+                }
+                renderAttachmentPreview();
+                updateSendDisabled();
+            });
+            item.appendChild(removeBtn);
+            attachmentPreviewEl.appendChild(item);
+        });
+    }
+
+    if (attachmentInputEl && (attachmentNameEl || attachmentPreviewEl)) {
+        attachmentInputEl.addEventListener('change', function () {
+            var files = this.files ? Array.from(this.files) : [];
+
+            // If nothing selected, clear everything
+            if (!files.length) {
+                attachmentFiles = [];
+            } else {
+                // Add newly selected files on top of existing ones (support multiple OS picks)
+                files.forEach(function (f) {
+                    var exists = attachmentFiles.some(function (entry) {
+                        var ef = entry.file;
+                        return ef &&
+                            ef.name === f.name &&
+                            ef.size === f.size &&
+                            ef.lastModified === f.lastModified;
+                    });
+                    if (!exists) {
+                        attachmentFiles.push({ file: f });
+                    }
+                });
+            }
+
+            if (attachmentNameEl) {
+                if (attachmentFiles.length === 1) {
+                    attachmentNameEl.textContent = attachmentFiles[0].file.name;
+                } else if (attachmentFiles.length > 1) {
+                    attachmentNameEl.textContent = attachmentFiles.length + ' files selected';
+                } else {
+                    attachmentNameEl.textContent = '';
+                }
+            }
+
+            // Sync native input FileList from attachmentFiles, so backend gets all
+            if (attachmentInputEl && window.DataTransfer) {
+                var dt = new DataTransfer();
+                attachmentFiles.forEach(function (entry) { dt.items.add(entry.file); });
+                attachmentInputEl.files = dt.files;
+            }
+
+            renderAttachmentPreview();
+            updateSendDisabled();
+        });
+    }
+
+    replyFormEl.addEventListener('submit', function(e) {
         e.preventDefault();
         var phone = document.getElementById('whatsapp-reply-phone').value;
-        var body = this.querySelector('[name=\"body\"]').value;
-        if (!phone || !body) return;
+        var body = replyBodyEl.value;
+        var hasFilesSubmit = attachmentFiles && attachmentFiles.length > 0;
+        if (!phone || (!body && !hasFilesSubmit)) return;
+
+        // Capture files for request and optimistic UI, then clear preview immediately
+        var filesToSend = (attachmentFiles && attachmentFiles.length) ? attachmentFiles.slice() : [];
+        attachmentFiles = [];
+        if (attachmentInputEl) attachmentInputEl.value = '';
+        if (attachmentNameEl) attachmentNameEl.textContent = '';
+        if (attachmentPreviewEl) {
+            attachmentPreviewEl.innerHTML = '';
+            attachmentPreviewEl.classList.add('d-none');
+        }
+        replyBodyEl.value = '';
+        if (replyBodyEl.style) replyBodyEl.style.height = '40px';
+        updateSendDisabled();
 
         // Optimistic UI: show message immediately with \"Sending…\" status.
         var panel = document.getElementById('whatsapp-chat-messages');
@@ -452,28 +824,85 @@
         var time = now.toLocaleString();
         var safeBody = body.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br>');
         var tempId = 'wa-temp-' + Date.now();
-        var wrapper = document.createElement('div');
-        wrapper.className = 'mb-3 d-flex justify-content-end';
-        wrapper.innerHTML =
-            '<div class=\"rounded px-3 py-2 bg-primary text-white\" style=\"max-width:85%\">' +
-                '<div class=\"fz-12 opacity-75\">OUT · ' + time + ' · <span data-temp-status=\"' + tempId + '\">Sending…</span></div>' +
-                '<div class=\"mt-1\">' + safeBody + '</div>' +
-            '</div>';
-        panel.appendChild(wrapper);
+        var statusSpan = null;
+        // Optimistic block(s) for attachments + text
+        if (filesToSend.length) {
+            filesToSend.forEach(function (entry, index) {
+                var file = entry.file;
+                var wrap = document.createElement('div');
+                wrap.className = 'mb-3 d-flex justify-content-end';
+                var inner = '<div class=\"rounded px-3 py-2 bg-primary text-white\" style=\"max-width:85%\">' +
+                    '<div class=\"fz-12 opacity-75\">OUT · ' + time + ' · <span data-temp-status=\"' + tempId + '\">Sending…</span></div>';
+                if (file.type && file.type.indexOf('image/') === 0) {
+                    var imgUrl = URL.createObjectURL(file);
+                    inner += '<div class=\"mt-1\"><img src=\"' + imgUrl + '\" style=\"max-width:200px; max-height:160px; object-fit:contain;\" /></div>';
+                    if (index === 0 && safeBody) {
+                        inner += '<div class=\"mt-1\">' + safeBody + '</div>';
+                    }
+                } else {
+                    var isPdfOpt = file.name && (file.name.toLowerCase().endsWith('.pdf') || (file.type && file.type === 'application/pdf'));
+                    if (isPdfOpt) {
+                        inner += '<div class=\"mt-1 d-flex align-items-center gap-2\"><span class=\"text-danger\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path d=\"M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z\"/></svg></span><span class=\"opacity-90\">' + (file.name || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span></div>';
+                    } else {
+                        inner += '<div class=\"mt-1 opacity-90\">' + (file.name || 'File').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    }
+                    if (index === 0 && safeBody) {
+                        inner += '<div class=\"mt-1\">' + safeBody + '</div>';
+                    }
+                }
+                inner += '</div>';
+                wrap.innerHTML = inner;
+                panel.appendChild(wrap);
+                if (!statusSpan) {
+                    statusSpan = wrap.querySelector('[data-temp-status=\"' + tempId + '\"]');
+                }
+            });
+        } else {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'mb-3 d-flex justify-content-end';
+            wrapper.innerHTML =
+                '<div class=\"rounded px-3 py-2 bg-primary text-white\" style=\"max-width:85%\">' +
+                    '<div class=\"fz-12 opacity-75\">OUT · ' + time + ' · <span data-temp-status=\"' + tempId + '\">Sending…</span></div>' +
+                    '<div class=\"mt-1\">' + safeBody + '</div>' +
+                '</div>';
+            panel.appendChild(wrapper);
+            statusSpan = wrapper.querySelector('[data-temp-status=\"' + tempId + '\"]');
+        }
         panel.scrollTop = panel.scrollHeight;
-        var statusSpan = wrapper.querySelector('[data-temp-status=\"' + tempId + '\"]');
 
         var btn = this.querySelector('button[type=\"submit\"]');
         btn.disabled = true;
+        var formData = new FormData();
+        formData.append('phone', phone);
+        formData.append('body', body);
+        formData.append('_token', csrf);
+        if (filesToSend.length) {
+            filesToSend.forEach(function (entry, idx) {
+                formData.append('attachments[' + idx + ']', entry.file);
+            });
+        }
         fetch(replyUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ phone: phone, body: body, _token: csrf })
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
         })
         .then(function(r) { return r.json().catch(function() { return {}; }); })
         .then(function(res) {
-            btn.disabled = false;
-            this.querySelector('[name=\"body\"]').value = '';
+            replyBodyEl.value = '';
+            if (replyBodyEl) {
+                replyBodyEl.style.height = '40px';
+            }
+            if (attachmentInputEl) {
+                attachmentInputEl.value = '';
+            }
+            if (attachmentNameEl) {
+                attachmentNameEl.textContent = '';
+            }
+            attachmentFiles = [];
+            if (attachmentPreviewEl) {
+                attachmentPreviewEl.innerHTML = '';
+                attachmentPreviewEl.classList.add('d-none');
+            }
             var sent = !!(res && res.whatsapp_sent);
             if (statusSpan) {
                 statusSpan.textContent = sent ? 'Sent' : 'Failed';
@@ -485,26 +914,27 @@
                     toastr.warning('Saved, but WhatsApp API failed');
                 }
             }
+            updateSendDisabled();
         }.bind(this))
         .catch(function() {
-            btn.disabled = false;
             if (statusSpan) {
                 statusSpan.textContent = 'Failed';
             }
             if (typeof toastr !== 'undefined') toastr.error('Failed to send');
+            updateSendDisabled();
         });
     });
 })();
                 </script>
                 @endpush
-            @endif
+            <?php endif; ?>
 
             {{-- Tab: Provider Leads --}}
-            @if(($tab ?? '') === 'leads')
+            <?php if (($tab ?? '') === 'leads'): ?>
                 <div class="card">
-                    @if(!empty($leadsError ?? null))
+                    <?php if (!empty($leadsError ?? null)) { ?>
                         <div class="alert alert-warning m-3 mb-0">{{ translate('Could not load provider leads') }}: {{ $leadsError }}</div>
-                    @endif
+                    <?php } ?>
                     <div class="table-responsive">
                         <table class="table align-middle table-borderless">
                             <thead class="border-bottom">
@@ -518,7 +948,7 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @if(($leads ?? collect())->isNotEmpty())
+                            <?php if (($leads ?? collect())->isNotEmpty()) { ?>
                                 @foreach($leads as $lead)
                                 <tr>
                                     <td>{{ $lead->lead_id ?? $lead->id ?? '—' }}</td>
@@ -529,26 +959,26 @@
                                     <td>{{ $lead->created_at?->format('M j, H:i') ?? '—' }}</td>
                                 </tr>
                                 @endforeach
-                            @else
+                            <?php } else { ?>
                                 <tr>
                                     <td colspan="6" class="text-center py-5 text-muted">{{ translate('No provider leads') }}</td>
                                 </tr>
-                            @endif
+                            <?php } ?>
                             </tbody>
                         </table>
                     </div>
-                    @if(isset($leads) && $leads->hasPages())
+                    <?php if (isset($leads) && $leads->hasPages()) { ?>
                         <div class="card-footer border-0">{{ $leads->links() }}</div>
-                    @endif
+                    <?php } ?>
                 </div>
-            @endif
+            <?php endif; ?>
 
             {{-- Tab: Bookings --}}
-            @if(($tab ?? '') === 'bookings')
+            <?php if (($tab ?? '') === 'bookings'): ?>
                 <div class="card">
-                    @if(!empty($bookingsError ?? null))
+                    <?php if (!empty($bookingsError ?? null)) { ?>
                         <div class="alert alert-warning m-3 mb-0">{{ translate('Could not load bookings') }}: {{ $bookingsError }}</div>
-                    @endif
+                    <?php } ?>
                     <div class="table-responsive">
                         <table class="table align-middle table-borderless">
                             <thead class="border-bottom">
@@ -562,7 +992,7 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @if(($bookings ?? collect())->isNotEmpty())
+                            <?php if (($bookings ?? collect())->isNotEmpty()) { ?>
                                 @foreach($bookings as $booking)
                                 <tr>
                                     <td>{{ $booking->booking_id ?? $booking->id ?? '—' }}</td>
@@ -573,26 +1003,26 @@
                                     <td>{{ $booking->created_at?->format('M j, H:i') ?? '—' }}</td>
                                 </tr>
                                 @endforeach
-                            @else
+                            <?php } else { ?>
                                 <tr>
                                     <td colspan="6" class="text-center py-5 text-muted">{{ translate('No bookings') }}</td>
                                 </tr>
-                            @endif
+                            <?php } ?>
                             </tbody>
                         </table>
                     </div>
-                    @if(isset($bookings) && $bookings->hasPages())
+                    <?php if (isset($bookings) && $bookings->hasPages()) { ?>
                         <div class="card-footer border-0">{{ $bookings->links() }}</div>
-                    @endif
+                    <?php } ?>
                 </div>
-            @endif
+            <?php endif; ?>
 
             {{-- Tab: WhatsApp Users (Neon DB only, separate from main app users) --}}
-            @if(($tab ?? '') === 'users')
+            <?php if (($tab ?? '') === 'users'): ?>
                 <div class="card">
-                    @if(!empty($usersError ?? null))
+                    <?php if (!empty($usersError ?? null)) { ?>
                         <div class="alert alert-warning m-3 mb-0">{{ translate('Could not load WhatsApp users') }}: {{ $usersError }}</div>
-                    @endif
+                    <?php } ?>
                     <div class="table-responsive">
                         <table class="table align-middle table-borderless">
                             <thead class="border-bottom">
@@ -607,7 +1037,7 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @if(($users ?? collect())->isNotEmpty())
+                            <?php if (($users ?? collect())->isNotEmpty()) { ?>
                                 @foreach($users as $waUser)
                                 <tr>
                                     <td>{{ $waUser->phone ?? '—' }}</td>
@@ -622,17 +1052,17 @@
                                     </td>
                                 </tr>
                                 @endforeach
-                            @else
+                            <?php } else { ?>
                                 <tr>
                                     <td colspan="7" class="text-center py-5 text-muted">{{ translate('No WhatsApp users') }}</td>
                                 </tr>
-                            @endif
+                            <?php } ?>
                             </tbody>
                         </table>
                     </div>
-                    @if(isset($users) && $users->hasPages())
+                    <?php if (isset($users) && $users->hasPages()) { ?>
                         <div class="card-footer border-0">{{ $users->links() }}</div>
-                    @endif
+                    <?php } ?>
                 </div>
 
                 {{-- Modal: View more (full user details + bookings) --}}
@@ -649,7 +1079,7 @@
                         </div>
                     </div>
                 </div>
-                @push('script')
+@push('script')
                 <script>
 (function() {
     var modal = document.getElementById('waUserDetailsModal');
@@ -702,7 +1132,7 @@
 })();
                 </script>
                 @endpush
-            @endif
+            <?php endif; ?>
         </div>
     </div>
 @endsection

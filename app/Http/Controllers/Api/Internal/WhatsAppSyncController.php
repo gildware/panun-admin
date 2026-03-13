@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\Internal;
 
 use App\Http\Controllers\Controller;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
@@ -20,25 +22,59 @@ class WhatsAppSyncController extends Controller
     {
         $data = $request->validate([
             'phone' => 'required|string|max:50',
-            'message_text' => 'required|string',
+            // Text body is optional when it's a pure media message
+            'message_text' => 'nullable|string',
             'direction' => 'required|string|in:IN,OUT',
             'message_type' => 'nullable|string|max:20',
             'created_at' => 'nullable|date',
             'wa_message_id' => 'nullable|string|max:255',
             'sent_by_id' => 'nullable|string|max:64',
             'sent_by' => 'nullable|string|max:255',
+            // Optional media fields for inbound messages from WhatsApp (image/document/video/audio)
+            'media_id' => 'nullable|string|max:255',
+            'media_url' => 'nullable|string',
+            'media_mime_type' => 'nullable|string|max:255',
         ]);
+
+        // If this is a media message and no explicit message_type is provided, infer from mime type.
+        $messageType = $data['message_type'] ?? null;
+        if (!$messageType && !empty($data['media_mime_type'])) {
+            $mime = strtolower($data['media_mime_type']);
+            if (str_starts_with($mime, 'image/')) {
+                $messageType = 'IMAGE';
+            } elseif ($mime === 'application/pdf' || str_starts_with($mime, 'application/')) {
+                $messageType = 'DOCUMENT';
+            } elseif (str_starts_with($mime, 'video/')) {
+                $messageType = 'VIDEO';
+            } elseif (str_starts_with($mime, 'audio/')) {
+                $messageType = 'AUDIO';
+            }
+        }
+
+        // Attempt to download and store media if media id or URL has been provided.
+        $mediaPath = null;
+        if (!empty($data['media_id']) || !empty($data['media_url'])) {
+            $mediaPath = $this->downloadWhatsAppMedia(
+                $data['media_id'] ?? null,
+                $data['media_url'] ?? null,
+                $data['media_mime_type'] ?? null
+            );
+        }
 
         $msg = new WhatsAppMessage();
         $msg->fill([
             'phone' => $data['phone'],
-            'message_text' => $data['message_text'],
+            // DB column is non-nullable; store empty string when there is no text (pure media)
+            'message_text' => $data['message_text'] ?? '',
             'direction' => $data['direction'],
-            'message_type' => $data['message_type'] ?? 'TEXT',
+            'message_type' => $messageType ?? ($mediaPath ? 'IMAGE' : 'TEXT'),
             'wa_message_id' => $data['wa_message_id'] ?? null,
             'sent_by_id' => $data['sent_by_id'] ?? null,
             'sent_by' => $data['sent_by'] ?? ($data['direction'] === 'OUT' ? 'AI' : 'Customer'),
         ]);
+        if ($mediaPath) {
+            $msg->media_path = $mediaPath;
+        }
         if (!empty($data['created_at'])) {
             $msg->created_at = $data['created_at'];
         }
@@ -49,6 +85,91 @@ class WhatsAppSyncController extends Controller
         Cache::forget('whatsapp_chat_full_' . md5($data['phone']));
 
         return response()->json(['ok' => true, 'id' => $msg->id]);
+    }
+
+    /**
+     * Download WhatsApp Cloud media by id or direct URL and store it on the public disk.
+     * Returns stored media path relative to the disk (e.g. whatsapp_attachments/xyz.jpg) or null on failure.
+     */
+    private function downloadWhatsAppMedia(?string $mediaId, ?string $directUrl, ?string $mimeType): ?string
+    {
+        $token = (string) config('services.whatsapp_cloud.token');
+        $phoneId = (string) config('services.whatsapp_cloud.phone_id');
+        if (!$token || !$phoneId) {
+            \Log::warning('WhatsApp inbound media: missing cloud API config.');
+            return null;
+        }
+
+        $version = (string) config('services.whatsapp_cloud.version', 'v19.0');
+
+        try {
+            $url = $directUrl;
+            $resolvedMime = $mimeType;
+
+            // If we have a media id, resolve it to a download URL first.
+            if ($mediaId && !$url) {
+                $metaResp = Http::withToken($token)
+                    ->acceptJson()
+                    ->get("https://graph.facebook.com/{$version}/{$mediaId}");
+
+                if ($metaResp->failed()) {
+                    \Log::warning('WhatsApp inbound media: failed to fetch media metadata', [
+                        'media_id' => $mediaId,
+                        'status' => $metaResp->status(),
+                        'body' => $metaResp->body(),
+                    ]);
+                    return null;
+                }
+
+                $meta = $metaResp->json();
+                $url = $meta['url'] ?? null;
+                $resolvedMime = $resolvedMime ?: ($meta['mime_type'] ?? null);
+            }
+
+            if (!$url) {
+                \Log::warning('WhatsApp inbound media: no URL resolved', ['media_id' => $mediaId]);
+                return null;
+            }
+
+            // Download the actual binary
+            $fileResp = Http::withToken($token)->get($url);
+            if ($fileResp->failed()) {
+                \Log::warning('WhatsApp inbound media: failed to download file', [
+                    'media_id' => $mediaId,
+                    'status' => $fileResp->status(),
+                ]);
+                return null;
+            }
+
+            $contentType = strtolower($resolvedMime ?: ($fileResp->header('Content-Type') ?? ''));
+            $ext = 'bin';
+            if (str_starts_with($contentType, 'image/')) {
+                $ext = match ($contentType) {
+                    'image/jpeg', 'image/jpg' => 'jpg',
+                    'image/png' => 'png',
+                    'image/gif' => 'gif',
+                    default => 'jpg',
+                };
+            } elseif ($contentType === 'application/pdf') {
+                $ext = 'pdf';
+            } elseif (str_starts_with($contentType, 'video/')) {
+                $ext = 'mp4';
+            } elseif (str_starts_with($contentType, 'audio/')) {
+                $ext = 'mp3';
+            }
+
+            $filename = 'in_' . ($mediaId ?: uniqid('', true)) . '.' . $ext;
+            $path = 'whatsapp_attachments/' . $filename;
+            Storage::disk('public')->put($path, $fileResp->body());
+
+            return $path;
+        } catch (\Throwable $e) {
+            \Log::warning('WhatsApp inbound media: exception while downloading', [
+                'media_id' => $mediaId,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 
     /**

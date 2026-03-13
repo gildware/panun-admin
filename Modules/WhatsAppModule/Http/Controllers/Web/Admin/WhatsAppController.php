@@ -12,6 +12,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
@@ -35,7 +36,7 @@ class WhatsAppController extends Controller
 
         if ($tab === 'chats') {
             try {
-                $handlerFilter = $request->get('handler', 'ai'); // all | ai | <admin-id>
+                $handlerFilter = $request->get('handler', 'all'); // all | ai | <admin-id> — default 'all' so first load shows all chats
                 $allChats = $this->getActiveChatsList();
 
                 // Build handler options: All, AI, then one per admin id present
@@ -243,29 +244,74 @@ class WhatsAppController extends Controller
 
         $request->validate([
             'phone' => 'required|string|max:50',
-            'body' => 'required|string|max:4096',
+            'body' => 'nullable|string|max:4096',
+            // Support both single and multiple attachments from the UI
+            'attachment' => 'nullable|file|max:10240',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'file|max:10240',
         ]);
 
         $whatsAppError = null;
 
         try {
-            $message = new WhatsAppMessage();
-            $message->phone = $request->input('phone');
-            $message->message_text = $request->input('body');
-            $message->direction = 'OUT';
-            $message->message_type = 'TEXT';
+            $phone = $request->input('phone');
+            $body = trim((string) $request->input('body', ''));
             $user = $request->user();
-            if ($user) {
-                $message->sent_by_id = $user->id;
-            }
-            $message->save();
 
-            // Also send to real WhatsApp via WhatsApp Cloud API (if configured).
-            $waId = $this->sendWhatsAppText($message->phone, $message->message_text, $whatsAppError);
-            $sentToWhatsApp = $waId !== null;
-            if ($waId !== null) {
-                $message->wa_message_id = $waId;
+            // Normalise attachments: support attachments[] (multiple) and attachment (single)
+            $files = [];
+            if ($request->hasFile('attachments')) {
+                $files = $request->file('attachments');
+            } elseif ($request->hasFile('attachment')) {
+                $files = [$request->file('attachment')];
+            }
+
+            $sentToWhatsApp = false;
+
+            if (empty($files)) {
+                // Text-only message
+                $message = new WhatsAppMessage();
+                $message->phone = $phone;
+                $message->message_text = $body;
+                $message->direction = 'OUT';
+                $message->message_type = 'TEXT';
+                if ($user) {
+                    $message->sent_by_id = $user->id;
+                }
                 $message->save();
+
+                $waId = $this->sendWhatsAppOutbound($phone, $body, null, $whatsAppError);
+                $sentToWhatsApp = $waId !== null;
+                if ($waId !== null) {
+                    $message->wa_message_id = $waId;
+                    $message->save();
+                }
+            } else {
+                // One WhatsAppMessage per attachment; caption only on the first media message
+                foreach ($files as $index => $file) {
+                    $path = $file->store('whatsapp_attachments', 'public');
+                    $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($path, PATHINFO_EXTENSION));
+                    $storedMediaType = $this->whatsappMediaTypeFromExtension($ext);
+
+                    $message = new WhatsAppMessage();
+                    $message->phone = $phone;
+                    $message->direction = 'OUT';
+                    $message->message_type = strtoupper($storedMediaType);
+                    $message->media_path = $path;
+                    $message->message_text = $body !== '' && $index === 0 ? $body : $file->getClientOriginalName();
+                    if ($user) {
+                        $message->sent_by_id = $user->id;
+                    }
+                    $message->save();
+
+                    $caption = $body !== '' && $index === 0 ? $body : '';
+                    $waId = $this->sendWhatsAppOutbound($phone, $caption, $path, $whatsAppError);
+                    $sentToWhatsApp = $sentToWhatsApp || $waId !== null;
+                    if ($waId !== null) {
+                        $message->wa_message_id = $waId;
+                        $message->save();
+                    }
+                }
             }
 
             Cache::forget('whatsapp_active_chats_list');
@@ -291,10 +337,11 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * Send via WhatsApp Cloud API using config/services.php.
+     * Send outbound message via WhatsApp Cloud API.
+     * If $mediaPath is provided, uploads media and sends it with optional caption.
      * Returns wa_message_id on success, null on failure (and logs errors).
      */
-    private function sendWhatsAppText(string $phone, string $body, ?string &$error = null): ?string
+    private function sendWhatsAppOutbound(string $phone, string $body, ?string $mediaPath, ?string &$error = null): ?string
     {
         $token = (string) config('services.whatsapp_cloud.token');
         $phoneId = (string) config('services.whatsapp_cloud.phone_id');
@@ -305,20 +352,92 @@ class WhatsAppController extends Controller
         }
 
         $version = (string) config('services.whatsapp_cloud.version', 'v19.0');
-        $url = "https://graph.facebook.com/{$version}/{$phoneId}/messages";
+        $messagesUrl = "https://graph.facebook.com/{$version}/{$phoneId}/messages";
 
         try {
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'to' => $phone,
+            ];
+
+            // If we have media, upload it first then send with correct type (image/document/video/audio)
+            if ($mediaPath) {
+                $fullPath = Storage::disk('public')->path($mediaPath);
+                if (!is_file($fullPath)) {
+                    \Log::warning('WhatsApp media file not found', ['path' => $fullPath]);
+                } else {
+                    $mediaUrl = "https://graph.facebook.com/{$version}/{$phoneId}/media";
+                    $uploadResponse = Http::withToken($token)
+                        ->acceptJson()
+                        ->asMultipart()
+                        ->attach('file', fopen($fullPath, 'r'), basename($fullPath))
+                        ->post($mediaUrl, [
+                            'messaging_product' => 'whatsapp',
+                        ]);
+
+                    if ($uploadResponse->failed()) {
+                        $error = 'media_upload_status:' . $uploadResponse->status() . ' body:' . $uploadResponse->body();
+                        \Log::warning('WhatsApp Cloud media upload failed', [
+                            'phone' => $phone,
+                            'status' => $uploadResponse->status(),
+                            'body' => $uploadResponse->body(),
+                        ]);
+                        return null;
+                    }
+
+                    $uploadPayload = $uploadResponse->json();
+                    $mediaId = $uploadPayload['id'] ?? null;
+                    if (!$mediaId) {
+                        $error = 'media_id_missing';
+                        \Log::warning('WhatsApp Cloud media upload missing id', ['response' => $uploadPayload]);
+                        return null;
+                    }
+
+                    $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+                    $mediaType = $this->whatsappMediaTypeFromExtension($ext);
+                    $filename = basename($fullPath);
+
+                    if ($mediaType === 'document') {
+                        $payload['type'] = 'document';
+                        $payload['document'] = [
+                            'id' => $mediaId,
+                            'filename' => $filename,
+                        ];
+                        if ($body !== '') {
+                            $payload['document']['caption'] = $body;
+                        }
+                    } elseif ($mediaType === 'video') {
+                        $payload['type'] = 'video';
+                        $payload['video'] = ['id' => $mediaId];
+                        if ($body !== '') {
+                            $payload['video']['caption'] = $body;
+                        }
+                    } elseif ($mediaType === 'audio') {
+                        $payload['type'] = 'audio';
+                        $payload['audio'] = ['id' => $mediaId];
+                        // WhatsApp audio does not support caption
+                    } else {
+                        $payload['type'] = 'image';
+                        $payload['image'] = ['id' => $mediaId];
+                        if ($body !== '') {
+                            $payload['image']['caption'] = $body;
+                        }
+                    }
+                }
+            }
+
+            // If no media, or media path invalid, fall back to text
+            if (!isset($payload['type'])) {
+                $payload['type'] = 'text';
+                $payload['text'] = [
+                    'preview_url' => true,
+                    'body' => $body,
+                ];
+            }
+
             $response = Http::withToken($token)
                 ->acceptJson()
-                ->post($url, [
-                    'messaging_product' => 'whatsapp',
-                    'to' => $phone,
-                    'type' => 'text',
-                    'text' => [
-                        'preview_url' => true,
-                        'body' => $body,
-                    ],
-                ]);
+                ->post($messagesUrl, $payload);
 
             if ($response->failed()) {
                 $error = 'status:' . $response->status() . ' body:' . $response->body();
@@ -330,8 +449,8 @@ class WhatsAppController extends Controller
                 return null;
             }
 
-            $payload = $response->json();
-            $waId = $payload['messages'][0]['id'] ?? null;
+            $respPayload = $response->json();
+            $waId = $respPayload['messages'][0]['id'] ?? null;
 
             \Log::info('WhatsApp Cloud send ok', [
                 'phone' => $phone,
@@ -347,6 +466,30 @@ class WhatsAppController extends Controller
             ]);
             return null;
         }
+    }
+
+    /**
+     * Map file extension to WhatsApp Cloud API media type: image, document, video, or audio.
+     */
+    private function whatsappMediaTypeFromExtension(string $ext): string
+    {
+        $docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip'];
+        if (in_array($ext, $docExtensions, true)) {
+            return 'document';
+        }
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+        if (in_array($ext, $imageExtensions, true)) {
+            return 'image';
+        }
+        $videoExtensions = ['mp4', '3gp', 'avi', 'mov', 'webm', 'mkv'];
+        if (in_array($ext, $videoExtensions, true)) {
+            return 'video';
+        }
+        $audioExtensions = ['mp3', 'ogg', 'wav', 'm4a', 'aac', 'oga'];
+        if (in_array($ext, $audioExtensions, true)) {
+            return 'audio';
+        }
+        return 'document';
     }
 
     /**
@@ -400,6 +543,12 @@ class WhatsAppController extends Controller
                     $sentBy = $fullName;
                 }
 
+                $mediaPath = $row['media_path'] ?? null;
+                $mediaUrl = null;
+                if ($mediaPath && Storage::disk('public')->exists($mediaPath)) {
+                    $mediaUrl = asset('storage/' . ltrim($mediaPath, '/'));
+                }
+
                 return [
                     'id' => $row['id'] ?? null,
                     'phone' => $row['phone'] ?? '',
@@ -407,6 +556,7 @@ class WhatsAppController extends Controller
                     'body' => $text,
                     'direction' => $row['direction'] ?? 'IN',
                     'message_type' => $row['message_type'] ?? 'TEXT',
+                    'media_url' => $mediaUrl,
                     'status' => $row['status'] ?? null,
                     'sent_by' => $sentBy,
                     'created_at' => $created,

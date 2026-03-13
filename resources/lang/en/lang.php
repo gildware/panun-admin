@@ -6504,4 +6504,8 @@ _Message' => 'Customer notification for provider bid offer
   'Handled by' => 'Handled by',
   'All Chats' => 'All Chats',
   'Handled by AI' => 'Handled by AI',
+  'Attach file' => 'Attach file',
+  'Insert emoji' => 'Insert emoji',
+  'Type a message' => 'Type a message',
+  'Media' => 'Media',
 );
