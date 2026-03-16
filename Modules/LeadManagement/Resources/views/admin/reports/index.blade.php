@@ -1,0 +1,537 @@
+@extends('adminmodule::layouts.new-master')
+
+@section('title', translate('Lead_Reports'))
+
+@push('css_or_js')
+    <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/apex/apexcharts.css') }}">
+@endpush
+
+@section('content')
+    <div class="main-content">
+        <div class="container-fluid">
+            <div class="page-title-wrap mb-3 d-flex justify-content-between flex-wrap align-items-center gap-2">
+                <h2 class="page-title mb-1">{{ translate('Lead_Reports') }}</h2>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="mb-3 fz-16">{{ translate('Search_Data') }}</div>
+                    <form action="{{ route('admin.lead.reports.index') }}" method="GET">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('From_Date') }}</label>
+                                <input type="date" name="date_from" class="form-control h-45" value="{{ $dateFrom }}">
+                            </div>
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('To_Date') }}</label>
+                                <input type="date" name="date_to" class="form-control h-45" value="{{ $dateTo }}">
+                            </div>
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('Lead_Type') }}</label>
+                                <select name="lead_type" class="js-select form-select">
+                                    <option value="all" {{ $selectedLeadType === 'all' ? 'selected' : '' }}>{{ translate('All') }}</option>
+                                    @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
+                                        <option value="{{ $value }}" {{ $selectedLeadType === $value ? 'selected' : '' }}>
+                                            {{ translate($label) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('Handled_By') }}</label>
+                                <select name="handled_by_ids[]" class="js-select form-select" multiple>
+                                    @foreach($filterEmployees as $employee)
+                                        @php
+                                            $fullName = trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? ''));
+                                            $label = $fullName ?: $employee->email;
+                                        @endphp
+                                        <option value="{{ $employee->id }}" {{ in_array($employee->id, $selectedHandledByIds ?? [], false) ? 'selected' : '' }}>
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('Source') }}</label>
+                                <select name="source_ids[]" class="js-select form-select" multiple>
+                                    @foreach($filterSources as $source)
+                                        <option value="{{ $source->id }}" {{ in_array($source->id, $selectedSourceIds ?? [], false) ? 'selected' : '' }}>
+                                            {{ $source->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-sm-6">
+                                <label class="mb-2">{{ translate('Ad_Source') }}</label>
+                                <select name="ad_source_ids[]" class="js-select form-select" multiple>
+                                    @foreach($filterAdSources as $adSource)
+                                        <option value="{{ $adSource->id }}" {{ in_array($adSource->id, $selectedAdSourceIds ?? [], false) ? 'selected' : '' }}>
+                                            {{ $adSource->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-sm-6 d-flex gap-2">
+                                <button type="submit" class="btn btn--primary mt-4 flex-grow-1">{{ translate('Filter') }}</button>
+                                <a href="{{ route('admin.lead.reports.index') }}" class="btn btn--secondary mt-4 flex-grow-1">{{ translate('Reset') }}</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="row gy-3 pt-2">
+                <div class="col-lg-4">
+                    <div class="d-flex flex-column gap-3 h-100">
+                        <div class="card flex-row gap-4 p-30 flex-wrap align-items-center">
+                            <img width="35" class="avatar"
+                                 src="{{ asset('assets/admin-module/img/icons/total_expense.png') }}" alt="">
+                            <div>
+                                <h2 class="fz-26">{{ $totalLeads }}</h2>
+                                <span class="fz-12">{{ translate('Total_Leads_in_Range') }}</span>
+                            </div>
+                        </div>
+                        <div class="card flex-row gap-4 p-30 flex-wrap align-items-center">
+                            <img width="35" class="avatar"
+                                 src="{{ asset('assets/admin-module/img/icons/commission_earning.png') }}" alt="">
+                            <div>
+                                <h2 class="fz-26">{{ $todayLeads }}</h2>
+                                <span class="fz-12">{{ translate('Today_Leads') }}</span>
+                            </div>
+                        </div>
+                        <div class="card flex-row gap-4 p-30 flex-wrap align-items-center">
+                            <img width="35" class="avatar"
+                                 src="{{ asset('assets/admin-module/img/icons/net_profit.png') }}" alt="">
+                            <div>
+                                <h2 class="fz-26">{{ $pendingFollowups }}</h2>
+                                <span class="fz-12">{{ translate('Upcoming_or_Pending_Followups') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="card mb-3">
+                        <div class="card-body ps-0">
+                            <h4 class="ps-20">{{ translate('Lead_Volume_Over_Time') }}</h4>
+                            <div id="lead-volume-chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row gy-3 pt-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body ps-0">
+                            <h4 class="ps-20">{{ translate('Lead_Type_Distribution') }}</h4>
+                            <div id="lead-type-chart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h4 class="mb-3">{{ translate('User_Wise_Leads') }}</h4>
+                            <div id="lead-user-chart" style="min-height: 260px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row gy-3 pt-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h4 class="mb-3">{{ translate('Source_Wise_Leads') }}</h4>
+                            <div id="lead-source-chart" style="min-height: 260px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h4 class="mb-3">{{ translate('Ad_Source_Wise_Leads') }}</h4>
+                            <div id="lead-ad-source-chart" style="min-height: 260px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row gy-3 pt-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h4 class="mb-3">{{ translate('Customer_Status_Summary') }}</h4>
+                            <div id="customer-status-chart" style="min-height: 280px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h4 class="mb-3">{{ translate('Provider_Status_Summary') }}</h4>
+                            <div id="provider-status-chart" style="min-height: 280px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row gy-3 pt-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h4 class="mb-3">{{ translate('Invalid_Lead_Reasons') }}</h4>
+                            <div class="table-responsive">
+                                <table class="table align-middle">
+                                    <thead>
+                                    <tr>
+                                        <th>{{ translate('Reason') }}</th>
+                                        <th class="text-end">{{ translate('Leads') }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @forelse($invalidReasonSummary as $row)
+                                        <tr>
+                                            <td>{{ $row['name'] }}</td>
+                                            <td class="text-end">{{ $row['total'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="2" class="text-center py-3">{{ translate('Data_not_available') }}</td>
+                                        </tr>
+                                    @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h4 class="mb-3">{{ translate('Future_Customer_Reasons') }}</h4>
+                            <div class="table-responsive">
+                                <table class="table align-middle">
+                                    <thead>
+                                    <tr>
+                                        <th>{{ translate('Reason') }}</th>
+                                        <th class="text-end">{{ translate('Leads') }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @forelse($futureCustomerReasonSummary as $row)
+                                        <tr>
+                                            <td>{{ $row['name'] }}</td>
+                                            <td class="text-end">{{ $row['total'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="2" class="text-center py-3">{{ translate('Data_not_available') }}</td>
+                                        </tr>
+                                    @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-body">
+                    <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between mb-3">
+                        <div></div>
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div class="dropdown">
+                                <button type="button"
+                                        class="btn btn--secondary text-capitalize dropdown-toggle"
+                                        data-bs-toggle="dropdown">
+                                    <span class="material-icons">file_download</span> {{ translate('download') }}
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{{ route('admin.lead.reports.download') . '?' . http_build_query($queryParams) }}">
+                                            {{ translate('Excel') }}
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="text-nowrap">
+                            <tr>
+                                <th>{{ translate('ID') }}</th>
+                                <th>{{ translate('Name') }}</th>
+                                <th>{{ translate('Phone') }}</th>
+                                <th>{{ translate('Lead_Type') }}</th>
+                                <th>{{ translate('Source') }}</th>
+                                <th>{{ translate('Ad_Source') }}</th>
+                                <th>{{ translate('Recieved_On') }}</th>
+                                <th>{{ translate('Followup_On') }}</th>
+                                <th>{{ translate('Handled_By') }}</th>
+                                <th>{{ translate('Created_By') }}</th>
+                                <th>{{ translate('Remarks') }}</th>
+                                <th>{{ translate('Customer_Status') }}</th>
+                                <th>{{ translate('Provider_Status') }}</th>
+                                <th>{{ translate('Invalid_Reason') }}</th>
+                                <th>{{ translate('Future_Customer_Reason') }}</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @forelse($leads as $lead)
+                                <tr>
+                                    <td>{{ $lead->id }}</td>
+                                    <td>{{ $lead->name }}</td>
+                                    <td>{{ $lead->phone_number }}</td>
+                                    <td>
+                                        @php
+                                            $type = $lead->lead_type;
+                                            $label = \Modules\LeadManagement\Entities\Lead::leadTypes()[$type] ?? $type;
+                                        @endphp
+                                        {{ $label }}
+                                    </td>
+                                    <td>{{ $lead->source?->name ?? '—' }}</td>
+                                    <td>{{ $lead->adSource?->name ?? '—' }}</td>
+                                    <td>{{ $lead->date_time_of_lead_received?->format('d F Y h:i a') ?? '—' }}</td>
+                                    <td>{{ $lead->next_followup_at?->format('d F Y h:i a') ?? '—' }}</td>
+                                    <td>
+                                        @php $handledBy = $lead->handled_by; @endphp
+                                        @if(!$handledBy)
+                                            —
+                                        @elseif(isset($handledByNames[$handledBy]))
+                                            {{ $handledByNames[$handledBy] }}
+                                        @else
+                                            {{ $handledBy }}
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($lead->createdBy)
+                                            @php
+                                                $creator = $lead->createdBy;
+                                                $fullName = trim(($creator->first_name ?? '') . ' ' . ($creator->last_name ?? ''));
+                                            @endphp
+                                            {{ $fullName ?: $creator->email }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                    <td>{{ $lead->remarks ?: '—' }}</td>
+                                    <td>{{ $customerStatusByLead[$lead->id] ?? '—' }}</td>
+                                    <td>{{ $providerStatusByLead[$lead->id] ?? '—' }}</td>
+                                    <td>{{ $invalidReasonByLead[$lead->id] ?? '—' }}</td>
+                                    <td>{{ $futureCustomerReasonByLead[$lead->id] ?? '—' }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="15" class="text-center py-4">{{ translate('No_leads_found') }}</td>
+                                </tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-end mt-3">
+                        {{ $leads->links() }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('script')
+    <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
+    <script>
+        "use strict";
+
+        $(document).ready(function () {
+            $('.js-select').select2({
+                width: '100%',
+                placeholder: "{{ translate('All') }}",
+                allowClear: true
+            });
+        });
+
+        (function () {
+            const volumeOptions = {
+                series: [
+                    {
+                        name: "{{ translate('Leads') }}",
+                        data: {!! json_encode($leadsPerDay) !!}
+                    }
+                ],
+                chart: {
+                    height: 290,
+                    type: 'line',
+                    toolbar: {
+                        show: true
+                    }
+                },
+                colors: ['#6F8AED'],
+                dataLabels: {
+                    enabled: true,
+                },
+                stroke: {
+                    curve: 'smooth',
+                },
+                grid: {
+                    xaxis: { lines: { show: true } },
+                    yaxis: { lines: { show: true } },
+                    borderColor: '#CAD2FF',
+                    strokeDashArray: 5,
+                },
+                markers: {
+                    size: 1
+                },
+                xaxis: {
+                    categories: {!! json_encode($timeline) !!}
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'center',
+                },
+            };
+            const volumeChartEl = document.querySelector('#lead-volume-chart');
+            if (volumeChartEl) {
+                const chart = new ApexCharts(volumeChartEl, volumeOptions);
+                chart.render();
+            }
+
+            const typeLabels = [];
+            const typeValues = [];
+            @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
+                (function () {
+                    const v = {{ (int) ($leadsByType[$value] ?? 0) }};
+                    typeValues.push(v);
+                    typeLabels.push("{{ translate($label) }} (" + v + ")");
+                })();
+            @endforeach
+
+            const typeOptions = {
+                series: typeValues,
+                chart: {
+                    type: 'donut',
+                    height: 280
+                },
+                labels: typeLabels,
+                legend: {
+                    position: 'bottom',
+                    fontSize: '11px',
+                }
+            };
+            const typeChartEl = document.querySelector('#lead-type-chart');
+            if (typeChartEl) {
+                const chart2 = new ApexCharts(typeChartEl, typeOptions);
+                chart2.render();
+            }
+
+            // User wise leads (horizontal bar)
+            (function () {
+                const baseLabels = {!! json_encode(array_column($userWise, 'label')) !!};
+                const values = {!! json_encode(array_column($userWise, 'total')) !!};
+                const labels = baseLabels.map(function (name, index) {
+                    const v = values[index] ?? 0;
+                    const shortName = name && name.length > 20 ? name.slice(0, 17) + '...' : (name || '');
+                    return shortName + ' (' + v + ')';
+                });
+                const el = document.querySelector('#lead-user-chart');
+                if (!el) return;
+                const options = {
+                    series: [{ name: "{{ translate('Leads') }}", data: values }],
+                    chart: { type: 'bar', height: 260, toolbar: { show: false } },
+                    plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
+                    xaxis: { labels: { style: { fontSize: '11px' } } },
+                    yaxis: { categories: labels, labels: { style: { fontSize: '11px' } } },
+                    colors: ['#6F8AED'],
+                    dataLabels: { enabled: false },
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // Source wise leads (donut)
+            (function () {
+                const baseLabels = {!! json_encode(array_column($sourceWise, 'label')) !!};
+                const values = {!! json_encode(array_column($sourceWise, 'total')) !!};
+                const labels = baseLabels.map(function (name, index) {
+                    const v = values[index] ?? 0;
+                    return (name || '—') + ' (' + v + ')';
+                });
+                const el = document.querySelector('#lead-source-chart');
+                if (!el) return;
+                const options = {
+                    series: values,
+                    chart: { type: 'donut', height: 260 },
+                    labels: labels,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // Ad Source wise leads (donut)
+            (function () {
+                const baseLabels = {!! json_encode(array_column($adSourceWise, 'label')) !!};
+                const values = {!! json_encode(array_column($adSourceWise, 'total')) !!};
+                const labels = baseLabels.map(function (name, index) {
+                    const v = values[index] ?? 0;
+                    return (name || '—') + ' (' + v + ')';
+                });
+                const el = document.querySelector('#lead-ad-source-chart');
+                if (!el) return;
+                const options = {
+                    series: values,
+                    chart: { type: 'donut', height: 260 },
+                    labels: labels,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // Customer status summary (pie)
+            (function () {
+                const baseLabels = {!! json_encode(array_column($customerStatusSummary, 'name')) !!};
+                const values = {!! json_encode(array_column($customerStatusSummary, 'total')) !!};
+                const labels = baseLabels.map(function (name, index) {
+                    const v = values[index] ?? 0;
+                    return (name || '—') + ' (' + v + ')';
+                });
+                const el = document.querySelector('#customer-status-chart');
+                if (!el) return;
+                const options = {
+                    series: values,
+                    chart: { type: 'pie', height: 280 },
+                    labels: labels,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // Provider status summary (pie)
+            (function () {
+                const baseLabels = {!! json_encode(array_column($providerStatusSummary, 'name')) !!};
+                const values = {!! json_encode(array_column($providerStatusSummary, 'total')) !!};
+                const labels = baseLabels.map(function (name, index) {
+                    const v = values[index] ?? 0;
+                    return (name || '—') + ' (' + v + ')';
+                });
+                const el = document.querySelector('#provider-status-chart');
+                if (!el) return;
+                const options = {
+                    series: values,
+                    chart: { type: 'pie', height: 280 },
+                    labels: labels,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                };
+                new ApexCharts(el, options).render();
+            })();
+        })();
+    </script>
+@endpush
+

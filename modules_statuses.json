@@ -22,5 +22,6 @@
     "Gateways": true,
     "SystemModule": true,
     "AI": true,
-    "WhatsAppModule": true
+    "WhatsAppModule": true,
+    "LeadManagement": true
 }

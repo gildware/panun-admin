@@ -1,0 +1,643 @@
+<?php
+
+namespace Modules\LeadManagement\Http\Controllers\Web\Admin;
+
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Modules\LeadManagement\Entities\CustomerLeadStatus;
+use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
+use Modules\LeadManagement\Entities\LeadInvalidReason;
+use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\ProviderLeadStatus;
+use Modules\LeadManagement\Entities\Source;
+use Modules\LeadManagement\Entities\AdSource;
+use Modules\UserManagement\Entities\User;
+use Rap2hpoutre\FastExcel\FastExcel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
+class LeadReportController extends Controller
+{
+    use AuthorizesRequests;
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function index(Request $request): Renderable
+    {
+        $this->authorize('report_view');
+
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+
+        $baseQuery = Lead::query()
+            ->with(['source', 'adSource'])
+            ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
+                $q->whereBetween('date_time_of_lead_received', [
+                    $dateFrom->copy()->startOfDay(),
+                    $dateTo->copy()->endOfDay(),
+                ]);
+            })
+            ->when($request->filled('lead_type') && $request->input('lead_type') !== 'all', function ($q) use ($request) {
+                $q->where('lead_type', $request->input('lead_type'));
+            })
+            ->when($request->filled('source_ids'), function ($q) use ($request) {
+                $q->whereIn('source_id', (array) $request->input('source_ids', []));
+            })
+            ->when($request->filled('ad_source_ids'), function ($q) use ($request) {
+                $q->whereIn('ad_source_id', (array) $request->input('ad_source_ids', []));
+            })
+            ->when($request->filled('handled_by_ids'), function ($q) use ($request) {
+                $q->whereIn('handled_by', (array) $request->input('handled_by_ids', []));
+            });
+
+        $totalLeads = (clone $baseQuery)->count();
+
+        $leadsByType = (clone $baseQuery)
+            ->select('lead_type', DB::raw('count(*) as total'))
+            ->groupBy('lead_type')
+            ->pluck('total', 'lead_type')
+            ->all();
+
+        $dailyCountsRaw = (clone $baseQuery)
+            ->selectRaw('DATE(date_time_of_lead_received) as day, COUNT(*) as total')
+            ->groupBy('day')
+            ->orderBy('day')
+            ->pluck('total', 'day')
+            ->all();
+
+        $timeline = [];
+        $leadsPerDay = [];
+        if ($dateFrom && $dateTo) {
+            $period = CarbonPeriod::create($dateFrom->copy()->startOfDay(), $dateTo->copy()->startOfDay());
+            foreach ($period as $date) {
+                $key = $date->toDateString();
+                $timeline[] = $date->format('d M');
+                $leadsPerDay[] = (int) ($dailyCountsRaw[$key] ?? 0);
+            }
+        }
+
+        $handledByRaw = (clone $baseQuery)
+            ->select('handled_by', DB::raw('count(*) as total'))
+            ->whereNotNull('handled_by')
+            ->groupBy('handled_by')
+            ->get();
+
+        $handledByIds = $handledByRaw->pluck('handled_by')->filter()->unique()->values()->all();
+        $handledByUsers = $handledByIds !== []
+            ? User::whereIn('id', $handledByIds)->get(['id', 'first_name', 'last_name', 'email'])->keyBy('id')
+            : collect();
+
+        $handledByNames = [];
+        foreach ($handledByUsers as $user) {
+            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+            $handledByNames[(string) $user->id] = $fullName ?: $user->email;
+        }
+
+        $userWise = $handledByRaw->map(function ($row) use ($handledByUsers) {
+            $user = $handledByUsers->get($row->handled_by);
+            $fullName = $user
+                ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''))
+                : null;
+            $label = $fullName ?: ($user->email ?? (string) $row->handled_by);
+            return [
+                'label' => $label,
+                'total' => (int) $row->total,
+            ];
+        })->sortByDesc('total')->values()->all();
+
+        $sourceWise = (clone $baseQuery)
+            ->select('source_id', DB::raw('count(*) as total'))
+            ->groupBy('source_id')
+            ->get();
+
+        $sourceIds = $sourceWise->pluck('source_id')->filter()->unique()->values()->all();
+        $sources = $sourceIds !== []
+            ? Source::whereIn('id', $sourceIds)->get(['id', 'name'])->keyBy('id')
+            : collect();
+
+        $sourceWise = $sourceWise->map(function ($row) use ($sources) {
+            $source = $row->source_id ? $sources->get($row->source_id) : null;
+            return [
+                'label' => $source?->name ?? '—',
+                'total' => (int) $row->total,
+            ];
+        })->sortByDesc('total')->values()->all();
+
+        $adSourceWise = (clone $baseQuery)
+            ->select('ad_source_id', DB::raw('count(*) as total'))
+            ->groupBy('ad_source_id')
+            ->get();
+
+        $adSourceIds = $adSourceWise->pluck('ad_source_id')->filter()->unique()->values()->all();
+        $adSources = $adSourceIds !== []
+            ? AdSource::whereIn('id', $adSourceIds)->get(['id', 'name'])->keyBy('id')
+            : collect();
+
+        $adSourceWise = $adSourceWise->map(function ($row) use ($adSources) {
+            $ad = $row->ad_source_id ? $adSources->get($row->ad_source_id) : null;
+            return [
+                'label' => $ad?->name ?? '—',
+                'total' => (int) $row->total,
+            ];
+        })->sortByDesc('total')->values()->all();
+
+        $customerStatusSummary = $this->buildCustomerStatusSummary($baseQuery);
+        $providerStatusSummary = $this->buildProviderStatusSummary($baseQuery);
+        $invalidReasonSummary = $this->buildReasonSummary($baseQuery, 'invalid');
+        $futureCustomerReasonSummary = $this->buildReasonSummary($baseQuery, 'future_customer');
+
+        $pendingFollowups = (clone $baseQuery)
+            ->whereNotNull('next_followup_at')
+            ->where('next_followup_at', '>=', now())
+            ->count();
+
+        $todayLeads = (clone $baseQuery)
+            ->whereDate('date_time_of_lead_received', Carbon::today())
+            ->count();
+
+        $filterSources = Source::active()->orderBy('name')->get(['id', 'name']);
+        $filterAdSources = AdSource::active()->orderBy('name')->get(['id', 'name']);
+        $filterEmployees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
+            ->ofStatus(1)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'email']);
+
+        $queryParams = [
+            'date_from' => $dateFrom?->toDateString(),
+            'date_to' => $dateTo?->toDateString(),
+            'lead_type' => $request->input('lead_type', 'all'),
+        ];
+        if ($request->filled('source_ids')) {
+            $queryParams['source_ids'] = (array) $request->input('source_ids', []);
+        }
+        if ($request->filled('ad_source_ids')) {
+            $queryParams['ad_source_ids'] = (array) $request->input('ad_source_ids', []);
+        }
+        if ($request->filled('handled_by_ids')) {
+            $queryParams['handled_by_ids'] = (array) $request->input('handled_by_ids', []);
+        }
+
+        $leadsForTable = (clone $baseQuery)
+            ->with(['source', 'adSource', 'createdBy'])
+            ->orderByDesc('date_time_of_lead_received')
+            ->paginate(pagination_limit())
+            ->appends($queryParams);
+
+        // Per-lead type details for table
+        $leadIdsForTable = $leadsForTable->pluck('id')->all();
+        [$customerStatusByLead, $providerStatusByLead, $invalidReasonByLead, $futureCustomerReasonByLead] =
+            $this->buildPerLeadTypeDetails($leadIdsForTable);
+
+        return view('leadmanagement::admin.reports.index', [
+            'totalLeads' => $totalLeads,
+            'leadsByType' => $leadsByType,
+            'timeline' => $timeline,
+            'leadsPerDay' => $leadsPerDay,
+            'userWise' => $userWise,
+            'sourceWise' => $sourceWise,
+            'adSourceWise' => $adSourceWise,
+            'customerStatusSummary' => $customerStatusSummary,
+            'providerStatusSummary' => $providerStatusSummary,
+            'invalidReasonSummary' => $invalidReasonSummary,
+            'futureCustomerReasonSummary' => $futureCustomerReasonSummary,
+            'pendingFollowups' => $pendingFollowups,
+            'todayLeads' => $todayLeads,
+            'dateFrom' => $dateFrom?->toDateString(),
+            'dateTo' => $dateTo?->toDateString(),
+            'selectedLeadType' => $request->input('lead_type', 'all'),
+            'selectedSourceIds' => (array) $request->input('source_ids', []),
+            'selectedAdSourceIds' => (array) $request->input('ad_source_ids', []),
+            'selectedHandledByIds' => (array) $request->input('handled_by_ids', []),
+            'filterSources' => $filterSources,
+            'filterAdSources' => $filterAdSources,
+            'filterEmployees' => $filterEmployees,
+            'queryParams' => $queryParams,
+            'leads' => $leadsForTable,
+            'handledByNames' => $handledByNames,
+            'customerStatusByLead' => $customerStatusByLead,
+            'providerStatusByLead' => $providerStatusByLead,
+            'invalidReasonByLead' => $invalidReasonByLead,
+            'futureCustomerReasonByLead' => $futureCustomerReasonByLead,
+        ]);
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function download(Request $request): StreamedResponse|string
+    {
+        $this->authorize('report_export');
+
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+
+        $query = Lead::query()
+            ->with(['source', 'adSource', 'createdBy'])
+            ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
+                $q->whereBetween('date_time_of_lead_received', [
+                    $dateFrom->copy()->startOfDay(),
+                    $dateTo->copy()->endOfDay(),
+                ]);
+            })
+            ->when($request->filled('lead_type') && $request->input('lead_type') !== 'all', function ($q) use ($request) {
+                $q->where('lead_type', $request->input('lead_type'));
+            })
+            ->when($request->filled('source_ids'), function ($q) use ($request) {
+                $q->whereIn('source_id', (array) $request->input('source_ids', []));
+            })
+            ->when($request->filled('ad_source_ids'), function ($q) use ($request) {
+                $q->whereIn('ad_source_id', (array) $request->input('ad_source_ids', []));
+            })
+            ->when($request->filled('handled_by_ids'), function ($q) use ($request) {
+                $q->whereIn('handled_by', (array) $request->input('handled_by_ids', []));
+            })
+            ->orderByDesc('date_time_of_lead_received');
+
+        $leads = $query->get();
+
+        if ($leads->isEmpty()) {
+            return translate('No_leads_found_for_the_selected_filters');
+        }
+
+        $fileName = time() . '-lead-report.xlsx';
+
+        $leadIds = $leads->pluck('id')->all();
+        [$customerStatusByLead, $providerStatusByLead, $invalidReasonByLead, $futureCustomerReasonByLead] =
+            $this->buildPerLeadTypeDetails($leadIds);
+
+        return (new FastExcel($leads))->download($fileName, function (Lead $lead) use (
+            $customerStatusByLead,
+            $providerStatusByLead,
+            $invalidReasonByLead,
+            $futureCustomerReasonByLead
+        ) {
+            $creator = $lead->createdBy;
+            $creatorName = null;
+            if ($creator) {
+                $fullName = trim(($creator->first_name ?? '') . ' ' . ($creator->last_name ?? ''));
+                $creatorName = $fullName ?: $creator->email;
+            }
+
+            return [
+                'ID' => $lead->id,
+                'Name' => $lead->name,
+                'Phone' => $lead->phone_number,
+                'Lead Type' => Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type,
+                'Source' => $lead->source?->name ?? '',
+                'Ad Source' => $lead->adSource?->name ?? '',
+                'Handled By' => $this->resolveHandledByName($lead->handled_by),
+                'Received At' => optional($lead->date_time_of_lead_received)->format('Y-m-d H:i:s'),
+                'Next Followup At' => optional($lead->next_followup_at)->format('Y-m-d H:i:s'),
+                'Created By' => $creatorName,
+                'Remarks' => $lead->remarks,
+                'Customer Status' => $customerStatusByLead[$lead->id] ?? '',
+                'Provider Status' => $providerStatusByLead[$lead->id] ?? '',
+                'Invalid Reason' => $invalidReasonByLead[$lead->id] ?? '',
+                'Future Customer Reason' => $futureCustomerReasonByLead[$lead->id] ?? '',
+            ];
+        });
+    }
+
+    private function resolveDateRange(Request $request): array
+    {
+        $from = $request->input('date_from');
+        $to = $request->input('date_to');
+
+        if (!$from || !$to) {
+            $start = Carbon::now()->startOfMonth();
+            $end = Carbon::now();
+            return [$start, $end];
+        }
+
+        try {
+            $start = Carbon::parse($from)->startOfDay();
+            $end = Carbon::parse($to)->endOfDay();
+        } catch (\Throwable $e) {
+            $start = Carbon::now()->startOfMonth();
+            $end = Carbon::now();
+        }
+
+        if ($start->gt($end)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        return [$start, $end];
+    }
+
+    private function resolveHandledByName(?string $handledBy): string
+    {
+        if (!$handledBy) {
+            return '';
+        }
+        $user = User::find($handledBy);
+        if ($user) {
+            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+            return $fullName ?: $user->email;
+        }
+        return (string) $handledBy;
+    }
+
+    private function buildCustomerStatusSummary($baseQuery): array
+    {
+        $leadIds = (clone $baseQuery)
+            ->where('lead_type', Lead::TYPE_CUSTOMER)
+            ->pluck('id')
+            ->all();
+
+        if ($leadIds === []) {
+            return [];
+        }
+
+        $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->where('type', 'customer')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+
+        if ($histories->isEmpty()) {
+            return [];
+        }
+
+        $statusIds = $histories->map(function ($history) {
+            $data = is_array($history->data) ? $history->data : [];
+            return $data['customer_lead_status_id'] ?? null;
+        })->filter()->unique()->values()->all();
+
+        if ($statusIds === []) {
+            return [];
+        }
+
+        $statuses = CustomerLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id');
+
+        $summary = [];
+        foreach ($histories as $history) {
+            $data = is_array($history->data) ? $history->data : [];
+            $statusId = $data['customer_lead_status_id'] ?? null;
+            if (!$statusId) {
+                continue;
+            }
+            $status = $statuses->get($statusId);
+            if (!$status) {
+                continue;
+            }
+            $baseType = $status->base_type ?? 'pending';
+            if (!isset($summary[$statusId])) {
+                $summary[$statusId] = [
+                    'name' => $status->name,
+                    'base_type' => $baseType,
+                    'color' => $status->color ?? '#0d6efd',
+                    'total' => 0,
+                ];
+            }
+            $summary[$statusId]['total']++;
+        }
+
+        return array_values($summary);
+    }
+
+    private function buildProviderStatusSummary($baseQuery): array
+    {
+        $leadIds = (clone $baseQuery)
+            ->where('lead_type', Lead::TYPE_PROVIDER)
+            ->pluck('id')
+            ->all();
+
+        if ($leadIds === []) {
+            return [];
+        }
+
+        $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->where('type', 'provider')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+
+        if ($histories->isEmpty()) {
+            return [];
+        }
+
+        $statusIds = $histories->map(function ($history) {
+            $data = is_array($history->data) ? $history->data : [];
+            return $data['provider_lead_status_id'] ?? null;
+        })->filter()->unique()->values()->all();
+
+        if ($statusIds === []) {
+            return [];
+        }
+
+        $statuses = ProviderLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id');
+
+        $summary = [];
+        foreach ($histories as $history) {
+            $data = is_array($history->data) ? $history->data : [];
+            $statusId = $data['provider_lead_status_id'] ?? null;
+            if (!$statusId) {
+                continue;
+            }
+            $status = $statuses->get($statusId);
+            if (!$status) {
+                continue;
+            }
+            $baseType = $status->base_type ?? 'pending';
+            if (!isset($summary[$statusId])) {
+                $summary[$statusId] = [
+                    'name' => $status->name,
+                    'base_type' => $baseType,
+                    'color' => $status->color ?? '#0d6efd',
+                    'total' => 0,
+                ];
+            }
+            $summary[$statusId]['total']++;
+        }
+
+        return array_values($summary);
+    }
+
+    private function buildReasonSummary($baseQuery, string $type): array
+    {
+        if (!in_array($type, ['invalid', 'future_customer'], true)) {
+            return [];
+        }
+
+        $leadType = $type === 'invalid' ? Lead::TYPE_INVALID : Lead::TYPE_FUTURE_CUSTOMER;
+
+        $leadIds = (clone $baseQuery)
+            ->where('lead_type', $leadType)
+            ->pluck('id')
+            ->all();
+
+        if ($leadIds === []) {
+            return [];
+        }
+
+        $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->where('type', $type)
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+
+        if ($histories->isEmpty()) {
+            return [];
+        }
+
+        $reasonKey = $type === 'invalid' ? 'invalid_reason_id' : 'future_customer_reason_id';
+
+        $reasonIds = $histories->map(function ($history) use ($reasonKey) {
+            $data = is_array($history->data) ? $history->data : [];
+            return $data[$reasonKey] ?? null;
+        })->filter()->unique()->values()->all();
+
+        if ($reasonIds === []) {
+            return [];
+        }
+
+        $reasonModel = $type === 'invalid' ? LeadInvalidReason::class : LeadFutureCustomerReason::class;
+        $reasons = $reasonModel::whereIn('id', $reasonIds)->get()->keyBy('id');
+
+        $summary = [];
+        foreach ($histories as $history) {
+            $data = is_array($history->data) ? $history->data : [];
+            $reasonId = $data[$reasonKey] ?? null;
+            if (!$reasonId) {
+                continue;
+            }
+            $reason = $reasons->get($reasonId);
+            if (!$reason) {
+                continue;
+            }
+            if (!isset($summary[$reasonId])) {
+                $summary[$reasonId] = [
+                    'name' => $reason->name,
+                    'total' => 0,
+                ];
+            }
+            $summary[$reasonId]['total']++;
+        }
+
+        return array_values($summary);
+    }
+
+    /**
+     * @param array<int> $leadIds
+     * @return array{0: array<int,string>, 1: array<int,string>, 2: array<int,string>, 3: array<int,string>}
+     */
+    private function buildPerLeadTypeDetails(array $leadIds): array
+    {
+        $customerStatusByLead = [];
+        $providerStatusByLead = [];
+        $invalidReasonByLead = [];
+        $futureCustomerReasonByLead = [];
+
+        if ($leadIds === []) {
+            return [$customerStatusByLead, $providerStatusByLead, $invalidReasonByLead, $futureCustomerReasonByLead];
+        }
+
+        // Customer statuses per lead
+        $customerHistories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->where('type', 'customer')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+        if ($customerHistories->isNotEmpty()) {
+            $statusIds = $customerHistories->map(function ($history) {
+                $data = is_array($history->data) ? $history->data : [];
+                return $data['customer_lead_status_id'] ?? null;
+            })->filter()->unique()->values()->all();
+            if ($statusIds !== []) {
+                $statuses = CustomerLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id');
+                foreach ($customerHistories as $leadId => $history) {
+                    $data = is_array($history->data) ? $history->data : [];
+                    $statusId = $data['customer_lead_status_id'] ?? null;
+                    if ($statusId && $statuses->has($statusId)) {
+                        $customerStatusByLead[(int)$leadId] = $statuses->get($statusId)->name;
+                    }
+                }
+            }
+        }
+
+        // Provider statuses per lead
+        $providerHistories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->where('type', 'provider')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+        if ($providerHistories->isNotEmpty()) {
+            $statusIds = $providerHistories->map(function ($history) {
+                $data = is_array($history->data) ? $history->data : [];
+                return $data['provider_lead_status_id'] ?? null;
+            })->filter()->unique()->values()->all();
+            if ($statusIds !== []) {
+                $statuses = ProviderLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id');
+                foreach ($providerHistories as $leadId => $history) {
+                    $data = is_array($history->data) ? $history->data : [];
+                    $statusId = $data['provider_lead_status_id'] ?? null;
+                    if ($statusId && $statuses->has($statusId)) {
+                        $providerStatusByLead[(int)$leadId] = $statuses->get($statusId)->name;
+                    }
+                }
+            }
+        }
+
+        // Invalid reasons per lead
+        $invalidHistories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->where('type', 'invalid')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+        if ($invalidHistories->isNotEmpty()) {
+            $reasonIds = $invalidHistories->map(function ($history) {
+                $data = is_array($history->data) ? $history->data : [];
+                return $data['invalid_reason_id'] ?? null;
+            })->filter()->unique()->values()->all();
+            if ($reasonIds !== []) {
+                $reasons = LeadInvalidReason::whereIn('id', $reasonIds)->get()->keyBy('id');
+                foreach ($invalidHistories as $leadId => $history) {
+                    $data = is_array($history->data) ? $history->data : [];
+                    $reasonId = $data['invalid_reason_id'] ?? null;
+                    if ($reasonId && $reasons->has($reasonId)) {
+                        $invalidReasonByLead[(int)$leadId] = $reasons->get($reasonId)->name;
+                    }
+                }
+            }
+        }
+
+        // Future customer reasons per lead
+        $futureHistories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->where('type', 'future_customer')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('lead_id')
+            ->map(fn ($group) => $group->first());
+        if ($futureHistories->isNotEmpty()) {
+            $reasonIds = $futureHistories->map(function ($history) {
+                $data = is_array($history->data) ? $history->data : [];
+                return $data['future_customer_reason_id'] ?? null;
+            })->filter()->unique()->values()->all();
+            if ($reasonIds !== []) {
+                $reasons = LeadFutureCustomerReason::whereIn('id', $reasonIds)->get()->keyBy('id');
+                foreach ($futureHistories as $leadId => $history) {
+                    $data = is_array($history->data) ? $history->data : [];
+                    $reasonId = $data['future_customer_reason_id'] ?? null;
+                    if ($reasonId && $reasons->has($reasonId)) {
+                        $futureCustomerReasonByLead[(int)$leadId] = $reasons->get($reasonId)->name;
+                    }
+                }
+            }
+        }
+
+        return [$customerStatusByLead, $providerStatusByLead, $invalidReasonByLead, $futureCustomerReasonByLead];
+    }
+}
+

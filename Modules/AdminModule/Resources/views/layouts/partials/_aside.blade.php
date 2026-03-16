@@ -67,6 +67,49 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </a>
             </li>
 
+            <li class="nav-category" title="{{ translate('Lead_Management') }}">
+                {{ translate('Lead_Management') }}
+            </li>
+            <li class="has-sub-item {{ request()->is('admin/lead*') ? 'sub-menu-opened' : '' }}">
+                <a href="#" class="{{ request()->is('admin/lead*') ? 'active-menu' : '' }}">
+                    <span class="material-icons" title="{{ translate('Lead_Management') }}">contact_page</span>
+                    <span class="link-title">{{ translate('Lead_Management') }}</span>
+                </a>
+                <ul class="nav sub-menu">
+                    <li>
+                        <a href="{{ route('admin.lead.index') }}"
+                           class="{{ request()->is('admin/lead') && !request()->is('admin/lead/create') && !request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
+                            <span class="link-title">{{ translate('Leads') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.lead.configuration.index') }}"
+                           class="{{ request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
+                            <span class="link-title">{{ translate('Lead_Configuration') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.lead.reports.index') }}"
+                           class="{{ request()->is('admin/lead/reports*') ? 'active-menu' : '' }}">
+                            <span class="link-title">{{ translate('Lead_Reports') }}</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            @can('whatsapp_chat_view')
+                <li class="nav-category" title="{{ translate('WhatsApp') }}">
+                    {{ translate('WhatsApp') }}
+                </li>
+                <li>
+                    <a href="{{ route('admin.whatsapp.conversations.index') }}"
+                       class="{{ request()->is('admin/whatsapp/*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('WhatsApp') }}">chat</span>
+                        <span class="link-title">{{ translate('WhatsApp') }} {{ translate('Conversations') }}</span>
+                    </a>
+                </li>
+            @endcan
+
             @can('booking_view')
                 <li class="nav-category" title="{{translate('booking_management')}}">
                     {{translate('booking_management')}}
@@ -847,19 +890,6 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         && !request()->is('admin/configuration/third-party/payment_config*') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="{{ translate('Other Configuration') }}">settings</span>
                         <span class="link-title">{{ translate('Other Configuration') }}</span>
-                    </a>
-                </li>
-            @endcan
-
-            @can('whatsapp_chat_view')
-                <li class="nav-category" title="{{ translate('WhatsApp') }}">
-                    {{ translate('WhatsApp') }}
-                </li>
-                <li>
-                    <a href="{{ route('admin.whatsapp.conversations.index') }}"
-                       class="{{ request()->is('admin/whatsapp/*') ? 'active-menu' : '' }}">
-                        <span class="material-icons" title="{{ translate('WhatsApp') }}">chat</span>
-                        <span class="link-title">{{ translate('WhatsApp') }} {{ translate('Conversations') }}</span>
                     </a>
                 </li>
             @endcan

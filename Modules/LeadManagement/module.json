@@ -1,0 +1,13 @@
+{
+    "name": "LeadManagement",
+    "alias": "leadmanagement",
+    "description": "Lead Management Module",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\LeadManagement\\Providers\\LeadManagementServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}

@@ -741,6 +741,40 @@ trait AdminMenuWithRoutes
                 "keywords" => 'AI , AI configuration',
                 "type" => 'menu',
             ],
+            [
+                'route_name' => 'Lead_Management',
+                'uri' => 'admin/lead',
+                'full_route' => url('admin/lead'),
+                "page_title" => 'Lead_Management',
+                "keywords" => 'Lead Management, Leads',
+                "type" => 'menu',
+            ],
+            [
+                'route_name' => 'Lead_Source',
+                'uri' => 'admin/lead/source',
+                'full_route' => url('admin/lead/source'),
+                "page_title" => 'Lead_Source',
+                "keywords" => 'Lead Source, Sources',
+                "type" => 'menu',
+            ],
+            [
+                'route_name' => 'Manage_Ad_Source',
+                'uri' => 'admin/lead/adsource',
+                'full_route' => url('admin/lead/adsource'),
+                "page_title" => 'Manage_Ad_Source',
+                "keywords" => 'Ad Source, Ads Source',
+                "type" => 'menu',
+            ],
+            [
+                'route_name' => 'Lead_Reports',
+                'uri' => 'admin/lead/reports',
+                'full_route' => url('admin/lead/reports'),
+                "page_title" => 'Lead_Reports',
+                "keywords" => 'Lead Reports, Leads, Analytics',
+                "type" => 'menu',
+                "module" => "reports",
+                "sorting" => 5,
+            ],
         ];
 
         if(count(config('addon_admin_routes'))>0) {
