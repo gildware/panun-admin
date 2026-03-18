@@ -8,6 +8,7 @@ use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as Pro
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::get('create', [BookingController::class, 'create'])->name('create');
+        Route::get('create/from-lead/{lead}', [BookingController::class, 'createFromLead'])->name('create-from-lead');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
         Route::get('success/{id}', [BookingController::class, 'success'])->name('success');

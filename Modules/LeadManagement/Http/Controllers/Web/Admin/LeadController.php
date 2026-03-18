@@ -28,6 +28,7 @@ use Modules\ZoneManagement\Entities\Zone;
 use Modules\UserManagement\Entities\User;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\BookingModule\Entities\Booking;
 
 class LeadController extends Controller
 {
@@ -332,11 +333,19 @@ class LeadController extends Controller
                 ->get();
             $latestByLead = $histories->groupBy('lead_id')->map(fn ($group) => $group->first());
 
+            // Fallback source of truth: bookings table (when history doesn't have booking_id yet)
+            $latestBookingByLead = Booking::whereIn('lead_id', $leadIds)
+                ->orderByDesc('created_at')
+                ->get(['id', 'lead_id', 'readable_id'])
+                ->groupBy('lead_id')
+                ->map(fn ($group) => $group->first());
+
             $statusIds = [];
             $zoneIds = [];
             $categoryIds = [];
             $subCategoryIds = [];
             $cancelReasonIds = [];
+            $bookingIds = [];
             foreach ($latestByLead as $h) {
                 $d = is_array($h->data) ? $h->data : [];
                 if (!empty($d['customer_lead_status_id'])) {
@@ -354,6 +363,9 @@ class LeadController extends Controller
                 if (!empty($d['cancellation_reason_id'])) {
                     $cancelReasonIds[] = $d['cancellation_reason_id'];
                 }
+                if (!empty($d['booking_id'])) {
+                    $bookingIds[] = $d['booking_id'];
+                }
             }
             $statuses = CustomerLeadStatus::whereIn('id', array_unique($statusIds))->get()->keyBy('id');
             $zones = Zone::withoutGlobalScopes()->whereIn('id', array_unique($zoneIds))->get()->keyBy('id');
@@ -361,6 +373,9 @@ class LeadController extends Controller
             $subCategories = Category::withoutGlobalScopes()->ofType('sub')->whereIn('id', array_unique($subCategoryIds))->get()->keyBy('id');
             $cancelReasons = $cancelReasonIds !== []
                 ? LeadCancellationReason::whereIn('id', array_unique($cancelReasonIds))->get()->keyBy('id')
+                : collect();
+            $bookings = $bookingIds !== []
+                ? Booking::whereIn('id', array_unique($bookingIds))->get(['id', 'readable_id'])->keyBy('id')
                 : collect();
 
             foreach ($leadIds as $lid) {
@@ -381,14 +396,23 @@ class LeadController extends Controller
                         return '—';
                     }
                 })() : '—';
+
+                $bookingId = $d['booking_id'] ?? null;
+                $booking = $bookingId ? $bookings->get($bookingId) : null;
+                if (!$booking) {
+                    $booking = $latestBookingByLead->get($lid);
+                }
                 $customerLeadData[$lid] = [
                     'status_name' => $status?->name ?? '—',
                     'status_color' => $status && !empty($status->color) ? $status->color : '#0d6efd',
+                    'status_base_type' => $status?->base_type ?? 'pending',
                     'zone_name' => $zoneId ? ($zones->get($zoneId)?->name ?? '—') : '—',
                     'category_name' => $categoryId ? ($categories->get($categoryId)?->name ?? '—') : '—',
                     'sub_category_name' => $subCategoryId ? ($subCategories->get($subCategoryId)?->name ?? '—') : '—',
                     'cancellation_reason' => $cancelReason?->name ?? '—',
                     'estimated_service_at' => $estAtFormatted,
+                    'booking_id' => $booking?->id,
+                    'booking_readable_id' => $booking?->readable_id,
                 ];
             }
         }
@@ -868,7 +892,31 @@ class LeadController extends Controller
 
         $typeHistoryDisplay = $this->resolveTypeHistoryDisplay($typeHistory, $lead->lead_type);
 
-        $inModal = request()->boolean('in_modal');
+        // Support both query params: in_modal=1 (legacy) and inModal=1 (some redirects)
+        $inModal = request()->boolean('in_modal') || request()->boolean('inModal');
+
+        $leadBooking = null;
+        if ($lead->lead_type === Lead::TYPE_CUSTOMER && $typeHistory && is_array($typeHistory->data ?? null)) {
+            $bookingId = $typeHistory->data['booking_id'] ?? null;
+            if ($bookingId) {
+                $booking = Booking::find($bookingId, ['id', 'readable_id']);
+                if ($booking) {
+                    $leadBooking = [
+                        'id' => $booking->id,
+                        'readable_id' => $booking->readable_id,
+                    ];
+                }
+            }
+        }
+        if (!$leadBooking && $lead->lead_type === Lead::TYPE_CUSTOMER) {
+            $booking = Booking::where('lead_id', $lead->id)->orderByDesc('created_at')->first(['id', 'readable_id']);
+            if ($booking) {
+                $leadBooking = [
+                    'id' => $booking->id,
+                    'readable_id' => $booking->readable_id,
+                ];
+            }
+        }
 
         $sources = Source::active()->orderBy('name')->get();
         $adSources = AdSource::active()->orderBy('name')->get();
@@ -907,6 +955,7 @@ class LeadController extends Controller
             'typeHistory',
             'typeHistoryDisplay',
             'inModal',
+            'leadBooking',
             'sources',
             'providerChecklistItems',
             'providerChecklistDoneMap',

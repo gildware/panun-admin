@@ -86,7 +86,8 @@ class Booking extends Model
         'service_location',
         'assignee_id',
         'booking_source',
-        'service_description'
+        'service_description',
+        'lead_id'
     ];
 
     protected $appends = ['evidence_photos_full_path'];

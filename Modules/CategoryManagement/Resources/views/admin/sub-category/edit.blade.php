@@ -145,7 +145,7 @@
                                                            data-maxFileSize="{{ readableUploadMaxFileSize('image') }}">
                                                     <div class="upload-file__img">
                                                         <img src="{{onErrorImage($subCategory->image,
-                                                                        asset('storage/app/public/category').'/' . $subCategory->image,
+                                                                        Storage::disk('public')->url('category/' . $subCategory->image),
                                                                         asset('assets/admin-module/img/media/upload-file.png') ,
                                                                         'category/')}}"
                                                             alt="{{translate('image')}}">

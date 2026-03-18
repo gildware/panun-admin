@@ -52,6 +52,10 @@
                 <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form"
                       data-currency="{{ currency_symbol() ?? '' }}">
                     @csrf
+                    @if(request()->has('lead_id'))
+                        <input type="hidden" name="lead_id" value="{{ request('lead_id') }}">
+                        <input type="hidden" name="in_modal" value="1">
+                    @endif
 
                     {{-- 1. Customer --}}
                     <div class="mb-4 border rounded-3 p-3">
@@ -220,15 +224,15 @@
                                     <label class="form-label">{{ translate('How_was_this_booking_created?') }}</label>
                                     <select name="booking_source" class="form-control" required>
                                         <option value="">{{ translate('Select_Booking_Source') }}</option>
-                                        <option value="whatsapp" {{ old('booking_source', request('booking_source')) == 'whatsapp' ? 'selected' : '' }}>
-                                            {{ translate('Whatsapp') }}
-                                        </option>
-                                        <option value="call" {{ old('booking_source', request('booking_source')) == 'call' ? 'selected' : '' }}>
-                                            {{ translate('Call') }}
-                                        </option>
-                                        <option value="social_media" {{ old('booking_source', request('booking_source')) == 'social_media' ? 'selected' : '' }}>
-                                            {{ translate('Social_Media') }}
-                                        </option>
+                                        @foreach($sources as $source)
+                                            @php
+                                                $value = $source->name;
+                                                $selected = old('booking_source', request('booking_source')) == $value ? 'selected' : '';
+                                            @endphp
+                                            <option value="{{ $value }}" {{ $selected }}>
+                                                {{ $source->name }}
+                                            </option>
+                                        @endforeach
                                     </select>
                                     @error('booking_source')
                                     <span class="text-danger">{{ $message }}</span>
@@ -437,8 +441,8 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">{{ translate('email') }}</label>
-                                    <input type="email" name="email" class="form-control" required>
+                                    <label class="form-label">{{ translate('email') }} ({{ translate('Optional') }})</label>
+                                    <input type="email" name="email" class="form-control">
                                 </div>
                             </div>
                             <div class="col-md-6">

@@ -49,6 +49,8 @@ use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\Source;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -206,6 +208,90 @@ class BookingController extends Controller
         // Merge query parameters with old input for form pre-filling
         $request->merge(array_merge($request->query(), $request->old()));
 
+        return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create');
+    }
+
+    /**
+     * Show the form for creating a new booking from a lead (customer lead).
+     *
+     * @param Request $request
+     * @param int $lead
+     * @return Factory|View|Application|RedirectResponse
+     * @throws AuthorizationException
+     */
+    public function createFromLead(Request $request, int $lead): Factory|View|Application|RedirectResponse
+    {
+        try {
+            $this->authorize('booking_view');
+        } catch (AuthorizationException $e) {
+            Toastr::error(translate('Access_denied'));
+            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+        }
+
+        $leadModel = Lead::with(['source'])->findOrFail($lead);
+
+        if ($leadModel->lead_type !== \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER) {
+            Toastr::error(translate('Lead_is_not_a_customer_type'));
+            return redirect()->route('admin.lead.show', $leadModel->id);
+        }
+
+        // Try to find existing customer by phone; otherwise create one
+        $customer = User::where('user_type', 'customer')
+            ->where('phone', $leadModel->phone_number)
+            ->first();
+
+        if (!$customer) {
+            $defaultPassword = config('app.default_customer_password', '12345678');
+            $customer = new User();
+            $customer->first_name = $leadModel->name;
+            $customer->last_name = '';
+            $customer->phone = $leadModel->phone_number;
+            $customer->email = null;
+            $customer->profile_image = 'default.png';
+            $customer->gender = 'male';
+            $customer->password = bcrypt($defaultPassword);
+            $customer->user_type = 'customer';
+            $customer->is_active = 1;
+            $customer->save();
+        }
+
+        // Load latest customer-type history data for this lead (service info, estimated date, etc.)
+        $typeHistory = \Modules\LeadManagement\Entities\LeadTypeHistory::where('lead_id', $leadModel->id)
+            ->where('type', 'customer')
+            ->latest()
+            ->first();
+
+        $customerData = is_array($typeHistory->data ?? null) ? $typeHistory->data : [];
+
+        // Prefill booking form values from lead data
+        $prefill = [
+            'lead_id' => $leadModel->id,
+            'customer_id' => $customer->id,
+            'zone_id' => $customerData['zone_id'] ?? null,
+            'category_id' => $customerData['service_category'] ?? null,
+            'sub_category_id' => $customerData['service_subcategory'] ?? null,
+            'service_id' => $customerData['service_name'] ?? null,
+            'variant_key' => $customerData['variant_key'] ?? null,
+            'service_description' => $customerData['service_description'] ?? null,
+            'service_schedule' => $customerData['estimated_service_at'] ?? null,
+            'booking_source' => $leadModel->source?->name ?? null,
+        ];
+
+        // Merge prefill data with query params and old input (so user edits win)
+        $request->merge(array_merge($prefill, $request->query(), $request->old()));
+
+        return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create-from-lead');
+    }
+
+    /**
+     * Build data and view for booking create form (used by both standard create and create-from-lead flows).
+     *
+     * @param Request $request
+     * @param string $view
+     * @return Factory|View|Application
+     */
+    protected function buildBookingCreateView(Request $request, string $view): Factory|View|Application
+    {
         $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name')->get();
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
@@ -216,6 +302,9 @@ class BookingController extends Controller
             ->select('id', 'first_name', 'last_name', 'phone')
             ->limit(100)
             ->get();
+
+        // Lead sources for unified "Booking Source" options (same as Add Lead Source)
+        $sources = Source::active()->orderBy('name')->get(['id', 'name']);
 
         // Assignees: super-admins and admin employees
         $assignees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
@@ -230,7 +319,20 @@ class BookingController extends Controller
         $additionalChargeLabel = (string) (business_config('additional_charge_label_name', 'booking_setup'))?->live_values ?: translate('extra_fee');
         $additionalChargeDefaultAmount = (float) (business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values ?: 0;
 
-        return view('bookingmodule::admin.booking.create', compact('zones', 'categories', 'subCategories', 'providers', 'servicemen', 'customers', 'assignees', 'currentAdmin', 'additionalChargeEnabled', 'additionalChargeLabel', 'additionalChargeDefaultAmount'));
+        return view($view, compact(
+            'zones',
+            'categories',
+            'subCategories',
+            'providers',
+            'servicemen',
+            'customers',
+            'assignees',
+            'currentAdmin',
+            'additionalChargeEnabled',
+            'additionalChargeLabel',
+            'additionalChargeDefaultAmount',
+            'sources'
+        ));
     }
 
     /**
@@ -261,12 +363,14 @@ class BookingController extends Controller
                 'service_schedule' => ['required', 'date'],
                 'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
                 'service_location' => ['required', 'in:customer,provider'],
-                'booking_source' => ['required', 'in:whatsapp,call,social_media'],
+                'booking_source' => ['required', 'string', 'max:255'],
                 'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
                 'advance_transaction_id' => ['nullable', 'string', 'max:191'],
                 'assignee_id' => ['nullable', 'exists:users,id'],
                 'service_description' => ['nullable', 'string', 'max:2000'],
                 'extra_fee' => ['nullable', 'numeric', 'min:0'],
+                'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
+                'in_modal' => ['nullable', 'boolean'],
             ]);
             
             // If service location is provider, clear service_address_id
@@ -323,7 +427,11 @@ class BookingController extends Controller
             }
         }
 
-        return view('bookingmodule::admin.booking.preview',
+        $view = !empty($data['lead_id'])
+            ? 'bookingmodule::admin.booking.preview-from-lead'
+            : 'bookingmodule::admin.booking.preview';
+
+        return view($view,
             compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance'));
     }
 
@@ -362,12 +470,14 @@ class BookingController extends Controller
             'service_schedule' => ['required', 'date'],
             'service_address_id' => ['nullable', 'integer', 'required_if:service_location,customer'],
             'service_location' => ['required', 'in:customer,provider'],
-            'booking_source' => ['required', 'in:whatsapp,call,social_media'],
+            'booking_source' => ['required', 'string', 'max:255'],
             'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
             'advance_transaction_id' => ['nullable', 'string', 'max:191'],
             'assignee_id' => ['nullable', 'exists:users,id'],
             'service_description' => ['nullable', 'string', 'max:2000'],
             'extra_fee' => ['nullable', 'numeric', 'min:0'],
+            'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
+            'in_modal' => ['nullable', 'boolean'],
         ]);
         
         // If service location is provider, clear service_address_id
@@ -442,6 +552,7 @@ class BookingController extends Controller
             $booking->service_description = $data['service_description'] ?? null;
             $booking->booking_otp = rand(100000, 999999);
             $booking->extra_fee = $extraFee;
+            $booking->lead_id = $data['lead_id'] ?? null;
             
             // Set booking totals (total_booking_amount excludes extra_fee; get_booking_total_amount() adds it)
             $booking->total_booking_amount = $totalCost - $extraFee;
@@ -531,7 +642,63 @@ class BookingController extends Controller
                 'readable_id' => $booking->readable_id,
             ]);
 
-            // Go to success screen with options: add new, view details, dashboard
+            // If created from a lead, update lead status & history and go back to lead details with booking info
+            $leadId = $data['lead_id'] ?? null;
+            if ($leadId) {
+                try {
+                    $lead = \Modules\LeadManagement\Entities\Lead::find($leadId);
+                    if ($lead && $lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER) {
+                        // Prefer "booked" status if configured; fallback to "completed"
+                        $bookedOrCompletedStatus = \Modules\LeadManagement\Entities\CustomerLeadStatus::where('base_type', 'booked')->first()
+                            ?: \Modules\LeadManagement\Entities\CustomerLeadStatus::where('base_type', 'completed')->first();
+
+                        $history = \Modules\LeadManagement\Entities\LeadTypeHistory::where('lead_id', $lead->id)
+                            ->where('type', 'customer')
+                            ->latest()
+                            ->first();
+
+                        $dataHistory = $history && is_array($history->data) ? $history->data : [];
+                        if ($bookedOrCompletedStatus) {
+                            $dataHistory['customer_lead_status_id'] = $bookedOrCompletedStatus->id;
+                        }
+                        // Store booking id created from this lead
+                        $dataHistory['booking_id'] = $booking->id;
+
+                        if ($history) {
+                            $history->data = $dataHistory;
+                            $history->save();
+                        } else {
+                            \Modules\LeadManagement\Entities\LeadTypeHistory::create([
+                                'lead_id' => $lead->id,
+                                'type' => 'customer',
+                                'data' => $dataHistory,
+                            ]);
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error('ADMIN_LEAD_UPDATE_AFTER_BOOKING_EXCEPTION', [
+                        'message' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                        'lead_id' => $leadId,
+                        'booking_id' => $booking->id,
+                    ]);
+                }
+
+                $redirectParams = ['id' => $leadId];
+                if (!empty($data['in_modal'])) {
+                    // Lead details page uses in_modal to switch to modal layout
+                    $redirectParams['in_modal'] = 1;
+                }
+
+                return redirect()
+                    ->route('admin.lead.show', $redirectParams)
+                    ->with('created_booking', [
+                        'id' => $booking->id,
+                        'readable_id' => $booking->readable_id,
+                    ]);
+            }
+
+            // Otherwise go to success screen with options: add new, view details, dashboard
             return redirect()->route('admin.booking.success', ['id' => $booking->id]);
         } catch (\Throwable $exception) {
             DB::rollBack();
@@ -2076,7 +2243,7 @@ class BookingController extends Controller
 
         $data = $request->validate([
             'assignee_id' => ['nullable', 'exists:users,id'],
-            'booking_source' => ['required', 'in:whatsapp,call,social_media'],
+            'booking_source' => ['required', 'string', 'max:255'],
             'service_description' => ['nullable', 'string', 'max:2000'],
         ]);
 

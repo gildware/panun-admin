@@ -6569,6 +6569,8 @@ _Message' => 'Customer notification for provider bid offer
   'Lead created successfully' => 'Lead created successfully',
   'Search_by_name_or_number' => 'Search by name or number',
   'Search_by_name_phone_or_lead_id' => 'Search by name, phone or Lead ID',
+  'Booking_has_been_created_for_this_lead' => 'Booking has been created for this lead.',
+  'View_Booking_Details' => 'View Booking Details',
   'To_Date_Time_Of_Lead_Received' => 'To Date Time Of Lead Received',
   'From_Date_Time_Of_Lead_Received' => 'From Date Time Of Lead Received',
   'Unknown_Leads' => 'Unknown Leads',
@@ -6675,4 +6677,7 @@ _Message' => 'Customer notification for provider bid offer
   'Future_Customer_Reason' => 'Future Customer Reason',
   'Invalid_Reason' => 'Invalid Reason',
   'Provider_Status' => 'Provider Status',
+  'Create_Booking_for_this_Lead' => 'Create Booking for this Lead',
+  'Success' => 'Success',
+  'Customer_Status' => 'Customer Status',
 );

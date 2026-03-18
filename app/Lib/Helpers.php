@@ -790,7 +790,7 @@ if (!function_exists('getSingleImageFullPath')) {
             //
         }
         if (\Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return asset('storage/app/public/' . $imagePath);
+            return Storage::disk('public')->url($imagePath);
         } else {
 
             if (request()->is('api/*')) {
@@ -825,7 +825,7 @@ if (!function_exists('getIdentityImageFullPath')) {
             }
 
             if ($identityImage['storage'] == 'public' && \Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-                $fullPath = asset('storage/app/public/' . $imagePath);
+                $fullPath = Storage::disk('public')->url($imagePath);
             }
 
             if (request()->is('api/*') && $fullPath == $defaultPath) {
@@ -865,7 +865,7 @@ if (!function_exists('getBusinessSettingsImageFullPath')) {
         }
 
         if (\Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return asset('storage/app/public/' . $imagePath);
+            return Storage::disk('public')->url($imagePath);
         } else {
             if (request()->is('api/*')) {
                 return null;
@@ -900,7 +900,7 @@ if (!function_exists('getDataSettingsImageFullPath')) {
         }
 
         if (\Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return asset('storage/app/public/' . $imagePath);
+            return Storage::disk('public')->url($imagePath);
         } else {
             if (request()->is('api/*')) {
                 return null;
@@ -954,7 +954,7 @@ if (!function_exists('getPaymentGatewayImageFullPath')) {
         }
 
         if ($additionalData['storage'] == 'public' && \Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return asset('storage/app/public/' . $imagePath);
+            return Storage::disk('public')->url($imagePath);
         }
 
         if (request()->is('api/*')) {

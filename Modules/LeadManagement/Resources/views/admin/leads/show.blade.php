@@ -5,19 +5,63 @@
 @section('content')
     <div class="{{ isset($inModal) && $inModal ? '' : 'main-content' }}">
         <div class="{{ isset($inModal) && $inModal ? '' : 'container-fluid' }}">
+        @php
+            $leadTypeColorClass = match (($lead->lead_type ?? null)) {
+                \Modules\LeadManagement\Entities\Lead::TYPE_INVALID => 'bg-danger',
+                \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER => 'bg-success',
+                \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER => 'bg-primary',
+                \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER => 'bg-info',
+                default => 'bg-warning',
+            };
+
+            $createdBooking = session('created_booking');
+            $createdBookingId = (is_array($createdBooking) && !empty($createdBooking['id'])) ? $createdBooking['id'] : null;
+            $createdBookingReadableId = (is_array($createdBooking) && !empty($createdBooking['readable_id'])) ? $createdBooking['readable_id'] : null;
+            $createdBookingDetailsUrl = $createdBookingId ? route('admin.booking.details', $createdBookingId) : null;
+        @endphp
+
+        @if($createdBookingId)
+            <div class="alert alert-success d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    {{ translate('Booking_has_been_created_for_this_lead') }}
+                    @if(!empty($createdBookingReadableId))
+                        ({{ translate('Booking_ID') }}: {{ $createdBookingReadableId }})
+                    @endif
+                </div>
+                <a href="{{ $createdBookingDetailsUrl }}" class="btn btn-sm btn--primary" @if(!empty($inModal)) target="_top" @endif>
+                    {{ translate('View_Booking_Details') }}
+                </a>
+            </div>
+
+            <script>
+                $(document).ready(function () {
+                    try {
+                        const bookingDetailsUrl = @json($createdBookingDetailsUrl);
+                            Swal.fire({
+                            title: @json(translate('Success')),
+                            text: @json(translate('Booking_has_been_created_for_this_lead')),
+                            icon: 'success',
+                            showCancelButton: true,
+                            confirmButtonText: @json(translate('View_Booking_Details')),
+                            cancelButtonText: @json(translate('Close')),
+                        }).then((result) => {
+                            if (result.isConfirmed && bookingDetailsUrl) {
+                                @if(!empty($inModal))
+                                window.top.location.href = bookingDetailsUrl;
+                                @else
+                                window.location.href = bookingDetailsUrl;
+                                @endif
+                            }
+                        });
+                    } catch (e) {
+                        // Fallback: keep the inline success alert.
+                    }
+                });
+            </script>
+        @endif
+        
             <div class="row">
                 <div class="col-12">
-                    @php
-                        $leadType = $lead->lead_type;
-                        $leadTypeColorClass = match ($leadType) {
-                            \Modules\LeadManagement\Entities\Lead::TYPE_INVALID => 'bg-danger',
-                            \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER => 'bg-success',
-                            \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER => 'bg-primary',
-                            \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER => 'bg-info',
-                            default => 'bg-warning',
-                        };
-                    @endphp
-
                     <div class="page-title-wrap lead-detail-header d-flex justify-content-between flex-wrap align-items-center gap-2 py-3 px-3 rounded mb-3 sticky-top bg-body shadow-sm" style="z-index: 10;">
                         <div class="d-flex align-items-center flex-wrap gap-2 order-1">
                             <h2 class="page-title mb-0">{{ translate('Lead_Details') }}</h2>
@@ -58,9 +102,19 @@
                             @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER)
                                 @php
                                     $currentCustomerStatusId = $typeHistory && is_array($typeHistory->data ?? null) ? ($typeHistory->data['customer_lead_status_id'] ?? '') : '';
+                                    $currentCustomerStatus = $customerLeadStatuses->firstWhere('id', $currentCustomerStatusId);
+                                    $isPendingCustomerStatus = !$currentCustomerStatus || $currentCustomerStatus->base_type === 'pending';
+                                    $isBookedCustomerStatus = $currentCustomerStatus && in_array($currentCustomerStatus->base_type, ['booked', 'completed'], true);
                                 @endphp
                                 <div id="customer-header-status-view" class="d-flex align-items-center gap-2">
                                     <span class="badge fs-6" id="customer-header-status-text" style="background-color: {{ $typeHistoryDisplay['header_status_color'] ?? '#0d6efd' }}; color: #fff;">{{ $typeHistoryDisplay['header_status'] ?? '—' }}</span>
+                                    @if(!empty($isBookedCustomerStatus) && !empty($leadBooking) && !empty($leadBooking['id']))
+                                        <a href="{{ route('admin.booking.details', $leadBooking['id']) }}"
+                                           class="badge bg-light text-primary text-decoration-none border"
+                                           @if(!empty($inModal)) target="_top" @endif>
+                                            {{ translate('Booking_ID') }}: {{ $leadBooking['readable_id'] ?? $leadBooking['id'] }}
+                                        </a>
+                                    @endif
                                     <button type="button" id="customer-header-status-edit-btn" class="btn btn-sm btn-link text-primary p-0 d-inline-flex align-items-center" title="{{ translate('Change_Status') }}">
                                         <span class="material-icons" style="font-size: 22px;">edit</span>
                                     </button>
@@ -75,6 +129,11 @@
                                     <button type="button" id="customer-header-status-update-btn" class="btn btn-primary btn-sm d-none">{{ translate('Update') }}</button>
                                     <button type="button" id="customer-header-status-cancel-btn" class="btn btn--secondary btn-sm">{{ translate('Cancel') }}</button>
                                 </div>
+                            @endif
+                            @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && !empty($isPendingCustomerStatus))
+                                <a href="{{ route('admin.booking.create-from-lead', $lead->id) }}" class="btn btn--primary btn-sm">
+                                    {{ translate('Create_Booking_for_this_Lead') }}
+                                </a>
                             @endif
                             @if(empty($inModal))
                                 <a href="{{ route('admin.lead.index') }}" class="btn btn--secondary btn-sm">{{ translate('Back_to_Leads') }}</a>
@@ -1549,11 +1608,12 @@
             }
         })();
 
-        @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && isset($customerLeadTags))
-        window.__customerLeadTagsAll = @json($customerLeadTags->map(function($t) { return ['id' => $t->id, 'name' => $t->name, 'color' => $t->color ?? '#0d6efd']; })->values()->all());
-        @else
-        window.__customerLeadTagsAll = [];
-        @endif
+        @php
+            $customerLeadTagsAll = ($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && isset($customerLeadTags))
+                ? $customerLeadTags->map(function($t) { return ['id' => $t->id, 'name' => $t->name, 'color' => $t->color ?? '#0d6efd']; })->values()->all()
+                : [];
+        @endphp
+        window.__customerLeadTagsAll = @json($customerLeadTagsAll);
         (function () {
             var $pills = $('#customer-lead-tags-pills');
             var $input = $('#customer-lead-tag-autocomplete');

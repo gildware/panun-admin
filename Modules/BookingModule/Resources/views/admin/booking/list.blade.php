@@ -183,6 +183,7 @@
                                         <tr>
                                             <th>{{ translate('SL') }}</th>
                                             <th>{{ translate('Booking_ID') }}</th>
+                                            <th>{{ translate('Lead_ID') }}</th>
                                             <th>{{ translate('Assignee') }}</th>
                                             <th>{{ translate('Fup_Customer') }}</th>
                                             <th>{{ translate('Fup_Provider') }}</th>
@@ -229,6 +230,15 @@
                                                     @else
                                                     <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">
                                                         {{ $booking->readable_id }}</a>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if(!empty($booking->lead_id))
+                                                        <a href="{{ route('admin.lead.show', $booking->lead_id) }}">
+                                                            #{{ $booking->lead_id }}
+                                                        </a>
+                                                    @else
+                                                        —
                                                     @endif
                                                 </td>
                                                 <td>

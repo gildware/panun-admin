@@ -29,8 +29,15 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3 d-flex justify-content-between align-items-center">
-                <h2 class="page-title mb-0">{{ translate('Booking_Details') }} </h2>
-
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <h2 class="page-title mb-0">{{ translate('Booking_Details') }} </h2>
+                    @if(!empty($booking->lead_id))
+                        <span class="badge bg-info">
+                            {{ translate('Lead_ID') }}:
+                            <a href="{{ route('admin.lead.show', $booking->lead_id) }}" class="text-white text-decoration-underline">#{{ $booking->lead_id }}</a>
+                        </span>
+                    @endif
+                </div>
                 @can('booking_delete')
                     <button type="button"
                             class="action-btn btn--danger rounded-circle"

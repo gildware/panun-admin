@@ -24,6 +24,7 @@
                     <th>{{ translate('Checklist_Done_Items') }}</th>
                 @elseif($isCustomerTab)
                         <th>{{ translate('Status') }}</th>
+                        <th>{{ translate('Booking_ID') }}</th>
                         <th>{{ translate('Customer_cancellation_reasons') }}</th>
                         <th>{{ translate('Zone') }}</th>
                         <th>{{ translate('Category') }}</th>
@@ -49,7 +50,13 @@
                 <tbody>
                 @forelse($leads as $key => $lead)
                     <tr>
-                        <td>{{ $lead->id }}</td>
+                        <td>
+                            <a href="{{ route('admin.lead.show', $lead->id) }}?in_modal=1"
+                               class="link-primary btn-lead-view"
+                               data-lead-url="{{ route('admin.lead.show', $lead->id) }}?in_modal=1">
+                                {{ $lead->id }}
+                            </a>
+                        </td>
                         <td>{{ $lead->name }}</td>
                         <td>{{ $lead->phone_number }}</td>
                         @if($isProviderTab)
@@ -66,6 +73,19 @@
                             @php $cd = $customerLeadData[$lead->id] ?? []; @endphp
                             <td>
                                 <span class="badge" style="background-color: {{ $cd['status_color'] ?? '#0d6efd' }}; color: #fff;">{{ $cd['status_name'] ?? '—' }}</span>
+                            </td>
+                            <td>
+                                @php
+                                    $bookingId = $cd['booking_id'] ?? null;
+                                    $bookingReadableId = $cd['booking_readable_id'] ?? null;
+                                @endphp
+                                @if($bookingId)
+                                    <a href="{{ route('admin.booking.details', $bookingId) }}" class="link-primary" target="_top">
+                                        {{ $bookingReadableId ?: $bookingId }}
+                                    </a>
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td>{{ $cd['cancellation_reason'] ?? '—' }}</td>
                             <td>{{ $cd['zone_name'] ?? '—' }}</td>
@@ -118,7 +138,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $isProviderTab ? 12 : ($isCustomerTab ? 14 : ($isReasonTab ? 9 : 10)) }}" class="text-center py-4">{{ translate('No_leads_found') }}</td>
+                        <td colspan="{{ $isProviderTab ? 12 : ($isCustomerTab ? 15 : ($isReasonTab ? 9 : 10)) }}" class="text-center py-4">{{ translate('No_leads_found') }}</td>
                     </tr>
                 @endforelse
                 </tbody>
