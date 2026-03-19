@@ -6722,4 +6722,6 @@ _Message' => 'Customer notification for provider bid offer
   'View leads' => 'View leads',
   'leads' => 'Leads',
   'Lead_Status' => 'Lead Status',
+  'Closed' => 'Closed',
+  'Lead_Status_Open_vs_Closed' => 'Lead Status Open vs Closed',
 );

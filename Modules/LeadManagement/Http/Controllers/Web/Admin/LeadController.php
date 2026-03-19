@@ -46,6 +46,10 @@ class LeadController extends Controller
         $handledByFilterIds = array_filter((array) $request->input('handled_by', []));
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
+        $leadStatusFilter = $request->get('lead_status', 'all');
+        if (!in_array($leadStatusFilter, ['all', 'open', 'closed'], true)) {
+            $leadStatusFilter = 'all';
+        }
 
         $filterStatusIds = array_filter((array) $request->input('status_ids', []));
         $filterDistrictIds = array_filter((array) $request->input('district_ids', []));
@@ -170,12 +174,34 @@ class LeadController extends Controller
             }
         }
 
+        if ($leadStatusFilter !== 'all') {
+            $candidateLeads = (clone $query)->get(['id', 'lead_type']);
+            $candidateStatusMeta = $this->buildLeadStatusMeta($candidateLeads);
+            $targetOpenFlag = $leadStatusFilter === 'open';
+            $matchingLeadIds = $candidateLeads
+                ->filter(function ($lead) use ($candidateStatusMeta, $targetOpenFlag) {
+                    $meta = $candidateStatusMeta[$lead->id] ?? null;
+                    return (bool) ($meta['is_open'] ?? false) === $targetOpenFlag;
+                })
+                ->pluck('id')
+                ->all();
+
+            if ($matchingLeadIds === []) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('id', $matchingLeadIds);
+            }
+        }
+
         $queryParams = [
             'tab' => $tab,
             'search' => $search,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
         ];
+        if ($leadStatusFilter !== 'all') {
+            $queryParams['lead_status'] = $leadStatusFilter;
+        }
         if ($sourceIds !== []) {
             $queryParams['source_id'] = $sourceIds;
         }
@@ -452,6 +478,9 @@ class LeadController extends Controller
         if ($request->ajax() || $request->boolean('ajax')) {
             $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + count($handledByFilterIds)
                 + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
+            if ($leadStatusFilter !== 'all') {
+                $filtersAppliedCount += 1;
+            }
             if ($tab === 'provider') {
                 $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds);
             }
@@ -487,6 +516,7 @@ class LeadController extends Controller
             'sourceIds',
             'adSourceIds',
             'handledByFilterIds',
+            'leadStatusFilter',
             'filterStatusIds',
             'filterDistrictIds',
             'filterZoneIds',

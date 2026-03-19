@@ -101,10 +101,14 @@
                         $filterCustomerZoneIds = $filterCustomerZoneIds ?? [];
                         $filterCustomerCategoryIds = $filterCustomerCategoryIds ?? [];
                         $filterCustomerSubCategoryIds = $filterCustomerSubCategoryIds ?? [];
+                        $leadStatusFilter = $leadStatusFilter ?? 'all';
                         $estimatedDateFrom = $estimatedDateFrom ?? '';
                         $estimatedDateTo = $estimatedDateTo ?? '';
                         $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + count($handledByFilterIds)
                             + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
+                        if ($leadStatusFilter !== 'all') {
+                            $filtersAppliedCount += 1;
+                        }
                         if ($tab === 'provider') {
                             $filtersAppliedCount += count($filterStatusIds) + count($filterDistrictIds) + count($filterZoneIds) + count($filterCategoryIds);
                         }
@@ -175,6 +179,14 @@
                                                     @php $fullName = trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? '')); $label = $fullName ?: $employee->email; @endphp
                                                     <option value="{{ $employee->id }}" {{ in_array((string)$employee->id, array_map('strval', $handledByFilterIds)) ? 'selected' : '' }}>{{ $label }}</option>
                                                 @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="form-label">{{ translate('Lead_Status') }}</label>
+                                            <select name="lead_status" class="form-select">
+                                                <option value="all" {{ $leadStatusFilter === 'all' ? 'selected' : '' }}>{{ translate('All') }}</option>
+                                                <option value="open" {{ $leadStatusFilter === 'open' ? 'selected' : '' }}>{{ translate('Open') }}</option>
+                                                <option value="closed" {{ $leadStatusFilter === 'closed' ? 'selected' : '' }}>{{ translate('Closed') }}</option>
                                             </select>
                                         </div>
                                         <div>

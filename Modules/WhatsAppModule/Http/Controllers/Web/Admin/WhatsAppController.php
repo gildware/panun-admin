@@ -13,7 +13,10 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
@@ -220,6 +223,7 @@ class WhatsAppController extends Controller
                     ->orderByDesc('id')
                     ->get(['id', 'lead_type', 'phone_number', 'name', 'date_time_of_lead_received'])
                 : collect();
+            $leadStatusMap = $this->buildLeadStatusMap($leads);
             $lead = $leads->first();
             return response()->json([
                 'user' => $userPayload,
@@ -229,6 +233,7 @@ class WhatsAppController extends Controller
                     'lead_type' => $lead->lead_type,
                     'phone_number' => $lead->phone_number,
                     'url' => route('admin.lead.show', $lead->id),
+                    'is_open' => $leadStatusMap[$lead->id]['is_open'] ?? false,
                 ] : null,
                 'leads' => $leads->map(fn ($item) => [
                     'id' => $item->id,
@@ -237,6 +242,7 @@ class WhatsAppController extends Controller
                     'phone_number' => $item->phone_number,
                     'received_at' => $item->date_time_of_lead_received?->format('M j, Y H:i'),
                     'url' => route('admin.lead.show', $item->id),
+                    'is_open' => $leadStatusMap[$item->id]['is_open'] ?? false,
                 ])->values(),
             ]);
         } catch (\Throwable $e) {
@@ -899,5 +905,107 @@ class WhatsAppController extends Controller
         }
 
         return $map;
+    }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, Lead> $leads
+     * @return array<int, array{is_open: bool}>
+     */
+    private function buildLeadStatusMap(\Illuminate\Support\Collection $leads): array
+    {
+        if ($leads->isEmpty()) {
+            return [];
+        }
+
+        $leadIds = $leads->pluck('id')->all();
+
+        $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $latestByComposite = [];
+        foreach ($histories as $history) {
+            $compositeKey = $history->lead_id . '|' . $history->type;
+            if (!isset($latestByComposite[$compositeKey])) {
+                $latestByComposite[$compositeKey] = $history;
+            }
+        }
+
+        $customerStatusIds = [];
+        $providerStatusIds = [];
+        foreach ($latestByComposite as $key => $history) {
+            $data = is_array($history->data) ? $history->data : [];
+            if (str_ends_with((string) $key, '|' . Lead::TYPE_CUSTOMER) && !empty($data['customer_lead_status_id'])) {
+                $customerStatusIds[] = (int) $data['customer_lead_status_id'];
+            }
+            if (str_ends_with((string) $key, '|' . Lead::TYPE_PROVIDER) && !empty($data['provider_lead_status_id'])) {
+                $providerStatusIds[] = (int) $data['provider_lead_status_id'];
+            }
+        }
+
+        $customerStatuses = !empty($customerStatusIds)
+            ? CustomerLeadStatus::whereIn('id', array_unique($customerStatusIds))->get()->keyBy('id')
+            : collect();
+        $providerStatuses = !empty($providerStatusIds)
+            ? ProviderLeadStatus::whereIn('id', array_unique($providerStatusIds))->get()->keyBy('id')
+            : collect();
+
+        $map = [];
+        foreach ($leads as $lead) {
+            $history = $latestByComposite[$lead->id . '|' . $lead->lead_type] ?? null;
+            $map[$lead->id] = [
+                'is_open' => $this->isLeadOpenByTypeHistory($lead, $history, $customerStatuses, $providerStatuses),
+            ];
+        }
+
+        return $map;
+    }
+
+    /**
+     * Mirror Lead module rules:
+     * - Open: unknown OR customer/provider with base_type not in [completed, cancel]
+     * - Closed: invalid, future_customer, or base_type completed/cancel.
+     *
+     * @param \Illuminate\Support\Collection<int, CustomerLeadStatus>|null $customerStatuses
+     * @param \Illuminate\Support\Collection<int, ProviderLeadStatus>|null $providerStatuses
+     */
+    private function isLeadOpenByTypeHistory(
+        Lead $lead,
+        ?\Modules\LeadManagement\Entities\LeadTypeHistory $typeHistory,
+        ?\Illuminate\Support\Collection $customerStatuses = null,
+        ?\Illuminate\Support\Collection $providerStatuses = null
+    ): bool {
+        if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
+            return true;
+        }
+
+        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+            return false;
+        }
+
+        $data = ($typeHistory && is_array($typeHistory->data)) ? $typeHistory->data : [];
+
+        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            $statusId = $data['customer_lead_status_id'] ?? null;
+            if (!$statusId) {
+                return true;
+            }
+            $status = $customerStatuses?->get((int) $statusId) ?? CustomerLeadStatus::find($statusId);
+            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
+            return !in_array($baseType, ['completed', 'cancel'], true);
+        }
+
+        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            $statusId = $data['provider_lead_status_id'] ?? null;
+            if (!$statusId) {
+                return true;
+            }
+            $status = $providerStatuses?->get((int) $statusId) ?? ProviderLeadStatus::find($statusId);
+            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
+            return !in_array($baseType, ['completed', 'cancel'], true);
+        }
+
+        return false;
     }
 }

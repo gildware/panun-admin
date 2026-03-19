@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
@@ -66,6 +67,8 @@ class LeadReportController extends Controller
                 });
 
             $userLeadsTotal = (clone $baseUserLeads)->count();
+            $userLeadsForOpenClosed = (clone $baseUserLeads)->get(['id', 'lead_type']);
+            $userOpenClosedSummary = $this->buildOpenClosedSummary($userLeadsForOpenClosed);
 
             $userLeadsByTypeRows = (clone $baseUserLeads)
                 ->select('lead_type', DB::raw('count(*) as total'))
@@ -306,6 +309,11 @@ class LeadReportController extends Controller
                 'userLeadsPerDay' => $leadsPerDay,
                 'userLeadsByTypeLabels' => $userLeadsByTypeLabels,
                 'userLeadsByTypeValues' => $userLeadsByTypeValues,
+                'userOpenClosedLabels' => ['Open', 'Closed'],
+                'userOpenClosedValues' => [
+                    (int) ($userOpenClosedSummary['open'] ?? 0),
+                    (int) ($userOpenClosedSummary['closed'] ?? 0),
+                ],
                 'userProviderStatusLabels' => $providerStatusLabels,
                 'userProviderStatusValues' => $providerStatusValues,
                 'userCustomerStatusLabels' => $customerStatusLabels,
@@ -536,6 +544,8 @@ class LeadReportController extends Controller
             });
 
         $totalLeads = (clone $baseQuery)->count();
+        $inboundLeadsForOpenClosed = (clone $baseQuery)->get(['id', 'lead_type']);
+        $inboundOpenClosedSummary = $this->buildOpenClosedSummary($inboundLeadsForOpenClosed);
 
         $leadsByType = (clone $baseQuery)
             ->select('lead_type', DB::raw('count(*) as total'))
@@ -679,6 +689,11 @@ class LeadReportController extends Controller
             'tab' => 'inbound',
             'totalLeads' => $totalLeads,
             'leadsByType' => $leadsByType,
+            'inboundOpenClosedLabels' => ['Open', 'Closed'],
+            'inboundOpenClosedValues' => [
+                (int) ($inboundOpenClosedSummary['open'] ?? 0),
+                (int) ($inboundOpenClosedSummary['closed'] ?? 0),
+            ],
             'timeline' => $timeline,
             'leadsPerDay' => $leadsPerDay,
             'userWise' => $userWise,
@@ -1005,6 +1020,93 @@ class LeadReportController extends Controller
         }
 
         return array_values($summary);
+    }
+
+    /**
+     * @param Collection<int, Lead> $leads
+     * @return array{open:int, closed:int}
+     */
+    private function buildOpenClosedSummary(Collection $leads): array
+    {
+        if ($leads->isEmpty()) {
+            return ['open' => 0, 'closed' => 0];
+        }
+
+        $leadIds = $leads->pluck('id')->all();
+        $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
+            ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $latestByComposite = [];
+        foreach ($histories as $history) {
+            $key = $history->lead_id . '|' . $history->type;
+            if (!isset($latestByComposite[$key])) {
+                $latestByComposite[$key] = $history;
+            }
+        }
+
+        $customerStatusIds = [];
+        $providerStatusIds = [];
+        foreach ($latestByComposite as $key => $history) {
+            $data = is_array($history->data) ? $history->data : [];
+            if (str_ends_with((string) $key, '|' . Lead::TYPE_CUSTOMER) && !empty($data['customer_lead_status_id'])) {
+                $customerStatusIds[] = (int) $data['customer_lead_status_id'];
+            }
+            if (str_ends_with((string) $key, '|' . Lead::TYPE_PROVIDER) && !empty($data['provider_lead_status_id'])) {
+                $providerStatusIds[] = (int) $data['provider_lead_status_id'];
+            }
+        }
+
+        $customerStatuses = $customerStatusIds !== []
+            ? CustomerLeadStatus::whereIn('id', array_unique($customerStatusIds))->get()->keyBy('id')
+            : collect();
+        $providerStatuses = $providerStatusIds !== []
+            ? ProviderLeadStatus::whereIn('id', array_unique($providerStatusIds))->get()->keyBy('id')
+            : collect();
+
+        $open = 0;
+        $closed = 0;
+
+        foreach ($leads as $lead) {
+            $isOpen = false;
+
+            if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
+                $isOpen = true;
+            } elseif (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+                $isOpen = false;
+            } elseif ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+                $history = $latestByComposite[$lead->id . '|' . Lead::TYPE_CUSTOMER] ?? null;
+                $data = ($history && is_array($history->data)) ? $history->data : [];
+                $statusId = $data['customer_lead_status_id'] ?? null;
+                if (!$statusId) {
+                    $isOpen = true;
+                } else {
+                    $status = $customerStatuses->get((int) $statusId);
+                    $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
+                    $isOpen = !in_array($baseType, ['completed', 'cancel'], true);
+                }
+            } elseif ($lead->lead_type === Lead::TYPE_PROVIDER) {
+                $history = $latestByComposite[$lead->id . '|' . Lead::TYPE_PROVIDER] ?? null;
+                $data = ($history && is_array($history->data)) ? $history->data : [];
+                $statusId = $data['provider_lead_status_id'] ?? null;
+                if (!$statusId) {
+                    $isOpen = true;
+                } else {
+                    $status = $providerStatuses->get((int) $statusId);
+                    $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
+                    $isOpen = !in_array($baseType, ['completed', 'cancel'], true);
+                }
+            }
+
+            if ($isOpen) {
+                $open++;
+            } else {
+                $closed++;
+            }
+        }
+
+        return ['open' => $open, 'closed' => $closed];
     }
 
     /**

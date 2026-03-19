@@ -326,6 +326,12 @@
                                             <div id="user-lead-type-chart" style="min-height: 260px;"></div>
                                         </div>
                                     </div>
+                                    <div class="col-lg-6">
+                                        <div class="border rounded p-3 h-100">
+                                            <div class="fw-semibold mb-2">{{ translate('Lead_Status_Open_vs_Closed') }}</div>
+                                            <div id="user-open-closed-chart" style="min-height: 260px;"></div>
+                                        </div>
+                                    </div>
 
                                     <div class="col-lg-6">
                                         <div class="border rounded p-3 h-100">
@@ -414,6 +420,14 @@
                         <div class="card-body ps-0">
                             <h4 class="ps-20">{{ translate('Lead_Type_Distribution') }}</h4>
                             <div id="lead-type-chart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body ps-0">
+                            <h4 class="ps-20">{{ translate('Lead_Status_Open_vs_Closed') }}</h4>
+                            <div id="lead-open-closed-chart"></div>
                         </div>
                     </div>
                 </div>
@@ -798,6 +812,26 @@
                 new ApexCharts(el, options).render();
             })();
 
+            // 3.5) Open vs Closed (donut)
+            (function () {
+                const el = document.querySelector('#user-open-closed-chart');
+                if (!el) return;
+                const values = {!! json_encode($userOpenClosedValues ?? [0, 0]) !!};
+                const labelsRaw = {!! json_encode($userOpenClosedLabels ?? ['Open', 'Closed']) !!};
+                const labels = labelsRaw.map(function (l, i) {
+                    return (l || '—') + ' (' + (values[i] ?? 0) + ')';
+                });
+                const options = {
+                    series: values,
+                    chart: { type: 'donut', height: 280 },
+                    labels: labels,
+                    colors: ['#e74a3b', '#1cc88a'],
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false }
+                };
+                new ApexCharts(el, options).render();
+            })();
+
             // 4) Customer status summary (pie)
             (function () {
                 const el = document.querySelector('#user-customer-status-chart');
@@ -946,6 +980,26 @@
                 const chart2 = new ApexCharts(typeChartEl, typeOptions);
                 chart2.render();
             }
+
+            // Open vs Closed leads (donut)
+            (function () {
+                const el = document.querySelector('#lead-open-closed-chart');
+                if (!el) return;
+                const values = {!! json_encode($inboundOpenClosedValues ?? [0, 0]) !!};
+                const labelsRaw = {!! json_encode($inboundOpenClosedLabels ?? ['Open', 'Closed']) !!};
+                const labels = labelsRaw.map(function (l, i) {
+                    return (l || '—') + ' (' + (values[i] ?? 0) + ')';
+                });
+                const options = {
+                    series: values,
+                    chart: { type: 'donut', height: 280 },
+                    labels: labels,
+                    colors: ['#e74a3b', '#1cc88a'],
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                };
+                new ApexCharts(el, options).render();
+            })();
 
             // User wise leads (horizontal bar)
             (function () {

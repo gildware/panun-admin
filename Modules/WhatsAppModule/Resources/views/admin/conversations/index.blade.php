@@ -1156,14 +1156,41 @@
         if (!leads || !leads.length) {
             return '<p class="text-muted mb-0">No leads found</p>';
         }
+
+        function leadTypeMeta(type) {
+            var normalized = String(type || '').toLowerCase();
+            if (normalized === 'invalid') {
+                return { label: 'Invalid', badgeClass: 'bg-danger text-white' };
+            }
+            if (normalized === 'customer') {
+                return { label: 'Customer', badgeClass: 'bg-success text-white' };
+            }
+            if (normalized === 'provider') {
+                return { label: 'Provider', badgeClass: 'bg-primary text-white' };
+            }
+            if (normalized === 'future_customer') {
+                return { label: 'Future Customer', badgeClass: 'bg-info text-dark' };
+            }
+            if (normalized === 'unknown') {
+                return { label: 'Unknown', badgeClass: 'bg-warning text-dark' };
+            }
+            var fallbackLabel = String(type || '—').replace(/_/g, ' ');
+            return { label: fallbackLabel, badgeClass: 'bg-warning text-dark' };
+        }
+
         var html = '<div class="table-responsive"><table class="table table-sm align-middle text-nowrap">';
-        html += '<thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Type</th><th>Received</th><th class="text-end">Action</th></tr></thead><tbody>';
+        html += '<thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Type</th><th>Status</th><th>Received</th><th class="text-end">Action</th></tr></thead><tbody>';
         leads.forEach(function (lead) {
+            var typeMeta = leadTypeMeta(lead.lead_type);
             html += '<tr>';
             html += '<td>#' + escapeHtml(lead.id) + '</td>';
             html += '<td>' + escapeHtml(lead.name || '—') + '</td>';
             html += '<td>' + formatPhoneDisplay(lead.phone_number) + '</td>';
-            html += '<td><span class="badge bg-info text-dark">' + escapeHtml(lead.lead_type || '—') + '</span></td>';
+            html += '<td><span class="badge rounded-pill ' + typeMeta.badgeClass + '">' + escapeHtml(typeMeta.label) + '</span></td>';
+            var isOpen = !!lead.is_open;
+            var statusLabel = isOpen ? 'Open' : 'Closed';
+            var statusClass = isOpen ? 'bg-danger' : 'bg-success';
+            html += '<td><span class="badge rounded-pill ' + statusClass + '">' + statusLabel + '</span></td>';
             html += '<td>' + escapeHtml(lead.received_at || '—') + '</td>';
             html += '<td class="text-end"><a href="' + escapeHtml(lead.url || '#') + '" target="_blank" class="btn btn-sm btn-outline-success">View lead</a></td>';
             html += '</tr>';
