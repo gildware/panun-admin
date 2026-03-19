@@ -16,6 +16,7 @@ use function response_formatter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Modules\TransactionModule\Entities\LedgerTransaction;
 use Illuminate\Contracts\View\View;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Http\RedirectResponse;
@@ -112,18 +113,21 @@ class AdminController extends Controller
             'total_services' => $this->service->count()
         ]];
 
-        $recent_transactions = $this->transaction
-            ->with(['booking'])
-            ->whereMonth('created_at', now()->month)
-            ->latest()
+        $recent_ledger_transactions = LedgerTransaction::with([
+            'booking:id,readable_id',
+            'creator:id,first_name,last_name,email',
+        ])
+            ->orderByDesc('date')
+            ->orderByDesc('created_at')
             ->take(5)
             ->get();
+
+        $this_month_ledger_transactions_count = LedgerTransaction::whereYear('date', Carbon::now()->year)
+            ->whereMonth('date', Carbon::now()->month)
+            ->count();
         $data[] = [
-            'recent_transactions' => $recent_transactions,
-            'this_month_trx_count' => $transaction
-                ->whereYear('created_at', Carbon::now()->year)
-                ->whereMonth('created_at', Carbon::now()->month)
-                ->count()
+            'recent_ledger_transactions' => $recent_ledger_transactions,
+            'this_month_ledger_trx_count' => $this_month_ledger_transactions_count
         ];
 
         $bookings = $this->booking->with(['detail.service' => function ($query) {
@@ -205,74 +209,88 @@ class AdminController extends Controller
 
         $year = session()->has('dashboard_earning_graph_year') ? session('dashboard_earning_graph_year') : date('Y');
         $amounts = $this->booking_details_amount
-            ->whereHas('booking', function ($query) use ($request, $year) {
-                $query->whereYear('created_at', '=', $year)->ofBookingStatus('completed');
-            })->orWhereHas('repeat', function ($subQuery) {
-                $subQuery->ofBookingStatus('completed');
+            ->whereYear('created_at', '=', $year)
+            ->where(function ($q) {
+                $q->whereHas('booking', function ($query) {
+                    $query->ofBookingStatus('completed');
+                })->orWhereHas('repeat', function ($subQuery) {
+                    $subQuery->ofBookingStatus('completed');
+                });
             })
             ->select(
                 DB::raw('sum(admin_commission) as admin_commission'),
-
+                DB::raw('sum(discount_by_admin) as discount_by_admin'),
+                DB::raw('sum(coupon_discount_by_admin) as coupon_discount_by_admin'),
+                DB::raw('sum(campaign_discount_by_admin) as campaign_discount_by_admin'),
                 DB::raw('MONTH(created_at) month')
             )
-            ->groupby('month')->get()->toArray();
+            ->groupby('month')
+            ->get()
+            ->toArray();
 
-        $fee_amounts = $this->transaction
-            ->whereIn('trx_type', [
-                TRX_TYPE['received_extra_fee'],
-                TRX_TYPE['subscription_purchase'],
-                TRX_TYPE['subscription_renew'],
-                TRX_TYPE['subscription_shift']
-            ])
-            ->select(
-                DB::raw('sum(credit) as fee'),
-
-                DB::raw('MONTH(created_at) month')
-            )
-            ->groupby('month')->get()->toArray();
-
-        $all_earnings = [];
-        if (empty($amounts) && !empty($fee_amounts)) {
-            foreach ($fee_amounts as $key => $fee) {
-                $all_earnings[$key] = $fee;
-                if (!array_key_exists('fee', $all_earnings[$key])) {
-                    $all_earnings[$key]['fee'] = 0;
-                }
+        // Admin commission per month (net of discounts), matching dashboard tile logic.
+        $adminEarningByMonth = [];
+        foreach ($amounts as $item) {
+            $month = (int) ($item['month'] ?? 0);
+            if ($month < 1 || $month > 12) {
+                continue;
             }
-        } else {
-            foreach ($amounts as $amount) {
-                foreach ($fee_amounts as $key => $fee) {
-                    if ($amount['month'] == $fee['month']) {
-                        $all_earnings[$key] = array_merge($amount, $fee);
-                    }
-                    if (!isset($all_earnings[$key])) {
-                        $all_earnings[$key] = $amount;
-                    }
-                    if (!array_key_exists('fee', $all_earnings[$key])) {
-                        $all_earnings[$key]['fee'] = 0;
-                    }
-                }
-            }
+
+            $adminCommission = (float) ($item['admin_commission'] ?? 0);
+            $discountByAdmin = (float) ($item['discount_by_admin'] ?? 0);
+            $couponDiscountByAdmin = (float) ($item['coupon_discount_by_admin'] ?? 0);
+            $campaignDiscountByAdmin = (float) ($item['campaign_discount_by_admin'] ?? 0);
+
+            $adminEarningByMonth[$month] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
         }
+
+        // Total revenue per month (booking total + extra services + extra fee), matching dashboard tile logic.
+        $extraServicesSub = DB::table('booking_extra_services')
+            ->select('booking_id', DB::raw('sum(total) as extra_total'))
+            ->groupBy('booking_id');
+
+        $bookingRevenueByMonth = DB::table('bookings as b')
+            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
+                $join->on('es.booking_id', '=', 'b.id');
+            })
+            ->where('b.booking_status', '=', 'completed')
+            ->whereYear('b.created_at', '=', $year)
+            ->select(
+                DB::raw('MONTH(b.created_at) month'),
+                DB::raw('sum(b.total_booking_amount + b.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
+            )
+            ->groupBy('month')
+            ->get()
+            ->keyBy('month');
+
+        $repeatRevenueByMonth = DB::table('booking_repeats as br')
+            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
+                $join->on('es.booking_id', '=', 'br.booking_id');
+            })
+            ->where('br.booking_status', '=', 'completed')
+            ->whereYear('br.created_at', '=', $year)
+            ->select(
+                DB::raw('MONTH(br.created_at) month'),
+                DB::raw('sum(br.total_booking_amount + br.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
+            )
+            ->groupBy('month')
+            ->get()
+            ->keyBy('month');
 
         $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
         foreach ($months as $month) {
-            $found = 0;
-            foreach ($all_earnings as $key => $item) {
-                if (isset($item['month']) && $item['month'] == $month) {
-                    $admin_commission = $item['admin_commission'] ?? 0;
-                    $itemFee = $item['fee'] ?? 0;
+            $monthTotalRevenue = 0.0;
+            if (isset($bookingRevenueByMonth[$month])) {
+                $monthTotalRevenue += (float) ($bookingRevenueByMonth[$month]->total_revenue ?? 0);
+            }
+            if (isset($repeatRevenueByMonth[$month])) {
+                $monthTotalRevenue += (float) ($repeatRevenueByMonth[$month]->total_revenue ?? 0);
+            }
 
-                    $chart_data['total_earning'][] = with_decimal_point($admin_commission + $itemFee);
-                    $chart_data['commission_earning'][] = with_decimal_point($admin_commission);
-                    $found = 1;
-                    break;
-                }
-            }
-            if (!$found) {
-                $chart_data['total_earning'][] = with_decimal_point(0);
-                $chart_data['commission_earning'][] = with_decimal_point(0);
-            }
+            $monthAdminEarning = (float) ($adminEarningByMonth[$month] ?? 0);
+
+            $chart_data['total_earning'][] = with_decimal_point($monthTotalRevenue);
+            $chart_data['commission_earning'][] = with_decimal_point($monthAdminEarning);
         }
 
         return view('adminmodule::dashboard', compact('data', 'chart_data'));
@@ -294,60 +312,86 @@ class AdminController extends Controller
     {
         $year = $request['year'];
         $amounts = $this->booking_details_amount
-            ->whereHas('booking', function ($query) use ($request, $year) {
-                $query->whereYear('created_at', '=', $year)->ofBookingStatus('completed');
+            ->whereYear('created_at', '=', $year)
+            ->where(function ($q) {
+                $q->whereHas('booking', function ($query) {
+                    $query->ofBookingStatus('completed');
+                })->orWhereHas('repeat', function ($subQuery) {
+                    $subQuery->ofBookingStatus('completed');
+                });
             })
             ->select(
                 DB::raw('sum(admin_commission) as admin_commission'),
-
+                DB::raw('sum(discount_by_admin) as discount_by_admin'),
+                DB::raw('sum(coupon_discount_by_admin) as coupon_discount_by_admin'),
+                DB::raw('sum(campaign_discount_by_admin) as campaign_discount_by_admin'),
                 DB::raw('MONTH(created_at) month')
             )
-            ->groupby('month')->get()->toArray();
+            ->groupby('month')
+            ->get()
+            ->toArray();
 
-        $fee_amounts = $this->transaction
-            ->whereYear('created_at', '=', $year)
-            ->whereIn('trx_type', [
-                TRX_TYPE['received_extra_fee'],
-                TRX_TYPE['subscription_purchase'],
-                TRX_TYPE['subscription_renew'],
-                TRX_TYPE['subscription_shift']
-            ])
-            ->select(
-                DB::raw('sum(credit) as fee'),
-
-                DB::raw('MONTH(created_at) month')
-            )
-            ->groupby('month')->get()->toArray();
-
-        $all_earnings = [];
-        foreach ($amounts as $amount) {
-            foreach ($fee_amounts as $key => $fee) {
-                if ($amount['month'] == $fee['month']) {
-                    $all_earnings[$key] = array_merge($amount, $fee);
-                }
-                if (!isset($all_earnings[$key])) {
-                    $all_earnings[$key] = $amount;
-                }
-                if (!array_key_exists('fee', $all_earnings[$key])) {
-                    $all_earnings[$key]['fee'] = 0;
-                }
+        $adminEarningByMonth = [];
+        foreach ($amounts as $item) {
+            $month = (int) ($item['month'] ?? 0);
+            if ($month < 1 || $month > 12) {
+                continue;
             }
+
+            $adminCommission = (float) ($item['admin_commission'] ?? 0);
+            $discountByAdmin = (float) ($item['discount_by_admin'] ?? 0);
+            $couponDiscountByAdmin = (float) ($item['coupon_discount_by_admin'] ?? 0);
+            $campaignDiscountByAdmin = (float) ($item['campaign_discount_by_admin'] ?? 0);
+
+            $adminEarningByMonth[$month] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
         }
+
+        $extraServicesSub = DB::table('booking_extra_services')
+            ->select('booking_id', DB::raw('sum(total) as extra_total'))
+            ->groupBy('booking_id');
+
+        $bookingRevenueByMonth = DB::table('bookings as b')
+            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
+                $join->on('es.booking_id', '=', 'b.id');
+            })
+            ->where('b.booking_status', '=', 'completed')
+            ->whereYear('b.created_at', '=', $year)
+            ->select(
+                DB::raw('MONTH(b.created_at) month'),
+                DB::raw('sum(b.total_booking_amount + b.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
+            )
+            ->groupBy('month')
+            ->get()
+            ->keyBy('month');
+
+        $repeatRevenueByMonth = DB::table('booking_repeats as br')
+            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
+                $join->on('es.booking_id', '=', 'br.booking_id');
+            })
+            ->where('br.booking_status', '=', 'completed')
+            ->whereYear('br.created_at', '=', $year)
+            ->select(
+                DB::raw('MONTH(br.created_at) month'),
+                DB::raw('sum(br.total_booking_amount + br.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
+            )
+            ->groupBy('month')
+            ->get()
+            ->keyBy('month');
 
         $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
         foreach ($months as $month) {
-            $found = 0;
-            foreach ($all_earnings as $key => $item) {
-                if ($item['month'] == $month) {
-                    $chart_data['total_earning'][] = with_decimal_point($item['admin_commission'] + $item['fee']);
-                    $chart_data['commission_earning'][] = with_decimal_point($item['admin_commission']);
-                    $found = 1;
-                }
+            $monthTotalRevenue = 0.0;
+            if (isset($bookingRevenueByMonth[$month])) {
+                $monthTotalRevenue += (float) ($bookingRevenueByMonth[$month]->total_revenue ?? 0);
             }
-            if (!$found) {
-                $chart_data['total_earning'][] = with_decimal_point(0);
-                $chart_data['commission_earning'][] = with_decimal_point(0);
+            if (isset($repeatRevenueByMonth[$month])) {
+                $monthTotalRevenue += (float) ($repeatRevenueByMonth[$month]->total_revenue ?? 0);
             }
+
+            $monthAdminEarning = (float) ($adminEarningByMonth[$month] ?? 0);
+
+            $chart_data['total_earning'][] = with_decimal_point($monthTotalRevenue);
+            $chart_data['commission_earning'][] = with_decimal_point($monthAdminEarning);
         }
 
         session()->put('dashboard_earning_graph_year', $request['year']);

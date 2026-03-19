@@ -1076,7 +1076,7 @@
                                     <td class="text-end">
                                         <a href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats', 'phone' => $waUser->phone]) }}" class="btn btn-sm btn--primary">{{ translate('View chat') }}</a>
                                         <button type="button"
-                                                class="btn btn-sm btn-outline-warning wa-user-leads"
+                                                class="btn btn-sm btn-success wa-user-leads text-white"
                                                 data-phone="{{ e($waUser->phone) }}">
                                             {{ translate('View leads') }}
                                         </button>

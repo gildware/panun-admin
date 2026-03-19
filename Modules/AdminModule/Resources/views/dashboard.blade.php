@@ -13,24 +13,50 @@
             flex-wrap: wrap;
         }
         .dashboard-top-cards .business-summary {
-            height: 8.5rem;
-            min-height: 8.5rem;
+            height: 6rem;
+            min-height: 6rem;
+        }
+        /* Reduce top card typography to fit larger numbers. */
+        .dashboard-top-cards .business-summary h2 {
+            font-size: clamp(0.95rem, 1.7vw, 1.25rem);
+            line-height: 1.15;
+            margin: 0;
+            padding: 0;
+            white-space: nowrap;
+        }
+        .dashboard-top-cards .business-summary h3 {
+            font-size: clamp(0.65rem, 1.0vw, 0.82rem);
+            line-height: 1.1;
+            margin: 0.15rem 0 0;
         }
         .missed-followup-row,
         .missed-followup-row > td {
-            background-color: #dc3545 !important;
-            color: #fff !important;
+            background-color: #fff !important;
+            color: #dc3545 !important;
         }
         .table-hover > tbody > tr.missed-followup-row:hover > * {
-            background-color: #dc3545 !important;
-            color: #fff !important;
+            background-color: #fff !important;
+            color: #dc3545 !important;
+        }
+        /* Keep follow-up tables visually aligned (same min/max height). */
+        .dashboard-widget-todays-followups .card-body {
+            min-height: 420px;
+            max-height: 420px;
+            overflow: auto;
+        }
+        .dashboard-widget-todays-followups .card-body > .table-responsive {
+            height: 100%;
+            max-height: 100%;
+        }
+        .dashboard-widget-todays-followups .card-body > .d-flex {
+            height: 100%;
         }
         .missed-followup-row a,
         .missed-followup-row a.text-primary,
         .missed-followup-row .text-primary,
         .missed-followup-row .small,
         .missed-followup-row .small a {
-            color: #fff !important;
+            color: #dc3545 !important;
         }
     </style>
 @endpush
@@ -95,7 +121,7 @@
                     </div>
                 </div>
                 <div class="row g-4 mb-4">
-                    <div class="col-12">
+                    <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card dashboard-widget-todays-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5>
@@ -109,8 +135,8 @@
                             </div>
                             <div class="card-body p-0">
                                 @if(isset($data[5]['todays_pending_followups']) && $data[5]['todays_pending_followups']->isNotEmpty())
-                                    <div class="table-responsive px-3">
-                                        <table class="table table-hover align-middle mb-0 fs-13">
+                                    <div class="table-responsive px-3 overflow-auto">
+                                        <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
                                             <thead class="text-secondary border-bottom">
                                                 <tr>
                                                     <th>{{translate('Booking_ID')}}</th>
@@ -180,10 +206,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="row g-4 mb-4">
-                    <div class="col-12">
+                    <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card dashboard-widget-todays-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5>
@@ -197,8 +220,8 @@
                             </div>
                             <div class="card-body p-0">
                                 @if(isset($data[6]['todays_pending_lead_followups']) && $data[6]['todays_pending_lead_followups']->isNotEmpty())
-                                    <div class="table-responsive px-3">
-                                        <table class="table table-hover align-middle mb-0 fs-13">
+                                    <div class="table-responsive px-3 overflow-auto">
+                                        <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
                                             <thead class="text-secondary border-bottom">
                                                 <tr>
                                                     <th>{{translate('Lead_ID')}}</th>
@@ -265,7 +288,7 @@
                 </div>
 
                 <div class="row g-4 mb-4">
-                    <div class="col-lg-9 col-12">
+                    <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card earning-statistics">
                             <div class="card-body ps-0">
                                 <div class="ps-20 d-flex flex-wrap align-items-center justify-content-between gap-3">
@@ -300,69 +323,58 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-12 col-sm-6">
+                    <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card recent-transactions h-100 w-100">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between gap-10">
-                                    <h4 class="mb-3">{{translate('recent_transactions')}}</h4>
-                                    <a href="{{route('admin.transaction.list', ['trx_type'=>'all'])}}"
+                                    <h4 class="mb-3">{{translate('recent_ledger_transactions')}}</h4>
+                                    <a href="{{route('admin.ledger.index')}}"
                                        class="btn-link">{{translate('view_all')}}</a>
                                 </div>
-                                @if(isset($data[1]['recent_transactions']) && count($data[1]['recent_transactions']) > 0)
+                                @if(isset($data[1]['recent_ledger_transactions']) && count($data[1]['recent_ledger_transactions']) > 0)
                                     <div class="d-flex align-items-center gap-3 mb-4">
                                         <img src="{{asset('assets/admin-module')}}/img/icons/arrow-up.png"
                                              alt="">
-                                        <p class="opacity-75">{{$data[1]['this_month_trx_count']}} {{translate('transactions_this_month')}}</p>
+                                        <p class="opacity-75">{{$data[1]['this_month_ledger_trx_count']}} {{translate('ledger_transactions_this_month')}}</p>
                                     </div>
                                 @endif
                                 <div class="events w-100">
-                                    @foreach($data[1]['recent_transactions'] ?? [] as $transaction)
+                                    @foreach($data[1]['recent_ledger_transactions'] ?? [] as $entry)
                                         <div class="event">
                                             <div class="knob"></div>
                                             <div class="d-flex align-items-center gap-1 justify-content-between">
                                                 <div class="title">
-                                                    @if($transaction->debit>0)
-                                                        <h5>{{with_currency_symbol($transaction->debit)}} {{translate('debited')}}</h5>
+                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                        <h5 class="text-success">+ {{with_currency_symbol($entry->amount)}} {{translate('credited')}}</h5>
                                                     @else
-                                                        <h5>{{with_currency_symbol($transaction->credit)}} {{translate('credited')}}</h5>
+                                                        <h5 class="text-danger">- {{with_currency_symbol($entry->amount)}} {{translate('debited')}}</h5>
                                                     @endif
 
                                                     <p class="m-0 fs-13 d-flex align-items-center gap-1">
-                                                       <span class="material-symbols-outlined fs-5 cursor-pointer" data-bs-toggle="tooltip" data-bs-placement="top" title="Provider">
-                                                         person
+                                                       <span class="material-symbols-outlined fs-5 cursor-pointer"
+                                                             data-bs-toggle="tooltip" data-bs-placement="top" title="Ledger">
+                                                         account_balance_wallet
                                                        </span>
-                                                        @if($transaction?->from_user?->provider)
-                                                            {{Str::limit($transaction->from_user->provider->company_name, 30)}}
-                                                        @else
-                                                            {{Str::limit($transaction?->from_user?->first_name.' '.$transaction?->from_user?->last_name, 30)}}
-                                                        @endif
+                                                        {{ $entry->booking?->readable_id ?? $entry->booking_id ?? '—' }}
                                                     </p>
                                                 </div>
                                                 <div class="description">
-                                                    <p class="fs-12">{{date('d M H:i a',strtotime($transaction->created_at))}}</p>
+                                                    <p class="fs-12">{{date('d M H:i a',strtotime($entry->created_at))}}</p>
                                                 </div>
                                             </div>
                                         </div>
                                     @endforeach
-                                        <!-- <div class="d-flex flex-column justify-content-center align-items-center height-80p w-100">
-                                            <div class="recent-transaction-no-data text-center">
-                                                <img src="{{ asset('assets/admin-module/img/icons/no-transaction.svg') }}" alt=""> <br>
-                                                <p class="fs-16 text-dark-icon">{{ translate('No Recent Transactions') }}</p>
-                                            </div>
-                                        </div> -->
                                     <div class="line"></div>
                                 </div>
 
-                                @if(count($data[1]['recent_transactions'] ?? []) < 1)
-
-                                <div class="d-flex flex-column justify-content-center align-items-center h-100 w-100">
-                                    <div class="recent-transaction-no-data text-center">
-                                        <img src="{{ asset('assets/admin-module/img/icons/no-transaction.svg') }}" alt=""> <br>
-                                        <p class="fs-16 text-dark-icon">{{ translate('No Recent Transactions') }}</p>
+                                @if(count($data[1]['recent_ledger_transactions'] ?? []) < 1)
+                                    <div class="d-flex flex-column justify-content-center align-items-center h-100 w-100">
+                                        <div class="recent-transaction-no-data text-center">
+                                            <img src="{{ asset('assets/admin-module/img/icons/no-transaction.svg') }}" alt=""> <br>
+                                            <p class="fs-16 text-dark-icon">{{ translate('No Recent Ledger Transactions') }}</p>
+                                        </div>
                                     </div>
-                                </div>
                                 @endif
-
                             </div>
                         </div>
                     </div>
@@ -528,11 +540,11 @@
         var options = {
             series: [
                 {
-                    name: "{{translate('total_earnings')}}",
+                    name: "{{translate('Total_Revenue')}}",
                     data: @json($chart_data['total_earning'])
                 },
                 {
-                    name: "{{translate('admin_commission')}}",
+                    name: "{{translate('Our_Earning')}}",
                     data: @json($chart_data['commission_earning'])
                 }
             ],
@@ -620,10 +632,10 @@
 
             $.getJSON(url, function (response) {
                 chart.updateSeries([{
-                    name: "{{translate('total_earning')}}",
+                    name: "{{translate('Total_Revenue')}}",
                     data: response.total_earning
                 }, {
-                    name: "{{translate('admin_commission')}}",
+                    name: "{{translate('Our_Earning')}}",
                     data: response.commission_earning
                 }])
             });

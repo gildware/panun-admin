@@ -471,6 +471,9 @@
   'admin_commission' => 'Admin commission',
   'total_earnings' => 'Total earnings',
   'recent_transactions' => 'Recent transactions',
+  'recent_ledger_transactions' => 'Recent ledger transactions',
+  'ledger_transactions_this_month' => 'ledger transactions this month',
+  'No Recent Ledger Transactions' => 'No Recent Ledger Transactions',
   'credited' => 'Credited',
   'chat_list' => 'Chat list',
   'no_user_found' => 'No user found',
@@ -6724,4 +6727,5 @@ _Message' => 'Customer notification for provider bid offer
   'Lead_Status' => 'Lead Status',
   'Closed' => 'Closed',
   'Lead_Status_Open_vs_Closed' => 'Lead Status Open vs Closed',
+  'Open' => 'Open',
 );

@@ -6,17 +6,31 @@
     <style>
         .missed-followup-row,
         .missed-followup-row > td {
-            background-color: #dc3545 !important;
-            color: #fff !important;
+            background-color: #fff !important;
+            color: #dc3545 !important;
         }
         .table-hover > tbody > tr.missed-followup-row:hover > * {
-            background-color: #dc3545 !important;
-            color: #fff !important;
+            background-color: #fff !important;
+            color: #dc3545 !important;
         }
         .missed-followup-row a,
         .missed-followup-row a.text-primary,
         .missed-followup-row .text-primary,
         .missed-followup-row .small a {
+            color: #dc3545 !important;
+        }
+        /* Keep primary action button text white even on missed rows. */
+        .missed-followup-row a.btn,
+        .missed-followup-row .btn,
+        .missed-followup-row a.btn--primary,
+        .missed-followup-row .btn--primary,
+        .missed-followup-row a.btn.btn--primary {
+            color: #fff !important;
+        }
+        .missed-followup-row a.btn:hover,
+        .missed-followup-row .btn:hover,
+        .missed-followup-row a.btn--primary:hover,
+        .missed-followup-row .btn--primary:hover {
             color: #fff !important;
         }
     </style>
