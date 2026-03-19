@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Modules\LeadManagement\Entities\Lead;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
@@ -161,6 +162,18 @@ class WhatsAppController extends Controller
                         ->orderByDesc('created_at')
                         ->simplePaginate(20)->withQueryString();
                 }
+                $leadMetaByPhone = $this->resolveLeadMetaByNormalizedPhone(
+                    collect($users->items())->pluck('phone')->filter()->all()
+                );
+                $users->setCollection(
+                    $users->getCollection()->map(function ($user) use ($leadMetaByPhone) {
+                        $normalized = $this->normalizeLeadPhone($user->phone ?? null);
+                        $meta = $normalized ? ($leadMetaByPhone[$normalized] ?? null) : null;
+                        $user->lead_id = $meta['primary_id'] ?? null;
+                        $user->lead_count = $meta['count'] ?? 0;
+                        return $user;
+                    })
+                );
                 $usersError = null;
             } catch (\Throwable $e) {
                 \Log::warning('WhatsApp users tab failed.', ['error' => $e->getMessage()]);
@@ -201,9 +214,30 @@ class WhatsAppController extends Controller
             $userPayload = $user->only(['phone', 'name', 'alternate_phone', 'address', 'type']);
             $userPayload['created_at'] = $user->created_at?->format('M j, Y H:i');
             $userPayload['updated_at'] = $user->updated_at?->format('M j, Y H:i');
+            $normalized = $this->normalizeLeadPhone($phone);
+            $leads = $normalized
+                ? Lead::where('phone_number', $normalized)
+                    ->orderByDesc('id')
+                    ->get(['id', 'lead_type', 'phone_number', 'name', 'date_time_of_lead_received'])
+                : collect();
+            $lead = $leads->first();
             return response()->json([
                 'user' => $userPayload,
                 'bookings' => $bookings,
+                'lead' => $lead ? [
+                    'id' => $lead->id,
+                    'lead_type' => $lead->lead_type,
+                    'phone_number' => $lead->phone_number,
+                    'url' => route('admin.lead.show', $lead->id),
+                ] : null,
+                'leads' => $leads->map(fn ($item) => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'lead_type' => $item->lead_type,
+                    'phone_number' => $item->phone_number,
+                    'received_at' => $item->date_time_of_lead_received?->format('M j, Y H:i'),
+                    'url' => route('admin.lead.show', $item->id),
+                ])->values(),
             ]);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 404);
@@ -816,5 +850,54 @@ class WhatsAppController extends Controller
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    private function normalizeLeadPhone(?string $phone): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if (strlen($digits) < 10) {
+            return null;
+        }
+
+        return substr($digits, -10);
+    }
+
+    /**
+     * @param array<int, string> $phones
+     * @return array<string, array{primary_id:int, count:int}>
+     */
+    private function resolveLeadMetaByNormalizedPhone(array $phones): array
+    {
+        $normalizedPhones = collect($phones)
+            ->map(fn ($phone) => $this->normalizeLeadPhone($phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($normalizedPhones)) {
+            return [];
+        }
+
+        $rows = Lead::whereIn('phone_number', $normalizedPhones)
+            ->orderByDesc('id')
+            ->get(['id', 'phone_number']);
+
+        $map = [];
+        foreach ($rows as $lead) {
+            if (!isset($map[$lead->phone_number])) {
+                $map[$lead->phone_number] = [
+                    'primary_id' => (int) $lead->id,
+                    'count' => 0,
+                ];
+            }
+            $map[$lead->phone_number]['count']++;
+        }
+
+        return $map;
     }
 }

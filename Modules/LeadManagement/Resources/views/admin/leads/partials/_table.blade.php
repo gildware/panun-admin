@@ -41,6 +41,7 @@
                     <th>{{ translate('Recieved_On') }}</th>
                     <th>{{ translate('Followup_On') }}</th>
                     <th>{{ translate('Handled_By') }}</th>
+                <th>{{ translate('Lead_Status') }}</th>
                     @if($isCustomerTab)
                         <th>{{ translate('Tags') }}</th>
                     @endif
@@ -119,6 +120,14 @@
                             @php $handledBy = $lead->handled_by; @endphp
                             @if(!$handledBy)—@elseif(isset($handledByNames[$handledBy])){{ $handledByNames[$handledBy] }}@else{{ $handledBy }}@endif
                         </td>
+                        <td>
+                            @php
+                                $statusMeta = $leadStatusMeta[$lead->id] ?? null;
+                                $leadStatusLabel = $statusMeta['label'] ?? 'Closed';
+                                $leadStatusBadgeClass = $statusMeta['badge_class'] ?? 'bg-success';
+                            @endphp
+                            <span class="badge rounded-pill {{ $leadStatusBadgeClass }}">{{ $leadStatusLabel }}</span>
+                        </td>
                         @if($isCustomerTab)
                             <td>
                                 @forelse($lead->customerLeadTags as $tag)
@@ -138,7 +147,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $isProviderTab ? 12 : ($isCustomerTab ? 15 : ($isReasonTab ? 9 : 10)) }}" class="text-center py-4">{{ translate('No_leads_found') }}</td>
+                        <td colspan="{{ $isProviderTab ? 13 : ($isCustomerTab ? 16 : ($isReasonTab ? 10 : 11)) }}" class="text-center py-4">{{ translate('No_leads_found') }}</td>
                     </tr>
                 @endforelse
                 </tbody>

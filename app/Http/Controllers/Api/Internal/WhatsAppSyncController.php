@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Modules\LeadManagement\Entities\CustomerLeadStatus;
+use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
@@ -79,6 +83,26 @@ class WhatsAppSyncController extends Controller
             $msg->created_at = $data['created_at'];
         }
         $msg->save();
+
+        // Ensure inbound chats always have a lead in the main CRM.
+        if (($data['direction'] ?? null) === 'IN') {
+            $waUser = WhatsAppUser::where('phone', $data['phone'])->first();
+            if (!$waUser) {
+                $waUser = WhatsAppUser::create([
+                    'phone' => $data['phone'],
+                    'name' => null,
+                    'handled_by' => 'AI',
+                ]);
+            } elseif (empty($waUser->handled_by)) {
+                $waUser->handled_by = 'AI';
+                $waUser->save();
+            }
+
+            $this->ensureUnknownLeadForPhone(
+                $data['phone'],
+                $waUser->name ?? null
+            );
+        }
 
         // Bust caches so Active Chats list and chat panel pick up new message.
         Cache::forget('whatsapp_active_chats_list');
@@ -292,6 +316,9 @@ class WhatsAppSyncController extends Controller
 
         $booking->save();
 
+        // Booking flow should classify this WhatsApp lead as customer.
+        $this->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_CUSTOMER, $data['name'] ?? null);
+
         return response()->json([
             'ok' => true,
             'booking' => $booking,
@@ -408,6 +435,9 @@ class WhatsAppSyncController extends Controller
         }
         $lead->save();
 
+        // Provider flow should classify this WhatsApp lead as provider.
+        $this->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_PROVIDER, $data['name'] ?? null);
+
         return response()->json([
             'ok' => true,
             'lead' => $lead,
@@ -444,10 +474,133 @@ class WhatsAppSyncController extends Controller
 
         $user->save();
 
+        // Ensure there is always a CRM lead for this WhatsApp identity.
+        $this->ensureUnknownLeadForPhone($data['phone'], $data['name'] ?? null);
+
         return response()->json([
             'ok' => true,
             'user' => $user,
         ]);
+    }
+
+    private function normalizeLeadPhone(?string $phone): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if (strlen($digits) < 10) {
+            return null;
+        }
+
+        return substr($digits, -10);
+    }
+
+    private function ensureUnknownLeadForPhone(string $whatsAppPhone, ?string $name = null): ?Lead
+    {
+        $leadPhone = $this->normalizeLeadPhone($whatsAppPhone);
+        if (!$leadPhone) {
+            return null;
+        }
+
+        $existing = Lead::where('phone_number', $leadPhone)
+            ->orderByDesc('id')
+            ->get()
+            ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
+
+        if ($existing) {
+            if (empty($existing->handled_by)) {
+                $existing->handled_by = 'AI';
+                $existing->save();
+            }
+            return $existing;
+        }
+
+        return Lead::create([
+            'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
+            'phone_number' => $leadPhone,
+            'lead_type' => Lead::TYPE_UNKNOWN,
+            'date_time_of_lead_received' => now(),
+            'handled_by' => 'AI',
+            'created_by' => null,
+        ]);
+    }
+
+    private function ensureLeadTypeForPhone(string $whatsAppPhone, string $leadType, ?string $name = null): ?Lead
+    {
+        $leadPhone = $this->normalizeLeadPhone($whatsAppPhone);
+        if (!$leadPhone) {
+            return null;
+        }
+
+        // Reuse only an OPEN lead with the same phone and desired type.
+        $existing = Lead::where('phone_number', $leadPhone)
+            ->where('lead_type', $leadType)
+            ->orderByDesc('id')
+            ->get()
+            ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
+
+        if ($existing) {
+            if (empty($existing->handled_by)) {
+                $existing->handled_by = 'AI';
+                $existing->save();
+            }
+            return $existing;
+        }
+
+        // Otherwise create a new lead specifically for this type.
+        return Lead::create([
+            'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
+            'phone_number' => $leadPhone,
+            'lead_type' => $leadType,
+            'date_time_of_lead_received' => now(),
+            'handled_by' => 'AI',
+            'created_by' => null,
+        ]);
+    }
+
+    private function isLeadOpen(Lead $lead): bool
+    {
+        if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
+            return true;
+        }
+
+        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+            return false;
+        }
+
+        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            $history = LeadTypeHistory::where('lead_id', $lead->id)
+                ->where('type', Lead::TYPE_CUSTOMER)
+                ->latest()
+                ->first();
+            $data = ($history && is_array($history->data)) ? $history->data : [];
+            $statusId = $data['customer_lead_status_id'] ?? null;
+            if (!$statusId) {
+                return true; // default pending
+            }
+            $status = CustomerLeadStatus::find($statusId);
+            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
+            return !in_array($baseType, ['completed', 'cancel'], true);
+        }
+
+        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            $history = LeadTypeHistory::where('lead_id', $lead->id)
+                ->where('type', Lead::TYPE_PROVIDER)
+                ->latest()
+                ->first();
+            $data = ($history && is_array($history->data)) ? $history->data : [];
+            $statusId = $data['provider_lead_status_id'] ?? null;
+            if (!$statusId) {
+                return true; // default pending
+            }
+            $status = ProviderLeadStatus::find($statusId);
+            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
+            return !in_array($baseType, ['completed', 'cancel'], true);
+        }
+
+        return false;
     }
 
     /**

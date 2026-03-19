@@ -68,6 +68,9 @@
                             <span class="badge rounded-pill {{ $leadTypeColorClass }} text-capitalize">
                                 {{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}
                             </span>
+                            <span class="badge rounded-pill {{ !empty($leadOpenStatus) ? 'bg-danger' : 'bg-success' }}">
+                                {{ !empty($leadOpenStatus) ? 'Open' : 'Closed' }}
+                            </span>
                             <p class="mb-0 text-muted w-100" style="margin-top: 2px;">{{ translate('Lead_ID') }}: #{{ $lead->id }}</p>
                         </div>
                         @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)

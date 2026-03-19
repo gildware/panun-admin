@@ -87,4 +87,16 @@ class Lead extends Model
         }
         return $query;
     }
+
+    /**
+     * Computed status flag: a lead is considered "open"
+     * when its type is unknown or customer.
+     */
+    public function getIsOpenAttribute(): bool
+    {
+        return in_array($this->lead_type, [
+            self::TYPE_UNKNOWN,
+            self::TYPE_CUSTOMER,
+        ], true);
+    }
 }

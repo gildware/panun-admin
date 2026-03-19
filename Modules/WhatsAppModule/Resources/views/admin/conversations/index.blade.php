@@ -7,6 +7,15 @@
 @endpush
 
 @section('content')
+    @php
+        $displayPhone = function ($phone) {
+            $digits = preg_replace('/\D+/', '', (string) $phone);
+            if (!$digits) {
+                return '—';
+            }
+            return strlen($digits) > 10 ? substr($digits, -10) : $digits;
+        };
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
@@ -77,7 +86,8 @@
                                             $created = $chat->created_at ?? null;
                                             $phone = $chat->phone ?? '';
                                             $name = trim($chat->name ?? '');
-                                            $display = $name !== '' ? $name . ' (' . $phone . ')' : ($phone ?: '—');
+                                            $phoneDisplay = $displayPhone($phone);
+                                            $display = $name !== '' ? $name . ' (' . $phoneDisplay . ')' : $phoneDisplay;
                                             $direction = strtoupper($chat->direction ?? '');
                                             $status = strtolower($chat->status ?? '');
                                             $statusIcon = '';
@@ -233,10 +243,16 @@
     var currentHandler = null;
     var activeListTimer = null;
 
+    function formatPhoneDisplay(phone) {
+        var digits = String(phone || '').replace(/\D+/g, '');
+        if (!digits) return '—';
+        return digits.length > 10 ? digits.slice(-10) : digits;
+    }
+
     function openChat(phone) {
         if (!phone) return;
         document.getElementById('whatsapp-reply-phone').value = phone;
-        document.getElementById('whatsapp-chat-phone').textContent = phone;
+        document.getElementById('whatsapp-chat-phone').textContent = formatPhoneDisplay(phone);
         document.getElementById('whatsapp-chat-placeholder').classList.add('d-none');
         document.getElementById('whatsapp-chat-panel').classList.remove('d-none');
         document.getElementById('whatsapp-chat-panel').classList.add('d-flex');
@@ -936,7 +952,7 @@
                         <div class="alert alert-warning m-3 mb-0">{{ translate('Could not load provider leads') }}: {{ $leadsError }}</div>
                     <?php } ?>
                     <div class="table-responsive">
-                        <table class="table align-middle table-borderless">
+                        <table class="table align-middle table-borderless text-nowrap">
                             <thead class="border-bottom">
                             <tr>
                                 <th>{{ translate('Lead ID') }}</th>
@@ -952,7 +968,7 @@
                                 @foreach($leads as $lead)
                                 <tr>
                                     <td>{{ $lead->lead_id ?? $lead->id ?? '—' }}</td>
-                                    <td>{{ $lead->phone ?? '—' }}</td>
+                                    <td>{{ $displayPhone($lead->phone ?? null) }}</td>
                                     <td>{{ $lead->name ?? '—' }}</td>
                                     <td>{{ $lead->service ?? '—' }}</td>
                                     <td>{{ $lead->status ?? '—' }}</td>
@@ -979,8 +995,8 @@
                     <?php if (!empty($bookingsError ?? null)) { ?>
                         <div class="alert alert-warning m-3 mb-0">{{ translate('Could not load bookings') }}: {{ $bookingsError }}</div>
                     <?php } ?>
-                    <div class="table-responsive">
-                        <table class="table align-middle table-borderless">
+                    <div class="table-responsive overflow-auto">
+                        <table class="table align-middle table-borderless text-nowrap" style="min-width: 1200px;">
                             <thead class="border-bottom">
                             <tr>
                                 <th>{{ translate('Booking ID') }}</th>
@@ -996,7 +1012,7 @@
                                 @foreach($bookings as $booking)
                                 <tr>
                                     <td>{{ $booking->booking_id ?? $booking->id ?? '—' }}</td>
-                                    <td>{{ $booking->phone ?? '—' }}</td>
+                                    <td>{{ $displayPhone($booking->phone ?? null) }}</td>
                                     <td>{{ $booking->name ?? '—' }}</td>
                                     <td>{{ $booking->service ?? '—' }}</td>
                                     <td>{{ $booking->status ?? '—' }}</td>
@@ -1023,12 +1039,13 @@
                     <?php if (!empty($usersError ?? null)) { ?>
                         <div class="alert alert-warning m-3 mb-0">{{ translate('Could not load WhatsApp users') }}: {{ $usersError }}</div>
                     <?php } ?>
-                    <div class="table-responsive">
-                        <table class="table align-middle table-borderless">
+                    <div class="table-responsive overflow-auto">
+                        <table class="table align-middle table-borderless text-nowrap" style="min-width: 1200px;">
                             <thead class="border-bottom">
                             <tr>
                                 <th>{{ translate('Phone') }}</th>
                                 <th>{{ translate('Name') }}</th>
+                                <th>{{ translate('Leads') }}</th>
                                 <th>{{ translate('Alternate phone') }}</th>
                                 <th>{{ translate('Address') }}</th>
                                 <th>{{ translate('Type') }}</th>
@@ -1040,21 +1057,40 @@
                             <?php if (($users ?? collect())->isNotEmpty()) { ?>
                                 @foreach($users as $waUser)
                                 <tr>
-                                    <td>{{ $waUser->phone ?? '—' }}</td>
+                                    <td>{{ $displayPhone($waUser->phone ?? null) }}</td>
                                     <td>{{ $waUser->name ?? '—' }}</td>
+                                    <td>
+                                        @php($leadCount = (int) ($waUser->lead_count ?? 0))
+                                        @if($leadCount > 0)
+                                            <span class="badge bg-success">
+                                                {{ $leadCount }} {{ $leadCount === 1 ? translate('lead') : translate('leads') }}
+                                            </span>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $waUser->alternate_phone ?? '—' }}</td>
-                                    <td>{{ \Illuminate\Support\Str::limit($waUser->address ?? '—', 40) }}</td>
+                                    <td>{{ $waUser->address ?? '—' }}</td>
                                     <td><span class="badge bg-secondary">{{ $waUser->type ?? '—' }}</span></td>
                                     <td>{{ $waUser->created_at?->format('M j, H:i') ?? '—' }}</td>
                                     <td class="text-end">
                                         <a href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats', 'phone' => $waUser->phone]) }}" class="btn btn-sm btn--primary">{{ translate('View chat') }}</a>
-                                        <button type="button" class="btn btn-sm btn--secondary wa-user-more" data-phone="{{ e($waUser->phone) }}">{{ translate('View more') }}</button>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-warning wa-user-leads"
+                                                data-phone="{{ e($waUser->phone) }}">
+                                            {{ translate('View leads') }}
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-sm btn--secondary wa-user-more"
+                                                data-phone="{{ e($waUser->phone) }}">
+                                            {{ translate('View more') }}
+                                        </button>
                                     </td>
                                 </tr>
                                 @endforeach
                             <?php } else { ?>
                                 <tr>
-                                    <td colspan="7" class="text-center py-5 text-muted">{{ translate('No WhatsApp users') }}</td>
+                                    <td colspan="8" class="text-center py-5 text-muted">{{ translate('No WhatsApp users') }}</td>
                                 </tr>
                             <?php } ?>
                             </tbody>
@@ -1079,12 +1115,73 @@
                         </div>
                     </div>
                 </div>
+                <div class="modal fade" id="waUserLeadsModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">{{ translate('User leads') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="waUserLeadsBody">
+                                <div class="text-center py-4 text-muted">{{ translate('Loading…') }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 @push('script')
                 <script>
 (function() {
     var modal = document.getElementById('waUserDetailsModal');
     var body = document.getElementById('waUserDetailsBody');
+    var leadsModal = document.getElementById('waUserLeadsModal');
+    var leadsBody = document.getElementById('waUserLeadsBody');
     var detailsUrl = '{{ route("admin.whatsapp.users.details") }}';
+
+    function formatPhoneDisplay(phone) {
+        var digits = String(phone || '').replace(/\D+/g, '');
+        if (!digits) return '—';
+        return digits.length > 10 ? digits.slice(-10) : digits;
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function renderLeadsTable(leads) {
+        if (!leads || !leads.length) {
+            return '<p class="text-muted mb-0">No leads found</p>';
+        }
+        var html = '<div class="table-responsive"><table class="table table-sm align-middle text-nowrap">';
+        html += '<thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Type</th><th>Received</th><th class="text-end">Action</th></tr></thead><tbody>';
+        leads.forEach(function (lead) {
+            html += '<tr>';
+            html += '<td>#' + escapeHtml(lead.id) + '</td>';
+            html += '<td>' + escapeHtml(lead.name || '—') + '</td>';
+            html += '<td>' + formatPhoneDisplay(lead.phone_number) + '</td>';
+            html += '<td><span class="badge bg-info text-dark">' + escapeHtml(lead.lead_type || '—') + '</span></td>';
+            html += '<td>' + escapeHtml(lead.received_at || '—') + '</td>';
+            html += '<td class="text-end"><a href="' + escapeHtml(lead.url || '#') + '" target="_blank" class="btn btn-sm btn-outline-success">View lead</a></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    function fetchUserDetails(phone) {
+        return fetch(detailsUrl + '?phone=' + encodeURIComponent(phone), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) {
+            return r.json().then(function (json) {
+                return { ok: r.ok, data: json };
+            });
+        });
+    }
+
     if (modal && body) {
         document.querySelectorAll('.wa-user-more').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -1093,9 +1190,9 @@
                 body.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
                 var bsModal = new bootstrap.Modal(modal);
                 bsModal.show();
-                fetch(detailsUrl + '?phone=' + encodeURIComponent(phone))
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
+                fetchUserDetails(phone)
+                    .then(function(result) {
+                        var data = result.data || {};
                         if (data.error) {
                             body.innerHTML = '<div class="alert alert-danger">' + (data.error || 'Failed to load') + '</div>';
                             return;
@@ -1103,13 +1200,21 @@
                         var u = data.user || {};
                         var type = (u.type || '').toUpperCase();
                         var html = '<div class="row mb-3">';
-                        html += '<div class="col-md-6"><strong>Phone</strong><br>' + (u.phone || '—') + '</div>';
+                        html += '<div class="col-md-6"><strong>Phone</strong><br>' + formatPhoneDisplay(u.phone) + '</div>';
                         html += '<div class="col-md-6"><strong>Name</strong><br>' + (u.name || '—') + '</div>';
                         html += '<div class="col-md-6 mt-2"><strong>Alternate phone</strong><br>' + (u.alternate_phone || '—') + '</div>';
                         html += '<div class="col-md-6 mt-2"><strong>Type</strong><br><span class="badge bg-secondary">' + (u.type || '—') + '</span></div>';
                         html += '<div class="col-12 mt-2"><strong>Address</strong><br>' + (u.address || '—') + '</div>';
                         html += '<div class="col-md-6 mt-2"><strong>Created</strong><br>' + (u.created_at || '—') + '</div>';
                         html += '<div class="col-md-6 mt-2"><strong>Updated</strong><br>' + (u.updated_at || '—') + '</div>';
+                        if (data.leads && data.leads.length > 1) {
+                            html += '<div class="col-12 mt-2"><strong>Leads</strong><br><span class="badge bg-warning text-dark">' + data.leads.length + ' linked leads</span></div>';
+                        } else if (data.lead && data.lead.id) {
+                            html += '<div class="col-md-6 mt-2"><strong>Lead</strong><br><a href="' + data.lead.url + '" target="_blank" class="badge bg-success text-decoration-none">#' + data.lead.id + '</a></div>';
+                            html += '<div class="col-md-6 mt-2"><strong>Lead type</strong><br><span class="badge bg-info text-dark">' + (data.lead.lead_type || '—') + '</span></div>';
+                        } else {
+                            html += '<div class="col-12 mt-2"><strong>Lead</strong><br><span class="text-muted">—</span></div>';
+                        }
                         html += '</div>';
                         html += '<hr><h6>' + (type === 'CUSTOMER' ? 'Bookings' : 'Bookings') + '</h6>';
                         if ((data.bookings || []).length === 0) {
@@ -1125,6 +1230,30 @@
                     })
                     .catch(function() {
                         body.innerHTML = '<div class="alert alert-danger">Failed to load details</div>';
+                    });
+            });
+        });
+    }
+
+    if (leadsModal && leadsBody) {
+        document.querySelectorAll('.wa-user-leads').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var phone = this.getAttribute('data-phone');
+                if (!phone) return;
+                leadsBody.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
+                var bsLeadsModal = new bootstrap.Modal(leadsModal);
+                bsLeadsModal.show();
+                fetchUserDetails(phone)
+                    .then(function(result) {
+                        var data = result.data || {};
+                        if (data.error) {
+                            leadsBody.innerHTML = '<div class="alert alert-danger">' + (data.error || 'Failed to load') + '</div>';
+                            return;
+                        }
+                        leadsBody.innerHTML = renderLeadsTable(data.leads || []);
+                    })
+                    .catch(function() {
+                        leadsBody.innerHTML = '<div class="alert alert-danger">Failed to load leads</div>';
                     });
             });
         });
