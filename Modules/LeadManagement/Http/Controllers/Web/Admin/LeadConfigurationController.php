@@ -11,6 +11,7 @@ use Modules\LeadManagement\Entities\District;
 use Modules\LeadManagement\Entities\LeadCancellationReason;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
 use Modules\LeadManagement\Entities\ProviderChecklistItem;
@@ -33,6 +34,7 @@ class LeadConfigurationController extends Controller
         $providerLeadStatuses = ProviderLeadStatus::orderBy('name')->get();
         $providerCancellationReasons = ProviderCancellationReason::orderBy('name')->get();
         $providerChecklistItems = ProviderChecklistItem::orderBy('name')->get();
+        $outboundEnquiryStatuses = LeadOutboundEnquiryStatus::orderBy('name')->get();
 
         return view('leadmanagement::admin.configuration.index', compact(
             'sources',
@@ -45,7 +47,8 @@ class LeadConfigurationController extends Controller
             'customerLeadTags',
             'providerLeadStatuses',
             'providerChecklistItems',
-            'providerCancellationReasons'
+            'providerCancellationReasons',
+            'outboundEnquiryStatuses'
         ));
     }
 
@@ -160,6 +163,7 @@ class LeadConfigurationController extends Controller
             'provider_lead_status' => [ProviderLeadStatus::class, 'name'],
             'provider_cancellation_reason' => [ProviderCancellationReason::class, 'name'],
             'provider_checklist_item' => [ProviderChecklistItem::class, 'name'],
+            'outbound_enquiry_status' => [LeadOutboundEnquiryStatus::class, 'name'],
             default => abort(400, 'Unknown configuration type'),
         };
     }

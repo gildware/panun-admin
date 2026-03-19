@@ -83,6 +83,12 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </a>
                     </li>
                     <li>
+                        <a href="{{ route('admin.lead.outbound-enquiry.index') }}"
+                           class="{{ request()->is('admin/lead/outbound-enquiry*') ? 'active-menu' : '' }}">
+                            <span class="link-title">{{ translate('Outbound_Enquiry') }}</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ route('admin.lead.configuration.index') }}"
                            class="{{ request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
                             <span class="link-title">{{ translate('Lead_Configuration') }}</span>

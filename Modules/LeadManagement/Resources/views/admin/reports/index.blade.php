@@ -3,7 +3,9 @@
 @section('title', translate('Lead_Reports'))
 
 @push('css_or_js')
-    <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/apex/apexcharts.css') }}">
+    @if(in_array(($tab ?? 'inbound'), ['inbound','outbound'], true))
+        <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/apex/apexcharts.css') }}">
+    @endif
 @endpush
 
 @section('content')
@@ -13,10 +15,33 @@
                 <h2 class="page-title mb-1">{{ translate('Lead_Reports') }}</h2>
             </div>
 
+            @php
+                $activeTab = $tab ?? request()->input('tab', 'inbound');
+                if (!in_array($activeTab, ['inbound','outbound'], true)) {
+                    $activeTab = 'inbound';
+                }
+            @endphp
+
+            <ul class="nav nav--tabs mb-3">
+                <li class="nav-item">
+                    <a class="nav-link {{ $activeTab === 'inbound' ? 'active' : '' }}"
+                       href="{{ route('admin.lead.reports.index', array_merge($queryParams ?? [], ['tab' => 'inbound'])) }}">
+                        {{ translate('Inbound') }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ $activeTab === 'outbound' ? 'active' : '' }}"
+                       href="{{ route('admin.lead.reports.index', array_merge($queryParams ?? [], ['tab' => 'outbound'])) }}">
+                        {{ translate('Outbound') }}
+                    </a>
+                </li>
+            </ul>
+
             <div class="card mb-3">
                 <div class="card-body">
                     <div class="mb-3 fz-16">{{ translate('Search_Data') }}</div>
                     <form action="{{ route('admin.lead.reports.index') }}" method="GET">
+                        <input type="hidden" name="tab" value="{{ $activeTab }}">
                         <div class="row g-3 align-items-end">
                             <div class="col-lg-3 col-sm-6">
                                 <label class="mb-2">{{ translate('From_Date') }}</label>
@@ -26,17 +51,27 @@
                                 <label class="mb-2">{{ translate('To_Date') }}</label>
                                 <input type="date" name="date_to" class="form-control h-45" value="{{ $dateTo }}">
                             </div>
-                            <div class="col-lg-3 col-sm-6">
-                                <label class="mb-2">{{ translate('Lead_Type') }}</label>
-                                <select name="lead_type" class="js-select form-select">
-                                    <option value="all" {{ $selectedLeadType === 'all' ? 'selected' : '' }}>{{ translate('All') }}</option>
-                                    @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
-                                        <option value="{{ $value }}" {{ $selectedLeadType === $value ? 'selected' : '' }}>
-                                            {{ translate($label) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                            @if($activeTab === 'inbound')
+                                <div class="col-lg-3 col-sm-6">
+                                    <label class="mb-2">{{ translate('Lead_Type') }}</label>
+                                    <select name="lead_type" class="js-select form-select">
+                                        <option value="all" {{ ($selectedLeadType ?? 'all') === 'all' ? 'selected' : '' }}>{{ translate('All') }}</option>
+                                        @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
+                                            <option value="{{ $value }}" {{ ($selectedLeadType ?? 'all') === $value ? 'selected' : '' }}>
+                                                {{ translate($label) }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @else
+                                <div class="col-lg-3 col-sm-6">
+                                    <label class="mb-2">{{ translate('Contacted_Through') }}</label>
+                                    <select class="form-select" disabled>
+                                        <option>{{ translate('All') }}</option>
+                                    </select>
+                                    <small class="text-muted">{{ translate('Outbound_reports_are_grouped_by_channel_below') }}</small>
+                                </div>
+                            @endif
                             <div class="col-lg-3 col-sm-6">
                                 <label class="mb-2">{{ translate('Handled_By') }}</label>
                                 <select name="handled_by_ids[]" class="js-select form-select" multiple>
@@ -51,35 +86,159 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-lg-3 col-sm-6">
-                                <label class="mb-2">{{ translate('Source') }}</label>
-                                <select name="source_ids[]" class="js-select form-select" multiple>
-                                    @foreach($filterSources as $source)
-                                        <option value="{{ $source->id }}" {{ in_array($source->id, $selectedSourceIds ?? [], false) ? 'selected' : '' }}>
-                                            {{ $source->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-lg-3 col-sm-6">
-                                <label class="mb-2">{{ translate('Ad_Source') }}</label>
-                                <select name="ad_source_ids[]" class="js-select form-select" multiple>
-                                    @foreach($filterAdSources as $adSource)
-                                        <option value="{{ $adSource->id }}" {{ in_array($adSource->id, $selectedAdSourceIds ?? [], false) ? 'selected' : '' }}>
-                                            {{ $adSource->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                            @if($activeTab === 'inbound')
+                                <div class="col-lg-3 col-sm-6">
+                                    <label class="mb-2">{{ translate('Source') }}</label>
+                                    <select name="source_ids[]" class="js-select form-select" multiple>
+                                        @foreach($filterSources as $source)
+                                            <option value="{{ $source->id }}" {{ in_array($source->id, $selectedSourceIds ?? [], false) ? 'selected' : '' }}>
+                                                {{ $source->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-lg-3 col-sm-6">
+                                    <label class="mb-2">{{ translate('Ad_Source') }}</label>
+                                    <select name="ad_source_ids[]" class="js-select form-select" multiple>
+                                        @foreach($filterAdSources as $adSource)
+                                            <option value="{{ $adSource->id }}" {{ in_array($adSource->id, $selectedAdSourceIds ?? [], false) ? 'selected' : '' }}>
+                                                {{ $adSource->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
                             <div class="col-lg-3 col-sm-6 d-flex gap-2">
                                 <button type="submit" class="btn btn--primary mt-4 flex-grow-1">{{ translate('Filter') }}</button>
-                                <a href="{{ route('admin.lead.reports.index') }}" class="btn btn--secondary mt-4 flex-grow-1">{{ translate('Reset') }}</a>
+                                <a href="{{ route('admin.lead.reports.index', ['tab' => $activeTab]) }}" class="btn btn--secondary mt-4 flex-grow-1">{{ translate('Reset') }}</a>
                             </div>
                         </div>
                     </form>
                 </div>
             </div>
 
+            @if($activeTab === 'outbound')
+                <div class="row gy-3 pt-2">
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card flex-row gap-4 p-30 flex-wrap align-items-center h-100">
+                            <img width="35" class="avatar" src="{{ asset('assets/admin-module/img/icons/total_expense.png') }}" alt="">
+                            <div>
+                                <h2 class="fz-26">{{ $totalOutbound ?? 0 }}</h2>
+                                <span class="fz-12">{{ translate('Total_Outbound_Enquiries_in_Range') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card flex-row gap-4 p-30 flex-wrap align-items-center h-100">
+                            <img width="35" class="avatar" src="{{ asset('assets/admin-module/img/icons/total_expense.png') }}" alt="">
+                            <div class="w-100">
+                                <div class="fw-semibold mb-2">{{ translate('By_Channel') }}</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <tbody>
+                                        @forelse(($outboundByChannel ?? []) as $row)
+                                            <tr>
+                                                <td>{{ $row['label'] }}</td>
+                                                <td class="text-end">{{ $row['total'] }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="2" class="text-center text-muted py-2">{{ translate('Data_not_available') }}</td></tr>
+                                        @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card flex-row gap-4 p-30 flex-wrap align-items-center h-100">
+                            <img width="35" class="avatar" src="{{ asset('assets/admin-module/img/icons/total_expense.png') }}" alt="">
+                            <div class="w-100">
+                                <div class="fw-semibold mb-2">{{ translate('By_User') }}</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <tbody>
+                                        @forelse(($outboundByUser ?? []) as $row)
+                                            <tr>
+                                                <td>{{ $row['label'] }}</td>
+                                                <td class="text-end">{{ $row['total'] }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="2" class="text-center text-muted py-2">{{ translate('Data_not_available') }}</td></tr>
+                                        @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-sm-6">
+                        <div class="card flex-row gap-4 p-30 flex-wrap align-items-center h-100">
+                            <img width="35" class="avatar" src="{{ asset('assets/admin-module/img/icons/total_expense.png') }}" alt="">
+                            <div class="w-100">
+                                <div class="fw-semibold mb-2">{{ translate('By_Status') }}</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <tbody>
+                                        @forelse(($outboundByStatus ?? []) as $row)
+                                            <tr>
+                                                <td>{{ $row['label'] }}</td>
+                                                <td class="text-end">{{ $row['total'] }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="2" class="text-center text-muted py-2">{{ translate('Data_not_available') }}</td></tr>
+                                        @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h4 class="mb-3">{{ translate('Outbound_Reports') }}</h4>
+
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fw-semibold mb-2">{{ translate('Call_vs_Message') }}</div>
+                                    <div id="outbound-channel-chart" style="min-height: 260px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fw-semibold mb-2">{{ translate('Status_wise') }}</div>
+                                    <div id="outbound-status-chart" style="min-height: 260px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fw-semibold mb-2">{{ translate('Call_status_wise') }}</div>
+                                    <div id="outbound-call-status-chart" style="min-height: 260px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fw-semibold mb-2">{{ translate('Message_status_wise') }}</div>
+                                    <div id="outbound-message-status-chart" style="min-height: 260px;"></div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="border rounded p-3">
+                                    <div class="fw-semibold mb-2">{{ translate('Users_wise_status') }}</div>
+                                    <div id="outbound-user-status-chart" style="min-height: 340px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @else
             <div class="row gy-3 pt-2">
                 <div class="col-lg-4">
                     <div class="d-flex flex-column gap-3 h-100">
@@ -339,12 +498,15 @@
                     </div>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 @endsection
 
 @push('script')
-    <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
+    @if(in_array(($tab ?? 'inbound'), ['inbound','outbound'], true))
+        <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
+    @endif
     <script>
         "use strict";
 
@@ -356,6 +518,99 @@
             });
         });
 
+        @if(($tab ?? 'inbound') === 'outbound')
+        (function () {
+            const channelLabels = {!! json_encode(array_column($outboundByChannel ?? [], 'label')) !!};
+            const channelValues = {!! json_encode(array_column($outboundByChannel ?? [], 'total')) !!};
+
+            const statusLabels = {!! json_encode($outboundStatusLabels ?? []) !!};
+            const statusValues = {!! json_encode(array_column($outboundByStatus ?? [], 'total')) !!};
+
+            const callStatusValues = {!! json_encode($outboundCallStatusCounts ?? []) !!};
+            const messageStatusValues = {!! json_encode($outboundMessageStatusCounts ?? []) !!};
+
+            const userCategories = {!! json_encode($outboundUserCategories ?? []) !!};
+            const userStatusSeries = {!! json_encode($outboundUserStatusSeries ?? []) !!};
+
+            // 1) Call vs Message
+            (function () {
+                const el = document.querySelector('#outbound-channel-chart');
+                if (!el) return;
+                const options = {
+                    series: channelValues,
+                    chart: { type: 'donut', height: 260 },
+                    labels: channelLabels.map(function (l, i) { return (l || '—') + ' (' + (channelValues[i] ?? 0) + ')'; }),
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false }
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // 2) Status wise
+            (function () {
+                const el = document.querySelector('#outbound-status-chart');
+                if (!el) return;
+                const labels = statusLabels.map(function (l, i) { return (l || '—') + ' (' + (statusValues[i] ?? 0) + ')'; });
+                const options = {
+                    series: statusValues,
+                    chart: { type: 'pie', height: 260 },
+                    labels: labels,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false }
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // 3) Calls status wise
+            (function () {
+                const el = document.querySelector('#outbound-call-status-chart');
+                if (!el) return;
+                const options = {
+                    series: [{ name: "{{ translate('Calls') }}", data: callStatusValues }],
+                    chart: { type: 'bar', height: 260, toolbar: { show: false } },
+                    plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
+                    xaxis: { categories: statusLabels, labels: { style: { fontSize: '11px' } } },
+                    yaxis: { labels: { style: { fontSize: '11px' } } },
+                    colors: ['#4E73DF'],
+                    dataLabels: { enabled: true }
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // 4) Messages status wise
+            (function () {
+                const el = document.querySelector('#outbound-message-status-chart');
+                if (!el) return;
+                const options = {
+                    series: [{ name: "{{ translate('Messages') }}", data: messageStatusValues }],
+                    chart: { type: 'bar', height: 260, toolbar: { show: false } },
+                    plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
+                    xaxis: { categories: statusLabels, labels: { style: { fontSize: '11px' } } },
+                    yaxis: { labels: { style: { fontSize: '11px' } } },
+                    colors: ['#1CC88A'],
+                    dataLabels: { enabled: true }
+                };
+                new ApexCharts(el, options).render();
+            })();
+
+            // 5) Users wise status (stacked)
+            (function () {
+                const el = document.querySelector('#outbound-user-status-chart');
+                if (!el) return;
+                const options = {
+                    series: userStatusSeries,
+                    chart: { type: 'bar', height: 340, stacked: true, toolbar: { show: true } },
+                    plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
+                    xaxis: { categories: userCategories, labels: { style: { fontSize: '11px' } } },
+                    yaxis: { labels: { style: { fontSize: '11px' } } },
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                    tooltip: { shared: true, intersect: false }
+                };
+                new ApexCharts(el, options).render();
+            })();
+        })();
+        @elseif(($tab ?? 'inbound') === 'inbound')
         (function () {
             const volumeOptions = {
                 series: [
@@ -532,6 +787,7 @@
                 new ApexCharts(el, options).render();
             })();
         })();
+        @endif
     </script>
 @endpush
 

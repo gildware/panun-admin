@@ -13,6 +13,8 @@ use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
@@ -33,7 +35,199 @@ class LeadReportController extends Controller
     {
         $this->authorize('report_view');
 
+        $tab = $request->input('tab', 'inbound');
+        if (!in_array($tab, ['inbound', 'outbound'], true)) {
+            $tab = 'inbound';
+        }
+
         [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+
+        if ($tab === 'outbound') {
+            $outboundBaseQuery = LeadOutboundEnquiry::query()
+                ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
+                    $q->whereBetween('contacted_at', [
+                        $dateFrom->copy()->startOfDay(),
+                        $dateTo->copy()->endOfDay(),
+                    ]);
+                })
+                ->when($request->filled('handled_by_ids'), function ($q) use ($request) {
+                    $q->whereIn('handled_by', (array) $request->input('handled_by_ids', []));
+                });
+
+            $totalOutbound = (clone $outboundBaseQuery)->count();
+
+            $channelCounts = (clone $outboundBaseQuery)
+                ->select('contacted_through', DB::raw('count(*) as total'))
+                ->groupBy('contacted_through')
+                ->pluck('total', 'contacted_through')
+                ->all();
+
+            $outboundByChannel = [
+                ['label' => 'Call', 'total' => (int) ($channelCounts['call'] ?? 0)],
+                ['label' => 'Message', 'total' => (int) ($channelCounts['message'] ?? 0)],
+            ];
+
+            $outboundByUserRaw = (clone $outboundBaseQuery)
+                ->select('handled_by', DB::raw('count(*) as total'))
+                ->whereNotNull('handled_by')
+                ->groupBy('handled_by')
+                ->get();
+
+            $outboundUserIds = $outboundByUserRaw->pluck('handled_by')->filter()->unique()->values()->all();
+            $outboundUsers = $outboundUserIds !== []
+                ? User::whereIn('id', $outboundUserIds)->get(['id', 'first_name', 'last_name', 'email'])->keyBy('id')
+                : collect();
+
+            $outboundByUser = $outboundByUserRaw->map(function ($row) use ($outboundUsers) {
+                $user = $outboundUsers->get($row->handled_by);
+                $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : null;
+                $label = $fullName ?: ($user->email ?? (string) $row->handled_by);
+                return ['label' => $label, 'total' => (int) $row->total];
+            })->sortByDesc('total')->values()->all();
+
+            $statusRows = (clone $outboundBaseQuery)
+                ->select('status_id', DB::raw('count(*) as total'))
+                ->whereNotNull('status_id')
+                ->groupBy('status_id')
+                ->get();
+
+            $statusIds = $statusRows->pluck('status_id')->filter()->unique()->values()->all();
+            $statuses = $statusIds !== []
+                ? LeadOutboundEnquiryStatus::whereIn('id', $statusIds)->get(['id', 'name'])->keyBy('id')
+                : collect();
+
+            $outboundByStatus = $statusRows->map(function ($row) use ($statuses) {
+                $status = $statuses->get($row->status_id);
+                return ['label' => $status?->name ?? '—', 'total' => (int) $row->total];
+            })->sortByDesc('total')->values()->all();
+
+            // Status by channel (Call vs Message)
+            $statusByChannelRows = (clone $outboundBaseQuery)
+                ->select('contacted_through', 'status_id', DB::raw('count(*) as total'))
+                ->whereNotNull('status_id')
+                ->whereNotNull('contacted_through')
+                ->groupBy('contacted_through', 'status_id')
+                ->get();
+
+            $statusTotals = [];
+            foreach ($statusByChannelRows as $row) {
+                $key = (string) $row->status_id;
+                if (!isset($statusTotals[$key])) {
+                    $statusTotals[$key] = 0;
+                }
+                $statusTotals[$key] += (int) $row->total;
+            }
+
+            $sortedStatusIds = array_keys($statusTotals);
+            usort($sortedStatusIds, function ($a, $b) use ($statusTotals) {
+                return ($statusTotals[$b] ?? 0) <=> ($statusTotals[$a] ?? 0);
+            });
+
+            $statusLabels = [];
+            foreach ($sortedStatusIds as $sid) {
+                $statusLabels[] = $statuses->get((int) $sid)?->name ?? '—';
+            }
+
+            $callStatusMap = [];
+            $messageStatusMap = [];
+            foreach ($statusByChannelRows as $row) {
+                $sid = (string) $row->status_id;
+                $through = (string) $row->contacted_through;
+                if ($through === 'call') {
+                    $callStatusMap[$sid] = (int) $row->total;
+                } elseif ($through === 'message') {
+                    $messageStatusMap[$sid] = (int) $row->total;
+                }
+            }
+
+            $callStatusCounts = [];
+            $messageStatusCounts = [];
+            foreach ($sortedStatusIds as $sid) {
+                $callStatusCounts[] = (int) ($callStatusMap[$sid] ?? 0);
+                $messageStatusCounts[] = (int) ($messageStatusMap[$sid] ?? 0);
+            }
+
+            // User-wise status matrix (stacked)
+            $userStatusRows = (clone $outboundBaseQuery)
+                ->select('handled_by', 'status_id', DB::raw('count(*) as total'))
+                ->whereNotNull('handled_by')
+                ->whereNotNull('status_id')
+                ->groupBy('handled_by', 'status_id')
+                ->get();
+
+            $userTotals = [];
+            foreach ($userStatusRows as $row) {
+                $uid = (string) $row->handled_by;
+                if (!isset($userTotals[$uid])) {
+                    $userTotals[$uid] = 0;
+                }
+                $userTotals[$uid] += (int) $row->total;
+            }
+
+            $sortedUserIds = array_keys($userTotals);
+            usort($sortedUserIds, fn ($a, $b) => ($userTotals[$b] ?? 0) <=> ($userTotals[$a] ?? 0));
+
+            $userStatusUsers = $sortedUserIds !== []
+                ? User::whereIn('id', $sortedUserIds)->get(['id', 'first_name', 'last_name', 'email'])->keyBy('id')
+                : collect();
+
+            $userCategories = [];
+            foreach ($sortedUserIds as $uid) {
+                $u = $userStatusUsers->get($uid);
+                $fullName = $u ? trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) : null;
+                $userCategories[] = $fullName ?: ($u->email ?? $uid);
+            }
+
+            $matrix = [];
+            foreach ($userStatusRows as $row) {
+                $uid = (string) $row->handled_by;
+                $sid = (string) $row->status_id;
+                $matrix[$sid][$uid] = (int) $row->total;
+            }
+
+            $userStatusSeries = [];
+            foreach ($sortedStatusIds as $sid) {
+                $label = $statuses->get((int) $sid)?->name ?? '—';
+                $data = [];
+                foreach ($sortedUserIds as $uid) {
+                    $data[] = (int) (($matrix[$sid][$uid] ?? 0));
+                }
+                $userStatusSeries[] = ['name' => $label, 'data' => $data];
+            }
+
+            $filterEmployees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
+                ->ofStatus(1)
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->get(['id', 'first_name', 'last_name', 'email']);
+
+            $queryParams = [
+                'tab' => 'outbound',
+                'date_from' => $dateFrom?->toDateString(),
+                'date_to' => $dateTo?->toDateString(),
+            ];
+            if ($request->filled('handled_by_ids')) {
+                $queryParams['handled_by_ids'] = (array) $request->input('handled_by_ids', []);
+            }
+
+            return view('leadmanagement::admin.reports.index', [
+                'tab' => 'outbound',
+                'dateFrom' => $dateFrom?->toDateString(),
+                'dateTo' => $dateTo?->toDateString(),
+                'filterEmployees' => $filterEmployees,
+                'selectedHandledByIds' => (array) $request->input('handled_by_ids', []),
+                'queryParams' => $queryParams,
+                'totalOutbound' => $totalOutbound,
+                'outboundByChannel' => $outboundByChannel,
+                'outboundByUser' => $outboundByUser,
+                'outboundByStatus' => $outboundByStatus,
+                'outboundStatusLabels' => $statusLabels,
+                'outboundCallStatusCounts' => $callStatusCounts,
+                'outboundMessageStatusCounts' => $messageStatusCounts,
+                'outboundUserCategories' => $userCategories,
+                'outboundUserStatusSeries' => $userStatusSeries,
+            ]);
+        }
 
         $baseQuery = Lead::query()
             ->with(['source', 'adSource'])
@@ -170,6 +364,7 @@ class LeadReportController extends Controller
             ->get(['id', 'first_name', 'last_name', 'email']);
 
         $queryParams = [
+            'tab' => 'inbound',
             'date_from' => $dateFrom?->toDateString(),
             'date_to' => $dateTo?->toDateString(),
             'lead_type' => $request->input('lead_type', 'all'),
@@ -196,6 +391,7 @@ class LeadReportController extends Controller
             $this->buildPerLeadTypeDetails($leadIdsForTable);
 
         return view('leadmanagement::admin.reports.index', [
+            'tab' => 'inbound',
             'totalLeads' => $totalLeads,
             'leadsByType' => $leadsByType,
             'timeline' => $timeline,

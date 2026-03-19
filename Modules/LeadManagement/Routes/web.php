@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\AdSourceController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadConfigurationController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadOutboundEnquiryController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadReportController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\SourceController;
 
@@ -16,6 +17,12 @@ Route::group([
         Route::get('/', [LeadController::class, 'index'])->name('index');
         Route::get('create', [LeadController::class, 'create'])->name('create');
         Route::post('store', [LeadController::class, 'store'])->name('store');
+
+        Route::group(['prefix' => 'outbound-enquiry', 'as' => 'outbound-enquiry.'], function () {
+            Route::get('/', [LeadOutboundEnquiryController::class, 'index'])->name('index');
+            Route::get('create', [LeadOutboundEnquiryController::class, 'create'])->name('create');
+            Route::post('store', [LeadOutboundEnquiryController::class, 'store'])->name('store');
+        });
 
         // Reports routes should come before parameterized {id} routes
         Route::get('reports', [LeadReportController::class, 'index'])->name('reports.index');

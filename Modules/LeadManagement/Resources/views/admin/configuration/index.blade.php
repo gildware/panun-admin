@@ -11,66 +11,66 @@
                         <h2 class="page-title mb-1">{{ translate('Lead_Configuration') }}</h2>
                     </div>
 
-                    <ul class="nav nav-tabs mb-3" id="leadConfigTabs" role="tablist">
+                    <ul class="nav nav--tabs mb-3" id="leadConfigTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active"
+                            <a class="nav-link active"
                                     id="general-tab"
                                     data-bs-toggle="tab"
                                     data-bs-target="#general-tab-pane"
-                                    type="button"
                                     role="tab"
                                     aria-controls="general-tab-pane"
-                                    aria-selected="true">
+                                    aria-selected="true"
+                                    href="#general-tab-pane">
                                 {{ __('General') }}
-                            </button>
+                            </a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link"
+                            <a class="nav-link"
                                     id="customer-tab"
                                     data-bs-toggle="tab"
                                     data-bs-target="#customer-tab-pane"
-                                    type="button"
                                     role="tab"
                                     aria-controls="customer-tab-pane"
-                                    aria-selected="false">
+                                    aria-selected="false"
+                                    href="#customer-tab-pane">
                                 {{ __('Customer Related') }}
-                            </button>
+                            </a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link"
+                            <a class="nav-link"
                                     id="provider-tab"
                                     data-bs-toggle="tab"
                                     data-bs-target="#provider-tab-pane"
-                                    type="button"
                                     role="tab"
                                     aria-controls="provider-tab-pane"
-                                    aria-selected="false">
+                                    aria-selected="false"
+                                    href="#provider-tab-pane">
                                 {{ __('Provider Related') }}
-                            </button>
+                            </a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link"
+                            <a class="nav-link"
                                     id="future-customer-tab"
                                     data-bs-toggle="tab"
                                     data-bs-target="#future-customer-tab-pane"
-                                    type="button"
                                     role="tab"
                                     aria-controls="future-customer-tab-pane"
-                                    aria-selected="false">
+                                    aria-selected="false"
+                                    href="#future-customer-tab-pane">
                                 {{ __('Future Customer Related') }}
-                            </button>
+                            </a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link"
+                            <a class="nav-link"
                                     id="invalid-tab"
                                     data-bs-toggle="tab"
                                     data-bs-target="#invalid-tab-pane"
-                                    type="button"
                                     role="tab"
                                     aria-controls="invalid-tab-pane"
-                                    aria-selected="false">
+                                    aria-selected="false"
+                                    href="#invalid-tab-pane">
                                 {{ __('Invalid Related') }}
-                            </button>
+                            </a>
                         </li>
                     </ul>
 
@@ -96,6 +96,13 @@
                                         'title' => translate('Districts'),
                                         'type' => 'district',
                                         'items' => $districts,
+                                    ])
+                                </div>
+                                <div class="col-lg-6">
+                                    @include('leadmanagement::admin.configuration.partials._card', [
+                                        'title' => translate('Outbound_Enquiry_Status'),
+                                        'type' => 'outbound_enquiry_status',
+                                        'items' => $outboundEnquiryStatuses ?? collect(),
                                     ])
                                 </div>
                             </div>

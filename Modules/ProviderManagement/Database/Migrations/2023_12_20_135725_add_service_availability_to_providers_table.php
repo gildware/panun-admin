@@ -13,9 +13,11 @@ class AddServiceAvailabilityToProvidersTable extends Migration
      */
     public function up()
     {
-        Schema::table('providers', function (Blueprint $table) {
-            $table->boolean('service_availability')->default(1);
-        });
+        if (!Schema::hasColumn('providers', 'service_availability')) {
+            Schema::table('providers', function (Blueprint $table) {
+                $table->boolean('service_availability')->default(1);
+            });
+        }
     }
 
     /**
@@ -25,8 +27,10 @@ class AddServiceAvailabilityToProvidersTable extends Migration
      */
     public function down()
     {
-        Schema::table('providers', function (Blueprint $table) {
-            $table->dropColumn('service_availability');
-        });
+        if (Schema::hasColumn('providers', 'service_availability')) {
+            Schema::table('providers', function (Blueprint $table) {
+                $table->dropColumn('service_availability');
+            });
+        }
     }
 }
