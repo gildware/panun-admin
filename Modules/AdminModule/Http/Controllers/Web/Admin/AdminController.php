@@ -26,6 +26,7 @@ use Modules\BookingModule\Entities\BookingFollowup;
 use Illuminate\Contracts\Support\Renderable;
 use Modules\AdminModule\Services\AdvanceSearch;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\LeadManagement\Entities\Lead;
 use Modules\TransactionModule\Entities\Account;
 use Illuminate\Contracts\Foundation\Application;
 use Modules\ChattingModule\Entities\ChannelList;
@@ -152,13 +153,55 @@ class AdminController extends Controller
             ->get();
         $data[] = ['zone_wise_bookings' => $zone_wise_bookings, 'total_count' => $this->booking->count()];
 
+        $todaysPendingFollowupsBase = BookingFollowup::query()
+            ->where('status', 'scheduled')
+            // Include missed follow-ups from previous days up to and including today.
+            ->whereDate('date', '<=', Carbon::today());
+        $todaysPendingFollowupsTotal = (clone $todaysPendingFollowupsBase)->count();
+
         $todays_pending_followups = BookingFollowup::with(['booking.assignee', 'booking.customer', 'booking.provider'])
             ->where('status', 'scheduled')
-            ->whereDate('date', Carbon::today())
+            // Include missed follow-ups from previous days up to and including today.
+            ->whereDate('date', '<=', Carbon::today())
+            // Sort from previous to current.
             ->orderBy('date')
-            ->take(10)
+            ->take(5)
             ->get();
-        $data[] = ['todays_pending_followups' => $todays_pending_followups];
+        $data[] = [
+            'todays_pending_followups' => $todays_pending_followups,
+            'todays_pending_followups_total' => $todaysPendingFollowupsTotal,
+        ];
+
+        $todaysPendingLeadFollowupsBase = Lead::query()
+            ->whereNotNull('next_followup_at')
+            // Include missed follow-ups from previous days up to and including today.
+            ->whereDate('next_followup_at', '<=', Carbon::today());
+        $todaysPendingLeadFollowupsTotal = (clone $todaysPendingLeadFollowupsBase)->count();
+
+        $todays_pending_lead_followups = Lead::query()
+            ->whereNotNull('next_followup_at')
+            // Include missed follow-ups from previous days up to and including today.
+            ->whereDate('next_followup_at', '<=', Carbon::today())
+            // Sort from previous to current.
+            ->orderBy('next_followup_at')
+            ->take(5)
+            ->get();
+
+        $handledByIds = $todays_pending_lead_followups->pluck('handled_by')->filter()->unique()->values()->all();
+        $handledByUsers = $handledByIds !== []
+            ? $this->user->whereIn('id', $handledByIds)->get(['id', 'first_name', 'last_name', 'email'])->keyBy(fn ($u) => (string) $u->id)
+            : collect();
+
+        foreach ($todays_pending_lead_followups as $lead) {
+            $user = $lead->handled_by ? $handledByUsers->get((string) $lead->handled_by) : null;
+            $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
+            $lead->handled_by_name = $fullName ?: ($user->email ?? null);
+        }
+
+        $data[] = [
+            'todays_pending_lead_followups' => $todays_pending_lead_followups,
+            'todays_pending_lead_followups_total' => $todaysPendingLeadFollowupsTotal,
+        ];
 
         $year = session()->has('dashboard_earning_graph_year') ? session('dashboard_earning_graph_year') : date('Y');
         $amounts = $this->booking_details_amount

@@ -989,15 +989,60 @@ class BookingController extends Controller
      * @return Renderable
      * @throws AuthorizationException
      */
-    public function todaysFollowups(): Renderable
+    public function todaysFollowups(Request $request): Renderable
     {
         $this->authorize('booking_view');
-        $followups = \Modules\BookingModule\Entities\BookingFollowup::with(['booking.assignee', 'booking.customer', 'booking.provider'])
+
+        $selectedAssigneeId = (string) $request->input('assignee_id', '');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        $effectiveTo = Carbon::today()->toDateString();
+        if ($dateTo) {
+            try {
+                $parsedTo = Carbon::parse($dateTo)->toDateString();
+                $effectiveTo = $parsedTo > Carbon::today()->toDateString() ? Carbon::today()->toDateString() : $parsedTo;
+            } catch (\Throwable $e) {
+                $effectiveTo = Carbon::today()->toDateString();
+            }
+        }
+
+        $baseQuery = \Modules\BookingModule\Entities\BookingFollowup::query()
             ->where('status', 'scheduled')
-            ->whereDate('date', Carbon::today())
+            // Include missed follow-ups from previous days up to and including today.
+            ->whereDate('date', '<=', $effectiveTo)
+            ->when($dateFrom, function ($q) use ($dateFrom) {
+                $q->whereDate('date', '>=', $dateFrom);
+            })
+            ->when($selectedAssigneeId !== '', function ($q) use ($selectedAssigneeId) {
+                $q->whereHas('booking', function ($bookingQuery) use ($selectedAssigneeId) {
+                    $bookingQuery->where('assignee_id', $selectedAssigneeId);
+                });
+            });
+
+        $totalFollowups = (clone $baseQuery)->count();
+
+        $followups = (clone $baseQuery)
+            ->with(['booking.assignee', 'booking.customer', 'booking.provider'])
+            // Sort from previous to current.
             ->orderBy('date')
-            ->paginate(pagination_limit());
-        return view('bookingmodule::admin.booking.todays-followups', compact('followups'));
+            ->paginate(pagination_limit())
+            ->appends($request->query());
+
+        $assignees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
+            ->ofStatus(1)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'email']);
+
+        return view('bookingmodule::admin.booking.todays-followups', compact(
+            'followups',
+            'assignees',
+            'selectedAssigneeId',
+            'dateFrom',
+            'dateTo',
+            'totalFollowups'
+        ));
     }
 
     /**

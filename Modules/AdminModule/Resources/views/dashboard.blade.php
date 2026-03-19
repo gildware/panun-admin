@@ -16,6 +16,22 @@
             height: 8.5rem;
             min-height: 8.5rem;
         }
+        .missed-followup-row,
+        .missed-followup-row > td {
+            background-color: #dc3545 !important;
+            color: #fff !important;
+        }
+        .table-hover > tbody > tr.missed-followup-row:hover > * {
+            background-color: #dc3545 !important;
+            color: #fff !important;
+        }
+        .missed-followup-row a,
+        .missed-followup-row a.text-primary,
+        .missed-followup-row .text-primary,
+        .missed-followup-row .small,
+        .missed-followup-row .small a {
+            color: #fff !important;
+        }
     </style>
 @endpush
 
@@ -82,7 +98,12 @@
                     <div class="col-12">
                         <div class="card dashboard-widget-todays-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>{{translate('Todays_pending_followups')}}</h5>
+                                <h5>
+                                    Booking Follow-ups- Pending Till Today's
+                                    <span class="text-muted">
+                                        ({{ $data[5]['todays_pending_followups_total'] ?? 0 }})
+                                    </span>
+                                </h5>
                                 <a href="{{route('admin.booking.todays_followups')}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
@@ -97,20 +118,25 @@
                                                     <th>{{translate('Customer_Info')}}</th>
                                                     <th>{{translate('Provider_Info')}}</th>
                                                     <th>{{translate('Assignee')}}</th>
+                                                    <th>{{translate('Followup_On')}}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 @foreach($data[5]['todays_pending_followups'] as $followup)
-                                                    <tr class="cursor-pointer todays-followup-redirect"
+                                                    <tr class="cursor-pointer todays-followup-redirect {{ $followup->date && !$followup->date->isToday() ? 'missed-followup-row' : '' }}"
                                                         data-route="{{ $followup->booking ? (route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups'])) : '#' }}">
                                                         <td>
                                                             @if($followup->booking)
-                                                                <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}" class="text-primary text-decoration-none" onclick="event.stopPropagation();">{{ $followup->booking->readable_id }}</a>
+                                                                <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}"
+                                                                   class="text-decoration-none {{ $followup->date && !$followup->date->isToday() ? '' : 'text-primary' }}"
+                                                                   onclick="event.stopPropagation();">{{ $followup->booking->readable_id }}</a>
                                                             @else
                                                                 —
                                                             @endif
                                                         </td>
-                                                        <td>{{ translate(ucfirst($followup->for)) }}</td>
+                                                        <td>
+                                                            {{ translate(ucfirst($followup->for)) }}
+                                                        </td>
                                                         <td>
                                                             @if($followup->booking && $followup->booking->customer)
                                                                 <span>{{ Str::limit(trim(($followup->booking->customer->first_name ?? '') . ' ' . ($followup->booking->customer->last_name ?? '')), 15) ?: '—' }}</span>
@@ -128,6 +154,19 @@
                                                             @endif
                                                         </td>
                                                         <td>{{ $followup->booking && $followup->booking->assignee ? $followup->booking->assignee->first_name . ' ' . $followup->booking->assignee->last_name : translate('Unassigned') }}</td>
+                                                        <td>
+                                                            @php($due = $followup->date)
+                                                            @if(!$due)
+                                                                —
+                                                            @elseif($due->isToday())
+                                                                {{ translate('Today') }}
+                                                            @elseif($due->isYesterday())
+                                                                {{ translate('Yesterday') }}
+                                                            @else
+                                                                @php($daysBefore = max(1, (int) round($due->diffInRealDays(\Carbon\Carbon::now(), true))))
+                                                                {{ $daysBefore }} {{ translate('days_before') }}
+                                                            @endif
+                                                        </td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -142,6 +181,89 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card dashboard-widget-todays-followups">
+                            <div class="card-header d-flex justify-content-between gap-10">
+                                <h5>
+                                    Leads Follow-ups- Pending Till Today's
+                                    <span class="text-muted">
+                                        ({{ $data[6]['todays_pending_lead_followups_total'] ?? 0 }})
+                                    </span>
+                                </h5>
+                                <a href="{{ route('admin.lead.todays_followups') }}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
+                            <div class="card-body p-0">
+                                @if(isset($data[6]['todays_pending_lead_followups']) && $data[6]['todays_pending_lead_followups']->isNotEmpty())
+                                    <div class="table-responsive px-3">
+                                        <table class="table table-hover align-middle mb-0 fs-13">
+                                            <thead class="text-secondary border-bottom">
+                                                <tr>
+                                                    <th>{{translate('Lead_ID')}}</th>
+                                                    <th>{{translate('Lead_Type')}}</th>
+                                                    <th>{{translate('Name')}}</th>
+                                                    <th>{{translate('Phone')}}</th>
+                                                    <th>{{translate('Handled_By')}}</th>
+                                                    <th>{{translate('Followup_On')}}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($data[6]['todays_pending_lead_followups'] as $lead)
+                                                    <tr class="cursor-pointer todays-followup-redirect {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? 'missed-followup-row' : '' }}"
+                                                        data-route="{{ route('admin.lead.show', $lead->id) }}">
+                                                        <td>
+                                                            <a href="{{ route('admin.lead.show', $lead->id) }}"
+                                                               class="text-decoration-none {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? '' : 'text-primary' }}"
+                                                               onclick="event.stopPropagation();">
+                                                                {{ $lead->id }}
+                                                            </a>
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge rounded-pill bg-primary text-capitalize">
+                                                                {{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}
+                                                            </span>
+                                                        </td>
+                                                        <td>{{ $lead->name ?? '—' }}</td>
+                                                        <td>
+                                                            @if(!empty($lead->phone_number))
+                                                                <a href="tel:{{ $lead->phone_number }}" class="text-decoration-none text-primary">
+                                                                    {{ $lead->phone_number }}
+                                                                </a>
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ $lead->handled_by_name ?? '—' }}</td>
+                                                        <td>
+                                                            @php($due = $lead->next_followup_at)
+                                                            @if(!$due)
+                                                                —
+                                                            @elseif($due->isToday())
+                                                                {{ translate('Today') }}
+                                                            @elseif($due->isYesterday())
+                                                                {{ translate('Yesterday') }}
+                                                            @else
+                                                                @php($daysBefore = max(1, (int) round($due->diffInRealDays(\Carbon\Carbon::now(), true))))
+                                                                {{ $daysBefore }} {{ translate('days_before') }}
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="d-flex align-items-center justify-content-center p-4">
+                                        <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row g-4 mb-4">
                     <div class="col-lg-9 col-12">
                         <div class="card earning-statistics">

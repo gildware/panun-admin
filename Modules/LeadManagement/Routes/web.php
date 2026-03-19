@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\AdSourceController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadConfigurationController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadController;
+use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadFollowupController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadOutboundEnquiryController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\LeadReportController;
 use Modules\LeadManagement\Http\Controllers\Web\Admin\SourceController;
@@ -27,6 +28,9 @@ Route::group([
         // Reports routes should come before parameterized {id} routes
         Route::get('reports', [LeadReportController::class, 'index'])->name('reports.index');
         Route::get('reports/download', [LeadReportController::class, 'download'])->name('reports.download');
+
+        // Today's pending follow-ups
+        Route::get('todays-followups', [LeadFollowupController::class, 'todaysFollowups'])->name('todays_followups');
 
         Route::post('{id}/type', [LeadController::class, 'updateType'])->name('type.update');
         Route::post('{lead}/followups', [LeadController::class, 'storeFollowup'])->name('followups.store');

@@ -2,6 +2,26 @@
 
 @section('title', translate('Todays_pending_followups'))
 
+@push('css_or_js')
+    <style>
+        .missed-followup-row,
+        .missed-followup-row > td {
+            background-color: #dc3545 !important;
+            color: #fff !important;
+        }
+        .table-hover > tbody > tr.missed-followup-row:hover > * {
+            background-color: #dc3545 !important;
+            color: #fff !important;
+        }
+        .missed-followup-row a,
+        .missed-followup-row a.text-primary,
+        .missed-followup-row .text-primary,
+        .missed-followup-row .small a {
+            color: #fff !important;
+        }
+    </style>
+@endpush
+
 @section('content')
     <div class="main-content">
         <div class="container-fluid">
@@ -11,7 +31,43 @@
                         <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
                             <span class="material-icons">arrow_back</span>
                         </a>
-                        <h2 class="page-title mb-0">{{ translate('Todays_pending_followups') }}</h2>
+                        <h2 class="page-title mb-0">Booking Follow-ups- Pending Till Today's ({{ $totalFollowups ?? 0 }})</h2>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <form method="GET" action="{{ route('admin.booking.todays_followups') }}">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-lg-3 col-sm-6">
+                                        <label class="mb-2">{{ translate('From_Date') }}</label>
+                                        <input type="date" name="date_from" class="form-control" value="{{ $dateFrom }}">
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6">
+                                        <label class="mb-2">{{ translate('To_Date') }}</label>
+                                        <input type="date" name="date_to" class="form-control" value="{{ $dateTo }}">
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6">
+                                        <label class="mb-2">{{ translate('Assignee') }}</label>
+                                        <select name="assignee_id" class="form-select">
+                                            <option value="">{{ translate('All') }}</option>
+                                            @foreach($assignees ?? [] as $assignee)
+                                                @php
+                                                    $fullName = trim(($assignee->first_name ?? '') . ' ' . ($assignee->last_name ?? ''));
+                                                    $label = $fullName ?: ($assignee->email ?? (string) $assignee->id);
+                                                @endphp
+                                                <option value="{{ $assignee->id }}" {{ (string) $assignee->id === (string) ($selectedAssigneeId ?? '') ? 'selected' : '' }}>
+                                                    {{ $label }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 d-flex gap-2">
+                                        <button type="submit" class="btn btn--primary w-100">{{ translate('Filter') }}</button>
+                                        <a href="{{ route('admin.booking.todays_followups') }}" class="btn btn--secondary w-100">{{ translate('Reset') }}</a>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
                     </div>
 
                     <div class="card">
@@ -33,7 +89,7 @@
                                         </thead>
                                         <tbody>
                                             @foreach($followups as $key => $followup)
-                                                <tr>
+                                                <tr class="{{ $followup->date && !$followup->date->isToday() ? 'missed-followup-row' : '' }}">
                                                     <td>{{ $key + $followups->firstItem() }}</td>
                                                     <td>
                                                         @if($followup->booking)
@@ -60,7 +116,19 @@
                                                         @endif
                                                     </td>
                                                     <td>{{ $followup->booking && $followup->booking->assignee ? $followup->booking->assignee->first_name . ' ' . $followup->booking->assignee->last_name : translate('Unassigned') }}</td>
-                                                    <td>{{ $followup->date ? $followup->date->format('d-M-Y h:ia') : '—' }}</td>
+                                                    <td>
+                                                        @php($due = $followup->date)
+                                                        @if(!$due)
+                                                            —
+                                                        @elseif($due->isToday())
+                                                            {{ translate('Today') }}
+                                                        @elseif($due->isYesterday())
+                                                            {{ translate('Yesterday') }}
+                                                        @else
+                                                            @php($daysBefore = max(1, (int) round($due->diffInRealDays(\Carbon\Carbon::now(), true))))
+                                                            {{ $daysBefore }} {{ translate('days_before') }}
+                                                        @endif
+                                                    </td>
                                                     <td class="text-end">
                                                         @if($followup->booking)
                                                             <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}" class="btn btn-sm btn--primary">{{ translate('View') }}</a>
