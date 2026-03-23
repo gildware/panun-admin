@@ -4694,13 +4694,15 @@ body.aside-folded.open-aside-folded .aside .aside-body li:hover i {
     object-fit: cover;
 }
 
-#multi_image_picker {
+#multi_image_picker,
+#company_multi_image_picker {
     display: grid;
     gap: 1rem;
     grid-template-columns: 1fr 1fr;
 }
 
-#multi_image_picker img {
+#multi_image_picker img,
+#company_multi_image_picker img {
     max-block-size: 8.75rem;
     width: 100%;
     -o-object-fit: cover;

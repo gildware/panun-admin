@@ -34,15 +34,17 @@ class Provider extends Model
         'commission_status' => 'integer',
         'commission_percentage' => 'float',
         'is_active' => 'integer',
+        'app_availability' => 'integer',
         'is_approved' => 'integer',
-        'coordinates' => 'json'
+        'coordinates' => 'json',
+        'company_identity_images' => 'array',
     ];
 
     protected $fillable = [];
 
     protected $hidden = [];
 
-    protected $appends = ['logo_full_path', 'cover_image_full_path'];
+    protected $appends = ['logo_full_path', 'cover_image_full_path', 'company_identity_images_full_path'];
 
     public function scopeOfStatus($query, $status)
     {
@@ -71,6 +73,11 @@ class Provider extends Model
     public function bank_detail(): HasOne
     {
         return $this->hasOne(BankDetail::class, 'provider_id');
+    }
+
+    public function bank_details(): HasMany
+    {
+        return $this->hasMany(BankDetail::class, 'provider_id');
     }
 
     public function bookings($booking_status = null): HasMany
@@ -153,6 +160,19 @@ class Provider extends Model
         $imagePath = $path . $image;
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
+    }
+
+    public function getCompanyIdentityImagesFullPathAttribute()
+    {
+        $identityImages = $this->company_identity_images ?? [];
+        $defaultImagePath = asset('assets/admin-module/img/media/provider-id.png');
+        $path = 'provider/company-identity/';
+
+        return getIdentityImageFullPath(
+            identityImages: $identityImages,
+            path: $path,
+            defaultPath: $defaultImagePath
+        );
     }
 
     public static function boot()

@@ -109,9 +109,16 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
                 <li>
                     <a href="{{ route('admin.whatsapp.conversations.index') }}"
-                       class="{{ request()->is('admin/whatsapp/*') ? 'active-menu' : '' }}">
+                       class="{{ request()->is('admin/whatsapp/conversations*') || request()->is('admin/whatsapp/users/*') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="{{ translate('WhatsApp') }}">chat</span>
                         <span class="link-title">{{ translate('WhatsApp') }} {{ translate('Conversations') }}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('admin.whatsapp.booking-templates.edit') }}"
+                       class="{{ request()->is('admin/whatsapp/booking-message-templates*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Message_templates') }}">description</span>
+                        <span class="link-title">{{ translate('Message_templates') }}</span>
                     </a>
                 </li>
             @endcan

@@ -12,8 +12,38 @@
     <div class="main-content">
         <div class="container-fluid">
 
-            <form action="{{route('admin.provider.store')}}" method="POST" enctype="multipart/form-data" id="create-provider-form">
+            @php($created = session('provider_created'))
+            @if(is_array($created) && !empty($created['id']))
+                <div class="modal fade" id="providerCreatedSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header border-0 pb-0">
+                                <h5 class="modal-title">{{ translate('Provider_created_successfully') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
+                            </div>
+                            <div class="modal-body pt-0">
+                                <p class="mb-4 text-muted">{{ translate('The_provider_has_been_added_you_can_manage_subscriptions_anytime') }}</p>
+                                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
+                                    <a href="{{ route('admin.provider.create') }}" class="btn btn--secondary order-2 order-sm-1">
+                                        {{ translate('Create_another_provider') }}
+                                    </a>
+                                    <a href="{{ route('admin.provider.details', [$created['id'], 'web_page' => 'overview']) }}" class="btn btn--primary order-1 order-sm-2">
+                                        {{ translate('View_provider_details') }}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            <div id="provider-create-wizard-config" class="d-none"
+                 data-subcategories-url="{{ route('admin.provider.create.subcategories-for-zone') }}"
+                 data-csrf-token="{{ csrf_token() }}"></div>
+
+            <form action="{{route('admin.provider.store')}}" method="POST" enctype="multipart/form-data" id="create-provider-form" novalidate>
                 @csrf
+                <input type="hidden" name="plan_type" value="commission_based">
                 <h3>{{translate('Step 1')}}</h3>
                 <section>
                     <div class="page-title-wrap mb-3">
@@ -28,37 +58,68 @@
                                 </div>
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
                                     <span class="icon-2">2</span>
-                                    {{ translate('Set Business Plan') }}
+                                    {{ translate('Subscribed_Services') }}
                                 </div>
                             </div>
-                            <div class="row">
+                            @include('providermanagement::admin.provider.partials.provider-add-edit-form', ['mode' => 'add', 'zones' => $zones, 'provider' => null])
+
+                            @if(false)
+                            <fieldset disabled class="d-none">
+                                <div class="row">
                                 <div class="col-md-6" id="register-form-p-0">
                                     <h4 class="c1 mb-20">{{translate('General_Information')}}</h4>
                                     <div class="mb-30">
+                                        <label class="mb-2 title-color">{{ translate('Provider_Type') }}</label>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input"
+                                                       type="radio"
+                                                       name="provider_type"
+                                                       id="provider_type_individual"
+                                                       value="individual"
+                                                       {{ old('provider_type', 'individual') === 'individual' ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="provider_type_individual">
+                                                    {{ translate('Individual') }}
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input"
+                                                       type="radio"
+                                                       name="provider_type"
+                                                       id="provider_type_company"
+                                                       value="company"
+                                                       {{ old('provider_type', 'individual') === 'company' ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="provider_type_company">
+                                                    {{ translate('Company') }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-30 provider-company-fields">
                                         <div class="form-floating form-floating__icon">
                                             <input type="text" class="form-control" value="{{old('company_name')}}"
                                                     name="company_name"
-                                                    placeholder="{{translate('Company_/_Individual_Name')}}" maxlength="191" required>
+                                                    placeholder="{{translate('Company_/_Individual_Name')}}" maxlength="191">
                                             <label>{{translate('Company_/_Individual_Name')}}</label>
                                             <span class="material-icons">store</span>
                                         </div>
                                     </div>
-                                    <div class="mb-30">
+                                    <div class="mb-30 provider-company-fields">
                                         <div class="form-floating form-floting-fix">
                                             <label for="company_phone">{{translate('Phone')}}</label>
                                             <input type="tel"
                                                    class="form-control"
                                                    name="company_phone"
-                                                   id="company_phone"
+                                                   id="old_company_phone"
                                                    value="{{old('company_phone')}}"
-                                                   placeholder="{{translate('Phone')}}" required >
+                                                   placeholder="{{translate('Phone')}}">
                                         </div>
                                     </div>
-                                    <div class="mb-30">
+                                    <div class="mb-30 provider-company-fields">
                                         <div class="form-floating form-floating__icon">
-                                            <input type="email" class="form-control" id="company_email"
+                                            <input type="email" class="form-control" id="old_company_email"
                                                     name="company_email" value="{{old('company_email')}}"
-                                                    placeholder="{{translate('Email')}}" required>
+                                                    placeholder="{{translate('Email')}}">
                                             <label>{{translate('Email')}}</label>
                                             <span class="material-icons">mail</span>
                                         </div>
@@ -84,7 +145,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-6 provider-logo-fields">
                                     <div class="d-flex flex-column align-items-center gap-3">
                                         <h3 class="mb-0">{{translate('Company_Logo')}}</h3>
                                         <div class="d-flex align-items-center flex-column form-error-wrap">
@@ -92,7 +153,7 @@
                                                 <input type="file" class="upload-file__input" name="logo"
                                                        accept=".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }}, |image/*"
                                                        data-maxFileSize="{{ readableUploadMaxFileSize('image') }}"
-                                                       required>
+                                                       >
                                                 <div class="upload-file__img">
                                                     <img
                                                         src="{{onErrorImage(old('logo'),
@@ -116,26 +177,80 @@
                         </div>
                     </div>
                     <div class="row gx-2 mt-2">
-                        <div class="col-md-6">
+                        <div class="col-md-6 order-md-2">
                             <div class="card h-100">
                                 <div class="card-body">
+                                    <div class="company-docs-fields provider-company-identity-fields">
+                                        <h4 class="c1 mb-20">Company Docs & Identity</h4>
+
+                                        <div class="mb-30">
+                                            <div class="form-error-wrap">
+                                                <select class="select-identity theme-input-style w-100"
+                                                        name="company_identity_type" required>
+                                                    <option selected disabled>{{translate('Select_Identity_Type')}}</option>
+                                                    <option value="trade_license"
+                                                            {{old('company_identity_type', 'trade_license') == 'trade_license' ? 'selected' : ''}}>
+                                                        {{translate('Trade_License')}}</option>
+                                                    <option value="company_id"
+                                                            {{old('company_identity_type') == 'company_id' ? 'selected' : ''}}>
+                                                        {{translate('Company_Id')}}</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-30">
+                                            <div class="form-floating form-floating__icon">
+                                                <input type="text" class="form-control" name="company_identity_number"
+                                                       value="{{old('company_identity_number')}}"
+                                                       placeholder="{{translate('Identity_Number')}}" required>
+                                                <label>{{translate('Identity_Number')}}</label>
+                                                <span class="material-icons">badge</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="upload-file w-100">
+                                            <h3 class="mb-3">{{translate('Identification_Image')}}</h3>
+                                            <div id="old_company_multi_image_picker"></div>
+                                        </div>
+
+                                        <div class="upload-file w-100 mt-3">
+                                            <h3 class="mb-3">{{translate('Identification_PDF')}}</h3>
+
+                                            <div class="multi-attachment-uploader" data-attachment-uploader>
+                                                <input type="file"
+                                                       class="d-none"
+                                                       name="company_identity_pdf_files[]"
+                                                       accept="application/pdf,.pdf"
+                                                       multiple
+                                                       data-maxFileSize="{{ readableUploadMaxFileSize('file') }}"
+                                                       data-attachment-input>
+
+                                                <button type="button"
+                                                        class="btn btn--secondary w-100"
+                                                        data-attachment-trigger>
+                                                    {{translate('Upload_PDF')}}
+                                                </button>
+
+                                                <div class="mt-3 d-flex flex-wrap gap-2"
+                                                     data-attachment-preview></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <h4 class="c1 mb-20">{{translate('Business_Information')}}</h4>
                                     <div class="mb-30">
                                         <div class="form-error-wrap">
                                             <select class="select-identity theme-input-style w-100" name="identity_type" required>
                                                 <option selected disabled>{{translate('Select_Identity_Type')}}</option>
+                                                <option value="nid"
+                                                        {{old('identity_type', 'nid') == 'nid' ? 'selected' : ''}}>
+                                                    {{translate('Aadhar_Card')}}</option>
                                                 <option value="passport"
-                                                    {{old('identity_type') == 'passport' ? 'selected': ''}}>
+                                                        {{old('identity_type') == 'passport' ? 'selected' : ''}}>
                                                     {{translate('Passport')}}</option>
                                                 <option value="driving_license"
-                                                    {{old('identity_type') == 'driving_license' ? 'selected': ''}}>
+                                                        {{old('identity_type') == 'driving_license' ? 'selected' : ''}}>
                                                     {{translate('Driving_License')}}</option>
-                                                <option value="nid"
-                                                    {{old('identity_type') == 'passport' ? 'selected': ''}}>
-                                                    {{translate('nid')}}</option>
-                                                <option value="trade_license"
-                                                    {{old('identity_type') == 'nid' ? 'selected': ''}}>
-                                                    {{translate('Trade_License')}}</option>
                                             </select>
                                         </div>
                                     </div>
@@ -151,12 +266,37 @@
 
                                     <div class="upload-file w-100">
                                         <h3 class="mb-3">{{translate('Identification_Image')}}</h3>
-                                        <div id="multi_image_picker"></div>
+                                        <div id="old_multi_image_picker"></div>
                                     </div>
+
+                                    <div class="upload-file w-100 mt-3">
+                                        <h3 class="mb-3">{{translate('Identification_PDF')}}</h3>
+
+                                        <div class="multi-attachment-uploader" data-attachment-uploader>
+                                            <input type="file"
+                                                   class="d-none"
+                                                   name="identity_pdf_files[]"
+                                                   id="identity_pdf_files"
+                                                   accept="application/pdf,.pdf"
+                                                   multiple
+                                                   data-maxFileSize="{{ readableUploadMaxFileSize('file') }}"
+                                                   data-attachment-input>
+
+                                            <button type="button"
+                                                    class="btn btn--secondary w-100"
+                                                    data-attachment-trigger>
+                                                {{translate('Upload_PDF')}}
+                                            </button>
+
+                                            <div class="mt-3 d-flex flex-wrap gap-2"
+                                                 data-attachment-preview></div>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 order-md-1">
                             <div class="card h-100">
                                 <div class="card-body">
                                     <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
@@ -178,7 +318,7 @@
                                                        class="form-control"
                                                        name="contact_person_phone"
                                                        value="{{old('contact_person_phone')}}"
-                                                       id="contact_person_phone" placeholder="{{translate('Phone')}}" required>
+                                                       id="old_contact_person_phone" placeholder="{{translate('Phone')}}" required>
                                             </div>
                                         </div>
                                         <div class="col-lg-6">
@@ -191,6 +331,26 @@
                                                     <span class="material-symbols-outlined">mail</span>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-30">
+                                        <div class="upload-file">
+                                            <input type="file"
+                                                   class="upload-file__input"
+                                                   name="contact_person_photo"
+                                                   accept=".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }}, |image/*"
+                                                   data-maxFileSize="{{ readableUploadMaxFileSize('image') }}"
+                                                   required>
+                                            <div class="upload-file__img">
+                                                <img src="{{onErrorImage(old('contact_person_photo'),
+                                                        asset('storage/provider/contact_person_photo').'/' . old('contact_person_photo'),
+                                                        asset('assets/admin-module/img/placeholder.png') ,
+                                                        'provider/contact_person_photo/')}}" alt="{{translate('image')}}">
+                                            </div>
+                                            <span class="upload-file__edit">
+                                                <span class="material-icons">edit</span>
+                                            </span>
                                         </div>
                                     </div>
 
@@ -219,7 +379,7 @@
                                             <div class="mb-30">
                                                 <div class="form-floating form-floating__icon">
                                                     <input type="password" class="form-control" name="password"
-                                                            placeholder="{{translate('Password')}}" id="pass" required>
+                                                            placeholder="{{translate('Password')}}" id="old_pass" required>
                                                     <label>{{translate('Password')}}</label>
                                                     <span class="material-icons togglePassword __right-eye">visibility_off</span>
                                                     <span class="material-icons">lock</span>
@@ -230,7 +390,7 @@
                                             <div class="mb-30">
                                                 <div class="form-floating form-floating__icon">
                                                     <input type="password" class="form-control" name="confirm_password"
-                                                            placeholder="{{translate('Confirm_Password')}}" id="confirm_password" required>
+                                                            placeholder="{{translate('Confirm_Password')}}" id="old_confirm_password" required>
                                                     <label>{{translate('Confirm_Password')}}</label>
                                                     <span class="material-icons togglePassword __right-eye">visibility_off</span>
                                                     <span class="material-icons">lock</span>
@@ -246,6 +406,76 @@
                             <div class="card h-100">
                                 <div class="card-body">
                                     <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
+                                        <h4 class="c1">{{translate('Additional_Documents')}}</h4>
+                                    </div>
+
+                                    <div id="old_additional_documents_wrapper" class="row gx-3"></div>
+
+                                    <div class="mt-3">
+                                        <button type="button" class="btn btn--secondary" id="old_additional_document_btn">
+                                            {{translate('Add_Document')}}
+                                        </button>
+                                    </div>
+
+                                    <template id="old_additional_document_template">
+                                        <div class="additional-document-row col-lg-6" data-doc-index="__INDEX__">
+                                            <div class="card h-100 mt-3">
+                                                <div class="card-body">
+                                                    <div class="form-floating form-floating__icon mb-30">
+                                                        <input type="text" class="form-control"
+                                                               name="additional_documents[__INDEX__][name]"
+                                                               placeholder="{{translate('Document_Name')}}" maxlength="191">
+                                                        <label>{{translate('Document_Name')}}</label>
+                                                        <span class="material-icons">description</span>
+                                                    </div>
+
+                                                    <div class="form-floating mb-30">
+                                                        <textarea class="form-control resize-none"
+                                                                  name="additional_documents[__INDEX__][description]"
+                                                                  placeholder="{{translate('Document_Description')}}"></textarea>
+                                                        <label>{{translate('Document_Description')}}</label>
+                                                    </div>
+
+                                                    <div class="mb-30">
+                                                        <label class="mb-2 title-color">{{translate('Files')}} </label>
+
+                                                        <div class="multi-attachment-uploader" data-attachment-uploader>
+                                                            <input type="file"
+                                                                   class="d-none"
+                                                                   name="additional_documents[__INDEX__][files][]"
+                                                                   multiple
+                                                                   accept="image/*,application/pdf,.pdf"
+                                                                   data-maxFileSize="{{ readableUploadMaxFileSize('file') }}"
+                                                                   data-attachment-input>
+
+                                                            <button type="button"
+                                                                    class="btn btn--secondary btn-sm w-100"
+                                                                    data-attachment-trigger>
+                                                                {{translate('Upload')}}
+                                                            </button>
+
+                                                            <div class="mt-2 d-flex flex-wrap gap-2"
+                                                                 data-attachment-preview></div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="d-flex justify-content-end">
+                                                        <button type="button" class="btn btn--secondary remove_additional_document_btn">
+                                                            {{translate('Remove')}}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
                                         <h4 class="c1">{{translate('Select Address from Map')}}</h4>
                                     </div>
                                     <div class="row gx-2">
@@ -253,7 +483,7 @@
                                             <div class="mb-30">
                                                 <div class="form-floating form-floating__icon">
                                                     <input type="text" class="form-control" name="latitude"
-                                                            id="latitude"
+                                                            id="old_latitude"
                                                             placeholder="{{translate('latitude')}} *"
                                                             value="" required readonly
                                                             data-bs-toggle="tooltip" data-bs-placement="top"
@@ -267,7 +497,7 @@
                                             <div class="mb-30">
                                                 <div class="form-floating form-floating__icon">
                                                     <input type="text" class="form-control" name="longitude"
-                                                            id="longitude"
+                                                            id="old_longitude"
                                                             placeholder="{{translate('longitude')}} *"
                                                             value="" required readonly
                                                             data-bs-toggle="tooltip" data-bs-placement="top"
@@ -278,13 +508,13 @@
                                             </div>
                                         </div>
                                         <div class="col-12 mb-4">
-                                            <div id="location_map_div" class="location_map_class">
-                                                <input id="pac-input" class="form-control w-auto"
+                                            <div id="old_location_map_div" class="location_map_class">
+                                                <input id="old_pac-input" class="form-control w-auto"
                                                         data-toggle="tooltip"
                                                         data-placement="right"
                                                         data-original-title="{{ translate('search_your_location_here') }}"
                                                         type="text" placeholder="{{ translate('search_here') }}"/>
-                                                <div id="location_map_canvas"
+                                                <div id="old_location_map_canvas"
                                                         class="overflow-hidden rounded canvas_class"></div>
                                             </div>
                                         </div>
@@ -293,145 +523,54 @@
                             </div>
                         </div>
                     </div>
+                    </fieldset>
+                    @endif
                 </section>
                 <h3>{{translate('Step 2')}}</h3>
-                <section>
+                <section id="provider-create-step-subscribed-services">
                     <div class="page-title-wrap mb-3">
-                        <h2 class="page-title mb-2">{{translate('Add New Provider')}}</h2>
-                        <p class="page-title-text">{{translate('Setup Provider information and business plan from here')}} </p>
+                        <h2 class="page-title mb-2">{{ translate('Add_New_Provider') }}</h2>
+                        <p class="page-title-text">{{ translate('Subscribe_services_for_this_provider_zone') }}</p>
                     </div>
                     <div class="card">
                         <div class="card-body">
                             <div class="d-flex flex-wrap gap-4 create-provider-item mb-4">
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
                                     <span class="material-symbols-outlined icon-1">check</span>
-                                    {{translate('Basic info')}}
+                                    {{ translate('Basic info') }}
                                 </div>
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
                                     <span class="material-symbols-outlined icon-1">check</span>
-                                    {{translate('Set Business Plan')}}
+                                    {{ translate('Subscribed_Services') }}
                                 </div>
                             </div>
 
-                            <h4>{{translate('Choose Business Plan')}}</h4>
-                            <div class="col-sm-10 col-md-5 pt-1 pb-1">
-                                <div class="border-bottom mt-3 mb-4"></div>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 mb-3 gap-2">
+                                <h4 class="c1 mb-0">{{ translate('Subscribed_Services') }}</h4>
+                                <span class="small text-muted">{{ translate('Same_list_as_provider_details_subscribed_services') }}</span>
                             </div>
-                            <div class="row g-4">
-                                @if($commission)
-                                    <div class="col-sm-6">
-                                        <label class="input-radio-item">
-                                            <input type="radio" class="subscription-type" name="plan_type" value="commission_based" checked>
-                                            <div class="inner">
-                                                <div class="w-0 flex-grow-1">
-                                                    <h5>{{translate('Commission Base')}}</h5>
-                                                    <p>
-                                                        {{translate('You have to give a certain percentage of commission to admin for every booking request')}}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </label>
-                                    </div>
-                                @endif
-                                @if($subscription)
-                                    <div class="col-sm-6">
-                                        <label class="input-radio-item">
-                                            <input type="radio" class="subscription-type" name="plan_type" value="subscription_based">
-                                            <div class="inner">
-                                                <div class="w-0 flex-grow-1">
-                                                    <h5>{{translate('Subscription Base')}}</h5>
-                                                    <p>
-                                                        {{translate('You have to pay a certain amount in every month / year to admin as subscription fee')}}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </label>
-                                    </div>
-                                @endif
-                            </div>
-                            <div id="subscription-based-plan" class="collapse">
-                                <div class="pt-4">
-                                    <div class="py-3">
 
-                                        @if($subscription)
-                                            <div class="priceBoxSwiper-wrap">
-                                                <h3 class="font-bold text-center mb-4">Select Plan</h3>
-                                                <div class="w-100">
-                                                    <input type="hidden" name="selected_package_id" id="selected-package-input" value="">
-                                                    <div dir="ltr" class="swiper price-box-slider">
-                                                        <div class="swiper-wrapper">
-                                                            @foreach($formattedPackages as $index => $package)
-                                                                <div class="swiper-slide h-auto">
-                                                                    <label class="d-block plan-item">
-                                                                        <input type="radio" name="plan" id="{{ $package->id }}" {{ $index == 3 ? 'checked' : '' }} class="package-option" data-id="{{ $package->id }}">
-                                                                        <div class="plan-item-inner">
-                                                                            <div class="name">
-                                                                                <div class="circle"></div>
-                                                                                <span class="name-content">{{ $package->name }}</span>
-                                                                            </div>
-                                                                            <div class="price">{{ with_currency_symbol($package->price) }}</div>
-                                                                            <span>{{ $package->duration }} {{translate('Days')}}</span>
-                                                                            <ul class="info">
-                                                                                @foreach($package->feature_list as $feature)
-                                                                                    <li>{{ $feature }}</li>
-                                                                                @endforeach
-                                                                            </ul>
-                                                                        </div>
-                                                                    </label>
-                                                                </div>
-                                                            @endforeach
-                                                        </div>
-                                                        <div class="swiper-button-next"></div>
-                                                        <div class="swiper-button-prev"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
+                            <div id="provider-create-subscribed-loading" class="text-muted py-4 d-none">
+                                {{ translate('Loading') }}…
                             </div>
-                            <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-header border-0 pb-0">
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body pt-0">
-                                            <div class="text-center px-xl-4 pb-4">
-                                                <img src="{{asset('/assets/admin-module/img/provider-create.png')}}" alt="">
-                                                <h4 class="mb-4 pb-3">{{translate('Select Payment Option')}}</h4>
-                                                <div class="row g-3">
-                                                    <div class="col-sm-12">
-                                                        <label class="input-radio-item">
-                                                            <input type="radio" name="plan_price" value="received_money" checked>
-                                                            <div class="inner">
-                                                                <div class="w-0 flex-grow-1">
-                                                                    <h4 class="m-0 text-start">{{translate('Received Money Manually')}}</h4>
-                                                                </div>
-                                                            </div>
-                                                        </label>
-                                                    </div>
-                                                    @if($freeTrialStatus)
-                                                        <div class="col-sm-12">
-                                                            <label class="input-radio-item">
-                                                                <input type="radio" name="plan_price" value="free_trial">
-                                                                <div class="inner">
-                                                                    <div class="w-0 flex-grow-1">
-                                                                        <h4 class="m-0 text-start">{{translate('Continue with Free Trial')}} {{ $duration }} {{translate('days')}}</h4>
-                                                                    </div>
-                                                                </div>
-                                                            </label>
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                                <div class="d-flex gap-4 flex-wrap justify-content-center mt-4 pt-2">
-                                                    <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{translate('Cancel')}}</button>
-                                                    <button type="button" class="btn btn--primary pay_complete_btn">{{translate('Complete')}}</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div id="provider-create-subscribed-empty" class="alert alert-info d-none mb-0">
+                                {{ translate('Select_zone_in_step_1_to_load_subcategories') }}
+                            </div>
+                            <div id="provider-create-subscribed-none" class="alert alert-warning d-none mb-0">
+                                {{ translate('No_sub_categories_in_this_zone') }}
+                            </div>
+
+                            <div id="provider-create-subscribed-table-wrap" class="table-responsive d-none">
+                                <table class="table align-middle">
+                                    <thead>
+                                    <tr>
+                                        <th>{{ translate('Sub_Category_Name') }}</th>
+                                        <th>{{ translate('Services') }}</th>
+                                        <th class="text-nowrap">{{ translate('Subscribe') }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="provider-create-subscribed-tbody"></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -444,8 +583,6 @@
 @push('script')
     <script src="{{asset('assets/provider-module')}}/js//tags-input.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/js/spartan-multi-image-picker.js"></script>
-    <script src="{{asset('assets/admin-module/plugins/swiper/swiper-bundle.min.js')}}"></script>
-
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-steps/jquery.steps.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-validation/jquery.validate.min.js"></script>
 
@@ -454,23 +591,79 @@
     <script>
         "use strict";
 
-            function updateSelectedPackage() {
-                const selectedPackage = document.querySelector('input[name="plan"]:checked');
-                if (selectedPackage) {
-                    document.getElementById('selected-package-input').value = selectedPackage.id;
+        (function () {
+            var cfg = document.getElementById("provider-create-wizard-config");
+            window.loadProviderCreateSubscribedServices = function () {
+                if (!cfg || typeof jQuery === "undefined") {
+                    return;
                 }
-            }
-
-            updateSelectedPackage();
-
+                var url = cfg.getAttribute("data-subcategories-url") || "";
+                var token = cfg.getAttribute("data-csrf-token") || "";
+                var zoneEl = document.querySelector('#create-provider-form select[name="zone_id"]');
+                var zoneId = zoneEl ? zoneEl.value : "";
+                var $loading = jQuery("#provider-create-subscribed-loading");
+                var $empty = jQuery("#provider-create-subscribed-empty");
+                var $none = jQuery("#provider-create-subscribed-none");
+                var $wrap = jQuery("#provider-create-subscribed-table-wrap");
+                var $tbody = jQuery("#provider-create-subscribed-tbody");
+                $empty.addClass("d-none");
+                $none.addClass("d-none");
+                $wrap.addClass("d-none");
+                $tbody.empty();
+                if (!zoneId) {
+                    $empty.removeClass("d-none");
+                    return;
+                }
+                $loading.removeClass("d-none");
+                jQuery.post(url, {_token: token, zone_id: zoneId})
+                    .done(function (res) {
+                        $loading.addClass("d-none");
+                        var list = (res && res.sub_categories) ? res.sub_categories : [];
+                        if (!list.length) {
+                            $none.removeClass("d-none");
+                            return;
+                        }
+                        list.forEach(function (row) {
+                            var tr = jQuery("<tr></tr>");
+                            var nameTd = jQuery("<td></td>").text(row.name || "");
+                            var cntTd = jQuery("<td></td>").text(row.services_count != null ? row.services_count : 0);
+                            var sw = jQuery("<label class=\"switcher mb-0\"></label>");
+                            var inp = jQuery("<input type=\"checkbox\" class=\"switcher_input\" name=\"subscribed_sub_category_ids[]\">")
+                                .val(row.id);
+                            sw.append(inp).append(jQuery("<span class=\"switcher_control\"></span>"));
+                            tr.append(nameTd).append(cntTd).append(jQuery("<td></td>").append(sw));
+                            $tbody.append(tr);
+                        });
+                        $wrap.removeClass("d-none");
+                    })
+                    .fail(function () {
+                        $loading.addClass("d-none");
+                        var $errRow = jQuery("<tr></tr>");
+                        $errRow.append(jQuery("<td colspan=\"3\" class=\"text-danger\"></td>")
+                            .text("{{ addslashes(translate('Could_not_load_subcategories')) }}"));
+                        $tbody.append($errRow);
+                        $wrap.removeClass("d-none");
+                    });
+            };
+        })();
 
         $(document).ready(function () {
+            var successModalEl = document.getElementById("providerCreatedSuccessModal");
+            if (successModalEl && typeof bootstrap !== "undefined") {
+                new bootstrap.Modal(successModalEl).show();
+            }
+
             let formWizard = $("#create-provider-form");
 
             formWizard.validate({
                 errorPlacement: function (error, element) {
                     element.parents('.form-floating, .form-error-wrap').after(error);
                 },
+                rules: {
+                    provider_type: {
+                        required: true
+                    }
+                }
             });
 
             document.querySelectorAll('input[type="tel"]').forEach(function(input) {
@@ -504,64 +697,77 @@
                     }
 
                     formWizard.validate().settings.ignore = ":disabled,:hidden";
-                    let multiImg = $('.spartan_image_input');
+                    const providerType = $(".provider-add-edit-form-root").find("input[name='provider_type']:checked").val();
+                    let identityDocsOk = true;
 
-                    if(multiImg.length < 2 && $('.spartan_item_wrapper_error_msg').length === 0) {
-                        multiImg.closest('.spartan_item_wrapper > div').after('<div class="spartan_item_wrapper_error_msg error text-danger mt-2 fs-12">This field is required.</div>');
+                    $('.identity-docs-error-msg').remove();
+                    const existingContactPreviews = $('#multi_image_picker img').length + $('#multi_image_picker a').length;
+                    const contactImageCount = $('#multi_image_picker .spartan_image_input[type="file"]').filter(function () {
+                        return this.files && this.files.length > 0;
+                    }).length || 0;
+                    const identityDraftCount = parseInt($('#multi_image_picker').attr('data-identity-draft-count') || '0', 10) || 0;
+
+                    if (contactImageCount < 1 && existingContactPreviews < 1 && identityDraftCount < 1) {
+                        $('#multi_image_picker')
+                            .closest('.upload-file')
+                            .after('<div class="identity-docs-error-msg error text-danger mt-2 fs-12">{{ addslashes(translate('Please upload at least one contact identity image')) }}</div>');
+                        identityDocsOk = false;
                     }
 
-                    document.querySelectorAll('input[name="plan"]').forEach(function (input) {
-                        input.addEventListener('change', updateSelectedPackage);
-                    });
+                    $('.company-identity-docs-error-msg').remove();
+                    if (providerType === 'company') {
+                        const existingCompanyPreviews = $('#company_multi_image_picker img').length + $('#company_multi_image_picker a').length;
+                        const companyImageCount = $('#company_multi_image_picker .spartan_image_input[type="file"]').filter(function () {
+                            return this.files && this.files.length > 0;
+                        }).length || 0;
+                        const companyDraftCount = parseInt($('#company_multi_image_picker').attr('data-company-identity-draft-count') || '0', 10) || 0;
 
-                    return formWizard.valid();
-                },
-                onFinished: function (event, currentIndex) {
-                    const myModalAlternative = new bootstrap.Modal('#paymentModal', {});
-
-                    if($('.subscription-type:checked').val() === 'subscription_based') {
-                        myModalAlternative.show();
-
-                        $('.pay_complete_btn').on('click', function() {
-                            formWizard.submit();
-                        })
-                    } else {
-                        formWizard.submit();
-                    }
-                }
-            });
-
-            $('.subscription-type').on('change', function(){
-                if($(this).is(':checked')) {
-                    if($(this).val() == 'commission_based') {
-                        $('#subscription-based-plan').collapse('hide');
-                    } else {
-                        $('#subscription-based-plan').collapse('show');
-                    }
-                }
-            })
-            $(window).on('load', function(){
-                $('.subscription-type').each(function(){
-                    if($(this).is(':checked')) {
-                        if($(this).val() == 'commission_based') {
-                            $('#subscription-based-plan').collapse('hide');
-                        } else {
-                            $('#subscription-based-plan').collapse('show');
+                        if (companyImageCount < 1 && existingCompanyPreviews < 1 && companyDraftCount < 1) {
+                            $('#company_multi_image_picker')
+                                .closest('.upload-file')
+                                .after('<div class="company-identity-docs-error-msg error text-danger mt-2 fs-12">{{ addslashes(translate('Please upload at least one company identity image')) }}</div>');
+                            identityDocsOk = false;
                         }
                     }
-                })
-            })
 
-            let swiper = new Swiper(".price-box-slider", {
-                slidesPerView: "auto",
-                spaceBetween: 24,
-                initialSlide: 0,
-                autoWidth: true,
-                loop: false,
-                navigation: {
-                    nextEl: ".swiper-button-next",
-                    prevEl: ".swiper-button-prev",
+                    if (!identityDocsOk) {
+                        return false;
+                    }
+
+                    if (currentIndex === 0 && typeof window.checkOwnerContactUniqueSync === "function") {
+                        if (!window.checkOwnerContactUniqueSync()) {
+                            return false;
+                        }
+                    }
+
+                    var validator = formWizard.data("validator");
+                    if (!validator) {
+                        return formWizard.valid();
+                    }
+                    var $currentSection = formWizard.find("> section").eq(currentIndex);
+                    var stepValid = true;
+                    $currentSection.find(":input").each(function () {
+                        if (!this.name) {
+                            return;
+                        }
+                        if ($(this).is(":button") || $(this).attr("type") === "submit") {
+                            return;
+                        }
+                        if ($(this).is(":disabled")) {
+                            return;
+                        }
+                        if (!validator.element(this)) {
+                            stepValid = false;
+                        }
+                    });
+                    if (stepValid && currentIndex === 0 && newIndex === 1 && typeof window.loadProviderCreateSubscribedServices === "function") {
+                        window.loadProviderCreateSubscribedServices();
+                    }
+                    return stepValid;
                 },
+                onFinished: function () {
+                    formWizard.submit();
+                }
             });
         });
     </script>
@@ -570,13 +776,68 @@
         "use strict";
 
         $(document).ready(function () {
-            $("#company_email").on("change keyup paste", function () {
+            function toggleProviderTypeFields() {
+                const $formRoot = $(".provider-add-edit-form-root");
+                const providerType = $formRoot.find("input[name='provider_type']:checked").val();
+                const isIndividual = providerType === "individual";
+
+                if (isIndividual) {
+                    $(".provider-company-fields").hide();
+                    $(".provider-logo-fields").hide();
+                    $(".provider-company-identity-fields").hide();
+                    $formRoot.find('[name="company_name"]').prop('required', false);
+                    $formRoot.find('[name="company_name"]').prop('disabled', true);
+                    $formRoot.find('[name="company_phone"]').prop('required', false);
+                    $formRoot.find('[name="company_phone"]').prop('disabled', true);
+                    $formRoot.find('[name="company_email"]').prop('required', false);
+                    $formRoot.find('[name="company_email"]').prop('disabled', true);
+                    $formRoot.find('[name="company_identity_type"]').prop('required', false);
+                    $formRoot.find('[name="company_identity_type"]').prop('disabled', true);
+                    $formRoot.find('[name="company_identity_number"]').prop('required', false);
+                    $formRoot.find('[name="company_identity_number"]').prop('disabled', true);
+                } else {
+                    $(".provider-company-fields").show();
+                    $(".provider-logo-fields").show();
+                    $(".provider-company-identity-fields").show();
+                    $formRoot.find('[name="company_name"]').prop('required', true);
+                    $formRoot.find('[name="company_name"]').prop('disabled', false);
+                    $formRoot.find('[name="company_phone"]').prop('required', true);
+                    $formRoot.find('[name="company_phone"]').prop('disabled', false);
+                    $formRoot.find('[name="company_email"]').prop('required', true);
+                    $formRoot.find('[name="company_email"]').prop('disabled', false);
+                    $formRoot.find('[name="company_identity_type"]').prop('required', true);
+                    $formRoot.find('[name="company_identity_type"]').prop('disabled', false);
+                    $formRoot.find('[name="company_identity_number"]').prop('required', true);
+                    $formRoot.find('[name="company_identity_number"]').prop('disabled', false);
+                }
+
+                // Toggle identity type options based on provider type.
+                const $identityType = $formRoot.find("select[name='identity_type']");
+                const $options = $identityType.find("option[data-for]");
+                $options.each(function () {
+                    const forType = $(this).data('for');
+                    const shouldEnable = isIndividual ? forType === 'individual' : forType === 'company';
+                    $(this).prop('disabled', !shouldEnable);
+                });
+
+                if ($identityType.find("option:selected").prop('disabled')) {
+                    $identityType.find("option:not(:disabled)").first().prop('selected', true);
+                }
+            }
+
+            toggleProviderTypeFields();
+            $("input[name='provider_type']").on("change", toggleProviderTypeFields);
+
+            // Account info defaults to contact person details.
+            $('#account_email').val($('[name="contact_person_email"]').val());
+            $('#account_phone').val($('[name="contact_person_phone"]').val());
+
+            $('[name="contact_person_email"]').on("change keyup paste", function () {
                 $('#account_email').val($(this).val());
             });
 
-            $("#company_phone").on("change keyup paste", function () {
-                let companyPhone = $('[name="company_phone"]').val()
-                $('[name="account_phone"]').val(companyPhone);
+            $("#contact_person_phone").on("change keyup paste", function () {
+                $('#account_phone').val($(this).val());
             });
 
 
@@ -588,8 +849,6 @@
         "use strict";
 
         $(document).ready(function () {
-            let imageCount = 0;
-
             let maxSizeReadable = "{{ readableUploadMaxFileSize('image') }}"; // "2MB"
             let maxFileSize = 2 * 1024 * 1024; // default 2MB
 
@@ -603,6 +862,9 @@
                 const allowedExtensions = ".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }},"
 
                 $('#multi_image_picker input[type=file]').each(function() {
+                    $(this).attr('accept', allowedExtensions);
+                });
+                $('#company_multi_image_picker input[type=file]').each(function() {
                     $(this).attr('accept', allowedExtensions);
                 });
             }
@@ -630,15 +892,9 @@
                 },
                 onAddRow: function (index) {
                     setAcceptForAllInputs();
-                    $('.spartan_item_wrapper_error_msg').remove();
-                    imageCount++;
+                    $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
                 },
-                onRemoveRow: function (index) {
-                    imageCount--;
-                    if(imageCount == 1){
-                        $('.spartan_item_wrapper > div').after('<div class="spartan_item_wrapper_error_msg error text-danger mt-2 fs-12">This field is required.</div>');
-                    }
-                },
+                // Identity validation is handled by the wizard (images OR PDFs).
                 onExtensionErr: function (index, file) {
                     toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
                         CloseButton: true,
@@ -650,6 +906,171 @@
                 }
 
             });
+
+            if ($("#company_multi_image_picker").length) {
+                $("#company_multi_image_picker").spartanMultiImagePicker({
+                    fieldName: 'company_identity_images[]',
+                    maxCount: 2,
+                    allowedExt: 'png|jpg|jpeg|webp|gif',
+                    rowHeight: 'auto',
+                    groupClassName: 'item',
+                    maxFileSize: maxFileSize,
+                    dropFileLabel: "{{translate('Drop_here')}}",
+                    placeholderImage: {
+                        image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
+                        width: '100%',
+                    },
+
+                    onAddRow: function (index) {
+                        setAcceptForAllInputs();
+                        $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                    },
+                    onExtensionErr: function (index, file) {
+                        toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
+                            CloseButton: true,
+                            ProgressBar: true
+                        });
+                    },
+                    onSizeErr: function () {
+                        toastr.error('File size must be less than ' + maxSizeReadable);
+                    }
+                });
+            }
+
+            // Multi-attachment uploader for PDF + additional documents.
+            // Handles preview + remove while syncing selected files into the real <input type="file">.
+            (function () {
+                const attachmentState = new Map(); // inputElement -> File[]
+
+                function fileKey(file) {
+                    return [file.name, file.size, file.lastModified].join('_');
+                }
+
+                function syncInputFiles(input, files) {
+                    if (!window.DataTransfer) return;
+                    const dt = new DataTransfer();
+                    files.forEach((f) => {
+                        if (f) dt.items.add(f);
+                    });
+                    input.files = dt.files;
+                }
+
+                function renderPreview(uploaderEl, files) {
+                    const inputEl = uploaderEl.querySelector('[data-attachment-input]');
+                    const previewEl = uploaderEl.querySelector('[data-attachment-preview]');
+                    if (!previewEl || !inputEl) return;
+
+                    previewEl.innerHTML = '';
+
+                    if (!files || files.length === 0) return;
+
+                    files.forEach(function (file, index) {
+                        if (!file) return;
+                        const isImage = (file.type || '').startsWith('image/');
+                        const fileName = file.name || 'document';
+                        const ext = (fileName.split('.').pop() || '').toLowerCase();
+                        const isPdf = ext === 'pdf' || (file.type && file.type === 'application/pdf');
+
+                        const item = document.createElement('div');
+                        item.className = 'position-relative border rounded p-2 bg-white';
+                        item.style.maxWidth = '220px';
+
+                        if (isImage) {
+                            const img = document.createElement('img');
+                            img.src = URL.createObjectURL(file);
+                            img.alt = fileName;
+                            img.style.maxHeight = '60px';
+                            img.style.maxWidth = '160px';
+                            img.style.objectFit = 'contain';
+                            img.className = 'd-block mx-auto';
+                            item.appendChild(img);
+                        } else if (isPdf) {
+                            const icon = document.createElement('div');
+                            icon.className = 'd-flex align-items-center gap-2 justify-content-center';
+                            icon.innerHTML =
+                                '<span class="material-icons text-danger">picture_as_pdf</span>' +
+                                '<span class="small text-break">' + (fileName.length > 22 ? fileName.slice(0, 22) + '...' : fileName) + '</span>';
+                            item.appendChild(icon);
+                        } else {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-secondary';
+                            badge.textContent = fileName;
+                            item.appendChild(badge);
+                        }
+
+                        const removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.type = 'button';
+                        removeBtn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 translate-middle';
+                        removeBtn.style.transform = 'translate(30%, -30%)';
+                        removeBtn.style.width = '28px';
+                        removeBtn.style.height = '28px';
+                        removeBtn.innerHTML = '&times;';
+                        removeBtn.setAttribute('data-attachment-remove-btn', 'true');
+                        removeBtn.dataset.removeIndex = index.toString();
+
+                        removeBtn.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const state = attachmentState.get(inputEl) || [];
+                            const idx = parseInt(removeBtn.dataset.removeIndex || '0', 10);
+                            if (Number.isNaN(idx)) return;
+                            state.splice(idx, 1);
+                            attachmentState.set(inputEl, state);
+                            syncInputFiles(inputEl, state);
+                            renderPreview(uploaderEl, state);
+                            $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                        });
+
+                        item.appendChild(removeBtn);
+                        previewEl.appendChild(item);
+                    });
+                }
+
+                document.addEventListener('click', function (e) {
+                    const trigger = e.target.closest('[data-attachment-trigger]');
+                    if (trigger) {
+                        const uploaderEl = trigger.closest('[data-attachment-uploader]');
+                        const inputEl = uploaderEl ? uploaderEl.querySelector('[data-attachment-input]') : null;
+                        if (inputEl) inputEl.click();
+                    }
+                });
+
+                document.addEventListener('change', function (e) {
+                    const inputEl = e.target && e.target.matches && e.target.matches('[data-attachment-input]') ? e.target : null;
+                    if (!inputEl) return;
+
+                    const uploaderEl = inputEl.closest('[data-attachment-uploader]');
+                    if (!uploaderEl) return;
+
+                    const selected = Array.from(inputEl.files || []);
+                    const prev = attachmentState.get(inputEl) || [];
+
+                    // If user cleared selection, reset.
+                    if (selected.length === 0) {
+                        attachmentState.set(inputEl, []);
+                        syncInputFiles(inputEl, []);
+                        renderPreview(uploaderEl, []);
+                        return;
+                    }
+
+                    const existingKeys = new Set(prev.map(fileKey));
+                    const merged = prev.slice();
+                    selected.forEach(function (f) {
+                        if (!f) return;
+                        const k = fileKey(f);
+                        if (!existingKeys.has(k)) {
+                            merged.push(f);
+                            existingKeys.add(k);
+                        }
+                    });
+
+                    attachmentState.set(inputEl, merged);
+                    syncInputFiles(inputEl, merged);
+                    renderPreview(uploaderEl, merged);
+                    $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                }, true);
+            })();
 
             function readURL(input) {
                 if (input.files && input.files[0]) {
@@ -707,7 +1128,7 @@
                         }, function (results, status) {
                             if (status == google.maps.GeocoderStatus.OK) {
                                 if (results[1]) {
-                                    document.getElementById('address').innerHtml = results[1].formatted_address;
+                                    document.getElementById('address').value = results[1].formatted_address;
                                 }
                             }
                         });

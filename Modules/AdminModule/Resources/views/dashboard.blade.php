@@ -58,6 +58,15 @@
         .missed-followup-row .small a {
             color: #dc3545 !important;
         }
+
+        /* Keep "half" widgets visually aligned (same min/max height). */
+        .dashboard-widget-recent-bookings-leads .card-body,
+        .dashboard-widget-top-providers-customers .card-body {
+            min-height: 420px;
+            max-height: 420px;
+            overflow: auto;
+        }
+
     </style>
 @endpush
 
@@ -379,12 +388,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="row g-4 mb-4">
+                {{-- <div class="row g-4 mb-4 pk-dashboard-old-widgets">
                     <div class="col-lg-4 col-12 col-sm-6">
                         <div class="card top-providers">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5>{{translate('top_providers')}}</h5>
-                                <a href="{{route('admin.provider.list')}}"
+                                <a href="{{route('admin.provider.top-providers')}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body">
@@ -477,6 +486,184 @@
                                         <span class="opacity-50">{{translate('No Bookings Found')}}</span>
                                     </div>
                                 @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>--}}
+                <div class="row g-4 mb-4 dashboard-widget-recent-bookings-leads">
+                    <div class="col-lg-6 col-12 col-sm-6">
+                        <div class="card recent-activities">
+                            <div class="card-header d-flex justify-content-between gap-10">
+                                <h5>{{translate('recent_bookings')}}</h5>
+                                <a href="{{route('admin.booking.list', ['booking_status'=>'pending', 'service_type' => 'all'])}}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
+                            <div class="card-body">
+                                <ul class="common-list">
+                                    @if(count($data[2]['bookings'] ?? []) < 1)
+                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
+                                            <span class="opacity-50">{{translate('No Bookings Found')}}</span>
+                                        </div>
+                                    @endif
+                                    @foreach($data[2]['bookings'] ?? [] as $booking)
+                                        <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer recent-booking-redirect"
+                                            data-route="@if($booking->is_repeated) {{ route('admin.booking.repeat_details', [$booking->id]) }}?web_page=details @else {{ route('admin.booking.details', [$booking->id]) }}?web_page=details @endif">
+                                            <div class="media align-items-center gap-3">
+                                                <div class="avatar avatar-lg">
+                                                    <img class="avatar-img rounded"
+                                                         src="{{ $booking->detail->isNotEmpty() ? ($booking->detail[0]->service?->thumbnail_full_path ?? asset('assets/admin-module/img/icons/service-placeholder.png')) : asset('assets/admin-module/img/icons/service-placeholder.png') }}"
+                                                         alt="{{ translate('provider-logo') }}">
+                                                </div>
+                                                <div class="media-body ">
+                                                    <h5 class="d-flex align-items-center">{{translate('Booking')}}# {{$booking->readable_id}}
+                                                        @if($booking->is_repeated)
+                                                            <img src="{{ asset('assets/admin-module/img/icons/repeat.svg') }}"
+                                                                 class="rounded-circle repeat-icon m-1" alt="{{ translate('repeat') }}">
+                                                        @endif
+                                                    </h5>
+                                                    <p>{{date('d-m-Y, H:i a',strtotime($booking->created_at))}}</p>
+                                                </div>
+                                            </div>
+                                            <span
+                                                class="badge rounded-pill py-2 px-3 badge-primary text-capitalize">{{$booking->booking_status}}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6 col-12 col-sm-6">
+                        <div class="card recent-leads">
+                            <div class="card-header d-flex justify-content-between gap-10">
+                                <h5>Recent Leads</h5>
+                                <a href="{{ route('admin.lead.index') }}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
+                            <div class="card-body">
+                                <ul class="common-list">
+                                    @if(count($data[6]['todays_pending_lead_followups'] ?? []) < 1)
+                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
+                                            <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
+                                        </div>
+                                    @endif
+                                    @foreach($data[6]['todays_pending_lead_followups'] ?? [] as $lead)
+                                        @php($leadInitial = $lead->name ? strtoupper(substr($lead->name, 0, 1)) : 'L')
+                                        <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer todays-followup-redirect"
+                                            data-route="{{ route('admin.lead.show', $lead->id) }}">
+                                            <div class="media align-items-center gap-3">
+                                                <div class="avatar avatar-lg bg-light d-flex align-items-center justify-content-center rounded-circle">
+                                                    <span class="fw-bold text-dark">{{ $leadInitial }}</span>
+                                                </div>
+                                                <div class="media-body">
+                                                    <h5 class="mb-1">Lead# {{$lead->id}}</h5>
+                                                    <p class="m-0 fs-12 opacity-75">{{ $lead->name ?? '—' }}</p>
+                                                    <p class="m-0 fs-12 opacity-75">{{ $lead->handled_by_name ?? '—' }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex flex-column align-items-end gap-2">
+                                                <span class="badge rounded-pill py-2 px-3 badge-primary text-capitalize">
+                                                    {{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}
+                                                </span>
+                                                <p class="m-0 fs-12 opacity-75">
+                                                    {{ $lead->next_followup_at ? $lead->next_followup_at->format('d-m-Y, H:i a') : '—' }}
+                                                </p>
+                                            </div>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4 dashboard-widget-top-providers-customers">
+                    <div class="col-lg-6 col-12 col-sm-6">
+                        <div class="card top-providers">
+                            <div class="card-header d-flex justify-content-between gap-10">
+                                <h5>Top Providers</h5>
+                                <a href="{{route('admin.provider.top-providers')}}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
+                            <div class="card-body">
+                                <ul class="common-list">
+                                    @if(count($data[3]['top_providers'] ?? []) < 1)
+                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
+                                            <span class="opacity-50">{{translate('No Bookings Found')}}</span>
+                                        </div>
+                                    @endif
+                                    @foreach($data[3]['top_providers'] ?? [] as $provider)
+                                        <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer provider-redirect"
+                                            data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
+                                            <div class="media gap-3 flex-grow-1">
+                                                <div class="avatar avatar-lg">
+                                                    <img class="avatar-img rounded-circle"
+                                                         src="{{ $provider->logo_full_path }}"
+                                                         alt="{{ translate('logo') }}">
+                                                </div>
+                                                <div class="media-body">
+                                                    <h5 class="mb-0 text-break">{{ $provider->company_name ?? '—' }}</h5>
+                                                    <p class="m-0 fs-12 opacity-75 text-break">
+                                                        {{ $provider->company_address ?? '—' }}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex-shrink-0" style="width: 120px;">
+                                                @php(
+                                                    $categoryNames = $provider->subscribed_services
+                                                        ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()->all()
+                                                        : []
+                                                )
+                                                <p class="m-0 fs-12 opacity-75">{{ $categoryNames[0] ?? '—' }}</p>
+                                            </div>
+
+                                            <div class="text-end" style="min-width: 90px;">
+                                                <p class="m-0 fs-12 opacity-75">{{ $provider->completed_bookings_count ?? 0 }} {{translate('bookings')}}</p>
+                                            </div>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6 col-12 col-sm-6">
+                        <div class="card top-providers">
+                            <div class="card-header d-flex justify-content-between gap-10">
+                                <h5>Top Customers</h5>
+                                <a href="{{route('admin.customer.top-customers')}}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
+                            <div class="card-body">
+                                <ul class="common-list">
+                                    @if(count($data[4]['top_customers'] ?? []) < 1)
+                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
+                                            <span class="opacity-50">{{translate('No Bookings Found')}}</span>
+                                        </div>
+                                    @endif
+                                    @foreach($data[4]['top_customers'] ?? [] as $customer)
+                                        <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer customer-redirect"
+                                            data-route="{{route('admin.customer.detail',[$customer->id,'web_page'=>'overview'])}}">
+                                            <div class="media gap-3 flex-grow-1">
+                                                <div class="avatar avatar-lg">
+                                                    <img class="avatar-img rounded-circle"
+                                                         src="{{ $customer->profile_image_full_path }}"
+                                                         alt="{{ $customer->first_name ?? 'Customer' }}">
+                                                </div>
+                                                <div class="media-body">
+                                                    <h5 class="mb-0">
+                                                        {{\Illuminate\Support\Str::limit(trim(($customer->first_name ?? '').' '.($customer->last_name ?? '')), 20)}}
+                                                    </h5>
+                                                </div>
+                                            </div>
+
+                                            <div class="text-end" style="min-width: 90px;">
+                                                <p class="m-0 fs-12 opacity-75">{{ $customer->completed_bookings_count ?? 0 }} {{translate('bookings')}}</p>
+                                            </div>
+                                        </li>
+                                    @endforeach
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -643,6 +830,10 @@
 
 
         $(".provider-redirect").on('click', function(){
+            location.href = $(this).data('route');
+        });
+
+        $(".customer-redirect").on('click', function(){
             location.href = $(this).data('route');
         });
 

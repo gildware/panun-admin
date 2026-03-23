@@ -391,9 +391,12 @@ class ProviderController extends Controller
      */
     public function getBankDetails(Request $request): JsonResponse
     {
-        $bankDetails = $this->bankDetail->where('provider_id', $request->user()->provider->id)->first();
+        $bankDetails = $this->bankDetail->where('provider_id', $request->user()->provider->id)->get();
 
-        return response()->json(response_formatter(DEFAULT_200, $bankDetails), 200);
+        return response()->json(response_formatter(DEFAULT_200, [
+            'bank_details' => $bankDetails,
+            'bank_detail' => $bankDetails->first(),
+        ]), 200);
     }
 
     /**
@@ -427,10 +430,12 @@ class ProviderController extends Controller
     public function updateBankDetails(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
+            'bank_detail_id' => 'nullable|uuid|exists:bank_details,id',
             'bank_name' => 'required',
-            'branch_name' => 'required',
+            'branch_name' => 'nullable',
             'acc_no' => 'required',
             'acc_holder_name' => 'required',
+            // Stored in `routing_number` column in `bank_details` table.
             'routing_number' => 'required',
         ]);
 
@@ -438,19 +443,33 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $this->bankDetail->updateOrCreate(
-            [
-                'provider_id' => $request->user()->provider->id,
-            ],
-            [
-                'provider_id' => $request->user()->provider->id,
-                'bank_name' => $request->bank_name,
-                'branch_name' => $request->branch_name,
-                'acc_no' => $request->acc_no,
-                'acc_holder_name' => $request->acc_holder_name,
-                'routing_number' => $request->routing_number
-            ],
-        );
+        $providerId = $request->user()->provider->id;
+
+        $payload = [
+            'bank_name' => $request->bank_name,
+            'branch_name' => $request->branch_name,
+            'acc_no' => $request->acc_no,
+            'acc_holder_name' => $request->acc_holder_name,
+            'routing_number' => $request->routing_number,
+        ];
+
+        $createNew = filter_var($request->input('create_new'), FILTER_VALIDATE_BOOLEAN);
+
+        if ($request->filled('bank_detail_id')) {
+            $this->bankDetail->where('provider_id', $providerId)
+                ->where('id', $request->bank_detail_id)
+                ->update($payload);
+        } else {
+            $existing = $this->bankDetail
+                ->where('provider_id', $providerId)
+                ->first();
+
+            if ($existing && !$createNew) {
+                $existing->update($payload);
+            } else {
+                $this->bankDetail->create(array_merge($payload, ['provider_id' => $providerId]));
+            }
+        }
 
         return response()->json(response_formatter(DEFAULT_STORE_200), 200);
     }
@@ -466,18 +485,20 @@ class ProviderController extends Controller
         if ($check !== true) {
             return $check;
         }
+        $provider = $this->provider::where('user_id', $request->user()->id)->first();
+        $providerType = $provider?->provider_type ?? 'company';
         $validator = Validator::make($request->all(), [
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $request->user()->id,
+            'contact_person_email' => 'required|email|unique:users,email,' . $request->user()->id,
             'zone_ids' => 'required|array',
             'zone_ids.*' => 'uuid',
 
             'password' => '',
             'confirm_password' => isset($request->password) ? 'required|same:password' : '',
 
-            'company_name' => 'required',
-            'company_phone' => 'required|unique:providers,id,' . auth()->user()->provider->id,
+            'company_name' => $providerType === 'company' ? 'required' : 'nullable',
+            'company_phone' => $providerType === 'company' ? 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8' : 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
             'logo' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'cover_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
@@ -501,9 +522,14 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $provider = $this->provider::where('user_id', $request->user()->id)->first();
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
+        if ($providerType === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+        }
 
         if ($request->has('logo')) {
             $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'), $provider->logo);
@@ -521,6 +547,9 @@ class ProviderController extends Controller
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
         $owner = $this->user->where('id', $request->user()->id)->first();
+        // Account (owner) info defaults to contact person details.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         if ($request->has('password')) {
             $owner->password = bcrypt($request->password);
         }

@@ -194,21 +194,21 @@ class ProviderController extends Controller
     {
 
         $validator = Validator::make($request->all(), [
+            'provider_type' => 'required|in:company,individual',
+
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
+            'contact_person_email' => 'required|email|unique:users,email',
 
             'account_first_name' => 'required',
             'account_last_name' => 'required',
-            'account_email' => 'required|email',
-            'account_phone' => 'required',
-            'password' => 'required',
-            'confirm_password' => 'required|same:password',
+            'account_email' => 'nullable|email',
+            'account_phone' => 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
 
-            'company_name' => 'required',
-            'company_phone' => 'required|unique:providers',
+            'company_name' => 'required_if:provider_type,company',
+            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required|email|unique:providers',
+            'company_email' => 'required_if:provider_type,company|email',
             'logo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'identity_type' => 'required|in:passport,driving_license,nid,trade_license,company_id',
@@ -224,13 +224,6 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        if (User::where('email', $request['account_email'])->first()) {
-            return response()->json(response_formatter(DEFAULT_400, null, [['error_code' => 'account_email', 'message' =>translate('Email already taken')]]), 400);
-        }
-        if (User::where('phone', $request['account_phone'])->first()) {
-            return response()->json(response_formatter(DEFAULT_400, null, [['error_code' => 'account_phone', 'message' =>translate('Phone already taken')]]), 400);
-        }
-
         $identityImages = [];
         foreach ($request->identity_images as $image) {
             $imageName = file_uploader('provider/identity/', APPLICATION_IMAGE_FORMAT, $image);
@@ -238,9 +231,16 @@ class ProviderController extends Controller
         }
 
         $provider = $this->provider;
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
-        $provider->company_email = $request->company_email;
+        $provider->provider_type = $request->provider_type;
+        if ($request->provider_type === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+            $provider->company_email = $request->company_email;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+        }
         $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
         $provider->company_address = $request->company_address;
 
@@ -254,13 +254,14 @@ class ProviderController extends Controller
         $owner = $this->owner;
         $owner->first_name = $request->account_first_name;
         $owner->last_name = $request->account_last_name;
-        $owner->email = $request->account_email;
-        $owner->phone = $request->account_phone;
+        // Account info defaults to contact person details.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
         $owner->identification_type = $request->identity_type;
         $owner->is_active = 1;
         $owner->identification_image = $identityImages;
-        $owner->password = bcrypt($request->password);
+        $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
 
         DB::transaction(function () use ($provider, $owner, $request) {
@@ -327,20 +328,25 @@ class ProviderController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'provider_type' => 'required|in:company,individual',
+
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $provider->user_id . ',id',
+            'contact_person_email' => 'required|email|unique:users,email,' . $provider->user_id . ',id',
 
             'password' => 'string|min:8',
             'confirm_password' => 'same:password',
             'account_first_name' => 'required',
             'account_last_name' => 'required',
-            'account_phone' => 'required|unique:users,phone,' . $provider->user_id . ',id',
+            // Account phone/email are derived from contact person.
+            'account_phone' => 'nullable',
 
-            'company_name' => 'required',
-            'company_phone' => 'required|unique:providers,company_phone,' . $provider->id . ',id',
+            'company_name' => $request->provider_type === 'company' ? 'required' : 'nullable',
+            'company_phone' => $request->provider_type === 'company'
+                ? 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8'
+                : 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required|email|unique:providers,company_email,' . $provider->id . ',id',
+            'company_email' => $request->provider_type === 'company' ? 'required|email' : 'nullable|email',
             'logo' => 'image|mimes:jpeg,jpg,png,gif|max:10000',
 
             'zone_ids' => 'required|array',
@@ -351,9 +357,16 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
-        $provider->company_email = $request->company_email;
+        $provider->provider_type = $request->provider_type;
+        if ($request->provider_type === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+            $provider->company_email = $request->company_email;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+        }
         if ($request->has('logo')) {
             $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
         }
@@ -366,7 +379,9 @@ class ProviderController extends Controller
         $owner = $provider->owner()->first();
         $owner->first_name = $request->account_first_name;
         $owner->last_name = $request->account_last_name;
-        $owner->phone = $request->account_phone;
+        // Account info defaults to contact person details.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         if ($request->has('password')) {
             $owner->password = bcrypt($request->password);
         }

@@ -17,6 +17,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
@@ -39,6 +40,7 @@ use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Traits\PreservesAdminProviderFormDrafts;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\LedgerTransaction;
@@ -73,6 +75,7 @@ class ProviderController extends Controller
     private BookingStatusHistory $bookingStatusHistory;
 
     use AuthorizesRequests;
+    use PreservesAdminProviderFormDrafts;
     use SubscriptionTrait;
     use UploadSizeHelperTrait;
 
@@ -164,6 +167,27 @@ class ProviderController extends Controller
     }
 
     /**
+     * Show top providers by number of completed bookings.
+     */
+    public function topProviders(Request $request): Renderable
+    {
+        $this->authorize('provider_view');
+
+        $providers = $this->provider
+            ->with(['owner', 'subscribed_services.category'])
+            ->ofApproval(1)
+            ->withCount(['bookings as completed_bookings_count' => function ($query) {
+                $query->ofBookingStatus('completed');
+            }])
+            ->having('completed_bookings_count', '>', 0)
+            ->orderByDesc('completed_bookings_count')
+            ->take(20)
+            ->get();
+
+        return view('providermanagement::admin.provider.top_providers', compact('providers'));
+    }
+
+    /**
      * Show the form for creating a new resource.
      * @return Renderable
      * @throws AuthorizationException
@@ -180,7 +204,131 @@ class ProviderController extends Controller
         $formattedPackages = $subscriptionPackages->map(function ($subscriptionPackage) {
             return formatSubscriptionPackage($subscriptionPackage, PACKAGE_FEATURES);
         });
-        return view('providermanagement::admin.provider.create', compact('zones','commission','subscription','formattedPackages', 'duration', 'freeTrialStatus'));
+        $providerFormDraft = $this->getProviderFormDraftManifest('create');
+
+        return view('providermanagement::admin.provider.create', compact('zones', 'commission', 'subscription', 'formattedPackages', 'duration', 'freeTrialStatus', 'providerFormDraft'));
+    }
+
+    /**
+     * Subcategories available for a zone (wizard step 2 — same rules as provider details › subscribed services).
+     */
+    public function subcategoriesForCreateWizard(Request $request): JsonResponse
+    {
+        $this->authorize('provider_add');
+
+        $request->validate([
+            'zone_id' => 'required|uuid',
+        ]);
+
+        $rows = $this->subCategoriesForZoneQuery($request->zone_id)
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'sub_categories' => $rows->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'services_count' => (int) ($c->services_count ?? 0),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    private function subCategoriesForZoneQuery(string $zoneId)
+    {
+        return $this->category->withCount('services')
+            ->whereHas('parent.zones', function ($query) use ($zoneId) {
+                $query->where('zone_id', $zoneId);
+            })
+            ->whereHas('parent', function ($query) {
+                $query->where('is_active', 1);
+            })
+            ->ofStatus(1)
+            ->ofType('sub');
+    }
+
+    /**
+     * AJAX duplicate check for contact person phone/email (wizard step + live feedback).
+     */
+    public function checkOwnerContactUnique(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'contact_person_phone' => 'nullable|string|max:32',
+            'contact_person_email' => 'nullable|email|max:191',
+            'exclude_user_id' => 'nullable|uuid',
+        ]);
+        if ($validator->fails()) {
+            $fieldErrors = [];
+            if ($validator->errors()->has('contact_person_phone')) {
+                $fieldErrors['contact_person_phone'] = $validator->errors()->first('contact_person_phone');
+            }
+            if ($validator->errors()->has('contact_person_email')) {
+                $fieldErrors['contact_person_email'] = $validator->errors()->first('contact_person_email');
+            }
+
+            return response()->json([
+                'valid' => false,
+                'messages' => $validator->errors()->all(),
+                'field_errors' => $fieldErrors,
+            ], 422);
+        }
+
+        $phone = trim((string) $request->input('contact_person_phone', ''));
+        $email = Str::lower(trim((string) $request->input('contact_person_email', '')));
+        $excludeUserId = $request->input('exclude_user_id');
+
+        $fieldErrors = [];
+
+        if ($phone !== '') {
+            if ($this->ownerContactPhoneTaken($phone, $excludeUserId)) {
+                $fieldErrors['contact_person_phone'] = translate('The contact person phone has already been taken.');
+            }
+        }
+
+        if ($email !== '') {
+            $emailQuery = $this->owner->newQuery()->whereRaw('LOWER(email) = ?', [$email]);
+            if ($excludeUserId) {
+                $emailQuery->where('id', '!=', $excludeUserId);
+            }
+            if ($emailQuery->exists()) {
+                $fieldErrors['contact_person_email'] = translate('The contact person email has already been taken.');
+            }
+        }
+
+        return response()->json([
+            'valid' => count($fieldErrors) === 0,
+            'field_errors' => $fieldErrors,
+        ]);
+    }
+
+    /**
+     * True if another user already owns this phone (exact, digits-only, or normalized match on MySQL).
+     */
+    private function ownerContactPhoneTaken(string $phone, ?string $excludeUserId): bool
+    {
+        $trim = trim($phone);
+        $digits = preg_replace('/\D+/', '', $trim) ?? '';
+
+        $q = $this->owner->newQuery();
+        if ($excludeUserId) {
+            $q->where('id', '!=', $excludeUserId);
+        }
+
+        $q->where(function ($w) use ($trim, $digits) {
+            if ($trim !== '') {
+                $w->where('phone', $trim);
+            }
+            if ($digits !== '' && $digits !== $trim) {
+                $w->orWhere('phone', $digits);
+            }
+            if ($digits !== '' && DB::connection()->getDriverName() === 'mysql') {
+                $w->orWhereRaw('REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?', [$digits]);
+            }
+        });
+
+        return $q->exists();
     }
 
     /**
@@ -193,36 +341,98 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_add');
 
-        $check = $this->validateUploadedFile($request, ['logo']);
+        if (!$request->filled('plan_type')) {
+            $request->merge(['plan_type' => 'commission_based']);
+        }
+
+        $formKey = 'create';
+        $this->attachProviderFormDraftToRequest($request, $formKey);
+
+        $preserveDraft = function () use ($request, $formKey) {
+            $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
+        };
+
+        $check = $this->validateUploadedFile($request, ['logo', 'contact_person_photo'], 'image', $preserveDraft);
         if ($check !== true) {
             return $check;
         }
 
-        $request->validate([
+        // Contact person identity (Box 5)
+        $identityIn = 'passport,driving_license,nid';
+        $allowedImageMimes = implode(',', array_column(IMAGEEXTENSION, 'key'));
+
+        try {
+            $request->validate([
+            'provider_type' => 'required|in:company,individual',
+
             'contact_person_name' => 'required|string|max:191',
-            'contact_person_phone' => 'required',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
+            'contact_person_email' => 'required|email|unique:users,email',
 
-            'account_email' => 'required|email|unique:users,email',
-            'account_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'password' => 'required|min:8',
-            'confirm_password' => 'required|same:password',
+            // Account email/phone are derived from contact person details by default.
+            // Keep them optional to avoid depending on front-end JS.
+            'account_email' => 'nullable|email',
+            'account_phone' => 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
 
-            'company_name' => 'required|string|max:191',
-            'company_phone' => 'required',
+            'company_name' => 'required_if:provider_type,company|string|max:191',
+            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required|email',
-            'logo' => 'required|image|required|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'company_email' => 'required_if:provider_type,company|email',
+            'logo' => 'required_if:provider_type,company|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
-            'identity_type' => 'required|in:passport,driving_license,nid,trade_license,company_id',
+            'contact_person_photo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+
+            'identity_type' => 'required|in:' . $identityIn,
             'identity_number' => 'required',
             'identity_images' => 'array',
             'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+
+            'identity_pdf_files' => 'nullable|array',
+            'identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
+
+            // Company identity docs & identity (Box 3)
+            'company_identity_type' => 'required_if:provider_type,company|in:trade_license,company_id',
+            'company_identity_number' => 'required_if:provider_type,company|string|max:191',
+            'company_identity_images' => 'array',
+            'company_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'company_identity_pdf_files' => 'nullable|array',
+            'company_identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
+
+            'additional_documents' => 'nullable|array',
+            'additional_documents.*.name' => 'nullable|string|max:191',
+            'additional_documents.*.description' => 'nullable|string',
+            'additional_documents.*.files' => 'nullable|array',
+            'additional_documents.*.files.*' => 'file|max:' . uploadMaxFileSizeInKB('file') . '|mimes:' . $allowedImageMimes . ',pdf',
             'latitude' => 'required',
             'longitude' => 'required',
 
             'zone_id' => 'required|uuid',
+
+            'subscribed_sub_category_ids' => 'nullable|array',
+            'subscribed_sub_category_ids.*' => 'uuid',
         ]);
+        } catch (ValidationException $e) {
+            $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
+            throw $e;
+        }
+
+        // Enforce at least one contact identity image (PDF upload removed from UI).
+        $hasContactImages = $request->has('identity_images') && is_array($request->identity_images) && count($request->identity_images) > 0;
+        if (!$hasContactImages) {
+            Toastr::error(translate('Please upload at least one contact identity image'));
+
+            return $this->backWithInputAndDraft($request, $formKey);
+        }
+
+        // Enforce at least one company identity image when provider is company.
+        if ($request->provider_type === 'company') {
+            $hasCompanyImages = $request->has('company_identity_images') && is_array($request->company_identity_images) && count($request->company_identity_images) > 0;
+            if (!$hasCompanyImages) {
+                Toastr::error(translate('Please upload at least one company identity image'));
+
+                return $this->backWithInputAndDraft($request, $formKey);
+            }
+        }
 
 
         if ($request->plan_type == 'subscription_based'){
@@ -230,7 +440,8 @@ class ProviderController extends Controller
             $vatPercentage      = (int)((business_config('subscription_vat', 'subscription_Setting'))->live_values ?? 0);
             if (!$package){
                 Toastr::error(translate('Please Select valid plan'));
-                return back();
+
+                return $this->backWithInputAndDraft($request, $formKey);
             }
 
             $id                 = $package?->id;
@@ -241,34 +452,103 @@ class ProviderController extends Controller
         $identityImages = [];
         if ($request->has('identity_images')) {
             foreach ($request->identity_images as $image) {
+                if (! $image) {
+                    continue;
+                }
                 $imageName = file_uploader('provider/identity/', APPLICATION_IMAGE_FORMAT, $image);
                 $identityImages[] = ['image'=>$imageName, 'storage'=> getDisk()];
             }
         }
 
+        if ($request->has('identity_pdf_files')) {
+            foreach ($request->identity_pdf_files as $pdf) {
+                if (! $pdf) {
+                    continue;
+                }
+                $pdfName = file_uploader('provider/identity/', 'pdf', $pdf);
+                $identityImages[] = ['image'=>$pdfName, 'storage'=> getDisk()];
+            }
+        }
+
+        $companyIdentityImages = [];
+        if ($request->has('company_identity_images')) {
+            foreach ($request->company_identity_images as $image) {
+                if (! $image) {
+                    continue;
+                }
+                $imageName = file_uploader('provider/company-identity/', APPLICATION_IMAGE_FORMAT, $image);
+                $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+            }
+        }
+
+        if ($request->has('company_identity_pdf_files')) {
+            foreach ($request->company_identity_pdf_files as $pdf) {
+                if (! $pdf) {
+                    continue;
+                }
+                $pdfName = file_uploader('provider/company-identity/', 'pdf', $pdf);
+                $companyIdentityImages[] = ['image' => $pdfName, 'storage' => getDisk()];
+            }
+        }
+
         $provider = $this->provider;
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
-        $provider->company_email = $request->company_email;
-        $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
+        $provider->provider_type = $request->provider_type;
+
+        // For Individual providers, we don't ask company/contact duplication.
+        // Still populate provider->company_* for compatibility with existing code/views.
+        if ($request->provider_type === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+            $provider->company_email = $request->company_email;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+        }
+
+        // Edit-mode remove support.
+        if ($request->boolean('logo_remove')) {
+            $provider->logo = null;
+        }
+        if ($request->has('logo')) {
+            $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
+        }
         $provider->company_address = $request->company_address;
 
         $provider->contact_person_name = $request->contact_person_name;
         $provider->contact_person_phone = $request->contact_person_phone;
         $provider->contact_person_email = $request->contact_person_email;
+
+        if ($request->boolean('contact_person_photo_remove')) {
+            $provider->contact_person_photo = null;
+        }
+        if ($request->has('contact_person_photo')) {
+            $provider->contact_person_photo = file_uploader('provider/contact_person_photo/', APPLICATION_IMAGE_FORMAT, $request->file('contact_person_photo'));
+        }
+
+        // Save company identity docs (only required for provider_type=company).
+        if ($request->provider_type === 'company') {
+            $provider->company_identity_type = $request->company_identity_type;
+            $provider->company_identity_number = $request->company_identity_number;
+            $provider->company_identity_images = $companyIdentityImages;
+        } else {
+            $provider->company_identity_type = null;
+            $provider->company_identity_number = null;
+            $provider->company_identity_images = [];
+        }
         $provider->is_approved = 1;
         $provider->is_active = 1;
         $provider->zone_id = $request['zone_id'];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
         $owner = $this->owner;
-        $owner->email = $request->account_email;
-        $owner->phone = $request->account_phone;
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
         $owner->identification_type = $request->identity_type;
         $owner->is_active = 1;
         $owner->identification_image = $identityImages;
-        $owner->password = bcrypt($request->password);
+        $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
 
         DB::transaction(function () use ($provider, $owner, $request) {
@@ -287,7 +567,88 @@ class ProviderController extends Controller
                 'mode'          => 'live',
                 'is_active'     => 1,
             ]);
+
+            $allSubs = $this->subCategoriesForZoneQuery($request->zone_id)->get();
+            $allowedIds = $allSubs->pluck('id')->all();
+            $rawIds = $request->input('subscribed_sub_category_ids', []);
+            if (! is_array($rawIds)) {
+                $rawIds = [];
+            }
+            $requested = [];
+            foreach ($rawIds as $rid) {
+                if (is_string($rid) && Str::isUuid($rid) && in_array($rid, $allowedIds, true)) {
+                    $requested[] = $rid;
+                }
+            }
+            $requested = array_values(array_unique($requested));
+
+            foreach ($allSubs as $subCategory) {
+                $this->subscribedService->create([
+                    'provider_id' => $provider->id,
+                    'category_id' => $subCategory->parent_id,
+                    'sub_category_id' => $subCategory->id,
+                    'is_subscribed' => in_array($subCategory->id, $requested, true) ? 1 : 0,
+                ]);
+            }
         });
+
+        // Upload additional documents (optional).
+        $additionalDocuments = $request->input('additional_documents', []);
+        if (is_array($additionalDocuments) && count($additionalDocuments) > 0) {
+            foreach ($additionalDocuments as $docIndex => $doc) {
+                $docName = trim($doc['name'] ?? '');
+                $docDescription = $doc['description'] ?? null;
+                $files = $request->file('additional_documents.' . $docIndex . '.files', []);
+                if (! is_array($files)) {
+                    $files = $files ? [$files] : [];
+                }
+
+                if (!$docName && empty($files)) {
+                    continue; // Completely empty row.
+                }
+
+                if (empty($files)) {
+                    Toastr::error(translate('Please upload at least one file for document'));
+
+                    return $this->backWithInputAndDraft($request, $formKey);
+                }
+
+                if (!$docName && !empty($files)) {
+                    Toastr::error(translate('Please enter document name'));
+
+                    return $this->backWithInputAndDraft($request, $formKey);
+                }
+
+                $documentId = (string) \Illuminate\Support\Str::uuid();
+                DB::table('providers_additional_documents')->insert([
+                    'id' => $documentId,
+                    'provider_id' => $provider->id,
+                    'document_name' => $docName,
+                    'document_description' => $docDescription,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                foreach ($files as $file) {
+                    if (!$file) continue;
+                    $extension = $file->getClientOriginalExtension() ?: 'bin';
+                    $filePath = file_uploader(
+                        'provider/additional-documents/' . $documentId,
+                        $extension,
+                        $file
+                    );
+
+                    DB::table('providers_additional_document_files')->insert([
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'document_id' => $documentId,
+                        'file_path' => $filePath,
+                        'storage' => getDisk(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+        }
 
         $emailStatus = business_config('email_config_status', 'email_config')->live_values;
 
@@ -322,20 +683,26 @@ class ProviderController extends Controller
 
                 if (!$result) {
                     Toastr::error(translate('Something error'));
-                    return back();
+
+                    return $this->backWithInputAndDraft($request, $formKey);
                 }
             }
             if ($request->plan_price == 'free_trial') {
                 $result = $this->handleFreeTrialPackageSubscription($id, $provider_id, $price, $name);
                 if (!$result) {
                     Toastr::error(translate('Something error'));
-                    return back();
+
+                    return $this->backWithInputAndDraft($request, $formKey);
                 }
             }
         }
 
-        Toastr::success(translate(DEFAULT_200['message']));
-        return back();
+        $this->clearProviderFormDraft($formKey);
+
+        return redirect()->route('admin.provider.create')->with('provider_created', [
+            'id' => $provider->id,
+            'name' => (string) ($provider->company_name ?: $provider->contact_person_name),
+        ]);
     }
 
     /**
@@ -355,23 +722,87 @@ class ProviderController extends Controller
 
         //overview (no payment widgets; those are on the Payment tab)
         if ($request->web_page == 'overview') {
-            $provider = $this->provider->with('owner.account')->withCount(['bookings'])->find($id);
+            $provider = $this->provider->with('owner.account', 'zone')->withCount(['bookings'])->find($id);
             $bookingOverview = DB::table('bookings')->where('provider_id', $id)
                 ->select('booking_status', DB::raw('count(*) as total'))
                 ->groupBy('booking_status')
                 ->get();
 
             $status = ['accepted', 'ongoing', 'completed', 'canceled'];
-            $total = [];
+            $bookingStatusCounts = [];
             foreach ($status as $item) {
-                if ($bookingOverview->where('booking_status', $item)->first() !== null) {
-                    $total[] = $bookingOverview->where('booking_status', $item)->first()->total;
-                } else {
-                    $total[] = 0;
+                $bookingStatusCounts[$item] = (int) ($bookingOverview->where('booking_status', $item)->first()->total ?? 0);
+            }
+            $total = array_values($bookingStatusCounts);
+
+            $subscribedServiceCategoryCounts = DB::table('subscribed_services as ss')
+                ->leftJoin('categories as c', 'c.id', '=', 'ss.category_id')
+                ->where('ss.provider_id', $id)
+                ->where('ss.is_subscribed', 1)
+                ->select('ss.category_id', DB::raw('MAX(c.name) as category_name'), DB::raw('COUNT(*) as total'))
+                ->groupBy('ss.category_id')
+                ->orderByDesc('total')
+                ->get();
+            $totalSubscribedServices = (int) $subscribedServiceCategoryCounts->sum('total');
+
+            $providerBookingIds = DB::table('bookings')->where('provider_id', $id)->pluck('id')->toArray();
+            $bookingIdsWithRepeats = DB::table('booking_repeats')->whereNotNull('booking_id')->distinct()->pluck('booking_id')->toArray();
+            $oneTimeQuery = DB::table('bookings')->where('provider_id', $id)->where('booking_status', 'completed');
+            if (!empty($bookingIdsWithRepeats)) {
+                $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
+            }
+            $completedOneTimeBookingIds = $oneTimeQuery->pluck('id');
+
+            $totalRevenueFromBookings = 0.0;
+            $oneTimeBookingsForRevenue = Booking::whereIn('id', $completedOneTimeBookingIds)->with('extra_services')->get();
+            foreach ($oneTimeBookingsForRevenue as $b) {
+                $totalRevenueFromBookings += get_booking_total_amount($b);
+            }
+
+            $totalRevenueFromRepeats = 0.0;
+            $completedRepeatIds = collect();
+            if (!empty($providerBookingIds)) {
+                $completedRepeatIds = DB::table('booking_repeats')
+                    ->where('booking_status', 'completed')
+                    ->whereIn('booking_id', $providerBookingIds)
+                    ->pluck('id');
+                $repeatsForRevenue = BookingRepeat::whereIn('id', $completedRepeatIds)->with('booking.extra_services')->get();
+                foreach ($repeatsForRevenue as $r) {
+                    $totalRevenueFromRepeats += get_booking_total_amount($r);
                 }
             }
 
-            return view('providermanagement::admin.provider.detail.overview', compact('provider', 'webPage', 'total'));
+            $totalRevenue = (float) ($totalRevenueFromBookings + $totalRevenueFromRepeats);
+            $totalCompanyCommission = (float) BookingDetailsAmount::whereIn('booking_id', $completedOneTimeBookingIds)->sum('admin_commission');
+            $totalCompanyCommission += (float) BookingDetailsAmount::whereIn('booking_repeat_id', $completedRepeatIds)->sum('admin_commission');
+            $providerNetEarning = $totalRevenue - $totalCompanyCommission;
+
+            $additionalDocuments = DB::table('providers_additional_documents')
+                ->where('provider_id', $id)
+                ->orderByDesc('created_at')
+                ->get();
+            $additionalDocumentFiles = collect();
+            if ($additionalDocuments->isNotEmpty()) {
+                $additionalDocumentFiles = DB::table('providers_additional_document_files')
+                    ->whereIn('document_id', $additionalDocuments->pluck('id'))
+                    ->orderBy('id')
+                    ->get()
+                    ->groupBy('document_id');
+            }
+
+            return view('providermanagement::admin.provider.detail.overview', compact(
+                'provider',
+                'webPage',
+                'total',
+                'bookingStatusCounts',
+                'totalSubscribedServices',
+                'subscribedServiceCategoryCounts',
+                'totalRevenue',
+                'providerNetEarning',
+                'totalCompanyCommission',
+                'additionalDocuments',
+                'additionalDocumentFiles'
+            ));
 
         } //subscribed_services
         elseif ($request->web_page == 'subscribed_services') {
@@ -379,8 +810,8 @@ class ProviderController extends Controller
             $status = $request->has('status') ? $request['status'] : 'all';
             $queryParam = ['web_page' => $webPage, 'status' => $status, 'search' => $search];
 
-            // Get provider to access zone_id
-            $provider = $this->provider->find($id);
+            // Get provider to access zone_id (also used by the header pills)
+            $provider = $this->provider->with('owner')->find($id);
             $zoneId = $provider->zone_id ?? null;
 
             if (!$zoneId) {
@@ -453,13 +884,15 @@ class ProviderController extends Controller
                     ->appends($queryParam);
             }
 
-            return view('providermanagement::admin.provider.detail.subscribed-services', compact('subCategories', 'webPage', 'status', 'search'));
+            return view('providermanagement::admin.provider.detail.subscribed-services', compact('subCategories', 'webPage', 'status', 'search', 'provider'));
 
         } //bookings
         elseif ($request->web_page == 'bookings') {
 
             $search = $request->has('search') ? $request['search'] : '';
             $queryParam = ['web_page' => $webPage, 'search' => $search];
+
+            $provider = $this->provider->with('owner')->find($id);
 
             $bookings = $this->booking->where('provider_id', $id)
                 ->with(['customer', 'details_amounts'])
@@ -472,11 +905,13 @@ class ProviderController extends Controller
                 ->latest()
                 ->paginate(pagination_limit())->appends($queryParam);
 
-            return view('providermanagement::admin.provider.detail.bookings', compact('bookings', 'webPage', 'search'));
+            return view('providermanagement::admin.provider.detail.bookings', compact('bookings', 'webPage', 'search', 'provider'));
 
         } //serviceman_list
         elseif ($request->web_page == 'serviceman_list') {
             $queryParam = ['web_page' => $webPage];
+
+            $provider = $this->provider->with('owner')->find($id);
 
             $servicemen = $this->serviceman
                 ->with(['user'])
@@ -484,11 +919,11 @@ class ProviderController extends Controller
                 ->latest()
                 ->paginate(pagination_limit())->appends($queryParam);
 
-            return view('providermanagement::admin.provider.detail.serviceman-list', compact('servicemen', 'webPage'));
+            return view('providermanagement::admin.provider.detail.serviceman-list', compact('servicemen', 'webPage', 'provider'));
 
         } //settings
         elseif ($request->web_page == 'settings') {
-            $provider = $this->provider->find($id);
+            $provider = $this->provider->with('owner')->find($id);
             return view('providermanagement::admin.provider.detail.settings', compact('webPage', 'provider'));
 
         } //bank_info
@@ -545,7 +980,7 @@ class ProviderController extends Controller
         }//reviews
         elseif ($request->web_page == 'subscription') {
 
-            $provider = $this->provider->where('id', $id)->first();
+            $provider = $this->provider->with('owner')->where('id', $id)->first();
             $providerId = $provider->id;
             $subscriptionStatus = (int)((business_config('provider_subscription', 'provider_config'))->live_values);
             $commission = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
@@ -569,10 +1004,10 @@ class ProviderController extends Controller
                 $calculationVat = $subscriptionPrice * ($vatPercentage / 100);
                 $renewalPrice = $subscriptionPrice + $calculationVat;
 
-                return view('providermanagement::admin.provider.detail.subscription', compact('webPage', 'subscriptionDetails', 'daysDifference', 'bookingCheck', 'categoryCheck', 'isBookingLimit', 'isCategoryLimit', 'totalBill', 'totalPurchase', 'renewalPrice'));
+                return view('providermanagement::admin.provider.detail.subscription', compact('webPage', 'provider', 'subscriptionDetails', 'daysDifference', 'bookingCheck', 'categoryCheck', 'isBookingLimit', 'isCategoryLimit', 'totalBill', 'totalPurchase', 'renewalPrice'));
             }
 
-            return view('providermanagement::admin.provider.detail.subscription', compact('webPage','subscriptionDetails','commission', 'subscriptionStatus'));
+            return view('providermanagement::admin.provider.detail.subscription', compact('webPage', 'provider', 'subscriptionDetails', 'commission', 'subscriptionStatus'));
 
         }
         elseif ($request->web_page == 'payment') {
@@ -825,7 +1260,33 @@ class ProviderController extends Controller
             return formatSubscriptionPackage($subscriptionPackage, PACKAGE_FEATURES);
         });
         $packageSubscription = $this->packageSubscriber->where('provider_id', $id)->first();
-        return view('providermanagement::admin.provider.edit', compact('provider', 'zones', 'commission','subscription','formattedPackages', 'duration', 'freeTrialStatus', 'packageSubscription'));
+        $providerFormDraft = $this->getProviderFormDraftManifest('edit_' . $id);
+        $existingAdditionalDocuments = DB::table('providers_additional_documents')
+            ->where('provider_id', $id)
+            ->orderBy('created_at')
+            ->get();
+        $existingAdditionalDocumentFiles = collect();
+        if ($existingAdditionalDocuments->isNotEmpty()) {
+            $existingAdditionalDocumentFiles = DB::table('providers_additional_document_files')
+                ->whereIn('document_id', $existingAdditionalDocuments->pluck('id'))
+                ->orderBy('created_at')
+                ->get()
+                ->groupBy('document_id');
+        }
+
+        return view('providermanagement::admin.provider.edit', compact(
+            'provider',
+            'zones',
+            'commission',
+            'subscription',
+            'formattedPackages',
+            'duration',
+            'freeTrialStatus',
+            'packageSubscription',
+            'providerFormDraft',
+            'existingAdditionalDocuments',
+            'existingAdditionalDocumentFiles'
+        ));
     }
 
 
@@ -840,45 +1301,91 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_update');
 
-        $check = $this->validateUploadedFile($request, ['logo']);
+        $formKey = 'edit_' . $id;
+        $this->attachProviderFormDraftToRequest($request, $formKey);
+
+        $preserveDraft = function () use ($request, $formKey) {
+            $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
+        };
+
+        $check = $this->validateUploadedFile($request, ['logo', 'contact_person_photo'], 'image', $preserveDraft);
         if ($check !== true) {
             return $check;
         }
 
         $provider = $this->provider->with('owner')->find($id);
 
-        Validator::make($request->all(), [
+        $allowedImageMimes = implode(',', array_column(IMAGEEXTENSION, 'key'));
+
+        try {
+            Validator::make($request->all(), [
+            'provider_type' => 'required|in:company,individual',
+
             'contact_person_name' => 'required|string|max:191',
-            'contact_person_phone' => 'required',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $provider->user_id,
+            'contact_person_email' => 'required|email|unique:users,email,' . $provider->user_id,
 
             'password' => !is_null($request->password) ? 'string|min:8' : '',
             'confirm_password' => !is_null($request->password) ? 'required|same:password' : '',
 
-            'company_name' => 'required|string|max:191',
-            'company_phone' => 'required',
+            'company_name' => 'required_if:provider_type,company|string|max:191',
+            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required|email',
+            'company_email' => 'required_if:provider_type,company|email',
             'logo' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'contact_person_photo' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
-            'identity_type' => 'required|in:passport,driving_license,nid,trade_license,company_id',
+            // Contact person identity (Box 5)
+            'identity_type' => 'required|in:passport,driving_license,nid',
             'identity_number' => 'required',
             'identity_images' => 'array',
             'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+
+            'identity_pdf_files' => 'nullable|array',
+            'identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
+
+            // Company identity docs & identity (Box 3)
+            'company_identity_type' => 'required_if:provider_type,company|in:trade_license,company_id',
+            'company_identity_number' => 'required_if:provider_type,company|string|max:191',
+            'company_identity_images' => 'array',
+            'company_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'company_identity_pdf_files' => 'nullable|array',
+            'company_identity_pdf_files.*' => 'file|mimes:pdf|max:' . uploadMaxFileSizeInKB('file'),
+
+            'additional_documents' => 'nullable|array',
+            'additional_documents.*.name' => 'nullable|string|max:191',
+            'additional_documents.*.description' => 'nullable|string',
+            'additional_documents.*.files' => 'nullable|array',
+            'additional_documents.*.files.*' => 'file|max:' . uploadMaxFileSizeInKB('file') . '|mimes:' . $allowedImageMimes . ',pdf',
             'latitude' => 'required',
             'longitude' => 'required',
 
             'zone_id' => 'required|uuid'
         ])->validate();
-
-        if (User::where('email', $request['company_email'])->where('id', '!=', $provider->user_id)->exists()) {
-            Toastr::error(translate('Email already taken'));
-            return back();
+        } catch (ValidationException $e) {
+            $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
+            throw $e;
         }
 
-        if (User::where('phone', $request['company_phone'])->where('id', '!=', $provider->user_id)->exists()) {
-            Toastr::error(translate('Phone already taken'));
-            return back();
+        // Contact identity is required (Box 5) unless provider already has saved identity docs.
+        $hasContactImages = $request->has('identity_images') && is_array($request->identity_images) && count($request->identity_images) > 0;
+        $ownerHasExistingIdentity = $provider->owner && is_array($provider->owner->identification_image) && count($provider->owner->identification_image) > 0;
+        if (!$hasContactImages && !$ownerHasExistingIdentity) {
+            Toastr::error(translate('Please upload at least one contact identity image'));
+
+            return $this->backWithInputAndDraft($request, $formKey);
+        }
+
+        // Company identity is required only for provider_type=company.
+        if ($request->provider_type === 'company') {
+            $hasCompanyImages = $request->has('company_identity_images') && is_array($request->company_identity_images) && count($request->company_identity_images) > 0;
+            $providerHasExistingCompanyIdentity = is_array($provider->company_identity_images) && count($provider->company_identity_images) > 0;
+
+            if (!$hasCompanyImages && !$providerHasExistingCompanyIdentity) {
+                Toastr::error(translate('Please upload at least one company identity image'));
+
+                return $this->backWithInputAndDraft($request, $formKey);
+            }
         }
 
         if ($request->plan_type == 'subscription_based'){
@@ -886,7 +1393,8 @@ class ProviderController extends Controller
             $vatPercentage      = (int)((business_config('subscription_vat', 'subscription_Setting'))->live_values ?? 0);
             if (!$package){
                 Toastr::error(translate('Please Select valid plan'));
-                return back();
+
+                return $this->backWithInputAndDraft($request, $formKey);
             }
 
             $packageId          = $package?->id;
@@ -895,27 +1403,87 @@ class ProviderController extends Controller
         }
 
         $identityImages = [];
-        if (!is_null($request->identity_images)) {
+        if (! is_null($request->identity_images)) {
             foreach ($request->identity_images as $image) {
+                if (! $image) {
+                    continue;
+                }
                 $imageName = file_uploader('provider/identity/', APPLICATION_IMAGE_FORMAT, $image);
                 $identityImages[] = ['image'=>$imageName, 'storage'=> getDisk()];
             }
         }
 
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
-        $provider->company_email = $request->company_email;
+        if (! is_null($request->identity_pdf_files)) {
+            foreach ($request->identity_pdf_files as $pdf) {
+                if (! $pdf) {
+                    continue;
+                }
+                $pdfName = file_uploader('provider/identity/', 'pdf', $pdf);
+                $identityImages[] = ['image'=>$pdfName, 'storage'=> getDisk()];
+            }
+        }
+
+        $companyIdentityImages = [];
+        if (! is_null($request->company_identity_images)) {
+            foreach ($request->company_identity_images as $image) {
+                if (! $image) {
+                    continue;
+                }
+                $imageName = file_uploader('provider/company-identity/', APPLICATION_IMAGE_FORMAT, $image);
+                $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+            }
+        }
+
+        if (! is_null($request->company_identity_pdf_files)) {
+            foreach ($request->company_identity_pdf_files as $pdf) {
+                if (! $pdf) {
+                    continue;
+                }
+                $pdfName = file_uploader('provider/company-identity/', 'pdf', $pdf);
+                $companyIdentityImages[] = ['image' => $pdfName, 'storage' => getDisk()];
+            }
+        }
+
+        $provider->provider_type = $request->provider_type;
+        if ($request->provider_type === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+            $provider->company_email = $request->company_email;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+        }
+
         if ($request->has('logo')) {
             $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
         }
         $provider->company_address = $request->company_address;
+
+        if ($request->provider_type === 'company') {
+            $provider->company_identity_type = $request->company_identity_type;
+            $provider->company_identity_number = $request->company_identity_number;
+            if (count($companyIdentityImages) > 0) {
+                $provider->company_identity_images = $companyIdentityImages;
+            }
+        } else {
+            $provider->company_identity_type = null;
+            $provider->company_identity_number = null;
+            $provider->company_identity_images = [];
+        }
         $provider->contact_person_name = $request->contact_person_name;
         $provider->contact_person_phone = $request->contact_person_phone;
         $provider->contact_person_email = $request->contact_person_email;
+        if ($request->has('contact_person_photo')) {
+            $provider->contact_person_photo = file_uploader('provider/contact_person_photo/', APPLICATION_IMAGE_FORMAT, $request->file('contact_person_photo'));
+        }
         $provider->zone_id = $request['zone_id'];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
         $owner = $provider->owner()->first();
+        // Account (owner) information is derived from contact person by default.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
         $owner->identification_type = $request->identity_type;
         if (count($identityImages) > 0) {
@@ -949,6 +1517,115 @@ class ProviderController extends Controller
             $provider->save();
         });
 
+        // Upload additional documents (optional) - replace existing on edit.
+        if ($request->has('additional_documents')) {
+            $additionalDocuments = $request->input('additional_documents', []);
+            $existingDocsBeforeReplace = DB::table('providers_additional_documents')
+                ->where('provider_id', $id)
+                ->get(['id']);
+            $existingDocFileMap = [];
+            if ($existingDocsBeforeReplace->isNotEmpty()) {
+                $existingDocFiles = DB::table('providers_additional_document_files')
+                    ->whereIn('document_id', $existingDocsBeforeReplace->pluck('id'))
+                    ->get(['document_id', 'file_path', 'storage']);
+                foreach ($existingDocFiles as $existingFile) {
+                    $existingDocFileMap[$existingFile->document_id][] = [
+                        'file_path' => $existingFile->file_path,
+                        'storage' => $existingFile->storage,
+                    ];
+                }
+            }
+
+            if (is_array($additionalDocuments) && count($additionalDocuments) > 0) {
+                foreach ($additionalDocuments as $docIndex => $doc) {
+                    $docName = trim($doc['name'] ?? '');
+                    $docDescription = $doc['description'] ?? null;
+                    $existingDocumentId = (string) ($doc['existing_document_id'] ?? '');
+                    $files = $request->file('additional_documents.' . $docIndex . '.files', []);
+                    if (! is_array($files)) {
+                        $files = $files ? [$files] : [];
+                    }
+
+                    if (!$docName && empty($files)) {
+                        continue;
+                    }
+
+                    $hasExistingFiles = $existingDocumentId !== '' && !empty($existingDocFileMap[$existingDocumentId] ?? []);
+                    if (empty($files) && !$hasExistingFiles) {
+                        Toastr::error(translate('Please upload at least one file for document'));
+
+                        return $this->backWithInputAndDraft($request, $formKey);
+                    }
+                }
+            }
+
+            DB::table('providers_additional_documents')->where('provider_id', $id)->delete();
+
+            if (is_array($additionalDocuments) && count($additionalDocuments) > 0) {
+                foreach ($additionalDocuments as $docIndex => $doc) {
+                    $docName = trim($doc['name'] ?? '');
+                    $docDescription = $doc['description'] ?? null;
+                    $existingDocumentId = (string) ($doc['existing_document_id'] ?? '');
+                    $files = $request->file('additional_documents.' . $docIndex . '.files', []);
+                    if (! is_array($files)) {
+                        $files = $files ? [$files] : [];
+                    }
+                    $hasExistingFiles = $existingDocumentId !== '' && !empty($existingDocFileMap[$existingDocumentId] ?? []);
+
+                    if (!$docName && empty($files) && !$hasExistingFiles) {
+                        continue;
+                    }
+
+                    $documentId = (string) \Illuminate\Support\Str::uuid();
+                    DB::table('providers_additional_documents')->insert([
+                        'id' => $documentId,
+                        'provider_id' => $provider->id,
+                        'document_name' => $docName,
+                        'document_description' => $docDescription,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+                    if ($hasExistingFiles) {
+                        foreach (($existingDocFileMap[$existingDocumentId] ?? []) as $existingFileRow) {
+                            $existingFilePath = (string) ($existingFileRow['file_path'] ?? '');
+                            if ($existingFilePath !== '' && !str_contains($existingFilePath, '/')) {
+                                // Preserve original physical location when historical rows stored filename only.
+                                $existingFilePath = 'provider/additional-documents/' . $existingDocumentId . '/' . $existingFilePath;
+                            }
+                            DB::table('providers_additional_document_files')->insert([
+                                'id' => (string) \Illuminate\Support\Str::uuid(),
+                                'document_id' => $documentId,
+                                'file_path' => $existingFilePath,
+                                'storage' => $existingFileRow['storage'] ?? 'public',
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+
+                    foreach ($files as $file) {
+                        if (!$file) continue;
+                        $extension = $file->getClientOriginalExtension() ?: 'bin';
+                        $filePath = file_uploader(
+                            'provider/additional-documents/' . $documentId,
+                            $extension,
+                            $file
+                        );
+
+                        DB::table('providers_additional_document_files')->insert([
+                            'id' => (string) \Illuminate\Support\Str::uuid(),
+                            'document_id' => $documentId,
+                            'file_path' => $filePath,
+                            'storage' => getDisk(),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
+            }
+        }
+
         if ($request->plan_type == 'subscription_based') {
             $provider_id = optional($provider)->id;
             $result = true;
@@ -980,13 +1657,15 @@ class ProviderController extends Controller
                     $result = $this->handleFreeTrialPackageSubscription($packageId, $provider_id, $price, $name);
                 } else {
                     Toastr::error(translate('Invalid plan price'));
-                    return back();
+
+                    return $this->backWithInputAndDraft($request, $formKey);
                 }
             }
 
             if (!$result) {
                 Toastr::error(translate('Something went wrong'));
-                return back();
+
+                return $this->backWithInputAndDraft($request, $formKey);
             }
         }
 
@@ -996,7 +1675,12 @@ class ProviderController extends Controller
 
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
-        return back();
+        $this->clearProviderFormDraft($formKey);
+
+        return redirect()->route('admin.provider.edit', [$id])->with('provider_updated', [
+            'id' => $provider->id,
+            'name' => (string) ($provider->company_name ?: $provider->contact_person_name),
+        ]);
     }
 
     /**
@@ -1087,6 +1771,20 @@ class ProviderController extends Controller
 
         $provider = $this->provider->where('id', $id)->first();
         $this->provider->where('id', $id)->update(['service_availability' => !$provider->service_availability]);
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    /**
+     * Toggle provider visibility in customer app listing APIs.
+     * @param $id
+     * @return JsonResponse
+     */
+    public function appAvailability($id): JsonResponse
+    {
+        $this->authorize('provider_manage_status');
+
+        $provider = $this->provider->where('id', $id)->first();
+        $this->provider->where('id', $id)->update(['app_availability' => !$provider->app_availability]);
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 

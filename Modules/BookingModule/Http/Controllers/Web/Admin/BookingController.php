@@ -642,6 +642,20 @@ class BookingController extends Controller
                 'readable_id' => $booking->readable_id,
             ]);
 
+            try {
+                $fresh = Booking::query()
+                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                    ->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingConfirmation($fresh);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking confirmation failed', [
+                    'booking_id' => $booking->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
             // If created from a lead, update lead status & history and go back to lead details with booking info
             $leadId = $data['lead_id'] ?? null;
             if ($leadId) {

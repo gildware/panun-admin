@@ -20,7 +20,7 @@ class SubscribedService extends Model
         'is_subscribed' => 'integer'
     ];
 
-    protected $fillable = ['provider_id', 'category_id', 'sub_category_id'];
+    protected $fillable = ['provider_id', 'category_id', 'sub_category_id', 'is_subscribed'];
 
     public function scopeOfStatus($query, $status)
     {

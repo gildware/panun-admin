@@ -9,7 +9,7 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
-                <h2 class="page-title">{{ translate('Provider_Details') }}</h2>
+                @include('providermanagement::admin.provider.partials.provider-status-header', ['provider' => $provider])
             </div>
 
             <div class="mb-3">
@@ -27,19 +27,19 @@
                         <a class="nav-link {{ $webPage == 'payment' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=payment">{{ translate('Payment') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'serviceman_list' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=serviceman_list">{{ translate('Service_Man_List') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'settings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=settings">{{ translate('Settings') }}</a>
+                        <a class="nav-link {{ $webPage == 'reviews' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=reviews">{{ translate('Reviews') }}</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'bank_information' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bank_information">{{ translate('Bank_Information') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'reviews' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=reviews">{{ translate('Reviews') }}</a>
+                        <a class="nav-link {{ $webPage == 'serviceman_list' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=serviceman_list">{{ translate('Service_Man_List') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'subscription' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=subscription&provider_id={{ request()->id }}">{{ translate('Business Plan') }}</a>
+                        <a class="nav-link {{ $webPage == 'subscription' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=subscription&provider_id={{ request()->id ?? request()->provider_id }}">{{ translate('Business Plan') }}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'settings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=settings">{{ translate('Settings') }}</a>
                     </li>
                 </ul>
             </div>
@@ -54,9 +54,9 @@
                         $providerPaysCompany = $netPayableAmount < 0;
                     @endphp
 
-                    {{-- Net Payable --}}
+                    {{-- Net Payable + Revenue Summary (single first row, 4 cards) --}}
                     <div class="row g-3 mb-30">
-                        <div class="col-12 col-md-6 col-lg-4">
+                        <div class="col-12 col-md-6 col-lg-3">
                             <div class="statistics-card statistics-card__style2 h-100 {{ $companyPaysProvider ? 'statistics-card__collect-cash' : '' }}">
                                 <h3>{{ translate('Net_Payable') }}</h3>
                                 <h2>{{ with_currency_symbol(abs($netPayableAmount)) }}</h2>
@@ -79,9 +79,30 @@
                                 @endif
                             </div>
                         </div>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="statistics-card statistics-card__style2 h-100 border border-primary">
+                                <h3>{{ translate('Total_Revenue') }}</h3>
+                                <h2 class="text-primary">{{ with_currency_symbol($totalRevenue ?? 0) }}</h2>
+                                <p class="small text-muted mb-0">{{ translate('Grand_total_of_all_completed_bookings') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="statistics-card statistics-card__style2 h-100">
+                                <h3>{{ translate('Provider_Net_Earning') }}</h3>
+                                <h2>{{ with_currency_symbol($providerNetEarning ?? 0) }}</h2>
+                                <p class="small text-muted mb-0">{{ translate('Total_revenue_minus_company_commission') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="statistics-card statistics-card__style2 h-100">
+                                <h3>{{ translate('Total_Company_Commission') }}</h3>
+                                <h2>{{ with_currency_symbol($totalCompanyCommission ?? 0) }}</h2>
+                                <p class="small text-muted mb-0">{{ translate('Company_commission_of_completed_bookings') }}</p>
+                            </div>
+                        </div>
                     </div>
 
-                    {{-- Pending Withdrawn, Already Withdrawn, Withdrawable Amount, Total Earning --}}
+                    {{-- Pending Withdrawn, Already Withdrawn, Withdrawable Amount --}}
                     <div class="row g-3 mb-30">
                         <div class="col-12">
                             <h4 class="mb-2">{{ translate('Withdrawal_Summary') }}</h4>
@@ -102,34 +123,6 @@
                             <div class="statistics-card statistics-card__style2 statistics-card__withdrawable-amount h-100">
                                 <h3>{{ translate('Withdrawable_Amount') }}</h3>
                                 <h2>{{ with_currency_symbol($provider->owner->account->account_receivable ?? 0) }}</h2>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Revenue Summary: Total Revenue, Provider Net Earning, Total Company Commission --}}
-                    <div class="row g-3 mb-30">
-                        <div class="col-12">
-                            <h4 class="mb-2">{{ translate('Revenue_Summary') }}</h4>
-                        </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="statistics-card statistics-card__style2 h-100 border border-primary">
-                                <h3>{{ translate('Total_Revenue') }}</h3>
-                                <h2 class="text-primary">{{ with_currency_symbol($totalRevenue ?? 0) }}</h2>
-                                <p class="small text-muted mb-0">{{ translate('Grand_total_of_all_completed_bookings') }}</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="statistics-card statistics-card__style2 h-100">
-                                <h3>{{ translate('Provider_Net_Earning') }}</h3>
-                                <h2>{{ with_currency_symbol($providerNetEarning ?? 0) }}</h2>
-                                <p class="small text-muted mb-0">{{ translate('Total_revenue_minus_company_commission') }}</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="statistics-card statistics-card__style2 h-100">
-                                <h3>{{ translate('Total_Company_Commission') }}</h3>
-                                <h2>{{ with_currency_symbol($totalCompanyCommission ?? 0) }}</h2>
-                                <p class="small text-muted mb-0">{{ translate('Company_commission_of_completed_bookings') }}</p>
                             </div>
                         </div>
                     </div>

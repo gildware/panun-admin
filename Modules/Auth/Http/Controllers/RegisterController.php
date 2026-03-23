@@ -151,22 +151,24 @@ class RegisterController extends Controller
             return $check;
         }
 
+        $identityIn = $request->provider_type === 'company' ? 'trade_license,company_id' : 'passport,driving_license,nid';
+
         $request->validate([
+            'provider_type' => 'required|in:company,individual',
+
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
+            'contact_person_email' => 'required|email|unique:users,email',
 
             'zone_id' => 'required|uuid',
-            'password' => 'required|min:8',
-            'confirm_password' => 'required|same:password',
 
-            'company_name' => 'required',
-            'company_phone' => 'required|max:255',
+            'company_name' => 'required_if:provider_type,company',
+            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|max:255',
             'company_address' => 'required',
-            'company_email' => 'required|email',
+            'company_email' => 'required_if:provider_type,company|email',
             'logo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
-            'identity_type' => 'required|in:passport,driving_license,nid,trade_license',
+            'identity_type' => 'required|in:' . $identityIn,
             'identity_number' => 'required',
             'identity_images' => 'required|array',
             'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
@@ -174,15 +176,6 @@ class RegisterController extends Controller
             'latitude' => 'required',
             'longitude' => 'required',
         ]);
-
-        if (User::where('email', $request['company_email'])->exists()) {
-            Toastr::error(translate('Email already taken'));
-            return back();
-        }
-        if (User::where('phone', $request['company_phone'])->exists()) {
-            Toastr::error(translate('Phone already taken'));
-            return back();
-        }
 
         if ($request->choose_business_plan == 'subscription_base'){
             $package = $this->subscriptionPackage->where('id',$request->selected_package_id)->ofStatus(1)->first();
@@ -206,9 +199,16 @@ class RegisterController extends Controller
         }
 
         $provider = $this->provider;
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
-        $provider->company_email = $request->company_email;
+        $provider->provider_type = $request->provider_type;
+        if ($request->provider_type === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+            $provider->company_email = $request->company_email;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+        }
         $provider->logo = file_uploader('provider/logo/', 'png', $request->file('logo'));
         $provider->company_address = $request->company_address;
 
@@ -222,12 +222,13 @@ class RegisterController extends Controller
 
 
         $owner = $this->owner;
-        $owner->email = $request->company_email;
-        $owner->phone = $request->company_phone;
+        // Account info defaults to contact person details.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
         $owner->identification_type = $request->identity_type;
         $owner->identification_image = $identity_images;
-        $owner->password = bcrypt($request->password);
+        $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
         $owner->is_active = 0;
 
@@ -309,22 +310,24 @@ class RegisterController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'provider_type' => 'required|in:company,individual',
+
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
+            'contact_person_email' => 'required|email|unique:users,email',
 
             'account_first_name' => 'required',
             'account_last_name' => 'required',
             'zone_id' => 'required|uuid',
-            'account_email' => 'required|email',
-            'account_phone' => 'required',
-            'password' => 'required|min:8',
-            'confirm_password' => 'required|same:password',
+            // Account info defaults to contact person details by default.
+            // Keep these optional to support deduplication.
+            'account_email' => 'nullable|email',
+            'account_phone' => 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
 
-            'company_name' => 'required',
-            'company_phone' => 'required',
+            'company_name' => 'required_if:provider_type,company',
+            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
-            'company_email' => 'required|email',
+            'company_email' => 'required_if:provider_type,company|email',
             'logo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'identity_type' => 'required|in:passport,driving_license,nid,trade_license,company_id',
@@ -337,13 +340,6 @@ class RegisterController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        if (User::where('email', $request['account_email'])->exists()) {
-            return response()->json(response_formatter(DEFAULT_400, null, [["error_code" => "account_email", "message" => translate('Email already taken')]]), 400);
-        }
-        if (User::where('phone', $request['account_phone'])->exists()) {
-            return response()->json(response_formatter(DEFAULT_400, null, [["error_code" => "account_phone", "message" => translate('Phone already taken')]]), 400);
-        }
-
         $identity_images = [];
         foreach ($request->identity_images as $image) {
             $imageName = file_uploader('provider/identity/', 'png', $image);
@@ -351,9 +347,16 @@ class RegisterController extends Controller
         }
 
         $provider = $this->provider;
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
-        $provider->company_email = $request->company_email;
+        $provider->provider_type = $request->provider_type;
+        if ($request->provider_type === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+            $provider->company_email = $request->company_email;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
+        }
         $provider->logo = file_uploader('provider/logo/', 'png', $request->file('logo'));
         $provider->company_address = $request->company_address;
 
@@ -367,12 +370,12 @@ class RegisterController extends Controller
         $owner = $this->owner;
         $owner->first_name = $request->account_first_name;
         $owner->last_name = $request->account_last_name;
-        $owner->email = $request->account_email;
-        $owner->phone = $request->account_phone;
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
         $owner->identification_type = $request->identity_type;
         $owner->identification_image = $identity_images;
-        $owner->password = bcrypt($request->password);
+        $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
         $owner->is_active = 0;
 

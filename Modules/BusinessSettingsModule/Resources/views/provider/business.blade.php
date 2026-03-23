@@ -69,39 +69,41 @@
                                                 <div class="col-xxl-9 col-lg-8">
                                                     <div class="shadow-sm rounded p-20">
                                                         <div class="row g-3">
-                                                            <div class="col-md-6">
-                                                                <div class="form-business">
-                                                                    <label class="mb-2 title-color">{{translate('Company Name / Individual Name')}} <span class="text-danger">*</span></label>
-                                                                    <input type="text" class="form-control h-45"
-                                                                           name="company_name"
-                                                                           value="{{ $provider->company_name }}"
-                                                                           placeholder="{{translate('Company_/_Individual_Name')}}"
-                                                                           required="">
+                                                            @if(($provider->provider_type ?? 'company') === 'company')
+                                                                <div class="col-md-6">
+                                                                    <div class="form-business">
+                                                                        <label class="mb-2 title-color">{{translate('Company Name / Individual Name')}} <span class="text-danger">*</span></label>
+                                                                        <input type="text" class="form-control h-45"
+                                                                               name="company_name"
+                                                                               value="{{ $provider->company_name }}"
+                                                                               placeholder="{{translate('Company_/_Individual_Name')}}"
+                                                                               required="">
+                                                                    </div>
                                                                 </div>
-                                                            </div>
 
-                                                            <div class="col-md-6">
-                                                                <div class="form-business">
-                                                                    <label class="mb-2 title-color">{{translate('Company Email')}} <span class="text-danger">*</span></label>
-                                                                    <input type="email" class="form-control h-45"
-                                                                           name="company_email"
-                                                                           value="{{ $provider->company_email }}"
-                                                                           placeholder="{{translate('Company_Email')}}"
-                                                                           required="">
+                                                                <div class="col-md-6">
+                                                                    <div class="form-business">
+                                                                        <label class="mb-2 title-color">{{translate('Company Email')}} <span class="text-danger">*</span></label>
+                                                                        <input type="email" class="form-control h-45"
+                                                                               name="company_email"
+                                                                               value="{{ $provider->company_email }}"
+                                                                               placeholder="{{translate('Company_Email')}}"
+                                                                               required="">
+                                                                    </div>
                                                                 </div>
-                                                            </div>
 
-                                                            <div class="col-md-6">
-                                                                <div class="form-business phone-picker-wrap country-picker-1">
-                                                                    <label class="mb-2 title-color">{{translate('Phone')}} <span class="text-danger">*</span></label>
-                                                                    <input type="tel"
-                                                                           class="form-control"
-                                                                           name="company_phone"
-                                                                           placeholder="{{translate('Enter your number')}}"
-                                                                           required id="company_phone"
-                                                                           value="{{ $provider->company_phone }}">
+                                                                <div class="col-md-6">
+                                                                    <div class="form-business phone-picker-wrap country-picker-1">
+                                                                        <label class="mb-2 title-color">{{translate('Phone')}} <span class="text-danger">*</span></label>
+                                                                        <input type="tel"
+                                                                               class="form-control"
+                                                                               name="company_phone"
+                                                                               placeholder="{{translate('Enter your number')}}"
+                                                                               required id="company_phone"
+                                                                               value="{{ $provider->company_phone }}">
+                                                                    </div>
                                                                 </div>
-                                                            </div>
+                                                            @endif
 
                                                             <div class="col-md-6">
                                                                 <div class="form-business">
@@ -247,12 +249,14 @@
                                             </h3>
                                             <p class="fs-12">{{ translate('Setup your account information') }}</p>
                                         </div>
-                                        <div class="form-check p-0 m-0 d-flex align-items-center gap-2">
-                                            <label class="form-check-label" for="business_info">
-                                                {{ translate('Same as Business Information') }}
-                                            </label>
-                                            <input class="form-check-input ml--0" type="checkbox" value="" id="same_as_business_info">
-                                        </div>
+                                        @if(($provider->provider_type ?? 'company') === 'company')
+                                            <div class="form-check p-0 m-0 d-flex align-items-center gap-2">
+                                                <label class="form-check-label" for="business_info">
+                                                    {{ translate('Same as Business Information') }}
+                                                </label>
+                                                <input class="form-check-input ml--0" type="checkbox" value="" id="same_as_business_info">
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="bg-light rounded p-20">
                                         <div class="row g-3">
@@ -821,6 +825,7 @@
             initAutocomplete();
         });
 
+        @if(($provider->provider_type ?? 'company') === 'company')
         $('#same_as_business_info').on('change', function () {
             if ($(this).is(':checked')) {
                 let companyName = $('[name="company_name"]').val();
@@ -837,6 +842,7 @@
                 $('[name="contact_person_phone"]').val('');
             }
         });
+        @endif
 
 
 

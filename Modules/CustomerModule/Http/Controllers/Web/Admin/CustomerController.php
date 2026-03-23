@@ -135,6 +135,26 @@ class CustomerController extends Controller
     }
 
     /**
+     * Show top customers by number of completed bookings.
+     */
+    public function topCustomers(Request $request): View|Factory|Application
+    {
+        $this->authorize('customer_view');
+
+        $customers = $this->user
+            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->withCount(['bookings as completed_bookings_count' => function ($query) {
+                $query->ofBookingStatus('completed');
+            }])
+            ->having('completed_bookings_count', '>', 0)
+            ->orderByDesc('completed_bookings_count')
+            ->take(20)
+            ->get();
+
+        return view('customermodule::admin.top_customers', compact('customers'));
+    }
+
+    /**
      * Store a newly created resource in storage.
      * @param Request $request
      * @return RedirectResponse

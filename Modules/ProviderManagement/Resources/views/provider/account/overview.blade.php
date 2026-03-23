@@ -271,7 +271,14 @@
                                     @if(isset($provider->owner->identification_image) && count($provider->owner->identification_image) > 0)
                                         @foreach($provider->owner->identification_image_full_path as $key=>$image)
                                             <div>
-                                                <img class="max-w320" src="{{$image}}" alt="{{translate('image')}}">
+                                                @php
+                                                    $ext = strtolower(pathinfo(parse_url($image, PHP_URL_PATH), PATHINFO_EXTENSION));
+                                                @endphp
+                                                @if($ext === 'pdf')
+                                                    <a href="{{$image}}" target="_blank" rel="noopener" class="text-decoration-none">{{'PDF'}}</a>
+                                                @else
+                                                    <img class="max-w320" src="{{$image}}" alt="{{translate('image')}}">
+                                                @endif
                                             </div>
                                         @endforeach
                                     @endif

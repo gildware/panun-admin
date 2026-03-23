@@ -53,7 +53,8 @@
         const accepted = parseAccept(input.getAttribute('accept') || '');
         const maxBytes = getMaxBytes(input);
 
-        let validFile = null;
+        const isMultiple = !!input.multiple;
+        const validFiles = [];
         let anyInvalid = false;
 
         for (const file of files) {
@@ -69,32 +70,43 @@
                 showError(`"${name}" exceeds ${mb}MB limit.`);
                 anyInvalid = true;
                 break;
-            } else{
-                validFile = file; // last valid
             }
+            validFiles.push(file);
         }
 
         if (anyInvalid) {
-            const lastFile = lastValidFiles.get(input);
-            if (lastFile) {
+            const lastStored = lastValidFiles.get(input);
+            if (lastStored) {
                 const dt = new DataTransfer();
-                dt.items.add(lastFile);
+                const toRestore = Array.isArray(lastStored) ? lastStored : [lastStored];
+                toRestore.forEach(function (f) {
+                    if (f) dt.items.add(f);
+                });
                 input.files = dt.files;
             } else {
                 input.value = '';
             }
-            restorePreview(input, lastValidFiles.get(input));
+            const previewRef = Array.isArray(lastStored) ? lastStored[0] : lastStored;
+            restorePreview(input, previewRef || null);
             ev.stopImmediatePropagation();
             ev.preventDefault();
             return false;
         }
 
-        if (validFile) {
+        if (validFiles.length) {
             const dt = new DataTransfer();
-            dt.items.add(validFile);
+            if (isMultiple) {
+                validFiles.forEach(function (f) {
+                    if (f) dt.items.add(f);
+                });
+                lastValidFiles.set(input, validFiles.slice());
+            } else {
+                const one = validFiles[validFiles.length - 1];
+                dt.items.add(one);
+                lastValidFiles.set(input, one);
+            }
             input.files = dt.files;
-            lastValidFiles.set(input, validFile);
-            restorePreview(input, validFile);
+            restorePreview(input, validFiles[0] || null);
         }
 
         return true;

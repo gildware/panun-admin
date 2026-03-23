@@ -80,6 +80,7 @@ class ProviderController extends Controller
             ->where('zone_id', Config::get('zone_id'))
             ->whereIn('id', $eligibleProviderIds)
             ->ofStatus(1)
+            ->where('app_availability', 1)
             ->withCount(['bookings as total_service_served' => function ($query) {
                 $query->where('booking_status', 'completed');
             }, 'subscribed_services'])
@@ -247,6 +248,7 @@ class ProviderController extends Controller
             ->whereHas('subscribed_services', function ($query) use ($request) {
                 $query->where('sub_category_id', $request['sub_category_id']);
             })
+            ->where('app_availability', 1)
             ->where('service_availability', 1)
             ->where('is_suspended', 0)
             ->where('is_active', 1)
@@ -320,6 +322,7 @@ class ProviderController extends Controller
         $providers = $this->provider
             ->where('zone_id', $booking->zone_id)
             ->ofStatus(1)
+            ->where('app_availability', 1)
             ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {
                 $query->whereHas('subscribed_services', function ($query) use ($request, $booking) {
                     $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
@@ -384,6 +387,7 @@ class ProviderController extends Controller
         $provider = $this->provider
             ->where('id', $booking?->provider?->id)
             ->ofStatus(1)
+            ->where('app_availability', 1)
             ->whereHas('owner', function ($query) {
                 $query->ofStatus(1);
             })

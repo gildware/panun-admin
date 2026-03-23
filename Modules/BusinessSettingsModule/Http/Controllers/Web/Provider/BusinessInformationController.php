@@ -244,10 +244,13 @@ class BusinessInformationController extends Controller
             return $check;
         }
 
+        $provider = $this->provider::where('user_id', $request->user()->id)->first();
+        $providerType = $provider?->provider_type ?? 'company';
+
         Validator::make($request->all(), [
-            'company_name' => 'required',
-            'company_email' => 'required|email',
-            'company_phone' => 'required',
+            'company_name' => $providerType === 'company' ? 'required' : 'nullable',
+            'company_email' => $providerType === 'company' ? 'required|email' : 'nullable|email',
+            'company_phone' => $providerType === 'company' ? 'required|regex:/^([0-9\s\-\+\(\)]*)$/' : 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/',
             'zone_id' => 'required',
             'company_address' => 'required',
 
@@ -266,11 +269,17 @@ class BusinessInformationController extends Controller
         ])->validate();
 
 
-        $provider = $this->provider::where('user_id', $request->user()->id)->first();
-
-        $provider->company_name = $request->company_name;
-        $provider->company_email = $request->company_email;
-        $provider->company_phone = $request->company_phone;
+        if ($providerType === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_email = $request->company_email;
+            $provider->company_phone = $request->company_phone;
+        } else {
+            // For Individual providers, don't ask company details separately.
+            // Populate provider->company_* from contact person fields for compatibility.
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_email = $request->contact_person_email;
+            $provider->company_phone = $request->contact_person_phone;
+        }
         $provider->zone_id = $request['zone_id'];
         $provider->company_address = $request->company_address;
 
@@ -291,6 +300,9 @@ class BusinessInformationController extends Controller
         ];
 
         $owner = $this->user->where('id', $request->user()->id)->first();
+        // Account info defaults to contact person details.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
         $owner->identification_type = $request->identity_type;
 

@@ -67,6 +67,33 @@
                                 <h5 class="border-bottom mb-4 pb-2">{{translate('General_Information')}}</h5>
                                 <div class="mb-4">
                                     <div class="mb-30">
+                                        <label class="mb-2 title-color">{{ translate('Provider_Type') }}</label>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input"
+                                                       type="radio"
+                                                       name="provider_type"
+                                                       id="provider_type_individual"
+                                                       value="individual"
+                                                       {{ old('provider_type', 'individual') === 'individual' ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="provider_type_individual">
+                                                    {{ translate('Individual') }}
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input"
+                                                       type="radio"
+                                                       name="provider_type"
+                                                       id="provider_type_company"
+                                                       value="company"
+                                                       {{ old('provider_type', 'individual') === 'company' ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="provider_type_company">
+                                                    {{ translate('Company') }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-30 provider-company-fields">
                                         <div class="form-floating form-floating__icon">
                                             <input type="text" class="form-control"
                                                     value="{{old('company_name')}}" name="company_name"
@@ -75,7 +102,7 @@
                                             <span class="material-icons">apartment</span>
                                         </div>
                                     </div>
-                                    <div class="mb-30">
+                                    <div class="mb-30 provider-company-fields">
                                         <div class="form-floating form-floating__icon">
                                             <input type="email" id="company_email" class="form-control"
                                                     value="{{old('company_email')}}" name="company_email"
@@ -84,7 +111,7 @@
                                             <span class="material-icons">mail</span>
                                         </div>
                                     </div>
-                                    <div class="mb-30">
+                                    <div class="mb-30 provider-company-fields">
                                         <div class="country-picker-1">
                                             <input type="tel"
                                                    class="form-control"
@@ -129,7 +156,7 @@
 
                                     <div class="border-bottom d-flex align-items-center justify-content-between gap-2 pb-2 mb-4">
                                         <h5>{{translate('Contact Person Information')}}</h5>
-                                        <div class="d-flex gap-2 align-items-center">
+                                        <div class="d-flex gap-2 align-items-center company-only">
                                             <label for="sameAsGI">{{translate('Same as general info')}}</label>
                                             <input type="checkbox" value="" id="sameAsGI">
                                         </div>
@@ -236,10 +263,21 @@
                                             <select name="identity_type" id="identity_type"
                                                     class="form-select">
                                                 <option value="0" selected disabled>{{translate('Identity_Type')}}</option>
-                                                <option value="passport" {{old('identity_type')=='passport'?'selected':''}}>{{translate('passport')}}</option>
-                                                <option value="nid" {{old('identity_type')=='nid'?'selected':''}}>{{translate('nid')}}</option>
-                                                <option value="driving_license" {{old('identity_type')=='driving_license'?'selected':''}}>{{translate('driving_license')}}</option>
-                                                <option value="trade_license" {{old('identity_type')=='trade_license'?'selected':''}}>{{translate('trade_license')}}</option>
+                                                <option value="passport" data-for="individual"
+                                                        {{old('identity_type')=='passport'?'selected':''}}>
+                                                    {{translate('passport')}}</option>
+                                                <option value="nid" data-for="individual"
+                                                        {{old('identity_type')=='nid'?'selected':''}}>
+                                                    {{translate('Aadhar_Card')}}</option>
+                                                <option value="driving_license" data-for="individual"
+                                                        {{old('identity_type')=='driving_license'?'selected':''}}>
+                                                    {{translate('driving_license')}}</option>
+                                                <option value="trade_license" data-for="company"
+                                                        {{old('identity_type')=='trade_license'?'selected':''}}>
+                                                    {{translate('trade_license')}}</option>
+                                                <option value="company_id" data-for="company"
+                                                        {{old('identity_type')=='company_id'?'selected':''}}>
+                                                    {{translate('Company_Id')}}</option>
                                             </select>
                                         </div>
                                     </div>
@@ -277,26 +315,9 @@
                                             <span class="material-icons">mail</span>
                                         </div>
                                     </div>
-                                    <div class="mb-30">
-                                        <div class="form-floating form-floating__icon">
-                                            <span class="material-icons togglePassword">visibility_off</span>
-                                            <input type="password" class="form-control" value=""
-                                                    name="password" id="password"
-                                                    placeholder="{{translate('Password')}}">
-                                            <label>{{translate('Password')}} <span class="text-danger">*</span></label>
-                                            <span class="material-icons">lock</span>
-                                        </div>
-                                    </div>
-                                    <div class="mb-30">
-                                        <div class="form-floating form-floating__icon">
-                                            <span class="material-icons togglePassword">visibility_off</span>
-                                            <input type="password" class="form-control" value=""
-                                                    name="confirm_password"
-                                                    placeholder="{{translate('Confirm_Password')}}">
-                                            <label>{{translate('Confirm_Password')}} <span class="text-danger">*</span></label>
-                                            <span class="material-icons">lock</span>
-                                        </div>
-                                    </div>
+                                    <p class="text-muted small mb-0">
+                                        {{ translate('New_providers_use_contact_phone_as_login_password') }}
+                                    </p>
                                 </div>
                             </div>
                         </section>
@@ -476,26 +497,58 @@
         });
 
         $(document).ready(function () {
-            $("#company_email").on("change keyup paste", function () {
-                $('#account_email').val($(this).val());
+            function toggleProviderTypeUI() {
+                const providerType = $("input[name='provider_type']:checked").val();
+                const isIndividual = providerType === "individual";
+
+                if (isIndividual) {
+                    $(".provider-company-fields").hide();
+                    $(".company-only").hide();
+                } else {
+                    $(".provider-company-fields").show();
+                    $(".company-only").show();
+                }
+
+                const $identityType = $("select[name='identity_type']");
+                const $options = $identityType.find("option[data-for]");
+                $options.each(function () {
+                    const forType = $(this).data('for');
+                    const shouldEnable = isIndividual ? forType === 'individual' : forType === 'company';
+                    $(this).prop('disabled', !shouldEnable);
+                });
+
+                if ($identityType.find("option:selected").prop('disabled')) {
+                    $identityType.find("option:not(:disabled)").first().prop('selected', true);
+                }
+            }
+
+            toggleProviderTypeUI();
+            $("input[name='provider_type']").on("change", toggleProviderTypeUI);
+
+            function updateAccountFromContactPerson() {
+                $('#account_email').val($('[name="contact_person_email"]').val());
+
+                const dialCode = $('.country-picker-2 .iti__selected-dial-code').text();
+                const contactPhone = $('#contact_person_phone').val();
+                if (dialCode) {
+                    $('#account_phone').val(`${dialCode} ${contactPhone}`);
+                } else {
+                    $('#account_phone').val(contactPhone);
+                }
+            }
+
+            $('[name="contact_person_email"]').on("change keyup paste", function () {
+                updateAccountFromContactPerson();
             });
-            $("#company_phone").on("change keyup paste", function () {
-                const countryCode = $('#register-vertical-steps-p-0').find('.iti__selected-dial-code').text();
-                $('#account_phone').val(`${countryCode} ${$(this).val()}`);
-            });
-            $('#register-vertical-steps-p-0').find('.iti__flag-container').on("click", function () {
-                const countryCode = $('#register-vertical-steps-p-0').find('.iti__selected-dial-code').text();
-                $('#account_phone').val(`${countryCode} ${$("#company_phone").val()}`);
+            $("#contact_person_phone").on("change keyup paste", function () {
+                updateAccountFromContactPerson();
             });
 
-            setInterval(() => {
-                const countryCode = $('#register-vertical-steps-p-0').find('.iti__selected-dial-code').text();
-                $('#account_phone').val(`${countryCode} ${$("#company_phone").val()}`);
-                $('#account_email').val($('#company_email').val());
-            }, 2000);
-
+            // Initial set.
+            updateAccountFromContactPerson();
 
             $('#sameAsGI').on('change', function() {
+                if ($("input[name='provider_type']:checked").val() === 'individual') return;
                 if ($(this).is(':checked')) {
                     $('[name="contact_person_name"]').val($('[name="company_name"]').val());
                     $('[name="contact_person_email"]').val($('#company_email').val());
@@ -518,6 +571,7 @@
                     $('#contact_person_phone').val('');
                     $('.country-picker-phone-number2').val('');
                 }
+                updateAccountFromContactPerson();
             });
 
 
@@ -595,42 +649,65 @@
 
                     switch (currentIndex) {
                         case 0:
-                            setValidationRulesAndMessages({
-                                company_name: "required",
-                                company_email: {
-                                    required: true,
-                                    email: true
-                                },
-                                company_phone: "required",
-                                company_address: "required",
-                                logo: "required",
-                                contact_person_name: "required",
-                                contact_person_phone: "required",
-                                contact_person_email: "required",
-                            }, {
-                                company_name: "Please enter your name",
-                                company_phone: "Please enter your phone",
-                                company_phone_2: "Please enter your phone",
-                                company_email: "Please enter a valid email address",
-                                company_address: "Please enter your address",
-                                logo: "Please upload logo",
-                                contact_person_name: "Please enter your name",
-                                contact_person_phone: "Please enter your phone",
-                                contact_person_email: "Please enter a valid email address",
-                            });
+                            const providerType = $("input[name='provider_type']:checked").val();
+
+                            if (providerType === 'individual') {
+                                setValidationRulesAndMessages({
+                                    provider_type: "required",
+                                    company_name: {},
+                                    company_email: {},
+                                    company_phone: {},
+                                    company_address: "required",
+                                    logo: "required",
+                                    contact_person_name: "required",
+                                    contact_person_phone: "required",
+                                    contact_person_email: "required",
+                                }, {
+                                    company_address: "Please enter your address",
+                                    logo: "Please upload logo",
+                                    contact_person_name: "Please enter your name",
+                                    contact_person_phone: "Please enter your phone",
+                                    contact_person_email: "Please enter a valid email address",
+                                });
+                            } else {
+                                setValidationRulesAndMessages({
+                                    provider_type: "required",
+                                    company_name: "required",
+                                    company_email: {
+                                        required: true,
+                                        email: true
+                                    },
+                                    company_phone: "required",
+                                    company_address: "required",
+                                    logo: "required",
+                                    contact_person_name: "required",
+                                    contact_person_phone: "required",
+                                    contact_person_email: "required",
+                                }, {
+                                    company_name: "Please enter your name",
+                                    company_phone: "Please enter your phone",
+                                    company_phone_2: "Please enter your phone",
+                                    company_email: "Please enter a valid email address",
+                                    company_address: "Please enter your address",
+                                    logo: "Please upload logo",
+                                    contact_person_name: "Please enter your name",
+                                    contact_person_phone: "Please enter your phone",
+                                    contact_person_email: "Please enter a valid email address",
+                                });
+                            }
 
                             formWizard.validate().settings.ignore = ":disabled,:hidden";
                             if (!formWizard.valid()) {
                                 return false;
                             }
 
-                            let email = $("#company_email").val();
-                            let companyPhone = $('#company_phone').val();
-                            let dialCode = $('.country-picker-1 .iti__selected-dial-code').text();
-                            let phone = dialCode + companyPhone.replace(dialCode, '');
+                            // Account info defaults to contact person details.
+                            let email = $('[name="contact_person_email"]').val();
+                            let contactPhone = $('#contact_person_phone').val();
+                            let dialCode = $('.country-picker-2 .iti__selected-dial-code').text();
+                            let phone = dialCode + contactPhone.replace(dialCode, '');
 
                             let isValid = false;
-                            console.log(email, companyPhone, dialCode, phone);
 
                             $.ajax({
                                 url: "{{ route('check-unique-user') }}",
@@ -685,26 +762,8 @@
                         case 2:
                             setValidationRulesAndMessages({
                                 account_email: "required",
-                                password: {
-                                    required: true,
-                                    minlength: 8
-                                },
-                                confirm_password: {
-                                    required: true,
-                                    minlength: 8,
-                                    equalTo: "#password"
-                                },
                             }, {
                                 account_email: "Please enter email",
-                                password: {
-                                    required: "Please provide a password",
-                                    minlength: "Your password must be at least 8 characters long"
-                                },
-                                confirm_password: {
-                                    required: "Please provide confirm password",
-                                    minlength: "Your password must be at least 8 characters long",
-                                    equalTo: "Please enter the same password as above",
-                                },
                             });
                             break;
                     }

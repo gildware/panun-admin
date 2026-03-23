@@ -18,6 +18,7 @@ Route::get('cancellation-policy', [PagesController::class, 'cancellationPolicy']
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
     Route::group(['prefix' => 'customer', 'as' => 'customer.'], function () {
         Route::any('list', [CustomerController::class, 'index'])->name('index');
+        Route::get('top-customers', [CustomerController::class, 'topCustomers'])->name('top-customers');
         Route::any('create', [CustomerController::class, 'create'])->name('create');
         Route::post('store', [CustomerController::class, 'store'])->name('store');
         Route::post('quick-store', [CustomerController::class, 'quickStore'])->name('quick-store');

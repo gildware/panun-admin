@@ -658,7 +658,7 @@ class ProviderController extends Controller
      */
     public function bankInfo(Request $request): Renderable
     {
-        $provider = $this->provider->with('bank_detail')->where('user_id', $request->user()->id)->first();
+        $provider = $this->provider->with(['bank_details'])->where('user_id', $request->user()->id)->first();
         return view('providermanagement::bank-info', compact('provider'));
     }
 
@@ -670,23 +670,31 @@ class ProviderController extends Controller
     public function updateBankInfo(Request $request)
     {
         Validator::make($request->all(), [
+            'bank_detail_id' => 'nullable|uuid',
             'bank_name' => 'required',
-            'branch_name' => 'required',
             'acc_no' => 'required',
             'acc_holder_name' => 'required',
+            // Stored in `routing_number` column in `bank_details` table.
             'routing_number' => 'required',
         ]);
 
-        $this->bank_detail::updateOrCreate(
-            ['provider_id' => $request->user()->provider->id],
-            [
-                'bank_name' => $request->bank_name,
-                'branch_name' => $request->branch_name,
-                'acc_no' => $request->acc_no,
-                'acc_holder_name' => $request->acc_holder_name,
-                'routing_number' => $request->routing_number,
-            ]
-        );
+        $providerId = $request->user()->provider->id;
+
+        $payload = [
+            'bank_name' => $request->bank_name,
+            'acc_no' => $request->acc_no,
+            'acc_holder_name' => $request->acc_holder_name,
+            'routing_number' => $request->routing_number,
+        ];
+
+        if ($request->filled('bank_detail_id')) {
+            $this->bank_detail
+                ->where('provider_id', $providerId)
+                ->where('id', $request->bank_detail_id)
+                ->update($payload);
+        } else {
+            $this->bank_detail::create(array_merge($payload, ['provider_id' => $providerId]));
+        }
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
@@ -741,18 +749,21 @@ class ProviderController extends Controller
             return $check;
         }
 
+        $provider = $this->provider::where('user_id', $request->user()->id)->first();
+        $providerType = $provider?->provider_type ?? 'company';
+
         Validator::make($request->all(), [
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $request->user()->id,
+            'contact_person_email' => 'required|email|unique:users,email,' . $request->user()->id,
             'zone_id' => 'required',
 
             'password' => isset($request->password) ? 'string|min:8' : '',
             'confirm_password' => isset($request->password) ? 'required|same:password' : '',
 
-            'company_name' => 'required',
-            'company_email' => 'required|email',
-            'company_phone' => 'required',
+            'company_name' => $providerType === 'company' ? 'required' : 'nullable',
+            'company_email' => $providerType === 'company' ? 'required|email' : 'nullable|email',
+            'company_phone' => $providerType === 'company' ? 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8' : 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
             'logo' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
@@ -760,10 +771,17 @@ class ProviderController extends Controller
             'longitude' => 'required',
         ])->validate();
 
-        $provider = $this->provider::where('user_id', $request->user()->id)->first();
-        $provider->company_name = $request->company_name;
-        $provider->company_email = $request->company_email;
-        $provider->company_phone = $request->company_phone;
+        if ($providerType === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_email = $request->company_email;
+            $provider->company_phone = $request->company_phone;
+        } else {
+            // For Individuals: don't collect company details separately.
+            // Populate company_* from contact person for compatibility.
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_email = $request->contact_person_email;
+            $provider->company_phone = $request->contact_person_phone;
+        }
         if ($request->has('logo')) {
             $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'), $provider->logo);
         }
@@ -781,6 +799,10 @@ class ProviderController extends Controller
         $owner = $this->user->where('id', $request->user()->id)->first();
        // $owner->first_name = $request->account_first_name;
        // $owner->last_name = $request->account_last_name;
+
+        // Account info defaults to contact person details.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
 
         if (isset($request->password)) {
             $owner->password = bcrypt($request->password);

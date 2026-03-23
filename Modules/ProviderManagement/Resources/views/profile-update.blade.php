@@ -57,29 +57,31 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <h4 class="c1 mb-30">{{translate('General_Information')}}</h4>
-                                        <div class="form-floating form-floating__icon mb-30">
-                                            <input type="text" class="form-control" name="company_name"
-                                                   value="{{ $provider->company_name }}"
-                                                   placeholder="{{translate('Company_/_Individual_Name')}}">
-                                            <label>{{translate('Company_/_Individual_Name')}}</label>
-                                            <span class="material-icons">store</span>
-                                        </div>
-                                        <div class="form-floating form-floating__icon mb-30">
-                                            <input type="email" class="form-control" name="company_email"
-                                                   value="{{ $provider->company_email }}"
-                                                   placeholder="{{translate('Company_Email')}}">
-                                            <label>{{translate('Company_Email')}}</label>
-                                            <span class="material-icons">mail</span>
-                                        </div>
-                                        <div class="form-floating mb-30">
-                                            <label for="company_phone">{{translate('Company_Phone')}}</label>
-                                            <input type="tel"
-                                                   class="form-control"
-                                                   name="company_phone"
-                                                   id="company_phone"
-                                                   value="{{ $provider->company_phone }}"
-                                                   placeholder="{{translate('Company_Phone')}}">
-                                        </div>
+                                        @if(($provider->provider_type ?? 'company') === 'company')
+                                            <div class="form-floating form-floating__icon mb-30">
+                                                <input type="text" class="form-control" name="company_name"
+                                                       value="{{ $provider->company_name }}"
+                                                       placeholder="{{translate('Company_/_Individual_Name')}}">
+                                                <label>{{translate('Company_/_Individual_Name')}}</label>
+                                                <span class="material-icons">store</span>
+                                            </div>
+                                            <div class="form-floating form-floating__icon mb-30">
+                                                <input type="email" class="form-control" name="company_email"
+                                                       value="{{ $provider->company_email }}"
+                                                       placeholder="{{translate('Company_Email')}}">
+                                                <label>{{translate('Company_Email')}}</label>
+                                                <span class="material-icons">mail</span>
+                                            </div>
+                                            <div class="form-floating mb-30">
+                                                <label for="company_phone">{{translate('Company_Phone')}}</label>
+                                                <input type="tel"
+                                                       class="form-control"
+                                                       name="company_phone"
+                                                       id="company_phone"
+                                                       value="{{ $provider->company_phone }}"
+                                                       placeholder="{{translate('Company_Phone')}}">
+                                            </div>
+                                        @endif
                                         <div class="form-floating mb-30">
                                             <select class="select-zone theme-input-style w-100" name="zone_id" required>
                                                 <option selected disabled>{{translate('Select_Zone')}}</option>

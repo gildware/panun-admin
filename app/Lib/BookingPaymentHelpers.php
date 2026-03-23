@@ -4,6 +4,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 
 if (!function_exists('get_booking_total_amount')) {
@@ -80,7 +81,7 @@ if (!function_exists('get_booking_service_amount')) {
 if (!function_exists('get_booking_commissionable_amount')) {
     /**
      * Commissionable amount = grand total of booking - spare parts charges.
-     * Used for admin commission: if commissionable > threshold then percentage, else flat.
+     * Used for admin commission calculation.
      */
     function get_booking_commissionable_amount($booking): float
     {
@@ -92,27 +93,29 @@ if (!function_exists('get_booking_commissionable_amount')) {
 
 if (!function_exists('calculate_commission_for_booking')) {
     /**
-     * Commission on commissionable amount (grand total - spare parts). Rules:
-     * - commissionable_amount = get_booking_total_amount - spare_parts_amount
-     * - If commissionable_amount > threshold: commission = percentage% of commissionable_amount
-     * - Else: commission = flat amount
-     * Defaults: threshold 1000, percentage 10, flat 100.
+     * Commission on commissionable amount (grand total - spare parts).
+     *
+     * Percentage source:
+     * - If provider has custom commission enabled, use `providers.commission_percentage`
+     * - Otherwise use Business Model Setup default commission (10% by default)
      */
-    function calculate_commission_for_booking($booking): array
+    function calculate_commission_for_booking($booking, ?int $providerId = null): array
     {
         $commissionableAmount = get_booking_commissionable_amount($booking);
-        $thresholdConfig = business_config('commission_service_amount_threshold', 'business_information');
-        $percentageConfig = business_config('commission_percentage_above_threshold', 'business_information');
-        $flatConfig = business_config('commission_flat_below_threshold', 'business_information');
-        $threshold = (float) (optional($thresholdConfig)->live_values ?? 1000);
-        $percentage = (float) (optional($percentageConfig)->live_values ?? 10);
-        $flatBelow = (float) (optional($flatConfig)->live_values ?? 100);
 
-        if ($commissionableAmount > $threshold) {
-            $commission = round(($commissionableAmount * $percentage) / 100, 2);
-        } else {
-            $commission = $flatBelow;
+        $providerId = $providerId ?? ($booking->provider_id ?? null);
+
+        $defaultCommission = (float) (optional(business_config('default_commission', 'business_information'))->live_values ?? 10);
+        $commissionPercentage = $defaultCommission;
+
+        if (!empty($providerId)) {
+            $provider = Provider::find($providerId);
+            if ($provider && (int) $provider->commission_status === 1) {
+                $commissionPercentage = (float) $provider->commission_percentage;
+            }
         }
+
+        $commission = round(($commissionableAmount * $commissionPercentage) / 100, 2);
 
         $grandTotal = get_booking_total_amount($booking);
         $providerEarning = round($grandTotal - $commission, 2);
@@ -147,7 +150,8 @@ if (!function_exists('get_commission_breakdown_for_booking')) {
             ];
         }
 
-        $result = calculate_commission_for_booking($booking);
+        $providerId = $booking->provider_id ?? null;
+        $result = calculate_commission_for_booking($booking, $providerId);
         $commission = $result['commission'];
 
         $bookingDetailsAmounts = $booking instanceof \Modules\BookingModule\Entities\BookingRepeat

@@ -21,41 +21,68 @@
 ')}}">info</span>
                             </div>
 
-                            <div class="row">
-                                <div class="col-md-6 col-xl-5">
-                                    <div class="provider-bank-card d-flex justify-content-between gap-3 p-4 border align-items-start flex-wrap">
-                                        <div class="">
-                                            <div class="d-flex info gap-2 align-items-center mb-4">
-                                                <span class="material-icons">person</span>
-                                                {{translate('Holder Name')}}:
-                                                <strong>{{$provider->bank_detail->acc_holder_name??''}}</strong>
+                            <div class="row g-3">
+                                @forelse($provider->bank_details ?? [] as $bankDetail)
+                                    <div class="col-md-6 col-xl-5">
+                                        <div class="provider-bank-card d-flex justify-content-between gap-3 p-4 border align-items-start flex-wrap">
+                                            <div class="">
+                                                <div class="d-flex info gap-2 align-items-center mb-4">
+                                                    <span class="material-icons">person</span>
+                                                    {{translate('Holder Name')}}:
+                                                    <strong>{{ $bankDetail->acc_holder_name ?? '' }}</strong>
+                                                </div>
+
+                                                <div class="d-flex flex-column info gap-2">
+                                                    <div class="d-flex gap-2 align-items-center">
+                                                        <span class="min-w-100px">{{translate('Bank Name')}}</span>:
+                                                        <span>{{ $bankDetail->bank_name ?? '' }}</span>
+                                                    </div>
+
+                                                    <div class="d-flex gap-2 align-items-center">
+                                                        <span class="min-w-100px">{{ translate('Account_No') }}</span>:
+                                                        <span>{{ $bankDetail->acc_no ?? '' }}</span>
+                                                    </div>
+
+                                                    <div class="d-flex gap-2 align-items-center">
+                                                        <span class="min-w-100px">IFSC code</span>:
+                                                        <span>{{ $bankDetail->routing_number ?? '' }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            <div class="d-flex flex-column info gap-2">
-                                                <div class="d-flex gap-2 align-items-center">
-                                                    <span class="min-w-100px">{{translate('Bank Name')}}</span>:
-                                                    <span>{{$provider->bank_detail->bank_name??''}}</span>
-                                                </div>
-                                                <div class="d-flex gap-2 align-items-center">
-                                                    <span class="min-w-100px">{{translate('branch_Name')}}</span>:
-                                                    <span>{{$provider->bank_detail->branch_name??''}}</span>
-                                                </div>
-                                                <div class="d-flex gap-2 align-items-center">
-                                                    <span class="min-w-100px">{{translate('account_Name')}}</span>:
-                                                    <span>{{$provider->bank_detail->acc_holder_name??''}}</span>
-                                                </div>
-                                                <div class="d-flex gap-2 align-items-center">
-                                                    <span class="min-w-100px">{{translate('routing_number')}}</span>:
-                                                    <span>{{$provider->bank_detail->routing_number??''}}</span>
-                                                </div>
-                                            </div>
+                                            <button type="button"
+                                                    class="btn btn-primary d-flex gap-2 bank-edit-btn"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#exampleModal"
+                                                    data-bank-detail-id="{{ $bankDetail->id }}"
+                                                    data-bank-name="{{ $bankDetail->bank_name ?? '' }}"
+                                                    data-acc-no="{{ $bankDetail->acc_no ?? '' }}"
+                                                    data-acc-holder-name="{{ $bankDetail->acc_holder_name ?? '' }}"
+                                                    data-routing-number="{{ $bankDetail->routing_number ?? '' }}">
+                                                {{translate('edit')}}
+                                                <span class="material-symbols-outlined m-0">edit</span>
+                                            </button>
                                         </div>
-                                        <button type="button" class="btn btn-primary d-flex gap-2"
-                                                data-bs-toggle="modal" data-bs-target="#exampleModal"
-                                                data-bs-whatever="@mdo">{{translate('edit')}}
-                                            <span class="material-symbols-outlined m-0">edit</span></button>
                                     </div>
-                                </div>
+                                @empty
+                                    <div class="col-12">
+                                        <div class="text-muted">{{ translate('No_data_found') }}</div>
+                                    </div>
+                                @endforelse
+                            </div>
+
+                            <div class="mt-4">
+                                <button type="button"
+                                        class="btn btn--primary bank-add-btn"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#exampleModal"
+                                        data-bank-detail-id=""
+                                        data-bank-name=""
+                                        data-acc-no=""
+                                        data-acc-holder-name=""
+                                        data-routing-number="">
+                                    Add Bank Details
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -76,30 +103,22 @@
                           enctype="multipart/form-data">
                         @csrf
                         @method('put')
+                        <input type="hidden" name="bank_detail_id" value="">
                         <div class="row">
                             <div class="col-md-12">
                                 <div class="form-floating form-floating__icon mb-30">
                                     <input type="text" class="form-control" name="bank_name"
                                            placeholder="{{translate('Bank_Name')}}"
-                                           value="{{$provider->bank_detail->bank_name??''}}" required>
+                                           value="" required>
                                     <label>{{translate('Bank_Name')}}</label>
                                     <span class="material-icons">account_balance</span>
                                 </div>
                             </div>
                             <div class="col-md-12">
                                 <div class="form-floating form-floating__icon mb-30">
-                                    <input type="text" class="form-control" name="branch_name"
-                                           placeholder="{{translate('Branch_Name')}}"
-                                           value="{{$provider->bank_detail->branch_name??''}}" required>
-                                    <label>{{translate('Branch_Name')}}</label>
-                                    <span class="material-icons">store</span>
-                                </div>
-                            </div>
-                            <div class="col-md-12">
-                                <div class="form-floating form-floating__icon mb-30">
                                     <input type="text" class="form-control" name="acc_no"
                                            placeholder="{{translate('Account_No')}}"
-                                           value="{{$provider->bank_detail->acc_no??''}}" required>
+                                           value="" required>
                                     <label>{{translate('Account_No')}}</label>
                                     <span class="material-icons">pin</span>
                                 </div>
@@ -108,19 +127,17 @@
                                 <div class="form-floating form-floating__icon mb-30">
                                     <input type="text" class="form-control" name="acc_holder_name"
                                            placeholder="{{translate('A/C_Holder_Name')}}"
-                                           value="{{$provider->bank_detail->acc_holder_name??''}}" required>
+                                           value="" required>
                                     <label>{{translate('A/C_Holder_Name')}}</label>
                                     <span class="material-icons">account_circle</span>
                                 </div>
                             </div>
-
                             <div class="col-md-12">
                                 <div class="form-floating form-floating__icon mb-30">
                                     <input type="text" class="form-control" name="routing_number"
-                                           placeholder="{{translate('routing_number')}}"
-                                           value="{{$provider->bank_detail->routing_number??''}}"
-                                           required>
-                                    <label>{{translate('routing_number')}}</label>
+                                           placeholder="IFSC code"
+                                           value="" required>
+                                    <label>IFSC code</label>
                                     <span class="material-icons">monitoring</span>
                                 </div>
                             </div>
@@ -135,4 +152,28 @@
             </div>
         </div>
     </div>
+
+    @push('script')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const modalEl = document.getElementById('exampleModal');
+                if (!modalEl) return;
+
+                modalEl.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    const bankDetailId = button?.getAttribute('data-bank-detail-id') || '';
+                    const bankName = button?.getAttribute('data-bank-name') || '';
+                    const accNo = button?.getAttribute('data-acc-no') || '';
+                    const accHolderName = button?.getAttribute('data-acc-holder-name') || '';
+                    const routingNumber = button?.getAttribute('data-routing-number') || '';
+
+                    modalEl.querySelector('input[name="bank_detail_id"]').value = bankDetailId;
+                    modalEl.querySelector('input[name="bank_name"]').value = bankName;
+                    modalEl.querySelector('input[name="acc_no"]').value = accNo;
+                    modalEl.querySelector('input[name="acc_holder_name"]').value = accHolderName;
+                    modalEl.querySelector('input[name="routing_number"]').value = routingNumber;
+                });
+            });
+        </script>
+    @endpush
 @endsection

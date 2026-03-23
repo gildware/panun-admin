@@ -17,8 +17,10 @@ use Modules\ProviderManagement\Http\Controllers\Web\Provider\WithdrawController;
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
     Route::group(['prefix' => 'provider', 'as' => 'provider.'], function () {
         Route::any('list', [ProviderController::class, 'index'])->name('list');
+        Route::get('top-providers', [ProviderController::class, 'topProviders'])->name('top-providers');
         Route::any('status-update/{id}', [ProviderController::class, 'statusUpdate'])->name('status_update');
         Route::any('service-availability/{id}', [ProviderController::class, 'serviceAvailability'])->name('service_availability');
+        Route::any('app-availability/{id}', [ProviderController::class, 'appAvailability'])->name('app_availability');
         Route::any('suspend-update/{id}', [ProviderController::class, 'suspendUpdate'])->name('suspend_update');
         Route::post('commission-update/{id}', [ProviderController::class, 'commissionUpdate'])->name('commission_update');
 
@@ -27,6 +29,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('reassign-provider/{id}', [ProviderController::class, 'reassignProvider'])->name('reaasign-provider');
 
         Route::get('create', [ProviderController::class, 'create'])->name('create');
+        Route::post('create/subcategories-for-zone', [ProviderController::class, 'subcategoriesForCreateWizard'])->name('create.subcategories-for-zone');
+        Route::post('check-owner-contact-unique', [ProviderController::class, 'checkOwnerContactUnique'])->name('check-owner-contact-unique');
         Route::post('store', [ProviderController::class, 'store'])->name('store');
         Route::get('edit/{id}', [ProviderController::class, 'edit'])->name('edit');
         Route::put('update/{id}', [ProviderController::class, 'update'])->name('update');

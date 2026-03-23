@@ -134,28 +134,33 @@ class AdminController extends Controller
             $query->select('id', 'name', 'thumbnail');
         }])
             ->where('booking_status', 'pending')
-            ->take(5)->latest()->get();
+            ->latest()
+            ->take(5)
+            ->get();
         $data[] = ['bookings' => $bookings];
 
         $top_providers = $this->provider
-            ->withCount(['reviews'])
-            ->with(['owner', 'reviews'])
+            ->with(['owner', 'subscribed_services.category'])
             ->ofApproval(1)
-            ->take(5)->orderBy('avg_rating', 'DESC')->get();
+            ->withCount(['bookings as completed_bookings_count' => function ($query) {
+                $query->ofBookingStatus('completed');
+            }])
+            ->having('completed_bookings_count', '>', 0)
+            ->orderByDesc('completed_bookings_count')
+            ->take(5)
+            ->get();
         $data[] = ['top_providers' => $top_providers];
 
-        $zone_wise_bookings = $this->booking
-            ->with(['zone' => function ($query) {
-                $query->withoutGlobalScope('translate');
+        $top_customers = $this->user
+            ->where(['user_type' => 'customer'])
+            ->withCount(['bookings as completed_bookings_count' => function ($query) {
+                $query->ofBookingStatus('completed');
             }])
-            ->whereHas('zone', function ($query) {
-                $query->ofStatus(1)->withoutGlobalScope('translate');
-            })
-            ->whereMonth('created_at', now()->month)
-            ->select('zone_id', DB::raw('count(*) as total'))
-            ->groupBy('zone_id')
+            ->having('completed_bookings_count', '>', 0)
+            ->orderByDesc('completed_bookings_count')
+            ->take(5)
             ->get();
-        $data[] = ['zone_wise_bookings' => $zone_wise_bookings, 'total_count' => $this->booking->count()];
+        $data[] = ['top_customers' => $top_customers];
 
         $todaysPendingFollowupsBase = BookingFollowup::query()
             ->where('status', 'scheduled')

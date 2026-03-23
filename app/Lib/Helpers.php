@@ -1828,6 +1828,17 @@ if (!function_exists('setupGuidelineRouteModify')) {
     }
 }
 
+if (!function_exists('provider_default_password_plain')) {
+    /**
+     * Plain-text password for new provider-admin users; must match the value used as login password with phone.
+     * Uses contact person phone (same as users.phone) so web/API login stays consistent.
+     */
+    function provider_default_password_plain(?string $contactPersonPhone): string
+    {
+        return (string) ($contactPersonPhone ?? '');
+    }
+}
+
 
 
 

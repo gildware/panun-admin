@@ -144,19 +144,23 @@ class AccountController extends Controller
     public function accountUpdate(Request $request): JsonResponse
     {
         $provider = $this->provider->with('owner')->find($request->user()->id);
+        $providerType = $provider?->provider_type ?? 'company';
         $validator = Validator::make($request->all(), [
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required',
-            'contact_person_email' => 'required',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $provider->user_id,
+            'contact_person_email' => 'required|email|unique:users,email,' . $provider->user_id,
 
             'password' => 'string|min:8',
             'confirm_password' => 'same:password',
             'account_first_name' => 'required',
             'account_last_name' => 'required',
-            'account_phone' => 'required',
+            // Account (owner) phone/email are derived from contact person details.
+            'account_phone' => 'nullable',
 
-            'company_name' => 'required',
-            'company_phone' => 'required|unique:providers,company_phone,' . $provider->id . ',id',
+            'company_name' => $providerType === 'company' ? 'required' : 'nullable',
+            'company_phone' => $providerType === 'company'
+                ? 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8'
+                : 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
             'company_address' => 'required',
             'logo' => 'image|mimes:jpeg,jpg,png,gif|max:10000',
         ]);
@@ -164,14 +168,14 @@ class AccountController extends Controller
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
-
-        //email & phone check
-        if (User::where('phone', $request['account_phone'])->where('id', '!=', $provider->user_id)->exists()) {
-            return response()->json(response_formatter(DEFAULT_400, null, [["error_code"=>"account_phone","message"=>translate('Phone already taken')]]), 400);
+        if ($providerType === 'company') {
+            $provider->company_name = $request->company_name;
+            $provider->company_phone = $request->company_phone;
+        } else {
+            $provider->company_name = $request->contact_person_name;
+            $provider->company_phone = $request->contact_person_phone;
+            $provider->company_email = $request->contact_person_email;
         }
-
-        $provider->company_name = $request->company_name;
-        $provider->company_phone = $request->company_phone;
         if ($request->has('logo')) {
             $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
         }
@@ -183,7 +187,9 @@ class AccountController extends Controller
         $owner = $provider->owner()->first();
         $owner->first_name = $request->account_first_name;
         $owner->last_name = $request->account_last_name;
-        $owner->phone = $request->account_phone;
+        // Account (owner) info defaults to contact person details.
+        $owner->email = $request->contact_person_email;
+        $owner->phone = $request->contact_person_phone;
         if ($request->has('password')) {
             $owner->password = bcrypt($request->password);
         }

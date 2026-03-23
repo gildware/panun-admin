@@ -317,6 +317,19 @@ trait BookingTrait
                     }
                 }
             });
+            try {
+                $fresh = Booking::query()
+                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                    ->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingConfirmation($fresh);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking confirmation failed', [
+                    'booking_id' => $booking->id ?? null,
+                    'message' => $e->getMessage(),
+                ]);
+            }
             $bookingIds[] = $booking->id;
         }
 
@@ -598,6 +611,19 @@ trait BookingTrait
                     }
                 }
             });
+            try {
+                $fresh = Booking::query()
+                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                    ->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingConfirmation($fresh);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking confirmation failed', [
+                    'booking_id' => $booking->id ?? null,
+                    'message' => $e->getMessage(),
+                ]);
+            }
             $bookingIds[] = $booking->id;
         }
 
@@ -1808,7 +1834,7 @@ trait BookingTrait
      */
     private function update_admin_commission($booking, float $bookingAmount, $providerId): void
     {
-        $commissionDetails = $this->calculateCommissionDetails($booking);
+        $commissionDetails = $this->calculateCommissionDetails($booking, $providerId);
 
         $adminCommission = $commissionDetails['adminCommission'];
         $adminCommissionWithoutCost = $commissionDetails['adminCommissionWithoutCost'];
@@ -1831,7 +1857,7 @@ trait BookingTrait
     }
 
 
-    public function calculateCommissionDetails($booking): array
+    public function calculateCommissionDetails($booking, ?int $providerId = null): array
     {
         if (isset($booking->booking_id)) {
             $bookingId = $booking->booking_id;
@@ -1849,8 +1875,8 @@ trait BookingTrait
             ];
         }
 
-        // Commission on commissionable amount (grand total - spare parts). Rule: > threshold ? percentage% : flat.
-        $commissionResult = calculate_commission_for_booking($booking);
+        // Admin commission must follow provider commission setting (custom or Business Model default).
+        $commissionResult = calculate_commission_for_booking($booking, $providerId);
         $adminCommission = $commissionResult['commission'];
 
         // Keep existing discount logic: admin bears promotional cost (deduct from commission).

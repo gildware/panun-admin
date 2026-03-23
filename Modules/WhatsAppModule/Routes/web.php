@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppBookingTemplateController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppController;
 
 Route::group([
@@ -16,5 +17,7 @@ Route::group([
         Route::get('conversations/chat/messages', [WhatsAppController::class, 'chatMessages'])->name('conversations.chat.messages');
         Route::post('conversations/handoff', [WhatsAppController::class, 'handoff'])->name('conversations.handoff');
         Route::get('users/details', [WhatsAppController::class, 'userDetails'])->name('users.details');
+        Route::get('booking-message-templates', [WhatsAppBookingTemplateController::class, 'edit'])->name('booking-templates.edit');
+        Route::post('booking-message-templates', [WhatsAppBookingTemplateController::class, 'update'])->name('booking-templates.update');
     });
 });
