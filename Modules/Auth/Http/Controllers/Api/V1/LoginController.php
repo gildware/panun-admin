@@ -125,6 +125,14 @@ class LoginController extends Controller
             return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
         }
 
+        if ($manualBlock = $this->resolveManualPerformanceBlockForProvider($user)) {
+            self::updateUserHitCount($user);
+            return response()->json(response_formatter([
+                'response_code' => 'auth_login_401',
+                'message' => $manualBlock,
+            ]), 401);
+        }
+
         if ($user){
             $access = mobileAppCheck($user, 'mobile_app');
             if (!$access){
@@ -214,6 +222,14 @@ class LoginController extends Controller
         if (!$user->is_active) {
             self::updateUserHitCount($user);
             return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
+        }
+
+        if ($manualBlock = $this->resolveManualPerformanceBlockForCustomer($user)) {
+            self::updateUserHitCount($user);
+            return response()->json(response_formatter([
+                'response_code' => 'auth_login_401',
+                'message' => $manualBlock,
+            ]), 401);
         }
 
         if (isset($user->temp_block_time) && Carbon::parse($user->temp_block_time)->DiffInSeconds() <= $tempBlockTime) {
@@ -404,6 +420,13 @@ class LoginController extends Controller
             return response()->json(response_formatter(AUTH_LOGIN_200, ['temporary_token' => $temporaryToken, 'status' => false, 'email' => $appleEmail], 200));
         }
 
+        if ($manualBlock = $this->resolveManualPerformanceBlockForCustomer($user)) {
+            return response()->json(response_formatter([
+                'response_code' => 'auth_login_401',
+                'message' => $manualBlock,
+            ]), 401);
+        }
+
         if ($request['guest_id']){
             $this->updateAddressAndCartUser($user->id, $request['guest_id']);
         }
@@ -532,5 +555,61 @@ class LoginController extends Controller
             $request->user()->token()->revoke();
         }
         return response()->json(response_formatter(AUTH_LOGOUT_200), 200);
+    }
+
+    private function resolveManualPerformanceBlockForCustomer(User $user): ?string
+    {
+        $status = (string) ($user->manual_performance_status ?? '');
+        if ($status === 'blacklisted') {
+            return translate('Your account is blacklisted. Please contact with admin');
+        }
+
+        if ($status === 'suspended') {
+            $until = $user->performance_suspended_until ? Carbon::parse($user->performance_suspended_until) : null;
+            if ($until && $until->isFuture()) {
+                return translate('Your account is suspended until') . ' ' . $until->format('Y-m-d H:i');
+            }
+
+            // Auto-clear expired manual suspension.
+            $user->manual_performance_status = 'active';
+            $user->performance_suspended_until = null;
+            $user->save();
+        }
+
+        return null;
+    }
+
+    private function resolveManualPerformanceBlockForProvider(User $user): ?string
+    {
+        $provider = $user->provider;
+        $status = (string) ($provider?->manual_performance_status ?? $user->manual_performance_status ?? '');
+
+        if ($status === 'blacklisted') {
+            return translate('Provider account is blacklisted. Please contact with admin');
+        }
+
+        if ($status === 'suspended') {
+            $untilValue = $provider?->performance_suspended_until ?? $user->performance_suspended_until;
+            $until = $untilValue ? Carbon::parse($untilValue) : null;
+
+            if ($until && $until->isFuture()) {
+                return translate('Provider account is suspended until') . ' ' . $until->format('Y-m-d H:i');
+            }
+
+            // Auto-clear expired manual suspension.
+            if ($provider) {
+                $provider->manual_performance_status = 'active';
+                $provider->performance_suspended_until = null;
+                if ((int) $provider->is_active !== 0) {
+                    $provider->is_suspended = 0;
+                }
+                $provider->save();
+            }
+            $user->manual_performance_status = 'active';
+            $user->performance_suspended_until = null;
+            $user->save();
+        }
+
+        return null;
     }
 }

@@ -65,7 +65,30 @@
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
                 </div>
-                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3">
+                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3 align-items-xxl-center flex-column flex-xxl-row">
+                    @php
+                        $bookingFeedbackSvc = app(\Modules\ProviderManagement\Services\BookingAdminFeedbackService::class);
+                        $terminalBooking = $bookingFeedbackSvc->isTerminalBooking($booking);
+                        $needProviderAdminFb = $terminalBooking && !empty($booking->provider_id) && !$bookingFeedbackSvc->providerFeedbackResolved($booking);
+                        $needCustomerAdminFb = $terminalBooking && !empty($booking->customer_id) && !$bookingFeedbackSvc->customerFeedbackResolved($booking);
+                    @endphp
+                    @if($needProviderAdminFb || $needCustomerAdminFb)
+                        <div class="alert alert-warning mb-0 w-100" role="alert" style="max-width: 640px;">
+                            <div class="fw-semibold mb-2">{{ translate('Internal_booking_feedback') }}</div>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                @if($needProviderAdminFb)
+                                    <button type="button" class="btn btn-sm btn--primary open-feedback-manual">
+                                        <span class="material-icons">engineering</span>{{ translate('Provider_feedback') }}
+                                    </button>
+                                @endif
+                                @if($needCustomerAdminFb)
+                                    <button type="button" class="btn btn-sm btn--primary open-customer-feedback-manual">
+                                        <span class="material-icons">person</span>{{ translate('Customer_feedback') }}
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                     <div class="d-flex flex-wrap gap-3">
                         @php
                             $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
@@ -1371,7 +1394,7 @@
                                                                 method="post" id="chatForm-{{ $booking->id }}">
                                                                 @csrf
                                                                 <input type="hidden" name="provider_id"
-                                                                    value="{{ $booking?->provider?->owner?->id }}">
+                                                                    value="{{ $booking?->provider?->owner?->id ?? $booking?->provider?->user_id }}">
                                                                 <input type="hidden" name="type" value="booking">
                                                                 <input type="hidden" name="user_type"
                                                                     value="provider-admin">
@@ -1568,6 +1591,9 @@
         </div>
     </div>
 
+    @include('providermanagement::admin.partials.provider-performance-feedback-modal')
+    @include('providermanagement::admin.partials.customer-performance-feedback-modal')
+
     <div class="modal fade" id="deniedModal-{{$booking->id}}" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -1605,10 +1631,250 @@
             payment_status_change(paymentStatus)
         })
 
+        // Provider performance feedback must be submitted before reassigning/changing provider.
+        let pendingReassignProviderId = null;
+        let pendingPostFeedbackAction = null; // 'reload' | 'reassign'
+
+        const bookingContextId = @json($booking->id);
+        const bookingCurrentProviderId = @json($booking->provider_id);
+        const bookingCustomerId = @json($booking->customer_id);
+
+        const skipBookingFeedbackUrl = @json(route('admin.provider.booking-admin-feedback.skip'));
+
+        function postBookingAdminFeedbackSkip(side, done) {
+            $.ajax({
+                url: skipBookingFeedbackUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    booking_id: bookingContextId,
+                    side: side
+                },
+                success: function () {
+                    if (typeof done === 'function') {
+                        done();
+                    } else {
+                        location.reload();
+                    }
+                },
+                error: function (xhr) {
+                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Something went wrong') }}');
+                }
+            });
+        }
+
+        $('#customerPerformanceFeedbackSkip').on('click', function () {
+            postBookingAdminFeedbackSkip('customer', function () {
+                const modalEl = document.getElementById('customerPerformanceFeedbackModal');
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+                location.reload();
+            });
+        });
+
+        function openCustomerPerformanceFeedbackModal(customerId, actionType = 'completed') {
+            if (!customerId) {
+                toastr.error('{{ translate('Customer not found for feedback.') }}');
+                return;
+            }
+            $('#customerPerformanceContextBookingId').val(bookingContextId);
+            $('#customerPerformanceCustomerId').val(customerId);
+            $('#customerPerformanceActionType').val(actionType === 'canceled' ? 'cancelled' : actionType);
+            $('#customerPerformanceNotes').val('');
+            $('#customerPerformanceFeedbackForm input[type="radio"]').prop('checked', false);
+            $('#customerPerformanceFeedbackForm input[type="checkbox"]').prop('checked', false);
+
+            document.querySelectorAll('.modal.show').forEach((m) => {
+                if (m?.id !== 'customerPerformanceFeedbackModal') {
+                    bootstrap.Modal.getInstance(m)?.hide();
+                }
+            });
+            $('.modal-backdrop').remove();
+
+            const modalEl = document.getElementById('customerPerformanceFeedbackModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        function openProviderPerformanceFeedbackModal(evaluatedProviderId, actionType = 'completed') {
+            $('#providerPerformanceContextBookingId').val(bookingContextId);
+            $('#providerPerformanceProviderId').val(evaluatedProviderId);
+            $('#providerPerformanceActionType').val(actionType === 'canceled' ? 'cancelled' : actionType);
+            $('#providerPerformanceNotes').val('');
+            $('#providerPerformanceFeedbackForm input[type="radio"]').prop('checked', false);
+            $('#providerPerformanceFeedbackForm input[type="checkbox"]').prop('checked', false);
+
+            // Prevent multiple Bootstrap modal backdrops from blocking clicks
+            // (e.g. provider reassign modal still open when opening feedback).
+            document.querySelectorAll('.modal.show').forEach((m) => {
+                if (m?.id !== 'providerPerformanceFeedbackModal') {
+                    bootstrap.Modal.getInstance(m)?.hide();
+                }
+            });
+            $('.modal-backdrop').remove();
+
+            const modalEl = document.getElementById('providerPerformanceFeedbackModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        function reassignProviderAfterFeedback(providerId) {
+            const bookingId = "{{ $booking->id }}";
+            const route = '{{ url('admin/provider/reassign-provider') }}' + '/' + bookingId;
+            const sortOption = document.querySelector('input[name="sort"]:checked')?.value ?? 'default';
+            const searchTerm = $('.search-form-input').val() ?? '';
+
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+
+            $.ajax({
+                url: route,
+                type: 'PUT',
+                dataType: 'json',
+                data: {
+                    sort_by: sortOption,
+                    booking_id: bookingId,
+                    search: searchTerm,
+                    provider_id: providerId
+                },
+                beforeSend: function () {
+                    toastr.info('{{ translate('Processing request...') }}');
+                },
+                success: function (response) {
+                    if (response?.view) {
+                        $('.modal-content-data').html(response.view);
+                    }
+                    toastr.success('{{ translate('Successfully reassign provider') }}');
+                    setTimeout(function () {
+                        location.reload();
+                    }, 600);
+                },
+                error: function () {
+                    toastr.error('{{ translate('Failed to load') }}');
+                }
+            });
+        }
+
+        $('#providerPerformanceFeedbackForm').on('submit', function (e) {
+            e.preventDefault();
+            const $form = $(this);
+            const route = $form.data('feedback-route');
+
+            // Some actions may open the modal without setting pendingPostFeedbackAction.
+            // Default to 'reassign' if a provider id is queued, otherwise just reload.
+            if (!pendingPostFeedbackAction) {
+                pendingPostFeedbackAction = pendingReassignProviderId ? 'reassign' : 'reload';
+            }
+
+            $.ajax({
+                url: route,
+                type: 'POST',
+                dataType: 'json',
+                data: $form.serialize(),
+                beforeSend: function () {
+                    $('#providerPerformanceFeedbackSubmit').prop('disabled', true);
+                },
+                success: function () {
+                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
+                    const modalEl = document.getElementById('providerPerformanceFeedbackModal');
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+
+                    if (pendingPostFeedbackAction === 'reassign') {
+                        const providerId = pendingReassignProviderId;
+                        pendingReassignProviderId = null;
+                        pendingPostFeedbackAction = null;
+                        if (providerId) {
+                            if (typeof window.updateProvider === 'function') {
+                                window.updateProvider(providerId);
+                            } else {
+                                reassignProviderAfterFeedback(providerId);
+                            }
+                            return;
+                        }
+                    }
+
+                    pendingReassignProviderId = null;
+                    pendingPostFeedbackAction = null;
+                    location.reload();
+                },
+                error: function (xhr) {
+                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
+                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to store feedback') }}');
+                }
+            });
+        });
+
         $('.reassign-provider').on('click', function() {
-            let id = $(this).data('provider-reassign');
-            updateProvider(id)
+            let newProviderId = $(this).data('provider-reassign');
+            pendingReassignProviderId = newProviderId;
+            pendingPostFeedbackAction = 'reassign';
+
+            // Evaluate the currently assigned provider (if present); otherwise evaluate the provider being assigned.
+            const evaluatedProviderId = bookingCurrentProviderId ?? newProviderId;
+            if (!evaluatedProviderId) {
+                toastr.error('{{ translate('Provider not found for feedback.') }}');
+                return;
+            }
+
+            openProviderPerformanceFeedbackModal(evaluatedProviderId, 'provider_changed');
         })
+
+        $('.open-feedback-manual').on('click', function() {
+            if (!bookingCurrentProviderId) {
+                toastr.error('{{ translate('Provider not found for feedback.') }}');
+                return;
+            }
+            pendingPostFeedbackAction = 'reload';
+            const st = @json($booking->booking_status);
+            const at = st === 'canceled' ? 'canceled' : 'completed';
+            openProviderPerformanceFeedbackModal(bookingCurrentProviderId, at);
+        });
+
+        $('.open-customer-feedback-manual').on('click', function() {
+            pendingPostFeedbackAction = 'reload';
+            const st = @json($booking->booking_status);
+            const at = st === 'canceled' ? 'canceled' : 'completed';
+            openCustomerPerformanceFeedbackModal(bookingCustomerId, at);
+        });
+
+        $('#customerPerformanceFeedbackForm').on('submit', function (e) {
+            e.preventDefault();
+            const $form = $(this);
+            const type = $form.find('input[name="incident_type"]:checked').val();
+            if (!type) {
+                toastr.error('{{ translate('Please select a feedback type.') }}');
+                return;
+            }
+            if ($form.find('.customer-feedback-tag-checkbox:checked').length < 1) {
+                toastr.error('{{ translate('Please select at least one tag.') }}');
+                return;
+            }
+            const route = $form.data('feedback-route');
+            pendingPostFeedbackAction = 'reload';
+
+            $.ajax({
+                url: route,
+                type: 'POST',
+                dataType: 'json',
+                data: $form.serialize(),
+                beforeSend: function () {
+                    $('#customerPerformanceFeedbackSubmit').prop('disabled', true);
+                },
+                success: function () {
+                    $('#customerPerformanceFeedbackSubmit').prop('disabled', false);
+                    const modalEl = document.getElementById('customerPerformanceFeedbackModal');
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                    location.reload();
+                },
+                error: function (xhr) {
+                    $('#customerPerformanceFeedbackSubmit').prop('disabled', false);
+                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to store feedback') }}');
+                }
+            });
+        });
 
         $('.reassign-serviceman').on('click', function() {
             let id = $(this).data('serviceman-reassign');
@@ -1764,6 +2030,14 @@
                                 CloseButton: true,
                                 ProgressBar: true
                             });
+
+                            if (componentId === 'booking_status' && (updatedValue === 'completed' || updatedValue === 'canceled' || updatedValue === 'cancelled')) {
+                                if (bookingCurrentProviderId) {
+                                    pendingPostFeedbackAction = 'reload';
+                                    openProviderPerformanceFeedbackModal(bookingCurrentProviderId, updatedValue);
+                                    return;
+                                }
+                            }
 
                             if (componentId === 'booking_status' || componentId === 'payment_status' ||
                                 componentId === 'service_schedule' || componentId === 'serviceman_assign' || componentId === 'payment_method' ) {
@@ -2432,12 +2706,9 @@
             });
         });
 
-        $('.customer-chat').on('click', function() {
-            $(this).find('form').submit();
-        });
-
-        $('.provider-chat').on('click', function() {
-            $(this).find('form').submit();
+        $(document).on('click', '.customer-chat, .provider-chat', function(e) {
+            e.preventDefault();
+            $(this).find('form').trigger('submit');
         });
 
 

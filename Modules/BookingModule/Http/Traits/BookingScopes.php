@@ -124,7 +124,7 @@ trait BookingScopes
 
         if ($packageSubscriber) {
             if ($isPackageEnded > 0 && $scheduleBookingEligibility && !$canceled) {
-                if ($provider->service_availability && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
+                if ($provider->service_availability && (int)($provider->is_active_for_jobs ?? 1) === 1 && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
                     $zone_id = $provider->zone_id;
                     $subscribedSubCategories = SubscribedService::where(['provider_id' => $provider->id])->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
 
@@ -152,7 +152,7 @@ trait BookingScopes
                 return $query->whereRaw('1 = 0'); // This ensures no results are returned
             }
         } else {
-            if ($provider->service_availability && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
+            if ($provider->service_availability && (int)($provider->is_active_for_jobs ?? 1) === 1 && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
                 $zone_id = $provider->zone_id;
                 $subscribedSubCategories = SubscribedService::where(['provider_id' => $provider->id])->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
 

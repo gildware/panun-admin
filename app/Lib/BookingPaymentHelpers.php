@@ -99,7 +99,7 @@ if (!function_exists('calculate_commission_for_booking')) {
      * - If provider has custom commission enabled, use `providers.commission_percentage`
      * - Otherwise use Business Model Setup default commission (10% by default)
      */
-    function calculate_commission_for_booking($booking, ?int $providerId = null): array
+    function calculate_commission_for_booking($booking, int|string|null $providerId = null): array
     {
         $commissionableAmount = get_booking_commissionable_amount($booking);
 

@@ -1137,6 +1137,7 @@ class BookingController extends Controller
                     $query->where('is_suspended', 0);
                 })
                 ->where('service_availability', 1)
+                ->where('is_active_for_jobs', 1)
                 ->withCount('reviews')
                 ->ofApproval(1)->ofStatus(1)
                 ->whereNot('id', $booking->provider_id)
@@ -1524,6 +1525,7 @@ class BookingController extends Controller
                 $query->where('is_suspended', 0);
             })
             ->where('service_availability', 1)
+            ->where('is_active_for_jobs', 1)
             ->withCount('reviews')
             ->ofApproval(1)->ofStatus(1)->get();
 
@@ -1697,6 +1699,7 @@ class BookingController extends Controller
                 $query->where('is_suspended', 0);
             })
             ->where('service_availability', 1)
+            ->where('is_active_for_jobs', 1)
             ->withCount('reviews')
             ->ofApproval(1)->ofStatus(1)->get();
 
@@ -3563,6 +3566,7 @@ class BookingController extends Controller
                     $query->where('is_suspended', 0);
                 })
                 ->where('service_availability', 1)
+                ->where('is_active_for_jobs', 1)
                 ->withCount('reviews')
                 ->ofApproval(1)->ofStatus(1)->get();
 

@@ -6,26 +6,31 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-4">
-                <h2 class="page-title mb-2">{{translate('Customer')}}</h2>
-                <div>{{translate('Joined_on')}} {{date('d-M-y H:iA', strtotime($customer?->created_at))}}</div>
+                @php
+                    $customerDisplayName = trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? ''));
+                    $customerDisplayName = $customerDisplayName !== '' ? $customerDisplayName : ($customer->email ?? translate('Customer'));
+                    $customerStatus = (string) ($customer->manual_performance_status ?? 'active');
+                    $customerStatusLabel = match($customerStatus) {
+                        'blacklisted' => translate('Blacklisted'),
+                        'suspended' => translate('Suspended'),
+                        default => translate('Active'),
+                    };
+                    $customerStatusClass = match($customerStatus) {
+                        'blacklisted' => 'bg-danger',
+                        'suspended' => 'bg-warning text-dark',
+                        default => 'bg-success',
+                    };
+                @endphp
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <h2 class="page-title mb-2">{{ $customerDisplayName }}</h2>
+                        <div>{{translate('Joined_on')}} {{date('d-M-y H:iA', strtotime($customer?->created_at))}}</div>
+                    </div>
+                    <span class="badge {{ $customerStatusClass }}">{{ $customerStatusLabel }}</span>
+                </div>
             </div>
 
-            <div class="mb-3">
-                <ul class="nav nav--tabs nav--tabs__style2">
-                    <li class="nav-item">
-                        <a class="nav-link {{$webPage=='overview'?'active':''}}"
-                           href="{{url()->current()}}?web_page=overview">{{translate('Overview')}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{$webPage=='bookings'?'active':''}}"
-                           href="{{url()->current()}}?web_page=bookings">{{translate('Bookings')}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{$webPage=='reviews'?'active':''}}"
-                           href="{{url()->current()}}?web_page=reviews">{{translate('Reviews')}}</a>
-                    </li>
-                </ul>
-            </div>
+            @include('customermodule::admin.detail.partials.sub-nav', ['webPage' => $webPage ?? 'bookings'])
 
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="boookings-tab-pane">

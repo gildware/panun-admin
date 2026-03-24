@@ -38,6 +38,7 @@ class Provider extends Model
         'is_approved' => 'integer',
         'coordinates' => 'json',
         'company_identity_images' => 'array',
+        'is_active_for_jobs' => 'integer',
     ];
 
     protected $fillable = [];
@@ -107,6 +108,11 @@ class Provider extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'provider_id', 'id');
+    }
+
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(\Modules\ProviderManagement\Entities\ProviderIncident::class, 'provider_id', 'id');
     }
 
     public function storage()

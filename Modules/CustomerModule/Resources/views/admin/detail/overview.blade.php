@@ -6,59 +6,59 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-4">
-                <h2 class="page-title mb-2">{{translate('Customer')}}</h2>
-                <div>{{translate('Joined_on')}} {{date('d-M-y H:iA', strtotime($customer?->created_at))}}</div>
+                @php
+                    $customerDisplayName = trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? ''));
+                    $customerDisplayName = $customerDisplayName !== '' ? $customerDisplayName : ($customer->email ?? translate('Customer'));
+                    $customerStatus = (string) ($customer->manual_performance_status ?? 'active');
+                    $customerStatusLabel = match($customerStatus) {
+                        'blacklisted' => translate('Blacklisted'),
+                        'suspended' => translate('Suspended'),
+                        default => translate('Active'),
+                    };
+                    $customerStatusClass = match($customerStatus) {
+                        'blacklisted' => 'bg-danger',
+                        'suspended' => 'bg-warning text-dark',
+                        default => 'bg-success',
+                    };
+                @endphp
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <h2 class="page-title mb-2">{{ $customerDisplayName }}</h2>
+                        <div>{{translate('Joined_on')}} {{date('d-M-y H:iA', strtotime($customer?->created_at))}}</div>
+                    </div>
+                    <span class="badge {{ $customerStatusClass }}">{{ $customerStatusLabel }}</span>
+                </div>
             </div>
 
-            <div class="mb-3">
-                <ul class="nav nav--tabs nav--tabs__style2">
-                    <li class="nav-item">
-                        <a class="nav-link {{$webPage=='overview'?'active':''}}"
-                           href="{{url()->current()}}?web_page=overview">{{translate('Overview')}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{$webPage=='bookings'?'active':''}}"
-                           href="{{url()->current()}}?web_page=bookings">{{translate('Bookings')}}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{$webPage=='reviews'?'active':''}}"
-                           href="{{url()->current()}}?web_page=reviews">{{translate('Reviews')}}</a>
-                    </li>
-                </ul>
-            </div>
+            @include('customermodule::admin.detail.partials.sub-nav', ['webPage' => $webPage ?? 'overview'])
 
             <div class="card">
                 <div class="card-body p-30">
-                    <div class="row justify-content-center g-2 mb-30">
-                        <div class="col-sm-6 col-lg-4 provider-details-overview__statistics d-flex flex-column">
-                            <div class="statistics-card statistics-card__style2 statistics-card__pending-withdraw">
-                                <h2>{{$customer->bookings_count}}</h2>
-                                <h3>{{translate('Total_Booking_Placed')}}</h3>
+                    <div class="row customer-overview-top g-3 align-items-stretch mb-30">
+                        <div class="col-12 col-lg-8 d-flex min-h-0">
+                            <div class="customer-overview-stat-grid w-100 h-100 flex-grow-1">
+                                <div class="statistics-card statistics-card__style2 statistics-card__pending-withdraw customer-overview-stat-tile">
+                                    <h2>{{$customer->bookings_count}}</h2>
+                                    <h3>{{translate('Total_Booking_Placed')}}</h3>
+                                </div>
+                                <div class="statistics-card statistics-card__style2 statistics-card__already-withdraw customer-overview-stat-tile">
+                                    <h2>{{with_currency_symbol($totalBookingAmount)}}</h2>
+                                    <h3>{{translate('Total_Booking_Amount')}}</h3>
+                                </div>
+                                <div class="statistics-card statistics-card__style2 statistics-card__total-earning customer-overview-stat-tile">
+                                    <h2>{{with_currency_symbol($customer['wallet_balance'])}}</h2>
+                                    <h3>{{translate('Wallet Balance')}}</h3>
+                                </div>
+                                <div class="statistics-card statistics-card__style2 statistics-card__withdrawable-amount customer-overview-stat-tile">
+                                    <h2>{{$customer['loyalty_point']}}</h2>
+                                    <h3>{{translate('Loyalty Point')}}</h3>
+                                </div>
                             </div>
-
-                            <div class="statistics-card statistics-card__style2 statistics-card__already-withdraw">
-                                <h2>{{with_currency_symbol($totalBookingAmount)}}</h2>
-                                <h3>{{translate('Total_Booking_Amount')}}</h3>
-                            </div>
-
                         </div>
-                        <div class="col-sm-6 col-lg-4 provider-details-overview__statistics d-flex flex-column">
-
-                            <div class="statistics-card statistics-card__style2 statistics-card__total-earning">
-                                <h2>{{with_currency_symbol($customer['wallet_balance'])}}</h2>
-                                <h3>{{translate('Wallet Balance')}}</h3>
-                            </div>
-
-                            <div class="statistics-card statistics-card__style2 statistics-card__withdrawable-amount">
-                                <h2>{{$customer['loyalty_point']}}</h2>
-                                <h3>{{translate('Loyalty Point')}}</h3>
-                            </div>
-
-                        </div>
-                        <div class="col-sm-6 col-lg-4 provider-details-overview__order-overview">
-                            <div class="statistics-card statistics-card__order-overview h-100 pb-2">
-                                <h3 class="mb-0">{{translate('Booking_Overview')}}</h3>
-                                <div id="apex-pie-chart" class="d-flex justify-content-center"></div>
+                        <div class="col-12 col-lg-4 d-flex min-h-0">
+                            <div class="statistics-card statistics-card__order-overview customer-overview-chart-card w-100 h-100 d-flex flex-column min-h-0">
+                                <h3 class="mb-2 flex-shrink-0">{{ translate('Booking_Overview') }} ({{ (int) $customer->bookings_count }})</h3>
+                                <div id="apex-pie-chart" class="customer-overview-chart-host flex-grow-1 d-flex justify-content-center align-items-center min-h-0 w-100"></div>
                             </div>
                         </div>
                     </div>
@@ -97,6 +97,7 @@
 
                         @if($customer->addresses && $customer->addresses->count() > 0)
                             <div class="information-details-box customer-address">
+                                <h3 class="fw-medium mb-20">{{ translate('Addresses') }}</h3>
                                 @foreach($customer->addresses as $key=>$address)
                                     <div class="d-flex justify-content-between gap-2 mb-20">
                                         <div class="media gap-2 gap-xl-3">
@@ -161,46 +162,120 @@
     </div>
 @endsection
 
+@push('css_or_js')
+    <style>
+        .customer-overview-top {
+            --customer-overview-stat-gap: 0.5rem;
+        }
+
+        .customer-overview-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-rows: repeat(2, minmax(0, 1fr));
+            gap: var(--customer-overview-stat-gap);
+            min-height: 11rem;
+        }
+
+        @media (min-width: 992px) {
+            .customer-overview-stat-grid {
+                min-height: 100%;
+            }
+        }
+
+        .customer-overview-stat-tile {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        .customer-overview-stat-tile h2 {
+            margin-block-end: 0.5rem;
+        }
+
+        .customer-overview-chart-host {
+            min-height: 200px;
+        }
+
+        @media (min-width: 992px) {
+            .customer-overview-chart-host {
+                min-height: 0;
+            }
+        }
+    </style>
+@endpush
+
 @push('script')
+    @php
+        $bookingOverviewStatuses = ['pending', 'accepted', 'ongoing', 'completed', 'canceled'];
+        $bookingOverviewChartLabels = [];
+        foreach ($bookingOverviewStatuses as $idx => $statusKey) {
+            $bookingOverviewChartLabels[] = translate($statusKey) . ' (' . (int) ($total[$idx] ?? 0) . ')';
+        }
+    @endphp
 
     <script src="{{asset('assets/admin-module/plugins/apex/apexcharts.min.js')}}"></script>
 
     <script>
         "use strict"
         var options = {
-            labels: ['pending', 'accepted', 'ongoing', 'completed', 'canceled'],
-            series: {{json_encode($total)}},
+            labels: @json($bookingOverviewChartLabels),
+            series: {{ json_encode($total) }},
             chart: {
-                width: 235,
-                height: 160,
+                width: '100%',
+                height: 200,
                 type: 'donut',
+                toolbar: { show: false },
             },
             dataLabels: {
                 enabled: false
             },
-            title: {
-                text: "{{$customer->bookings_count}} Bookings",
-                align: 'center',
-                offsetX: 0,
-                offsetY: 58,
-                floating: true,
-                style: {
-                    fontSize: '12px',
-                    fontWeight: '500',
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '62%',
+                        labels: {
+                            show: true,
+                            name: { show: false },
+                            value: { show: false },
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: @json(translate('Bookings')),
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                formatter: function () {
+                                    return String({{ (int) $customer->bookings_count }});
+                                },
+                            },
+                        },
+                    },
                 },
             },
-            responsive: [{
-                breakpoint: 480,
-                options: {
-                    legend: {
-                        show: true
-                    }
-                }
-            }],
+            responsive: [
+                {
+                    breakpoint: 991,
+                    options: {
+                        chart: { height: 280 },
+                        legend: {
+                            position: 'bottom',
+                            horizontalAlign: 'center',
+                            offsetY: 4,
+                        },
+                    },
+                },
+            ],
             legend: {
-                position: 'bottom',
-                offsetY: -5,
-                height: 30,
+                position: 'right',
+                offsetY: 0,
+                fontSize: '10px',
+                itemMargin: {
+                    horizontal: 4,
+                    vertical: 2,
+                },
             },
         };
 

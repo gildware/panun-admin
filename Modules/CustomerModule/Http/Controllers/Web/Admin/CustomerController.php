@@ -19,7 +19,10 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CustomerModule\Emails\CustomerRegistrationMail;
+use Modules\ProviderManagement\Entities\CustomerIncident;
+use Modules\ProviderManagement\Services\CustomerPerformanceService;
 use Modules\ReviewModule\Entities\Review;
+use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\UserManagement\Entities\UserVerification;
@@ -723,12 +726,12 @@ class CustomerController extends Controller
     {
         $this->authorize('customer_view');
         $request->validate([
-            'web_page' => 'in:overview,bookings,reviews',
+            'web_page' => 'nullable|in:overview,bookings,reviews,performance,payments',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
 
-        if ($request->web_page == 'overview') {
+        if ($webPage === 'overview') {
             $customer = $this->user->with(['account', 'addresses'])->withCount(['bookings'])->find($id);
             $totalBookingAmount = $this->booking->where('customer_id', $id)->sum('total_booking_amount');
 
@@ -749,7 +752,7 @@ class CustomerController extends Controller
 
             return view('customermodule::admin.detail.overview', compact('customer', 'totalBookingAmount', 'webPage', 'total'));
 
-        } elseif ($request->web_page == 'bookings') {
+        } elseif ($webPage == 'bookings') {
 
             $search = $request->has('search') ? $request['search'] : '';
             $queryParam = ['web_page' => $webPage, 'search' => $search];
@@ -769,7 +772,7 @@ class CustomerController extends Controller
 
             return view('customermodule::admin.detail.bookings', compact('bookings', 'webPage', 'customer', 'search'));
 
-        } elseif ($request->web_page == 'reviews') {
+        } elseif ($webPage == 'reviews') {
             $search = $request->has('search') ? $request['search'] : '';
             $queryParam = ['web_page' => $webPage];
             $bookingIds = $this->booking->where('customer_id', $id)->pluck('id')->toArray();
@@ -780,6 +783,114 @@ class CustomerController extends Controller
             $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
             return view('customermodule::admin.detail.reviews', compact('reviews', 'webPage', 'customer', 'search'));
 
+        } elseif ($webPage == 'performance') {
+            $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+            $performanceService = app(CustomerPerformanceService::class);
+            $metricsRow = $performanceService->getAggregatedCustomerPerformanceMetrics([$id])->get($id);
+            $metrics = (object) ($metricsRow ? (array) $metricsRow : []);
+
+            $incidents = CustomerIncident::query()
+                ->where('customer_id', $id)
+                ->with(['createdBy', 'booking'])
+                ->latest()
+                ->paginate(20)
+                ->withQueryString();
+
+            return view('customermodule::admin.detail.performance', compact('customer', 'webPage', 'metrics', 'incidents'));
+        } elseif ($webPage == 'payments') {
+            $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+
+            $bookingIds = $this->booking->where('customer_id', $id)->pluck('id')->toArray();
+            $totals = (object) [
+                'customer_paid_to_provider' => 0.0,
+                'customer_paid_to_company' => 0.0,
+                'company_paid_to_customer' => 0.0,
+            ];
+            $paymentTransactions = collect();
+
+            if (!empty($bookingIds)) {
+                $allBookings = $this->booking->with('booking_partial_payments')
+                    ->whereIn('id', $bookingIds)
+                    ->get();
+
+                foreach ($allBookings as $bookingRow) {
+                    $settlement = get_booking_received_and_settlement($bookingRow);
+                    $totals->customer_paid_to_company += (float) ($settlement['amount_received_by_company'] ?? 0);
+                    $totals->customer_paid_to_provider += (float) ($settlement['amount_received_by_provider'] ?? 0);
+                }
+
+                $totals->company_paid_to_customer = (float) LedgerTransaction::query()
+                    ->whereIn('booking_id', $bookingIds)
+                    ->where('type', LedgerTransaction::TYPE_OUT)
+                    ->where('reason', LedgerTransaction::REASON_REFUND)
+                    ->sum('amount');
+
+                $bookingMap = $this->booking
+                    ->whereIn('id', $bookingIds)
+                    ->get(['id', 'readable_id'])
+                    ->keyBy('id');
+
+                $partials = DB::table('booking_partial_payments')
+                    ->whereIn('booking_id', $bookingIds)
+                    ->where('paid_amount', '>', 0)
+                    ->orderByDesc('created_at')
+                    ->get();
+
+                foreach ($partials as $partial) {
+                    $receivedBy = $partial->received_by ?: 'company';
+                    $flow = $receivedBy === 'provider' ? 'customer_paid_to_provider' : 'customer_paid_to_company';
+                    $paymentTransactions->push((object) [
+                        'date' => $partial->created_at,
+                        'booking_id' => $partial->booking_id,
+                        'booking_readable_id' => $bookingMap[$partial->booking_id]->readable_id ?? $partial->booking_id,
+                        'flow' => $flow,
+                        'amount' => (float) $partial->paid_amount,
+                        'channel' => (string) ($partial->paid_with ?? 'N/A'),
+                        'transaction_id' => (string) ($partial->transaction_id ?? ''),
+                        'source' => 'partial_payment',
+                    ]);
+                }
+
+                $refundRows = LedgerTransaction::query()
+                    ->whereIn('booking_id', $bookingIds)
+                    ->where('type', LedgerTransaction::TYPE_OUT)
+                    ->where('reason', LedgerTransaction::REASON_REFUND)
+                    ->where('amount', '>', 0)
+                    ->orderByDesc('date')
+                    ->orderByDesc('created_at')
+                    ->get(['booking_id', 'amount', 'transaction_id', 'date', 'created_at']);
+
+                foreach ($refundRows as $refund) {
+                    $paymentTransactions->push((object) [
+                        'date' => $refund->date ?? $refund->created_at,
+                        'booking_id' => $refund->booking_id,
+                        'booking_readable_id' => $bookingMap[$refund->booking_id]->readable_id ?? $refund->booking_id,
+                        'flow' => 'company_paid_to_customer',
+                        'amount' => (float) $refund->amount,
+                        'channel' => 'refund',
+                        'transaction_id' => (string) ($refund->transaction_id ?? ''),
+                        'source' => 'ledger_refund',
+                    ]);
+                }
+            }
+
+            $paymentTransactions = $paymentTransactions
+                ->filter(fn ($row) => (float) ($row->amount ?? 0) > 0)
+                ->sortByDesc(fn ($row) => strtotime((string) $row->date))
+                ->values();
+
+            $perPage = 20;
+            $page = (int) ($request->get('page', 1));
+            $paginatedTransactions = new \Illuminate\Pagination\LengthAwarePaginator(
+                $paymentTransactions->forPage($page, $perPage)->values(),
+                $paymentTransactions->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'pageName' => 'page']
+            );
+            $paginatedTransactions->withQueryString();
+
+            return view('customermodule::admin.detail.payments', compact('customer', 'webPage', 'totals', 'paginatedTransactions'));
         }
 
 

@@ -39,12 +39,14 @@ use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderSetting;
+use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Traits\PreservesAdminProviderFormDrafts;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
+use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
@@ -134,12 +136,14 @@ class ProviderController extends Controller
 
         Validator::make($request->all(), [
             'search' => 'string',
-            'status' => 'required|in:active,inactive,all'
+            'status' => 'required|in:active,inactive,all',
+            'performance_filter' => 'nullable|in:all,warning,blacklisted',
         ]);
 
         $search = $request->has('search') ? $request['search'] : '';
         $status = $request->has('status') ? $request['status'] : 'all';
-        $queryParam = ['search' => $search, 'status' => $status];
+        $performanceFilter = $request->has('performance_filter') ? $request['performance_filter'] : 'all';
+        $queryParam = ['search' => $search, 'status' => $status, 'performance_filter' => $performanceFilter];
 
         $providers = $this->provider->with(['owner', 'zone'])->where(['is_approved' => 1])->withCount(['subscribed_services', 'bookings'])
             ->when($request->has('search'), function ($query) use ($request) {
@@ -156,6 +160,13 @@ class ProviderController extends Controller
             ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
                 return $query->ofStatus(($request['status'] == 'active') ? 1 : 0);
             })->latest()
+            ->when($performanceFilter !== 'all', function ($query) use ($performanceFilter) {
+                if ($performanceFilter === 'warning') {
+                    $query->where('performance_status', 'warning');
+                } elseif ($performanceFilter === 'blacklisted') {
+                    $query->where('performance_status', 'blacklisted');
+                }
+            })
             ->paginate(pagination_limit())->appends($queryParam);
 
         $topCards = [];
@@ -163,7 +174,27 @@ class ProviderController extends Controller
         $topCards['total_onboarding_requests'] = $this->provider->ofApproval(2)->count();
         $topCards['total_active_providers'] = $this->provider->ofApproval(1)->ofStatus(1)->count();
         $topCards['total_inactive_providers'] = $this->provider->ofApproval(1)->ofStatus(0)->count();
-        return view('providermanagement::admin.provider.index', compact('providers', 'topCards', 'search', 'status'));
+
+        $performanceService = app(ProviderPerformanceService::class);
+        $metrics = $performanceService->getAggregatedProviderPerformanceMetrics($providers->getCollection()->pluck('id')->toArray());
+
+        $providers->getCollection()->transform(function ($provider) use ($metrics) {
+            $row = $metrics->get($provider->id);
+
+            $jobsCompleted = (int) ($row?->bookings_completed_count ?? $row?->jobs_completed_count ?? 0);
+            $jobsCancelled = (int) ($row?->bookings_cancelled_count ?? 0);
+            $complaintsCount = (int) ($row?->complaints_count ?? 0);
+            $noShowCount = (int) ($row?->no_show_count ?? 0);
+            $totalRelevant = max(1, ($jobsCompleted + $jobsCancelled));
+
+            $provider->performance_score = (int) ($row?->performance_score ?? 0);
+            $provider->complaints_percent = round(($complaintsCount / $totalRelevant) * 100, 2);
+            $provider->no_show_percent = round(($noShowCount / $totalRelevant) * 100, 2);
+
+            return $provider;
+        });
+
+        return view('providermanagement::admin.provider.index', compact('providers', 'topCards', 'search', 'status', 'performanceFilter'));
     }
 
     /**
@@ -715,7 +746,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,subscribed_services,bookings,serviceman_list,settings,bank_information,reviews,subscription,payment',
+            'web_page' => 'in:overview,subscribed_services,bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -928,7 +959,7 @@ class ProviderController extends Controller
 
         } //bank_info
         elseif ($request->web_page == 'bank_information') {
-            $provider = $this->provider->with('owner.account', 'bank_detail')->find($id);
+            $provider = $this->provider->with('owner.account', 'bank_details', 'bank_detail')->find($id);
             return view('providermanagement::admin.provider.detail.bank-information', compact('webPage', 'provider'));
 
         } //reviews
@@ -978,6 +1009,27 @@ class ProviderController extends Controller
             return view('providermanagement::admin.provider.detail.reviews', compact('webPage', 'provider', 'reviews', 'search', 'provider', 'total'));
 
         }//reviews
+        elseif ($request->web_page == 'performance') {
+            $provider = $this->provider->with('owner.account')->find($id);
+            $performanceService = app(ProviderPerformanceService::class);
+
+            $metricsRow = $performanceService->getAggregatedProviderPerformanceMetrics([$id])->get($id);
+            $metrics = (object) ($metricsRow ? (array) $metricsRow : []);
+
+            $incidents = ProviderIncident::query()
+                ->where('provider_id', $id)
+                ->with(['createdBy', 'booking'])
+                ->latest()
+                ->paginate(20)
+                ->withQueryString();
+
+            return view('providermanagement::admin.provider.detail.performance', compact(
+                'webPage',
+                'provider',
+                'metrics',
+                'incidents'
+            ));
+        }
         elseif ($request->web_page == 'subscription') {
 
             $provider = $this->provider->with('owner')->where('id', $id)->first();
@@ -1190,15 +1242,30 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_update');
 
-        $this->bank_detail::updateOrCreate(
-            ['provider_id' => $id],
-            [
-                'bank_name' => $request->bank_name,
-                'branch_name' => $request->branch_name,
-                'acc_no' => $request->acc_no,
-                'acc_holder_name' => $request->acc_holder_name,
-            ]
-        );
+        $validated = $request->validate([
+            'bank_detail_id' => 'nullable|uuid|exists:bank_details,id',
+            'bank_name' => 'nullable|string|max:191',
+            'acc_no' => 'required|string|max:191',
+            'acc_holder_name' => 'required|string|max:191',
+            'routing_number' => 'required|string|max:191',
+        ]);
+
+        $providerId = $id;
+        $payload = [
+            'bank_name' => $validated['bank_name'],
+            'acc_no' => $validated['acc_no'],
+            'acc_holder_name' => $validated['acc_holder_name'],
+            'routing_number' => $validated['routing_number'],
+        ];
+
+        if (!empty($validated['bank_detail_id'])) {
+            $this->bank_detail
+                ->where('provider_id', $providerId)
+                ->where('id', $validated['bank_detail_id'])
+                ->update($payload);
+        } else {
+            $this->bank_detail::create(array_merge($payload, ['provider_id' => $providerId]));
+        }
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
@@ -2041,6 +2108,11 @@ class ProviderController extends Controller
                 $query->where('is_suspended', 0);
             })
             ->where('service_availability', 1)
+            ->where('is_active_for_jobs', 1)
+            ->when($sortBy === 'default', function ($q) {
+                // Deprioritize "warning" providers compared to "active" providers.
+                $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END");
+            })
             ->withCount('reviews')
             ->ofApproval(1)->ofStatus(1)->get();
 
@@ -2210,8 +2282,10 @@ class ProviderController extends Controller
             ->whereHas('subscribed_services', fn($q) => $q->where('sub_category_id', $subCategoryId)->where('is_subscribed', 1))
             ->when($request->sort_by !== 'bookings-completed', fn($q) => $q->withCount('bookings'))
             ->where('service_availability', 1)
+            ->where('is_active_for_jobs', 1)
             ->ofApproval(1)
             ->ofStatus(1)
+            ->when($request->sort_by === 'default', fn($q) => $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END"))
             ->get();
     }
 

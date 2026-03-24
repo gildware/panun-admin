@@ -252,9 +252,18 @@ trait BookingTrait
                         } else {
                             $providerIds = SubscribedService::where('sub_category_id', $subCategory)->ofSubscription(1)->pluck('provider_id')->toArray();
                             if (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
-                                $providers = Provider::with('owner')->whereIn('id', $providerIds)->where('zone_id', $booking?->zone_id)->where('is_suspended', 0)->get();
+                                $providers = Provider::with('owner')
+                                    ->whereIn('id', $providerIds)
+                                    ->where('zone_id', $booking?->zone_id)
+                                    ->where('is_suspended', 0)
+                                    ->where('is_active_for_jobs', 1)
+                                    ->get();
                             } else {
-                                $providers = Provider::with('owner')->whereIn('id', $providerIds)->where('zone_id', $booking?->zone_id)->get();
+                                $providers = Provider::with('owner')
+                                    ->whereIn('id', $providerIds)
+                                    ->where('zone_id', $booking?->zone_id)
+                                    ->where('is_active_for_jobs', 1)
+                                    ->get();
                             }
 
                             foreach ($providers as $provider) {
@@ -292,9 +301,18 @@ trait BookingTrait
                     } else {
                         $providerIds = SubscribedService::where('sub_category_id', $subCategory)->ofSubscription(1)->pluck('provider_id')->toArray();
                         if (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
-                            $providers = Provider::with('owner')->whereIn('id', $providerIds)->where('zone_id', $booking->zone_id)->where('is_suspended', 0)->get();
+                            $providers = Provider::with('owner')
+                                ->whereIn('id', $providerIds)
+                                ->where('zone_id', $booking->zone_id)
+                                ->where('is_suspended', 0)
+                                ->where('is_active_for_jobs', 1)
+                                ->get();
                         } else {
-                            $providers = Provider::with('owner')->whereIn('id', $providerIds)->where('zone_id', $booking->zone_id)->get();
+                            $providers = Provider::with('owner')
+                                ->whereIn('id', $providerIds)
+                                ->where('zone_id', $booking->zone_id)
+                                ->where('is_active_for_jobs', 1)
+                                ->get();
                         }
 
                         foreach ($providers as $provider) {
@@ -591,9 +609,18 @@ trait BookingTrait
                         } else {
                             $providerIds = SubscribedService::where('sub_category_id', $subCategory)->ofSubscription(1)->pluck('provider_id')->toArray();
                             if (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
-                                $providers = Provider::with('owner')->whereIn('id', $providerIds)->where('zone_id', $booking?->zone_id)->where('is_suspended', 0)->get();
+                                $providers = Provider::with('owner')
+                                    ->whereIn('id', $providerIds)
+                                    ->where('zone_id', $booking?->zone_id)
+                                    ->where('is_suspended', 0)
+                                    ->where('is_active_for_jobs', 1)
+                                    ->get();
                             } else {
-                                $providers = Provider::with('owner')->whereIn('id', $providerIds)->where('zone_id', $booking?->zone_id)->get();
+                                $providers = Provider::with('owner')
+                                    ->whereIn('id', $providerIds)
+                                    ->where('zone_id', $booking?->zone_id)
+                                    ->where('is_active_for_jobs', 1)
+                                    ->get();
                             }
 
                             foreach ($providers as $provider) {
@@ -1857,7 +1884,7 @@ trait BookingTrait
     }
 
 
-    public function calculateCommissionDetails($booking, ?int $providerId = null): array
+    public function calculateCommissionDetails($booking, int|string|null $providerId = null): array
     {
         if (isset($booking->booking_id)) {
             $bookingId = $booking->booking_id;

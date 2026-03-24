@@ -414,6 +414,15 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     </ul>
                 </li>
             @endcan
+            @can('provider_view')
+                <li>
+                    <a href="{{ route('admin.provider.feedback-tags.index') }}"
+                       class="{{ request()->is('admin/provider/feedback-tags*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Feedback_Configuration') }}">tune</span>
+                        <span class="link-title">{{ translate('Feedback_Configuration') }}</span>
+                    </a>
+                </li>
+            @endcan
             @canany(['withdraw_view', 'withdraw_add'])
                 <li class="has-sub-item  {{request()->is('admin/withdraw/method*')||request()->is('admin/withdraw/method/create')||request()->is('admin/withdraw/method/edit*') || request()->is('admin/withdraw/request*') ?'sub-menu-opened':''}}">
                     <a href="#"

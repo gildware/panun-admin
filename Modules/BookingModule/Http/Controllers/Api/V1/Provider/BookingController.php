@@ -796,7 +796,10 @@ class BookingController extends Controller
 
             $provider = $request->user()->provider;
 
-            if ($provider?->is_suspended == 1 && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
+            if (
+                (int)($provider?->is_active_for_jobs ?? 1) === 0
+                || ($provider?->is_suspended == 1 && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
+            ) {
                 return response()->json(DEFAULT_SUSPEND_200, 404);
             }
 

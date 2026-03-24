@@ -71,6 +71,27 @@
                     </li>
                 </ul>
 
+                <ul class="nav nav--tabs nav--tabs__style2">
+                    <li class="nav-item">
+                        <a class="nav-link {{($performanceFilter ?? 'all')=='all'?'active':''}}"
+                           href="{{url()->current()}}?status={{$status}}&performance_filter=all">
+                            {{translate('all')}}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{($performanceFilter ?? 'all')=='warning'?'active':''}}"
+                           href="{{url()->current()}}?status={{$status}}&performance_filter=warning">
+                            {{translate('warning')}}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{($performanceFilter ?? 'all')=='blacklisted'?'active':''}}"
+                           href="{{url()->current()}}?status={{$status}}&performance_filter=blacklisted">
+                            {{translate('blacklisted')}}
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="d-flex gap-2 fw-medium">
                     <span class="opacity-75">{{translate('Total_Providers')}}:</span>
                     <span class="title-color">{{$providers->total()}}</span>
@@ -85,7 +106,7 @@
                                 <h4 class="m-0">Provider List</h4>
 
                                 <div class="d-flex flex-wrap align-items-center gap-3">
-                                    <form action="{{url()->current()}}?status={{$status}}" class="d-flex align-items-center gap-0 border rounded" method="POST">
+                                    <form action="{{url()->current()}}?status={{$status}}&performance_filter={{$performanceFilter ?? 'all'}}" class="d-flex align-items-center gap-0 border rounded" method="POST">
                                         @csrf
                                         <input type="search" class="theme-input-style border-0 rounded block-size-36" name="search" value="{{$search}}" placeholder="{{translate('search_here')}}">
                                         <button type="submit" class="bg-light border-0 px-2 block-size-36 rounded-end d-flex align-items-center justify-content-center">
@@ -123,6 +144,10 @@
                                         <th class="min-w-120">{{translate('Contact_Info')}}</th>
                                         <th class="min-w-120">{{translate('Total_Subscribed_Sub_Categories')}}</th>
                                         <th class="min-w-120">{{translate('Total_Booking_Served')}}</th>
+                                        <th class="min-w-120">{{translate('Performance_Score')}}</th>
+                                        <th class="min-w-120">{{translate('Performance_Status')}}</th>
+                                        <th class="min-w-120">{{translate('Complaint_%')}}</th>
+                                        <th class="min-w-120">{{translate('No_show_%')}}</th>
                                         @can('provider_manage_status')
                                             <th>{{translate('Service Availability')}}</th>
                                             <th>{{translate('Status')}}</th>
@@ -179,6 +204,27 @@
                                                 <p>{{$provider->subscribed_services_count}}</p>
                                             </td>
                                             <td>{{$provider->bookings_count}}</td>
+                                            @php
+                                                $perfStatus = $provider->manual_performance_status ?? 'active';
+                                                if ($perfStatus === 'suspended' && !empty($provider->performance_suspended_until) && \Illuminate\Support\Carbon::parse($provider->performance_suspended_until)->isPast()) {
+                                                    $perfStatus = 'active';
+                                                }
+                                                $perfBadge = match($perfStatus) {
+                                                    'warning' => 'bg-warning',
+                                                    'active' => 'bg-success',
+                                                    default => 'bg-danger', // suspended/blacklisted
+                                                };
+                                                $perfLabel = match($perfStatus) {
+                                                    'warning' => translate('Warning'),
+                                                    'suspended' => translate('Suspended'),
+                                                    'blacklisted' => translate('Blacklisted'),
+                                                    default => translate('Active'),
+                                                };
+                                            @endphp
+                                            <td>{{ (int)($provider->performance_score ?? 0) }}</td>
+                                            <td><span class="badge {{ $perfBadge }}">{{ $perfLabel }}</span></td>
+                                            <td>{{ (float)($provider->complaints_percent ?? 0) }}%</td>
+                                            <td>{{ (float)($provider->no_show_percent ?? 0) }}%</td>
                                             @can('provider_manage_status')
                                                 <td>
                                                     <label class="switcher" data-bs-toggle="modal"
@@ -250,7 +296,7 @@
                                         </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="12">
+                                        <td colspan="16">
                                             <div class="review-empty-state py-5">
                                                 <div class="d-flex flex-column align-items-center justify-content-center py-5 gap-2 my-5">
                                                     <img src="{{asset('assets/admin-module/img/provider-empty-state.svg')}}" alt="No data">

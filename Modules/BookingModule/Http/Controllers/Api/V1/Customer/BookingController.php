@@ -97,6 +97,32 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        if ($this->isCustomerLoggedIn) {
+            $customer = auth('api')->user();
+            $manualStatus = (string) ($customer->manual_performance_status ?? '');
+
+            if ($manualStatus === 'blacklisted') {
+                return response()->json(response_formatter([
+                    'response_code' => 'auth_login_401',
+                    'message' => translate('Your account is blacklisted. Please contact with admin'),
+                ]), 401);
+            }
+
+            if ($manualStatus === 'suspended') {
+                $until = $customer->performance_suspended_until ? Carbon::parse($customer->performance_suspended_until) : null;
+                if ($until && $until->isFuture()) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'auth_login_401',
+                        'message' => translate('Your account is suspended until') . ' ' . $until->format('Y-m-d H:i'),
+                    ]), 401);
+                }
+
+                $customer->manual_performance_status = 'active';
+                $customer->performance_suspended_until = null;
+                $customer->save();
+            }
+        }
+
         $newUserInfo = null;
         // Additional validation and register for new_user_info
         if ($request->has('new_user_info') && !empty($request->get('new_user_info')) && !$this->isCustomerLoggedIn) {

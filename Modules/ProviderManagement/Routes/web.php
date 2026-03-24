@@ -8,7 +8,10 @@ use Modules\ProviderManagement\Http\Controllers\Web\Provider\Report\Business\Ear
 use Modules\ProviderManagement\Http\Controllers\Web\Provider\Report\Business\ExpenseReportController;
 use Modules\ProviderManagement\Http\Controllers\Web\Provider\Report\TransactionReportController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\CollectCashController;
+use Modules\ProviderManagement\Http\Controllers\Web\Admin\FeedbackTagConfigController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\ProviderController;
+use Modules\ProviderManagement\Http\Controllers\Web\Admin\CustomerPerformanceController;
+use Modules\ProviderManagement\Http\Controllers\Web\Admin\ProviderPerformanceController;
 use Modules\ProviderManagement\Http\Controllers\Web\Admin\SubscriptionController;
 use Modules\ProviderManagement\Http\Controllers\Web\Provider\ProviderController as ProviderProviderController;
 use Modules\ProviderManagement\Http\Controllers\Web\Provider\WithdrawController;
@@ -27,6 +30,20 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('available-provider', [ProviderController::class, 'availableProviderList'])->name('available-provider-list');
         Route::get('provider-info', [ProviderController::class, 'providerInfo'])->name('provider-info');
         Route::put('reassign-provider/{id}', [ProviderController::class, 'reassignProvider'])->name('reaasign-provider');
+
+        // Internal (employee/admin-only): provider performance feedback -> incidents + status update.
+        Route::post('provider-performance-feedback', [ProviderPerformanceController::class, 'storeFeedback'])
+            ->name('provider-performance-feedback.store');
+        Route::post('provider-performance-status', [ProviderPerformanceController::class, 'updateManualStatus'])
+            ->name('provider-performance-status.update');
+        Route::post('customer-performance-feedback', [CustomerPerformanceController::class, 'storeBookingFeedback'])
+            ->name('customer-performance-feedback.store');
+        Route::post('customer-performance-status', [CustomerPerformanceController::class, 'updateManualStatus'])
+            ->name('customer-performance-status.update');
+        Route::post('booking-admin-feedback/skip', [CustomerPerformanceController::class, 'skipBookingAdminFeedback'])
+            ->name('booking-admin-feedback.skip');
+        Route::get('feedback-tags', [FeedbackTagConfigController::class, 'index'])->name('feedback-tags.index');
+        Route::post('feedback-tags', [FeedbackTagConfigController::class, 'update'])->name('feedback-tags.update');
 
         Route::get('create', [ProviderController::class, 'create'])->name('create');
         Route::post('create/subcategories-for-zone', [ProviderController::class, 'subcategoriesForCreateWizard'])->name('create.subcategories-for-zone');

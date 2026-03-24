@@ -160,6 +160,19 @@
                             target="_blank">
                             <span class="material-icons">description</span>{{ translate('Invoice') }}
                         </a>
+                        @if(
+                            ($booking->booking_status ?? '') === 'completed'
+                            && !empty($booking->provider_id)
+                            && !\Modules\ProviderManagement\Entities\ProviderIncident::query()
+                                ->where('booking_id', $booking->id)
+                                ->where('provider_id', $booking->provider_id)
+                                ->where('action_type', \Modules\ProviderManagement\Services\ProviderPerformanceService::ACTION_COMPLETED)
+                                ->exists()
+                        )
+                            <button type="button" class="btn btn--primary open-feedback-manual">
+                                <span class="material-icons">feedback</span>{{ translate('Provide Feedback') }}
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -767,6 +780,8 @@
         </div>
     </div>
 
+    @include('providermanagement::admin.partials.provider-performance-feedback-modal')
+
     <div class="modal fade" id="changeScheduleModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-labelledby="changeScheduleModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -824,6 +839,124 @@
     <script>
         'use strict'
 
+        // Provider performance feedback must be submitted before proceeding with completion/cancellation/provider reassign.
+        let pendingReassignProviderId = null;
+        let pendingPostFeedbackAction = null; // 'reload' | 'reassign'
+
+        const bookingContextId = @json($booking->id);
+        const bookingCurrentProviderId = @json($booking->provider_id);
+
+        function openProviderPerformanceFeedbackModal(evaluatedProviderId, actionType = 'completed') {
+            $('#providerPerformanceContextBookingId').val(bookingContextId);
+            $('#providerPerformanceProviderId').val(evaluatedProviderId);
+            $('#providerPerformanceActionType').val(actionType === 'canceled' ? 'cancelled' : actionType);
+            $('#providerPerformanceNotes').val('');
+            $('#providerPerformanceFeedbackForm input[type="radio"]').prop('checked', false);
+            $('#providerPerformanceFeedbackForm input[type="checkbox"]').prop('checked', false);
+
+            // Prevent multiple Bootstrap modal backdrops from blocking clicks
+            // (e.g. provider reassign modal still open when opening feedback).
+            document.querySelectorAll('.modal.show').forEach((m) => {
+                if (m?.id !== 'providerPerformanceFeedbackModal') {
+                    bootstrap.Modal.getInstance(m)?.hide();
+                }
+            });
+            $('.modal-backdrop').remove();
+
+            const modalEl = document.getElementById('providerPerformanceFeedbackModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+
+        function reassignProviderAfterFeedback(providerId) {
+            const bookingId = "{{ $booking->id }}";
+            const route = '{{ url('admin/provider/reassign-provider') }}' + '/' + bookingId;
+            const sortOption = document.querySelector('input[name="sort"]:checked')?.value ?? 'default';
+            const searchTerm = $('.search-form-input').val() ?? '';
+
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+
+            $.ajax({
+                url: route,
+                type: 'PUT',
+                dataType: 'json',
+                data: {
+                    sort_by: sortOption,
+                    booking_id: bookingId,
+                    search: searchTerm,
+                    provider_id: providerId
+                },
+                beforeSend: function () {
+                    toastr.info('{{ translate('Processing request...') }}');
+                },
+                success: function (response) {
+                    if (response?.view) {
+                        $('.modal-content-data').html(response.view);
+                    }
+                    toastr.success('{{ translate('Successfully reassign provider') }}');
+                    setTimeout(function () {
+                        location.reload();
+                    }, 600);
+                },
+                error: function () {
+                    toastr.error('{{ translate('Failed to load') }}');
+                }
+            });
+        }
+
+        $('#providerPerformanceFeedbackForm').on('submit', function (e) {
+            e.preventDefault();
+            const $form = $(this);
+            const route = $form.data('feedback-route');
+
+            // Some actions may open the modal without setting pendingPostFeedbackAction.
+            // Default to 'reassign' if a provider id is queued, otherwise just reload.
+            if (!pendingPostFeedbackAction) {
+                pendingPostFeedbackAction = pendingReassignProviderId ? 'reassign' : 'reload';
+            }
+
+            $.ajax({
+                url: route,
+                type: 'POST',
+                dataType: 'json',
+                data: $form.serialize(),
+                beforeSend: function () {
+                    $('#providerPerformanceFeedbackSubmit').prop('disabled', true);
+                },
+                success: function () {
+                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
+                    const modalEl = document.getElementById('providerPerformanceFeedbackModal');
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+
+                    if (pendingPostFeedbackAction === 'reassign') {
+                        const providerId = pendingReassignProviderId;
+                        pendingReassignProviderId = null;
+                        pendingPostFeedbackAction = null;
+                        if (providerId) {
+                            if (typeof window.updateProvider === 'function') {
+                                window.updateProvider(providerId);
+                            } else {
+                                reassignProviderAfterFeedback(providerId);
+                            }
+                            return;
+                        }
+                    }
+
+                    pendingReassignProviderId = null;
+                    pendingPostFeedbackAction = null;
+                    location.reload();
+                },
+                error: function (xhr) {
+                    $('#providerPerformanceFeedbackSubmit').prop('disabled', false);
+                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to store feedback') }}');
+                }
+            });
+        });
+
         $(".change-booking-status").on('click', function() {
             var booking_status = 'canceled';
             var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
@@ -859,6 +992,14 @@
                                 CloseButton: true,
                                 ProgressBar: true
                             });
+                            if (componentId === 'booking_status' && (updatedValue === 'completed' || updatedValue === 'canceled' || updatedValue === 'cancelled')) {
+                                if (bookingCurrentProviderId) {
+                                    pendingPostFeedbackAction = 'reload';
+                                    openProviderPerformanceFeedbackModal(bookingCurrentProviderId, updatedValue);
+                                    return;
+                                }
+                            }
+
                             location.reload();
                         },
                         complete: function() {},
@@ -869,9 +1010,27 @@
 
 
         $('.reassign-provider').on('click', function() {
-            let id = $(this).data('provider-reassign');
-            updateProvider(id)
+            let newProviderId = $(this).data('provider-reassign');
+            pendingReassignProviderId = newProviderId;
+            pendingPostFeedbackAction = 'reassign';
+
+            const evaluatedProviderId = bookingCurrentProviderId ?? newProviderId;
+            if (!evaluatedProviderId) {
+                toastr.error('{{ translate('Provider not found for feedback.') }}');
+                return;
+            }
+
+            openProviderPerformanceFeedbackModal(evaluatedProviderId, 'provider_changed');
         })
+
+        $('.open-feedback-manual').on('click', function() {
+            if (!bookingCurrentProviderId) {
+                toastr.error('{{ translate('Provider not found for feedback.') }}');
+                return;
+            }
+            pendingPostFeedbackAction = 'reload';
+            openProviderPerformanceFeedbackModal(bookingCurrentProviderId, 'completed');
+        });
 
         $('.reassign-serviceman').on('click', function() {
             let id = $(this).data('serviceman-reassign');

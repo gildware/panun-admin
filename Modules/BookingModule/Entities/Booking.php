@@ -48,6 +48,8 @@ class Booking extends Model
         'extra_fee' => 'float',
         'total_referral_discount_amount' => 'float',
         'provider_payment_confirmed_at' => 'datetime',
+        'admin_provider_feedback_skipped_at' => 'datetime',
+        'admin_customer_feedback_skipped_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -87,7 +89,9 @@ class Booking extends Model
         'assignee_id',
         'booking_source',
         'service_description',
-        'lead_id'
+        'lead_id',
+        'admin_provider_feedback_skipped_at',
+        'admin_customer_feedback_skipped_at',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
