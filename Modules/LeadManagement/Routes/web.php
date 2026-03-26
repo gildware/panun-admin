@@ -15,40 +15,40 @@ Route::group([
     'middleware' => ['admin', 'actch:admin_panel'],
 ], function () {
     Route::group(['prefix' => 'lead', 'as' => 'lead.'], function () {
-        Route::get('/', [LeadController::class, 'index'])->name('index');
-        Route::get('create', [LeadController::class, 'create'])->name('create');
-        Route::post('store', [LeadController::class, 'store'])->name('store');
+        Route::get('/', [LeadController::class, 'index'])->middleware(['can:lead_view'])->name('index');
+        Route::get('create', [LeadController::class, 'create'])->middleware(['can:lead_add'])->name('create');
+        Route::post('store', [LeadController::class, 'store'])->middleware(['can:lead_add'])->name('store');
 
-        Route::group(['prefix' => 'outbound-enquiry', 'as' => 'outbound-enquiry.'], function () {
+        Route::group(['prefix' => 'outbound-enquiry', 'as' => 'outbound-enquiry.', 'middleware' => ['can:lead_outbound_enquiry_view']], function () {
             Route::get('/', [LeadOutboundEnquiryController::class, 'index'])->name('index');
-            Route::get('create', [LeadOutboundEnquiryController::class, 'create'])->name('create');
-            Route::post('store', [LeadOutboundEnquiryController::class, 'store'])->name('store');
+            Route::get('create', [LeadOutboundEnquiryController::class, 'create'])->middleware(['can:lead_outbound_enquiry_add'])->name('create');
+            Route::post('store', [LeadOutboundEnquiryController::class, 'store'])->middleware(['can:lead_outbound_enquiry_add'])->name('store');
         });
 
         // Reports routes should come before parameterized {id} routes
-        Route::get('reports', [LeadReportController::class, 'index'])->name('reports.index');
-        Route::get('reports/download', [LeadReportController::class, 'download'])->name('reports.download');
+        Route::get('reports', [LeadReportController::class, 'index'])->middleware(['can:lead_report_view'])->name('reports.index');
+        Route::get('reports/download', [LeadReportController::class, 'download'])->middleware(['can:lead_report_export'])->name('reports.download');
 
         // Today's pending follow-ups
         Route::get('todays-followups', [LeadFollowupController::class, 'todaysFollowups'])->name('todays_followups');
 
-        Route::post('{id}/type', [LeadController::class, 'updateType'])->name('type.update');
-        Route::post('{lead}/followups', [LeadController::class, 'storeFollowup'])->name('followups.store');
-        Route::put('{id}', [LeadController::class, 'update'])->name('update');
-        Route::delete('{id}', [LeadController::class, 'destroy'])->name('destroy');
+        Route::post('{id}/type', [LeadController::class, 'updateType'])->middleware(['can:lead_update'])->name('type.update');
+        Route::post('{lead}/followups', [LeadController::class, 'storeFollowup'])->middleware(['can:lead_update'])->name('followups.store');
+        Route::put('{id}', [LeadController::class, 'update'])->middleware(['can:lead_update'])->name('update');
+        Route::delete('{id}', [LeadController::class, 'destroy'])->middleware(['can:lead_delete'])->name('destroy');
 
-        Route::get('configuration', [LeadConfigurationController::class, 'index'])->name('configuration.index');
-        Route::post('configuration', [LeadConfigurationController::class, 'store'])->name('configuration.store');
-        Route::put('configuration/{id}', [LeadConfigurationController::class, 'update'])->name('configuration.update');
-        Route::delete('configuration/{id}', [LeadConfigurationController::class, 'destroy'])->name('configuration.destroy');
+        Route::get('configuration', [LeadConfigurationController::class, 'index'])->middleware(['can:lead_configuration_view'])->name('configuration.index');
+        Route::post('configuration', [LeadConfigurationController::class, 'store'])->middleware(['can:lead_configuration_add'])->name('configuration.store');
+        Route::put('configuration/{id}', [LeadConfigurationController::class, 'update'])->middleware(['can:lead_configuration_update'])->name('configuration.update');
+        Route::delete('configuration/{id}', [LeadConfigurationController::class, 'destroy'])->middleware(['can:lead_configuration_delete'])->name('configuration.destroy');
 
-        Route::put('{id}/checklist', [LeadController::class, 'updateProviderChecklistBulk'])->name('checklist.update.bulk');
-        Route::put('{id}/checklist/{checklistItem}', [LeadController::class, 'updateProviderChecklist'])->name('checklist.update');
-        Route::put('{id}/provider-status', [LeadController::class, 'updateProviderStatus'])->name('provider-status.update');
-        Route::put('{id}/customer-status', [LeadController::class, 'updateCustomerStatus'])->name('customer-status.update');
-        Route::put('{id}/customer-tags', [LeadController::class, 'updateCustomerTags'])->name('customer-tags.update');
-        Route::post('customer-tag', [LeadController::class, 'storeCustomerLeadTag'])->name('customer-tag.store');
+        Route::put('{id}/checklist', [LeadController::class, 'updateProviderChecklistBulk'])->middleware(['can:lead_update'])->name('checklist.update.bulk');
+        Route::put('{id}/checklist/{checklistItem}', [LeadController::class, 'updateProviderChecklist'])->middleware(['can:lead_update'])->name('checklist.update');
+        Route::put('{id}/provider-status', [LeadController::class, 'updateProviderStatus'])->middleware(['can:lead_update'])->name('provider-status.update');
+        Route::put('{id}/customer-status', [LeadController::class, 'updateCustomerStatus'])->middleware(['can:lead_update'])->name('customer-status.update');
+        Route::put('{id}/customer-tags', [LeadController::class, 'updateCustomerTags'])->middleware(['can:lead_update'])->name('customer-tags.update');
+        Route::post('customer-tag', [LeadController::class, 'storeCustomerLeadTag'])->middleware(['can:lead_add'])->name('customer-tag.store');
 
-        Route::get('{id}', [LeadController::class, 'show'])->name('show');
+        Route::get('{id}', [LeadController::class, 'show'])->middleware(['can:lead_view'])->name('show');
     });
 });

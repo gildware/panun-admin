@@ -19,7 +19,7 @@ class LedgerController extends Controller
      */
     public function index(Request $request): View
     {
-        $this->authorize('transaction_view');
+        $this->authorize('ledger_view');
 
         $type = $request->get('type', 'all'); // all | IN | OUT
         $from = $request->get('from_date');

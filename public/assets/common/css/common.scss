@@ -384,6 +384,23 @@ $ratios: (
     opacity: 1;
   }
 }
+.view-guideline-btn.easy-setup-drag-handle {
+  cursor: move;
+}
+.view-guideline-dismiss {
+  position: absolute;
+  top: -10px;
+  inset-inline-end: -10px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bs-danger);
+  opacity: 1;
+  &::before {
+    filter: brightness(0) invert(1);
+  }
+}
 [dir="rtl"] .view-guideline-btn {
   border-radius: 0 10px 10px 0;
 }
@@ -398,6 +415,9 @@ $ratios: (
   box-shadow: -7px 0px 30px 0px rgba(var(--shadow-color-rgb), 0.08);
   &.show {
     inset-inline-end: 0;
+  }
+  &.easy-setup-dragging {
+    transition: none;
   }
   .setting-box {
     background-color: transparent;
@@ -432,6 +452,12 @@ $ratios: (
       }
     }
   }
+}
+.view-guideline-btn.easy-setup-dragging {
+  transition: none;
+}
+.easy-setup-drag-handle {
+  cursor: move;
 }
 [dir="rtl"] .easy-setup-dropdown{
   border-radius: 0px 20px 20px 0px;

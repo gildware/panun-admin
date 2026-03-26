@@ -15,7 +15,7 @@ Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Web\Admin','m
         Route::any('download', [TransactionController::class, 'download'])->name('download');
     });
 
-    Route::get('ledger', [LedgerController::class, 'index'])->name('ledger.index');
+    Route::get('ledger', [LedgerController::class, 'index'])->middleware(['can:ledger_view'])->name('ledger.index');
 
     Route::group(['prefix' => 'withdraw', 'as'=>'withdraw.'], function () {
         Route::group(['prefix' => 'request', 'as'=>'request.'], function () {

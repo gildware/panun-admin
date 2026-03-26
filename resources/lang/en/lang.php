@@ -6890,5 +6890,5 @@ _Message' => 'Customer notification for provider bid offer
   'blacklisted' => 'Blacklisted',
   'Blacklisted' => 'Blacklisted',
   'No Feedback' => 'No Feedback',
-  'Booking_added_payments' => 'Booking added payments',
+  'page to work notifications.' => 'Page to work notifications.',
 );

@@ -761,6 +761,7 @@ const SYSTEM_MODULES = [
     ['key' => 'report_management', 'value' => 'Transaction and Report Management',
         'submodules' => [
             ['key' => 'transaction','value' => 'Transaction'],
+            ['key' => 'ledger','value' => 'Ledger'],
             ['key' => 'report','value' => 'Reports'],
             ['key' => 'analytics','value' => 'Analytics']
         ]
@@ -801,6 +802,16 @@ const SYSTEM_MODULES = [
     ['key' => 'whatsapp', 'value' => 'WhatsApp',
         'submodules' => [
             ['key' => 'whatsapp_chat', 'value' => 'WhatsApp Conversations'],
+            ['key' => 'whatsapp_message_template', 'value' => 'Message Templates'],
+        ]
+    ],
+
+    ['key' => 'lead_management', 'value' => 'Lead Management',
+        'submodules' => [
+            ['key' => 'lead', 'value' => 'Leads'],
+            ['key' => 'lead_outbound_enquiry', 'value' => 'Outbound Enquiry'],
+            ['key' => 'lead_configuration', 'value' => 'Lead Configuration'],
+            ['key' => 'lead_report', 'value' => 'Lead Reports'],
         ]
     ],
 

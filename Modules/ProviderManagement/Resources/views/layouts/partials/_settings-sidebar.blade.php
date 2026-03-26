@@ -25,6 +25,7 @@
 
 
 <div class="view-guideline-btn w-50px h-50px bg-white position-fixed pointer show">
+        <button type="button" class="view-guideline-dismiss btn-close" aria-label="{{ translate('Close') }}"></button>
         <div class="d-flex justify-content-center align-items-center h-100 w-100">
             <button type="button" class="btn bg-info text-absolute-white border-0 p-0 action-btn" style="--size: 36px">
                 <img src="{{asset('assets/admin-module')}}/img/multiple-forward.svg" alt="icon/img" class="icon">

@@ -367,6 +367,31 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('whatsapp_chat_view', fn () => $this->checkAccess('whatsapp_chat', 'can_view'));
         Gate::define('whatsapp_chat_reply', fn () => $this->checkAccess('whatsapp_chat', 'can_add'));
         Gate::define('whatsapp_chat_assign', fn () => $this->checkAccess('whatsapp_chat', 'can_update'));
+        Gate::define('whatsapp_message_template_view', fn () => $this->checkAccess('whatsapp_message_template', 'can_view'));
+        Gate::define('whatsapp_message_template_update', fn () => $this->checkAccess('whatsapp_message_template', 'can_update'));
+
+        Gate::define('lead_view', fn () => $this->checkAccess('lead', 'can_view'));
+        Gate::define('lead_add', fn () => $this->checkAccess('lead', 'can_add'));
+        Gate::define('lead_update', fn () => $this->checkAccess('lead', 'can_update'));
+        Gate::define('lead_delete', fn () => $this->checkAccess('lead', 'can_delete'));
+        Gate::define('lead_export', fn () => $this->checkAccess('lead', 'can_export'));
+        Gate::define('lead_outbound_enquiry_view', fn () => $this->checkAccess('lead_outbound_enquiry', 'can_view'));
+        Gate::define('lead_outbound_enquiry_add', fn () => $this->checkAccess('lead_outbound_enquiry', 'can_add'));
+        Gate::define('lead_outbound_enquiry_update', fn () => $this->checkAccess('lead_outbound_enquiry', 'can_update'));
+        Gate::define('lead_outbound_enquiry_delete', fn () => $this->checkAccess('lead_outbound_enquiry', 'can_delete'));
+        Gate::define('lead_outbound_enquiry_export', fn () => $this->checkAccess('lead_outbound_enquiry', 'can_export'));
+        Gate::define('lead_configuration_view', fn () => $this->checkAccess('lead_configuration', 'can_view'));
+        Gate::define('lead_configuration_add', fn () => $this->checkAccess('lead_configuration', 'can_add'));
+        Gate::define('lead_configuration_update', fn () => $this->checkAccess('lead_configuration', 'can_update'));
+        Gate::define('lead_configuration_delete', fn () => $this->checkAccess('lead_configuration', 'can_delete'));
+        Gate::define('lead_configuration_export', fn () => $this->checkAccess('lead_configuration', 'can_export'));
+        Gate::define('lead_report_view', fn () => $this->checkAccess('lead_report', 'can_view'));
+        Gate::define('lead_report_add', fn () => $this->checkAccess('lead_report', 'can_add'));
+        Gate::define('lead_report_update', fn () => $this->checkAccess('lead_report', 'can_update'));
+        Gate::define('lead_report_delete', fn () => $this->checkAccess('lead_report', 'can_delete'));
+        Gate::define('lead_report_export', fn () => $this->checkAccess('lead_report', 'can_export'));
+
+        Gate::define('ledger_view', fn () => $this->checkAccess('ledger', 'can_view'));
     }
 
     private function checkAccess($sectionName, $action): bool
@@ -383,10 +408,19 @@ class AuthServiceProvider extends ServiceProvider
             return false;
         }
 
-        // check module access
-        return (bool) $user->module_access
+        // Prefer employee-level access (if explicitly set), otherwise fall back to role-level access.
+        $employeeAccess = $user->module_access
             ->where('role_id', $roleId)
             ->where('section_name', $sectionName)
-            ->first()?->$action;
+            ->first();
+
+        $roleAccess = \Modules\UserManagement\Entities\RoleAccess::query()
+            ->where('role_id', $roleId)
+            ->where('section_name', $sectionName)
+            ->first();
+
+        // Role permission should grant access to all employees of that role.
+        // Employee-level access remains supported, but it can only extend, not revoke, role permission.
+        return (bool) ($employeeAccess?->$action || $roleAccess?->$action);
     }
 }

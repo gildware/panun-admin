@@ -17,7 +17,7 @@ class WhatsAppBookingTemplateController extends Controller
 
     public function edit(): View
     {
-        $this->authorize('whatsapp_chat_view');
+        $this->authorize('whatsapp_message_template_view');
 
         $service = app(BookingWhatsAppNotificationService::class);
         $config = $service->getConfig();
@@ -28,7 +28,7 @@ class WhatsAppBookingTemplateController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $this->authorize('whatsapp_chat_view');
+        $this->authorize('whatsapp_message_template_update');
 
         $data = $request->validate([
             'default_phone_prefix' => 'nullable|string|max:20',

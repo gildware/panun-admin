@@ -67,61 +67,75 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </a>
             </li>
 
-            <li class="nav-category" title="{{ translate('Lead_Management') }}">
-                {{ translate('Lead_Management') }}
-            </li>
-            <li class="has-sub-item {{ request()->is('admin/lead*') ? 'sub-menu-opened' : '' }}">
-                <a href="#" class="{{ request()->is('admin/lead*') ? 'active-menu' : '' }}">
-                    <span class="material-icons" title="{{ translate('Lead_Management') }}">contact_page</span>
-                    <span class="link-title">{{ translate('Lead_Management') }}</span>
-                </a>
-                <ul class="nav sub-menu">
-                    <li>
-                        <a href="{{ route('admin.lead.index') }}"
-                           class="{{ request()->is('admin/lead') && !request()->is('admin/lead/create') && !request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
-                            <span class="link-title">{{ translate('Leads') }}</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('admin.lead.outbound-enquiry.index') }}"
-                           class="{{ request()->is('admin/lead/outbound-enquiry*') ? 'active-menu' : '' }}">
-                            <span class="link-title">{{ translate('Outbound_Enquiry') }}</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('admin.lead.configuration.index') }}"
-                           class="{{ request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
-                            <span class="link-title">{{ translate('Lead_Configuration') }}</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('admin.lead.reports.index') }}"
-                           class="{{ request()->is('admin/lead/reports*') ? 'active-menu' : '' }}">
-                            <span class="link-title">{{ translate('Lead_Reports') }}</span>
-                        </a>
-                    </li>
-                </ul>
-            </li>
+            @canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view', 'lead_report_view'])
+                <li class="nav-category" title="{{ translate('Lead_Management') }}">
+                    {{ translate('Lead_Management') }}
+                </li>
+                <li class="has-sub-item {{ request()->is('admin/lead*') ? 'sub-menu-opened' : '' }}">
+                    <a href="#" class="{{ request()->is('admin/lead*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Lead_Management') }}">contact_page</span>
+                        <span class="link-title">{{ translate('Lead_Management') }}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                    @can('lead_view')
+                        <li>
+                            <a href="{{ route('admin.lead.index') }}"
+                               class="{{ request()->is('admin/lead') && !request()->is('admin/lead/create') && !request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Leads') }}</span>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('lead_outbound_enquiry_view')
+                        <li>
+                            <a href="{{ route('admin.lead.outbound-enquiry.index') }}"
+                               class="{{ request()->is('admin/lead/outbound-enquiry*') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Outbound_Enquiry') }}</span>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('lead_configuration_view')
+                        <li>
+                            <a href="{{ route('admin.lead.configuration.index') }}"
+                               class="{{ request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Lead_Configuration') }}</span>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('lead_report_view')
+                        <li>
+                            <a href="{{ route('admin.lead.reports.index') }}"
+                               class="{{ request()->is('admin/lead/reports*') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Lead_Reports') }}</span>
+                            </a>
+                        </li>
+                    @endcan
+                    </ul>
+                </li>
+            @endcanany
 
-            @can('whatsapp_chat_view')
+            @canany(['whatsapp_chat_view', 'whatsapp_message_template_view'])
                 <li class="nav-category" title="{{ translate('WhatsApp') }}">
                     {{ translate('WhatsApp') }}
                 </li>
-                <li>
-                    <a href="{{ route('admin.whatsapp.conversations.index') }}"
-                       class="{{ request()->is('admin/whatsapp/conversations*') || request()->is('admin/whatsapp/users/*') ? 'active-menu' : '' }}">
-                        <span class="material-icons" title="{{ translate('WhatsApp') }}">chat</span>
-                        <span class="link-title">{{ translate('WhatsApp') }} {{ translate('Conversations') }}</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('admin.whatsapp.booking-templates.edit') }}"
-                       class="{{ request()->is('admin/whatsapp/booking-message-templates*') ? 'active-menu' : '' }}">
-                        <span class="material-icons" title="{{ translate('Message_templates') }}">description</span>
-                        <span class="link-title">{{ translate('Message_templates') }}</span>
-                    </a>
-                </li>
-            @endcan
+                @can('whatsapp_chat_view')
+                    <li>
+                        <a href="{{ route('admin.whatsapp.conversations.index') }}"
+                           class="{{ request()->is('admin/whatsapp/conversations*') || request()->is('admin/whatsapp/users/*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('WhatsApp') }}">chat</span>
+                            <span class="link-title">{{ translate('WhatsApp') }} {{ translate('Conversations') }}</span>
+                        </a>
+                    </li>
+                @endcan
+                @can('whatsapp_message_template_view')
+                    <li>
+                        <a href="{{ route('admin.whatsapp.booking-templates.edit') }}"
+                           class="{{ request()->is('admin/whatsapp/booking-message-templates*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('Message_templates') }}">description</span>
+                            <span class="link-title">{{ translate('Message_templates') }}</span>
+                        </a>
+                    </li>
+                @endcan
+            @endcanany
 
             @can('booking_view')
                 <li class="nav-category" title="{{translate('booking_management')}}">
@@ -642,28 +656,32 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
-            @canany(['transaction_view', 'report_view','analytics_view'])
+            @canany(['transaction_view', 'ledger_view', 'report_view','analytics_view'])
                 <li class="nav-category" title="{{translate('transaction_report_and_analytics_management')}}">
                     {{translate('Transaction Reports & Analytics')}}
                 </li>
             @endcanany
 
-            @can('transaction_view')
-                <li>
-                    <a href="{{route('admin.transaction.list', ['trx_type'=>'all'])}}"
-                       class="{{request()->is('admin/transaction/list')?'active-menu':''}}">
-                        <span class="material-icons" title="Customers">article</span>
-                        <span class="link-title">{{translate('All Transactions')}}</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="{{route('admin.ledger.index')}}"
-                       class="{{request()->is('admin/ledger')?'active-menu':''}}">
-                        <span class="material-icons" title="{{translate('Ledger')}}">book</span>
-                        <span class="link-title">{{translate('Ledger')}}</span>
-                    </a>
-                </li>
-            @endcan
+            @canany(['transaction_view', 'ledger_view'])
+                @can('transaction_view')
+                    <li>
+                        <a href="{{route('admin.transaction.list', ['trx_type'=>'all'])}}"
+                           class="{{request()->is('admin/transaction/list')?'active-menu':''}}">
+                            <span class="material-icons" title="Customers">article</span>
+                            <span class="link-title">{{translate('All Transactions')}}</span>
+                        </a>
+                    </li>
+                @endcan
+                @can('ledger_view')
+                    <li>
+                        <a href="{{route('admin.ledger.index')}}"
+                           class="{{request()->is('admin/ledger')?'active-menu':''}}">
+                            <span class="material-icons" title="{{translate('Ledger')}}">book</span>
+                            <span class="link-title">{{translate('Ledger')}}</span>
+                        </a>
+                    </li>
+                @endcan
+            @endcanany
 
             @can('report_view')
                 <li class="has-sub-item {{request()->is('admin/report/*')?'sub-menu-opened':''}}">
