@@ -5,6 +5,7 @@ namespace Modules\AdminModule\Services\DataTransfer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\Service;
@@ -428,7 +429,13 @@ class ServiceCatalogTransfer
         try {
             $zoneMap = $this->buildZoneIdMap($payload['zones'] ?? [], $payload['zone_translations'] ?? [], $warnings);
 
-            foreach ($this->sortCategoriesForInsert($payload['categories'] ?? []) as $row) {
+            $categoryRows = array_map(static fn ($r) => (array) $r, $this->sortCategoriesForInsert($payload['categories'] ?? []));
+            $this->ensureUniqueSlugsAmongImportedRows($categoryRows, $warnings, 'category');
+            $categorySlugList = array_values(array_filter(array_column($categoryRows, 'slug'), static fn ($s) => $s !== null && trim((string) $s) !== ''));
+            $categoryIdsForSlug = array_column($categoryRows, 'id');
+            $this->renameDbConflictingSlugsForImport('categories', $categorySlugList, $categoryIdsForSlug, 'category', $warnings);
+
+            foreach ($categoryRows as $row) {
                 $row = (array) $row;
                 $id = $row['id'] ?? null;
                 if (! $id) {
@@ -477,7 +484,12 @@ class ServiceCatalogTransfer
             }
 
             $serviceIds = array_column($payload['services'] ?? [], 'id');
-            foreach ($payload['services'] ?? [] as $row) {
+            $servicesRows = array_map(static fn ($r) => (array) $r, $payload['services'] ?? []);
+            $this->ensureUniqueSlugsAmongImportedRows($servicesRows, $warnings, 'service');
+            $importSlugs = array_values(array_filter(array_column($servicesRows, 'slug'), static fn ($s) => $s !== null && trim((string) $s) !== ''));
+            $this->renameDbConflictingSlugsForImport('services', $importSlugs, $serviceIds, 'service', $warnings);
+
+            foreach ($servicesRows as $row) {
                 $row = (array) $row;
                 $id = $row['id'] ?? null;
                 if (! $id) {
@@ -542,6 +554,113 @@ class ServiceCatalogTransfer
         }
 
         return ['imported' => $imported, 'warnings' => $warnings];
+    }
+
+    /**
+     * The importer uses updateOrInsert by primary key. Rows already on the target DB with the same
+     * slug (including case-insensitive matches) but a different id would make inserts fail on the
+     * unique slug index. Renaming those existing slugs frees the slug without deleting rows or breaking FKs.
+     *
+     * @param  non-empty-string  $table
+     * @param  list<string>  $importSlugs
+     * @param  list<mixed>  $importEntityIds
+     * @param  array<int, string>  $warnings
+     */
+    private function renameDbConflictingSlugsForImport(string $table, array $importSlugs, array $importEntityIds, string $entityLabel, array &$warnings): void
+    {
+        $importEntityIds = array_values(array_filter($importEntityIds));
+        $importSlugs = array_values(array_unique(array_map('strval', array_filter($importSlugs, static fn ($s) => $s !== null && trim((string) $s) !== ''))));
+        if ($importSlugs === [] || $importEntityIds === []) {
+            return;
+        }
+
+        // Match the DB unique index, which is usually case-insensitive (e.g. utf8mb4_unicode_ci):
+        // "Ac-Repair" and "ac-repair" collide even though PHP would treat them as different strings.
+        $lowerSlugs = array_values(array_unique(array_map(
+            static fn (string $s) => Str::lower($s),
+            $importSlugs
+        )));
+        $lowerSlugs = array_values(array_filter($lowerSlugs, static fn (string $s) => $s !== ''));
+
+        if ($lowerSlugs === []) {
+            return;
+        }
+
+        $conflicting = DB::table($table)
+            ->whereNotIn('id', $importEntityIds)
+            ->whereIn(DB::raw('LOWER(slug)'), $lowerSlugs)
+            ->get(['id', 'slug']);
+
+        $prefix = $table === 'categories' ? 'legacy-cat' : 'legacy-svc';
+        $renamed = 0;
+        foreach ($conflicting as $r) {
+            $idCompact = str_replace('-', '', (string) $r->id);
+            $base = (string) $r->slug;
+            $legacy = $base.'-legacy-'.$idCompact;
+            if (strlen($legacy) > 250) {
+                $legacy = $prefix.'-'.$idCompact;
+            }
+            $final = $legacy;
+            $try = 0;
+            while (DB::table($table)
+                ->where('id', '!=', $r->id)
+                ->whereRaw('LOWER(slug) = ?', [Str::lower($final)])
+                ->exists()) {
+                $try++;
+                $final = $legacy.'-'.$try;
+                if (strlen($final) > 250) {
+                    $final = $prefix.'-'.$idCompact.'-'.$try;
+                }
+            }
+            DB::table($table)->where('id', $r->id)->update(['slug' => $final, 'updated_at' => now()]);
+            $renamed++;
+        }
+
+        if ($renamed > 0) {
+            $warnings[] = sprintf(
+                'Renamed %d existing %s slug(s) that conflicted with the import (kept rows; old slugs now use a -legacy- suffix).',
+                $renamed,
+                $entityLabel
+            );
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, string>  $warnings
+     */
+    private function ensureUniqueSlugsAmongImportedRows(array &$rows, array &$warnings, string $entityLabel): void
+    {
+        // Track by lowercase so we match case-insensitive unique indexes (common on MySQL/MariaDB).
+        $seenLower = [];
+        foreach ($rows as $i => $row) {
+            $slug = isset($row['slug']) ? trim((string) $row['slug']) : '';
+            if ($slug === '') {
+                continue;
+            }
+            $lower = Str::lower($slug);
+            if (! isset($seenLower[$lower])) {
+                $seenLower[$lower] = true;
+
+                continue;
+            }
+            $idPart = isset($row['id']) ? preg_replace('/[^a-zA-Z0-9]/', '', (string) $row['id']) : (string) $i;
+            $newSlug = $slug.'-'.$idPart;
+            $n = 0;
+            while (isset($seenLower[Str::lower($newSlug)])) {
+                $n++;
+                $newSlug = $slug.'-'.$idPart.'-'.$n;
+            }
+            $rows[$i]['slug'] = $newSlug;
+            $seenLower[Str::lower($newSlug)] = true;
+            $warnings[] = sprintf(
+                'Duplicate slug "%s" in import file (collides with another %s when ignoring case); renamed to "%s" (id %s).',
+                $slug,
+                $entityLabel,
+                $newSlug,
+                (string) ($row['id'] ?? '?')
+            );
+        }
     }
 
     public function assertValidPayload(array $payload): void
