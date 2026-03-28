@@ -18,6 +18,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('component', [AdminController::class, 'component'])->name('component');
 
     Route::get('setup-guide/status', [AdminController::class, 'refreshSetupGuideUI'])->name('setup-guide.status');
+    Route::post('setup-guide/welcome-ack', [AdminController::class, 'acknowledgeSetupGuideWelcome'])->name('setup-guide.welcome-ack');
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');

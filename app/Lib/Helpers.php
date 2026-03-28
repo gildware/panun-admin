@@ -1800,6 +1800,41 @@ if (!function_exists('updateSetupGuidelineTutorialsOptions')) {
     }
 }
 
+if (!function_exists('adminSetupGuideWelcomeAcknowledged')) {
+    function adminSetupGuideWelcomeAcknowledged(?int $userId): bool
+    {
+        if (!$userId) {
+            return false;
+        }
+
+        $row = SettingsTutorials::where([
+            'user_id' => $userId,
+            'platform' => 'web',
+        ])->first();
+
+        if (!$row || !is_array($row->options)) {
+            return false;
+        }
+
+        return !empty($row->options['admin_setup_welcome_seen']);
+    }
+}
+
+if (!function_exists('acknowledgeAdminSetupGuideWelcome')) {
+    function acknowledgeAdminSetupGuideWelcome(int $userId): void
+    {
+        $tutorial = SettingsTutorials::firstOrNew([
+            'user_id' => $userId,
+            'platform' => 'web',
+        ]);
+
+        $options = is_array($tutorial->options) ? $tutorial->options : [];
+        $options['admin_setup_welcome_seen'] = 1;
+        $tutorial->options = $options;
+        $tutorial->save();
+    }
+}
+
 if (!function_exists('setupGuidelineRouteModify')) {
     function setupGuidelineRouteModify(string $url): string
     {

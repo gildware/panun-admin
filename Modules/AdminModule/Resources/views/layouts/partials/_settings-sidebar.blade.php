@@ -3,7 +3,7 @@
     $steps = collect($setup['steps'])->sortBy('order');
     $percentage = $setup['percentage'];
     $rotation = $setup['rotation'];
-    $isFirstTimeGuide = $setup['isFirstTimeGuide'];
+    $showAutoWelcomeModal = session()->pull('admin_show_setup_welcome', false);
     $arrowStep = $steps->take(1)->firstWhere('checked', false);
     $firstUncheckedStep = $steps->firstWhere('checked', false);
     $allCompleted = $steps->every(fn ($step) => $step['checked'] === true);
@@ -32,13 +32,14 @@
     </div>
 
     <!-- Guidline Modal -->
-    <div class="modal fade" id="guideModal" tabindex="-1" aria-labelledby="guideModal" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-end" style="max-width: 400px">
+    <div class="modal fade" id="guideModal" tabindex="-1" aria-labelledby="guideModalLabel" aria-hidden="true"
+         data-bs-backdrop="true" data-bs-keyboard="true">
+        <div class="modal-dialog modal-dialog-end guide-modal-dialog" id="guideModalDialog" style="max-width: 400px">
             <div class="modal-content modal-content_cont rounded-3 overflow-visible">
 
-                <div class="modal-header justify-content-between p-xxl-4 p-3 bg-light rounded border-0 gap-3">
+                <div class="modal-header guide-modal-drag-handle justify-content-between p-xxl-4 p-3 bg-light rounded border-0 gap-3">
                     <div class="">
-                        <h3 class="mb-1">{{ translate('Set up and take bookings.') }}</h3>
+                        <h3 class="mb-1" id="guideModalLabel">{{ translate('Set up and take bookings.') }}</h3>
                         <p>{{ translate('Set up and start managing your business with ease.') }}</p>
                     </div>
 
@@ -93,9 +94,9 @@
                     </div>
 
 
-                        <div data-bs-dismiss="modal" aria-label="Close" class="">
+                        <div class="">
                             <div class="d-flex justify-content-between align-items-center pt-2">
-                                <a class="btn btn--secondary rounded" href="javascript:void(0)" id="skipSetupGuide">{{ translate('skip_for_now') }}</a>
+                                <button type="button" class="btn btn--secondary rounded border-0" id="skipSetupGuide" data-bs-dismiss="modal">{{ translate('skip_for_now') }}</button>
                                 @if($firstUncheckedStep)
                                     <a class="btn btn--primary rounded px-3 d-inline-flex  align-items-center bottom-0 gap-1 btn-sm position-relative"
                                        href="{{ setupGuidelineRouteModify($firstUncheckedStep['route']) }}">
@@ -692,7 +693,7 @@
         /* ===============================
          * CONTEXT FROM BACKEND
          * =============================== */
-        const isFirstTimeGuide = {{ $isFirstTimeGuide ? 'true' : 'false' }};
+        const showAutoWelcomeModal = {{ $showAutoWelcomeModal ? 'true' : 'false' }};
         const allCompleted    = {{ $allCompleted ? 'true' : 'false' }};
 
         const currentRoute   = "{{ request()->route()->getName() }}";
@@ -705,7 +706,6 @@
          * LOCAL STORAGE
          * =============================== */
         const SKIP_KEY = 'setup_guide_skipped';
-        const isSkipped = localStorage.getItem(SKIP_KEY) === '1';
 
         /* ===============================
          * HELPERS
@@ -725,6 +725,92 @@
                 url.searchParams.delete('from_guide');
                 window.history.replaceState({}, document.title, url.pathname + url.search);
             }
+        }
+
+        function postSetupGuideWelcomeAck() {
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            if (!token) return;
+            fetch('{{ route('admin.setup-guide.welcome-ack') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({}),
+            }).catch(() => {});
+        }
+
+        function initGuideModalDraggable() {
+            if (!guideModalEl) return;
+            const dialog = guideModalEl.querySelector('#guideModalDialog');
+            const header = guideModalEl.querySelector('.guide-modal-drag-handle');
+            if (!dialog || !header || header.dataset.dragInit === '1') return;
+            header.dataset.dragInit = '1';
+            header.style.cursor = 'grab';
+
+            let dragging = false;
+            let startX = 0;
+            let startY = 0;
+            let originLeft = 0;
+            let originTop = 0;
+
+            header.addEventListener('mousedown', function (e) {
+                if (e.button !== 0) return;
+                if (e.target.closest('button, a, input, textarea, select, label')) return;
+
+                const rect = dialog.getBoundingClientRect();
+                dragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                originLeft = rect.left;
+                originTop = rect.top;
+
+                dialog.style.margin = '0';
+                dialog.style.position = 'fixed';
+                dialog.style.left = rect.left + 'px';
+                dialog.style.top = rect.top + 'px';
+                dialog.style.right = 'auto';
+                dialog.style.bottom = 'auto';
+                dialog.style.transform = 'none';
+                header.style.cursor = 'grabbing';
+
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function (e) {
+                if (!dragging) return;
+
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                let nextLeft = originLeft + deltaX;
+                let nextTop = originTop + deltaY;
+
+                const maxLeft = window.innerWidth - dialog.offsetWidth;
+                const maxTop = window.innerHeight - dialog.offsetHeight;
+
+                nextLeft = Math.max(0, Math.min(nextLeft, Math.max(0, maxLeft)));
+                nextTop = Math.max(0, Math.min(nextTop, Math.max(0, maxTop)));
+
+                dialog.style.left = nextLeft + 'px';
+                dialog.style.top = nextTop + 'px';
+            });
+
+            document.addEventListener('mouseup', function () {
+                if (!dragging) return;
+                dragging = false;
+                header.style.cursor = 'grab';
+            });
+
+            guideModalEl.addEventListener('hidden.bs.modal', function resetGuideDialogPosition() {
+                dialog.style.position = '';
+                dialog.style.left = '';
+                dialog.style.top = '';
+                dialog.style.right = '';
+                dialog.style.bottom = '';
+                dialog.style.margin = '';
+                dialog.style.transform = '';
+            });
         }
 
         function showOffcanvas(el) {
@@ -797,28 +883,37 @@
         /* ===============================
          * GUIDE MODAL (ONLY IF NO OFFCANVAS)
          * =============================== */
-        if (!offcanvasOpened && isFirstTimeGuide && !allCompleted && !isSkipped && guideModalEl) {
+        if (!offcanvasOpened && showAutoWelcomeModal && !allCompleted && guideModalEl) {
             cleanupBackdrop();
             new bootstrap.Modal(guideModalEl).show();
             removeFromGuideParam();
         }
+
+        initGuideModalDraggable();
+
+        guideModalEl?.addEventListener('click', function (e) {
+            const a = e.target.closest('a[href]');
+            if (!a) return;
+            const href = a.getAttribute('href') || '';
+            if (href.startsWith('javascript:')) return;
+            postSetupGuideWelcomeAck();
+        });
 
         /* ===============================
          * SKIP FOR NOW
          * =============================== */
         document.getElementById('skipSetupGuide')?.addEventListener('click', function () {
             localStorage.setItem(SKIP_KEY, '1');
-
-            const modal = bootstrap.Modal.getInstance(guideModalEl);
-            modal?.hide();
-
-            cleanupBackdrop();
+            postSetupGuideWelcomeAck();
         });
 
         /* ===============================
          * CLEANUP ON CLOSE
          * =============================== */
-        guideModalEl?.addEventListener('hidden.bs.modal', cleanupBackdrop);
+        guideModalEl?.addEventListener('hidden.bs.modal', function () {
+            postSetupGuideWelcomeAck();
+            cleanupBackdrop();
+        });
         Object.values(offcanvasMap).forEach(el => {
             el?.addEventListener('hidden.bs.offcanvas', cleanupBackdrop);
         });

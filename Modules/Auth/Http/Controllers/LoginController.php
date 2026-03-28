@@ -100,6 +100,9 @@ class LoginController extends Controller
                         cookie()->queue(cookie()->forget('remember_password'));
                         cookie()->queue(cookie()->forget('remember_checked'));
                     }
+                    if (!adminSetupGuideWelcomeAcknowledged($user->id)) {
+                        session(['admin_show_setup_welcome' => true]);
+                    }
                     return redirect()->route('admin.dashboard');
                 }
             }

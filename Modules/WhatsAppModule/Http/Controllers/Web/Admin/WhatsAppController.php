@@ -433,10 +433,13 @@ class WhatsAppController extends Controller
             return response()->json(['data' => []], 400);
         }
 
+        $focusMessageId = (int) $request->get('focus_message_id', 0);
+        $hasFocus = $focusMessageId > 0;
+
         $cacheKey = 'whatsapp_chat_full_' . md5($phone);
         $ttlChat = config('whatsappmodule.cache_ttl_chat', 20);
         $markSeen = $request->boolean('mark_seen');
-        if ($request->boolean('full') && !$markSeen && $ttlChat > 0) {
+        if ($request->boolean('full') && !$markSeen && $ttlChat > 0 && !$hasFocus) {
             $cached = Cache::get($cacheKey);
             if ($cached !== null) {
                 return response()->json($cached);
@@ -445,58 +448,87 @@ class WhatsAppController extends Controller
 
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $limit = min((int) $request->get('limit', config('whatsappmodule.messages_limit', 100)), 200);
+
+        $mapRow = static function ($row): array {
+            $row = (array) $row;
+            $text = $row['message_text'] ?? '';
+            $created = $row['created_at'] ?? null;
+            if ($created && !is_string($created)) {
+                $created = $created instanceof \DateTimeInterface ? $created->format('c') : (string) $created;
+            }
+            $sentBy = $row['sent_by'] ?? null;
+            $first = $row['first_name'] ?? null;
+            $last = $row['last_name'] ?? null;
+            $fullName = trim(trim((string) $first) . ' ' . trim((string) $last));
+            if ($fullName !== '') {
+                $sentBy = $fullName;
+            }
+
+            $mediaPath = $row['media_path'] ?? null;
+            $mediaUrl = null;
+            if ($mediaPath && Storage::disk('public')->exists($mediaPath)) {
+                $mediaUrl = asset('storage/' . ltrim($mediaPath, '/'));
+            }
+
+            return [
+                'id' => $row['id'] ?? null,
+                'phone' => $row['phone'] ?? '',
+                'message_text' => $text,
+                'body' => $text,
+                'direction' => $row['direction'] ?? 'IN',
+                'message_type' => $row['message_type'] ?? 'TEXT',
+                'media_url' => $mediaUrl,
+                'status' => $row['status'] ?? null,
+                'status_detail' => $row['status_detail'] ?? null,
+                'sent_by' => $sentBy,
+                'created_at' => $created,
+            ];
+        };
+
         try {
-            $rows = DB::table($table . ' as m')
-                ->leftJoin('users as u', 'm.sent_by_id', '=', 'u.id')
-                ->where('m.phone', $phone)
-                ->orderByDesc('m.created_at')
-                ->limit($limit)
-                ->get([
-                    'm.*',
-                    'u.first_name',
-                    'u.last_name',
-                ]);
-            $messages = collect($rows)->map(function ($row) {
-                $row = (array) $row;
-                $text = $row['message_text'] ?? '';
-                $created = $row['created_at'] ?? null;
-                if ($created && !is_string($created)) {
-                    $created = $created instanceof \DateTimeInterface ? $created->format('c') : (string) $created;
-                }
-                $sentBy = $row['sent_by'] ?? null;
-                $first = $row['first_name'] ?? null;
-                $last = $row['last_name'] ?? null;
-                $fullName = trim(trim((string) $first) . ' ' . trim((string) $last));
-                if ($fullName !== '') {
-                    $sentBy = $fullName;
-                }
+            $selectCols = ['m.*', 'u.first_name', 'u.last_name'];
+            $rows = null;
 
-                $mediaPath = $row['media_path'] ?? null;
-                $mediaUrl = null;
-                if ($mediaPath && Storage::disk('public')->exists($mediaPath)) {
-                    $mediaUrl = asset('storage/' . ltrim($mediaPath, '/'));
+            if ($hasFocus) {
+                $anchor = DB::table($table)->where('phone', $phone)->where('id', $focusMessageId)->first();
+                if ($anchor && $anchor->created_at !== null) {
+                    $before = DB::table($table . ' as m')
+                        ->leftJoin('users as u', 'm.sent_by_id', '=', 'u.id')
+                        ->where('m.phone', $phone)
+                        ->where('m.created_at', '<=', $anchor->created_at)
+                        ->orderByDesc('m.created_at')
+                        ->limit(75)
+                        ->get($selectCols);
+                    $after = DB::table($table . ' as m')
+                        ->leftJoin('users as u', 'm.sent_by_id', '=', 'u.id')
+                        ->where('m.phone', $phone)
+                        ->where('m.created_at', '>', $anchor->created_at)
+                        ->orderBy('m.created_at')
+                        ->limit(75)
+                        ->get($selectCols);
+                    $rows = collect($before)->reverse()->values()
+                        ->concat($after)
+                        ->unique(fn ($r) => $r->id)
+                        ->values();
                 }
+            }
 
-                return [
-                    'id' => $row['id'] ?? null,
-                    'phone' => $row['phone'] ?? '',
-                    'message_text' => $text,
-                    'body' => $text,
-                    'direction' => $row['direction'] ?? 'IN',
-                    'message_type' => $row['message_type'] ?? 'TEXT',
-                    'media_url' => $mediaUrl,
-                    'status' => $row['status'] ?? null,
-                    'status_detail' => $row['status_detail'] ?? null,
-                    'sent_by' => $sentBy,
-                    'created_at' => $created,
-                ];
-            })->reverse()->values();
+            if ($rows === null) {
+                $rows = DB::table($table . ' as m')
+                    ->leftJoin('users as u', 'm.sent_by_id', '=', 'u.id')
+                    ->where('m.phone', $phone)
+                    ->orderByDesc('m.created_at')
+                    ->limit($limit)
+                    ->get($selectCols);
+            }
+
+            $messages = collect($rows)->map($mapRow)->reverse()->values();
         } catch (\Throwable $e) {
             \Log::warning('WhatsApp chatMessages failed.', ['phone' => $phone, 'error' => $e->getMessage()]);
             return response()->json(['data' => [], 'error' => 'Failed to load messages'], 500);
         }
 
-        // If requested, mark all IN messages for this phone as seen by admin.
+        // If requested, mark all IN messages for this phone as seen by admin (full thread only).
         if ($markSeen) {
             try {
                 DB::table($table)
@@ -579,12 +611,100 @@ class WhatsAppController extends Controller
             } catch (\Throwable $e) {
                 // ignore
             }
-            if ($ttlChat > 0) {
+            if ($ttlChat > 0 && !$hasFocus) {
                 Cache::put($cacheKey, $payload, $ttlChat);
             }
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * Unified search: active chats (name, phone, last-message preview) + message hits across conversations.
+     */
+    public function conversationsSearch(Request $request): JsonResponse
+    {
+        $this->authorize('whatsapp_chat_view');
+
+        $q = trim((string) $request->get('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['chats' => [], 'messages' => []]);
+        }
+
+        try {
+            $active = $this->getActiveChatsList();
+            $needle = mb_strtolower($q);
+            $digitsNeedle = preg_replace('/\D+/', '', $q);
+            $qLowerPhone = mb_strtolower($q);
+
+            $matchedChats = $active->filter(function ($row) use ($needle, $digitsNeedle, $qLowerPhone) {
+                $name = mb_strtolower(trim((string) ($row->name ?? '')));
+                $phone = (string) ($row->phone ?? '');
+                $phoneDigits = preg_replace('/\D+/', '', $phone);
+                $preview = mb_strtolower((string) ($row->message_text ?? ''));
+                if ($name !== '' && str_contains($name, $needle)) {
+                    return true;
+                }
+                if ($phone !== '' && str_contains(mb_strtolower($phone), $qLowerPhone)) {
+                    return true;
+                }
+                if (strlen($digitsNeedle) >= 3 && $phoneDigits !== '' && str_contains($phoneDigits, $digitsNeedle)) {
+                    return true;
+                }
+                if ($preview !== '' && str_contains($preview, $needle)) {
+                    return true;
+                }
+
+                return false;
+            })->take(20);
+
+            $chatsOut = $matchedChats->map(function ($row) {
+                $created = $row->created_at ?? null;
+                if ($created && !is_string($created) && $created instanceof \DateTimeInterface) {
+                    $created = $created->format('c');
+                }
+
+                return [
+                    'phone' => $row->phone ?? '',
+                    'name' => $row->name ?? null,
+                    'preview' => $row->message_text ?? '',
+                    'created_at' => $created,
+                ];
+            })->values()->all();
+
+            $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+            $usersTable = config('whatsappmodule.tables.users', 'whatsapp_users');
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $q) . '%';
+
+            $msgRows = DB::table($table . ' as m')
+                ->leftJoin($usersTable . ' as u', 'u.phone', '=', 'm.phone')
+                ->where('m.message_text', 'like', $like)
+                ->orderByDesc('m.created_at')
+                ->limit(20)
+                ->get(['m.id', 'm.phone', 'm.message_text', 'm.created_at', 'u.name']);
+
+            $messagesOut = collect($msgRows)->map(function ($m) {
+                $text = (string) ($m->message_text ?? '');
+                $created = $m->created_at ?? null;
+                if ($created && !is_string($created) && $created instanceof \DateTimeInterface) {
+                    $created = $created->format('c');
+                }
+
+                return [
+                    'id' => $m->id,
+                    'phone' => $m->phone ?? '',
+                    'name' => $m->name ?? null,
+                    'snippet' => mb_strlen($text) > 140 ? mb_substr($text, 0, 140) . '…' : $text,
+                    'created_at' => $created,
+                ];
+            })->values()->all();
+        } catch (\Throwable $e) {
+            \Log::warning('WhatsApp conversationsSearch failed.', ['error' => $e->getMessage()]);
+
+            return response()->json(['chats' => [], 'messages' => [], 'error' => 'Search failed'], 500);
+        }
+
+        return response()->json(['chats' => $chatsOut, 'messages' => $messagesOut]);
     }
 
     /**
