@@ -1801,7 +1801,7 @@ if (!function_exists('updateSetupGuidelineTutorialsOptions')) {
 }
 
 if (!function_exists('adminSetupGuideWelcomeAcknowledged')) {
-    function adminSetupGuideWelcomeAcknowledged(?int $userId): bool
+    function adminSetupGuideWelcomeAcknowledged(int|string|null $userId): bool
     {
         if (!$userId) {
             return false;
@@ -1821,8 +1821,12 @@ if (!function_exists('adminSetupGuideWelcomeAcknowledged')) {
 }
 
 if (!function_exists('acknowledgeAdminSetupGuideWelcome')) {
-    function acknowledgeAdminSetupGuideWelcome(int $userId): void
+    function acknowledgeAdminSetupGuideWelcome(int|string|null $userId): void
     {
+        if (!$userId) {
+            return;
+        }
+
         $tutorial = SettingsTutorials::firstOrNew([
             'user_id' => $userId,
             'platform' => 'web',
