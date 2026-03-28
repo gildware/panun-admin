@@ -60,7 +60,6 @@
                     <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-start gap-3 mb-3">
                         <div>
                             <h2 class="page-title mb-1">{{ translate('Data_Transfer') }}</h2>
-                            <p class="text-muted mb-0 fz-12">{{ translate('Data_transfer_hint') }}</p>
                         </div>
                     </div>
 

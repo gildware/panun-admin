@@ -6909,7 +6909,6 @@ _Message' => 'Customer notification for provider bid offer
   'Import_preview' => 'Import preview',
   'Exported_at' => 'Exported at',
   'Table_summary' => 'Table summary',
-  'Data_transfer_hint' => 'Export JSON from production, then import into this environment. Run preview before importing. Customers, providers, bookings, and configuration may require matching zones and related records.',
   'Data_transfer_import_confirm' => 'Import this JSON into the database? Rows with the same primary keys will be updated.',
   'Import_impact' => 'What this import will do',
   'Import_contents' => 'File contents',
