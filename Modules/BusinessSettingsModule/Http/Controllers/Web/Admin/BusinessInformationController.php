@@ -1312,10 +1312,11 @@ class BusinessInformationController extends Controller
     {
         $this->authorize('backup_view');
 
-        if (!File::exists(storage_path('backup'))) {
-            File::makeDirectory(storage_path('backup'), 0777, true);
+        $backupDir = storage_path('backup');
+        if (!File::exists($backupDir)) {
+            File::makeDirectory($backupDir, 0777, true);
         }
-        $files = File::files('storage/backup');
+        $files = File::isDirectory($backupDir) ? File::files($backupDir) : [];
 
         $fileNames = [];
         foreach ($files as $file) {

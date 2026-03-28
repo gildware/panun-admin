@@ -674,4 +674,11 @@ class AdminController extends Controller
         ]);
 
     }
+
+    public function acknowledgeSetupGuideWelcome(): JsonResponse
+    {
+        acknowledgeAdminSetupGuideWelcome((int) auth()->id());
+
+        return response()->json(['ok' => true]);
+    }
 }

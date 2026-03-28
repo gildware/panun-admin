@@ -15,6 +15,7 @@ Route::group([
         Route::get('conversations/chat', [WhatsAppController::class, 'chat'])->middleware(['can:whatsapp_chat_view'])->name('conversations.chat');
         Route::post('conversations/chat/reply', [WhatsAppController::class, 'sendReply'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.reply');
         Route::get('conversations/chat/messages', [WhatsAppController::class, 'chatMessages'])->middleware(['can:whatsapp_chat_view'])->name('conversations.chat.messages');
+        Route::get('conversations/search', [WhatsAppController::class, 'conversationsSearch'])->middleware(['can:whatsapp_chat_view'])->name('conversations.search');
         Route::post('conversations/handoff', [WhatsAppController::class, 'handoff'])->middleware(['can:whatsapp_chat_assign'])->name('conversations.handoff');
         Route::get('users/details', [WhatsAppController::class, 'userDetails'])->middleware(['can:whatsapp_chat_view'])->name('users.details');
         Route::get('booking-message-templates', [WhatsAppBookingTemplateController::class, 'edit'])->middleware(['can:whatsapp_message_template_view'])->name('booking-templates.edit');

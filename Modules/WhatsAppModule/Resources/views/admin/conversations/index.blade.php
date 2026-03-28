@@ -4,6 +4,15 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/select2/select2.min.css') }}"/>
+    <?php if (($tab ?? '') === 'chats'): ?>
+        <style>
+            .wa-msg-selected > .rounded {
+                outline: 3px solid var(--bs-warning, #ffc107);
+                outline-offset: 3px;
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+            }
+        </style>
+    <?php endif; ?>
 @endpush
 
 @section('content')
@@ -57,6 +66,22 @@
 
             {{-- Tab: Active Chats — left: scrollable list, right: open chat --}}
             <?php if (($tab ?? '') === 'chats'): ?>
+                <div class="card card-body mb-3 py-3">
+                    <label for="wa-global-search" class="form-label mb-1">{{ translate('Search here') }}</label>
+                    <div class="position-relative">
+                        <input type="search"
+                               id="wa-global-search"
+                               class="form-control"
+                               placeholder="{{ translate('Search name, number, or message') }}…"
+                               autocomplete="off"
+                               aria-autocomplete="list"
+                               aria-controls="wa-global-search-dropdown">
+                        <div id="wa-global-search-dropdown"
+                             class="list-group position-absolute w-100 shadow-sm mt-1 rounded border bg-white"
+                             style="z-index: 25; max-height: 340px; overflow-y: auto; display: none;"
+                             role="listbox"></div>
+                    </div>
+                </div>
                 <div class="row g-3">
                     <div class="col-md-4 col-lg-3 whatsapp-active-list-container">
                         <div class="card h-100 d-flex flex-column">
@@ -81,6 +106,7 @@
                             </div>
                             <div class="card-body p-0 overflow-auto flex-grow-1" style="max-height: 65vh;">
                                 <?php $chatCollection = $chats ?? collect(); ?>
+                                <div id="wa-active-chat-items">
                                 <?php if ($chatCollection->isNotEmpty()): ?>
                                     <?php foreach ($chatCollection as $chat): ?>
                                         <?php
@@ -140,8 +166,9 @@
                                         </div>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <div class="p-4 text-center text-muted">{{ translate('No active chats') }}</div>
+                                    <div class="p-4 text-center text-muted wa-no-chats-msg">{{ translate('No active chats') }}</div>
                                 <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -244,6 +271,112 @@
     var pollTimer = null;
     var currentHandler = null;
     var activeListTimer = null;
+    var searchUrl = '{{ route("admin.whatsapp.conversations.search") }}';
+    /** When set, loads a window around this message id and keeps it highlighted until another chat opens. */
+    var stickyFocusMessageId = null;
+    var strChats = {!! json_encode(translate('Chats')) !!};
+    var strMessages = {!! json_encode(translate('Messages')) !!};
+    var strNoResults = {!! json_encode(translate('No results')) !!};
+
+    function debounce(fn, wait) {
+        var t = null;
+        return function() {
+            var ctx = this;
+            var args = arguments;
+            clearTimeout(t);
+            t = setTimeout(function() { fn.apply(ctx, args); }, wait);
+        };
+    }
+
+    function escapeHtml(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function bindActiveChatListClicks(scope) {
+        var root = scope || document;
+        root.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
+            el.addEventListener('click', function() {
+                openChat(this.getAttribute('data-phone'));
+            });
+        });
+    }
+
+    function hideGlobalSearchDropdown() {
+        var dd = document.getElementById('wa-global-search-dropdown');
+        if (dd) {
+            dd.style.display = 'none';
+            dd.innerHTML = '';
+        }
+    }
+
+    function renderGlobalSearchResults(data) {
+        var dd = document.getElementById('wa-global-search-dropdown');
+        if (!dd) return;
+        var chats = data.chats || [];
+        var messages = data.messages || [];
+        if (!chats.length && !messages.length) {
+            dd.innerHTML = '<div class="list-group-item text-muted small">' + escapeHtml(strNoResults) + '</div>';
+            dd.style.display = 'block';
+            return;
+        }
+        var html = '';
+        if (chats.length) {
+            html += '<div class="list-group-item text-uppercase fz-11 text-muted border-0 py-1">' + escapeHtml(strChats) + '</div>';
+            chats.forEach(function(c) {
+                var label = (c.name || '').trim() ? c.name + ' · ' + formatPhoneDisplay(c.phone) : formatPhoneDisplay(c.phone);
+                var prev = escapeHtml(c.preview || '');
+                var ph = escapeHtml(c.phone || '');
+                html += '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-phone="' + ph + '">';
+                html += '<div class="fw-medium text-truncate">' + escapeHtml(label) + '</div>';
+                html += '<div class="small text-muted text-truncate">' + prev + '</div>';
+                html += '</button>';
+            });
+        }
+        if (messages.length) {
+            html += '<div class="list-group-item text-uppercase fz-11 text-muted border-0 py-1">' + escapeHtml(strMessages) + '</div>';
+            messages.forEach(function(m) {
+                var who = (m.name || '').trim() ? m.name + ' · ' + formatPhoneDisplay(m.phone) : formatPhoneDisplay(m.phone);
+                var snip = escapeHtml(m.snippet || '');
+                var ph = escapeHtml(m.phone || '');
+                var mid = (m.id != null && m.id !== '') ? String(m.id) : '';
+                html += '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-phone="' + ph + '" data-message-id="' + mid.replace(/"/g, '') + '">';
+                html += '<div class="fw-medium text-truncate">' + escapeHtml(who) + '</div>';
+                html += '<div class="small text-muted text-truncate">' + snip + '</div>';
+                html += '</button>';
+            });
+        }
+        dd.innerHTML = html;
+        dd.style.display = 'block';
+        dd.querySelectorAll('.wa-global-hit').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var ph = this.getAttribute('data-phone');
+                var mid = this.getAttribute('data-message-id');
+                hideGlobalSearchDropdown();
+                var gInp = document.getElementById('wa-global-search');
+                if (gInp) gInp.value = '';
+                openChat(ph, mid ? { focusMessageId: mid } : {});
+            });
+        });
+    }
+
+    var debouncedGlobalSearch = debounce(function() {
+        var inp = document.getElementById('wa-global-search');
+        if (!inp) return;
+        var q = inp.value.trim();
+        if (q.length < 2) {
+            hideGlobalSearchDropdown();
+            return;
+        }
+        fetch(searchUrl + '?q=' + encodeURIComponent(q), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(r) { return r.json(); })
+          .then(renderGlobalSearchResults)
+          .catch(function() { hideGlobalSearchDropdown(); });
+    }, 350);
 
     function formatPhoneDisplay(phone) {
         var digits = String(phone || '').replace(/\D+/g, '');
@@ -251,10 +384,18 @@
         return digits.length > 10 ? digits.slice(-10) : digits;
     }
 
-    function openChat(phone) {
+    function openChat(phone, options) {
+        options = options || {};
         if (!phone) return;
+        var rawFocus = options.focusMessageId;
+        var parsedFocus = rawFocus != null && String(rawFocus).trim() !== ''
+            ? parseInt(String(rawFocus), 10)
+            : NaN;
+        stickyFocusMessageId = !isNaN(parsedFocus) ? parsedFocus : null;
+
         // Always store full DB phone for POST; header is display-only (last 10 digits).
-        document.getElementById('whatsapp-reply-phone').value = phone;
+        var replyPhoneEl = document.getElementById('whatsapp-reply-phone');
+        if (replyPhoneEl) replyPhoneEl.value = phone;
         var headerEl = document.getElementById('whatsapp-chat-phone');
         headerEl.textContent = formatPhoneDisplay(phone);
         headerEl.setAttribute('title', phone);
@@ -302,6 +443,9 @@
         if (!isPoll) {
             url += '&mark_seen=1';
         }
+        if (stickyFocusMessageId) {
+            url += '&focus_message_id=' + encodeURIComponent(String(stickyFocusMessageId));
+        }
         fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(res) {
@@ -340,7 +484,11 @@
                     }
                     var statusDetail = (m.status_detail || '').trim();
                     var sentBy = (m.sent_by || '').trim();
-                    html += '<div class="mb-3 d-flex ' + (isOut ? 'justify-content-end' : '') + '">';
+                    var midAttr = (m.id != null && m.id !== '') ? String(m.id) : '';
+                    var rowFocusClass = (stickyFocusMessageId !== null && m.id != null && Number(m.id) === stickyFocusMessageId)
+                        ? ' wa-msg-selected'
+                        : '';
+                    html += '<div class="mb-3 d-flex wa-msg-row' + rowFocusClass + (isOut ? ' justify-content-end' : '') + '" data-message-id="' + midAttr.replace(/"/g, '') + '">';
                     html += '<div class="rounded px-3 py-2 ' + (isOut ? 'bg-primary text-white' : 'bg-light') + '" style="max-width:85%">';
                     html += '<div class="fz-12 opacity-75 d-flex justify-content-between align-items-center gap-2">';
                     html += '<span>' + (time || '') + (statusLabel ? ' · ' + statusLabel : '') + statusIcon + '</span>';
@@ -408,7 +556,14 @@
                         openAudioPreview(url);
                     });
                 });
-                if (!isPoll || wasNearBottom) {
+                if (!isPoll && stickyFocusMessageId) {
+                    requestAnimationFrame(function() {
+                        var hit = panel.querySelector('.wa-msg-row[data-message-id="' + String(stickyFocusMessageId) + '"]');
+                        if (hit) {
+                            hit.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        }
+                    });
+                } else if (!isPoll || wasNearBottom) {
                     panel.scrollTop = panel.scrollHeight;
                 }
                 var actions = document.getElementById('whatsapp-chat-actions');
@@ -569,12 +724,7 @@
                     var newList = tmp.querySelector('.whatsapp-active-list-container');
                     if (newList) {
                         listContainer.innerHTML = newList.innerHTML;
-                        // Re-bind click handlers
-                        listContainer.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
-                            el.addEventListener('click', function() {
-                                openChat(this.getAttribute('data-phone'));
-                            });
-                        });
+                        bindActiveChatListClicks(listContainer);
                     }
                   })
                   .catch(function() {});
@@ -582,10 +732,19 @@
         }, 5000);
     }
 
-    document.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
-        el.addEventListener('click', function() {
-            openChat(this.getAttribute('data-phone'));
-        });
+    var listCol = document.querySelector('.whatsapp-active-list-container');
+    if (listCol) bindActiveChatListClicks(listCol);
+
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.id === 'wa-global-search') {
+            debouncedGlobalSearch();
+        }
+    });
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('#wa-global-search') || e.target.closest('#wa-global-search-dropdown')) {
+            return;
+        }
+        hideGlobalSearchDropdown();
     });
 
     var initialPhone = new URLSearchParams(window.location.search).get('phone');
