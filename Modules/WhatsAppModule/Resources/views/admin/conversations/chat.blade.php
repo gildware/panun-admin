@@ -37,14 +37,21 @@
                         <div class="chat-messages overflow-auto mb-3" style="min-height: 320px; max-height: 50vh;">
                             @foreach($messages as $msg)
                                 @php($isOut = strtoupper($msg->direction ?? '') === 'OUT')
+                                @php($st = strtolower((string) ($msg->status ?? '')))
                                 <div class="mb-3 d-flex {{ $isOut ? 'justify-content-end' : '' }}">
                                     <div class="rounded px-3 py-2 {{ $isOut ? 'bg-primary text-white' : 'bg-light' }}"
                                          style="max-width: 85%;">
                                         <div class="fz-12 opacity-75">
                                             {{ $msg->direction ?? 'IN' }} · {{ $msg->message_type ?? 'TEXT' }}
                                             · {{ $msg->created_at?->format('M j, H:i') }}
+                                            @if($isOut && $st !== '')
+                                                · {{ ucfirst($st) }}
+                                            @endif
                                         </div>
                                         <div class="mt-1">{!! nl2br(e($msg->message_text ?? $msg->body ?? '')) !!}</div>
+                                        @if($isOut && $st === 'failed' && !empty($msg->status_detail))
+                                            <div class="fz-11 mt-1 opacity-90 text-break">{{ $msg->status_detail }}</div>
+                                        @endif
                                     </div>
                                 </div>
                             @endforeach

@@ -114,7 +114,7 @@
                                                     <div class="input-wrap">
                                                         <div class="d-flex flex-column align-items-center gap-3">
                                                             <div class="text-muted">{{translate('Employee Image')}}
-                                                                (1:1) <span class="text-danger">*</span></div>
+                                                                (1:1) <span class="fs-12">({{translate('Optional')}})</span></div>
                                                             <div class="d-flex flex-column align-items-center">
                                                                 <div class="upload-file">
                                                                     <input type="file" class="upload-file__input"
@@ -140,9 +140,13 @@
                                             </div>
                                         </div>
 
+                                        @php
+                                            $identityUnset = blank($employee->identification_number) && empty($employee->identification_image);
+                                            $id_types = ['passport','driving_license','nid','trade_license'];
+                                        @endphp
                                         <div class="d-flex flex-column gap-1 mb-20">
                                             <h4>{{translate('Business_Information')}}</h4>
-                                            <p>{{translate('Give verified information to verify a employee')}}</p>
+                                            <p>{{translate('Optional')}} — {{translate('Give verified information to verify a employee')}}</p>
                                         </div>
 
                                         <hr class="mb-30">
@@ -150,21 +154,19 @@
                                         <div class="row">
                                             <div class="col-lg-6 mb-30">
                                                 <div class="input-wrap">
-                                                    @php($id_types=['passport','driving_license','nid','trade_license'])
                                                     <select class="select-identity theme-input-style"
-                                                            name="identity_type" required>
-                                                        <option value="0" selected
-                                                                disabled>{{translate('Select_Identity_Type')}}</option>
+                                                            name="identity_type">
+                                                        <option value="" {{ $identityUnset ? 'selected' : '' }}>{{translate('Optional')}}</option>
                                                         @foreach($id_types as $type)
                                                             <option
-                                                                value="{{$type}}" {{$type==$employee->identification_type?'selected':''}}>{{translate($type)}}</option>
+                                                                value="{{$type}}" {{ !$identityUnset && $type==$employee->identification_type?'selected':''}}>{{translate($type)}}</option>
                                                         @endforeach
                                                     </select>
                                                 </div>
                                                 <div class="input-wrap form-floating form-floating__icon mt-30">
                                                     <input type="text" class="form-control" name="identity_number"
                                                            placeholder="{{translate('Identity Number')}}"
-                                                           value="{{$employee->identification_number}}" required>
+                                                           value="{{$employee->identification_number}}">
                                                     <label>{{translate('Identity_Number')}}</label>
                                                     <span class="material-icons">badge</span>
                                                 </div>
@@ -173,7 +175,7 @@
                                                 <div class="input-wrap">
                                                     <div class="d-flex flex-column align-items-center gap-3">
                                                         <div class="text-muted">{{translate('Identification_Image')}}
-                                                            (2:1) <span class="text-danger">*</span></div>
+                                                            (2:1) <span class="fs-12">({{translate('Optional')}})</span></div>
                                                         <div id="multi_image_picker" class="w-100">
                                                             @foreach($employee->identification_image_full_path as $img)
                                                                 <img class="p-1" height="150"

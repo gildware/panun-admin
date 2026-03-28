@@ -67,6 +67,16 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </a>
             </li>
 
+            @canany(['service_view', 'category_view', 'customer_view', 'provider_view', 'lead_view', 'booking_view', 'business_view'])
+                <li>
+                    <a href="{{ route('admin.data-transfer.index') }}"
+                       class="{{ request()->is('admin/data-transfer*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Data_Transfer') }}">import_export</span>
+                        <span class="link-title">{{ translate('Data_Transfer') }}</span>
+                    </a>
+                </li>
+            @endcanany
+
             @canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view', 'lead_report_view'])
                 <li class="nav-category" title="{{ translate('Lead_Management') }}">
                     {{ translate('Lead_Management') }}

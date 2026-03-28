@@ -296,9 +296,31 @@ class WhatsAppController extends Controller
         ]);
 
         $whatsAppError = null;
+        $sentToWhatsApp = false;
+        $whatsappGraph = null;
+
+        $rawPhone = trim((string) $request->input('phone'));
+        $graphTo = $this->whatsAppCloud->normalizeRecipientPhone($rawPhone);
+        if ($graphTo === null) {
+            $whatsAppError = 'invalid_phone';
+            Toastr::error(translate('Invalid_whatsapp_phone'));
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'OK',
+                    'whatsapp_sent' => false,
+                    'whatsapp_error' => $whatsAppError,
+                    'whatsapp_graph' => ['stage' => 'validate', 'raw_input' => $rawPhone],
+                ]);
+            }
+
+            return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $rawPhone]);
+        }
+
+        // Keep message rows on the same `phone` string as existing DB thread (full value from list `data-phone`),
+        // while Graph API `to` always uses normalized digits ($graphTo).
+        $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
 
         try {
-            $phone = $request->input('phone');
             $body = trim((string) $request->input('body', ''));
             $user = $request->user();
 
@@ -310,12 +332,10 @@ class WhatsAppController extends Controller
                 $files = [$request->file('attachment')];
             }
 
-            $sentToWhatsApp = false;
-
             if (empty($files)) {
                 // Text-only message
                 $message = new WhatsAppMessage();
-                $message->phone = $phone;
+                $message->phone = $threadPhone;
                 $message->message_text = $body;
                 $message->direction = 'OUT';
                 $message->message_type = 'TEXT';
@@ -324,7 +344,7 @@ class WhatsAppController extends Controller
                 }
                 $message->save();
 
-                $waId = $this->whatsAppCloud->sendOutbound($phone, $body, null, $whatsAppError);
+                $waId = $this->whatsAppCloud->sendOutbound($graphTo, $body, null, $whatsAppError, $whatsappGraph);
                 $sentToWhatsApp = $waId !== null;
                 if ($waId !== null) {
                     $message->wa_message_id = $waId;
@@ -338,7 +358,7 @@ class WhatsAppController extends Controller
                     $storedMediaType = $this->whatsappMediaTypeFromExtension($ext);
 
                     $message = new WhatsAppMessage();
-                    $message->phone = $phone;
+                    $message->phone = $threadPhone;
                     $message->direction = 'OUT';
                     $message->message_type = strtoupper($storedMediaType);
                     $message->media_path = $path;
@@ -349,7 +369,7 @@ class WhatsAppController extends Controller
                     $message->save();
 
                     $caption = $body !== '' && $index === 0 ? $body : '';
-                    $waId = $this->whatsAppCloud->sendOutbound($phone, $caption, $path, $whatsAppError);
+                    $waId = $this->whatsAppCloud->sendOutbound($graphTo, $caption, $path, $whatsAppError, $whatsappGraph);
                     $sentToWhatsApp = $sentToWhatsApp || $waId !== null;
                     if ($waId !== null) {
                         $message->wa_message_id = $waId;
@@ -359,7 +379,9 @@ class WhatsAppController extends Controller
             }
 
             Cache::forget('whatsapp_active_chats_list');
-            Cache::forget('whatsapp_chat_full_' . md5($request->input('phone')));
+            foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {
+                Cache::forget('whatsapp_chat_full_' . md5($p));
+            }
             if ($sentToWhatsApp) {
                 Toastr::success('Reply sent to WhatsApp.');
             } else {
@@ -373,11 +395,29 @@ class WhatsAppController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'OK',
-                'whatsapp_sent' => $sentToWhatsApp ?? false,
+                'whatsapp_sent' => $sentToWhatsApp,
                 'whatsapp_error' => $whatsAppError,
+                'whatsapp_graph' => $whatsappGraph,
             ]);
         }
-        return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $request->input('phone')]);
+
+        return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $threadPhone]);
+    }
+
+    /**
+     * Match the exact `phone` column used in whatsapp_messages so OUT rows stay in the same thread as IN (from DB / data-phone).
+     */
+    private function resolveWhatsappThreadPhoneKey(string $rawSubmitted, string $normalizedDigits): string
+    {
+        $raw = trim($rawSubmitted);
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        foreach (array_unique(array_filter([$raw, $normalizedDigits])) as $candidate) {
+            if (DB::table($table)->where('phone', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        return $normalizedDigits;
     }
 
     /**
@@ -446,6 +486,7 @@ class WhatsAppController extends Controller
                     'message_type' => $row['message_type'] ?? 'TEXT',
                     'media_url' => $mediaUrl,
                     'status' => $row['status'] ?? null,
+                    'status_detail' => $row['status_detail'] ?? null,
                     'sent_by' => $sentBy,
                     'created_at' => $created,
                 ];

@@ -8,6 +8,7 @@
 
 @section('content')
     @php
+        // UI only: show last 10 digits. Full number stays in data-phone / hidden input for send + API.
         $displayPhone = function ($phone) {
             $digits = preg_replace('/\D+/', '', (string) $phone);
             if (!$digits) {
@@ -104,6 +105,7 @@
                                         ?>
                                         <div class="whatsapp-chat-item border-bottom p-3 cursor-pointer{{ $hasUnread ? ' bg-primary text-white' : '' }}"
                                              data-phone="{{ e($phone) }}"
+                                             title="{{ e($phone) }}"
                                              role="button">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <strong class="text-truncate{{ $hasUnread ? ' text-white' : '' }}" title="{{ e($display) }}">{{ $display }}</strong>
@@ -251,8 +253,11 @@
 
     function openChat(phone) {
         if (!phone) return;
+        // Always store full DB phone for POST; header is display-only (last 10 digits).
         document.getElementById('whatsapp-reply-phone').value = phone;
-        document.getElementById('whatsapp-chat-phone').textContent = formatPhoneDisplay(phone);
+        var headerEl = document.getElementById('whatsapp-chat-phone');
+        headerEl.textContent = formatPhoneDisplay(phone);
+        headerEl.setAttribute('title', phone);
         document.getElementById('whatsapp-chat-placeholder').classList.add('d-none');
         document.getElementById('whatsapp-chat-panel').classList.remove('d-none');
         document.getElementById('whatsapp-chat-panel').classList.add('d-flex');
@@ -333,6 +338,7 @@
                             statusLabel = 'Failed';
                         }
                     }
+                    var statusDetail = (m.status_detail || '').trim();
                     var sentBy = (m.sent_by || '').trim();
                     html += '<div class="mb-3 d-flex ' + (isOut ? 'justify-content-end' : '') + '">';
                     html += '<div class="rounded px-3 py-2 ' + (isOut ? 'bg-primary text-white' : 'bg-light') + '" style="max-width:85%">';
@@ -344,6 +350,10 @@
                         html += '<span></span>';
                     }
                     html += '</div>';
+                    if (isOut && status === 'failed' && statusDetail) {
+                        var safeDetail = statusDetail.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                        html += '<div class="fz-11 mt-1 opacity-90 text-break" style="max-width:100%">' + safeDetail + '</div>';
+                    }
                     if (isDocument && mediaUrl) {
                         var docName = (body || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         html += '<div class="mt-1 d-flex align-items-center gap-2"><a href="' + mediaUrl.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" class="text-decoration-none d-flex align-items-center gap-2">';
@@ -920,12 +930,18 @@
                 attachmentPreviewEl.classList.add('d-none');
             }
             var sent = !!(res && res.whatsapp_sent);
+            var errCode = res && res.whatsapp_error ? String(res.whatsapp_error) : '';
+            if (res && res.whatsapp_graph && typeof console !== 'undefined' && console.info) {
+                console.info('WhatsApp Graph API response:', res.whatsapp_graph);
+            }
             if (statusSpan) {
                 statusSpan.textContent = sent ? 'Sent' : 'Failed';
             }
             if (typeof toastr !== 'undefined') {
                 if (sent) {
                     toastr.success('Sent');
+                } else if (errCode === 'invalid_phone') {
+                    toastr.error({!! json_encode(translate('Invalid_whatsapp_phone')) !!});
                 } else {
                     toastr.warning('Saved, but WhatsApp API failed');
                 }

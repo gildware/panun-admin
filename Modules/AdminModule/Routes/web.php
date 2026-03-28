@@ -11,6 +11,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\ExpenseReport
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\Business\OverviewReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\ProviderReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\TransactionReportController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\DataTransferController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
@@ -20,6 +21,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+    Route::get('data-transfer', [DataTransferController::class, 'index'])->name('data-transfer.index');
+    Route::get('data-transfer/export/{domain}', [DataTransferController::class, 'export'])->name('data-transfer.export');
+    Route::post('data-transfer/preview', [DataTransferController::class, 'preview'])->name('data-transfer.preview');
+    Route::post('data-transfer/import', [DataTransferController::class, 'import'])->name('data-transfer.import');
     Route::get('update-dashboard-earning-graph', [AdminController::class, 'updateDashboardEarningGraph'])->name('update-dashboard-earning-graph');
     Route::get('profile-update', [AdminController::class, 'profileInfo'])->name('profile_update');
     Route::post('profile-update', [AdminController::class, 'updateProfile']);

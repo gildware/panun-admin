@@ -16,6 +16,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Modules\ProviderManagement\Http\Requests\ProviderStoreRequest;
 use Modules\UserManagement\Entities\EmployeeRoleAccess;
 use Modules\UserManagement\Entities\EmployeeRoleSection;
@@ -138,11 +139,7 @@ class EmployeeController extends Controller
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
             'password' => 'required|string|min:8',
             'confirm_password' => 'required|same:password',
-            'profile_image' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'identity_type' => 'required|in:passport,driving_license,nid,trade_license',
-            'identity_number' => 'required',
-            'identity_images' => 'required|array',
-            'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'profile_image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'role_id' => 'required|uuid',
             'zone_ids' => 'required|array',
             'zone_ids.*' => 'uuid',
@@ -154,23 +151,19 @@ class EmployeeController extends Controller
             return back()->withInput();
         }
 
-        $identityImages = [];
-        foreach ($request->identity_images as $image) {
-            $imageName = file_uploader('employee/identity/', APPLICATION_IMAGE_FORMAT, $image);
-            $identityImages[] = ['image'=>$imageName, 'storage'=> getDisk()];
-        }
-
-        DB::transaction(function () use ($request, $identityImages) {
+        DB::transaction(function () use ($request) {
 
             $employee = $this->employee;
             $employee->first_name = $request->first_name;
             $employee->last_name = $request->last_name;
             $employee->email = $request->email;
             $employee->phone = $request->phone;
-            $employee->profile_image = file_uploader('employee/profile/', APPLICATION_IMAGE_FORMAT, $request->file('profile_image'));
-            $employee->identification_number = $request->identity_number;
-            $employee->identification_type = $request->identity_type;
-            $employee->identification_image = $identityImages;
+            $employee->profile_image = $request->hasFile('profile_image')
+                ? file_uploader('employee/profile/', APPLICATION_IMAGE_FORMAT, $request->file('profile_image'))
+                : 'default.png';
+            $employee->identification_number = null;
+            $employee->identification_type = 'nid';
+            $employee->identification_image = [];
             $employee->password = bcrypt($request->password);
             $employee->user_type = 'admin-employee';
             $employee->is_active = 1;
@@ -274,9 +267,13 @@ class EmployeeController extends Controller
             'password' => !is_null($request->password) ? 'string|min:8' : '',
             'confirm_password' => !is_null($request->password) ? 'required|same:password' : '',
             'profile_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'identity_type' => 'required|in:passport,driving_license,nid,trade_license',
-            'identity_number' => 'required',
-            'identity_images' => 'array',
+            'identity_type' => [
+                Rule::requiredIf(fn () => $request->hasFile('identity_images')),
+                'nullable',
+                'in:passport,driving_license,nid,trade_license',
+            ],
+            'identity_number' => 'nullable|string|max:191',
+            'identity_images' => 'nullable|array',
             'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'role_id' => 'required|uuid',
             'zone_ids' => 'required|array',
@@ -298,15 +295,7 @@ class EmployeeController extends Controller
             return back();
         }
 
-        $identityImages = [];
-        if ($request->has('identity_images')) {
-            foreach ($request['identity_images'] as $image) {
-                $imageName = file_uploader('employee/identity/', APPLICATION_IMAGE_FORMAT, $image);
-                $identityImages[] = ['image'=>$imageName, 'storage'=> getDisk()];
-            }
-            $employee->identification_image = $identityImages;
-        }
-        DB::transaction(function () use ($id, $employee, $request, $identityImages) {
+        DB::transaction(function () use ($id, $employee, $request) {
             $employee->first_name = $request->first_name;
             $employee->last_name = $request->last_name;
             $employee->email = $request->email;
@@ -314,8 +303,28 @@ class EmployeeController extends Controller
             if ($request->has('profile_image')) {
                 $employee->profile_image = file_uploader('employee/profile/', APPLICATION_IMAGE_FORMAT, $request->file('profile_image'), $employee->profile_image);;
             }
-            $employee->identification_number = $request->identity_number;
-            $employee->identification_type = $request->identity_type;
+            if ($request->filled('identity_type')) {
+                $employee->identification_type = $request->identity_type;
+                $employee->identification_number = $request->identity_number ?: null;
+            } else {
+                foreach ($employee->identification_image ?? [] as $item) {
+                    $name = is_array($item) ? ($item['image'] ?? null) : $item;
+                    if ($name) {
+                        file_remover('employee/identity/', $name);
+                    }
+                }
+                $employee->identification_type = 'nid';
+                $employee->identification_number = null;
+                $employee->identification_image = [];
+            }
+            if ($request->hasFile('identity_images')) {
+                $identityImages = [];
+                foreach ($request->file('identity_images') as $image) {
+                    $imageName = file_uploader('employee/identity/', APPLICATION_IMAGE_FORMAT, $image);
+                    $identityImages[] = ['image'=>$imageName, 'storage'=> getDisk()];
+                }
+                $employee->identification_image = $identityImages;
+            }
             if (!is_null($request->password)) {
                 $employee->password = bcrypt($request->password);
             }

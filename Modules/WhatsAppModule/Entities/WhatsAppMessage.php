@@ -26,6 +26,7 @@ class WhatsAppMessage extends Model
         'media_path',
         'wa_message_id',
         'status',
+        'status_detail',
         'status_updated_at',
         'admin_seen_at',
         'sent_by',

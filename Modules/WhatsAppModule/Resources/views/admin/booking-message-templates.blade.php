@@ -51,24 +51,65 @@
                 </div>
             </div>
 
-            @php
-                $sections = [
-                    'booking_confirmation_customer' => translate('Booking_Confirmation_message_to_customer'),
-                    'booking_confirmation_provider' => translate('Booking_Confirmation_message_to_Provider'),
-                    'booking_status_customer' => translate('Booking_Status_Update_message_to_customer'),
-                    'booking_status_provider' => translate('Booking_Status_Update_message_to_provider'),
-                ];
-            @endphp
+            <div class="card mb-3">
+                <div class="card-body">
+                    <ul class="nav nav--tabs mb-3" id="waBookingTemplateTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" id="wa-tpl-tab-new-booking" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-new-booking" href="#wa-tpl-pane-new-booking"
+                               role="tab" aria-controls="wa-tpl-pane-new-booking" aria-selected="true">
+                                {{ translate('WhatsApp_tab_new_booking') }}
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="wa-tpl-tab-status" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-status" href="#wa-tpl-pane-status"
+                               role="tab" aria-controls="wa-tpl-pane-status" aria-selected="false">
+                                {{ translate('WhatsApp_tab_booking_status_changed') }}
+                            </a>
+                        </li>
+                    </ul>
 
-            @foreach($sections as $field => $title)
-                <div class="card mb-3">
-                    <div class="card-header"><strong>{{ $title }}</strong></div>
-                    <div class="card-body">
-                        <textarea name="{{ $field }}" id="tpl_{{ $field }}" class="form-control wa-template-input" rows="6"
-                                  placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old($field, $config[$field] ?? '') }}</textarea>
+                    <div class="tab-content" id="waBookingTemplateTabContent">
+                        <div class="tab-pane fade show active" id="wa-tpl-pane-new-booking" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-new-booking" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_new_booking_hint') }}</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_confirmation_customer">{{ translate('Customer_template') }}</label>
+                                    <textarea name="booking_confirmation_customer" id="tpl_booking_confirmation_customer"
+                                              class="form-control wa-template-input" rows="16"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_confirmation_customer', $config['booking_confirmation_customer'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_confirmation_provider">{{ translate('Provider_template') }}</label>
+                                    <textarea name="booking_confirmation_provider" id="tpl_booking_confirmation_provider"
+                                              class="form-control wa-template-input" rows="16"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_confirmation_provider', $config['booking_confirmation_provider'] ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="wa-tpl-pane-status" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-status" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_status_change_hint') }}</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_status_customer">{{ translate('Customer_template') }}</label>
+                                    <textarea name="booking_status_customer" id="tpl_booking_status_customer"
+                                              class="form-control wa-template-input" rows="16"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_customer', $config['booking_status_customer'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_status_provider">{{ translate('Provider_template') }}</label>
+                                    <textarea name="booking_status_provider" id="tpl_booking_status_provider"
+                                              class="form-control wa-template-input" rows="16"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_provider', $config['booking_status_provider'] ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            @endforeach
+            </div>
 
             <button type="submit" class="btn btn--primary">{{ translate('update') }}</button>
             <a href="{{ route('admin.whatsapp.conversations.index') }}" class="btn btn-secondary">{{ translate('cancel') }}</a>
@@ -84,7 +125,9 @@
                 var areas = document.querySelectorAll('.wa-template-input');
                 var ta = document.activeElement;
                 if (!ta || !ta.classList || !ta.classList.contains('wa-template-input')) {
-                    ta = areas[0];
+                    var activePane = document.querySelector('#waBookingTemplateTabContent .tab-pane.active');
+                    var inPane = activePane ? activePane.querySelectorAll('.wa-template-input') : [];
+                    ta = inPane.length ? inPane[0] : areas[0];
                 }
                 if (!ta) return;
                 var start = ta.selectionStart || 0;

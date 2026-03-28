@@ -103,7 +103,7 @@
                                                             <div class="input-wrap">
                                                                 <div class="d-flex flex-column align-items-center gap-3">
                                                                     <div class="text-center">
-                                                                        <div class="text-dark fs-16 mb-1">{{translate('Image')}} <span class="text-danger">*</span></div>
+                                                                        <div class="text-dark fs-16 mb-1">{{translate('Image')}} <span class="text-muted fs-12">({{translate('Optional')}})</span></div>
                                                                         <div class="text-muted fs-12">{{translate('Upload your cover Image')}}</div>
                                                                     </div>
                                                                     <div class="d-flex flex-column align-items-center">
@@ -114,8 +114,7 @@
                                                                             <input type="file" id="uploadImage" class="upload-file__input"
                                                                                    name="profile_image"
                                                                                    accept=".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }}, |image/*"
-                                                                                   data-maxFileSize="{{ readableUploadMaxFileSize('image') }}"
-                                                                                   required>
+                                                                                   data-maxFileSize="{{ readableUploadMaxFileSize('image') }}">
                                                                             <div class="upload-file__img border-dashed-1-gray rounded">
                                                                                 <img
                                                                                     src="{{asset('assets/admin-module')}}/img/img-upload-new-small.png"
@@ -132,51 +131,6 @@
                                                                 <div class="file_error">
     
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="d-flex flex-column gap-1 mb-20">
-                                                <h3>{{translate('Business_Information')}}</h3>
-                                                <p class="fs-12">{{translate('Give verified information to verify a employee')}}</p>
-                                            </div>
-
-                                            <div class="row">
-                                                <div class="col-lg-6 mb-30">
-                                                    <div class="bg-light rounded p-xxl-4 p-3 h-100">
-                                                        <div class="input-wrap">
-                                                            <select class="select-identity theme-input-style" name="identity_type" required>
-                                                                <option value="0" disabled>{{translate('Select_Identity_Type')}}</option>
-                                                                <option value="passport" {{ old('identity_type') == 'passport' ? 'selected' : '' }}>{{translate('Passport')}}</option>
-                                                                <option value="driving_license" {{ old('identity_type') == 'driving_license' ? 'selected' : '' }}>{{translate('Driving_License')}}</option>
-                                                                <option value="nid" {{ old('identity_type') == 'nid' ? 'selected' : '' }}>{{translate('nid')}}</option>
-                                                                <option value="trade_license" {{ old('identity_type') == 'trade_license' ? 'selected' : '' }}>{{translate('Trade_License')}}</option>
-                                                            </select>
-                                                        </div>
-                                                        <div class="input-wrap form-floating form-floating__icon mt-30">
-                                                            <input type="text" class="form-control" name="identity_number"
-                                                                    placeholder="{{translate('Identity Number')}}"
-                                                                    value="{{old('identity_number')}}" required>
-                                                            <label>{{translate('Identity_Number')}}</label>
-                                                            <span class="material-icons">badge</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-6 mb-30">
-                                                    <div class="bg-light rounded p-xxl-4 p-3 h-100">
-                                                        <div class="input-wrap">
-                                                            <div class="text-center mb-20">
-                                                                <div class="text-dark fs-16 mb-1">{{translate('Identity Image')}} <span class="text-danger">*</span></div>
-                                                                <p class="opacity-75 mx-auto text-center fs-12">
-                                                                    {{ implode(', ', array_column(IMAGEEXTENSION, 'key')) }}
-                                                                    {{ translate('maximum size') }} {{ readableUploadMaxFileSize('image') }}
-                                                                    <strong class="text-dark">2:1</strong>
-                                                                </p>
-                                                            </div>
-                                                            <div class="d-flex flex-column align-items-start gap-3">
-                                                                <div class="d-flex" id="multi_image_picker"></div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -293,19 +247,8 @@
             transitionEffect: "slideLeft",
             onStepChanging: function (event, currentIndex, newIndex) {
                 form.validate().settings.ignore = ":disabled,:hidden";
-                if($('.spartan_image_input').val() === "") {
-                    if($('.multi_image_picker_warning').length === 0) {
-                        $(this).find('#multi_image_picker').after('<small class="text-danger d-flex mb-30 mt-1 multi_image_picker_warning">Please upload Identification image</small>');
-                        return false;
-                    }
-                } else {
-                    $('.multi_image_picker_warning').remove();
-                }
-
                 const oFile = document.getElementById("uploadImage").files[0];
-
-                if (oFile.size > 2097152)
-                {
+                if (oFile && oFile.size > 2097152) {
                     return false;
                 }
                 return form.valid();
@@ -318,7 +261,6 @@
             }
         });
     </script>
-    <script src="{{asset('assets/admin-module')}}/js/spartan-multi-image-picker.js"></script>
     <script>
         "use strict";
 
@@ -329,61 +271,6 @@
                 $(this).find('option[value="all"]').prop('selected', false);
             }
         });
-
-        let maxSizeReadable = "{{ readableUploadMaxFileSize('image') }}"; // "2MB"
-        let maxFileSize = 2 * 1024 * 1024; // default 2MB
-
-        if (maxSizeReadable.toLowerCase().includes('mb')) {
-            maxFileSize = parseFloat(maxSizeReadable) * 1024 * 1024;
-        } else if (maxSizeReadable.toLowerCase().includes('kb')) {
-            maxFileSize = parseFloat(maxSizeReadable) * 1024;
-        }
-
-        function setAcceptForAllInputs() {
-            const allowedExtensions = ".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }},"
-
-            $('#multi_image_picker input[type=file]').each(function() {
-                $(this).attr('accept', allowedExtensions);
-            });
-        }
-
-        setAcceptForAllInputs();
-
-        $("#multi_image_picker").spartanMultiImagePicker({
-                fieldName: 'identity_images[]',
-                maxCount: 2,
-                rowHeight: '170px',
-                groupClassName: 'item',
-                maxFileSize: maxFileSize,
-                dropFileLabel: "{{translate('Drop_here')}}",
-                placeholderImage: {
-                    image: '{{asset('assets/admin-module')}}/img/media/banner-upload-file.png',
-                    width: '100%',
-                },
-
-                onAddRow() {
-                    setAcceptForAllInputs()
-                },
-                onRenderedPreview: function (index) {
-                    toastr.success('{{translate('Image_added')}}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                },
-                onRemoveRow: function (index) {
-                },
-                onExtensionErr: function (index, file) {
-                    toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
-                        CloseButton: true,
-                        ProgressBar: true
-                    });
-                },
-                onSizeErr: function () {
-                    toastr.error('File size must be less than ' + maxSizeReadable);
-                }
-            }
-        );
-
 
     </script>
 

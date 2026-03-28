@@ -170,23 +170,15 @@ class BookingWhatsAppNotificationService
     }
 
     /**
-     * @param  array<string, mixed>  $config
+     * @param  array<string, mixed>  $config  Unused; prefix is read from the same business settings as Cloud sends.
      */
     public function normalizePhone(?string $phone, array $config): ?string
     {
         if (!$phone) {
             return null;
         }
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-        if ($digits === '') {
-            return null;
-        }
-        $prefix = preg_replace('/\D+/', '', (string) ($config['default_phone_prefix'] ?? '')) ?? '';
-        if ($prefix !== '' && strlen($digits) <= 11 && !str_starts_with($digits, $prefix)) {
-            $digits = $prefix . $digits;
-        }
 
-        return $digits;
+        return $this->cloud->normalizeRecipientPhone($phone);
     }
 
     /**

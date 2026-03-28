@@ -197,15 +197,17 @@ class WhatsAppSyncController extends Controller
     }
 
     /**
-     * Update message status (sent, delivered, read). Call from n8n when WhatsApp status webhook fires.
+     * Update message status (sent, delivered, read, failed). Call from n8n when WhatsApp status webhook fires.
+     * For failed: pass Meta's errors as JSON string in failure_detail (optional).
      */
     public function messageStatus(Request $request): JsonResponse
     {
         $data = $request->validate([
             'wa_message_id' => 'required|string|max:255',
-            'status' => 'required|string|in:sent,delivered,read',
+            'status' => 'required|string|in:sent,delivered,read,failed',
             'phone' => 'nullable|string|max:50',
             'status_timestamp' => 'nullable|date',
+            'failure_detail' => 'nullable|string|max:65000',
         ]);
 
         $msg = WhatsAppMessage::where('wa_message_id', $data['wa_message_id'])
@@ -217,6 +219,16 @@ class WhatsAppSyncController extends Controller
         }
 
         $msg->status = $data['status'];
+        if ($data['status'] === 'failed') {
+            $msg->status_detail = $data['failure_detail'] ?? null;
+            \Log::warning('WhatsApp message delivery failed (status webhook)', [
+                'wa_message_id' => $data['wa_message_id'],
+                'phone' => $msg->phone,
+                'failure_detail' => $msg->status_detail,
+            ]);
+        } else {
+            $msg->status_detail = null;
+        }
         $msg->status_updated_at = !empty($data['status_timestamp'])
             ? $data['status_timestamp']
             : now();
