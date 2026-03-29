@@ -3,7 +3,6 @@
     <table id="example" class="table align-middle">
         <thead class="align-middle">
         <tr>
-            <th>{{translate('SL')}}</th>
             <th>{{translate('category_name')}}</th>
             <th>{{translate('sub_category_count')}}</th>
             <th>{{translate('zone_count')}}</th>
@@ -21,8 +20,28 @@
         <tbody>
         @forelse($categories as $key=>$category)
             <tr>
-                <td>{{$categories->firstitem()+$key}}</td>
-                <td>{{$category->name}}</td>
+                <td>
+                    @can('category_update')
+                        <a href="{{ route('admin.category.edit', [$category->id]) }}"
+                           class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color">
+                            <div class="avatar avatar-sm flex-shrink-0">
+                                <img class="avatar-img radius-5"
+                                     src="{{ $category->image_full_path }}"
+                                     alt="{{ $category->name }}">
+                            </div>
+                            <span class="fw-medium">{{ $category->name }}</span>
+                        </a>
+                    @else
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="avatar avatar-sm flex-shrink-0">
+                                <img class="avatar-img radius-5"
+                                     src="{{ $category->image_full_path }}"
+                                     alt="{{ $category->name }}">
+                            </div>
+                            <span>{{ $category->name }}</span>
+                        </div>
+                    @endcan
+                </td>
                 <td>{{$category->children_count}}</td>
                 <td class="d-flex">
                     <div>{{$category->zones_count}}</div>
@@ -86,7 +105,7 @@
             </tr>
         @empty
             <tr class="text-center">
-                <td colspan="8">{{translate('no data available')}}</td>
+                <td colspan="6">{{translate('no data available')}}</td>
             </tr>
         @endforelse
         </tbody>
