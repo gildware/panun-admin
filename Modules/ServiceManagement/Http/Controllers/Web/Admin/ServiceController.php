@@ -91,7 +91,7 @@ class ServiceController extends Controller
         $status = $request->has('status') ? $request['status'] : 'all';
         $queryParam = ['search' => $search, 'status' => $status];
 
-        $services = $this->service->with(['category.zonesBasicInfo'])->latest()
+        $services = $this->service->with(['category.zonesBasicInfo', 'storage_thumbnail'])->latest()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 foreach ($keys as $key) {
@@ -567,8 +567,9 @@ class ServiceController extends Controller
         }
 
 
-        Toastr::success(translate(DEFAULT_UPDATE_200['message']));
-        return redirect()->route('admin.service.index');
+        return redirect()
+            ->route('admin.service.edit', $id)
+            ->with('service_updated', translate(DEFAULT_UPDATE_200['message']));
 
     }
 

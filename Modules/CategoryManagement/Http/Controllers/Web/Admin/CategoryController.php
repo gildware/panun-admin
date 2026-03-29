@@ -51,7 +51,7 @@ class CategoryController extends Controller
         $status = $request->has('status') ? $request['status'] : 'all';
         $queryParams = ['search' => $search, 'status' => $status];
 
-        $categories = $this->category->withCount(['children', 'zones' => function ($query) {
+        $categories = $this->category->with('storage')->withCount(['children', 'zones' => function ($query) {
             $query->withoutGlobalScope('translate');
         }])
             ->when($request->has('search'), function ($query) use ($request) {
@@ -78,7 +78,7 @@ class CategoryController extends Controller
         $page = $request->input('page', 1);
         $queryParams = ['search' => $search, 'status' => $status];
 
-        $categories = Category::withCount(['children', 'zones' => function ($query) {
+        $categories = Category::with('storage')->withCount(['children', 'zones' => function ($query) {
             $query->withoutGlobalScope('translate');
         }])
             ->when($search, function ($query) use ($search) {
@@ -103,7 +103,7 @@ class CategoryController extends Controller
             $page = $page - 1;
             $request->merge(['page' => $page]);
 
-            $categories = Category::withCount(['children', 'zones' => function ($query) {
+            $categories = Category::with('storage')->withCount(['children', 'zones' => function ($query) {
                 $query->withoutGlobalScope('translate');
             }])
                 ->when($search, function ($query) use ($search) {
@@ -294,8 +294,9 @@ class CategoryController extends Controller
             }
         }
 
-        Toastr::success(translate(CATEGORY_UPDATE_200['message']));
-        return redirect()->route('admin.category.create');
+        return redirect()
+            ->route('admin.category.edit', $id)
+            ->with('category_updated', translate(CATEGORY_UPDATE_200['message']));
     }
 
     /**

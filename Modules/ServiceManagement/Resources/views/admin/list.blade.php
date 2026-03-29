@@ -5,6 +5,12 @@
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
+    <style>
+        #ServiceListTableContainer a.category-list-name-link:hover,
+        #ServiceListTableContainer a.category-list-name-link:focus {
+            color: var(--bs-dark) !important;
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -76,11 +82,10 @@
                                         </form>
                                     </div>
 
-                                    <div class="table-responsive">
+                                    <div class="table-responsive" id="ServiceListTableContainer">
                                         <table id="example" class="table align-middle">
                                             <thead>
                                             <tr>
-                                                <th>{{translate('SL')}}</th>
                                                 <th>{{translate('name')}}</th>
                                                 <th>{{translate('category')}}</th>
                                                 <th>{{translate('zones')}}</th>
@@ -96,11 +101,28 @@
                                             <tbody>
                                             @forelse($services as $key=>$service)
                                                 <tr>
-                                                    <td>{{$services->firstitem()+$key}}</td>
                                                     <td>
-                                                        <a href="{{route('admin.service.detail',[$service->id])}}">
-                                                            {{Str::limit($service->name, 50)}}
-                                                        </a>
+                                                        @can('service_update')
+                                                            <a href="{{ route('admin.service.edit', [$service->id]) }}"
+                                                               class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color">
+                                                                <div class="avatar avatar-sm flex-shrink-0">
+                                                                    <img class="avatar-img radius-5"
+                                                                         src="{{ $service->thumbnail_full_path }}"
+                                                                         alt="{{ $service->name }}">
+                                                                </div>
+                                                                <span class="fw-medium">{{ Str::limit($service->name, 50) }}</span>
+                                                            </a>
+                                                        @else
+                                                            <a href="{{ route('admin.service.detail', [$service->id]) }}"
+                                                               class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color">
+                                                                <div class="avatar avatar-sm flex-shrink-0">
+                                                                    <img class="avatar-img radius-5"
+                                                                         src="{{ $service->thumbnail_full_path }}"
+                                                                         alt="{{ $service->name }}">
+                                                                </div>
+                                                                <span class="fw-medium">{{ Str::limit($service->name, 50) }}</span>
+                                                            </a>
+                                                        @endcan
                                                     </td>
                                                     <td>
                                                         @if($service->category)
@@ -182,7 +204,7 @@
                                                 </tr>
                                             @empty
                                                 <tr class="text-center">
-                                                    <td colspan="8">{{translate('no data available')}}</td>
+                                                    <td colspan="6">{{translate('no data available')}}</td>
                                                 </tr>
                                             @endforelse
                                             </tbody>

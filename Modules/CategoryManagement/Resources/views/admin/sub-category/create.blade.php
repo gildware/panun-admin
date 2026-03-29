@@ -6,6 +6,12 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/select2/select2.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/select.dataTables.min.css')}}"/>
+    <style>
+        #SubCategoryListTableContainer a.category-list-name-link:hover,
+        #SubCategoryListTableContainer a.category-list-name-link:focus {
+            color: var(--bs-dark) !important;
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -218,11 +224,10 @@
                                         @endcan
                                     </div>
 
-                                    <div class="table-responsive">
+                                    <div class="table-responsive" id="SubCategoryListTableContainer">
                                         <table id="example" class="table align-middle">
                                             <thead class="text-nowrap">
                                             <tr>
-                                                <th>{{translate('SL')}}</th>
                                                 <th>{{translate('name')}}</th>
                                                 <th>{{translate('parent_category')}}</th>
                                                 <th>{{translate('service_count')}}</th>
@@ -235,10 +240,30 @@
                                             </tr>
                                             </thead>
                                             <tbody>
-                                            @foreach($subCategories as $key=>$category)
+                                            @forelse($subCategories as $key=>$category)
                                                 <tr>
-                                                    <td>{{$subCategories->firstitem()+$key}}</td>
-                                                    <td>{{$category->name}}</td>
+                                                    <td>
+                                                        @can('category_update')
+                                                            <a href="{{ route('admin.sub-category.edit', [$category->id]) }}"
+                                                               class="category-list-name-link d-flex align-items-center gap-3 text-decoration-none demo_check title-color">
+                                                                <div class="avatar avatar-sm flex-shrink-0">
+                                                                    <img class="avatar-img radius-5"
+                                                                         src="{{ $category->image_full_path }}"
+                                                                         alt="{{ $category->name }}">
+                                                                </div>
+                                                                <span class="fw-medium">{{ $category->name }}</span>
+                                                            </a>
+                                                        @else
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="avatar avatar-sm flex-shrink-0">
+                                                                    <img class="avatar-img radius-5"
+                                                                         src="{{ $category->image_full_path }}"
+                                                                         alt="{{ $category->name }}">
+                                                                </div>
+                                                                <span>{{ $category->name }}</span>
+                                                            </div>
+                                                        @endcan
+                                                    </td>
                                                     <td>{{$category->parent->name??translate('not_found')}}</td>
                                                     <td>{{$category->services_count}}</td>
                                                     @can('category_manage_status')
@@ -282,7 +307,11 @@
                                                         </td>
                                                     @endcan
                                                 </tr>
-                                            @endforeach
+                                            @empty
+                                                <tr class="text-center">
+                                                    <td colspan="5">{{translate('no data available')}}</td>
+                                                </tr>
+                                            @endforelse
                                             </tbody>
                                         </table>
                                     </div>

@@ -13,9 +13,20 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
-                        <h2 class="page-title">{{translate('category_update')}}</h2>
+                    <div class="page-title-wrap mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <h2 class="page-title mb-0">{{translate('category_update')}}</h2>
+                        <a href="{{ route('admin.category.create') }}" class="btn btn--secondary d-inline-flex align-items-center gap-2">
+                            <span class="material-icons fs-5 lh-1">arrow_back</span>
+                            {{ translate('Back_to_Category_List') }}
+                        </a>
                     </div>
+
+                    @if(session('category_updated'))
+                        <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+                            {{ session('category_updated') }}
+                            <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
 
                     <div class="card category-setup mb-30">
                         <div class="card-body p-30">
