@@ -49,7 +49,7 @@ class SubCategoryController extends Controller
         $status = $request->has('status') ? $request['status'] : 'all';
         $queryParams = ['search' => $search, 'status' => $status];
 
-        $subCategories = $this->category->withCount('services')->with(['parent'])
+        $subCategories = $this->category->with('storage')->withCount('services')->with(['parent'])
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -287,8 +287,9 @@ class SubCategoryController extends Controller
             }
         }
 
-        Toastr::success(translate(CATEGORY_UPDATE_200['message']));
-        return redirect()->route('admin.sub-category.create');
+        return redirect()
+            ->route('admin.sub-category.edit', $id)
+            ->with('sub_category_updated', translate(CATEGORY_UPDATE_200['message']));
     }
 
     /**

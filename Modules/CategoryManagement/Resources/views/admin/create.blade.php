@@ -6,6 +6,12 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/select2/select2.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/select.dataTables.min.css')}}"/>
+    <style>
+        #ListTableContainer a.category-list-name-link:hover,
+        #ListTableContainer a.category-list-name-link:focus {
+            color: var(--bs-dark) !important;
+        }
+    </style>
 @endpush
 
 @section('content')
