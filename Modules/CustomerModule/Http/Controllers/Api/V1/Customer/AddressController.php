@@ -8,6 +8,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneGeometryService;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 
 class AddressController extends Controller
@@ -81,7 +82,7 @@ class AddressController extends Controller
         }
 
         $point = new Point($request->lat, $request->lon, 0);
-        $zone_id = Zone::whereContains('coordinates', $point)->ofStatus(1)->latest()->first()?->id;
+        $zone_id = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point)?->id;
 
         $address = $this->address;
         $address->user_id = $this->customerUserId;
@@ -148,12 +149,8 @@ class AddressController extends Controller
         }
 
         $point = new Point($request->lat, $request->lon);
-        $zone = Zone::whereContains('coordinates', $point)->ofStatus(1)->latest()->first();
-        if ($zone) {
-            $zone_id = $zone->id;
-        } else {
-            $zone_id = null;
-        }
+        $resolved = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point);
+        $zone_id = $resolved?->id;
 
         $address = $this->address->where(['user_id' => $this->customerUserId])->where('id', $id)->first();
 

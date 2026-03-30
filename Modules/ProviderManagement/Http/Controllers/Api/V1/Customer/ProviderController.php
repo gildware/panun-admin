@@ -77,7 +77,7 @@ class ProviderController extends Controller
         $providersQuery = $this->provider->with(['owner', 'subscribed_services.sub_category' => function ($query) {
             $query->withoutGlobalScopes();
         }])
-            ->where('zone_id', Config::get('zone_id'))
+            ->coveringLeafZone(Config::get('zone_id'))
             ->whereIn('id', $eligibleProviderIds)
             ->ofStatus(1)
             ->where('app_availability', 1)
@@ -244,7 +244,7 @@ class ProviderController extends Controller
     public function getProviderListBySubCategory(Request $request): JsonResponse
     {
         $providers = $this->provider->with(['owner'])
-            ->where('zone_id', Config::get('zone_id'))
+            ->coveringLeafZone(Config::get('zone_id'))
             ->whereHas('subscribed_services', function ($query) use ($request) {
                 $query->where('sub_category_id', $request['sub_category_id']);
             })
@@ -320,7 +320,7 @@ class ProviderController extends Controller
         $booking = $this->booking->where('id', $request->booking_id)->first();
 
         $providers = $this->provider
-            ->where('zone_id', $booking->zone_id)
+            ->coveringLeafZone($booking->zone_id)
             ->ofStatus(1)
             ->where('app_availability', 1)
             ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {

@@ -37,9 +37,10 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $zoneIds = $request->user()->provider->coveredLeafZoneIds();
         $categories = $this->category->ofStatus(1)->ofType('main')
-            ->whereHas('zones', function ($query) use ($request) {
-                return $query->where('zone_id', $request->user()->provider->zone_id);
+            ->whereHas('zones', function ($query) use ($zoneIds) {
+                return $query->whereIn('category_zone.zone_id', $zoneIds);
             })
             ->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
@@ -68,7 +69,7 @@ class CategoryController extends Controller
                 return $query->where('parent_id', $request->id);
             })
             ->whereHas('parent.zones', function ($query) use ($request) {
-                return $query->where('zone_id', $request->user()->provider->zone_id);
+                return $query->whereIn('category_zone.zone_id', $request->user()->provider->coveredLeafZoneIds());
             })
             ->ofStatus(1)->ofType('sub')->orderBY('name', 'asc')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');

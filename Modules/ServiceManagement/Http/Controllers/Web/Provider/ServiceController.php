@@ -67,9 +67,10 @@ class ServiceController extends Controller
             ->pluck('sub_category_id')
             ->toArray();
 
+        $zoneIds = $request->user()->provider->coveredLeafZoneIds();
         $categories = $this->category->ofStatus(1)->ofType('main')
-            ->whereHas('zones', function ($query) use ($request) {
-                return $query->where('zone_id', $request->user()->provider->zone_id);
+            ->whereHas('zones', function ($query) use ($zoneIds) {
+                return $query->whereIn('category_zone.zone_id', $zoneIds);
             })->latest()->get();
 
         $subCategories = $this->category->with(['services'])
@@ -85,8 +86,8 @@ class ServiceController extends Controller
             ->when($request->has('category_id') && $request['category_id'] != 'all', function ($query) use ($request) {
                 $query->where('parent_id', $request['category_id']);
             })
-            ->whereHas('parent.zones', function ($query) use ($request) {
-                $query->where('zone_id', $request->user()->provider->zone_id);
+            ->whereHas('parent.zones', function ($query) use ($zoneIds) {
+                $query->whereIn('category_zone.zone_id', $zoneIds);
             })
             ->whereHas('parent', function ($query) {
                 $query->where('is_active', 1);
@@ -215,7 +216,7 @@ class ServiceController extends Controller
         $subscribedService->sub_category_id = $request['sub_category_id'];
 
         $parent = $this->category->where('id', $request['sub_category_id'])->whereHas('parent.zones', function ($query) {
-            $query->where('zone_id', auth()->user()->provider->zone_id);
+            $query->whereIn('category_zone.zone_id', auth()->user()->provider->coveredLeafZoneIds());
         })->first();
 
         if ($parent) {

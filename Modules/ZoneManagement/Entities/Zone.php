@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
@@ -38,6 +41,24 @@ class Zone extends Model
     public function providers()
     {
         return $this->hasMany(Provider::class);
+    }
+
+    public function parentZone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class, 'parent_id');
+    }
+
+    public function childZones(): HasMany
+    {
+        return $this->hasMany(Zone::class, 'parent_id');
+    }
+
+    /**
+     * Providers serving this zone via the provider_zone pivot (leaf coverage).
+     */
+    public function coveringProviders(): BelongsToMany
+    {
+        return $this->belongsToMany(Provider::class, 'provider_zone')->withTimestamps();
     }
 
     public function categories()

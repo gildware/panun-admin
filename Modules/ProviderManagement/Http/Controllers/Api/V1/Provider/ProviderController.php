@@ -28,6 +28,7 @@ use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\PaymentModule\Traits\SmsGateway;
+use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 
 class ProviderController extends Controller
 {
@@ -160,7 +161,7 @@ class ProviderController extends Controller
                 ->whereDoesntHave('ignores', function ($query) use ($request) {
                     $query->where('provider_id', $request->user()->provider->id);
                 })
-                ->where('zone_id', $request->user()->provider->zone_id)
+                ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
                 ->latest()->take(5)->get();
             $recentNotBooking = [];
             $recentBookings = $request->user()?->provider?->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values ? $recentBookings : $recentNotBooking;
@@ -206,7 +207,7 @@ class ProviderController extends Controller
                 ->where('is_booked', 0)
                 ->whereNotIn('id', $ignoredPosts)
                 ->whereIn('sub_category_id', $subCategories)
-                ->where('zone_id', $request->user()->provider->zone_id)
+                ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
                 ->whereBetween('created_at', [Carbon::now()->subDays($biddingPostValidity), Carbon::now()])
                 ->when(true, function ($query) use ($request) {
                     if($request->user()?->provider?->service_availability && (!$request->user()?->provider?->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)){
@@ -234,7 +235,7 @@ class ProviderController extends Controller
                 ->where('is_booked', 0)
                 ->whereNotIn('id', $ignoredPosts)
                 ->whereIn('sub_category_id', $subCategories)
-                ->where('zone_id', $request->user()->provider->zone_id)
+                ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
                 ->whereBetween('created_at', [Carbon::now()->subDays($biddingPostValidity), Carbon::now()])
                 ->when(true, function ($query) use ($request) {
                     if($request->user()?->provider?->service_availability && (!$request->user()?->provider?->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)){
@@ -263,7 +264,7 @@ class ProviderController extends Controller
                             ->orWhere('payment_method', '<>', 'cash_after_service');
                     });
                 })
-                ->where('zone_id', $request->user()->provider->zone_id)
+                ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
                 ->count();
 
             $recentNotBooking = [];
@@ -491,7 +492,7 @@ class ProviderController extends Controller
             'contact_person_name' => 'required',
             'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $request->user()->id,
             'contact_person_email' => 'required|email|unique:users,email,' . $request->user()->id,
-            'zone_ids' => 'required|array',
+            'zone_ids' => 'required|array|min:1',
             'zone_ids.*' => 'uuid',
 
             'password' => '',
@@ -522,6 +523,19 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds(
+            $request->input('zone_ids', []),
+            $request->input('zone_excluded_ids', []) ?: []
+        );
+        if ($leafZoneIds === []) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Select_Zone')]]), 400);
+        }
+
+        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
+        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
+            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
+        }
+
         if ($providerType === 'company') {
             $provider->company_name = $request->company_name;
             $provider->company_phone = $request->company_phone;
@@ -543,7 +557,7 @@ class ProviderController extends Controller
         $provider->contact_person_name = $request->contact_person_name;
         $provider->contact_person_phone = $request->contact_person_phone;
         $provider->contact_person_email = $request->contact_person_email;
-        $provider->zone_id = $request['zone_ids'][0];
+        $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
         $owner = $this->user->where('id', $request->user()->id)->first();
@@ -591,9 +605,13 @@ class ProviderController extends Controller
         $owner->identification_number = $request->identity_number;
         $owner->identification_type = $request->identity_type;
 
-        DB::transaction(function () use ($provider, $owner) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
+            $owner->zones()->sync($leafZoneIds);
             $owner->save();
             $provider->save();
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
         });
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
@@ -797,9 +815,19 @@ class ProviderController extends Controller
 
         $createdAt = $request->user()->created_at ?? null;
 
+        $nZoneIds = $request->user()->provider->coveredLeafZoneIds();
         $pushNotification = $this->pushNotification->ofStatus(1)
             ->whereJsonContains('to_users', 'provider-admin')
-            ->whereJsonContains('zone_ids', $request->user()->provider->zone_id)
+            ->when($nZoneIds !== [], function ($query) use ($nZoneIds) {
+                $query->where(function ($q) use ($nZoneIds) {
+                    foreach ($nZoneIds as $zid) {
+                        $q->orWhereJsonContains('zone_ids', $zid);
+                    }
+                });
+            })
+            ->when($nZoneIds === [], function ($query) {
+                $query->whereRaw('1 = 0');
+            })
             ->when($createdAt, function ($query) use ($createdAt) {
                 $query->where('created_at', '>=', $createdAt);
             })

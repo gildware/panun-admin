@@ -57,7 +57,7 @@ class PostController extends Controller
             ->where('is_booked', 0)
             ->whereNotIn('id', $ignored_posts)
             ->whereIn('sub_category_id', $subscribed_sub_categories)
-            ->where('zone_id', $request->user()->provider->zone_id)
+            ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
             ->whereBetween('created_at', [Carbon::now()->subDays($bidding_post_validity), Carbon::now()])
             ->when($request['type'] != 'all' && $request['type'] != 'new_booking_request', function ($query) use ($request) {
                 $query->whereHas('bids', function ($query) use ($request) {

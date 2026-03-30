@@ -18,6 +18,7 @@ use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
+use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use function bcrypt;
 use function file_remover;
 use function file_uploader;
@@ -216,12 +217,22 @@ class ProviderController extends Controller
             'identity_images' => 'required|array',
             'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
-            'zone_ids' => 'required|array',
-            'zone_ids.*' => 'uuid'
+            'zone_ids' => 'required|array|min:1',
+            'zone_ids.*' => 'uuid',
+            'zone_excluded_ids' => 'nullable|array',
+            'zone_excluded_ids.*' => 'uuid',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds(
+            $request->zone_ids,
+            $request->input('zone_excluded_ids', []) ?: []
+        );
+        if ($leafZoneIds === []) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Select_Zone')]]), 400);
         }
 
         $identityImages = [];
@@ -249,7 +260,7 @@ class ProviderController extends Controller
         $provider->contact_person_email = $request->contact_person_email;
         $provider->is_approved = 1;
         $provider->is_active = 1;
-        $provider->zone_id = $request['zone_ids'][0];
+        $provider->zone_id = $leafZoneIds[0];
 
         $owner = $this->owner;
         $owner->first_name = $request->account_first_name;
@@ -264,11 +275,14 @@ class ProviderController extends Controller
         $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
 
-        DB::transaction(function () use ($provider, $owner, $request) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
             $owner->save();
-            $owner->zones()->sync($request->zone_ids);
+            $owner->zones()->sync($leafZoneIds);
             $provider->user_id = $owner->id;
             $provider->save();
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
         });
 
         return response()->json(response_formatter(PROVIDER_STORE_200), 200);
@@ -305,7 +319,7 @@ class ProviderController extends Controller
      */
     public function edit(string $id): JsonResponse
     {
-        $provider = $this->provider->with(['owner', 'zone'])->find($id);
+        $provider = $this->provider->with(['owner', 'zone', 'zones'])->find($id);
 
         if (isset($provider)) {
             return response()->json(response_formatter(DEFAULT_200, $provider), 200);
@@ -349,12 +363,27 @@ class ProviderController extends Controller
             'company_email' => $request->provider_type === 'company' ? 'required|email' : 'nullable|email',
             'logo' => 'image|mimes:jpeg,jpg,png,gif|max:10000',
 
-            'zone_ids' => 'required|array',
-            'zone_ids.*' => 'uuid'
+            'zone_ids' => 'required|array|min:1',
+            'zone_ids.*' => 'uuid',
+            'zone_excluded_ids' => 'nullable|array',
+            'zone_excluded_ids.*' => 'uuid',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds(
+            $request->zone_ids,
+            $request->input('zone_excluded_ids', []) ?: []
+        );
+        if ($leafZoneIds === []) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Select_Zone')]]), 400);
+        }
+
+        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
+        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
+            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
         }
 
         $provider->provider_type = $request->provider_type;
@@ -374,7 +403,7 @@ class ProviderController extends Controller
         $provider->contact_person_name = $request->contact_person_name;
         $provider->contact_person_phone = $request->contact_person_phone;
         $provider->contact_person_email = $request->contact_person_email;
-        $provider->zone_id = $request['zone_ids'][0];
+        $provider->zone_id = $leafZoneIds[0];
 
         $owner = $provider->owner()->first();
         $owner->first_name = $request->account_first_name;
@@ -387,10 +416,13 @@ class ProviderController extends Controller
         }
         $owner->user_type = 'provider-admin';
 
-        DB::transaction(function () use ($provider, $owner, $request) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
             $owner->save();
-            $owner->zones()->sync($request->zone_ids);
+            $owner->zones()->sync($leafZoneIds);
             $provider->save();
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
         });
 
         return response()->json(response_formatter(PROVIDER_STORE_200), 200);

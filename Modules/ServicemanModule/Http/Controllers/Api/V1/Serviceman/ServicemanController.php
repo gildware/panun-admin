@@ -304,8 +304,16 @@ class ServicemanController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $sZoneIds = $request->user()->serviceman->provider->coveredLeafZoneIds();
         $pushNotification = $this->pushNotification->ofStatus(1)->whereJsonContains('to_users', PROVIDER_USER_TYPES[2])
-            ->whereJsonContains('zone_ids', $request->user()->serviceman->provider->zone_id)
+            ->when($sZoneIds !== [], function ($query) use ($sZoneIds) {
+                $query->where(function ($q) use ($sZoneIds) {
+                    foreach ($sZoneIds as $zid) {
+                        $q->orWhereJsonContains('zone_ids', $zid);
+                    }
+                });
+            })
+            ->when($sZoneIds === [], fn ($q) => $q->whereRaw('1 = 0'))
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 

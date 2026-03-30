@@ -56,8 +56,9 @@
                                         </div>
                                     </div>
                                     <div class="col-lg-7">
-                                        @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
+                                        @php($language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
                                         @php($default_lang = str_replace('_', '-', app()->getLocale()))
+                                        @php($zoneLanguageTabs = $language ? collect($language->live_values ?? []) : collect())
                                         @if($language)
                                             <ul class="nav nav--tabs border-color-primary mb-4">
                                                 <li class="nav-item">
@@ -65,7 +66,7 @@
                                                        href="#"
                                                        id="default-link">{{translate('default')}}</a>
                                                 </li>
-                                                @foreach ($language?->live_values as $lang)
+                                                @foreach ($zoneLanguageTabs as $lang)
                                                     <li class="nav-item">
                                                         <a class="nav-link lang_link"
                                                            href="#"
@@ -83,22 +84,13 @@
                                                 <span class="material-icons">note_alt</span>
                                             </div>
                                             <input type="hidden" name="lang[]" value="default">
-                                            @foreach ($language?->live_values as $lang)
-                                                    <?php
-                                                    if (count($zone['translations'])) {
-                                                        $translate = [];
-                                                        foreach ($zone['translations'] as $t) {
-                                                            if ($t->locale == $lang['code'] && $t->key == "zone_name") {
-                                                                $translate[$lang['code']]['zone_name'] = $t->value;
-                                                            }
-                                                        }
-                                                    }
-                                                    ?>
+                                            @foreach ($zoneLanguageTabs as $lang)
+                                                @php($translatedZoneName = collect($zone->translations ?? [])->first(fn ($t) => ($t->locale ?? '') === ($lang['code'] ?? '') && ($t->key ?? '') === 'zone_name')?->value ?? '')
                                                 <div class="form-floating form-floating__icon mb-30 d-none lang-form"
                                                      id="{{$lang['code']}}-form">
                                                     <input type="text" name="name[]" class="form-control"
                                                            placeholder="{{translate('zone_name')}}"
-                                                           value="{{$translate[$lang['code']]['zone_name']??''}}">
+                                                           value="{{ $translatedZoneName }}">
                                                     <label>{{translate('zone_name')}}
                                                         ({{strtoupper($lang['code'])}})</label>
                                                     <span class="material-icons">note_alt</span>
@@ -120,6 +112,18 @@
                                             <input type="hidden" name="lang[]" value="default">
                                         @endif
 
+                                        @if(isset($parentZoneChoices))
+                                            <div class="mb-30">
+                                                <label class="input-label d-block mb-2">{{ translate('Parent_zone') }}</label>
+                                                <select name="parent_id" class="form-select theme-input-style w-100">
+                                                    <option value="">{{ translate('No_parent_root_zone') }}</option>
+                                                    @foreach($parentZoneChoices as $pz)
+                                                        <option value="{{ $pz->id }}" @selected(old('parent_id', $zone->parent_id ?? '') == $pz->id)>{{ $pz->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        @endif
+
                                         <div class="form-group mb-3 coordinates">
                                             <label class="input-label"
                                                    for="exampleFormControlInput1">{{translate('coordinates')}}
@@ -129,7 +133,7 @@
 
                                             <textarea type="text" rows="8" name="coordinates" id="coordinates"
                                                       class="form-control" readonly>
-                                                @foreach($zone->coordinates[0]->toArray()['coordinates'] as $key=>$coords)<?php if (count($zone->coordinates[0]->toArray()['coordinates']) != $key + 1){if ($key != 0) echo(','); ?>({{$coords[1]}},{{$coords[0]}})<?php } ?>@endforeach
+                                                @foreach($area['coordinates'] ?? [] as $key=>$coords)<?php if (count($area['coordinates'] ?? []) != $key + 1){if ($key != 0) echo(','); ?>({{$coords[1]}},{{$coords[0]}})<?php } ?>@endforeach
                                             </textarea>
                                         </div>
 
@@ -160,11 +164,15 @@
 
 @push('script')
     @php($api_key=(business_config('google_map', 'third_party'))->live_values)
-    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client']}}&libraries=drawing,places&v=3.45.8"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client']}}&libraries=drawing,places,geometry&v=beta"></script>
 
     <script>
         "use strict";
         auto_grow();
+
+        const ZONE_PARENT_GEO_URL = "{{ url('/admin/zone/parent-geometry') }}";
+        const MSG_CHILD_OUTSIDE_PARENT = @json(translate('Child_zone_must_be_inside_parent_boundary'));
+        const initialZoneParentId = @json(old('parent_id', (string) ($zone->parent_id ?? '')));
 
         function auto_grow() {
             let element = document.getElementById("coordinates");
@@ -176,8 +184,140 @@
         let lat_longs = new Array();
         let drawingManager;
         let lastpolygon = null;
+        let zonePolygon = null;
         let bounds = new google.maps.LatLngBounds();
         let polygons = [];
+        let parentBoundaryPolygon = null;
+        let currentLocationMarker = null;
+
+        function addCurrentLocationControl() {
+            if (!map) return;
+
+            const controlDiv = document.createElement('div');
+            controlDiv.style.margin = '8px';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn--primary';
+            button.style.display = 'flex';
+            button.style.alignItems = 'center';
+            button.style.gap = '6px';
+            button.style.padding = '6px 10px';
+            button.style.borderRadius = '6px';
+            button.style.boxShadow = '0 2px 6px rgba(0,0,0,.2)';
+            button.title = 'Go to current location';
+            button.innerHTML = '<span class="material-icons" style="font-size:18px;line-height:18px;">my_location</span><span>Current</span>';
+
+            button.addEventListener('click', function () {
+                if (!navigator.geolocation) {
+                    toastr.warning('Geolocation not supported by this browser.');
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+                        map.setCenter(pos);
+                        map.setZoom(14);
+                        if (currentLocationMarker) {
+                            currentLocationMarker.setMap(null);
+                        }
+                        currentLocationMarker = new google.maps.Marker({
+                            position: pos,
+                            map,
+                            title: 'Current location',
+                        });
+                    },
+                    function () {
+                        toastr.warning('Unable to access current location. Please allow location permission.');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            });
+
+            controlDiv.appendChild(button);
+            map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv);
+        }
+        // Boundary auto-overlay removed: zone boundary will be drawn manually.
+
+        // Boundary auto-overlay removed: zone boundary will be drawn manually.
+
+        function loadParentBoundary(zoneId) {
+            if (!map) {
+                return;
+            }
+            if (parentBoundaryPolygon) {
+                parentBoundaryPolygon.setMap(null);
+                parentBoundaryPolygon = null;
+            }
+            if (!zoneId) {
+                return;
+            }
+            $.getJSON(ZONE_PARENT_GEO_URL + '/' + zoneId)
+                .done(function (data) {
+                    if (!data.paths || !data.paths.length) {
+                        toastr.warning(@json(translate('Parent_zone_has_no_drawn_boundary')));
+                        return;
+                    }
+                    parentBoundaryPolygon = new google.maps.Polygon({
+                        paths: data.paths,
+                        strokeColor: '#1a7f37',
+                        strokeOpacity: 0.95,
+                        strokeWeight: 2,
+                        fillColor: '#1a7f37',
+                        fillOpacity: 0.12,
+                        clickable: false,
+                        zIndex: 1,
+                    });
+                    parentBoundaryPolygon.setMap(map);
+                })
+                .fail(function () {
+                    toastr.warning(@json(translate('Could_not_load_parent_zone_boundary')));
+                });
+        }
+
+        function validateChildInsideParentIfNeeded(childPolygon) {
+            if (!childPolygon || !parentBoundaryPolygon) {
+                return true;
+            }
+            const path = childPolygon.getPath();
+            if (!path || path.getLength() < 3) {
+                return true;
+            }
+            for (let i = 0; i < path.getLength(); i++) {
+                if (!google.maps.geometry.poly.containsLocation(path.getAt(i), parentBoundaryPolygon)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function attachChildPolygonPathListeners(polygon) {
+            if (!polygon || polygon.__pkZonePathHooked) {
+                return;
+            }
+            polygon.__pkZonePathHooked = true;
+            const path = polygon.getPath();
+            const sync = function () {
+                $('#coordinates').val(path.getArray());
+                auto_grow();
+                if (!validateChildInsideParentIfNeeded(polygon)) {
+                    toastr.warning(MSG_CHILD_OUTSIDE_PARENT);
+                }
+            };
+            google.maps.event.addListener(path, 'set_at', sync);
+            google.maps.event.addListener(path, 'insert_at', sync);
+            google.maps.event.addListener(path, 'remove_at', sync);
+        }
+
+        function getEffectiveChildPolygonForValidation() {
+            if (lastpolygon && lastpolygon.getMap && lastpolygon.getMap()) {
+                return lastpolygon;
+            }
+            if (zonePolygon && zonePolygon.getMap && zonePolygon.getMap()) {
+                return zonePolygon;
+            }
+            return null;
+        }
 
 
         function resetMap(controlDiv) {
@@ -203,31 +343,34 @@
             controlText.innerHTML = "X";
             controlUI.appendChild(controlText);
             controlUI.addEventListener("click", () => {
-                lastpolygon.setMap(null);
+                if (lastpolygon) {
+                    lastpolygon.setMap(null);
+                }
+                lastpolygon = null;
                 $('#coordinates').val('');
-
             });
         }
 
         function initialize() {
-            let myLatlng = new google.maps.LatLng({{trim(explode(' ',$zone->center)[1], 'POINT()')}}, {{trim(explode(' ',$zone->center)[0], 'POINT()')}});
+            let myLatlng = new google.maps.LatLng({{ $centerLat }}, {{ $centerLng }});
             let myOptions = {
                 zoom: 13,
                 center: myLatlng,
                 mapTypeId: google.maps.MapTypeId.ROADMAP
             };
             map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
+            addCurrentLocationControl();
 
             const polygonCoords = [
 
-                    @foreach($area['coordinates'] as $coords)
+                    @foreach($area['coordinates'] ?? [] as $coords)
                         {
                             lat: {{$coords[1]}}, lng: {{$coords[0]}}
                         },
                     @endforeach
             ];
 
-            var zonePolygon = new google.maps.Polygon({
+            zonePolygon = new google.maps.Polygon({
                 paths: polygonCoords,
                 strokeColor: "#050df2",
                 strokeOpacity: 0.8,
@@ -236,6 +379,7 @@
             });
 
             zonePolygon.setMap(map);
+            attachChildPolygonPathListeners(zonePolygon);
 
             zonePolygon.getPaths().forEach(function (path) {
                 path.forEach(function (latlng) {
@@ -267,8 +411,15 @@
                 if (lastpolygon) {
                     lastpolygon.setMap(null);
                 }
-                $('#coordinates').val(event.overlay.getPath().getArray());
-                lastpolygon = event.overlay;
+                const overlay = event.overlay;
+                if (!validateChildInsideParentIfNeeded(overlay)) {
+                    overlay.setMap(null);
+                    toastr.error(MSG_CHILD_OUTSIDE_PARENT);
+                    return;
+                }
+                $('#coordinates').val(overlay.getPath().getArray());
+                lastpolygon = overlay;
+                attachChildPolygonPathListeners(lastpolygon);
                 auto_grow();
             });
             const resetDiv = document.createElement("div");
@@ -322,9 +473,22 @@
                 });
                 map.fitBounds(bounds);
             });
+
+            $(document).on('change', 'select[name="parent_id"]', function () {
+                loadParentBoundary($(this).val());
+            });
+            if (initialZoneParentId) {
+                loadParentBoundary(initialZoneParentId);
+            }
         }
 
-        google.maps.event.addDomListener(window, 'load', initialize);
+        // Some pages load this script after the window `load` event.
+        // Initialize immediately when possible so drawing works.
+        if (typeof google !== 'undefined' && google.maps && document.getElementById("map-canvas")) {
+            initialize();
+        } else {
+            google.maps.event.addDomListener(window, 'load', initialize);
+        }
 
         function set_all_zones() {
             $.get({
@@ -360,10 +524,15 @@
         })
 
         function performValidation(event) {
-            return true;
-
-            if (!lastpolygon) {
+            const child = getEffectiveChildPolygonForValidation();
+            if (!child) {
                 event.preventDefault();
+                toastr.warning('{{ translate('Please draw your zone on the map') }}');
+                return;
+            }
+            if (!validateChildInsideParentIfNeeded(child)) {
+                event.preventDefault();
+                toastr.error(MSG_CHILD_OUTSIDE_PARENT);
             }
         }
 

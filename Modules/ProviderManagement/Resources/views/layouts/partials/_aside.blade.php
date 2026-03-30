@@ -76,7 +76,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                             $posts = \Modules\BidModule\Entities\Post::where('is_booked', 0)
                                 ->whereNotIn('id', $ignored_posts)
                                 ->whereIn('sub_category_id', $subscribed_sub_category_ids)
-                                ->where('zone_id', auth()->user()->provider->zone_id)
+                                ->whereIn('zone_id', auth()->user()->provider->coveredLeafZoneIds())
                                 ->whereBetween('created_at', [Carbon\Carbon::now()->subDays($bidding_post_validity), Carbon\Carbon::now()])
                                 ->when(!request()->user()?->provider?->service_availability || auth()->user()->provider->is_suspended && business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                                     $query->whereHas('bids', function ($query) {

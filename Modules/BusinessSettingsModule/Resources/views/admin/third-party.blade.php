@@ -823,6 +823,20 @@
                                                                    value="{{bs_data($dataValues,'google_map')['map_api_key_client']??''}}">
                                                         </div>
                                                     </div>
+                                                    <div class="col-md-12 col-12">
+                                                        <div class="">
+                                                            <label class="mb-2 text-dark">{{translate('map_id') ?? 'Map ID'}}
+                                                                <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
+                                                                   data-bs-placement="top"
+                                                                   title="Used for Google Data-driven Styling (DDS) boundaries"
+                                                            >info</i>
+                                                            </label>
+                                                            <input type="text" class="form-control"
+                                                                   name="map_id"
+                                                                   placeholder="Your Google Maps Map ID (for DDS boundaries)"
+                                                                   value="{{bs_data($dataValues,'google_map')['map_id']??''}}">
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             @can('configuration_update')
