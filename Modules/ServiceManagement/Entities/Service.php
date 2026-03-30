@@ -75,7 +75,8 @@ class Service extends Model
                     ->where('is_active', 1);
             })->whereHas('discount.discount_types', function ($query) {
                 if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                    $query->where(['discount_type' => 'zone', 'type_wise_id' => request()->user()->provider->zone_id]);
+                    $zids = request()->user()->provider->coveredLeafZoneIds();
+                    $query->where('discount_type', 'zone')->whereIn('type_wise_id', $zids);
                 } elseif (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
                     $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
                 }
@@ -92,7 +93,8 @@ class Service extends Model
                     ->where('is_active', 1);
             })->whereHas('discount.discount_types', function ($query) {
                 if (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
-                    $query->where(['discount_type' => 'zone', 'type_wise_id' => request()->user()->provider->zone_id]);
+                    $zids = request()->user()->provider->coveredLeafZoneIds();
+                    $query->where('discount_type', 'zone')->whereIn('type_wise_id', $zids);
                 } elseif (request()->is('api/*/customer?*') || request()->is('api/*/customer/*')) {
                     $query->where(['discount_type' => 'zone', 'type_wise_id' => config('zone_id')]);
                 }
@@ -264,8 +266,9 @@ class Service extends Model
                 })->with(['service_discount', 'campaign_discount']);
             } elseif (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
                 if (auth()->check() && request()->user()->provider != null) {
-                    $builder->whereHas('category.zones', function ($query) {
-                        $query->where('zone_id', request()->user()->provider->zone_id);
+                    $zids = request()->user()->provider->coveredLeafZoneIds();
+                    $builder->whereHas('category.zones', function ($query) use ($zids) {
+                        $query->whereIn('category_zone.zone_id', $zids);
                     })->with(['service_discount', 'campaign_discount']);
                 }
             }

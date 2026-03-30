@@ -45,13 +45,14 @@ class ServiceController extends Controller
         if (!request()?->user()?->serviceman) return response()->json(response_formatter(DEFAULT_403), 403);
 
         $provider = Provider::find(request()?->user()?->serviceman?->provider_id);
+        $pZoneIds = $provider->coveredLeafZoneIds();
         $services = $this->service
-            ->with(['category.zonesBasicInfo', 'service_discount', 'campaign_discount', 'variations' => function ($query) use ($provider) {
-        $query->where('zone_id', $provider->zone_id)->with('zone:id,name');
+            ->with(['category.zonesBasicInfo', 'service_discount', 'campaign_discount', 'variations' => function ($query) use ($pZoneIds) {
+        $query->whereIn('zone_id', $pZoneIds)->with('zone:id,name');
     }])
             ->whereHas('subCategory', fn ($query) => $query->where('sub_category_id', $request['sub_category_id']))
-            ->whereHas('category.zones', function ($query) use ($provider) {
-                $query->where('zone_id', $provider->zone_id);
+            ->whereHas('category.zones', function ($query) use ($pZoneIds) {
+                $query->whereIn('category_zone.zone_id', $pZoneIds);
             })
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])

@@ -473,7 +473,37 @@
                                 <div class="row g-3">
                                     <div class="col-lg-6">
                                         <div class="overview-muted-label">{{ translate('Zone') }}</div>
-                                        <div class="overview-value">{{ $provider?->zone?->name ?: '-' }}</div>
+                                        @php
+                                            /** @var \Illuminate\Support\Collection $leafZones */
+                                            $leafZoneIds = method_exists($provider, 'coveredLeafZoneIds') ? $provider->coveredLeafZoneIds() : [];
+                                            $leafZones = collect();
+                                            if (is_array($leafZoneIds) && !empty($leafZoneIds)) {
+                                                $leafZones = \Modules\ZoneManagement\Entities\Zone::with('parentZone')
+                                                    ->whereIn('id', $leafZoneIds)
+                                                    ->get();
+                                            }
+                                            $grouped = [];
+                                            foreach ($leafZones as $leafZone) {
+                                                $parentName = $leafZone->parentZone?->name ?? $leafZone->name;
+                                                $grouped[$parentName] = $grouped[$parentName] ?? [];
+                                                $grouped[$parentName][] = $leafZone->name;
+                                            }
+
+                                            $lines = [];
+                                            foreach ($grouped as $parentName => $childNames) {
+                                                $childNames = array_values(array_unique($childNames));
+                                                $lines[] = $parentName . ': ' . implode(', ', $childNames);
+                                            }
+                                        @endphp
+                                        <div class="overview-value">
+                                            @if(! empty($lines))
+                                                @foreach($lines as $line)
+                                                    <div>{{ $line }}</div>
+                                                @endforeach
+                                            @else
+                                                {{ $provider?->zone?->name ?: '-' }}
+                                            @endif
+                                        </div>
 
                                         <div class="overview-muted-label">{{ translate('Address') }}</div>
                                         <div class="overview-value">{{ $provider->company_address ?: '-' }}</div>

@@ -178,9 +178,9 @@ class PostController extends Controller
 
         $provider_ids = SubscribedService::where('sub_category_id', $request['sub_category_id'])->ofSubscription(1)->pluck('provider_id')->toArray();
         if (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
-            $providers = Provider::with('owner')->whereIn('id', $provider_ids)->where('zone_id', $post->zone_id)->where('is_suspended', 0)->get();
+            $providers = Provider::with('owner')->whereIn('id', $provider_ids)->coveringLeafZone($post->zone_id)->where('is_suspended', 0)->get();
         } else {
-            $providers = Provider::with('owner')->whereIn('id', $provider_ids)->where('zone_id', $post->zone_id)->get();
+            $providers = Provider::with('owner')->whereIn('id', $provider_ids)->coveringLeafZone($post->zone_id)->get();
         }
 
         $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;

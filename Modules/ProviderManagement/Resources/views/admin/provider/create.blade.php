@@ -61,7 +61,7 @@
                                     {{ translate('Subscribed_Services') }}
                                 </div>
                             </div>
-                            @include('providermanagement::admin.provider.partials.provider-add-edit-form', ['mode' => 'add', 'zones' => $zones, 'provider' => null])
+                            @include('providermanagement::admin.provider.partials.provider-add-edit-form', ['mode' => 'add', 'zones' => $zones, 'zoneTree' => $zoneTree, 'provider' => null])
 
                             @if(false)
                             <fieldset disabled class="d-none">
@@ -125,16 +125,15 @@
                                         </div>
                                     </div>
                                     <div class="mb-30">
-                                        <div class="form-floating">
-                                            <select class="select-identity theme-input-style w-100" name="zone_id" required>
-                                                <option selected disabled>{{translate('Select_Zone')}}</option>
-                                                @foreach($zones as $zone)
-                                                    <option value="{{$zone->id}}"
-                                                        {{old('identity_type') == $zone->id ? 'selected': ''}}>
-                                                        {{$zone->name}}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
+                                        <label class="input-label d-block mb-2">{{ translate('Service_Zones') }} <span class="text-danger">*</span></label>
+                                        <p class="text-muted fz-12 mb-2">{{ translate('Hold_Ctrl_or_Cmd_to_select_multiple_zones') }}</p>
+                                        <select class="select-identity theme-input-style w-100" name="zone_ids[]" multiple required size="8">
+                                            @foreach($zones as $zone)
+                                                <option value="{{ $zone->id }}"
+                                                    {{ in_array((string) $zone->id, array_map('strval', (array) old('zone_ids', [])), true) ? 'selected' : '' }}>
+                                                    {{ $zone->name }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                     <div class="mb-30">
                                         <div class="form-floating">
@@ -599,8 +598,8 @@
                 }
                 var url = cfg.getAttribute("data-subcategories-url") || "";
                 var token = cfg.getAttribute("data-csrf-token") || "";
-                var zoneEl = document.querySelector('#create-provider-form select[name="zone_id"]');
-                var zoneId = zoneEl ? zoneEl.value : "";
+                var fn = window.getAdminProviderFormZoneIds;
+                var zoneIds = typeof fn === "function" ? fn() : [];
                 var $loading = jQuery("#provider-create-subscribed-loading");
                 var $empty = jQuery("#provider-create-subscribed-empty");
                 var $none = jQuery("#provider-create-subscribed-none");
@@ -610,12 +609,12 @@
                 $none.addClass("d-none");
                 $wrap.addClass("d-none");
                 $tbody.empty();
-                if (!zoneId) {
+                if (!zoneIds.length) {
                     $empty.removeClass("d-none");
                     return;
                 }
                 $loading.removeClass("d-none");
-                jQuery.post(url, {_token: token, zone_id: zoneId})
+                jQuery.post(url, {_token: token, zone_ids: zoneIds})
                     .done(function (res) {
                         $loading.addClass("d-none");
                         var list = (res && res.sub_categories) ? res.sub_categories : [];
@@ -732,6 +731,16 @@
 
                     if (!identityDocsOk) {
                         return false;
+                    }
+
+                    if (currentIndex === 0 && newIndex === 1) {
+                        var zPick = typeof window.getAdminProviderFormZoneIds === "function" ? window.getAdminProviderFormZoneIds() : [];
+                        if (!zPick.length) {
+                            if (typeof toastr !== "undefined") {
+                                toastr.error("{{ addslashes(translate('Select_Zone')) }}");
+                            }
+                            return false;
+                        }
                     }
 
                     if (currentIndex === 0 && typeof window.checkOwnerContactUniqueSync === "function") {

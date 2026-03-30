@@ -21,6 +21,7 @@ class ThirdPartyDataStoreOrUpdateRequest extends FormRequest
             'status' => 'sometimes',
             'map_api_key_server' => 'required_if:party_name,google_map|string',
             'map_api_key_client' => 'required_if:party_name,google_map|string',
+            'map_id' => 'nullable|string',
             'server_key' => 'nullable|string',
             'service_file' => 'required_if:party_name,push_notification|file|mimes:json|max:'. uploadMaxFileSizeInKB('file'),
             'service_file_content' => 'required_if:party_name,firebase|string',

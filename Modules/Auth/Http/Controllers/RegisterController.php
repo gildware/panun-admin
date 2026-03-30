@@ -28,6 +28,7 @@ use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Carbon\Carbon;
 use Stevebauman\Location\Facades\Location;
 
@@ -177,6 +178,11 @@ class RegisterController extends Controller
             'longitude' => 'required',
         ]);
 
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds([(string) $request->zone_id], []);
+        if ($leafZoneIds === []) {
+            $leafZoneIds = [(string) $request->zone_id];
+        }
+
         if ($request->choose_business_plan == 'subscription_base'){
             $package = $this->subscriptionPackage->where('id',$request->selected_package_id)->ofStatus(1)->first();
             $vatPercentage      = (int)((business_config('subscription_vat', 'subscription_Setting'))->live_values ?? 0);
@@ -217,7 +223,7 @@ class RegisterController extends Controller
         $provider->contact_person_email = $request->contact_person_email;
         $provider->is_approved = 2;
         $provider->is_active = 0;
-        $provider->zone_id = $request['zone_id'];
+        $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
 
@@ -232,10 +238,14 @@ class RegisterController extends Controller
         $owner->user_type = 'provider-admin';
         $owner->is_active = 0;
 
-        DB::transaction(function () use ($provider, $owner, $request) {
+        DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
             $owner->save();
             $provider->user_id = $owner->id;
             $provider->save();
+            $owner->zones()->sync($leafZoneIds);
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
 
             $serviceLocation = ['customer'];
             ProviderSetting::create([
@@ -340,6 +350,11 @@ class RegisterController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds([(string) $request->zone_id], []);
+        if ($leafZoneIds === []) {
+            $leafZoneIds = [(string) $request->zone_id];
+        }
+
         $identity_images = [];
         foreach ($request->identity_images as $image) {
             $imageName = file_uploader('provider/identity/', 'png', $image);
@@ -365,7 +380,7 @@ class RegisterController extends Controller
         $provider->contact_person_email = $request->contact_person_email;
         $provider->is_approved = 2;
         $provider->is_active = 0;
-        $provider->zone_id = $request['zone_id'];
+        $provider->zone_id = $leafZoneIds[0];
 
         $owner = $this->owner;
         $owner->first_name = $request->account_first_name;
@@ -379,10 +394,14 @@ class RegisterController extends Controller
         $owner->user_type = 'provider-admin';
         $owner->is_active = 0;
 
-        DB::transaction(function () use ($provider, $owner, $request) {
+        DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
             $owner->save();
             $provider->user_id = $owner->id;
             $provider->save();
+            $owner->zones()->sync($leafZoneIds);
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
 
             $serviceLocation = ['customer'];
             ProviderSetting::create([

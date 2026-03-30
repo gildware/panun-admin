@@ -8450,6 +8450,29 @@ input[type=date]::-webkit-calendar-picker-indicator {
   color: white;
 }
 
+.taginput-dark-support .bootstrap-tagsinput {
+  /* Allow tag pills to wrap instead of overflowing the fixed-height container */
+  height: auto !important;
+  min-height: 2.8125rem !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+}
+
+.taginput-dark-support .bootstrap-tagsinput .tag {
+  /* Plugin sets margins that can fight with flex gap */
+  margin: 0 !important;
+}
+
+.taginput-dark-support .bootstrap-tagsinput input {
+  height: initial !important;
+  flex: 1;
+  min-width: 120px;
+  padding: 0 0 8px 0;
+}
+
 .table-body-border td {
   border: 1px solid var(--border-color) !important;
 }

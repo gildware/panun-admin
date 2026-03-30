@@ -41,6 +41,7 @@ use Modules\TransactionModule\Entities\WithdrawalMethod;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Carbon\Carbon;
 
@@ -107,16 +108,26 @@ class ProviderController extends Controller
      */
     public function getUpdatedData(Request $request): JsonResponse
     {
+        $zoneIds = $request->user()->provider->coveredLeafZoneIds();
+
         $subscribed = $this->subscribed_sub_categories->where(['provider_id' => $request->user()->provider->id])
             ->where(['is_subscribed' => 1])
             ->pluck('sub_category_id')->toArray();
 
         $booking = $this->booking
             ->whereIn('sub_category_id', $subscribed)
-            ->where('zone_id', $request->user()->provider->zone_id)
+            ->whereIn('zone_id', $zoneIds)
             ->where('is_checked', 0)->count();
-        $notificationCount = $this->push_notification->whereJsonContains('zone_ids', $request->user()->provider->zone_id)->whereJsonContains('to_users', 'provider-admin')->count();
-        $notifications = $this->push_notification->whereJsonContains('zone_ids', $request->user()->provider->zone_id)->whereJsonContains('to_users', 'provider-admin')->latest()->take(50)->get();
+        $notificationCount = $zoneIds === [] ? 0 : $this->push_notification->where(function ($q) use ($zoneIds) {
+            foreach ($zoneIds as $zid) {
+                $q->orWhereJsonContains('zone_ids', $zid);
+            }
+        })->whereJsonContains('to_users', 'provider-admin')->count();
+        $notifications = $zoneIds === [] ? collect() : $this->push_notification->where(function ($q) use ($zoneIds) {
+            foreach ($zoneIds as $zid) {
+                $q->orWhereJsonContains('zone_ids', $zid);
+            }
+        })->whereJsonContains('to_users', 'provider-admin')->latest()->take(50)->get();
         $message = $this->channelList->wherehas('channelUsers', function ($query) use ($request) {
             $query->where('user_id', $request->user()->id)->where('is_read', 0);
         })->count();
@@ -128,7 +139,7 @@ class ProviderController extends Controller
 
         $unchecked_posts = Post::whereNotIn('id', $ignoredPosts)
             ->whereIn('sub_category_id', $subscribed)
-            ->where('zone_id', $request->user()->provider->zone_id)
+            ->whereIn('zone_id', $zoneIds)
             ->where('is_checked', 0)
             ->whereBetween('created_at', [Carbon::now()->subDays($biddingPostValidity), Carbon::now()])
             ->latest()
@@ -170,7 +181,12 @@ class ProviderController extends Controller
      */
     public function dashboard(Request $request, Transaction $transaction, SubscribedService $subscribedService, Serviceman $serviceman): Renderable
     {
-        $notification = $this->push_notification->whereJsonContains('zone_ids', $request->user()->provider->zone_id)->get()->count();
+        $dashboardZoneIds = $request->user()->provider->coveredLeafZoneIds();
+        $notification = $dashboardZoneIds === [] ? 0 : $this->push_notification->where(function ($q) use ($dashboardZoneIds) {
+            foreach ($dashboardZoneIds as $zid) {
+                $q->orWhereJsonContains('zone_ids', $zid);
+            }
+        })->get()->count();
         session()->put('notification_count', $notification);
 
         $data = [];
@@ -235,7 +251,7 @@ class ProviderController extends Controller
                 }
             })
             ->where('booking_status', 'pending')
-            ->where('zone_id', $request->user()->provider->zone_id)
+            ->whereIn('zone_id', $dashboardZoneIds)
             ->latest()
             ->take(5)
             ->get();
@@ -296,7 +312,7 @@ class ProviderController extends Controller
             ->where('is_booked', 0)
             ->whereNotIn('id', $ignoredPosts)
             ->whereIn('sub_category_id', $subCategories)
-            ->where('zone_id', $request->user()->provider->zone_id)
+            ->whereIn('zone_id', $dashboardZoneIds)
             ->whereBetween('created_at', [Carbon::now()->subDays($biddingPostValidity), Carbon::now()])
             ->when(true, function ($query) use ($request) {
                 if($request->user()?->provider?->service_availability && (!$request->user()?->provider?->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)){
@@ -347,7 +363,7 @@ class ProviderController extends Controller
             ->where('is_booked', 0)
             ->whereNotIn('id', $ignoredPosts)
             ->whereIn('sub_category_id', $subCategories)
-            ->where('zone_id', $request->user()->provider->zone_id)
+            ->whereIn('zone_id', $dashboardZoneIds)
             ->whereBetween('created_at', [Carbon::now()->subDays($biddingPostValidity), Carbon::now()])
             ->when(true, function ($query) use ($request) {
                 if($request->user()?->provider?->service_availability && (!$request->user()?->provider?->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)){
@@ -372,7 +388,7 @@ class ProviderController extends Controller
                         ->orWhere('payment_method', '<>', 'cash_after_service');
                 });
             })
-            ->where('zone_id', $request->user()->provider->zone_id)
+            ->whereIn('zone_id', $dashboardZoneIds)
             ->count();
 
         $booking_counts = [
@@ -717,7 +733,7 @@ class ProviderController extends Controller
      */
     public function profileInfo(Request $request): Renderable
     {
-        $provider = $this->provider->with(['owner.addresses', 'zone'])->where('user_id', $request->user()->id)->first();
+        $provider = $this->provider->with(['owner.addresses', 'zone', 'zones'])->where('user_id', $request->user()->id)->first();
         $zones = $this->zone->ofStatus(1)->select('id', 'name')->get();
         $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
 
@@ -752,11 +768,21 @@ class ProviderController extends Controller
         $provider = $this->provider::where('user_id', $request->user()->id)->first();
         $providerType = $provider?->provider_type ?? 'company';
 
+        $ids = $request->input('zone_ids', []);
+        if (! is_array($ids)) {
+            $ids = [];
+        }
+        $ids = array_values(array_filter($ids));
+        if ($ids === [] && $request->filled('zone_id')) {
+            $request->merge(['zone_ids' => [(string) $request->input('zone_id')]]);
+        }
+
         Validator::make($request->all(), [
             'contact_person_name' => 'required',
             'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $request->user()->id,
             'contact_person_email' => 'required|email|unique:users,email,' . $request->user()->id,
-            'zone_id' => 'required',
+            'zone_ids' => 'required|array|min:1',
+            'zone_ids.*' => 'uuid',
 
             'password' => isset($request->password) ? 'string|min:8' : '',
             'confirm_password' => isset($request->password) ? 'required|same:password' : '',
@@ -770,6 +796,19 @@ class ProviderController extends Controller
             'latitude' => 'required',
             'longitude' => 'required',
         ])->validate();
+
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds(
+            $request->input('zone_ids', []),
+            $request->input('zone_excluded_ids', []) ?: []
+        );
+        if ($leafZoneIds === []) {
+            throw ValidationException::withMessages(['zone_ids' => [translate('Select_Zone')]]);
+        }
+
+        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
+        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
+            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
+        }
 
         if ($providerType === 'company') {
             $provider->company_name = $request->company_name;
@@ -790,7 +829,7 @@ class ProviderController extends Controller
         $provider->contact_person_name = $request->contact_person_name;
         $provider->contact_person_phone = $request->contact_person_phone;
         $provider->contact_person_email = $request->contact_person_email;
-        $provider->zone_id = $request['zone_id'];
+        $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = [
             'latitude' => $request['latitude'],
             'longitude' => $request['longitude'],
@@ -808,9 +847,13 @@ class ProviderController extends Controller
             $owner->password = bcrypt($request->password);
         }
 
-        DB::transaction(function () use ($provider, $owner) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
+            $owner->zones()->sync($leafZoneIds);
             $owner->save();
             $provider->save();
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
         });
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));

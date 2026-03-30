@@ -39,6 +39,32 @@ class CategoryController extends Controller
     }
 
     /**
+     * Active zones nested by parent_id for admin category create/edit forms.
+     *
+     * @return list<array{id: string, name: string, children: list<array{id: string, name: string, children: list}>}>>
+     */
+    private function zoneTreeForCategoryForm(): array
+    {
+        $zones = $this->zone->ofStatus(1)->orderBy('id')->get();
+        $byParent = $zones->groupBy(fn (Zone $z) => $z->parent_id ?? '');
+
+        $build = function (string $parentKey) use (&$build, $byParent): array {
+            /** @var \Illuminate\Support\Collection<int, Zone> $rows */
+            $rows = $byParent->get($parentKey, collect());
+
+            return $rows->map(function (Zone $z) use ($build): array {
+                return [
+                    'id' => (string) $z->id,
+                    'name' => (string) $z->name,
+                    'children' => $build((string) $z->id),
+                ];
+            })->values()->all();
+        };
+
+        return $build('');
+    }
+
+    /**
      * Display a listing of the resource.
      * @param Request $request
      * @return Application|Factory|View
@@ -67,8 +93,15 @@ class CategoryController extends Controller
             ->latest()->paginate(pagination_limit())->appends($queryParams);
 
         $zones = $this->zone->where('is_active', 1)->withoutGlobalScope('translate')->get();
+        $zoneTree = $this->zoneTreeForCategoryForm();
 
-        return view('categorymanagement::admin.create', compact('categories', 'zones', 'search', 'status'));
+        $selectedZoneIds = $request->input('zone_ids', []);
+        if (! is_array($selectedZoneIds)) {
+            $selectedZoneIds = [];
+        }
+        $selectedZoneIds = array_values(array_filter(array_map(fn ($id) => (string) $id, $selectedZoneIds), fn ($v) => filled($v) && $v !== 'all'));
+
+        return view('categorymanagement::admin.create', compact('categories', 'zones', 'zoneTree', 'selectedZoneIds', 'search', 'status'));
     }
 
     public function getTable(Request $request)
@@ -214,7 +247,10 @@ class CategoryController extends Controller
         }])->ofType('main')->where('id', $id)->first();
         if (isset($category)) {
             $zones = $this->zone->where('is_active', 1)->withoutGlobalScope('translate')->get();
-            return view('categorymanagement::admin.edit', compact('category', 'zones'));
+            $zoneTree = $this->zoneTreeForCategoryForm();
+            $selectedZoneIds = $category->zones->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
+
+            return view('categorymanagement::admin.edit', compact('category', 'zones', 'zoneTree', 'selectedZoneIds'));
         }
 
         Toastr::error(translate(DEFAULT_204['message']));

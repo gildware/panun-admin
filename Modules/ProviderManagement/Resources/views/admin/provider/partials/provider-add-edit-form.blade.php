@@ -61,12 +61,19 @@
     $companyIdentityType = old('company_identity_type', $provider?->company_identity_type ?? 'trade_license');
     $companyIdentityNumber = old('company_identity_number', $provider?->company_identity_number ?? '');
 
-    // Address (Box 6)
-    $zoneId = old('zone_id', $provider?->zone_id ?? null);
+    // Address (Box 6) — multi-zone coverage (leaf zones after server normalization)
+    $selectedZoneIds = old('zone_ids', $provider && $provider->relationLoaded('zones') && $provider->zones->isNotEmpty()
+        ? $provider->zones->pluck('id')->all()
+        : ($provider?->zone_id ? [(string) $provider->zone_id] : []));
+    if (! is_array($selectedZoneIds)) {
+        $selectedZoneIds = [];
+    }
     $companyAddress = old('company_address', $provider?->company_address ?? '');
 
     $latitude = old('latitude', $provider?->coordinates['latitude'] ?? null);
     $longitude = old('longitude', $provider?->coordinates['longitude'] ?? null);
+
+    $zoneTree = $zoneTree ?? [];
 
     $contactPhotoRequired = $mode === 'add';
 
@@ -517,25 +524,39 @@
         </div>
     </div>
 
-    {{-- Box 6 (Half Width - Left) --}}
+    {{-- Service zones (left) | Address + map (right) --}}
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
+                    <h4 class="c1 mb-0">{{ translate('Service_Zones') }}</h4>
+                </div>
+                <p class="text-muted fz-12 mb-20 mx-1 mt-1" style="line-height: 1.55;">{{ translate('provider_form_zone_tree_hint') }}</p>
+
+                @if(count($zoneTree) > 0)
+                    <div class="provider-zone-tree border rounded overflow-hidden mx-1 px-2">
+                        @foreach($zoneTree as $rootNode)
+                            <div class="provider-zone-tree-root border-bottom border-light">
+                                @include('providermanagement::admin.provider.partials.provider-zone-tree-branch', [
+                                    'nodes' => [$rootNode],
+                                    'level' => 0,
+                                    'selectedZoneIds' => $selectedZoneIds,
+                                ])
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="alert alert-info mb-0 mx-1">{{ translate('no_data_found') }}</div>
+                @endif
+            </div>
+        </div>
+    </div>
+
     <div class="col-12 col-md-6">
         <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
                     <h4 class="c1 mb-0">{{ translate('Address_Information') }}</h4>
-                </div>
-
-                <div class="mb-30">
-                    <div class="form-floating">
-                        <select class="select-identity theme-input-style w-100" name="zone_id" required>
-                            <option value="" disabled {{ $zoneId ? '' : 'selected' }}>{{ translate('Select_Zone') }}</option>
-                            @foreach($zones as $zone)
-                                <option value="{{ $zone->id }}" {{ (string)$zoneId === (string)$zone->id ? 'selected' : '' }}>
-                                    {{ $zone->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
                 </div>
 
                 <div class="mb-30">
@@ -549,73 +570,66 @@
                         <label>{{ translate('Full_Address') }}</label>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    {{-- Box 6 (Half Width - Right) --}}
-    <div class="col-12 col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
-                    <h4 class="c1 mb-0">{{ translate('Select Address from Map') }}</h4>
-                </div>
+                <div class="border-top pt-4 mt-2">
+                    <h5 class="c1 mb-20">{{ translate('Select Address from Map') }}</h5>
 
-                <div class="row gx-2">
-                    <div class="col-md-6 col-12">
-                        <div class="mb-30">
-                            <div class="form-floating form-floating__icon">
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    name="latitude"
-                                    id="latitude"
-                                    placeholder="{{ translate('latitude') }} *"
-                                    value="{{ $latitude }}"
-                                    required
-                                    readonly
-                                    data-bs-toggle="tooltip"
-                                    data-bs-placement="top"
-                                    title="{{ translate('Select from map') }}">
-                                <label>{{ translate('latitude') }} *</label>
-                                <span class="material-symbols-outlined">location_on</span>
+                    <div class="row gx-2">
+                        <div class="col-md-6 col-12">
+                            <div class="mb-30">
+                                <div class="form-floating form-floating__icon">
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        name="latitude"
+                                        id="latitude"
+                                        placeholder="{{ translate('latitude') }} *"
+                                        value="{{ $latitude }}"
+                                        required
+                                        readonly
+                                        data-bs-toggle="tooltip"
+                                        data-bs-placement="top"
+                                        title="{{ translate('Select from map') }}">
+                                    <label>{{ translate('latitude') }} *</label>
+                                    <span class="material-symbols-outlined">location_on</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 col-12">
+                            <div class="mb-30">
+                                <div class="form-floating form-floating__icon">
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        name="longitude"
+                                        id="longitude"
+                                        placeholder="{{ translate('longitude') }} *"
+                                        value="{{ $longitude }}"
+                                        required
+                                        readonly
+                                        data-bs-toggle="tooltip"
+                                        data-bs-placement="top"
+                                        title="{{ translate('Select from map') }}">
+                                    <label>{{ translate('longitude') }} *</label>
+                                    <span class="material-symbols-outlined">location_on</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-md-6 col-12">
-                        <div class="mb-30">
-                            <div class="form-floating form-floating__icon">
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    name="longitude"
-                                    id="longitude"
-                                    placeholder="{{ translate('longitude') }} *"
-                                    value="{{ $longitude }}"
-                                    required
-                                    readonly
-                                    data-bs-toggle="tooltip"
-                                    data-bs-placement="top"
-                                    title="{{ translate('Select from map') }}">
-                                <label>{{ translate('longitude') }} *</label>
-                                <span class="material-symbols-outlined">location_on</span>
-                            </div>
+                    <div class="mb-0">
+                        <div id="location_map_div" class="location_map_class">
+                            <input
+                                id="pac-input"
+                                class="form-control w-auto mb-3"
+                                data-toggle="tooltip"
+                                data-placement="right"
+                                data-original-title="{{ translate('search_your_location_here') }}"
+                                type="text"
+                                placeholder="{{ translate('search_here') }}"/>
+                            <div id="location_map_canvas" class="overflow-hidden rounded canvas_class"></div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <div id="location_map_div" class="location_map_class">
-                        <input
-                            id="pac-input"
-                            class="form-control w-auto"
-                            data-toggle="tooltip"
-                            data-placement="right"
-                            data-original-title="{{ translate('search_your_location_here') }}"
-                            type="text"
-                            placeholder="{{ translate('search_here') }}"/>
-                        <div id="location_map_canvas" class="overflow-hidden rounded canvas_class"></div>
                     </div>
                 </div>
             </div>
@@ -843,6 +857,139 @@
     <script>
         "use strict";
         (function () {
+            function expandProviderZoneAncestorsOfChecked() {
+                document.querySelectorAll(".provider-zone-leaf-cb:checked").forEach(function (cb) {
+                    var panel = cb.closest(".provider-zone-tree-children");
+                    while (panel) {
+                        panel.classList.remove("d-none");
+                        var toggle = panel.parentElement ? panel.parentElement.querySelector(".provider-zone-tree-toggle") : null;
+                        if (toggle) {
+                            toggle.setAttribute("aria-expanded", "true");
+                        }
+                        panel = panel.parentElement && panel.parentElement.closest
+                            ? panel.parentElement.closest(".provider-zone-tree-children")
+                            : null;
+                    }
+                });
+            }
+
+            function syncProviderZoneParentsFromLeaves() {
+                document.querySelectorAll("input.provider-zone-parent-cb").forEach(function (cb) {
+                    var item = cb.closest(".provider-zone-tree-item");
+                    var panel = item ? item.querySelector(".provider-zone-tree-children") : null;
+                    var leaves = panel ? panel.querySelectorAll("input.provider-zone-leaf-cb") : [];
+                    var leavesArr = Array.from(leaves);
+
+                    if (!leavesArr.length) {
+                        cb.checked = false;
+                        cb.indeterminate = false;
+                        return;
+                    }
+
+                    var checkedCount = leavesArr.filter(function (l) {
+                        return l.checked;
+                    }).length;
+
+                    cb.checked = checkedCount === leavesArr.length;
+                    cb.indeterminate = checkedCount > 0 && checkedCount < leavesArr.length;
+                });
+            }
+
+            function syncProviderZoneLabelStyles() {
+                // Leaf labels are "selected" (blue) only when checked
+                document.querySelectorAll("input.provider-zone-leaf-cb").forEach(function (cb) {
+                    var label = cb.id ? document.querySelector('label[for="' + cb.id + '"]') : null;
+                    if (!label) return;
+                    var isSelected = cb.checked === true;
+                    label.classList.toggle("text-primary", isSelected);
+                    label.classList.toggle("text-muted", !isSelected);
+                });
+
+                // Parent labels are "selected" (blue) only when fully checked (not indeterminate)
+                document.querySelectorAll("input.provider-zone-parent-cb").forEach(function (cb) {
+                    var label = cb.id ? document.querySelector('label[for="' + cb.id + '"]') : null;
+                    if (!label) return;
+                    var isSelected = cb.checked === true && cb.indeterminate === false;
+                    label.classList.toggle("text-primary", isSelected);
+                    label.classList.toggle("text-muted", !isSelected);
+                });
+            }
+
+            function initProviderZoneTreeSelection() {
+                syncProviderZoneParentsFromLeaves();
+                syncProviderZoneLabelStyles();
+                expandProviderZoneAncestorsOfChecked();
+            }
+
+            document.addEventListener("click", function (e) {
+                var t = e.target && e.target.closest ? e.target.closest(".provider-zone-tree-toggle") : null;
+                if (!t) {
+                    return;
+                }
+                e.preventDefault();
+                var item = t.closest(".provider-zone-tree-item");
+                if (!item) {
+                    return;
+                }
+                var ch = null;
+                var kids = item.children;
+                for (var i = 0; i < kids.length; i++) {
+                    if (kids[i].classList && kids[i].classList.contains("provider-zone-tree-children")) {
+                        ch = kids[i];
+                        break;
+                    }
+                }
+                if (!ch) {
+                    return;
+                }
+                var open = ch.classList.toggle("d-none") === false;
+                t.setAttribute("aria-expanded", open ? "true" : "false");
+                var icon = t.querySelector(".provider-zone-chevron");
+                if (icon) {
+                    icon.textContent = open ? "remove" : "add";
+                }
+            });
+
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", initProviderZoneTreeSelection);
+            } else {
+                initProviderZoneTreeSelection();
+            }
+
+            // Parent checkbox controls all descendant leaves
+            document.addEventListener("change", function (e) {
+                var input = e.target;
+                if (!(input && input.matches && input.matches("input.provider-zone-parent-cb"))) {
+                    return;
+                }
+
+                var item = input.closest(".provider-zone-tree-item");
+                if (!item) {
+                    return;
+                }
+
+                var leaves = item.querySelectorAll("input.provider-zone-leaf-cb");
+                leaves.forEach(function (l) {
+                    l.checked = input.checked;
+                });
+
+                syncProviderZoneParentsFromLeaves();
+                syncProviderZoneLabelStyles();
+                expandProviderZoneAncestorsOfChecked();
+            });
+
+            // Leaf checkbox controls its parents (checked/indeterminate)
+            document.addEventListener("change", function (e) {
+                var input = e.target;
+                if (!(input && input.matches && input.matches("input.provider-zone-leaf-cb"))) {
+                    return;
+                }
+
+                syncProviderZoneParentsFromLeaves();
+                syncProviderZoneLabelStyles();
+                expandProviderZoneAncestorsOfChecked();
+            });
+
             document.addEventListener("click", function (e) {
                 const btn = e.target.closest(".provider-upload-remove-btn");
                 if (!btn) return;
@@ -1395,6 +1542,46 @@
                     }
                 });
             })();
+
+            window.getAdminProviderFormZoneIds = function () {
+                var form = document.getElementById("create-provider-form");
+                if (!form) {
+                    return [];
+                }
+                var boxes = form.querySelectorAll("input.provider-zone-leaf-cb:checked");
+                if (boxes.length) {
+                    return Array.from(boxes).map(function (c) { return c.value; }).filter(Boolean);
+                }
+                var sel = form.querySelector('select[name="zone_ids[]"]');
+                if (sel && sel.options) {
+                    return Array.from(sel.selectedOptions || []).map(function (o) { return o.value; }).filter(Boolean);
+                }
+                return [];
+            };
+
+            var providerFormEl = document.getElementById("create-provider-form");
+            if (providerFormEl) {
+                providerFormEl.addEventListener("submit", function (e) {
+                    var leaves = providerFormEl.querySelectorAll("input.provider-zone-leaf-cb");
+                    if (!leaves.length) {
+                        return;
+                    }
+                    var checked = providerFormEl.querySelectorAll("input.provider-zone-leaf-cb:checked");
+                    if (!checked.length) {
+                        e.preventDefault();
+                        var msg = "{{ addslashes(translate('Select_Zone')) }}";
+                        if (typeof toastr !== "undefined") {
+                            toastr.error(msg);
+                        } else {
+                            alert(msg);
+                        }
+                        var tree = providerFormEl.querySelector(".provider-zone-tree");
+                        if (tree && tree.scrollIntoView) {
+                            tree.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }
+                    }
+                });
+            }
         })();
     </script>
 @endpush

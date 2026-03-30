@@ -83,10 +83,11 @@
                                             </div>
                                         @endif
                                         <div class="form-floating mb-30">
-                                            <select class="select-zone theme-input-style w-100" name="zone_id" required>
-                                                <option selected disabled>{{translate('Select_Zone')}}</option>
+                                            <label class="input-label d-block mb-2">{{ translate('Service_Zones') }} <span class="text-danger">*</span></label>
+                                            <p class="text-muted fz-12 mb-2">{{ translate('Hold_Ctrl_or_Cmd_to_select_multiple_zones') }}</p>
+                                            <select class="select-zone theme-input-style w-100" name="zone_ids[]" multiple required size="8">
                                                 @foreach($zones as $zone)
-                                                    <option value="{{$zone->id}}" {{ $provider?->zone?->id == $zone->id ? 'selected' : '' }}>{{$zone->name}}</option>
+                                                    <option value="{{ $zone->id }}" {{ $provider->zones->contains('id', $zone->id) ? 'selected' : '' }}>{{ $zone->name }}</option>
                                                 @endforeach
                                             </select>
                                             <small class="d-block mt-1 text-danger">* {{translate('Update your latitude & longitude according to the selected zone')}}</small>

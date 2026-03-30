@@ -8,15 +8,35 @@
             </th>
             <td>
                 <input type="number" value="{{$item['price']}}" class="theme-input-style" id="default-set-{{$key}}"
-                       onkeyup="set_values('{{$key}}')" min="0.00001" step="any" required>
+                       onkeyup="set_values('{{$key}}','{{$item['variant_key']}}')" min="0.00001" step="any" required>
+                {{-- Zone-wise prices live only in the modal; keep them as hidden inputs for form submit. --}}
+                @foreach($zones as $zone)
+                    <input type="hidden"
+                           name="{{$item['variant_key']}}_{{$zone->id}}_price"
+                           value="{{$item['price']}}"
+                           class="default-get-{{$key}}">
+                @endforeach
             </td>
-            @foreach($zones as $zone)
-                <td>
-                    <input type="number" name="{{$item['variant_key']}}_{{$zone->id}}_price" value="{{$item['price']}}"
-                           class="theme-input-style default-get-{{$key}}" min="0.00001" step="any" required>
-                </td>
-            @endforeach
             <td>
+                <div class="d-inline-flex align-items-center gap-2 me-2">
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input service-zone-pricing-toggle"
+                               type="checkbox"
+                               role="switch"
+                               data-variant-key="{{ $item['variant_key'] }}"
+                               id="zone-pricing-{{ $item['variant_key'] }}">
+                        <label class="form-check-label small" for="zone-pricing-{{ $item['variant_key'] }}">Zone pricing</label>
+                    </div>
+                </div>
+                <button type="button"
+                        class="btn btn-sm btn-outline-primary service-zone-pricing-btn me-1"
+                        data-variant-key="{{ $item['variant_key'] }}"
+                        data-variant-index="{{ $key }}"
+                        disabled
+                        aria-disabled="true"
+                        title="Enable zone pricing to edit">
+                    Set different pricing for zones
+                </button>
                 <a class="btn btn--danger service-ajax-remove-variant"
                    data-id="variation-table"
                    data-route="{{route('admin.service.ajax-remove-variant',[$item['variant_key']])}}">
@@ -39,7 +59,10 @@
         });
     });
 
-    function set_values(key) {
+    function set_values(key, variantKey) {
+        if (window.serviceZonePricingCustomMode && window.serviceZonePricingCustomMode[variantKey]) {
+            return;
+        }
         document.querySelectorAll('.default-get-' + key).forEach(function(element) {
             element.value = document.getElementById('default-set-' + key).value;
         });

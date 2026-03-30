@@ -5,6 +5,7 @@ namespace Modules\CustomerModule\Traits;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneGeometryService;
 
 trait CustomerAddressTrait
 {
@@ -15,7 +16,7 @@ trait CustomerAddressTrait
         if ($service_location == 'customer'){
             $point = new Point($service_address->lat, $service_address->lon);
 
-            $zone = Zone::whereContains('coordinates', $point)->ofStatus(1)->latest()->first();
+            $zone = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point);
             if ($zone) {
                 $zone_id = $zone->id;
             }
