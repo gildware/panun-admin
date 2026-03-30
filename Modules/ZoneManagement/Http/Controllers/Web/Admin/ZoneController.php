@@ -11,12 +11,17 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use MatanYadaev\EloquentSpatial\Objects\LineString;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneGeometryService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Stevebauman\Location\Facades\Location;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -55,6 +60,10 @@ class ZoneController extends Controller
 
         $zones = $this->zone
             ->withCount(['providers', 'categories'])
+            ->with([
+                'parentZone' => fn($q) => $q->withoutGlobalScope('translate'),
+                'childZones' => fn($q) => $q->withoutGlobalScope('translate'),
+            ])
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 foreach ($keys as $key) {
@@ -63,7 +72,9 @@ class ZoneController extends Controller
             })
             ->withoutGlobalScope('translate')
             ->latest()->paginate(pagination_limit())->appends($queryParam);
-        return view('zonemanagement::admin.create', compact('zones', 'search'));
+        $parentZoneChoices = $this->zone->withoutGlobalScope('translate')->orderBy('name')->get(['id', 'name']);
+
+        return view('zonemanagement::admin.create', compact('zones', 'search', 'parentZoneChoices'));
     }
 
     public function getTable(Request $request)
@@ -74,6 +85,10 @@ class ZoneController extends Controller
 
         $zones = $this->zone
             ->withCount(['providers', 'categories'])
+            ->with([
+                'parentZone' => fn($q) => $q->withoutGlobalScope('translate'),
+                'childZones' => fn($q) => $q->withoutGlobalScope('translate'),
+            ])
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 foreach ($keys as $key) {
@@ -112,6 +127,151 @@ class ZoneController extends Controller
     }
 
     /**
+     * Fetch an exact boundary polygon for a given place name (e.g. "Srinagar")
+     * using Nominatim's polygon_geojson output.
+     *
+     * Response:
+     *  {
+     *    paths: [{lat: float, lng: float}, ...] // outer ring only (holes ignored)
+     *  }
+     */
+    public function boundaryFromPlace(Request $request): JsonResponse
+    {
+        $this->authorize('zone_view');
+
+        $q = trim((string) $request->input('q', ''));
+        if ($q === '') {
+            return response()->json([
+                'message' => 'Missing query',
+            ], 422);
+        }
+
+        $nominatimUrl = 'https://nominatim.openstreetmap.org/search';
+
+        try {
+            $response = Http::timeout(20)
+                ->retry(2, 200)
+                ->withHeaders([
+                    // Nominatim usage policy requires an explicit User-Agent.
+                    'User-Agent' => 'pk-admin-local/1.0 (contact: admin@yourdomain.example)',
+                    'Accept-Language' => app()->getLocale(),
+                ])
+                ->get($nominatimUrl, [
+                    'q' => $q,
+                    'format' => 'json',
+                    'polygon_geojson' => 1,
+                    'addressdetails' => 0,
+                    'limit' => 1,
+                ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Boundary lookup request error: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        if (!$response->ok()) {
+            return response()->json([
+                'message' => 'Boundary lookup failed (HTTP ' . $response->status() . ')',
+            ], 500);
+        }
+
+        $data = $response->json();
+        $feature = $data[0]['geojson'] ?? null;
+        if (!is_array($feature)) {
+            // Some Nominatim responses return geojson as a JSON string.
+            if (is_string($feature)) {
+                $decoded = json_decode($feature, true);
+                $feature = is_array($decoded) ? $decoded : null;
+            }
+        }
+
+        if (!$feature || !isset($feature['type'], $feature['coordinates'])) {
+            return response()->json([
+                'message' => 'No boundary polygon found for the provided place',
+            ], 404);
+        }
+
+        // Extract outer ring only.
+        $type = $feature['type'];
+        $coordinates = $feature['coordinates'];
+
+        // Ring coordinates are in [lng, lat] per GeoJSON spec.
+        $pickOuterRing = function (array $polyCoords) {
+            // $polyCoords is either:
+            //  - Polygon: [ outerRing, hole1, ...]
+            //  - MultiPolygon polygon: [ outerRing, hole1, ...]
+            return $polyCoords[0] ?? [];
+        };
+
+        $ringArea = function (array $ring) {
+            // Shoelace formula in lng/lat space (approx). Works well enough for picking "largest".
+            $n = count($ring);
+            if ($n < 3) return 0.0;
+
+            $area = 0.0;
+            for ($i = 0; $i < $n; $i++) {
+                $j = ($i + 1) % $n;
+                $x1 = (float) $ring[$i][0];
+                $y1 = (float) $ring[$i][1];
+                $x2 = (float) $ring[$j][0];
+                $y2 = (float) $ring[$j][1];
+                $area += ($x1 * $y2) - ($x2 * $y1);
+            }
+
+            return abs($area) / 2.0;
+        };
+
+        $outerRing = [];
+
+        if ($type === 'Polygon') {
+            $outerRing = $pickOuterRing($coordinates);
+        } elseif ($type === 'MultiPolygon') {
+            // coordinates: [ polygon1, polygon2, ...]
+            // each polygon: [ outerRing, hole1, ...]
+            $largest = null;
+            $largestArea = -1;
+            foreach ($coordinates as $poly) {
+                if (!is_array($poly) || empty($poly[0])) continue;
+                $ring = $pickOuterRing($poly);
+                $area = $ringArea($ring);
+                if ($area > $largestArea) {
+                    $largestArea = $area;
+                    $largest = $ring;
+                }
+            }
+            $outerRing = is_array($largest) ? $largest : [];
+        } else {
+            return response()->json([
+                'message' => 'Unsupported geojson type',
+            ], 400);
+        }
+
+        if (count($outerRing) < 3) {
+            return response()->json([
+                'message' => 'Boundary polygon is empty',
+            ], 404);
+        }
+
+        // Ensure ring is closed (first == last) so google draws properly.
+        $first = $outerRing[0];
+        $last = $outerRing[count($outerRing) - 1] ?? null;
+        if (is_array($first) && is_array($last) && ($first[0] != $last[0] || $first[1] != $last[1])) {
+            $outerRing[] = $first;
+        }
+
+        $paths = array_map(function ($point) {
+            return [
+                'lat' => (float) $point[1],
+                'lng' => (float) $point[0],
+            ];
+        }, $outerRing);
+
+        return response()->json([
+            'paths' => $paths,
+        ]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      * @param Request $request
      * @return RedirectResponse
@@ -124,6 +284,7 @@ class ZoneController extends Controller
             'name' => 'required|unique:zones|max:191',
             'name.0' => 'required',
             'coordinates' => 'required',
+            'parent_id' => 'nullable|uuid|exists:zones,id',
         ],
         [
             'name.0.required' => translate('default_name_is_required'),
@@ -139,10 +300,14 @@ class ZoneController extends Controller
         }
         $polygon[] = new Point($lastcord[0], $lastcord[1]);
 
+        $childPolygon = new Polygon([new LineString($polygon)]);
+        $this->assertChildZoneWithinParent($request->input('parent_id'), $childPolygon);
+
         DB::transaction(function () use ($polygon, $request) {
             $zone = $this->zone;
             $zone->name = $request->name[array_search('default', $request->lang)];
             $zone->coordinates = new Polygon([new LineString($polygon)]);
+            $zone->parent_id = $request->filled('parent_id') ? $request->parent_id : null;
             $zone->save();
 
             $defaultLang = str_replace('_', '-', app()->getLocale());
@@ -204,12 +369,34 @@ class ZoneController extends Controller
         $zone = Zone::selectRaw("*,ST_AsText(ST_Centroid(`coordinates`)) as center")->withoutGlobalScope('translate')->find($id);
 
         if (isset($zone)) {
-            $currentZone = format_coordinates(json_decode($zone->coordinates[0]->toJson(),true));
-            $centerLat = trim(explode(' ', $zone->center)[1], 'POINT()');
-            $centerLng = trim(explode(' ', $zone->center)[0], 'POINT()');
+            $defaultLat = session('location.lat', '23.757989');
+            $defaultLng = session('location.lng', '90.360587');
 
-            $area = json_decode($zone->coordinates[0]->toJson(),true);
-            return view('zonemanagement::admin.edit', compact('zone', 'currentZone', 'centerLat', 'centerLng', 'area'));
+            $area = ['coordinates' => []];
+            $currentZone = [];
+
+            if ($zone->coordinates !== null) {
+                $firstRing = $zone->coordinates[0] ?? null;
+                if ($firstRing !== null) {
+                    $decoded = json_decode($firstRing->toJson(), true);
+                    if (is_array($decoded) && ! empty($decoded['coordinates'])) {
+                        $area = $decoded;
+                        $currentZone = format_coordinates($decoded['coordinates']);
+                    }
+                }
+            }
+
+            $centerLat = $defaultLat;
+            $centerLng = $defaultLng;
+            if (! empty($zone->center) && is_string($zone->center)
+                && preg_match('/POINT\s*\(\s*([^\s]+)\s+([^\s]+)\s*\)/i', $zone->center, $centerMatch)) {
+                $centerLng = trim($centerMatch[1], " \t\n\r\0\x0B'\"");
+                $centerLat = trim($centerMatch[2], " \t\n\r\0\x0B'\"");
+            }
+
+            $parentZoneChoices = $this->zone->withoutGlobalScope('translate')->where('id', '<>', $id)->orderBy('name')->get(['id', 'name']);
+
+            return view('zonemanagement::admin.edit', compact('zone', 'currentZone', 'centerLat', 'centerLng', 'area', 'parentZoneChoices'));
         }
 
         Toastr::error(translate(DEFAULT_204['message']));
@@ -231,6 +418,38 @@ class ZoneController extends Controller
         return response()->json($allZoneData, 200);
     }
 
+    /**
+     * GeoJSON-like path for the parent zone boundary (lat/lng pairs for Google Maps).
+     *
+     * @throws AuthorizationException
+     */
+    public function parentGeometry(string $id): JsonResponse
+    {
+        abort_unless(Gate::any(['zone_view', 'zone_add', 'zone_update']), 403);
+        $zone = Zone::withoutGlobalScope('translate')->find($id);
+        // This endpoint is used by the "select parent zone" dropdown in create/edit UI.
+        // The UX should not treat "missing coordinates" as a hard error (404),
+        // otherwise jQuery triggers the AJAX fail() branch and shows an error toast every time.
+        if (! $zone || $zone->coordinates === null) {
+            return response()->json(['paths' => []], 200);
+        }
+
+        $firstRing = $zone->coordinates[0] ?? null;
+        if ($firstRing === null) {
+            return response()->json(['paths' => []], 200);
+        }
+
+        $paths = [];
+        $coords = $firstRing->toArray()['coordinates'] ?? [];
+        foreach ($coords as $pair) {
+            if (! is_array($pair) || count($pair) < 2) {
+                continue;
+            }
+            $paths[] = ['lat' => (float) $pair[1], 'lng' => (float) $pair[0]];
+        }
+
+        return response()->json(['paths' => $paths]);
+    }
 
     /**
      * Update the specified resource in storage.
@@ -262,6 +481,12 @@ class ZoneController extends Controller
             'name' => 'required',
             'name.0' => 'required',
             'coordinates' => 'required',
+            'parent_id' => [
+                'nullable',
+                'uuid',
+                'exists:zones,id',
+                Rule::notIn([$id]),
+            ],
         ],
         [
             'name.0.required' => translate('default_name_is_required'),
@@ -277,6 +502,9 @@ class ZoneController extends Controller
         }
         $polygon[] = new Point($lastcord[0], $lastcord[1]);
 
+        $childPolygon = new Polygon([new LineString($polygon)]);
+        $this->assertChildZoneWithinParent($request->input('parent_id'), $childPolygon);
+
         $zone = $this->zone->where('id', $id)->withoutGlobalScope('translate')->first();
 
         if (!isset($zone)) {
@@ -286,6 +514,7 @@ class ZoneController extends Controller
 
         $zone->name = $request->name[array_search('default', $request->lang)];
         $zone->coordinates = new Polygon([new LineString($polygon)]);
+        $zone->parent_id = $request->filled('parent_id') ? $request->parent_id : null;
         $zone->save();
 
         $defaultLang = str_replace('_', '-', app()->getLocale());
@@ -358,6 +587,19 @@ class ZoneController extends Controller
             })
             ->latest()->get();
         return (new FastExcel($items))->download(time() . '-file.xlsx');
+    }
+
+    protected function assertChildZoneWithinParent(?string $parentId, Polygon $childPolygon): void
+    {
+        if (! filled($parentId)) {
+            return;
+        }
+
+        if (! app(ZoneGeometryService::class)->childPolygonContainedInParentZone($childPolygon, $parentId)) {
+            throw ValidationException::withMessages([
+                'coordinates' => translate('Child_zone_must_be_inside_parent_boundary'),
+            ]);
+        }
     }
 
 }

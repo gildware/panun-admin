@@ -31,7 +31,7 @@
                     <div class="card category-setup mb-30">
                         <div class="card-body p-30">
                             <form action="{{route('admin.category.update',[$category->id])}}" method="post"
-                                  enctype="multipart/form-data">
+                                  enctype="multipart/form-data" id="category-form">
                                 @csrf
                                 @method('put')
                                 @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
@@ -99,13 +99,29 @@
                                             @endif
 
 
-                                            <select class="zone-select theme-input-style w-100" name="zone_ids[]" multiple="multiple" id="zone_selector__select">
-                                                <option value="all">{{translate('Select All')}}</option>
-                                                @foreach($zones as $zone)
-                                                    <option
-                                                        value="{{$zone['id']}}" {{in_array($zone->id,$category->zones->pluck('id')->toArray())?'selected':''}}>{{$zone->name}}</option>
-                                                @endforeach
-                                            </select>
+                                        @php($selectedZoneIds = old('zone_ids', $selectedZoneIds ?? []))
+                                        <div class="mb-30">
+                                            <div class="d-flex flex-wrap justify-content-between gap-3 mb-20">
+                                                <h4 class="c1 mb-0">{{ translate('Service_Zones') }}</h4>
+                                            </div>
+                                            <p class="text-muted fz-12 mb-20 mx-1 mt-1" style="line-height: 1.55;">{{ translate('provider_form_zone_tree_hint') }}</p>
+
+                                            @if(count($zoneTree) > 0)
+                                                <div class="category-zone-tree border rounded overflow-hidden mx-1 px-2">
+                                                    @foreach($zoneTree as $rootNode)
+                                                        <div class="category-zone-tree-root border-bottom border-light">
+                                                            @include('categorymanagement::admin.partials.category-zone-tree-branch', [
+                                                                'nodes' => [$rootNode],
+                                                                'level' => 0,
+                                                                'selectedZoneIds' => $selectedZoneIds,
+                                                            ])
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <div class="alert alert-info mb-0 mx-1">{{ translate('no_data_found') }}</div>
+                                            @endif
+                                        </div>
                                         </div>
                                     </div>
                                     <div class="col-lg-4">
@@ -172,6 +188,121 @@
                 $('#zone_selector__select').val(originalSelection).trigger('change');
             });
         });
+
+        // Category zone tree selection (parent selects all children)
+        (function () {
+            function syncCategoryZoneParentsFromLeaves() {
+                document.querySelectorAll("input.category-zone-parent-cb").forEach(function (cb) {
+                    var item = cb.closest(".category-zone-tree-item");
+                    var panel = item ? item.querySelector(".category-zone-tree-children") : null;
+                    var leaves = panel ? panel.querySelectorAll("input.category-zone-leaf-cb") : [];
+                    var leavesArr = Array.from(leaves);
+
+                    if (!leavesArr.length) {
+                        cb.checked = false;
+                        cb.indeterminate = false;
+                        return;
+                    }
+
+                    var checkedCount = leavesArr.filter(function (l) { return l.checked; }).length;
+                    cb.checked = checkedCount === leavesArr.length;
+                    cb.indeterminate = checkedCount > 0 && checkedCount < leavesArr.length;
+                });
+            }
+
+            function syncCategoryZoneLabelStyles() {
+                document.querySelectorAll("input.category-zone-leaf-cb").forEach(function (cb) {
+                    var label = cb.id ? document.querySelector('label[for="' + cb.id + '"]') : null;
+                    if (!label) return;
+                    var isSelected = cb.checked === true;
+                    label.classList.toggle("text-primary", isSelected);
+                    label.classList.toggle("text-muted", !isSelected);
+                });
+
+                document.querySelectorAll("input.category-zone-parent-cb").forEach(function (cb) {
+                    var label = cb.id ? document.querySelector('label[for="' + cb.id + '"]') : null;
+                    if (!label) return;
+                    var isSelected = cb.checked === true && cb.indeterminate === false;
+                    label.classList.toggle("text-primary", isSelected);
+                    label.classList.toggle("text-muted", !isSelected);
+                });
+            }
+
+            function expandCategoryZoneAncestorsOfChecked() {
+                document.querySelectorAll("input.category-zone-leaf-cb:checked").forEach(function (cb) {
+                    var panel = cb.closest(".category-zone-tree-children");
+                    while (panel) {
+                        panel.classList.remove("d-none");
+                        var toggle = panel.parentElement ? panel.parentElement.querySelector(".category-zone-tree-toggle") : null;
+                        if (toggle) {
+                            toggle.setAttribute("aria-expanded", "true");
+                            var ic = toggle.querySelector(".category-zone-chevron");
+                            if (ic) ic.textContent = "remove";
+                        }
+                        panel = panel.parentElement && panel.parentElement.closest
+                            ? panel.parentElement.closest(".category-zone-tree-children")
+                            : null;
+                    }
+                });
+            }
+
+            document.addEventListener("click", function (e) {
+                var t = e.target && e.target.closest ? e.target.closest(".category-zone-tree-toggle") : null;
+                if (!t) return;
+                e.preventDefault();
+                var item = t.closest(".category-zone-tree-item");
+                if (!item) return;
+                var panel = item.querySelector(".category-zone-tree-children");
+                if (!panel) return;
+
+                var open = panel.classList.toggle("d-none") === false;
+                t.setAttribute("aria-expanded", open ? "true" : "false");
+                var icon = t.querySelector(".category-zone-chevron");
+                if (icon) icon.textContent = open ? "remove" : "add";
+            });
+
+            document.addEventListener("change", function (e) {
+                var input = e.target;
+                if (!(input && input.matches && input.matches("input.category-zone-parent-cb"))) return;
+
+                var item = input.closest(".category-zone-tree-item");
+                if (!item) return;
+
+                var leaves = item.querySelectorAll("input.category-zone-leaf-cb");
+                leaves.forEach(function (l) { l.checked = input.checked; });
+
+                syncCategoryZoneParentsFromLeaves();
+                syncCategoryZoneLabelStyles();
+                expandCategoryZoneAncestorsOfChecked();
+            });
+
+            document.addEventListener("change", function (e) {
+                var input = e.target;
+                if (!(input && input.matches && input.matches("input.category-zone-leaf-cb"))) return;
+
+                syncCategoryZoneParentsFromLeaves();
+                syncCategoryZoneLabelStyles();
+                expandCategoryZoneAncestorsOfChecked();
+            });
+
+            syncCategoryZoneParentsFromLeaves();
+            syncCategoryZoneLabelStyles();
+            expandCategoryZoneAncestorsOfChecked();
+
+            var formEl = document.getElementById("category-form");
+            if (formEl) {
+                formEl.addEventListener("submit", function (e) {
+                    var anyChecked = formEl.querySelectorAll("input.category-zone-leaf-cb:checked").length > 0;
+                    if (!anyChecked) {
+                        e.preventDefault();
+                        var msg = "{{ addslashes(translate('Select_Zone')) }}";
+                        if (typeof toastr !== "undefined") toastr.error(msg);
+                        var tree = formEl.querySelector(".category-zone-tree");
+                        if (tree && tree.scrollIntoView) tree.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                    }
+                });
+            }
+        })();
 
     </script>
 @endpush

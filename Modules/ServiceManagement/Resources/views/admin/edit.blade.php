@@ -54,8 +54,14 @@
                                                             <p class="fs-12 text-color">{{ translate('Provide essential service details') }}</p>
                                                         </div>
                                                         <div class="bg-light p-xxl-20 p-12px rounded">
-                                                            @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
-                                                            @php($default_lang = str_replace('_', '-', app()->getLocale()))
+                                                            @php
+                                                                // Defensive default to avoid "Undefined variable $lang" in edge cases.
+                                                                $lang = $lang ?? ['code' => 'default'];
+                                                                $language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first();
+
+                                                                // Keep this as a normal multiline @php block so Blade always parses it.
+                                                                $default_lang = str_replace('_', '-', app()->getLocale());
+                                                            @endphp
                                                             @if($language)
                                                                 <ul class="nav nav--tabs border-color-primary mb-5 flex-nowrap text-nowrap overflow-auto">
                                                                     <li class="nav-item">
@@ -97,8 +103,8 @@
                                                             <input type="hidden" name="lang[]" value="default">
                                                             @foreach ($language?->live_values as $lang)
                                                                     <?php
+                                                                    $translate = [];
                                                                     if (count($service['translations'])) {
-                                                                        $translate = [];
                                                                         foreach ($service['translations'] as $t) {
                                                                             if ($t->locale == $lang['code'] && $t->key == "name") {
                                                                                 $translate[$lang['code']]['name'] = $t->value;
@@ -205,8 +211,8 @@
                                                             </div>
                                                             @foreach ($language?->live_values as $lang)
                                                                     <?php
+                                                                    $translate = [];
                                                                     if (count($service['translations'])) {
-                                                                        $translate = [];
                                                                         foreach ($service['translations'] as $t) {
                                                                             if ($t->locale == $lang['code'] && $t->key == "short_description") {
                                                                                 $translate[$lang['code']]['short_description'] = $t->value;
@@ -504,9 +510,6 @@
                                                 <tr>
                                                     <th scope="col">{{translate('variations')}}</th>
                                                     <th scope="col">{{translate('default_price')}}</th>
-                                                    @foreach($zones as $zone)
-                                                        <th scope="col">{{$zone->name}}</th>
-                                                    @endforeach
                                                     <th scope="col">{{translate('action')}}</th>
                                                 </tr>
                                                 </thead>
@@ -550,6 +553,98 @@
             </button>
             <div class="ai-tooltip">
                 <span>{{translate("AI_Assistant")}}</span>
+            </div>
+        </div>
+
+        {{-- Service zone pricing modal (per-zone overrides) --}}
+        @php
+            $zoneTreeForPricing = [];
+            $selectedZoneIdsForPricingTree = [];
+            $zonesForPricingTree = $zones ?? collect();
+            $zonesForPricingTree = $zonesForPricingTree instanceof \Illuminate\Support\Collection ? $zonesForPricingTree : collect($zonesForPricingTree);
+
+            // Ensure parent nodes exist in the tree (categories/services may store only leaf zones).
+            $allZonesById = $zonesForPricingTree->keyBy(fn ($z) => (string) $z->id);
+            $stack = $zonesForPricingTree->values()->all();
+            while (!empty($stack)) {
+                $current = array_pop($stack);
+                $parentId = $current->parent_id ?? null;
+                if (!$parentId) {
+                    continue;
+                }
+
+                $parentIdStr = (string) $parentId;
+                if ($allZonesById->has($parentIdStr)) {
+                    continue;
+                }
+
+                // Include parent zones even if they are inactive; otherwise the tree may become empty.
+                $parentZone = \Modules\ZoneManagement\Entities\Zone::where('id', $parentId)->first();
+                if ($parentZone) {
+                    $allZonesById->put($parentIdStr, $parentZone);
+                    $stack[] = $parentZone;
+                }
+            }
+
+            $zonesForPricingTreeExpanded = $allZonesById->values();
+
+            $selectedZoneIdsForPricingTree = $zonesForPricingTreeExpanded->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
+
+            $byParent = $zonesForPricingTreeExpanded->groupBy(fn ($z) => (string) ($z->parent_id ?? ''));
+
+            $build = function (string $parentKey) use (&$build, $byParent): array {
+                $rows = $byParent->get($parentKey, collect());
+                return $rows->map(function ($z) use ($build): array {
+                    $id = (string) ($z->id ?? '');
+                    return [
+                        'id' => $id,
+                        'name' => (string) ($z->name ?? $id),
+                        'children' => $build($id),
+                    ];
+                })->values()->all();
+            };
+
+            // Pick roots as "top-level" nodes where parent is missing from the dataset.
+            $rootNodes = $zonesForPricingTreeExpanded->filter(function ($z) use ($allZonesById) {
+                $pid = $z->parent_id ?? null;
+                if (!$pid) {
+                    return true;
+                }
+
+                return ! $allZonesById->has((string) $pid);
+            });
+
+            $zoneTreeForPricing = $rootNodes->values()->map(function ($z) use ($build) {
+                $id = (string) ($z->id ?? '');
+
+                return [
+                    'id' => $id,
+                    'name' => (string) ($z->name ?? $id),
+                    'children' => $build($id),
+                ];
+            })->values()->all();
+        @endphp
+
+        <div class="modal fade" id="serviceZonePricingModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="serviceZonePricingModalTitle">Set different pricing for zones</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="service-zone-price-tree" class="border rounded overflow-hidden p-2">
+                            @include('servicemanagement::admin.partials._service-zone-price-tree-branch', [
+                                'nodes' => $zoneTreeForPricing ?? [],
+                                'level' => 0,
+                                'selectedZoneIds' => $selectedZoneIdsForPricingTree ?? [],
+                            ])
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">Done</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -751,6 +846,222 @@
             });
         });
 
+        // Per-zone pricing modal (parent -> children propagation)
+        window.serviceZonePricingCustomMode = window.serviceZonePricingCustomMode || {};
+        window.serviceZonePricingActiveVariantKey = null;
+        window.serviceZonePricingActiveVariantIndex = null;
+        (function () {
+            function getAllZoneIdsFromModal() {
+                var modalEl = document.getElementById('serviceZonePricingModal');
+                if (!modalEl) return [];
+                var ids = [];
+                modalEl.querySelectorAll('.service-zone-price-input[data-zone-id]').forEach(function (inp) {
+                    if (inp.dataset.zoneId) ids.push(inp.dataset.zoneId);
+                });
+                return Array.from(new Set(ids));
+            }
+
+            function setVariantAllZonePricesToDefault(variantKey) {
+                if (!variantKey) return;
+                var btn = document.querySelector('.service-zone-pricing-btn[data-variant-key="' + variantKey + '"]');
+                var defaultInput = null;
+                if (btn) {
+                    var tr = btn.closest('tr');
+                    if (tr) defaultInput = tr.querySelector('input[type="number"][id^="default-set-"]');
+                    if (!defaultInput) defaultInput = tr ? tr.querySelector('input[type="number"][id^="default-set-"][id$="-update"]') : null;
+                }
+
+                // fallback: look for update default input
+                if (!defaultInput) {
+                    var tr2 = btn ? btn.closest('tr') : null;
+                    if (tr2) defaultInput = tr2.querySelector('input[type="number"][id^="default-set-"]');
+                }
+
+                var defaultPrice = defaultInput ? defaultInput.value : null;
+                if (!defaultPrice || parseFloat(defaultPrice) <= 0) return;
+
+                getAllZoneIdsFromModal().forEach(function (zoneId) {
+                    var name = variantKey + '_' + zoneId + '_price';
+                    var inp = document.querySelector('input[name="' + name + '"]');
+                    if (inp) inp.value = defaultPrice;
+                });
+            }
+
+            function updateTablePrice(variantKey, zoneId, value) {
+                if (!variantKey || !zoneId) return;
+                var selector = 'input[name="' + variantKey + '_' + zoneId + '_price"]';
+                var tableInput = document.querySelector(selector);
+                if (tableInput) tableInput.value = value;
+            }
+
+            function propagatePriceToDescendants(inputEl, variantKey) {
+                var nodeItem = inputEl.closest('.service-zone-price-tree-item');
+                if (!nodeItem) return;
+
+                var zoneId = inputEl.dataset.zoneId;
+                var price = inputEl.value;
+
+                updateTablePrice(variantKey, zoneId, price);
+
+                var descendantInputs = nodeItem.querySelectorAll('.service-zone-price-input[data-zone-id]');
+                descendantInputs.forEach(function (descInput) {
+                    var descZoneId = descInput.dataset.zoneId;
+                    if (!descZoneId || descZoneId === zoneId) return;
+
+                    var cb = nodeItem.querySelector('.service-zone-price-node-cb[data-zone-id="' + descZoneId + '"]');
+                    if (cb && cb.checked) {
+                        descInput.value = price;
+                        updateTablePrice(variantKey, descZoneId, price);
+                    }
+                });
+            }
+
+            document.addEventListener('change', function (e) {
+                var target = e.target;
+                if (!(target && target.matches && target.matches('input.service-zone-price-node-cb'))) return;
+
+                var nodeItem = target.closest('.service-zone-price-tree-item');
+                if (!nodeItem) return;
+
+                // Parent checkbox selects all descendants
+                var subtreeCbs = nodeItem.querySelectorAll('.service-zone-price-node-cb');
+                subtreeCbs.forEach(function (subCb) {
+                    subCb.checked = target.checked;
+                    var subZoneId = subCb.dataset.zoneId;
+                    var subInput = nodeItem.querySelector('.service-zone-price-input[data-zone-id="' + subZoneId + '"]');
+                    if (subInput) subInput.disabled = !subCb.checked;
+                });
+            });
+
+            document.addEventListener('input', function (e) {
+                var inp = e.target;
+                if (!(inp && inp.classList && inp.classList.contains('service-zone-price-input'))) return;
+                if (!window.serviceZonePricingActiveVariantKey) return;
+
+                var nodeItem = inp.closest('.service-zone-price-tree-item');
+                if (!nodeItem) return;
+                var zoneId = inp.dataset.zoneId;
+
+                var cb = nodeItem.querySelector('.service-zone-price-node-cb[data-zone-id="' + zoneId + '"]');
+                if (cb && !cb.checked) return;
+
+                propagatePriceToDescendants(inp, window.serviceZonePricingActiveVariantKey);
+            });
+
+            // Expand / collapse nodes inside the modal
+            document.addEventListener('click', function (e) {
+                var toggle = e.target && e.target.closest ? e.target.closest('.service-zone-price-tree-toggle') : null;
+                if (!toggle) return;
+
+                var nodeItem = toggle.closest('.service-zone-price-tree-item');
+                if (!nodeItem) return;
+
+                var childrenEl = nodeItem.querySelector('.service-zone-price-tree-children');
+                if (!childrenEl) return;
+
+                var shouldShow = childrenEl.classList.contains('d-none');
+                childrenEl.classList.toggle('d-none', !shouldShow);
+                toggle.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+
+                var icon = toggle.querySelector('.service-zone-price-chevron');
+                if (icon) icon.textContent = shouldShow ? 'remove' : 'add';
+            });
+
+            document.addEventListener('click', function (e) {
+                var btn = e.target && e.target.closest ? e.target.closest('.service-zone-pricing-btn') : null;
+                if (!btn) return;
+                if (btn.disabled) {
+                    if (window.toastr) toastr.warning('Enable zone pricing for this variation first');
+                    return;
+                }
+
+                var variantKey = btn.dataset.variantKey;
+                var variantIndex = btn.dataset.variantIndex;
+
+                window.serviceZonePricingActiveVariantKey = variantKey;
+                window.serviceZonePricingActiveVariantIndex = variantIndex;
+                window.serviceZonePricingCustomMode[variantKey] = true;
+
+                var titleEl = document.getElementById('serviceZonePricingModalTitle');
+                if (titleEl) titleEl.textContent = 'Set different pricing for ' + variantKey;
+
+                // Fill modal inputs from table values
+                var modalEl = document.getElementById('serviceZonePricingModal');
+                if (!modalEl) return;
+
+                // Ensure every zone has a default value equal to Default Price when opening modal
+                setVariantAllZonePricesToDefault(variantKey);
+
+                // Read default price from current variation row
+                var rowDefaultPrice = '';
+                var row = btn.closest('tr');
+                if (row) {
+                    var defaultInput = row.querySelector('input[type="number"][id^="default-set-"]');
+                    if (defaultInput) rowDefaultPrice = defaultInput.value || '';
+                }
+
+                modalEl.querySelectorAll('.service-zone-price-input[data-zone-id]').forEach(function (inp) {
+                    var zoneId = inp.dataset.zoneId;
+                    var selector = 'input[name="' + variantKey + '_' + zoneId + '_price"]';
+                    var tableInput = document.querySelector(selector);
+                    // Parent nodes may not have hidden inputs; default to variation default price.
+                    inp.value = tableInput ? tableInput.value : (inp.value || rowDefaultPrice);
+                });
+
+                // Keep modal inputs disabled/enabled based on checkbox state
+                modalEl.querySelectorAll('.service-zone-price-node-cb').forEach(function (cb) {
+                    var zoneId = cb.dataset.zoneId;
+                    var inp = modalEl.querySelector('.service-zone-price-input[data-zone-id="' + zoneId + '"]');
+                    if (inp) inp.disabled = !cb.checked;
+                });
+
+                // Expand all nodes for easier editing
+                modalEl.querySelectorAll('.service-zone-price-tree-children').forEach(function (ch) {
+                    ch.classList.remove('d-none');
+                });
+                modalEl.querySelectorAll('.service-zone-price-tree-toggle').forEach(function (t) {
+                    t.setAttribute('aria-expanded', 'true');
+                    var icon = t.querySelector('.service-zone-price-chevron');
+                    if (icon) icon.textContent = 'remove';
+                });
+
+                if (window.bootstrap && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            });
+
+            document.addEventListener('change', function (e) {
+                var t = e.target;
+                if (!(t && t.classList && t.classList.contains('service-zone-pricing-toggle'))) return;
+                var variantKey = t.dataset.variantKey;
+                if (!variantKey) return;
+
+                var tr = t.closest('tr');
+                var btn = tr ? tr.querySelector('.service-zone-pricing-btn[data-variant-key="' + variantKey + '"]') : null;
+                if (btn) {
+                    btn.disabled = !t.checked;
+                    btn.setAttribute('aria-disabled', (!t.checked).toString());
+                }
+
+                if (!t.checked) {
+                    // Reset this variation's hidden zone prices back to its default price
+                    var defaultPriceInput = tr ? tr.querySelector('input[type="number"][id^="default-set-"]') : null;
+                    var defaultPrice = defaultPriceInput ? defaultPriceInput.value : null;
+                    if (defaultPrice && parseFloat(defaultPrice) > 0) {
+                        getAllZoneIdsFromModal().forEach(function (zoneId) {
+                            var name = variantKey + '_' + zoneId + '_price';
+                            var inp = document.querySelector('input[name="' + name + '"]');
+                            if (inp) inp.value = defaultPrice;
+                        });
+                    }
+                    window.serviceZonePricingCustomMode[variantKey] = false;
+                } else {
+                    // Ensure all zones start with default price immediately on enable
+                    setVariantAllZonePricesToDefault(variantKey);
+                }
+            });
+        })();
+
         $(".lang_link").on('click', function (e) {
             e.preventDefault();
             $(".lang_link").removeClass('active');
@@ -774,7 +1085,7 @@
             $("#short-description-" + lang + "-action-btn").removeClass('d-none');
             $("#description-" + lang + "-action-btn").removeClass('d-none');
 
-            if (lang == '{{$default_lang}}') {
+            if (lang == '{{ $default_lang ?? str_replace('_', '-', app()->getLocale()) }}') {
                 $(".from_part_2").removeClass('d-none');
             } else {
                 $(".from_part_2").addClass('d-none');

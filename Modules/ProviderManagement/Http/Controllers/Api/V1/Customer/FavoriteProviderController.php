@@ -44,7 +44,7 @@ class FavoriteProviderController extends Controller
             ->withCount(['bookings as total_service_served' => function($query) {
                 $query->where('booking_status', 'completed');
                 }, 'subscribed_services'])
-            ->where('zone_id', Config::get('zone_id'))
+            ->coveringLeafZone(Config::get('zone_id'))
             ->ofStatus(1)
             ->when($request->has('category_ids'), function ($query) use($request) {
                 $query->whereHas('subscribed_services', function ($query) use($request) {

@@ -4,6 +4,8 @@
         <tr>
             <th>{{translate('SL')}}</th>
             <th>{{translate('zone_name')}}</th>
+            <th>{{translate('Parent_zone')}}</th>
+            <th>Children</th>
             <th>{{translate('providers')}}</th>
             <th>{{translate('Category')}}</th>
             @can('zone_manage_status')
@@ -19,6 +21,17 @@
             <tr>
                 <td>{{$key+$zones->firstItem()}}</td>
                 <td>{{$zone->name}}</td>
+                <td>
+                    @if(isset($zone->parentZone) && $zone->parentZone)
+                        {{$zone->parentZone->name}}
+                    @else
+                        {{translate('No_parent_root_zone')}}
+                    @endif
+                </td>
+                <td>
+                    @php($childrenNames = $zone->childZones?->pluck('name')->filter()->values()->all() ?? [])
+                    {{count($childrenNames) ? implode(', ', $childrenNames) : '-'}}
+                </td>
                 <td>{{$zone->providers_count}}</td>
                 <td>{{$zone->categories_count}}</td>
                 @can('zone_manage_status')

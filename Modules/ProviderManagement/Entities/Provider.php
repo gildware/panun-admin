@@ -5,6 +5,7 @@ namespace Modules\ProviderManagement\Entities;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -69,6 +70,44 @@ class Provider extends Model
     public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class, 'zone_id');
+    }
+
+    /**
+     * Leaf (and only operational) zones this provider serves — use for eligibility.
+     */
+    public function zones(): BelongsToMany
+    {
+        return $this->belongsToMany(Zone::class, 'provider_zone')->withTimestamps();
+    }
+
+    public function scopeCoveringLeafZone($query, ?string $leafZoneId)
+    {
+        if (! $leafZoneId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('zones', function ($q) use ($leafZoneId) {
+            $q->where('zones.id', $leafZoneId);
+        });
+    }
+
+    /**
+     * Leaf zone IDs this provider serves (pivot), with legacy zone_id fallback.
+     *
+     * @return array<int, string>
+     */
+    public function coveredLeafZoneIds(): array
+    {
+        if ($this->relationLoaded('zones') && $this->zones->isNotEmpty()) {
+            return $this->zones->pluck('id')->map(fn ($id) => (string) $id)->unique()->values()->all();
+        }
+
+        $ids = $this->zones()->pluck('zones.id')->filter()->map(fn ($id) => (string) $id)->unique()->values()->all();
+        if ($ids === [] && $this->zone_id) {
+            return [(string) $this->zone_id];
+        }
+
+        return $ids;
     }
 
     public function bank_detail(): HasOne

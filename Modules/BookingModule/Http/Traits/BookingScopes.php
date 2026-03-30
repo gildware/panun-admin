@@ -125,13 +125,16 @@ trait BookingScopes
         if ($packageSubscriber) {
             if ($isPackageEnded > 0 && $scheduleBookingEligibility && !$canceled) {
                 if ($provider->service_availability && (int)($provider->is_active_for_jobs ?? 1) === 1 && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
-                    $zone_id = $provider->zone_id;
+                    $zoneIds = $provider->zones()->pluck('zones.id')->filter()->values()->all();
+                    if ($zoneIds === [] && $provider->zone_id) {
+                        $zoneIds = [(string) $provider->zone_id];
+                    }
                     $subscribedSubCategories = SubscribedService::where(['provider_id' => $provider->id])->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
 
                     return $query
                         ->ofBookingStatus('pending')
                         ->whereIn('sub_category_id', $subscribedSubCategories)
-                        ->where('zone_id', $zone_id)
+                        ->whereIn('zone_id', $zoneIds)
                         ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
                             $query->where(function ($query) use ($maxBookingAmount) {
                                 $query->where('payment_method', 'cash_after_service')
@@ -153,13 +156,16 @@ trait BookingScopes
             }
         } else {
             if ($provider->service_availability && (int)($provider->is_active_for_jobs ?? 1) === 1 && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
-                $zone_id = $provider->zone_id;
+                $zoneIds = $provider->zones()->pluck('zones.id')->filter()->values()->all();
+                if ($zoneIds === [] && $provider->zone_id) {
+                    $zoneIds = [(string) $provider->zone_id];
+                }
                 $subscribedSubCategories = SubscribedService::where(['provider_id' => $provider->id])->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
 
                 return $query
                     ->ofBookingStatus('pending')
                     ->whereIn('sub_category_id', $subscribedSubCategories)
-                    ->where('zone_id', $zone_id)
+                    ->whereIn('zone_id', $zoneIds)
                     ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
                         $query->where(function ($query) use ($maxBookingAmount) {
                             $query->where('payment_method', 'cash_after_service')

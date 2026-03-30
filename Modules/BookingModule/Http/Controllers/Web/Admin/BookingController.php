@@ -1131,7 +1131,7 @@ class BookingController extends Controller
                         $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
                     });
                 })
-                ->where('zone_id', $booking->zone_id)
+                ->coveringLeafZone($booking->zone_id)
                 ->withCount('bookings', 'reviews')
                 ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                     $query->where('is_suspended', 0);
@@ -1229,7 +1229,7 @@ class BookingController extends Controller
                         $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
                     });
                 })
-                ->where('zone_id', $booking->zone_id)
+                ->coveringLeafZone($booking->zone_id)
                 ->withCount('bookings', 'reviews')
                 ->ofApproval(1)->ofStatus(1)
                 ->whereNot('id', $booking->provider_id)
@@ -1519,7 +1519,7 @@ class BookingController extends Controller
                     $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
                 });
             })
-            ->where('zone_id', $booking->zone_id)
+            ->coveringLeafZone($booking->zone_id)
             ->withCount('bookings', 'reviews')
             ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                 $query->where('is_suspended', 0);
@@ -1693,7 +1693,7 @@ class BookingController extends Controller
                     $query->where('sub_category_id', $booking->booking->sub_category_id)->where('is_subscribed', 1);
                 });
             })
-            ->where('zone_id', $booking->booking->zone_id)
+            ->coveringLeafZone($booking->booking->zone_id)
             ->withCount('bookings', 'reviews')
             ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                 $query->where('is_suspended', 0);
@@ -1939,7 +1939,7 @@ class BookingController extends Controller
                 }
             } else {
                 $provider_ids = SubscribedService::where('sub_category_id', $booking->sub_category_id)->ofSubscription(1)->pluck('provider_id')->toArray();
-                $providers = Provider::with('owner')->whereIn('id', $provider_ids)->where('zone_id', $booking->zone_id)->get();
+                $providers = Provider::with('owner')->whereIn('id', $provider_ids)->coveringLeafZone($booking->zone_id)->get();
                 foreach ($providers as $provider) {
                     $fcmToken = $provider->owner->fcm_token ?? null;
                     $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
@@ -1994,7 +1994,7 @@ class BookingController extends Controller
                 }
             } else {
                 $provider_ids = SubscribedService::where('sub_category_id', $booking->sub_category_id)->ofSubscription(1)->pluck('provider_id')->toArray();
-                $providers = Provider::with('owner')->whereIn('id', $provider_ids)->where('zone_id', $booking->zone_id)->get();
+                $providers = Provider::with('owner')->whereIn('id', $provider_ids)->coveringLeafZone($booking->zone_id)->get();
                 foreach ($providers as $provider) {
                     $fcmToken = $provider->owner->fcm_token ?? null;
                     $title = get_push_notification_message('booking_accepted', 'provider_notification', $provider?->owner?->current_language_key);
@@ -3560,7 +3560,7 @@ class BookingController extends Controller
                         $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
                     });
                 })
-                ->where('zone_id', $booking->zone_id)
+                ->coveringLeafZone($booking->zone_id)
                 ->withCount('bookings', 'reviews')
                 ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                     $query->where('is_suspended', 0);
@@ -3619,7 +3619,7 @@ class BookingController extends Controller
                         $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
                     });
                 })
-                ->where('zone_id', $booking->zone_id)
+                ->coveringLeafZone($booking->zone_id)
                 ->withCount('bookings', 'reviews')
                 ->ofApproval(1)->ofStatus(1)->get();
             $sort_by = 'default';

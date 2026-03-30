@@ -22,6 +22,7 @@ use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 
 class BusinessInformationController extends Controller
 {
@@ -268,6 +269,10 @@ class BusinessInformationController extends Controller
 
         ])->validate();
 
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds([(string) $request->zone_id], []);
+        if ($leafZoneIds === []) {
+            $leafZoneIds = [(string) $request->zone_id];
+        }
 
         if ($providerType === 'company') {
             $provider->company_name = $request->company_name;
@@ -280,7 +285,7 @@ class BusinessInformationController extends Controller
             $provider->company_email = $request->contact_person_email;
             $provider->company_phone = $request->contact_person_phone;
         }
-        $provider->zone_id = $request['zone_id'];
+        $provider->zone_id = $leafZoneIds[0];
         $provider->company_address = $request->company_address;
 
         if ($request->has('logo')) {
@@ -318,9 +323,13 @@ class BusinessInformationController extends Controller
             $owner->identification_image = $identityImages;
         }
 
-        DB::transaction(function () use ($provider, $owner) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
             $owner->save();
+            $owner->zones()->sync($leafZoneIds);
             $provider->save();
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
 
             //update setup guideline data
             updateSetupGuidelineTutorialsOptions(auth()->user()->id,'business_information', 'web');

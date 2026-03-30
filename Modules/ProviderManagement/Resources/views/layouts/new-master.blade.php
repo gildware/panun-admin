@@ -621,17 +621,19 @@ $serviceLocations = getProviderSettings(providerId: auth()->user()->provider->id
                                 return messaging.getToken();
                             })
                             .then(function(token) {
-                                subscribeTokenToBackend(token, 'demandium_provider_{{auth()->user()->provider->zone_id}}_{{ auth()->user()->provider->id }}_booking_message');
+                                @foreach(auth()->user()->provider->coveredLeafZoneIds() as $fcmLeafZoneId)
+                                subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_{{ auth()->user()->provider->id }}_booking_message');
                                 @if($serviceAtProviderPlace)
                                     @if(in_array('customer', $serviceLocations))
-                                        subscribeTokenToBackend(token, 'demandium_provider_{{auth()->user()->provider->zone_id}}_customer_booking_message');
+                                        subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_customer_booking_message');
                                    @endif
                                    @if(in_array('provider', $serviceLocations))
-                                        subscribeTokenToBackend(token, 'demandium_provider_{{auth()->user()->provider->zone_id}}_provider_booking_message');
+                                        subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_provider_booking_message');
                                    @endif
                                 @else
-                                   subscribeTokenToBackend(token, 'demandium_provider_{{auth()->user()->provider->zone_id}}_booking_message');
+                                   subscribeTokenToBackend(token, 'demandium_provider_{{ $fcmLeafZoneId }}_booking_message');
                                 @endif
+                                @endforeach
                             }).catch(function(error) {
                             console.error('Error getting permission or token:', error);
                         });

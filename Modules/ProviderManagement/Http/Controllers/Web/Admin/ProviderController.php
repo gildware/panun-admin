@@ -50,6 +50,7 @@ use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -227,6 +228,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_add');
         $zones = $this->zone->get();
+        $zoneTree = $this->zoneTreeForProviderForm();
         $commission = (int)((business_config('provider_commision', 'provider_config'))->live_values ?? null);
         $subscription = (int)((business_config('provider_subscription', 'provider_config'))->live_values ?? null);
         $duration = (int)((business_config('free_trial_period', 'subscription_Setting'))->live_values ?? null);
@@ -237,7 +239,7 @@ class ProviderController extends Controller
         });
         $providerFormDraft = $this->getProviderFormDraftManifest('create');
 
-        return view('providermanagement::admin.provider.create', compact('zones', 'commission', 'subscription', 'formattedPackages', 'duration', 'freeTrialStatus', 'providerFormDraft'));
+        return view('providermanagement::admin.provider.create', compact('zones', 'zoneTree', 'commission', 'subscription', 'formattedPackages', 'duration', 'freeTrialStatus', 'providerFormDraft'));
     }
 
     /**
@@ -248,10 +250,23 @@ class ProviderController extends Controller
         $this->authorize('provider_add');
 
         $request->validate([
-            'zone_id' => 'required|uuid',
+            'zone_id' => 'nullable|uuid',
+            'zone_ids' => 'nullable|array',
+            'zone_ids.*' => 'uuid',
+            'zone_excluded_ids' => 'nullable|array',
+            'zone_excluded_ids.*' => 'uuid',
         ]);
 
-        $rows = $this->subCategoriesForZoneQuery($request->zone_id)
+        $this->mergeLegacyZoneIdIntoZoneIds($request);
+        $leafZoneIds = $this->normalizedProviderLeafZoneIdsFromRequest($request);
+        if ($leafZoneIds === []) {
+            return response()->json([
+                'sub_categories' => [],
+                'message' => translate('Select_Zone'),
+            ], 422);
+        }
+
+        $rows = $this->subCategoriesForZonesQuery($leafZoneIds)
             ->orderBy('name')
             ->get();
 
@@ -363,6 +378,79 @@ class ProviderController extends Controller
     }
 
     /**
+     * Active zones nested by parent_id for admin provider create/edit (root = null parent).
+     *
+     * @return list<array{id: string, name: string, children: list<array{id: string, name: string, children: list}>}>
+     */
+    private function zoneTreeForProviderForm(): array
+    {
+        $zones = $this->zone->ofStatus(1)->orderBy('id')->get();
+        $byParent = $zones->groupBy(fn (Zone $z) => $z->parent_id ?? '');
+
+        $build = function (string $parentKey) use (&$build, $byParent): array {
+            /** @var \Illuminate\Support\Collection<int, Zone> $rows */
+            $rows = $byParent->get($parentKey, collect());
+
+            return $rows->map(function (Zone $z) use ($build): array {
+                return [
+                    'id' => (string) $z->id,
+                    'name' => (string) $z->name,
+                    'children' => $build((string) $z->id),
+                ];
+            })->values()->all();
+        };
+
+        return $build('');
+    }
+
+    private function mergeLegacyZoneIdIntoZoneIds(Request $request): void
+    {
+        $ids = $request->input('zone_ids', []);
+        if (! is_array($ids)) {
+            $ids = [];
+        }
+        $ids = array_values(array_filter($ids));
+        if ($ids === [] && $request->filled('zone_id')) {
+            $request->merge(['zone_ids' => [(string) $request->input('zone_id')]]);
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normalizedProviderLeafZoneIdsFromRequest(Request $request): array
+    {
+        $included = $request->input('zone_ids', []);
+        if (! is_array($included)) {
+            $included = [];
+        }
+        $excluded = $request->input('zone_excluded_ids', []);
+        if (! is_array($excluded)) {
+            $excluded = [];
+        }
+
+        return app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds($included, $excluded);
+    }
+
+    private function subCategoriesForZonesQuery(array $zoneIds)
+    {
+        $zoneIds = array_values(array_unique(array_filter($zoneIds)));
+        if ($zoneIds === []) {
+            return $this->category->newQuery()->whereRaw('1 = 0');
+        }
+
+        return $this->category->withCount('services')
+            ->whereHas('parent.zones', function ($query) use ($zoneIds) {
+                $query->whereIn('category_zone.zone_id', $zoneIds);
+            })
+            ->whereHas('parent', function ($query) {
+                $query->where('is_active', 1);
+            })
+            ->ofStatus(1)
+            ->ofType('sub');
+    }
+
+    /**
      * Store a newly created resource in storage.
      * @param Request $request
      * @return RedirectResponse
@@ -391,6 +479,8 @@ class ProviderController extends Controller
         // Contact person identity (Box 5)
         $identityIn = 'passport,driving_license,nid';
         $allowedImageMimes = implode(',', array_column(IMAGEEXTENSION, 'key'));
+
+        $this->mergeLegacyZoneIdIntoZoneIds($request);
 
         try {
             $request->validate([
@@ -437,7 +527,10 @@ class ProviderController extends Controller
             'latitude' => 'required',
             'longitude' => 'required',
 
-            'zone_id' => 'required|uuid',
+            'zone_ids' => 'required|array|min:1',
+            'zone_ids.*' => 'uuid',
+            'zone_excluded_ids' => 'nullable|array',
+            'zone_excluded_ids.*' => 'uuid',
 
             'subscribed_sub_category_ids' => 'nullable|array',
             'subscribed_sub_category_ids.*' => 'uuid',
@@ -445,6 +538,13 @@ class ProviderController extends Controller
         } catch (ValidationException $e) {
             $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
             throw $e;
+        }
+
+        $leafZoneIds = $this->normalizedProviderLeafZoneIdsFromRequest($request);
+        if ($leafZoneIds === []) {
+            Toastr::error(translate('Select_Zone'));
+
+            return $this->backWithInputAndDraft($request, $formKey);
         }
 
         // Enforce at least one contact identity image (PDF upload removed from UI).
@@ -569,7 +669,7 @@ class ProviderController extends Controller
         }
         $provider->is_approved = 1;
         $provider->is_active = 1;
-        $provider->zone_id = $request['zone_id'];
+        $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
         $owner = $this->owner;
@@ -582,11 +682,14 @@ class ProviderController extends Controller
         $owner->password = bcrypt(provider_default_password_plain($request->contact_person_phone));
         $owner->user_type = 'provider-admin';
 
-        DB::transaction(function () use ($provider, $owner, $request) {
+        DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
             $owner->save();
-            $owner->zones()->sync($request->zone_id);
+            $owner->zones()->sync($leafZoneIds);
             $provider->user_id = $owner->id;
             $provider->save();
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
 
             $serviceLocation = ['customer'];
             ProviderSetting::create([
@@ -599,7 +702,7 @@ class ProviderController extends Controller
                 'is_active'     => 1,
             ]);
 
-            $allSubs = $this->subCategoriesForZoneQuery($request->zone_id)->get();
+            $allSubs = $this->subCategoriesForZonesQuery($leafZoneIds)->get();
             $allowedIds = $allSubs->pluck('id')->all();
             $rawIds = $request->input('subscribed_sub_category_ids', []);
             if (! is_array($rawIds)) {
@@ -841,18 +944,21 @@ class ProviderController extends Controller
             $status = $request->has('status') ? $request['status'] : 'all';
             $queryParam = ['web_page' => $webPage, 'status' => $status, 'search' => $search];
 
-            // Get provider to access zone_id (also used by the header pills)
-            $provider = $this->provider->with('owner')->find($id);
-            $zoneId = $provider->zone_id ?? null;
+            // Subcategories union across all leaf zones this provider covers
+            $provider = $this->provider->with(['owner', 'zones'])->find($id);
+            $leafZoneIds = $provider->zones()->pluck('zones.id')->filter()->values()->all();
+            if ($leafZoneIds === [] && $provider->zone_id) {
+                $leafZoneIds = [(string) $provider->zone_id];
+            }
 
-            if (!$zoneId) {
+            if ($leafZoneIds === []) {
                 $subCategories = collect([]);
             } else {
-                // Get all subcategories available for the provider's zone
+                // Get all subcategories available for the provider's zones
                 $subCategoriesQuery = $this->category->withCount('services')
                     ->with(['services'])
-                    ->whereHas('parent.zones', function ($query) use ($zoneId) {
-                        $query->where('zone_id', $zoneId);
+                    ->whereHas('parent.zones', function ($query) use ($leafZoneIds) {
+                        $query->whereIn('category_zone.zone_id', $leafZoneIds);
                     })
                     ->whereHas('parent', function ($query) {
                         $query->where('is_active', 1);
@@ -1317,7 +1423,8 @@ class ProviderController extends Controller
         $this->authorize('provider_update');
 
         $zones = $this->zone->ofStatus(1)->get();
-        $provider = $this->provider->with(['owner', 'zone'])->find($id);
+        $zoneTree = $this->zoneTreeForProviderForm();
+        $provider = $this->provider->with(['owner', 'zone', 'zones'])->find($id);
         $commission = (int)((business_config('provider_commision', 'provider_config'))->live_values ?? null);
         $subscription = (int)((business_config('provider_subscription', 'provider_config'))->live_values ?? null);
         $duration = (int)((business_config('free_trial_period', 'subscription_Setting'))->live_values ?? null);
@@ -1344,6 +1451,7 @@ class ProviderController extends Controller
         return view('providermanagement::admin.provider.edit', compact(
             'provider',
             'zones',
+            'zoneTree',
             'commission',
             'subscription',
             'formattedPackages',
@@ -1380,7 +1488,9 @@ class ProviderController extends Controller
             return $check;
         }
 
-        $provider = $this->provider->with('owner')->find($id);
+        $provider = $this->provider->with(['owner', 'zones'])->find($id);
+
+        $this->mergeLegacyZoneIdIntoZoneIds($request);
 
         $allowedImageMimes = implode(',', array_column(IMAGEEXTENSION, 'key'));
 
@@ -1427,11 +1537,26 @@ class ProviderController extends Controller
             'latitude' => 'required',
             'longitude' => 'required',
 
-            'zone_id' => 'required|uuid'
+            'zone_ids' => 'required|array|min:1',
+            'zone_ids.*' => 'uuid',
+            'zone_excluded_ids' => 'nullable|array',
+            'zone_excluded_ids.*' => 'uuid',
         ])->validate();
         } catch (ValidationException $e) {
             $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
             throw $e;
+        }
+
+        $leafZoneIds = $this->normalizedProviderLeafZoneIdsFromRequest($request);
+        if ($leafZoneIds === []) {
+            Toastr::error(translate('Select_Zone'));
+
+            return $this->backWithInputAndDraft($request, $formKey);
+        }
+
+        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
+        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
+            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
         }
 
         // Contact identity is required (Box 5) unless provider already has saved identity docs.
@@ -1544,7 +1669,7 @@ class ProviderController extends Controller
         if ($request->has('contact_person_photo')) {
             $provider->contact_person_photo = file_uploader('provider/contact_person_photo/', APPLICATION_IMAGE_FORMAT, $request->file('contact_person_photo'));
         }
-        $provider->zone_id = $request['zone_id'];
+        $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
         $owner = $provider->owner()->first();
@@ -1578,10 +1703,13 @@ class ProviderController extends Controller
 
         }
 
-        DB::transaction(function () use ($provider, $owner, $request) {
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
             $owner->save();
-            $owner->zones()->sync($request->zone_id);
+            $owner->zones()->sync($leafZoneIds);
             $provider->save();
+            $provider->zones()->sync(
+                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
         });
 
         // Upload additional documents (optional) - replace existing on edit.

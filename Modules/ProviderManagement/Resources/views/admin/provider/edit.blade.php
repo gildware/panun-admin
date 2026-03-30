@@ -55,7 +55,7 @@
                                     {{ translate('Basic info') }}
                                 </div>
                             </div>
-                            @include('providermanagement::admin.provider.partials.provider-add-edit-form', ['mode' => 'edit', 'zones' => $zones, 'provider' => $provider])
+                            @include('providermanagement::admin.provider.partials.provider-add-edit-form', ['mode' => 'edit', 'zones' => $zones, 'zoneTree' => $zoneTree, 'provider' => $provider])
 
                             @if(false)
                             <fieldset disabled class="d-none">

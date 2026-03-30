@@ -19,6 +19,7 @@ use Modules\PaymentModule\Entities\Setting;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneGeometryService;
 
 class ConfigController extends Controller
 {
@@ -247,7 +248,7 @@ class ConfigController extends Controller
         }
 
         $point = new Point($request->lat, $request->lng);
-        $zone = Zone::whereContains('coordinates', $point)->ofStatus(1)->latest()->first();
+        $zone = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point);
 
         if ($zone) {
             $zone['formatted_coordinates'] = formatCoordinates($zone->coordinates);

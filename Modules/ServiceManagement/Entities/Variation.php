@@ -30,7 +30,12 @@ class Variation extends Model
                 $builder->where(['zone_id' => Config::get('zone_id')])->with(['zone:id,name']);
             } elseif (request()->is('api/*/provider?*') || request()->is('api/*/provider/*')) {
                 if (auth()->check() && auth()->user()->provider != null) {
-                    $builder->where(['zone_id' => auth()->user()->provider->zone_id])->with(['zone:id,name']);
+                    $p = auth()->user()->provider;
+                    $zoneIds = $p->zones()->pluck('zones.id');
+                    if ($zoneIds->isEmpty() && $p->zone_id) {
+                        $zoneIds = collect([(string) $p->zone_id]);
+                    }
+                    $builder->whereIn('zone_id', $zoneIds)->with(['zone:id,name']);
                 }
             }
         });

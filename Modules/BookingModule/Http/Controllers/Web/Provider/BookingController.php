@@ -196,7 +196,7 @@ class BookingController extends Controller
         if ($bookingStatus == 'pending') {
             $this->booking
                 ->whereIn('sub_category_id', $this->subscribed_sub_categories)
-                ->where('zone_id', $request->user()->provider->zone_id)
+                ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
                 ->where('is_checked', 0)
                 ->update(['is_checked' => 1]);
         }

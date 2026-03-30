@@ -101,7 +101,9 @@ class ProviderReportController extends Controller
                 $query->where('trx_type', 'received_commission');
             }])
             ->when($request->has('zone_ids'), function ($query) use ($request) {
-                $query->whereIn('zone_id', $request['zone_ids']);
+                $query->whereHas('zones', function ($q) use ($request) {
+                    $q->whereIn('zones.id', $request['zone_ids']);
+                });
             })
             ->when($request->has('provider_ids'), function ($query) use ($request) {
                 $query->whereIn('id', $request['provider_ids']);
@@ -202,7 +204,9 @@ class ProviderReportController extends Controller
                 $query->where('trx_type', 'received_commission');
             }])
             ->when($request->has('zone_ids'), function ($query) use ($request) {
-                $query->whereIn('zone_id', $request['zone_ids']);
+                $query->whereHas('zones', function ($q) use ($request) {
+                    $q->whereIn('zones.id', $request['zone_ids']);
+                });
             })
             ->when($request->has('provider_ids'), function ($query) use ($request) {
                 $query->whereIn('id', $request['provider_ids']);
