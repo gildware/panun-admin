@@ -44,6 +44,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
 <script src="{{asset('assets/provider-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{asset('assets/provider-module')}}/js/main.js"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
+<script src="{{asset('assets/common')}}/js/form-submit-once.js"></script>
 
 <script src="{{asset('assets/provider-module')}}/js/sweet_alert.js"></script>
 <script src="{{asset('assets/provider-module')}}/js/toastr.js"></script>

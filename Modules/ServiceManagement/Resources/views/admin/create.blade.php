@@ -786,6 +786,9 @@
                         } else {
                             $('#new-variations-table').show();
                             $('#' + id).html(response.template);
+                            if (window.initZonePricingRowControls) {
+                                window.initZonePricingRowControls('#' + id);
+                            }
                             $('#variant-name').val("");
                             $('#variant-price').val(0);
                         }
@@ -801,14 +804,14 @@
             }
         }
 
-        document.querySelectorAll('.service-ajax-remove-variant').forEach(function(element) {
-            element.addEventListener('click', function() {
-                var route = this.getAttribute('data-route');
-                var id = this.getAttribute('data-id');
+        document.addEventListener('click', function (event) {
+            if (event.target.closest('.service-ajax-remove-variant')) {
+                var btn = event.target.closest('.service-ajax-remove-variant');
+                var route = btn.getAttribute('data-route');
+                var id = btn.getAttribute('data-id');
                 ajax_remove_variant(route, id);
-            });
+            }
         });
-
 
         function ajax_remove_variant(route, id) {
             Swal.fire({
@@ -832,6 +835,9 @@
                         },
                         success: function (response) {
                             $('#' + id).html(response.template);
+                            if (window.initZonePricingRowControls) {
+                                window.initZonePricingRowControls('#' + id);
+                            }
                         },
                         complete: function () {
                         },
@@ -857,6 +863,9 @@
                     $('#sub-category-selector').html(response.template);
                     $('#category-wise-zone').html(response.template_for_zone);
                     $('#variation-table').html(response.template_for_variant);
+                    if (window.initZonePricingRowControls) {
+                        window.initZonePricingRowControls('#variation-table');
+                    }
                 },
                 complete: function () {
                 },
@@ -897,6 +906,9 @@
             tinymce.init({
                 selector: 'textarea.ckeditor'
             });
+            if (window.initZonePricingRowControls) {
+                window.initZonePricingRowControls('#variation-table');
+            }
         });
 
         // Per-zone pricing modal (parent -> children propagation)
@@ -915,18 +927,36 @@
                 return Array.from(new Set(ids));
             }
 
+            function getHiddenZoneIdsForVariant(variantKey) {
+                var ids = [];
+                var prefix = variantKey + '_';
+                var suffix = '_price';
+                document.querySelectorAll('input[type="hidden"][name]').forEach(function (inp) {
+                    var n = inp.name;
+                    if (n.indexOf(prefix) !== 0 || !n.endsWith(suffix)) return;
+                    var mid = n.substring(prefix.length, n.length - suffix.length);
+                    if (mid) ids.push(mid);
+                });
+                return ids;
+            }
+
             function setVariantAllZonePricesToDefault(variantKey) {
                 if (!variantKey) return;
                 var btn = document.querySelector('.service-zone-pricing-btn[data-variant-key="' + variantKey + '"]');
                 var defaultInput = null;
                 if (btn) {
                     var tr = btn.closest('tr');
-                    if (tr) defaultInput = tr.querySelector('input[type="number"][id^="default-set-"]');
+                    if (tr) {
+                        defaultInput = tr.querySelector('input[name^="variant_default_price"]')
+                            || tr.querySelector('input[type="number"][id^="default-set-"]');
+                    }
                 }
                 var defaultPrice = defaultInput ? defaultInput.value : null;
-                if (!defaultPrice || parseFloat(defaultPrice) <= 0) return;
+                if (defaultPrice === null || defaultPrice === '' || isNaN(parseFloat(defaultPrice))) return;
 
-                getAllZoneIdsFromModal().forEach(function (zoneId) {
+                var zoneIds = getHiddenZoneIdsForVariant(variantKey);
+                if (!zoneIds.length) zoneIds = getAllZoneIdsFromModal();
+                zoneIds.forEach(function (zoneId) {
                     var name = variantKey + '_' + zoneId + '_price';
                     var inp = document.querySelector('input[name="' + name + '"]');
                     if (inp) inp.value = defaultPrice;
@@ -938,6 +968,26 @@
                 var selector = 'input[name="' + variantKey + '_' + zoneId + '_price"]';
                 var tableInput = document.querySelector(selector);
                 if (tableInput) tableInput.value = value;
+            }
+
+            function flushActiveVariantModalToHidden() {
+                var vk = window.serviceZonePricingActiveVariantKey;
+                var modalEl = document.getElementById('serviceZonePricingModal');
+                if (!vk || !modalEl) return;
+                modalEl.querySelectorAll('.service-zone-price-input[data-zone-id]').forEach(function (inp) {
+                    if (inp.disabled) return;
+                    var zid = inp.dataset.zoneId;
+                    if (!zid) return;
+                    updateTablePrice(vk, zid, inp.value);
+                });
+            }
+
+            var _zonePricingModalElCreate = document.getElementById('serviceZonePricingModal');
+            if (_zonePricingModalElCreate && !_zonePricingModalElCreate.dataset.flushBound) {
+                _zonePricingModalElCreate.dataset.flushBound = '1';
+                _zonePricingModalElCreate.addEventListener('hidden.bs.modal', function () {
+                    flushActiveVariantModalToHidden();
+                });
             }
 
             function propagatePriceToDescendants(inputEl, variantKey) {
@@ -979,17 +1029,21 @@
                 });
             });
 
-            document.addEventListener('input', function (e) {
+            function onModalZonePriceInputCreate(e) {
                 var inp = e.target;
                 if (!(inp && inp.classList && inp.classList.contains('service-zone-price-input'))) return;
                 if (!window.serviceZonePricingActiveVariantKey) return;
 
                 var nodeItem = inp.closest('.service-zone-price-tree-item');
-                var cb = nodeItem ? nodeItem.querySelector('.service-zone-price-node-cb[data-zone-id="' + inp.dataset.zoneId + '"]') : null;
+                if (!nodeItem) return;
+                var cb = nodeItem.querySelector('.service-zone-price-node-cb[data-zone-id="' + inp.dataset.zoneId + '"]');
                 if (cb && !cb.checked) return;
 
                 propagatePriceToDescendants(inp, window.serviceZonePricingActiveVariantKey);
-            });
+            }
+
+            document.addEventListener('input', onModalZonePriceInputCreate);
+            document.addEventListener('change', onModalZonePriceInputCreate);
 
             // Expand / collapse nodes inside the modal
             document.addEventListener('click', function (e) {
@@ -1028,22 +1082,25 @@
                 var titleEl = document.getElementById('serviceZonePricingModalTitle');
                 if (titleEl) titleEl.textContent = 'Set different pricing for ' + variantKey;
 
-                // Fill modal inputs from table values
                 var modalEl = document.getElementById('serviceZonePricingModal');
                 if (!modalEl) return;
 
-                // Ensure every zone has a default value equal to Default Price when opening modal
-                setVariantAllZonePricesToDefault(variantKey);
+                var rowDefaultPrice = '';
+                var row = btn.closest('tr');
+                if (row) {
+                    var defaultInput = row.querySelector('input[name^="variant_default_price"], input[type="number"][id^="default-set-"]');
+                    if (defaultInput) rowDefaultPrice = defaultInput.value || '';
+                }
 
                 modalEl.querySelectorAll('.service-zone-price-input[data-zone-id]').forEach(function (inp) {
                     var zoneId = inp.dataset.zoneId;
                     var selector = 'input[name="' + variantKey + '_' + zoneId + '_price"]';
                     var tableInput = document.querySelector(selector);
-                    // Parent nodes may not have hidden inputs; default to variation default price.
-                    inp.value = tableInput ? tableInput.value : (inp.value || (function () {
-                        var d = document.getElementById('default-set-' + variantIndex);
-                        return d ? d.value : '';
-                    })());
+                    if (tableInput) {
+                        inp.value = (tableInput.value !== '' && tableInput.value !== null) ? tableInput.value : rowDefaultPrice;
+                    } else {
+                        inp.value = rowDefaultPrice;
+                    }
                 });
 
                 // Keep modal inputs disabled/enabled based on checkbox state
@@ -1083,11 +1140,10 @@
                 }
 
                 if (!t.checked) {
-                    // Reset this variation's hidden zone prices back to its default price
-                    var defaultPriceInput = tr ? tr.querySelector('input[type="number"][id^="default-set-"]') : null;
+                    var defaultPriceInput = tr ? tr.querySelector('input[name^="variant_default_price"], input[type="number"][id^="default-set-"]') : null;
                     var defaultPrice = defaultPriceInput ? defaultPriceInput.value : null;
-                    if (defaultPrice && parseFloat(defaultPrice) > 0) {
-                        getAllZoneIdsFromModal().forEach(function (zoneId) {
+                    if (defaultPrice !== null && defaultPrice !== '' && !isNaN(parseFloat(defaultPrice))) {
+                        getHiddenZoneIdsForVariant(variantKey).forEach(function (zoneId) {
                             var name = variantKey + '_' + zoneId + '_price';
                             var inp = document.querySelector('input[name="' + name + '"]');
                             if (inp) inp.value = defaultPrice;
@@ -1095,11 +1151,28 @@
                     }
                     window.serviceZonePricingCustomMode[variantKey] = false;
                 } else {
-                    // Ensure all zones start with default price immediately on enable
                     setVariantAllZonePricesToDefault(variantKey);
                 }
             });
         })();
+
+        window.initZonePricingRowControls = function (tableSelector) {
+            var root = tableSelector ? document.querySelector(tableSelector) : document;
+            if (!root) return;
+            root.querySelectorAll('.service-zone-pricing-toggle').forEach(function (cb) {
+                var vk = cb.dataset.variantKey;
+                var tr = cb.closest('tr');
+                var btn = tr && tr.querySelector('.service-zone-pricing-btn[data-variant-key="' + vk + '"]');
+                if (btn) {
+                    btn.disabled = !cb.checked;
+                    btn.setAttribute('aria-disabled', (!cb.checked).toString());
+                }
+                if (!cb.checked && tr) {
+                    var defInp = tr.querySelector('input[name^="variant_default_price"]');
+                    if (defInp) defInp.dispatchEvent(new Event('keyup'));
+                }
+            });
+        };
 
     </script>
 @endpush

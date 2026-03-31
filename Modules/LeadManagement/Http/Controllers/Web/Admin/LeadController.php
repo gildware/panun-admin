@@ -1028,7 +1028,10 @@ class LeadController extends Controller
         if (request()->user()?->can('whatsapp_chat_view')) {
             $threadPhone = $this->resolveWhatsAppThreadPhoneForLead($lead);
             if ($threadPhone) {
-                $whatsappChatUrl = route('admin.whatsapp.conversations.chat', ['phone' => $threadPhone]);
+                $whatsappChatUrl = route('admin.whatsapp.conversations.index', [
+                    'tab' => 'chats',
+                    'phone' => $threadPhone,
+                ]);
             }
         }
 

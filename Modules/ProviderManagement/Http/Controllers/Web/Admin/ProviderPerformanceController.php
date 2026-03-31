@@ -29,8 +29,8 @@ class ProviderPerformanceController
             'provider_id' => ['required', 'string', 'max:36'],
             'action_type' => ['required', Rule::in(['completed', 'cancelled', 'canceled', 'provider_changed'])],
             'incident_type' => ['required', Rule::in(['complaint', 'positive_feedback', 'non_complaint'])],
-            'tags' => ['required', 'array', 'min:1'],
-            'tags.*' => ['required', 'string'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['nullable', 'string'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -64,7 +64,7 @@ class ProviderPerformanceController
             'provider_changed' => ProviderPerformanceService::ACTION_PROVIDER_CHANGED,
             default => ProviderPerformanceService::ACTION_COMPLETED,
         };
-        $tags = array_values(array_unique($validated['tags']));
+        $tags = array_values(array_unique(array_filter($validated['tags'] ?? [])));
 
         $allowedTags = $this->feedbackScoreConfigService->getAllowedTagKeys(
             FeedbackScoreConfigService::ENTITY_PROVIDER,
@@ -72,6 +72,9 @@ class ProviderPerformanceController
         );
 
         foreach ($tags as $tag) {
+            if ($tag === '' || $tag === null) {
+                continue;
+            }
             if (!in_array($tag, $allowedTags, true)) {
                 return response()->json(['message' => 'Invalid tag selection for incident type'], 422);
             }

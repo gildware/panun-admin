@@ -17,6 +17,10 @@
         $paymentFullyCovered = $booking->booking_partial_payments->isEmpty()
             ? (bool) $booking->is_paid
             : (round($totalPaidFromPartials, 2) >= round($bookingTotalForPayment, 2));
+        $displayPaidAmount = $booking->booking_partial_payments->isNotEmpty()
+            ? $totalPaidFromPartials
+            : (($paymentFullyCovered && (bool) $booking->is_paid) ? $bookingTotalForPayment : 0);
+        $showAsAmountPaidLabel = $booking->booking_status == 'completed' || $paymentFullyCovered;
         $advanceOffline = ($booking->booking_partial_payments ?? collect())->where('paid_with', 'offline')->first();
         $subTotal = 0;
         $extraServicesTotal = 0;
@@ -62,6 +66,11 @@
                         }}">
                             {{ ucwords($booking->booking_status) }}
                         </span>
+                        @if($booking->isOpenReopenTicket())
+                            <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
+                        @elseif($booking->isReopenedTagged())
+                            <span class="badge bg-success">{{ translate('Resolved') }}</span>
+                        @endif
                     </div>
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
@@ -226,9 +235,121 @@
                             target="_blank">
                             <span class="material-icons">description</span>{{ translate('Invoice') }}
                         </a>
+                        @can('booking_can_manage_status')
+                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed')
+                                <button type="button" class="btn btn--secondary" data-bs-toggle="modal"
+                                    data-bs-target="#bookingReopenModal--{{ $booking->id }}">
+                                    <span class="material-icons">restore</span>{{ translate('Reopen_or_complaint') }}
+                                </button>
+                            @endif
+                            @if($booking->canMarkReopenResolved())
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal"
+                                    data-bs-target="#reopenResolveModal--{{ $booking->id }}">
+                                    <span class="material-icons">check_circle</span>{{ translate('Mark_reopen_resolved') }}
+                                </button>
+                            @elseif($booking->isOpenReopenTicket())
+                                <span class="badge bg-info text-dark align-self-center">{{ translate('Complete_booking_then_mark_resolved') }}</span>
+                            @endif
+                        @endcan
                     </div>
                 </div>
             </div>
+
+            @if($booking->reopenEvents->isNotEmpty() || !empty($booking->originated_from_booking_id) || $booking->spawnedFollowupBookings->isNotEmpty())
+                <div class="card mb-3 border-warning">
+                    <div class="card-header bg-soft-warning border-warning">
+                        <h5 class="mb-0">{{ translate('Reopen_and_complaint_history') }}</h5>
+                    </div>
+                    <div class="card-body">
+                        @if($booking->reopen_resolved_at)
+                            <p class="alert alert-success py-2 mb-3">
+                                <span class="fw-semibold">{{ translate('Resolved') }}:</span>
+                                {{ $booking->reopen_resolved_at->format('d-M-Y H:i') }}
+                                @if($booking->reopenCaseResolvedByUser)
+                                    — {{ $booking->reopenCaseResolvedByUser->first_name }} {{ $booking->reopenCaseResolvedByUser->last_name }}
+                                @endif
+                                @if(!empty($booking->reopen_resolve_remarks))
+                                    <span class="d-block mt-2 small fw-normal text-dark">
+                                        <span class="fw-semibold">{{ translate('Reopen_resolve_remarks') }}:</span><br>
+                                        {!! nl2br(e($booking->reopen_resolve_remarks)) !!}
+                                    </span>
+                                @endif
+                            </p>
+                        @endif
+                        @if(!empty($booking->originated_from_booking_id) && $booking->originatedFromBooking)
+                            <p class="mb-2">
+                                <span class="fw-semibold">{{ translate('Originated_from_booking') }}:</span>
+                                <a href="{{ route('admin.booking.details', [$booking->originated_from_booking_id, 'web_page' => 'details']) }}">
+                                    #{{ $booking->originatedFromBooking->readable_id ?? $booking->originated_from_booking_id }}
+                                </a>
+                            </p>
+                        @endif
+                        @if($booking->spawnedFollowupBookings->isNotEmpty())
+                            <p class="fw-semibold mb-2">{{ translate('Follow_up_bookings') }}:</p>
+                            <ul class="mb-3">
+                                @foreach($booking->spawnedFollowupBookings as $child)
+                                    <li>
+                                        <a href="{{ route('admin.booking.details', [$child->id, 'web_page' => 'details']) }}">
+                                            #{{ $child->readable_id }}</a>
+                                        — <span class="text-capitalize">{{ $child->booking_status }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                        @if($booking->reopenEvents->isNotEmpty())
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>{{ translate('When') }}</th>
+                                            <th>{{ translate('By') }}</th>
+                                            <th>{{ translate('Resolution') }}</th>
+                                            <th>{{ translate('Notes') }}</th>
+                                            <th>{{ translate('Linked_booking') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($booking->reopenEvents as $ev)
+                                            <tr>
+                                                <td>{{ $ev->created_at?->format('d-M-Y H:i') }}</td>
+                                                <td>{{ $ev->actor?->first_name }} {{ $ev->actor?->last_name }}</td>
+                                                <td class="text-capitalize">{{ str_replace('_', ' ', $ev->resolution) }}</td>
+                                                <td class="small">{{ \Illuminate\Support\Str::limit($ev->complaint_notes ?? '', 120) }}</td>
+                                                <td>
+                                                    @if($ev->child_booking_id)
+                                                        <a href="{{ route('admin.booking.details', [$ev->child_booking_id, 'web_page' => 'details']) }}">{{ translate('Open') }}</a>
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            @include('bookingmodule::admin.booking.partials._reopen-from-completed-modal')
+            @include('bookingmodule::admin.booking.partials._reopen-resolve-modal', [
+                'modalId' => 'reopenResolveModal--' . $booking->id,
+                'formId' => 'reopenResolveForm--' . $booking->id,
+                'formAction' => route('admin.booking.reopen-resolve', $booking->id),
+            ])
+            @if($errors->has('reopen_resolve_remarks'))
+                @push('script')
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            var el = document.getElementById('reopenResolveModal--{{ $booking->id }}');
+                            if (el && window.bootstrap && bootstrap.Modal) {
+                                bootstrap.Modal.getOrCreateInstance(el).show();
+                            }
+                        });
+                    </script>
+                @endpush
+            @endif
 
             @can('booking_delete')
                 <div class="modal fade" id="bookingDeleteModal--{{ $booking['id'] }}" tabindex="-1"
@@ -503,17 +624,17 @@
                                             <span
                                                 class="c1">{{ with_currency_symbol($bookingTotalForPayment) }}</span>
                                         </p>
-                                        @if($totalPaidFromPartials > 0)
+                                        @if($displayPaidAmount > 0)
                                             <p class="mb-1">
-                                                <span>{{ $booking->booking_status == 'completed' ? translate('Amount_Paid') : translate('Advance_Paid') }} : </span>
-                                                <span class="c1">{{ with_currency_symbol($totalPaidFromPartials) }}</span>
+                                                <span>{{ $showAsAmountPaidLabel ? translate('Amount_Paid') : translate('Advance_Paid') }} : </span>
+                                                <span class="c1">{{ with_currency_symbol($displayPaidAmount) }}</span>
                                                 @if($advanceOffline && $advanceOffline->transaction_id)
                                                     <span class="small text-muted">({{ translate('Txn') }}: {{ $advanceOffline->transaction_id }})</span>
                                                 @endif
                                             </p>
                                             <p class="mb-0">
                                                 <span>{{ translate('Due_Balance') }} : </span>
-                                                <span class="c1">{{ with_currency_symbol($bookingTotalForPayment - $totalPaidFromPartials) }}</span>
+                                                <span class="c1">{{ with_currency_symbol(max(0, $bookingTotalForPayment - $displayPaidAmount)) }}</span>
                                             </p>
                                         @endif
                                     </div>
@@ -1850,10 +1971,6 @@
             const type = $form.find('input[name="incident_type"]:checked').val();
             if (!type) {
                 toastr.error('{{ translate('Please select a feedback type.') }}');
-                return;
-            }
-            if ($form.find('.customer-feedback-tag-checkbox:checked').length < 1) {
-                toastr.error('{{ translate('Please select at least one tag.') }}');
                 return;
             }
             const route = $form.data('feedback-route');

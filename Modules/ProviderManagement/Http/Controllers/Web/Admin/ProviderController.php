@@ -2,6 +2,8 @@
 
 namespace Modules\ProviderManagement\Http\Controllers\Web\Admin;
 
+use App\Lib\CommissionEntitySetup;
+use App\Lib\CommissionTierPayload;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Carbon\Carbon;
@@ -15,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -944,15 +947,24 @@ class ProviderController extends Controller
             $status = $request->has('status') ? $request['status'] : 'all';
             $queryParam = ['web_page' => $webPage, 'status' => $status, 'search' => $search];
 
-            // Subcategories union across all leaf zones this provider covers
+            // Subcategories union across all leaf zones this provider covers.
+            // category_zone uses leaf IDs; provider_zone / zone_id may store parent zones — normalize like create/update.
             $provider = $this->provider->with(['owner', 'zones'])->find($id);
-            $leafZoneIds = $provider->zones()->pluck('zones.id')->filter()->values()->all();
-            if ($leafZoneIds === [] && $provider->zone_id) {
-                $leafZoneIds = [(string) $provider->zone_id];
+            $coverageZoneIds = $provider->zones->pluck('id')->map(fn ($zid) => (string) $zid)->filter()->values()->all();
+            if ($coverageZoneIds === [] && $provider->zone_id) {
+                $coverageZoneIds = [(string) $provider->zone_id];
             }
+            $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds($coverageZoneIds);
 
             if ($leafZoneIds === []) {
-                $subCategories = collect([]);
+                $subCategories = new \Illuminate\Pagination\LengthAwarePaginator(
+                    collect(),
+                    0,
+                    pagination_limit(),
+                    1,
+                    ['path' => $request->url()]
+                );
+                $subCategories->appends($queryParam);
             } else {
                 // Get all subcategories available for the provider's zones
                 $subCategoriesQuery = $this->category->withCount('services')
@@ -1006,15 +1018,14 @@ class ProviderController extends Controller
                     ->when($status != 'all', function ($query) use ($status) {
                         return $query->where('is_subscribed', (($status == 'subscribed') ? 1 : 0));
                     })
-                    ->where(function ($query) use ($search) {
-                        if ($search) {
-                            $keys = explode(' ', $search);
-                            foreach ($keys as $key) {
-                                $query->orWhereHas('sub_category', function ($query) use ($key) {
-                                    $query->where('name', 'LIKE', '%' . $key . '%');
+                    ->when(trim((string) $search) !== '', function ($query) use ($search) {
+                        $query->where(function ($q) use ($search) {
+                            foreach (array_filter(explode(' ', $search)) as $key) {
+                                $q->orWhereHas('sub_category', function ($sub) use ($key) {
+                                    $sub->where('name', 'LIKE', '%' . $key . '%');
                                 });
                             }
-                        }
+                        });
                     })
                     ->latest()
                     ->paginate(pagination_limit())
@@ -1143,6 +1154,7 @@ class ProviderController extends Controller
             $subscriptionStatus = (int)((business_config('provider_subscription', 'provider_config'))->live_values);
             $commission = $provider->commission_status == 1 ? $provider->commission_percentage : (business_config('default_commission', 'business_information'))->live_values;
             $subscriptionDetails = $this->packageSubscriber->where('provider_id', $id)->first();
+            $commissionTierForm = $this->commissionTierFormContext($provider);
 
             if ($subscriptionDetails){
                 $subscriptionPrice = $this->subscriptionPackage->where('id', $subscriptionDetails?->subscription_package_id)->value('price');
@@ -1162,10 +1174,16 @@ class ProviderController extends Controller
                 $calculationVat = $subscriptionPrice * ($vatPercentage / 100);
                 $renewalPrice = $subscriptionPrice + $calculationVat;
 
-                return view('providermanagement::admin.provider.detail.subscription', compact('webPage', 'provider', 'subscriptionDetails', 'daysDifference', 'bookingCheck', 'categoryCheck', 'isBookingLimit', 'isCategoryLimit', 'totalBill', 'totalPurchase', 'renewalPrice'));
+                return view('providermanagement::admin.provider.detail.subscription', array_merge(
+                    compact('webPage', 'provider', 'subscriptionDetails', 'daysDifference', 'bookingCheck', 'categoryCheck', 'isBookingLimit', 'isCategoryLimit', 'totalBill', 'totalPurchase', 'renewalPrice', 'commission', 'subscriptionStatus'),
+                    $commissionTierForm
+                ));
             }
 
-            return view('providermanagement::admin.provider.detail.subscription', compact('webPage', 'provider', 'subscriptionDetails', 'commission', 'subscriptionStatus'));
+            return view('providermanagement::admin.provider.detail.subscription', array_merge(
+                compact('webPage', 'provider', 'subscriptionDetails', 'commission', 'subscriptionStatus'),
+                $commissionTierForm
+            ));
 
         }
         elseif ($request->web_page == 'payment') {
@@ -2045,15 +2063,76 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_manage_status');
 
+        $request->validate([
+            'commission_status' => 'required|in:default,custom',
+        ]);
+
         $provider = $this->provider->where('id', $id)->first();
-        $provider->commission_status = $request->commission_status == 'default' ? 0 : 1;
-        if ($request->commission_status == 'custom') {
-            $provider->commission_percentage = $request->custom_commission_value;
+
+        $hadCustom = $provider && (int) $provider->commission_status === 1;
+        $wantsCustom = $request->commission_status === 'custom';
+        if (($hadCustom || $wantsCustom) && ! Gate::allows('commission_custom_provider_update')) {
+            abort(403);
+        }
+
+        if ($request->commission_status === 'custom') {
+            $rules = [
+                'commission_service_mode' => 'required|in:fixed,tiered',
+                'commission_spare_mode' => 'required|in:fixed,tiered',
+                'commission_service_fixed_amount' => 'nullable|numeric|min:0',
+                'commission_spare_fixed_amount' => 'nullable|numeric|min:0',
+                'commission_service_tiers' => 'nullable|array',
+                'commission_service_tiers.*.from' => 'nullable|numeric|min:0',
+                'commission_service_tiers.*.to' => 'nullable|numeric|min:0',
+                'commission_service_tiers.*.amount_type' => 'nullable|in:percentage,fixed',
+                'commission_service_tiers.*.amount' => 'nullable|numeric|min:0',
+                'commission_spare_tiers' => 'nullable|array',
+                'commission_spare_tiers.*.from' => 'nullable|numeric|min:0',
+                'commission_spare_tiers.*.to' => 'nullable|numeric|min:0',
+                'commission_spare_tiers.*.amount_type' => 'nullable|in:percentage,fixed',
+                'commission_spare_tiers.*.amount' => 'nullable|numeric|min:0',
+            ];
+            Validator::make($request->all(), $rules)
+                ->after(fn (\Illuminate\Validation\Validator $v) => CommissionTierPayload::validateGroups($v, $request, CommissionTierPayload::defaultValidationGroups()))
+                ->validate();
+
+            $serviceGroup = CommissionTierPayload::normalizeGroupFromRequest(
+                $request,
+                'commission_service_mode',
+                'commission_service_fixed_amount',
+                'commission_service_tiers'
+            );
+            $spareGroup = CommissionTierPayload::normalizeGroupFromRequest(
+                $request,
+                'commission_spare_mode',
+                'commission_spare_fixed_amount',
+                'commission_spare_tiers'
+            );
+            $tierSetup = [
+                'service' => $serviceGroup,
+                'spare_parts' => $spareGroup,
+            ];
+            $provider->commission_status = 1;
+            $provider->commission_tier_setup = $tierSetup;
+            $provider->commission_percentage = (float) derive_default_commission_percentage_from_service_group($serviceGroup);
+        } else {
+            $provider->commission_status = 0;
         }
         $provider->save();
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
+    }
+
+    /**
+     * @return array{tierService: array, tierSpare: array, previewCurrencySymbol: string, previewCurrencyCode: string}
+     */
+    protected function commissionTierFormContext(Provider $provider): array
+    {
+        return CommissionEntitySetup::tierFormContext(
+            is_array($provider->commission_tier_setup) ? $provider->commission_tier_setup : [],
+            (int) $provider->commission_status === 1
+        );
     }
 
     public function onboardingRequest(Request $request): Factory|View|Application

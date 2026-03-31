@@ -52,12 +52,22 @@
 
         <div class="card">
             <div class="card-body">
+                @if(!empty($reopenNewBookingDraft))
+                    <div class="alert alert-info mb-4" role="alert">
+                        {{ translate('Reopen_follow_up_banner') }}
+                        <strong>#{{ $reopenNewBookingDraft['source_readable_id'] ?? $reopenNewBookingDraft['source_booking_id'] }}</strong>.
+                        {{ translate('Reopen_follow_up_banner_hint') }}
+                    </div>
+                @endif
                 <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form"
                       data-currency="{{ currency_symbol() ?? '' }}" novalidate>
                     @csrf
                     @if(request()->has('lead_id'))
                         <input type="hidden" name="lead_id" value="{{ request('lead_id') }}">
                         <input type="hidden" name="in_modal" value="1">
+                    @endif
+                    @if(!empty($reopenNewBookingDraft['source_booking_id']))
+                        <input type="hidden" name="reopen_source_booking_id" value="{{ $reopenNewBookingDraft['source_booking_id'] }}">
                     @endif
 
                     {{-- 1. Customer --}}
@@ -684,6 +694,8 @@
             const $customerSelect = $('#customer-select');
             const $addressSelect = $('#customer-address-select');
             const $addAddressBtn = $('#open-add-address');
+            const $serviceLocationHidden = $('#service-location-hidden');
+            const $addressRow = $('#customer-address-select').closest('.row');
 
             // Function to enable/disable address controls
             function toggleAddressControls(enabled) {
@@ -693,11 +705,6 @@
 
             // Initially disable address controls
             toggleAddressControls(false);
-
-            // If customer is pre-selected (e.g., from validation errors), enable address controls
-            if ($customerSelect.val()) {
-                $customerSelect.trigger('change');
-            }
 
             $('#open-add-customer').on('click', function () {
                 $('#addCustomerModal').modal('show');
@@ -844,6 +851,29 @@
             const $subCategorySelect = $('#service-subcategory-select');
             const $serviceSelect = $('#service-select');
             const $variantSelect = $('#service-variant-select');
+
+            function getUrlParameter(name) {
+                name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+                const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+                const results = regex.exec(location.search);
+                return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+            }
+
+            const oldValues = {
+                customer_id: @json(old('customer_id', request('customer_id'))) || getUrlParameter('customer_id'),
+                zone_id: @json(old('zone_id', request('zone_id'))) || getUrlParameter('zone_id'),
+                category_id: @json(old('category_id', request('category_id'))) || getUrlParameter('category_id'),
+                sub_category_id: @json(old('sub_category_id', request('sub_category_id'))) || getUrlParameter('sub_category_id'),
+                service_id: @json(old('service_id', request('service_id'))) || getUrlParameter('service_id'),
+                variant_key: @json(old('variant_key', request('variant_key'))) || getUrlParameter('variant_key'),
+                provider_id: @json(old('provider_id', request('provider_id'))) || getUrlParameter('provider_id'),
+                service_address_id: @json(old('service_address_id', request('service_address_id'))) || getUrlParameter('service_address_id'),
+                service_location: @json(old('service_location', request('service_location'))) || getUrlParameter('service_location') || 'customer',
+                service_schedule: @json(old('service_schedule', request('service_schedule'))) || getUrlParameter('service_schedule'),
+                advance_paid_amount: @json(old('advance_paid_amount', request('advance_paid_amount'))) || getUrlParameter('advance_paid_amount'),
+                assignee_id: @json(old('assignee_id', request('assignee_id'))) || getUrlParameter('assignee_id')
+            };
+
             var SERVICE_INFO_ALERT_KEYS = [
                 'categories', 'categoryLoadError',
                 'subcategories', 'subcategoryLoadError',
@@ -861,6 +891,13 @@
             }
 
             var serviceInfoAlertState = emptyServiceInfoAlertState();
+
+            // Ignore out-of-order AJAX responses when the user changes zone/category/subcategory/service quickly
+            var ajaxBookingZoneGen = 0;
+            var ajaxBookingCategoryGen = 0;
+            var ajaxBookingSubcatServicesGen = 0;
+            var ajaxBookingSubcatProvidersGen = 0;
+            var ajaxBookingVariantGen = 0;
 
             function resetBookingServiceInfoAlert() {
                 serviceInfoAlertState = emptyServiceInfoAlertState();
@@ -974,6 +1011,7 @@
             $zoneSelect.on('change', function () {
                 const zoneId = $(this).val();
                 if (!zoneId) {
+                    ajaxBookingZoneGen++;
                     toggleServiceControls(0);
                     resetBookingServiceInfoAlert();
                     return;
@@ -981,6 +1019,7 @@
 
                 resetBookingServiceInfoAlert();
                 toggleServiceControls(0);
+                var zoneGen = ++ajaxBookingZoneGen;
                 $categorySelect.prop('disabled', false);
                 $categorySelect.empty().append(
                     new Option('{{ translate('Loading...') }}', '', true, true)
@@ -990,6 +1029,9 @@
 
                 let route = '{{ route('admin.booking.service.ajax-get-categories') }}';
                 $.get(route, {zone_id: zoneId}, function (response) {
+                    if (zoneGen !== ajaxBookingZoneGen) {
+                        return;
+                    }
                     $categorySelect.empty().append(
                         new Option('{{ translate('Select_Category') }}', '', true, true)
                     );
@@ -1005,7 +1047,13 @@
                                 );
                             });
                             reinitializeSelect2($categorySelect);
-                            if (response.content.length === 1) {
+                            var wantCat = oldValues.category_id;
+                            var catMatched = wantCat && response.content.some(function (c) {
+                                return String(c.id) === String(wantCat);
+                            });
+                            if (catMatched) {
+                                $categorySelect.val(String(wantCat)).trigger('change');
+                            } else if (response.content.length === 1) {
                                 $categorySelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
@@ -1014,6 +1062,9 @@
                         }
                     }
                 }).fail(function(xhr) {
+                    if (zoneGen !== ajaxBookingZoneGen) {
+                        return;
+                    }
                     console.error('Failed to load categories:', xhr);
                     $categorySelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
@@ -1027,6 +1078,7 @@
             $categorySelect.on('change', function () {
                 const categoryId = $(this).val();
                 if (!categoryId) {
+                    ajaxBookingCategoryGen++;
                     toggleServiceControls(1);
                     resetBookingServiceInfoAlert();
                     return;
@@ -1034,6 +1086,7 @@
 
                 resetBookingServiceInfoAlert();
                 toggleServiceControls(1);
+                var categoryGen = ++ajaxBookingCategoryGen;
                 $subCategorySelect.prop('disabled', false);
                 $subCategorySelect.empty().append(
                     new Option('{{ translate('Loading...') }}', '', true, true)
@@ -1043,6 +1096,9 @@
 
                 let route = '{{ route('admin.booking.service.ajax-get-subcategories') }}';
                 $.get(route, {category_id: categoryId}, function (response) {
+                    if (categoryGen !== ajaxBookingCategoryGen) {
+                        return;
+                    }
                     $subCategorySelect.empty().append(
                         new Option('{{ translate('Select_Sub_Category') }}', '', true, true)
                     );
@@ -1058,7 +1114,13 @@
                                 );
                             });
                             reinitializeSelect2($subCategorySelect);
-                            if (response.content.length === 1) {
+                            var wantSub = oldValues.sub_category_id;
+                            var subMatched = wantSub && response.content.some(function (sc) {
+                                return String(sc.id) === String(wantSub);
+                            });
+                            if (subMatched) {
+                                $subCategorySelect.val(String(wantSub)).trigger('change');
+                            } else if (response.content.length === 1) {
                                 $subCategorySelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
@@ -1067,6 +1129,9 @@
                         }
                     }
                 }).fail(function(xhr) {
+                    if (categoryGen !== ajaxBookingCategoryGen) {
+                        return;
+                    }
                     console.error('Failed to load subcategories:', xhr);
                     $subCategorySelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
@@ -1080,6 +1145,7 @@
             $subCategorySelect.on('change', function () {
                 const subCategoryId = $(this).val();
                 if (!subCategoryId) {
+                    ajaxBookingSubcatServicesGen++;
                     toggleServiceControls(2);
                     resetBookingServiceInfoAlert();
                     return;
@@ -1087,6 +1153,7 @@
 
                 resetBookingServiceInfoAlert();
                 toggleServiceControls(2);
+                var subcatServicesGen = ++ajaxBookingSubcatServicesGen;
                 $serviceSelect.prop('disabled', false);
                 $serviceSelect.empty().append(
                     new Option('{{ translate('Loading...') }}', '', true, true)
@@ -1096,6 +1163,9 @@
 
                 let route = '{{ route('admin.booking.service.ajax-get-services') }}';
                 $.get(route, {sub_category_id: subCategoryId}, function (response) {
+                    if (subcatServicesGen !== ajaxBookingSubcatServicesGen) {
+                        return;
+                    }
                     $serviceSelect.empty().append(
                         new Option('{{ translate('Select_Service') }}', '', true, true)
                     );
@@ -1111,7 +1181,13 @@
                                 );
                             });
                             reinitializeSelect2($serviceSelect);
-                            if (response.content.length === 1) {
+                            var wantSvc = oldValues.service_id;
+                            var svcMatched = wantSvc && response.content.some(function (s) {
+                                return String(s.id) === String(wantSvc);
+                            });
+                            if (svcMatched) {
+                                $serviceSelect.val(String(wantSvc)).trigger('change');
+                            } else if (response.content.length === 1) {
                                 $serviceSelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
@@ -1120,6 +1196,9 @@
                         }
                     }
                 }).fail(function(xhr) {
+                    if (subcatServicesGen !== ajaxBookingSubcatServicesGen) {
+                        return;
+                    }
                     console.error('Failed to load services:', xhr);
                     $serviceSelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
@@ -1131,6 +1210,8 @@
 
             // Load variants when service changes
             $serviceSelect.on('change', function () {
+                ajaxBookingVariantGen++;
+                var variantGen = ajaxBookingVariantGen;
                 const serviceId = $(this).val();
                 const zoneId = $zoneSelect.val();
 
@@ -1153,6 +1234,9 @@
 
                 let route = '{{ route('admin.booking.service.ajax-get-variant') }}';
                 $.get(route, {service_id: serviceId, zone_id: zoneId}, function (response) {
+                    if (variantGen !== ajaxBookingVariantGen) {
+                        return;
+                    }
                     $variantSelect.empty().append(
                         new Option('{{ translate('Select Service Variant') }}', '', true, true)
                     );
@@ -1170,7 +1254,13 @@
                             });
                             reinitializeSelect2($variantSelect);
                             toggleServiceControls(4);
-                            if (response.content.length === 1) {
+                            var wantVar = oldValues.variant_key;
+                            var varMatched = wantVar && response.content.some(function (v) {
+                                return String(v.variant_key) === String(wantVar);
+                            });
+                            if (varMatched) {
+                                $variantSelect.val(String(wantVar)).trigger('change');
+                            } else if (response.content.length === 1) {
                                 $variantSelect.val(response.content[0].variant_key).trigger('change');
                             }
                         } else {
@@ -1179,6 +1269,9 @@
                         }
                     }
                 }).fail(function(xhr) {
+                    if (variantGen !== ajaxBookingVariantGen) {
+                        return;
+                    }
                     console.error('Failed to load variants:', xhr);
                     $variantSelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
@@ -1248,9 +1341,6 @@
             const $serviceLocationSection = $('#service-location-section');
             const $serviceLocationCustomer = $('#service-location-customer');
             const $serviceLocationProvider = $('#service-location-provider');
-            const $serviceLocationHidden = $('#service-location-hidden');
-            const $addressRow = $('#customer-address-select').closest('.row');
-            const $addressAddButton = $('#open-add-address');
             const $serviceLocationTextRow = $('input[name="service_location"]').closest('.row');
 
             // Initialize Select2 for provider dropdown when it becomes enabled
@@ -1305,6 +1395,7 @@
             $subCategorySelect.on('change', function () {
                 const subCategoryId = $(this).val();
                 if (!subCategoryId) {
+                    ajaxBookingSubcatProvidersGen++;
                     resetBookingServiceInfoAlert();
                     $providerSelect.prop('disabled', true);
                     $providerSelect.empty().append(
@@ -1317,6 +1408,11 @@
                     return;
                 }
 
+                serviceInfoAlertState.providers = null;
+                serviceInfoAlertState.providerLoadError = null;
+                renderBookingServiceInfoAlert();
+
+                var subcatProvidersGen = ++ajaxBookingSubcatProvidersGen;
                 $providerSelect.prop('disabled', false);
                 
                 // Destroy and reinitialize Select2 with templates BEFORE adding options
@@ -1333,6 +1429,9 @@
 
                 let route = '{{ route('admin.booking.service.ajax-get-providers') }}';
                 $.get(route, {sub_category_id: subCategoryId}, function (response) {
+                    if (subcatProvidersGen !== ajaxBookingSubcatProvidersGen) {
+                        return;
+                    }
                     $providerSelect.empty().append(
                         new Option('{{ translate('Select_Provider') }}', '', true, true)
                     );
@@ -1358,7 +1457,13 @@
                             
                             // Show service location section when providers are loaded
                             $serviceLocationSection.show();
-                            if (response.content.length === 1) {
+                            var wantProv = oldValues.provider_id;
+                            var provMatched = wantProv && response.content.some(function (p) {
+                                return String(p.id) === String(wantProv);
+                            });
+                            if (provMatched) {
+                                $providerSelect.val(String(wantProv)).trigger('change');
+                            } else if (response.content.length === 1) {
                                 $providerSelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
@@ -1368,6 +1473,9 @@
                         }
                     }
                 }).fail(function(xhr) {
+                    if (subcatProvidersGen !== ajaxBookingSubcatProvidersGen) {
+                        return;
+                    }
                     console.error('Failed to load providers:', xhr);
                     $providerSelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
@@ -1401,41 +1509,18 @@
                         // Re-enable address select if customer is selected
                         if ($customerSelect.val()) {
                             $addressSelect.prop('disabled', false);
-                            $addressAddButton.prop('disabled', false);
+                            $addAddressBtn.prop('disabled', false);
                         }
                     }
                 } else {
                     // Hide address fields for provider location
                     $addressRow.hide();
                     $addressSelect.val('').prop('disabled', true);
-                    $addressAddButton.prop('disabled', true);
+                    $addAddressBtn.prop('disabled', true);
                 }
             });
             
 
-            // Restore old values from validation errors or query parameters
-            function getUrlParameter(name) {
-                name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-                const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-                const results = regex.exec(location.search);
-                return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-            }
-
-            const oldValues = {
-                customer_id: @json(old('customer_id')) || getUrlParameter('customer_id'),
-                zone_id: @json(old('zone_id')) || getUrlParameter('zone_id'),
-                category_id: @json(old('category_id')) || getUrlParameter('category_id'),
-                sub_category_id: @json(old('sub_category_id')) || getUrlParameter('sub_category_id'),
-                service_id: @json(old('service_id')) || getUrlParameter('service_id'),
-                variant_key: @json(old('variant_key')) || getUrlParameter('variant_key'),
-                provider_id: @json(old('provider_id')) || getUrlParameter('provider_id'),
-                service_address_id: @json(old('service_address_id')) || getUrlParameter('service_address_id'),
-                service_location: @json(old('service_location')) || getUrlParameter('service_location') || 'customer',
-                service_schedule: @json(old('service_schedule')) || getUrlParameter('service_schedule'),
-                advance_paid_amount: @json(old('advance_paid_amount')) || getUrlParameter('advance_paid_amount'),
-                assignee_id: @json(old('assignee_id')) || getUrlParameter('assignee_id')
-            };
-            
             // Restore service location radio button
             if (oldValues.service_location) {
                 $serviceLocationHidden.val(oldValues.service_location);
@@ -1450,51 +1535,20 @@
                 }, 100);
             }
 
-            // When customer has a value on load (e.g. single customer pre-selected), trigger change to load addresses
+            // Customer prefill (merged request / session old): set value then load addresses
+            if (oldValues.customer_id) {
+                $customerSelect.val(String(oldValues.customer_id));
+            }
             if ($customerSelect.val()) {
                 $customerSelect.trigger('change');
             }
-            // Restore customer selection
-            if (oldValues.customer_id) {
-                $customerSelect.val(oldValues.customer_id).trigger('change');
-            }
 
-            // When zone has a value on load (e.g. single zone pre-selected), trigger change to load categories
+            // Zone prefill: merged request (e.g. create-from-lead) is not in session old(); ensure value + cascade via AJAX handlers
+            if (oldValues.zone_id) {
+                $zoneSelect.val(String(oldValues.zone_id));
+            }
             if ($zoneSelect.val()) {
                 $zoneSelect.trigger('change');
-            }
-
-            // Restore zone and cascade
-            if (oldValues.zone_id) {
-                $zoneSelect.val(oldValues.zone_id).trigger('change');
-                
-                // Wait for categories to load, then restore category
-                setTimeout(function() {
-                    if (oldValues.category_id) {
-                        $categorySelect.val(oldValues.category_id).trigger('change');
-                        
-                        // Wait for subcategories to load, then restore subcategory
-                        setTimeout(function() {
-                            if (oldValues.sub_category_id) {
-                                $subCategorySelect.val(oldValues.sub_category_id).trigger('change');
-                                
-                                // Wait for services to load, then restore service
-                                setTimeout(function() {
-                                    if (oldValues.service_id) {
-                                        $serviceSelect.val(oldValues.service_id).trigger('change');
-                                    }
-                                    
-                                    // Wait for providers to load, then restore provider
-                                    setTimeout(function() {
-                                        if (oldValues.provider_id) {
-                                            $providerSelect.val(oldValues.provider_id).trigger('change');
-                                        }
-                                    }, 500);
-                                }, 500);
-                            }
-                        }, 500);
-                    }
-                }, 500);
             }
 
             // Restore address selection
@@ -1510,13 +1564,6 @@
             }
             if (oldValues.advance_paid_amount) {
                 $('input[name="advance_paid_amount"]').val(oldValues.advance_paid_amount);
-            }
-
-            // Restore variant selection (after services & variants are loaded)
-            if (oldValues.variant_key) {
-                setTimeout(function () {
-                    $('#service-variant-select').val(oldValues.variant_key).trigger('change');
-                }, 1500);
             }
 
             // Restore assignee selection
@@ -1683,6 +1730,7 @@
                         $s.prop('disabled', false);
                     }
                 });
+                $(this).find('button[type="submit"], input[type="submit"]').prop('disabled', true);
                 this.submit();
             });
         });

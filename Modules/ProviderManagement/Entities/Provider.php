@@ -34,6 +34,7 @@ class Provider extends Model
         'avg_rating' => 'float',
         'commission_status' => 'integer',
         'commission_percentage' => 'float',
+        'commission_tier_setup' => 'array',
         'is_active' => 'integer',
         'app_availability' => 'integer',
         'is_approved' => 'integer',

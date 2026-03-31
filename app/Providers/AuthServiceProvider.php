@@ -244,6 +244,46 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('business_manage_status', fn () => $this->checkAccess('business', 'can_manage_status'));
         Gate::define('business_approve_or_deny', fn () => $this->checkAccess('business', 'can_approve_or_deny'));
 
+        Gate::define('commission_custom_company_add', fn () => $this->checkAccess('commission_custom_company', 'can_add'));
+        Gate::define('commission_custom_company_view', fn () => $this->checkAccess('commission_custom_company', 'can_view'));
+        Gate::define('commission_custom_company_update', fn () => $this->checkAccess('commission_custom_company', 'can_update'));
+        Gate::define('commission_custom_company_delete', fn () => $this->checkAccess('commission_custom_company', 'can_delete'));
+        Gate::define('commission_custom_company_export', fn () => $this->checkAccess('commission_custom_company', 'can_export'));
+        Gate::define('commission_custom_company_manage_status', fn () => $this->checkAccess('commission_custom_company', 'can_manage_status'));
+        Gate::define('commission_custom_company_approve_or_deny', fn () => $this->checkAccess('commission_custom_company', 'can_approve_or_deny'));
+
+        Gate::define('commission_custom_category_add', fn () => $this->checkAccess('commission_custom_category', 'can_add'));
+        Gate::define('commission_custom_category_view', fn () => $this->checkAccess('commission_custom_category', 'can_view'));
+        Gate::define('commission_custom_category_update', fn () => $this->checkAccess('commission_custom_category', 'can_update'));
+        Gate::define('commission_custom_category_delete', fn () => $this->checkAccess('commission_custom_category', 'can_delete'));
+        Gate::define('commission_custom_category_export', fn () => $this->checkAccess('commission_custom_category', 'can_export'));
+        Gate::define('commission_custom_category_manage_status', fn () => $this->checkAccess('commission_custom_category', 'can_manage_status'));
+        Gate::define('commission_custom_category_approve_or_deny', fn () => $this->checkAccess('commission_custom_category', 'can_approve_or_deny'));
+
+        Gate::define('commission_custom_sub_category_add', fn () => $this->checkAccess('commission_custom_sub_category', 'can_add'));
+        Gate::define('commission_custom_sub_category_view', fn () => $this->checkAccess('commission_custom_sub_category', 'can_view'));
+        Gate::define('commission_custom_sub_category_update', fn () => $this->checkAccess('commission_custom_sub_category', 'can_update'));
+        Gate::define('commission_custom_sub_category_delete', fn () => $this->checkAccess('commission_custom_sub_category', 'can_delete'));
+        Gate::define('commission_custom_sub_category_export', fn () => $this->checkAccess('commission_custom_sub_category', 'can_export'));
+        Gate::define('commission_custom_sub_category_manage_status', fn () => $this->checkAccess('commission_custom_sub_category', 'can_manage_status'));
+        Gate::define('commission_custom_sub_category_approve_or_deny', fn () => $this->checkAccess('commission_custom_sub_category', 'can_approve_or_deny'));
+
+        Gate::define('commission_custom_service_add', fn () => $this->checkAccess('commission_custom_service', 'can_add'));
+        Gate::define('commission_custom_service_view', fn () => $this->checkAccess('commission_custom_service', 'can_view'));
+        Gate::define('commission_custom_service_update', fn () => $this->checkAccess('commission_custom_service', 'can_update'));
+        Gate::define('commission_custom_service_delete', fn () => $this->checkAccess('commission_custom_service', 'can_delete'));
+        Gate::define('commission_custom_service_export', fn () => $this->checkAccess('commission_custom_service', 'can_export'));
+        Gate::define('commission_custom_service_manage_status', fn () => $this->checkAccess('commission_custom_service', 'can_manage_status'));
+        Gate::define('commission_custom_service_approve_or_deny', fn () => $this->checkAccess('commission_custom_service', 'can_approve_or_deny'));
+
+        Gate::define('commission_custom_provider_add', fn () => $this->checkAccess('commission_custom_provider', 'can_add'));
+        Gate::define('commission_custom_provider_view', fn () => $this->checkAccess('commission_custom_provider', 'can_view'));
+        Gate::define('commission_custom_provider_update', fn () => $this->checkAccess('commission_custom_provider', 'can_update'));
+        Gate::define('commission_custom_provider_delete', fn () => $this->checkAccess('commission_custom_provider', 'can_delete'));
+        Gate::define('commission_custom_provider_export', fn () => $this->checkAccess('commission_custom_provider', 'can_export'));
+        Gate::define('commission_custom_provider_manage_status', fn () => $this->checkAccess('commission_custom_provider', 'can_manage_status'));
+        Gate::define('commission_custom_provider_approve_or_deny', fn () => $this->checkAccess('commission_custom_provider', 'can_approve_or_deny'));
+
         Gate::define('subscription_package_view', fn () => $this->checkAccess('subscription_package', 'can_view'));
         Gate::define('subscription_package_add', fn () => $this->checkAccess('subscription_package', 'can_add'));
         Gate::define('subscription_package_update', fn () => $this->checkAccess('subscription_package', 'can_update'));

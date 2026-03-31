@@ -72,7 +72,7 @@
                                 {{ !empty($leadOpenStatus) ? 'Open' : 'Closed' }}
                             </span>
                             @if(!empty($whatsappChatUrl))
-                                <a href="{{ $whatsappChatUrl }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" @if(!empty($inModal)) target="_top" rel="noopener noreferrer" @endif>
+                                <a href="{{ $whatsappChatUrl }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" target="_blank" rel="noopener noreferrer">
                                     <span class="material-icons" style="font-size: 18px;">chat</span>
                                     {{ translate('View_AI_chat') }}
                                 </a>

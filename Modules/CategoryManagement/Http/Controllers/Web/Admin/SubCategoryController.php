@@ -2,6 +2,7 @@
 
 namespace Modules\CategoryManagement\Http\Controllers\Web\Admin;
 
+use App\Lib\CommissionEntitySetup;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -19,6 +20,7 @@ use Modules\ProviderManagement\Entities\SubscribedService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class SubCategoryController extends Controller
@@ -184,7 +186,16 @@ class SubCategoryController extends Controller
         $subCategory = $this->category->withoutGlobalScope('translate')->ofType('sub')->where('id', $id)->first();
         if (isset($subCategory)) {
             $mainCategories = $this->category->ofType('main')->orderBy('name')->get(['id', 'name']);
-            return view('categorymanagement::admin.sub-category.edit', compact('subCategory', 'mainCategories'));
+            $commissionEntityUseCustom = (int) ($subCategory->commission_custom ?? 0) === 1;
+            $commissionCtx = CommissionEntitySetup::tierFormContext(
+                is_array($subCategory->commission_tier_setup) ? $subCategory->commission_tier_setup : [],
+                $commissionEntityUseCustom
+            );
+
+            return view('categorymanagement::admin.sub-category.edit', array_merge(
+                compact('subCategory', 'mainCategories', 'commissionEntityUseCustom'),
+                $commissionCtx
+            ));
         }
         Toastr::error(translate(DEFAULT_204['message']));
         return back();
@@ -224,6 +235,11 @@ class SubCategoryController extends Controller
         if (!$category) {
             return response()->json(response_formatter(CATEGORY_204), 204);
         }
+
+        if (Gate::allows('commission_custom_sub_category_update')) {
+            CommissionEntitySetup::applyFromRequestToModel($request, $category);
+        }
+
         $category->name = $request->name[array_search('default', $request->lang)];
         if ($request->has('image')) {
             $category->image = file_uploader('category/', APPLICATION_IMAGE_FORMAT, $request->file('image'), $category->image);

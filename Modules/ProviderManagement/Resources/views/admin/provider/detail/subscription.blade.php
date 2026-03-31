@@ -45,36 +45,54 @@
             </div>
             <div class="card mb-3">
                 <div class="card-body">
-                    <form action="{{ route('admin.provider.commission_update', [$provider->id]) }}" method="post">
+                    <form action="{{ route('admin.provider.commission_update', [$provider->id]) }}" method="post" id="provider-commission-form">
                         @csrf
-                        <div class="mb-3">{{ translate('Commission_Settings') }}</div>
-                        <div class="d-flex flex-wrap align-items-center gap-4 mb-30">
-                            <div class="custom-radio">
-                                <input type="radio" name="commission_status" id="default_commission"
-                                       value="default" {{ $provider->commission_status == 0 ? 'checked' : '' }}>
-                                <label for="default_commission">{{ translate('Use Default') }}</label>
+                        @if ($errors->any())
+                            <div class="alert alert-danger mb-3">
+                                @foreach ($errors->all() as $err)
+                                    <div>{{ $err }}</div>
+                                @endforeach
                             </div>
-                            <div class="custom-radio">
-                                <input type="radio" name="commission_status" id="custom_commission"
-                                       value="custom" {{ $provider->commission_status == 1 ? 'checked' : '' }}>
-                                <label for="custom_commission">{{ translate('Set_Custom_Commission') }}</label>
+                        @endif
+                        <div class="mb-2 fw-semibold">{{ translate('Commission_Settings') }}</div>
+                        <p class="text-muted fz-12 mb-3">{{ translate('Commission_settings_business_plan_hint') }}</p>
+                        @can('commission_custom_provider_update')
+                            <div class="d-flex flex-wrap align-items-start gap-4 mb-30">
+                                <div class="custom-radio">
+                                    <input type="radio" name="commission_status" id="default_commission"
+                                           value="default" {{ $provider->commission_status == 0 ? 'checked' : '' }}>
+                                    <label for="default_commission" class="d-block">{{ translate('Commission_use_company_default') }}</label>
+                                    <span class="d-block text-muted fz-12 mt-1 ms-4">{{ translate('Commission_use_company_default_help') }}</span>
+                                </div>
+                                <div class="custom-radio">
+                                    <input type="radio" name="commission_status" id="custom_commission"
+                                           value="custom" {{ $provider->commission_status == 1 ? 'checked' : '' }}>
+                                    <label for="custom_commission" class="d-block">{{ translate('Commission_custom_for_this_provider') }}</label>
+                                    <span class="d-block text-muted fz-12 mt-1 ms-4">{{ translate('Commission_custom_for_this_provider_help') }}</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="form-floating {{ $provider->commission_status == 0 ? 'd-none' : '' }}"
-                             id="commission_percentage_wrapper">
-                            <input type="number" min="0" max="100" step="any" class="form-control"
-                                   placeholder="{{ translate('Percentage') }}"
-                                   id="commission_percentage_input" name="custom_commission_value"
-                                   value="{{ $provider->commission_percentage }}"
-                                {{ $provider->commission_status == 1 ? 'required' : '' }}>
-                            <label>{{ translate('Percentage') }}</label>
-                        </div>
+                            <div id="provider-custom-commission-wrap" class="{{ (int) $provider->commission_status === 1 ? '' : 'd-none' }}">
+                                <p class="fz-12 text-muted mb-3">{{ translate('Provider_custom_commission_tier_hint') }}</p>
+                                <div id="commission-tier-settings">
+                                    @include('businesssettingsmodule::admin.partials.commission-tier-setup-fields', ['tierService' => $tierService, 'tierSpare' => $tierSpare])
+                                </div>
+                            </div>
+                        @else
+                            <div class="alert alert-soft-primary fz-12 mb-30" role="alert">
+                                {{ translate('Commission_customization_no_permission_note') }}
+                            </div>
+                            @if ((int) $provider->commission_status === 1)
+                                <p class="text-muted fz-12 mb-0">{{ translate('Provider_uses_custom_commission_read_only') }}</p>
+                            @endif
+                        @endcan
 
                         @can('provider_manage_status')
-                            <div class="d-flex justify-content-end mt-30">
-                                <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
-                            </div>
+                            @can('commission_custom_provider_update')
+                                <div class="d-flex justify-content-end mt-30">
+                                    <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
+                                </div>
+                            @endcan
                         @endcan
                     </form>
                 </div>
@@ -198,31 +216,17 @@
                 </div>
             </form>
             @else
-                <div class="container-fluid">
-                    <div class="card mt-3">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <img width="20" src="{{asset('assets/admin-module/img/icons/ov11.png')}}" alt="">
-                                <h3>{{translate('Package Overview')}}</h3>
-                            </div>
-
-                            <div class="c1-light-bg radius-10 p-lg-4 p-3">
-                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-30">
-                                    <div class="">
-                                        <h4 class="h4 mb-1 c1 fw-bold">{{ translate('Commission Base Plan') }}</h4>
-                                        <h4 class="mb-1">{{ $commission }}% {{translate('Commission per booking order')}}</h4>
-                                        <h5 class="">{{ translate('Provider will pay')}} {{ $commission }}% {{ translate('commission to admin from each booking. You will get access of all the features and options  in store panel , app and interaction with user.') }}</h5>
-                                    </div>
-                                </div>
-                            </div>
-                            @if($subscriptionStatus)
-                                <div class="text-end pt-3">
+                @if($subscriptionStatus)
+                    <div class="container-fluid">
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <div class="text-end">
                                     <button type="button" class="btn btn--primary" data-bs-toggle="modal" data-bs-target="#priceModal">{{translate('Change Business Plan')}}</button>
                                 </div>
-                            @endif
+                            </div>
                         </div>
                     </div>
-                </div>
+                @endif
             @endif
         </div>
     </div>
@@ -230,22 +234,30 @@
 @endsection
 
 @push('script')
-    <script>
-        "use strict";
+    @can('commission_custom_provider_update')
+        @include('businesssettingsmodule::admin.partials.commission-tier-setup-scripts', [
+            'previewCurrencySymbol' => $previewCurrencySymbol ?? '$',
+            'previewCurrencyCode' => $previewCurrencyCode ?? 'USD',
+            'commissionTierBindBusinessCheckbox' => false,
+        ])
+        <script>
+            "use strict";
+            $(function () {
+                function syncProviderCustomCommissionVisibility() {
+                    var custom = $('#custom_commission').is(':checked');
+                    $('#provider-custom-commission-wrap').toggleClass('d-none', !custom);
+                }
 
-        $('#default_commission').on('click', function () {
-            if ($('#default_commission').is(':checked')) {
-                $('#commission_percentage_wrapper').addClass('d-none');
-                $('#commission_percentage_input').removeAttr('required');
-            }
-        });
+                $('#default_commission').on('change click', syncProviderCustomCommissionVisibility);
+                $('#custom_commission').on('change click', syncProviderCustomCommissionVisibility);
+                syncProviderCustomCommissionVisibility();
 
-        $('#custom_commission').on('click', function () {
-            if ($('#custom_commission').is(':checked')) {
-                $('#commission_percentage_wrapper').removeClass('d-none');
-                $('#commission_percentage_input').prop('required', true);
-            }
-        });
-    </script>
+                $('#provider-commission-form').on('submit', function () {
+                    var custom = $('#custom_commission').is(':checked');
+                    $('#commission-tier-settings').find('input, select').prop('disabled', !custom);
+                });
+            });
+        </script>
+    @endcan
 @endpush
 

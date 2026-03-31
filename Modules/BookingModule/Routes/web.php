@@ -52,6 +52,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('offline-payment/verify', [BookingController::class, 'verifyOfflinePayment'])->name('offline-payment.verify');
         Route::post('add-payment/{id}', [BookingController::class, 'addPayment'])->name('add-payment');
         Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
+        Route::post('reopen/{id}', [BookingController::class, 'reopenFromCompleted'])->name('reopen');
+        Route::post('reopen-resolve/{id}', [BookingController::class, 'resolveReopenTicket'])->name('reopen-resolve');
 
         Route::delete('delete/{id}', [BookingController::class, 'destroy'])->name('delete');
 

@@ -1,3 +1,7 @@
+@php
+    $_modalCustomerName = $customerName ?? $customer_name ?? booking_display_customer_name($booking, $customerAddress ?? null);
+    $_modalCustomerPhone = $customerPhone ?? $customer_phone ?? booking_display_customer_phone($booking, $customerAddress ?? null);
+@endphp
 <div class="modal fade" id="serviceLocationModal--{{$booking['id']}}" tabindex="-1"
      aria-labelledby="serviceLocationModalLabel"
      aria-hidden="true">
@@ -71,16 +75,16 @@
                                         <div>
                                             <h5 class="c1 mb-3">
                                                 @if (!$booking?->is_guest && $booking?->customer)
-                                                    <span class="c1 updated_customer_name">{{ Str::limit($customer_name, 30) }}</span>
+                                                    <span class="c1 updated_customer_name">{{ Str::limit($_modalCustomerName, 30) }}</span>
                                                 @else
-                                                    <span class="updated_customer_name">{{ Str::limit($customer_name ?? '', 30) }}</span>
+                                                    <span class="updated_customer_name">{{ Str::limit($_modalCustomerName, 30) }}</span>
                                                 @endif
                                             </h5>
                                             <ul class="list-info">
-                                                @if ($customer_phone)
+                                                @if ($_modalCustomerPhone)
                                                     <li>
                                                         <span class="material-icons">phone_iphone</span>
-                                                        <a href="tel:{{ $customer_phone }}" id="updated_customer_phone">{{ $customer_phone }}</a>
+                                                        <a href="tel:{{ $_modalCustomerPhone }}" id="updated_customer_phone">{{ $_modalCustomerPhone }}</a>
                                                     </li>
                                                 @endif
                                                 <li>

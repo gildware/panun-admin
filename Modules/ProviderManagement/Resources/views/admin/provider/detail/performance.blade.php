@@ -186,6 +186,7 @@
                             $lateArrivalCount = (int) ($metrics->late_arrival_count ?? 0);
                             $poorServiceCount = (int) ($metrics->poor_service_count ?? 0);
                             $positiveFeedbackCount = (int) ($metrics->positive_feedback_count ?? 0);
+                            $reopenedBookingsCount = (int) ($metrics->reopened_bookings_count ?? 0);
                             $performanceScore = (int) ($metrics->performance_score ?? 0);
                             $suggestedAction = (string) ($metrics->suggested_action ?? 'keep_active');
                         @endphp
@@ -231,6 +232,12 @@
                             <div class="perf-metric">
                                 <div class="perf-metric__label">{{ translate('Positive_Feedback_Count') }}</div>
                                 <div class="perf-metric__value">{{ $positiveFeedbackCount }}</div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6">
+                            <div class="perf-metric">
+                                <div class="perf-metric__label">{{ translate('Reopened_Bookings_Count') }}</div>
+                                <div class="perf-metric__value">{{ $reopenedBookingsCount }}</div>
                             </div>
                         </div>
                         <div class="col-xl-3 col-md-6">
@@ -281,6 +288,7 @@
                                         $actionLabel = match($incident->action_type) {
                                             'provider_changed' => translate('Provider Changed'),
                                             'cancelled', 'canceled' => translate('Cancelled'),
+                                            'reopened' => translate('Reopened'),
                                             default => translate('Completed'),
                                         };
                                         $typeLabel = match($incident->incident_type) {
