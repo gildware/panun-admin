@@ -530,7 +530,10 @@ class AdvanceSearch
 
     public function searchMenuList($searchKeyword, $type): array
     {
-        $result = $type == "admin" ? $this->adminMenuWithRoutes() : $this->providerMenuWithRoutes();
+        $result = $type == 'admin' ? $this->adminMenuWithRoutes() : $this->providerMenuWithRoutes();
+        if ($type === 'admin') {
+            $result = collect($result)->concat($this->buildAdminAddonMenuSearchItems());
+        }
 
         $translatedMenus = $this->getTranslatedMenus($result, $searchKeyword);
         $rawMenus = $this->getRawMenus($result, $searchKeyword);
@@ -584,22 +587,130 @@ class AdvanceSearch
 
     private function matchesMenuSearch($item, $searchKeyword): bool
     {
-        $pageTitleValue = strtolower($this->removeUnderscore($item['page_title_value'] ?? ''));
-        $keywords = strtolower($item['keywords'] ?? '');
-        $search = strtolower(trim($searchKeyword));
+        $search = strtolower(trim((string) $searchKeyword));
+        if ($search === '') {
+            return false;
+        }
 
-        if ($pageTitleValue === $search || str_contains($pageTitleValue, $search)) {
+        $pageTitleKey = (string) ($item['page_title_value'] ?? $item['page_title'] ?? '');
+        $pageTitleNormalized = strtolower($this->removeUnderscore($pageTitleKey));
+        $translatedLabel = strtolower(preg_replace('/\s+/u', ' ', trim(strip_tags(translate($pageTitleKey)))));
+        $keywords = strtolower((string) ($item['keywords'] ?? ''));
+        $uri = (string) ($item['uri'] ?? '');
+        $path = strtolower((string) (parse_url($uri, PHP_URL_PATH) ?: $uri));
+        $pathReadable = str_replace(['/', '-', '_'], ' ', $path);
+        $query = parse_url($uri, PHP_URL_QUERY);
+        $queryReadable = $query ? strtolower(str_replace(['=', '&'], ' ', $query)) : '';
+
+        $haystack = strtolower(trim(implode(' ', array_filter([
+            $pageTitleNormalized,
+            $translatedLabel,
+            $keywords,
+            $pathReadable,
+            $queryReadable,
+        ]))));
+
+        if ($haystack === $search || str_contains($haystack, $search)) {
             return true;
         }
 
-        $keywordList = array_map('trim', explode(',', $keywords));
-        foreach ($keywordList as $key) {
-            if ($key === $search || str_contains($key, $search)) {
+        $tokens = preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($tokens) > 1) {
+            $allMatch = true;
+            foreach ($tokens as $token) {
+                if (mb_strlen($token) < 2) {
+                    continue;
+                }
+                if (!str_contains($haystack, $token)) {
+                    $allMatch = false;
+                    break;
+                }
+            }
+            if ($allMatch && count(array_filter($tokens, fn ($t) => mb_strlen($t) >= 2)) > 0) {
                 return true;
             }
         }
 
+        $keywordList = array_map('trim', explode(',', $keywords));
+        foreach ($keywordList as $key) {
+            $keyLower = strtolower($key);
+            if ($keyLower === '' || mb_strlen($keyLower) < 2) {
+                continue;
+            }
+            if ($keyLower === $search || str_contains($keyLower, $search) || str_contains($search, $keyLower)) {
+                return true;
+            }
+            if (count($tokens) > 1) {
+                $innerAll = true;
+                foreach ($tokens as $token) {
+                    if (mb_strlen($token) < 2) {
+                        continue;
+                    }
+                    if (!str_contains($keyLower, $token)) {
+                        $innerAll = false;
+                        break;
+                    }
+                }
+                if ($innerAll) {
+                    return true;
+                }
+            }
+        }
+
         return false;
+    }
+
+    /**
+     * Searchable copies of dynamic addon sidebar links (same config as _aside.blade.php).
+     */
+    private function buildAdminAddonMenuSearchItems(): \Illuminate\Support\Collection
+    {
+        $groups = config('addon_admin_routes', []);
+        if (!is_array($groups) || $groups === []) {
+            return collect();
+        }
+
+        $out = [];
+        foreach ($groups as $routes) {
+            if (!is_array($routes)) {
+                continue;
+            }
+            foreach ($routes as $route) {
+                if (!is_array($route)) {
+                    continue;
+                }
+                $name = (string) ($route['name'] ?? '');
+                $url = (string) ($route['url'] ?? '');
+                if ($name === '' || $url === '') {
+                    continue;
+                }
+                $path = parse_url($url, PHP_URL_PATH);
+                $uri = $path !== null && $path !== ''
+                    ? ltrim($path, '/')
+                    : ltrim((string) ($route['path'] ?? ''), '/');
+                if ($uri === '') {
+                    continue;
+                }
+                $query = parse_url($url, PHP_URL_QUERY);
+                if ($query) {
+                    $uri .= '?' . $query;
+                }
+                $out[] = [
+                    'page_title' => $name,
+                    'page_title_value' => $name,
+                    'key' => base64_encode($uri . '_addon_menu'),
+                    'uri' => $uri,
+                    'uri_count' => count(explode('/', parse_url($uri, PHP_URL_PATH) ?: $uri)),
+                    'full_route' => url($uri),
+                    'type' => 'menu',
+                    'priority' => 1,
+                    'sorting' => '',
+                    'keywords' => 'addon, addon menus, ' . str_replace('_', ' ', $name),
+                ];
+            }
+        }
+
+        return collect($out);
     }
 
     private function formatMenuItem($item): array
@@ -626,7 +737,7 @@ class AdvanceSearch
             ->unique('uri')
             ->values()
             ->sortBy(function ($item) {
-                $priority = match ($item['modules'] ?? '') {
+                $priority = match ($item['module'] ?? '') {
                     'bookings' => 1,
                     'services' => 2,
                     'reports' => 3,

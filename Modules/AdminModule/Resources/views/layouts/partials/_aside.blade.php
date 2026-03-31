@@ -889,6 +889,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         <span class="link-title">{{translate('Backup_Database')}}</span>
                     </a>
                 </li>
+                <li>
+                    <a href="{{ route('admin.system-maintenance.data-reset.index') }}"
+                       class="{{ request()->is('admin/system-maintenance/data-reset') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Reset_Operational_Data') }}">delete_forever</span>
+                        <span class="link-title">{{ translate('Reset_Operational_Data') }}</span>
+                    </a>
+                </li>
             @endcan
 
             @canany(['service_view', 'category_view', 'customer_view', 'provider_view', 'lead_view', 'booking_view', 'business_view'])
