@@ -40,6 +40,7 @@ class TransactionController extends Controller
 
         $query = LedgerTransaction::query()->with([
             'booking' => fn ($q) => $q->select('id', 'readable_id'),
+            'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id'),
             'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
             'provider' => fn ($q) => $q->select('id', 'company_name'),
         ]);
@@ -133,6 +134,8 @@ class TransactionController extends Controller
 
         $query = LedgerTransaction::query()->with([
             'booking' => fn ($q) => $q->select('id', 'readable_id'),
+            'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id'),
+            'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
         ]);
 
         if ($from && $to) {
@@ -198,6 +201,7 @@ class TransactionController extends Controller
                     'reason' => $e->reason,
                     'received_by' => $e->received_by,
                     'reference_note' => $e->reference_note,
+                    'entry_by' => $e->resolvedEntryByLabel(),
                 ];
             });
 

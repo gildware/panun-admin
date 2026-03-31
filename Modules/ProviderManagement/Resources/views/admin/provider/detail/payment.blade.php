@@ -167,7 +167,7 @@
                                                 <br><small class="text-muted">{{ translate('Repeat') }}: {{ $entry->repeat->readable_id ?? $entry->booking_repeat_id }}</small>
                                             @endif
                                         </td>
-                                        <td>{{ $entry->creator ? ($entry->creator->first_name ?? $entry->creator->email ?? $entry->creator->id) : '—' }}</td>
+                                        <td>{{ $entry->resolvedEntryByLabel() }}</td>
                                     </tr>
                                 @empty
                                     <tr>

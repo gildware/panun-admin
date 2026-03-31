@@ -119,13 +119,7 @@
                                                 @endif
                                             </td>
                                             <td>{{ $entry->transaction_id ?: '—' }}</td>
-                                            <td>
-                                                @if($entry->creator)
-                                                    {{ trim($entry->creator->first_name . ' ' . $entry->creator->last_name) ?: $entry->creator->email }}
-                                                @else
-                                                    —
-                                                @endif
-                                            </td>
+                                            <td>{{ $entry->resolvedEntryByLabel() }}</td>
                                             <td class="text-end fw-medium">
                                                 @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
                                                     <span class="text-success">+ {{ with_currency_symbol($entry->amount) }}</span>
