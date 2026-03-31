@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Collection;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\BusinessSettingsModule\Entities\Translation;
@@ -51,6 +52,62 @@ class Zone extends Model
     public function childZones(): HasMany
     {
         return $this->hasMany(Zone::class, 'parent_id');
+    }
+
+    /**
+     * Build ordered rows for a single HTML select: roots first, then depth-first children with indented labels.
+     *
+     * @param  Collection<int, self>  $zones
+     * @return array<int, array{id: string, label: string}>
+     */
+    public static function flatTreeOptionsForSelect(Collection $zones): array
+    {
+        if ($zones->isEmpty()) {
+            return [];
+        }
+
+        $zoneIds = $zones->pluck('id')->all();
+        $zoneIdSet = array_flip($zoneIds);
+        $sortName = static fn (self $z): string => mb_strtolower((string) ($z->name ?? ''));
+
+        $childrenByParent = $zones->groupBy('parent_id');
+
+        $roots = $zones
+            ->filter(function (self $z) use ($zoneIdSet) {
+                if ($z->parent_id === null || $z->parent_id === '') {
+                    return true;
+                }
+
+                return ! isset($zoneIdSet[$z->parent_id]);
+            })
+            ->unique('id')
+            ->sortBy($sortName)
+            ->values();
+
+        $out = [];
+        $walk = null;
+        $walk = function (self $zone, int $depth) use (&$out, &$walk, $childrenByParent, $sortName): void {
+            $prefix = $depth > 0
+                ? str_repeat("\u{00A0}\u{00A0}\u{00A0}\u{00A0}", $depth)."\u{2514}\u{2500} "
+                : '';
+            $out[] = [
+                'id' => $zone->id,
+                'label' => $prefix.($zone->name ?? ''),
+            ];
+            $kids = $childrenByParent->get($zone->id, collect())->sortBy($sortName);
+            foreach ($kids as $child) {
+                if ($child->id === $zone->id) {
+                    continue;
+                }
+                $walk($child, $depth + 1);
+            }
+        };
+
+        foreach ($roots as $root) {
+            $walk($root, 0);
+        }
+
+        return $out;
     }
 
     /**

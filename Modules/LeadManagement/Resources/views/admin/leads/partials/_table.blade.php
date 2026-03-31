@@ -58,7 +58,7 @@
                                 {{ $lead->id }}
                             </a>
                         </td>
-                        <td>{{ $lead->name }}</td>
+                        <td>{{ $lead->name ?? '—' }}</td>
                         <td>{{ $lead->phone_number }}</td>
                         @if($isProviderTab)
                             @php $pd = $providerLeadData[$lead->id] ?? []; @endphp

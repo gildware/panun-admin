@@ -34,6 +34,9 @@
             background-color: #f8f9fa !important;
             color: inherit !important;
         }
+        .select2-container.booking-select2-invalid .select2-selection {
+            border-color: #dc3545 !important;
+        }
     </style>
 @endpush
 
@@ -50,7 +53,7 @@
         <div class="card">
             <div class="card-body">
                 <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form"
-                      data-currency="{{ currency_symbol() ?? '' }}">
+                      data-currency="{{ currency_symbol() ?? '' }}" novalidate>
                     @csrf
                     @if(request()->has('lead_id'))
                         <input type="hidden" name="lead_id" value="{{ request('lead_id') }}">
@@ -110,6 +113,16 @@
                             </div>
                         </div>
 
+                        <div id="booking-customer-info-alert" class="d-none mt-2">
+                            <div class="alert alert-danger d-flex align-items-center mb-0" role="alert">
+                                <div class="media gap-2 flex-grow-1">
+                                    <img src="{{ asset('assets/admin-module/img/WarningOctagon.svg') }}" class="svg" alt="">
+                                    <div class="media-body" id="booking-customer-info-alert-body"></div>
+                                </div>
+                                <button type="button" class="btn-close shadow-none booking-customer-info-alert-close" aria-label="{{ translate('Close') }}"></button>
+                            </div>
+                        </div>
+
                     </div>
 
                     {{-- 2. Service --}}
@@ -121,10 +134,10 @@
                                     <label class="form-label">{{ translate('Zone') }}</label>
                                     <select name="zone_id" id="service-zone-select" class="form-control js-select" required>
                                         <option value="">{{ translate('Select_Zone') }}</option>
-                                        @foreach($zones as $zone)
-                                            <option value="{{ $zone->id }}"
-                                                {{ (old('zone_id', request('zone_id')) == $zone->id || ($zones->count() === 1 && $loop->first)) ? 'selected' : '' }}>
-                                                {{ $zone->name }}
+                                        @foreach($zoneTreeOptions as $zOpt)
+                                            <option value="{{ $zOpt['id'] }}"
+                                                {{ (old('zone_id', request('zone_id')) == $zOpt['id'] || (count($zoneTreeOptions) === 1 && $loop->first)) ? 'selected' : '' }}>
+                                                {{ $zOpt['label'] }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -194,6 +207,16 @@
                                     <span class="text-danger">{{ $message }}</span>
                                     @enderror
                                 </div>
+                            </div>
+                        </div>
+
+                        <div id="booking-service-info-alert" class="d-none mt-2">
+                            <div class="alert alert-danger d-flex align-items-center mb-0" role="alert">
+                                <div class="media gap-2 flex-grow-1">
+                                    <img src="{{ asset('assets/admin-module/img/WarningOctagon.svg') }}" class="svg" alt="">
+                                    <div class="media-body" id="booking-service-info-alert-body"></div>
+                                </div>
+                                <button type="button" class="btn-close shadow-none booking-service-info-alert-close" aria-label="{{ translate('Close') }}"></button>
                             </div>
                         </div>
                     </div>
@@ -345,8 +368,8 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">{{ translate('Advance_Payment_Transaction_ID_(Optional)') }}</label>
-                                    <input type="text" name="advance_transaction_id" class="form-control"
+                                    <label class="form-label">{{ translate('Advance_Payment_Transaction_ID') }}</label>
+                                    <input type="text" name="advance_transaction_id" id="advance-transaction-id" class="form-control"
                                            value="{{ old('advance_transaction_id', request('advance_transaction_id')) }}"
                                            placeholder="{{ translate('Enter_bank_or_wallet_transaction_id_if_available') }}">
                                     @error('advance_transaction_id')
@@ -401,6 +424,16 @@
                         </div>
                     </div>
 
+                    <div id="booking-form-validation-alert" class="d-none mt-3">
+                        <div class="alert alert-danger d-flex align-items-start mb-0" role="alert">
+                            <div class="media gap-2 flex-grow-1">
+                                <img src="{{ asset('assets/admin-module/img/WarningOctagon.svg') }}" class="svg mt-1" alt="">
+                                <div class="media-body" id="booking-form-validation-alert-body"></div>
+                            </div>
+                            <button type="button" class="btn-close shadow-none booking-form-validation-alert-close" aria-label="{{ translate('Close') }}"></button>
+                        </div>
+                    </div>
+
                     <div class="mt-3 d-flex justify-content-end">
                         <button type="submit" class="btn btn-primary">
                             {{ translate('Continue_to_Preview') }}
@@ -421,6 +454,15 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="quick-customer-modal-alert" class="d-none mb-3">
+                        <div class="alert alert-danger d-flex align-items-center mb-0" role="alert">
+                            <div class="media gap-2 flex-grow-1">
+                                <img src="{{ asset('assets/admin-module/img/WarningOctagon.svg') }}" class="svg" alt="">
+                                <div class="media-body" id="quick-customer-modal-alert-body"></div>
+                            </div>
+                            <button type="button" class="btn-close shadow-none quick-customer-modal-alert-close" aria-label="{{ translate('Close') }}"></button>
+                        </div>
+                    </div>
                     <form id="quick-customer-form">
                         @csrf
                         <div class="row">
@@ -476,6 +518,15 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="quick-address-modal-alert" class="d-none mb-3">
+                        <div class="alert alert-danger d-flex align-items-center mb-0" role="alert">
+                            <div class="media gap-2 flex-grow-1">
+                                <img src="{{ asset('assets/admin-module/img/WarningOctagon.svg') }}" class="svg" alt="">
+                                <div class="media-body" id="quick-address-modal-alert-body"></div>
+                            </div>
+                            <button type="button" class="btn-close shadow-none quick-address-modal-alert-close" aria-label="{{ translate('Close') }}"></button>
+                        </div>
+                    </div>
                     <form id="quick-address-form">
                         @csrf
                         <div class="row">
@@ -534,6 +585,101 @@
         "use strict";
         $(document).ready(function () {
             $('.js-select').select2();
+
+            function renderBookingCustomerAlert(messages) {
+                var $wrap = $('#booking-customer-info-alert');
+                var $body = $('#booking-customer-info-alert-body');
+                var list = Array.isArray(messages) ? messages : (messages ? [messages] : []);
+                if (list.length === 0) {
+                    $wrap.addClass('d-none');
+                    $body.empty();
+                    return;
+                }
+                $body.html(list.map(function (text) {
+                    return '<p class="mb-1 mb-md-0">' + $('<div/>').text(text).html() + '</p>';
+                }).join(''));
+                $wrap.removeClass('d-none');
+                var el = $wrap[0];
+                if (el && el.scrollIntoView) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+
+            function resetBookingCustomerAlert() {
+                $('#booking-customer-info-alert').addClass('d-none');
+                $('#booking-customer-info-alert-body').empty();
+            }
+
+            $('#booking-customer-info-alert').on('click', '.booking-customer-info-alert-close', function () {
+                resetBookingCustomerAlert();
+            });
+
+            function renderBookingFormValidationAlert(intro, messages) {
+                var $wrap = $('#booking-form-validation-alert');
+                var $body = $('#booking-form-validation-alert-body');
+                var list = Array.isArray(messages) ? messages : [];
+                if (list.length === 0) {
+                    $wrap.addClass('d-none');
+                    $body.empty();
+                    return;
+                }
+                var introHtml = '<p class="fw-semibold mb-2">' + $('<div/>').text(intro || '').html() + '</p>';
+                var listHtml = '<ul class="mb-0 ps-3">' + list.map(function (text) {
+                    return '<li>' + $('<div/>').text(text).html() + '</li>';
+                }).join('') + '</ul>';
+                $body.html(introHtml + listHtml);
+                $wrap.removeClass('d-none');
+                var el = $wrap[0];
+                if (el && el.scrollIntoView) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+
+            function resetBookingFormValidationAlert() {
+                $('#booking-form-validation-alert').addClass('d-none');
+                $('#booking-form-validation-alert-body').empty();
+            }
+
+            $('#booking-form-validation-alert').on('click', '.booking-form-validation-alert-close', function () {
+                resetBookingFormValidationAlert();
+            });
+
+            function renderQuickModalAlert(wrapId, bodyId, messages) {
+                var $wrap = $(wrapId);
+                var $body = $(bodyId);
+                var list = Array.isArray(messages) ? messages : (messages ? [messages] : []);
+                if (list.length === 0) {
+                    $wrap.addClass('d-none');
+                    $body.empty();
+                    return;
+                }
+                $body.html(list.map(function (text) {
+                    return '<p class="mb-1 mb-md-0">' + $('<div/>').text(text).html() + '</p>';
+                }).join(''));
+                $wrap.removeClass('d-none');
+            }
+
+            function resetQuickCustomerModalAlert() {
+                renderQuickModalAlert('#quick-customer-modal-alert', '#quick-customer-modal-alert-body', []);
+            }
+
+            function resetQuickAddressModalAlert() {
+                renderQuickModalAlert('#quick-address-modal-alert', '#quick-address-modal-alert-body', []);
+            }
+
+            $('#quick-customer-modal-alert').on('click', '.quick-customer-modal-alert-close', function () {
+                resetQuickCustomerModalAlert();
+            });
+            $('#quick-address-modal-alert').on('click', '.quick-address-modal-alert-close', function () {
+                resetQuickAddressModalAlert();
+            });
+
+            $('#addCustomerModal').on('show.bs.modal', function () {
+                resetQuickCustomerModalAlert();
+            });
+            $('#addAddressModal').on('show.bs.modal', function () {
+                resetQuickAddressModalAlert();
+            });
 
             const $customerSelect = $('#customer-select');
             const $addressSelect = $('#customer-address-select');
@@ -599,15 +745,17 @@
 
             $('#open-add-address').on('click', function () {
                 if (!$customerSelect.val()) {
-                    alert('{{ translate('Please_select_a_customer_first') }}');
+                    renderBookingCustomerAlert('{{ translate('Please_select_a_customer_first') }}');
                     return;
                 }
+                resetBookingCustomerAlert();
                 $('#addAddressModal').modal('show');
             });
 
             $('#save-customer-btn').on('click', function () {
                 const $form = $('#quick-customer-form');
                 const formData = $form.serialize();
+                resetQuickCustomerModalAlert();
 
                 $.ajax({
                     url: '{{ route('admin.customer.quick-store') }}',
@@ -617,6 +765,8 @@
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
                     success: function (response) {
+                        resetBookingCustomerAlert();
+                        resetQuickCustomerModalAlert();
                         const newOption = new Option(
                             response.name + ' - ' + response.phone,
                             response.id,
@@ -634,9 +784,9 @@
                             Object.values(xhr.responseJSON.errors).forEach(function (errs) {
                                 messages = messages.concat(errs);
                             });
-                            alert(messages.join('\n'));
+                            renderQuickModalAlert('#quick-customer-modal-alert', '#quick-customer-modal-alert-body', messages);
                         } else {
-                            alert('{{ translate('Something_went_wrong') }}');
+                            renderQuickModalAlert('#quick-customer-modal-alert', '#quick-customer-modal-alert-body', '{{ translate('Something_went_wrong') }}');
                         }
                     }
                 });
@@ -645,8 +795,9 @@
             $('#save-address-btn').on('click', function () {
                 const $form = $('#quick-address-form');
                 const customerId = $customerSelect.val();
+                resetQuickAddressModalAlert();
                 if (!customerId) {
-                    alert('{{ translate('Please_select_a_customer_first') }}');
+                    renderBookingCustomerAlert('{{ translate('Please_select_a_customer_first') }}');
                     return;
                 }
 
@@ -661,6 +812,8 @@
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
                     success: function (response) {
+                        resetBookingCustomerAlert();
+                        resetQuickAddressModalAlert();
                         const option = new Option(
                             response.label + ' - ' + response.full_address,
                             response.id,
@@ -677,9 +830,9 @@
                             Object.values(xhr.responseJSON.errors).forEach(function (errs) {
                                 messages = messages.concat(errs);
                             });
-                            alert(messages.join('\n'));
+                            renderQuickModalAlert('#quick-address-modal-alert', '#quick-address-modal-alert-body', messages);
                         } else {
-                            alert('{{ translate('Something_went_wrong') }}');
+                            renderQuickModalAlert('#quick-address-modal-alert', '#quick-address-modal-alert-body', '{{ translate('Something_went_wrong') }}');
                         }
                     }
                 });
@@ -691,6 +844,58 @@
             const $subCategorySelect = $('#service-subcategory-select');
             const $serviceSelect = $('#service-select');
             const $variantSelect = $('#service-variant-select');
+            var SERVICE_INFO_ALERT_KEYS = [
+                'categories', 'categoryLoadError',
+                'subcategories', 'subcategoryLoadError',
+                'services', 'serviceLoadError',
+                'variants', 'variantLoadError',
+                'providers', 'providerLoadError'
+            ];
+
+            function emptyServiceInfoAlertState() {
+                var o = {};
+                SERVICE_INFO_ALERT_KEYS.forEach(function (k) {
+                    o[k] = null;
+                });
+                return o;
+            }
+
+            var serviceInfoAlertState = emptyServiceInfoAlertState();
+
+            function resetBookingServiceInfoAlert() {
+                serviceInfoAlertState = emptyServiceInfoAlertState();
+                $('#booking-service-info-alert').addClass('d-none');
+                $('#booking-service-info-alert-body').empty();
+            }
+
+            function renderBookingServiceInfoAlert() {
+                var $wrap = $('#booking-service-info-alert');
+                var $body = $('#booking-service-info-alert-body');
+                var parts = [];
+                SERVICE_INFO_ALERT_KEYS.forEach(function (k) {
+                    if (serviceInfoAlertState[k]) {
+                        parts.push(serviceInfoAlertState[k]);
+                    }
+                });
+                if (parts.length === 0) {
+                    $wrap.addClass('d-none');
+                    $body.empty();
+                    return;
+                }
+                $body.html(parts.map(function (text) {
+                    return '<p class="mb-1 mb-md-0">' + $('<div/>').text(text).html() + '</p>';
+                }).join(''));
+                $wrap.removeClass('d-none');
+                var el = $wrap[0];
+                if (el && el.scrollIntoView) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+
+            $('#booking-service-info-alert').on('click', '.booking-service-info-alert-close', function () {
+                resetBookingServiceInfoAlert();
+            });
+
             var currentBillingTotal = null;
             var currencySymbol = $('#booking-form').data('currency') || '';
             function formatPrice(price) {
@@ -770,9 +975,11 @@
                 const zoneId = $(this).val();
                 if (!zoneId) {
                     toggleServiceControls(0);
+                    resetBookingServiceInfoAlert();
                     return;
                 }
 
+                resetBookingServiceInfoAlert();
                 toggleServiceControls(0);
                 $categorySelect.prop('disabled', false);
                 $categorySelect.empty().append(
@@ -789,6 +996,9 @@
                     
                     if (response.content && Array.isArray(response.content)) {
                         if (response.content.length > 0) {
+                            serviceInfoAlertState.categories = null;
+                            serviceInfoAlertState.categoryLoadError = null;
+                            renderBookingServiceInfoAlert();
                             response.content.forEach(function (category) {
                                 $categorySelect.append(
                                     new Option(category.name, category.id, false, false)
@@ -799,7 +1009,8 @@
                                 $categorySelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
-                            alert('{{ translate('No_categories_found_for_this_zone') }}');
+                            serviceInfoAlertState.categories = '{{ translate('No_categories_found_for_this_zone') }}';
+                            renderBookingServiceInfoAlert();
                         }
                     }
                 }).fail(function(xhr) {
@@ -807,7 +1018,8 @@
                     $categorySelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
                     );
-                    alert('{{ translate('Failed_to_load_categories') }}');
+                    serviceInfoAlertState.categoryLoadError = '{{ translate('Failed_to_load_categories') }}';
+                    renderBookingServiceInfoAlert();
                 });
             });
 
@@ -816,9 +1028,11 @@
                 const categoryId = $(this).val();
                 if (!categoryId) {
                     toggleServiceControls(1);
+                    resetBookingServiceInfoAlert();
                     return;
                 }
 
+                resetBookingServiceInfoAlert();
                 toggleServiceControls(1);
                 $subCategorySelect.prop('disabled', false);
                 $subCategorySelect.empty().append(
@@ -835,6 +1049,9 @@
                     
                     if (response.content && Array.isArray(response.content)) {
                         if (response.content.length > 0) {
+                            serviceInfoAlertState.subcategories = null;
+                            serviceInfoAlertState.subcategoryLoadError = null;
+                            renderBookingServiceInfoAlert();
                             response.content.forEach(function (subCategory) {
                                 $subCategorySelect.append(
                                     new Option(subCategory.name, subCategory.id, false, false)
@@ -845,7 +1062,8 @@
                                 $subCategorySelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
-                            alert('{{ translate('No_subcategories_found_for_this_category') }}');
+                            serviceInfoAlertState.subcategories = '{{ translate('No_subcategories_found_for_this_category') }}';
+                            renderBookingServiceInfoAlert();
                         }
                     }
                 }).fail(function(xhr) {
@@ -853,7 +1071,8 @@
                     $subCategorySelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
                     );
-                    alert('{{ translate('Failed_to_load_subcategories') }}');
+                    serviceInfoAlertState.subcategoryLoadError = '{{ translate('Failed_to_load_subcategories') }}';
+                    renderBookingServiceInfoAlert();
                 });
             });
 
@@ -862,9 +1081,11 @@
                 const subCategoryId = $(this).val();
                 if (!subCategoryId) {
                     toggleServiceControls(2);
+                    resetBookingServiceInfoAlert();
                     return;
                 }
 
+                resetBookingServiceInfoAlert();
                 toggleServiceControls(2);
                 $serviceSelect.prop('disabled', false);
                 $serviceSelect.empty().append(
@@ -881,6 +1102,9 @@
                     
                     if (response.content && Array.isArray(response.content)) {
                         if (response.content.length > 0) {
+                            serviceInfoAlertState.services = null;
+                            serviceInfoAlertState.serviceLoadError = null;
+                            renderBookingServiceInfoAlert();
                             response.content.forEach(function (service) {
                                 $serviceSelect.append(
                                     new Option(service.name, service.id, false, false)
@@ -891,7 +1115,8 @@
                                 $serviceSelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
-                            alert('{{ translate('No_services_found_for_this_subcategory') }}');
+                            serviceInfoAlertState.services = '{{ translate('No_services_found_for_this_subcategory') }}';
+                            renderBookingServiceInfoAlert();
                         }
                     }
                 }).fail(function(xhr) {
@@ -899,7 +1124,8 @@
                     $serviceSelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
                     );
-                    alert('{{ translate('Failed_to_load_services') }}');
+                    serviceInfoAlertState.serviceLoadError = '{{ translate('Failed_to_load_services') }}';
+                    renderBookingServiceInfoAlert();
                 });
             });
 
@@ -907,6 +1133,10 @@
             $serviceSelect.on('change', function () {
                 const serviceId = $(this).val();
                 const zoneId = $zoneSelect.val();
+
+                serviceInfoAlertState.variants = null;
+                serviceInfoAlertState.variantLoadError = null;
+                renderBookingServiceInfoAlert();
 
                 if (!serviceId || !zoneId) {
                     toggleServiceControls(3);
@@ -929,6 +1159,9 @@
 
                     if (response.content && Array.isArray(response.content)) {
                         if (response.content.length > 0) {
+                            serviceInfoAlertState.variants = null;
+                            serviceInfoAlertState.variantLoadError = null;
+                            renderBookingServiceInfoAlert();
                             response.content.forEach(function (variation) {
                                 var label = variation.variant + ' — ' + formatPrice(variation.price);
                                 $variantSelect.append(
@@ -941,7 +1174,8 @@
                                 $variantSelect.val(response.content[0].variant_key).trigger('change');
                             }
                         } else {
-                            alert('{{ translate('No_services_found_for_this_subcategory') }}');
+                            serviceInfoAlertState.variants = '{{ translate('No_service_variants_for_this_zone') }}';
+                            renderBookingServiceInfoAlert();
                         }
                     }
                 }).fail(function(xhr) {
@@ -949,7 +1183,8 @@
                     $variantSelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
                     );
-                    alert('{{ translate('Failed_to_load_services') }}');
+                    serviceInfoAlertState.variantLoadError = '{{ translate('Failed_to_load_variants') }}';
+                    renderBookingServiceInfoAlert();
                 });
             });
 
@@ -1064,6 +1299,7 @@
             $subCategorySelect.on('change', function () {
                 const subCategoryId = $(this).val();
                 if (!subCategoryId) {
+                    resetBookingServiceInfoAlert();
                     $providerSelect.prop('disabled', true);
                     $providerSelect.empty().append(
                         new Option('{{ translate('Select_Provider') }}', '', true, true)
@@ -1097,6 +1333,9 @@
                     
                     if (response.content && Array.isArray(response.content)) {
                         if (response.content.length > 0) {
+                            serviceInfoAlertState.providers = null;
+                            serviceInfoAlertState.providerLoadError = null;
+                            renderBookingServiceInfoAlert();
                             response.content.forEach(function (provider) {
                                 const option = $('<option></option>')
                                     .attr('value', provider.id)
@@ -1117,7 +1356,8 @@
                                 $providerSelect.val(response.content[0].id).trigger('change');
                             }
                         } else {
-                            alert('{{ translate('No_providers_found_for_this_subcategory') }}');
+                            serviceInfoAlertState.providers = '{{ translate('No_providers_found_for_this_subcategory') }}';
+                            renderBookingServiceInfoAlert();
                             $serviceLocationSection.hide();
                         }
                     }
@@ -1126,7 +1366,8 @@
                     $providerSelect.empty().append(
                         new Option('{{ translate('Failed_to_load') }}', '', true, true)
                     );
-                    alert('{{ translate('Failed_to_load_providers') }}');
+                    serviceInfoAlertState.providerLoadError = '{{ translate('Failed_to_load_providers') }}';
+                    renderBookingServiceInfoAlert();
                     $serviceLocationSection.hide();
                 });
             });
@@ -1276,6 +1517,168 @@
             if (oldValues.assignee_id) {
                 $('#assignee-select').val(oldValues.assignee_id).trigger('change');
             }
+
+            function clearSingleFieldError($field) {
+                if (!$field || !$field.length) return;
+                $field.removeClass('is-invalid');
+                if ($field.hasClass('select2-hidden-accessible')) {
+                    $field.next('.select2-container').removeClass('booking-select2-invalid');
+                    $field.next('.select2-container').next('.booking-js-invalid-feedback').remove();
+                } else {
+                    $field.next('.booking-js-invalid-feedback').remove();
+                }
+            }
+
+            function clearBookingFieldErrors() {
+                $('#booking-form .booking-js-invalid-feedback').remove();
+                $('#booking-form select.is-invalid, #booking-form input.is-invalid, #booking-form textarea.is-invalid').removeClass('is-invalid');
+                $('#booking-form .select2-container.booking-select2-invalid').removeClass('booking-select2-invalid');
+            }
+
+            function markFieldInvalid($field, hint) {
+                if (!$field || !$field.length) return;
+                clearSingleFieldError($field);
+                $field.addClass('is-invalid');
+                var $fb = $('<div class="invalid-feedback d-block booking-js-invalid-feedback small"></div>').text(hint);
+                if ($field.hasClass('select2-hidden-accessible')) {
+                    var $c = $field.next('.select2-container');
+                    $c.addClass('booking-select2-invalid');
+                    $fb.insertAfter($c);
+                } else {
+                    $fb.insertAfter($field);
+                }
+            }
+
+            $('#booking-form').on('input change', 'select, input, textarea', function () {
+                clearSingleFieldError($(this));
+            });
+
+            function validateBookingFormBeforePreview() {
+                var msgs = [];
+                var fieldErrors = [];
+                var $first = null;
+
+                function pushError(label, detail, $field) {
+                    msgs.push(label + ': ' + detail);
+                    if ($field && $field.length) {
+                        fieldErrors.push({ $el: $field, hint: detail });
+                        if (!$first) {
+                            $first = $field;
+                        }
+                    }
+                }
+
+                var req = '{{ translate('This_field_required') }}';
+                var loc = ($serviceLocationHidden.val() || 'customer');
+
+                if (!$customerSelect.val()) {
+                    pushError('{{ translate('Customer') }}', req, $customerSelect);
+                }
+                if (loc === 'customer' && $addressRow.is(':visible') && !$addressSelect.prop('disabled') && !$addressSelect.val()) {
+                    pushError('{{ translate('Service_Address') }}', req, $addressSelect);
+                }
+                if (!$zoneSelect.val()) {
+                    pushError('{{ translate('Zone') }}', req, $zoneSelect);
+                }
+                if (!$categorySelect.val()) {
+                    pushError('{{ translate('Category') }}', req, $categorySelect);
+                }
+                if (!$subCategorySelect.val()) {
+                    pushError('{{ translate('Sub_Category') }}', req, $subCategorySelect);
+                }
+                if (!$serviceSelect.val()) {
+                    pushError('{{ translate('Service') }}', req, $serviceSelect);
+                }
+                if (!$variantSelect.val()) {
+                    pushError('{{ translate('Select_Service_Variant') }}', req, $variantSelect);
+                }
+
+                var $schedule = $('input[name="service_schedule"]');
+                var scheduleVal = ($schedule.val() || '').trim();
+                if (!scheduleVal) {
+                    pushError('{{ translate('Service_Schedule') }}', req, $schedule);
+                } else {
+                    var t = Date.parse(scheduleVal);
+                    if (isNaN(t)) {
+                        pushError('{{ translate('Service_Schedule') }}', '{{ translate('Please_enter_a_valid_service_schedule') }}', $schedule);
+                    }
+                }
+
+                var $bookingSource = $('select[name="booking_source"]');
+                if (!$bookingSource.val()) {
+                    pushError('{{ translate('Booking_Source') }}', req, $bookingSource);
+                }
+
+                if (!$providerSelect.val()) {
+                    pushError('{{ translate('Provider') }}', req, $providerSelect);
+                }
+
+                var advRaw = ($('#advance-paid-amount').val() || '').trim();
+                var advParsed = advRaw === '' ? 0 : parseFloat(advRaw);
+                var advanceAmountValid = true;
+                if (advRaw !== '') {
+                    if (isNaN(advParsed) || advParsed < 0) {
+                        advanceAmountValid = false;
+                        pushError('{{ translate('Advance_Paid_Amount') }}', '{{ translate('Enter_a_valid_non_negative_number') }}', $('#advance-paid-amount'));
+                    } else if (currentBillingTotal != null && currentBillingTotal >= 0 && advParsed > currentBillingTotal) {
+                        advanceAmountValid = false;
+                        pushError('{{ translate('Advance_Paid_Amount') }}', '{{ translate('Advance_amount_cannot_exceed_total_billing_amount') }}', $('#advance-paid-amount'));
+                    }
+                }
+                if (advanceAmountValid && advParsed > 0) {
+                    var txnId = ($('#advance-transaction-id').val() || '').trim();
+                    if (!txnId) {
+                        pushError('{{ translate('Advance_Payment_Transaction_ID') }}', '{{ translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero') }}', $('#advance-transaction-id'));
+                    }
+                }
+
+                if ($('#extra-fee-input').length) {
+                    var feeRaw = ($('#extra-fee-input').val() || '').trim();
+                    if (feeRaw !== '') {
+                        var fee = parseFloat(feeRaw);
+                        if (isNaN(fee) || fee < 0) {
+                            pushError(@json($additionalChargeLabel), @json(translate('Enter_a_valid_non_negative_number')), $('#extra-fee-input'));
+                        }
+                    }
+                }
+
+                var desc = ($('textarea[name="service_description"]').val() || '');
+                if (desc.length > 2000) {
+                    pushError('{{ translate('Service_Additional_Details_(Optional)') }}', '{{ translate('Service_additional_details_must_not_exceed_2000_characters') }}', $('textarea[name="service_description"]'));
+                }
+
+                return { msgs: msgs, $first: $first, fieldErrors: fieldErrors };
+            }
+
+            $('#booking-form').on('submit', function (e) {
+                e.preventDefault();
+                clearBookingFieldErrors();
+                var result = validateBookingFormBeforePreview();
+                if (result.msgs.length) {
+                    result.fieldErrors.forEach(function (fe) {
+                        markFieldInvalid(fe.$el, fe.hint);
+                    });
+                    renderBookingFormValidationAlert('{{ translate('Please_fill_the_booking_form_correctly') }}', result.msgs);
+                    if (result.$first && result.$first.length && result.$first[0]) {
+                        result.$first[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        if (result.$first.hasClass('js-select') && result.$first.hasClass('select2-hidden-accessible')) {
+                            result.$first.select2('open');
+                        } else {
+                            result.$first.trigger('focus');
+                        }
+                    }
+                    return false;
+                }
+                clearBookingFieldErrors();
+                resetBookingFormValidationAlert();
+                $(this).find('select').each(function () {
+                    var $s = $(this);
+                    if ($s.val() && $s.prop('disabled')) {
+                        $s.prop('disabled', false);
+                    }
+                });
+                this.submit();
+            });
         });
     </script>
 @endpush

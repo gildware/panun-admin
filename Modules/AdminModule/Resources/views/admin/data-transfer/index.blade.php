@@ -207,8 +207,6 @@
             function showToast(type, message) {
                 if (typeof toastr !== 'undefined') {
                     toastr[type](message);
-                } else {
-                    alert(message);
                 }
             }
 

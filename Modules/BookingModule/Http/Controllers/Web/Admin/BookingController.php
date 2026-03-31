@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingAdditionalInformation;
@@ -292,7 +293,8 @@ class BookingController extends Controller
      */
     protected function buildBookingCreateView(Request $request, string $view): Factory|View|Application
     {
-        $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name')->get();
+        $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id')->get();
+        $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
         $providers = $this->provider->with('owner')->get();
@@ -321,6 +323,7 @@ class BookingController extends Controller
 
         return view($view, compact(
             'zones',
+            'zoneTreeOptions',
             'categories',
             'subCategories',
             'providers',
@@ -365,12 +368,19 @@ class BookingController extends Controller
                 'service_location' => ['required', 'in:customer,provider'],
                 'booking_source' => ['required', 'string', 'max:255'],
                 'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
-                'advance_transaction_id' => ['nullable', 'string', 'max:191'],
+                'advance_transaction_id' => [
+                    'nullable',
+                    'string',
+                    'max:191',
+                    Rule::requiredIf(fn () => (float) ($request->input('advance_paid_amount') ?? 0) > 0),
+                ],
                 'assignee_id' => ['nullable', 'exists:users,id'],
                 'service_description' => ['nullable', 'string', 'max:2000'],
                 'extra_fee' => ['nullable', 'numeric', 'min:0'],
                 'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
                 'in_modal' => ['nullable', 'boolean'],
+            ], [
+                'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
             ]);
             
             // If service location is provider, clear service_address_id
@@ -472,12 +482,19 @@ class BookingController extends Controller
             'service_location' => ['required', 'in:customer,provider'],
             'booking_source' => ['required', 'string', 'max:255'],
             'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'advance_transaction_id' => ['nullable', 'string', 'max:191'],
+            'advance_transaction_id' => [
+                'nullable',
+                'string',
+                'max:191',
+                Rule::requiredIf(fn () => (float) ($request->input('advance_paid_amount') ?? 0) > 0),
+            ],
             'assignee_id' => ['nullable', 'exists:users,id'],
             'service_description' => ['nullable', 'string', 'max:2000'],
             'extra_fee' => ['nullable', 'numeric', 'min:0'],
             'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
             'in_modal' => ['nullable', 'boolean'],
+        ], [
+            'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
         ]);
         
         // If service location is provider, clear service_address_id
@@ -2806,8 +2823,14 @@ class BookingController extends Controller
      */
     public function ajaxGetCategories(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'zone_id' => 'required|uuid',
+        $zoneIds = array_values(array_filter((array) $request->input('zone_ids', [])));
+        if ($zoneIds === [] && $request->filled('zone_id')) {
+            $zoneIds = [(string) $request->input('zone_id')];
+        }
+
+        $validator = Validator::make(['zone_ids' => $zoneIds], [
+            'zone_ids' => 'required|array|min:1',
+            'zone_ids.*' => 'uuid',
         ]);
 
         if ($validator->fails()) {
@@ -2818,12 +2841,14 @@ class BookingController extends Controller
             ->withoutGlobalScope('translate')
             ->where('position', 1)
             ->where('is_active', 1)
-            ->whereHas('zones', function ($query) use ($request) {
-                $query->where('zones.id', $request['zone_id']);
+            ->whereHas('zones', function ($query) use ($zoneIds) {
+                $query->whereIn('zones.id', $zoneIds);
             })
             ->select('id', 'name')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->unique('id')
+            ->values();
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
     }

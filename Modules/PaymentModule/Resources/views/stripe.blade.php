@@ -7,6 +7,7 @@
 
 @section('content')
     <center><h1>Please do not refresh this page...</h1></center>
+    <div id="stripe-payment-error" class="alert alert-danger mx-auto my-3" style="max-width: 32rem; display: none;" role="alert"></div>
 
     <script type="text/javascript">
         var stripe = Stripe('{{$config->published_key}}');
@@ -21,7 +22,11 @@
                 return stripe.redirectToCheckout({sessionId: JSON.parse(session).id});
             }).then(function (result) {
                 if (result.error) {
-                    alert(result.error.message);
+                    var errEl = document.getElementById('stripe-payment-error');
+                    if (errEl) {
+                        errEl.textContent = result.error.message;
+                        errEl.style.display = 'block';
+                    }
                 }
             }).catch(function (error) {
                 console.error("error:", error);
