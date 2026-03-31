@@ -268,6 +268,11 @@ const ZONE_404 = [
     'message' => 'resource not found'
 ];
 
+const ZONE_SELECT_LEAF_401 = [
+    'response_code' => 'zone_select_leaf_401',
+    'message' => 'Select_leaf_zone'
+];
+
 const ZONE_RESOURCE_404 = [
     'response_code' => 'zone_404',
     'message' => 'No provider or service is available within this zone'
