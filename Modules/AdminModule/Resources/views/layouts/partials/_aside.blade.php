@@ -217,6 +217,97 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
+            @canany(['report_view', 'analytics_view'])
+                <li class="nav-category" title="{{ translate('Reports & Analytics') }}">
+                    {{ translate('Reports & Analytics') }}
+                </li>
+            @endcanany
+            @can('report_view')
+                <li class="has-sub-item {{ request()->is('admin/report/*') && !request()->is('admin/report/transaction*') ? 'sub-menu-opened' : '' }}">
+                    <a href="#" class="{{ request()->is('admin/report/*') && !request()->is('admin/report/transaction*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="Customers">event_note</span>
+                        <span class="link-title">{{ translate('Reports') }}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        <li>
+                            <a href="{{ route('admin.report.business.overview') }}"
+                               class="{{ request()->is('admin/report/business*') ? 'active-menu' : '' }}">
+                                {{ translate('Business Reports') }}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.report.booking') }}"
+                               class="{{ request()->is('admin/report/booking') ? 'active-menu' : '' }}">
+                                {{ translate('Booking Reports') }}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.report.provider') }}"
+                               class="{{ request()->is('admin/report/provider') ? 'active-menu' : '' }}">
+                                {{ translate('Provider Reports') }}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endcan
+            @can('analytics_view')
+                <li class="has-sub-item {{ request()->is('admin/analytics/*') ? 'sub-menu-opened' : '' }}">
+                    <a href="#" class="{{ request()->is('admin/analytics/*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="Customers">analytics</span>
+                        <span class="link-title">{{ translate('Analytics') }}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        <li>
+                            <a href="{{ route('admin.analytics.search.keyword') }}"
+                               class="{{ request()->is('admin/analytics/search/keyword') ? 'active-menu' : '' }}">
+                                {{ translate('Keyword_Search') }}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.analytics.search.customer') }}"
+                               class="{{ request()->is('admin/analytics/search/customer') ? 'active-menu' : '' }}">
+                                {{ translate('Customer_Search') }}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endcan
+
+            @canany(['transaction_view', 'ledger_view', 'report_view'])
+                <li class="nav-category" title="{{ translate('transaction_management') }}">
+                    {{ translate('transaction_management') }}
+                </li>
+            @endcanany
+            @canany(['transaction_view', 'ledger_view'])
+                @can('transaction_view')
+                    <li>
+                        <a href="{{ route('admin.transaction.list', ['trx_type' => 'all']) }}"
+                           class="{{ request()->is('admin/transaction/list') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="Customers">article</span>
+                            <span class="link-title">{{ translate('All Transactions') }}</span>
+                        </a>
+                    </li>
+                @endcan
+                @can('ledger_view')
+                    <li>
+                        <a href="{{ route('admin.ledger.index') }}"
+                           class="{{ request()->is('admin/ledger') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('Ledger') }}">book</span>
+                            <span class="link-title">{{ translate('Ledger') }}</span>
+                        </a>
+                    </li>
+                @endcan
+            @endcanany
+            @can('report_view')
+                <li>
+                    <a href="{{ route('admin.report.transaction', ['transaction_type' => 'all']) }}"
+                       class="{{ request()->is('admin/report/transaction*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Transaction Reports') }}">receipt_long</span>
+                        <span class="link-title">{{ translate('Transaction Reports') }}</span>
+                    </a>
+                </li>
+            @endcan
+
             @canany(['discount_view', 'discount_add', 'coupon_view', 'coupon_add', 'bonus_view', 'bonus_add', 'campaign_view', 'campaign_add','advertisement_view', 'advertisement_add', 'banner_add', 'banner_view' ])
                 <li class="nav-category" title="{{translate('promotion_management')}}">
                     {{translate('promotion_management')}}
@@ -662,91 +753,6 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     </a>
                 </li>
             @endcan
-
-            @canany(['transaction_view', 'ledger_view', 'report_view','analytics_view'])
-                <li class="nav-category" title="{{translate('transaction_report_and_analytics_management')}}">
-                    {{translate('Transaction Reports & Analytics')}}
-                </li>
-            @endcanany
-
-            @canany(['transaction_view', 'ledger_view'])
-                @can('transaction_view')
-                    <li>
-                        <a href="{{route('admin.transaction.list', ['trx_type'=>'all'])}}"
-                           class="{{request()->is('admin/transaction/list')?'active-menu':''}}">
-                            <span class="material-icons" title="Customers">article</span>
-                            <span class="link-title">{{translate('All Transactions')}}</span>
-                        </a>
-                    </li>
-                @endcan
-                @can('ledger_view')
-                    <li>
-                        <a href="{{route('admin.ledger.index')}}"
-                           class="{{request()->is('admin/ledger')?'active-menu':''}}">
-                            <span class="material-icons" title="{{translate('Ledger')}}">book</span>
-                            <span class="link-title">{{translate('Ledger')}}</span>
-                        </a>
-                    </li>
-                @endcan
-            @endcanany
-
-            @can('report_view')
-                <li class="has-sub-item {{request()->is('admin/report/*')?'sub-menu-opened':''}}">
-                    <a href="#" class="{{request()->is('admin/report/*')?'active-menu':''}}">
-                        <span class="material-icons" title="Customers">event_note</span>
-                        <span class="link-title">{{translate('Reports')}}</span>
-                    </a>
-                    <ul class="nav sub-menu">
-                        <li>
-                            <a href="{{route('admin.report.transaction', ['transaction_type'=>'all'])}}"
-                               class="{{request()->is('admin/report/transaction')?'active-menu':''}}">
-                                {{translate('Transaction Reports')}}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{route('admin.report.business.overview')}}"
-                               class="{{request()->is('admin/report/business*')?'active-menu':''}}">
-                                {{translate('Business Reports')}}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{route('admin.report.booking')}}"
-                               class="{{request()->is('admin/report/booking')?'active-menu':''}}">
-                                {{translate('Booking Reports')}}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{route('admin.report.provider')}}"
-                               class="{{request()->is('admin/report/provider')?'active-menu':''}}">
-                                {{translate('Provider Reports')}}
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-            @endcan
-            @can('analytics_view')
-                <li class="has-sub-item {{request()->is('admin/analytics/*')?'sub-menu-opened':''}}">
-                    <a href="#" class="{{request()->is('admin/analytics/*')?'active-menu':''}}">
-                        <span class="material-icons" title="Customers">analytics</span>
-                        <span class="link-title">{{translate('Analytics')}}</span>
-                    </a>
-                    <ul class="nav sub-menu">
-                        <li>
-                            <a href="{{route('admin.analytics.search.keyword')}}"
-                               class="{{request()->is('admin/analytics/search/keyword')?'active-menu':''}}">
-                                {{translate('Keyword_Search')}}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{route('admin.analytics.search.customer')}}"
-                               class="{{request()->is('admin/analytics/search/customer')?'active-menu':''}}">
-                                {{translate('Customer_Search')}}
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-            @endcan
-
 
             @canany(['business_view', 'subscription_package_view', 'subscriber_view', 'subscription_settings_view', 'page_view', 'landing_view', 'error_logs_view', 'cron_job_view'])
                 <li class="nav-category" title="{{translate('business_setup')}}">{{translate('business_setup')}}</li>
