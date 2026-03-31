@@ -586,11 +586,11 @@
                                         </div>
 
                                         <div class="py-3 px-4">
-                                            @php($customer_name = $booking?->booking?->service_address?->contact_person_name)
-                                            @php($customer_phone = $booking?->booking?->service_address?->contact_person_number)
+                                            @php($customer_name = booking_display_customer_name($booking, $customerAddress))
+                                            @php($customer_phone = booking_display_customer_phone($booking, $customerAddress))
 
-                                            @php($name = $booking->service_address?->contact_person_name)
-                                            @php($phone = $booking->service_address?->contact_person_number)
+                                        @php($name = $customer_name)
+                                        @php($phone = $customer_phone)
 
                                             <div class="media gap-2 flex-wrap">
                                                 @if (!$booking?->is_guest && $booking?->booking?->customer)

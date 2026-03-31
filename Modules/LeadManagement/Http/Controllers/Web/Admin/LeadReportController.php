@@ -828,8 +828,8 @@ class LeadReportController extends Controller
 
     private function resolveHandledByName(?string $handledBy): string
     {
-        if (!$handledBy) {
-            return '';
+        if (!$handledBy || $handledBy === Lead::HANDLED_BY_AI) {
+            return translate('Unassigned');
         }
         $user = User::find($handledBy);
         if ($user) {

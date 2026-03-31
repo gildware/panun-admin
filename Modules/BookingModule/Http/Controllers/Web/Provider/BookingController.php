@@ -258,8 +258,10 @@ class BookingController extends Controller
 
             $customerAddress = $this->userAddress->find($booking['service_address_id']);
             $zones = Zone::ofStatus(1)->get();
+            $customerName = booking_display_customer_name($booking, $customerAddress);
+            $customerPhone = booking_display_customer_phone($booking, $customerAddress);
 
-            return view('bookingmodule::provider.booking.details', compact('booking', 'servicemen', 'webPage', 'customerAddresses', 'category', 'subCategory', 'services', 'customerAddress', 'zones'));
+            return view('bookingmodule::provider.booking.details', compact('booking', 'servicemen', 'webPage', 'customerAddresses', 'category', 'subCategory', 'services', 'customerAddress', 'zones', 'customerName', 'customerPhone'));
 
         } elseif ($request->web_page == 'status') {
             $servicemen = $this->serviceman->with(['user'])
@@ -277,7 +279,9 @@ class BookingController extends Controller
 
             $customerAddress = $this->userAddress->find($booking['service_address_id']);
             $zones = Zone::ofStatus(1)->get();
-            return view('bookingmodule::provider.booking.status', compact('booking', 'servicemen','webPage', 'customerAddress', 'category', 'subCategory', 'zones', 'services'));
+            $customerName = booking_display_customer_name($booking, $customerAddress);
+            $customerPhone = booking_display_customer_phone($booking, $customerAddress);
+            return view('bookingmodule::provider.booking.status', compact('booking', 'servicemen','webPage', 'customerAddress', 'category', 'subCategory', 'zones', 'services', 'customerName', 'customerPhone'));
         }
     }
 

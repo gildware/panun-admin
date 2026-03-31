@@ -29,6 +29,8 @@ use Modules\UserManagement\Entities\User;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\BookingModule\Entities\Booking;
+use Modules\WhatsAppModule\Entities\WhatsAppMessage;
+use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
 class LeadController extends Controller
 {
@@ -43,7 +45,12 @@ class LeadController extends Controller
         $search = $request->get('search', '');
         $sourceIds = array_filter((array) $request->input('source_id', []));
         $adSourceIds = array_filter((array) $request->input('ad_source_id', []));
-        $handledByFilterIds = array_filter((array) $request->input('handled_by', []));
+        $handledByInput = array_values(array_filter(array_map('strval', (array) $request->input('handled_by', []))));
+        $filterHandledUnassigned = in_array(Lead::FILTER_UNASSIGNED_VALUE, $handledByInput, true);
+        $handledByFilterIds = array_values(array_filter(
+            $handledByInput,
+            static fn (string $v) => $v !== Lead::FILTER_UNASSIGNED_VALUE
+        ));
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         $leadStatusFilter = $request->get('lead_status', 'all');
@@ -91,8 +98,24 @@ class LeadController extends Controller
             ->when($adSourceIds !== [], function ($q) use ($adSourceIds) {
                 $q->whereIn('ad_source_id', $adSourceIds);
             })
-            ->when($handledByFilterIds !== [], function ($q) use ($handledByFilterIds) {
-                $q->whereIn('handled_by', $handledByFilterIds);
+            ->when($filterHandledUnassigned || $handledByFilterIds !== [], function ($q) use ($filterHandledUnassigned, $handledByFilterIds) {
+                if ($filterHandledUnassigned && $handledByFilterIds === []) {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('handled_by')
+                            ->orWhere('handled_by', '')
+                            ->orWhere('handled_by', Lead::HANDLED_BY_AI);
+                    });
+                } elseif (!$filterHandledUnassigned && $handledByFilterIds !== []) {
+                    $q->whereIn('handled_by', $handledByFilterIds);
+                } elseif ($filterHandledUnassigned && $handledByFilterIds !== []) {
+                    $q->where(function ($sub) use ($handledByFilterIds) {
+                        $sub->where(function ($u) {
+                            $u->whereNull('handled_by')
+                                ->orWhere('handled_by', '')
+                                ->orWhere('handled_by', Lead::HANDLED_BY_AI);
+                        })->orWhereIn('handled_by', $handledByFilterIds);
+                    });
+                }
             })
             ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
                 $q->whereBetween('date_time_of_lead_received', [
@@ -211,8 +234,8 @@ class LeadController extends Controller
         if ($adSourceIds !== []) {
             $queryParams['ad_source_id'] = $adSourceIds;
         }
-        if ($handledByFilterIds !== []) {
-            $queryParams['handled_by'] = $handledByFilterIds;
+        if ($handledByInput !== []) {
+            $queryParams['handled_by'] = $handledByInput;
         }
         if ($tab === 'provider') {
             if ($filterStatusIds !== []) {
@@ -486,7 +509,8 @@ class LeadController extends Controller
         }
 
         if ($request->ajax() || $request->boolean('ajax')) {
-            $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + count($handledByFilterIds)
+            $handledByFilterSelections = count($handledByFilterIds) + ($filterHandledUnassigned ? 1 : 0);
+            $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + $handledByFilterSelections
                 + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
             if ($leadStatusFilter !== 'all') {
                 $filtersAppliedCount += 1;
@@ -525,7 +549,7 @@ class LeadController extends Controller
             'search',
             'sourceIds',
             'adSourceIds',
-            'handledByFilterIds',
+            'handledByInput',
             'leadStatusFilter',
             'filterStatusIds',
             'filterDistrictIds',
@@ -762,6 +786,9 @@ class LeadController extends Controller
             return $ad ? $ad->name : (string) $value;
         }
         if ($key === 'handled_by') {
+            if ($value === null || $value === '' || $value === Lead::HANDLED_BY_AI) {
+                return translate('Unassigned');
+            }
             $user = User::find($value);
             if ($user) {
                 $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
@@ -988,12 +1015,20 @@ class LeadController extends Controller
         $zones = Zone::ofStatus(1)->orderBy('name')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
 
-        $handledByName = null;
-        if ($lead->handled_by) {
+        $handledByName = translate('Unassigned');
+        if (Lead::assigneeIsHuman($lead->handled_by)) {
             $user = User::find($lead->handled_by);
             if ($user) {
                 $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
                 $handledByName = $fullName ?: $user->email;
+            }
+        }
+
+        $whatsappChatUrl = null;
+        if (request()->user()?->can('whatsapp_chat_view')) {
+            $threadPhone = $this->resolveWhatsAppThreadPhoneForLead($lead);
+            if ($threadPhone) {
+                $whatsappChatUrl = route('admin.whatsapp.conversations.chat', ['phone' => $threadPhone]);
             }
         }
 
@@ -1062,6 +1097,7 @@ class LeadController extends Controller
         return view('leadmanagement::admin.leads.show', compact(
             'lead',
             'handledByName',
+            'whatsappChatUrl',
             'addedByName',
             'invalidReasons',
             'futureCustomerReasons',
@@ -1572,6 +1608,49 @@ class LeadController extends Controller
             $url .= '?in_modal=1';
         }
         return redirect($url);
+    }
+
+    /**
+     * Last 10 digits of a phone string, or null if too short.
+     */
+    protected function digitsLast10(?string $phone): ?string
+    {
+        if ($phone === null || $phone === '') {
+            return null;
+        }
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if (strlen($digits) < 10) {
+            return null;
+        }
+
+        return substr($digits, -10);
+    }
+
+    /**
+     * WhatsApp messages table `phone` key for this lead (may include country code), or null.
+     */
+    protected function resolveWhatsAppThreadPhoneForLead(Lead $lead): ?string
+    {
+        $last10 = $this->digitsLast10($lead->phone_number ?? null);
+        if (!$last10) {
+            return null;
+        }
+
+        $candidates = WhatsAppUser::query()
+            ->where('phone', 'like', '%' . $last10)
+            ->orderByDesc('updated_at')
+            ->pluck('phone');
+
+        foreach ($candidates as $p) {
+            if ($p !== '' && WhatsAppMessage::where('phone', $p)->exists()) {
+                return $p;
+            }
+        }
+
+        return WhatsAppMessage::query()
+            ->where('phone', 'like', '%' . $last10)
+            ->orderByDesc('created_at')
+            ->value('phone');
     }
 
     public function destroy(int $id): RedirectResponse
