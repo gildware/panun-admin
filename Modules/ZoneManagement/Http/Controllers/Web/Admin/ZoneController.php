@@ -127,132 +127,110 @@ class ZoneController extends Controller
     }
 
     /**
-     * Fetch an exact boundary polygon for a given place name (e.g. "Srinagar")
-     * using Nominatim's polygon_geojson output.
+     * Fetch an administrative boundary polygon (OpenStreetMap via Nominatim).
+     * Tries several strategies because a single search often misses polygons (viewbox bias,
+     * Point-only first hits, or wording mismatches).
      *
-     * Response:
-     *  {
-     *    paths: [{lat: float, lng: float}, ...] // outer ring only (holes ignored)
-     *  }
+     * @see https://nominatim.org/release-docs/develop/api/Overview/
      */
     public function boundaryFromPlace(Request $request): JsonResponse
     {
-        $this->authorize('zone_view');
+        abort_unless(Gate::any(['zone_view', 'zone_add', 'zone_update']), 403);
 
         $q = trim((string) $request->input('q', ''));
-        if ($q === '') {
+        $name = trim((string) $request->input('name', ''));
+        if ($q === '' && $name === '') {
             return response()->json([
                 'message' => 'Missing query',
             ], 422);
         }
 
-        $nominatimUrl = 'https://nominatim.openstreetmap.org/search';
+        $latIn = $request->input('lat');
+        $lngIn = $request->input('lng');
+        $hasLatLng = is_numeric($latIn) && is_numeric($lngIn);
+        $latF = $hasLatLng ? (float) $latIn : null;
+        $lngF = $hasLatLng ? (float) $lngIn : null;
 
-        try {
-            $response = Http::timeout(20)
-                ->retry(2, 200)
-                ->withHeaders([
-                    // Nominatim usage policy requires an explicit User-Agent.
-                    'User-Agent' => 'pk-admin-local/1.0 (contact: admin@yourdomain.example)',
-                    'Accept-Language' => app()->getLocale(),
-                ])
-                ->get($nominatimUrl, [
-                    'q' => $q,
-                    'format' => 'json',
+        $viewbox = null;
+        if ($hasLatLng) {
+            $d = 0.55;
+            $viewbox = sprintf(
+                '%f,%f,%f,%f',
+                $lngF - $d,
+                $latF + $d,
+                $lngF + $d,
+                $latF - $d
+            );
+        }
+
+        $countryCodes = trim((string) $request->input('countrycodes', ''));
+        $countryCodes = preg_match('/^[a-z]{2}$/i', $countryCodes) ? strtolower($countryCodes) : '';
+
+        $searchBase = [
+            'format' => 'json',
+            'polygon_geojson' => 1,
+            'addressdetails' => 0,
+            'limit' => 15,
+        ];
+        if ($countryCodes !== '') {
+            $searchBase['countrycodes'] = $countryCodes;
+        }
+
+        $queryStrings = array_values(array_unique(array_filter([
+            $q !== '' ? $q : null,
+            $name !== '' && strcasecmp($name, $q) !== 0 ? $name : null,
+        ])));
+
+        if ($queryStrings === []) {
+            $queryStrings = [$name !== '' ? $name : $q];
+        }
+
+        $outerRing = null;
+
+        foreach ($queryStrings as $queryString) {
+            $params = array_merge($searchBase, ['q' => $queryString]);
+            if ($viewbox !== null) {
+                $paramsWithBox = array_merge($params, ['viewbox' => $viewbox]);
+                $data = $this->nominatimRequest('search', $paramsWithBox);
+                $outerRing = $this->polygonRingFromNominatimSearchResults($data);
+                if ($outerRing !== null) {
+                    break;
+                }
+                usleep(200_000);
+            }
+
+            $data = $this->nominatimRequest('search', $params);
+            $outerRing = $this->polygonRingFromNominatimSearchResults($data);
+            if ($outerRing !== null) {
+                break;
+            }
+            usleep(200_000);
+        }
+
+        if ($outerRing === null && $hasLatLng) {
+            foreach ([14, 12, 10, 8, 6] as $zoom) {
+                $rev = $this->nominatimRequest('reverse', [
+                    'lat' => $latF,
+                    'lon' => $lngF,
+                    'zoom' => $zoom,
                     'polygon_geojson' => 1,
+                    'format' => 'json',
                     'addressdetails' => 0,
-                    'limit' => 1,
                 ]);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'Boundary lookup request error: ' . $e->getMessage(),
-            ], 500);
-        }
-
-        if (!$response->ok()) {
-            return response()->json([
-                'message' => 'Boundary lookup failed (HTTP ' . $response->status() . ')',
-            ], 500);
-        }
-
-        $data = $response->json();
-        $feature = $data[0]['geojson'] ?? null;
-        if (!is_array($feature)) {
-            // Some Nominatim responses return geojson as a JSON string.
-            if (is_string($feature)) {
-                $decoded = json_decode($feature, true);
-                $feature = is_array($decoded) ? $decoded : null;
+                $outerRing = $this->polygonRingFromNominatimSingleResult($rev);
+                if ($outerRing !== null) {
+                    break;
+                }
+                usleep(200_000);
             }
         }
 
-        if (!$feature || !isset($feature['type'], $feature['coordinates'])) {
+        if ($outerRing === null) {
             return response()->json([
                 'message' => 'No boundary polygon found for the provided place',
             ], 404);
         }
 
-        // Extract outer ring only.
-        $type = $feature['type'];
-        $coordinates = $feature['coordinates'];
-
-        // Ring coordinates are in [lng, lat] per GeoJSON spec.
-        $pickOuterRing = function (array $polyCoords) {
-            // $polyCoords is either:
-            //  - Polygon: [ outerRing, hole1, ...]
-            //  - MultiPolygon polygon: [ outerRing, hole1, ...]
-            return $polyCoords[0] ?? [];
-        };
-
-        $ringArea = function (array $ring) {
-            // Shoelace formula in lng/lat space (approx). Works well enough for picking "largest".
-            $n = count($ring);
-            if ($n < 3) return 0.0;
-
-            $area = 0.0;
-            for ($i = 0; $i < $n; $i++) {
-                $j = ($i + 1) % $n;
-                $x1 = (float) $ring[$i][0];
-                $y1 = (float) $ring[$i][1];
-                $x2 = (float) $ring[$j][0];
-                $y2 = (float) $ring[$j][1];
-                $area += ($x1 * $y2) - ($x2 * $y1);
-            }
-
-            return abs($area) / 2.0;
-        };
-
-        $outerRing = [];
-
-        if ($type === 'Polygon') {
-            $outerRing = $pickOuterRing($coordinates);
-        } elseif ($type === 'MultiPolygon') {
-            // coordinates: [ polygon1, polygon2, ...]
-            // each polygon: [ outerRing, hole1, ...]
-            $largest = null;
-            $largestArea = -1;
-            foreach ($coordinates as $poly) {
-                if (!is_array($poly) || empty($poly[0])) continue;
-                $ring = $pickOuterRing($poly);
-                $area = $ringArea($ring);
-                if ($area > $largestArea) {
-                    $largestArea = $area;
-                    $largest = $ring;
-                }
-            }
-            $outerRing = is_array($largest) ? $largest : [];
-        } else {
-            return response()->json([
-                'message' => 'Unsupported geojson type',
-            ], 400);
-        }
-
-        if (count($outerRing) < 3) {
-            return response()->json([
-                'message' => 'Boundary polygon is empty',
-            ], 404);
-        }
-
-        // Ensure ring is closed (first == last) so google draws properly.
         $first = $outerRing[0];
         $last = $outerRing[count($outerRing) - 1] ?? null;
         if (is_array($first) && is_array($last) && ($first[0] != $last[0] || $first[1] != $last[1])) {
@@ -269,6 +247,156 @@ class ZoneController extends Controller
         return response()->json([
             'paths' => $paths,
         ]);
+    }
+
+    /**
+     * @return array<mixed>|null Decoded JSON (search: list, reverse: associative row)
+     */
+    private function nominatimRequest(string $endpoint, array $queryParams): ?array
+    {
+        $url = 'https://nominatim.openstreetmap.org/'.$endpoint;
+
+        try {
+            $response = Http::timeout(22)
+                ->retry(2, 300)
+                ->withHeaders([
+                    'User-Agent' => 'pk-admin-local/1.0 (contact: admin@yourdomain.example)',
+                    'Accept-Language' => app()->getLocale(),
+                ])
+                ->get($url, $queryParams);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (! $response->ok()) {
+            return null;
+        }
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : null;
+    }
+
+    /**
+     * @param  array<mixed>|null  $data
+     */
+    private function polygonRingFromNominatimSearchResults(?array $data): ?array
+    {
+        if (! is_array($data) || $data === []) {
+            return null;
+        }
+
+        $pickFromRows = function (bool $adminOnly) use ($data) {
+            foreach ($data as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                if ($adminOnly) {
+                    if (($row['class'] ?? '') !== 'boundary' || ($row['type'] ?? '') !== 'administrative') {
+                        continue;
+                    }
+                }
+                $ring = $this->polygonRingFromNominatimGeojsonField($row['geojson'] ?? null);
+                if ($ring !== null) {
+                    return $ring;
+                }
+            }
+
+            return null;
+        };
+
+        return $pickFromRows(true) ?? $pickFromRows(false);
+    }
+
+    /**
+     * @param  array<mixed>|null  $row
+     */
+    private function polygonRingFromNominatimSingleResult(?array $row): ?array
+    {
+        if (! is_array($row) || $row === []) {
+            return null;
+        }
+
+        return $this->polygonRingFromNominatimGeojsonField($row['geojson'] ?? null);
+    }
+
+    /**
+     * @param  mixed  $geojson
+     * @return array<int, array{0: float|int, 1: float|int}>|null
+     */
+    private function polygonRingFromNominatimGeojsonField(mixed $geojson): ?array
+    {
+        $feature = $geojson;
+        if (is_string($feature)) {
+            $decoded = json_decode($feature, true);
+            $feature = is_array($decoded) ? $decoded : null;
+        }
+        if (! is_array($feature) || ! isset($feature['type'], $feature['coordinates'])) {
+            return null;
+        }
+        if (! in_array($feature['type'], ['Polygon', 'MultiPolygon'], true)) {
+            return null;
+        }
+
+        $outerRing = $this->nominatimPolygonOuterRing($feature);
+
+        return ($outerRing !== null && count($outerRing) >= 3) ? $outerRing : null;
+    }
+
+    /**
+     * @param  array{type: string, coordinates: mixed}  $feature
+     * @return array<int, array{0: float|int, 1: float|int}>|null
+     */
+    private function nominatimPolygonOuterRing(array $feature): ?array
+    {
+        $type = $feature['type'];
+        $coordinates = $feature['coordinates'];
+        $pickOuterRing = function (array $polyCoords) {
+            return $polyCoords[0] ?? [];
+        };
+        $ringArea = function (array $ring) {
+            $n = count($ring);
+            if ($n < 3) {
+                return 0.0;
+            }
+            $area = 0.0;
+            for ($i = 0; $i < $n; $i++) {
+                $j = ($i + 1) % $n;
+                $x1 = (float) $ring[$i][0];
+                $y1 = (float) $ring[$i][1];
+                $x2 = (float) $ring[$j][0];
+                $y2 = (float) $ring[$j][1];
+                $area += ($x1 * $y2) - ($x2 * $y1);
+            }
+
+            return abs($area) / 2.0;
+        };
+
+        if ($type === 'Polygon') {
+            $ring = $pickOuterRing($coordinates);
+
+            return count($ring) >= 3 ? $ring : null;
+        }
+
+        if ($type === 'MultiPolygon') {
+            $largest = null;
+            $largestArea = -1.0;
+            foreach ($coordinates as $poly) {
+                if (! is_array($poly) || empty($poly[0])) {
+                    continue;
+                }
+                $ring = $pickOuterRing($poly);
+                $area = $ringArea($ring);
+                if ($area > $largestArea) {
+                    $largestArea = $area;
+                    $largest = $ring;
+                }
+            }
+
+            return (is_array($largest) && count($largest) >= 3) ? $largest : null;
+        }
+
+        return null;
     }
 
     /**

@@ -347,6 +347,10 @@ if (!function_exists('ledger_record_in')) {
     {
         $data['type'] = LedgerTransaction::TYPE_IN;
         $data['date'] = $data['date'] ?? now()->toDateString();
+        if ((!array_key_exists('created_by', $data) || $data['created_by'] === null) && auth()->check()) {
+            $data['created_by'] = auth()->id();
+        }
+
         return LedgerTransaction::create($data);
     }
 }
@@ -359,6 +363,10 @@ if (!function_exists('ledger_record_out')) {
     {
         $data['type'] = LedgerTransaction::TYPE_OUT;
         $data['date'] = $data['date'] ?? now()->toDateString();
+        if ((!array_key_exists('created_by', $data) || $data['created_by'] === null) && auth()->check()) {
+            $data['created_by'] = auth()->id();
+        }
+
         return LedgerTransaction::create($data);
     }
 }
