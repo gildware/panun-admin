@@ -1,5 +1,19 @@
 @extends('adminmodule::layouts.master')
 
+@push('css_or_js')
+    <style>
+        .table-responsive--ledger {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table-ledger-nowrap th,
+        .table-ledger-nowrap td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+    </style>
+@endpush
+
 @section('title', translate('transaction_list'))
 
 @section('content')
@@ -115,8 +129,8 @@
                                         @endcan
                                     </div>
 
-                                    <div class="table-responsive">
-                                        <table id="example" class="table align-middle table-hover">
+                                    <div class="table-responsive table-responsive--ledger">
+                                        <table id="example" class="table align-middle table-hover table-ledger-nowrap">
                                             <thead class="text-nowrap">
                                             <tr>
                                                 <th>{{ translate('Sl') }}</th>
@@ -159,7 +173,7 @@
                                                             @if($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
                                                                 {{ translate('Refund') }}
                                                             @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
-                                                                {{ translate('Provider_payout') }}{{ $entry->provider?->company_name ? ' — ' . Str::limit($entry->provider->company_name, 40) : '' }}{{ $entry->reference_note ? ' — ' . Str::limit($entry->reference_note, 40) : '' }}
+                                                                {{ translate('Provider_payout') }}{{ $entry->provider?->company_name ? ' — ' . $entry->provider->company_name : '' }}{{ $entry->reference_note ? ' — ' . $entry->reference_note : '' }}
                                                             @else
                                                                 {{ $entry->reason ? str_replace('_', ' ', $entry->reason) : translate('Out') }}
                                                             @endif
@@ -209,13 +223,7 @@
                                                         @endif
                                                     </td>
                                                     <td>{{ $entry->transaction_id ?: '—' }}</td>
-                                                    <td>
-                                                        @if($entry->creator)
-                                                            {{ trim($entry->creator->first_name . ' ' . $entry->creator->last_name) ?: $entry->creator->email }}
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
+                                                    <td>{{ $entry->resolvedEntryByLabel() }}</td>
                                                     <td class="text-end fw-medium">
                                                         @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
                                                             <span class="text-success">+ {{ with_currency_symbol($entry->amount) }}</span>

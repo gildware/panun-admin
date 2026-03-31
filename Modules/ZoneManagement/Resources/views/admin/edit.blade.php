@@ -163,16 +163,29 @@
 @endsection
 
 @push('script')
-    @php($api_key=(business_config('google_map', 'third_party'))->live_values)
-    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client']}}&libraries=drawing,places,geometry&v=beta"></script>
+    @php
+        $api_key = optional(business_config('google_map', 'third_party'))->live_values ?? [];
+        $zoneVectorMapId = trim((string) ($api_key['map_id'] ?? ''));
+    @endphp
+    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client'] ?? ''}}&libraries=drawing,places,geometry&v=beta"></script>
 
     <script>
         "use strict";
         auto_grow();
 
         const ZONE_PARENT_GEO_URL = "{{ url('/admin/zone/parent-geometry') }}";
+        const ZONE_BOUNDARY_FROM_PLACE_URL = "{{ route('admin.zone.boundary-from-place') }}";
+        const ZONE_VECTOR_MAP_ID = @json($zoneVectorMapId);
         const MSG_CHILD_OUTSIDE_PARENT = @json(translate('Child_zone_must_be_inside_parent_boundary'));
         const initialZoneParentId = @json(old('parent_id', (string) ($zone->parent_id ?? '')));
+
+        const ZONE_GREEN_STYLE = {
+            strokeColor: '#2e7d32',
+            strokeOpacity: 1,
+            strokeWeight: 2,
+            fillColor: '#43a047',
+            fillOpacity: 0.28,
+        };
 
         function auto_grow() {
             let element = document.getElementById("coordinates");
@@ -309,6 +322,94 @@
             google.maps.event.addListener(path, 'remove_at', sync);
         }
 
+        function rectanglePathFromLatLngBounds(bounds) {
+            const ne = bounds.getNorthEast();
+            const sw = bounds.getSouthWest();
+            const nw = new google.maps.LatLng(ne.lat(), sw.lng());
+            const se = new google.maps.LatLng(sw.lat(), ne.lng());
+            return [nw, ne, se, sw];
+        }
+
+        function boundsAroundLocation(loc, deltaDeg) {
+            const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+            const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+            return new google.maps.LatLngBounds(
+                new google.maps.LatLng(lat - deltaDeg, lng - deltaDeg),
+                new google.maps.LatLng(lat + deltaDeg, lng + deltaDeg)
+            );
+        }
+
+        function fitMapToBoundaryPaths(paths) {
+            if (!paths || paths.length < 2 || !map) {
+                return;
+            }
+            const b = new google.maps.LatLngBounds();
+            paths.forEach((p) => b.extend(new google.maps.LatLng(Number(p.lat), Number(p.lng))));
+            map.fitBounds(b);
+        }
+
+        /** Irregular admin boundary ring (Nominatim/OSM via server — same class of data as Google Maps city limits). */
+        function replaceZoneWithAdministrativeBoundaryPaths(paths) {
+            if (!paths || paths.length < 3) {
+                return false;
+            }
+            const latLngPath = paths.map((p) => ({
+                lat: Number(p.lat),
+                lng: Number(p.lng),
+            }));
+            const poly = new google.maps.Polygon(Object.assign({}, ZONE_GREEN_STYLE, {
+                paths: latLngPath,
+                editable: false,
+            }));
+            if (!validateChildInsideParentIfNeeded(poly)) {
+                toastr.error(MSG_CHILD_OUTSIDE_PARENT);
+                return false;
+            }
+            if (lastpolygon) {
+                lastpolygon.setMap(null);
+                lastpolygon = null;
+            }
+            if (zonePolygon) {
+                zonePolygon.setMap(null);
+                zonePolygon = null;
+            }
+            lastpolygon = poly;
+            lastpolygon.setMap(map);
+            attachChildPolygonPathListeners(lastpolygon);
+            $('#coordinates').val(lastpolygon.getPath().getArray());
+            auto_grow();
+            return true;
+        }
+
+        /** Fallback rectangle when no admin polygon is returned. */
+        function replaceZoneWithGeocodedBoundsFromSearch(geoBounds) {
+            if (!geoBounds || geoBounds.isEmpty()) {
+                return false;
+            }
+            const poly = new google.maps.Polygon(Object.assign({}, ZONE_GREEN_STYLE, {
+                paths: rectanglePathFromLatLngBounds(geoBounds),
+                editable: true,
+            }));
+            if (!validateChildInsideParentIfNeeded(poly)) {
+                toastr.error(MSG_CHILD_OUTSIDE_PARENT);
+                return false;
+            }
+            if (lastpolygon) {
+                lastpolygon.setMap(null);
+                lastpolygon = null;
+            }
+            if (zonePolygon) {
+                zonePolygon.setMap(null);
+                zonePolygon = null;
+            }
+            lastpolygon = poly;
+            lastpolygon.setMap(map);
+            attachChildPolygonPathListeners(lastpolygon);
+            $('#coordinates').val(lastpolygon.getPath().getArray());
+            auto_grow();
+            return true;
+        }
+
         function getEffectiveChildPolygonForValidation() {
             if (lastpolygon && lastpolygon.getMap && lastpolygon.getMap()) {
                 return lastpolygon;
@@ -358,7 +459,11 @@
                 center: myLatlng,
                 mapTypeId: google.maps.MapTypeId.ROADMAP
             };
+            if (ZONE_VECTOR_MAP_ID) {
+                myOptions.mapId = ZONE_VECTOR_MAP_ID;
+            }
             map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
+            const geocoder = new google.maps.Geocoder();
             addCurrentLocationControl();
 
             const polygonCoords = [
@@ -370,13 +475,10 @@
                     @endforeach
             ];
 
-            zonePolygon = new google.maps.Polygon({
+            zonePolygon = new google.maps.Polygon(Object.assign({}, ZONE_GREEN_STYLE, {
                 paths: polygonCoords,
-                strokeColor: "#050df2",
-                strokeOpacity: 0.8,
-                strokeWeight: 2,
-                fillOpacity: 0,
-            });
+                editable: true,
+            }));
 
             zonePolygon.setMap(map);
             attachChildPolygonPathListeners(zonePolygon);
@@ -396,9 +498,7 @@
                     position: google.maps.ControlPosition.TOP_CENTER,
                     drawingModes: [google.maps.drawing.OverlayType.POLYGON]
                 },
-                polygonOptions: {
-                    editable: true
-                }
+                polygonOptions: Object.assign({}, ZONE_GREEN_STYLE, { editable: true })
             });
             drawingManager.setMap(map);
 
@@ -446,32 +546,118 @@
                 const bounds = new google.maps.LatLngBounds();
                 places.forEach((place) => {
                     if (!place.geometry || !place.geometry.location) {
-                        console.log("Returned place contains no geometry");
                         return;
                     }
-                    const icon = {
-                        url: place.icon,
-                        size: new google.maps.Size(71, 71),
-                        origin: new google.maps.Point(0, 0),
-                        anchor: new google.maps.Point(17, 34),
-                        scaledSize: new google.maps.Size(25, 25),
-                    };
-                    markers.push(
-                        new google.maps.Marker({
-                            map,
-                            icon,
-                            title: place.name,
-                            position: place.geometry.location,
-                        })
-                    );
-
                     if (place.geometry.viewport) {
                         bounds.union(place.geometry.viewport);
+                    } else if (place.geometry.bounds) {
+                        bounds.union(place.geometry.bounds);
                     } else {
                         bounds.extend(place.geometry.location);
                     }
                 });
-                map.fitBounds(bounds);
+
+                const primary = places.find((p) => p.geometry && p.geometry.location);
+                const geocodeRequest = primary && primary.place_id
+                    ? { placeId: primary.place_id }
+                    : primary && (primary.formatted_address || primary.name)
+                        ? { address: primary.formatted_address || primary.name }
+                        : null;
+
+                const showMarkersFallback = () => {
+                    places.forEach((place) => {
+                        if (!place.geometry || !place.geometry.location) {
+                            return;
+                        }
+                        const icon = {
+                            url: place.icon,
+                            size: new google.maps.Size(71, 71),
+                            origin: new google.maps.Point(0, 0),
+                            anchor: new google.maps.Point(17, 34),
+                            scaledSize: new google.maps.Size(25, 25),
+                        };
+                        markers.push(
+                            new google.maps.Marker({
+                                map,
+                                icon,
+                                title: place.name,
+                                position: place.geometry.location,
+                            })
+                        );
+                    });
+                    map.fitBounds(bounds);
+                };
+
+                if (!geocodeRequest || !primary) {
+                    showMarkersFallback();
+                    return;
+                }
+
+                geocoder.geocode(geocodeRequest, (results, status) => {
+                    if (status !== google.maps.GeocoderStatus.OK || !results || !results[0]) {
+                        showMarkersFallback();
+                        return;
+                    }
+                    const g = results[0].geometry;
+                    const geoBounds =
+                        g.bounds ||
+                        g.viewport ||
+                        (g.location ? boundsAroundLocation(g.location, 0.006) : null);
+                    if (!geoBounds || geoBounds.isEmpty()) {
+                        showMarkersFallback();
+                        return;
+                    }
+
+                    const boundaryQuery =
+                        (results[0].formatted_address || '').trim() ||
+                        (primary.formatted_address || '').trim() ||
+                        (primary.name || '').trim();
+
+                    const applyRectFallback = () => {
+                        map.fitBounds(geoBounds);
+                        if (!replaceZoneWithGeocodedBoundsFromSearch(geoBounds)) {
+                            showMarkersFallback();
+                        }
+                    };
+
+                    if (!boundaryQuery) {
+                        applyRectFallback();
+                        return;
+                    }
+
+                    const loc = g.location;
+                    const boundaryParams = { q: boundaryQuery };
+                    const placeName = (primary.name || '').trim();
+                    if (placeName && placeName.toLowerCase() !== boundaryQuery.toLowerCase()) {
+                        boundaryParams.name = placeName;
+                    }
+                    const addrComps = results[0].address_components || [];
+                    for (let ac = 0; ac < addrComps.length; ac++) {
+                        const types = addrComps[ac].types || [];
+                        if (types.indexOf('country') !== -1 && addrComps[ac].short_name) {
+                            boundaryParams.countrycodes = String(addrComps[ac].short_name).toLowerCase();
+                            break;
+                        }
+                    }
+                    if (loc) {
+                        boundaryParams.lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+                        boundaryParams.lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+                    }
+
+                    $.getJSON(ZONE_BOUNDARY_FROM_PLACE_URL, boundaryParams)
+                        .done(function (data) {
+                            if (data.paths && data.paths.length >= 3) {
+                                fitMapToBoundaryPaths(data.paths);
+                                if (replaceZoneWithAdministrativeBoundaryPaths(data.paths)) {
+                                    return;
+                                }
+                            }
+                            applyRectFallback();
+                        })
+                        .fail(function () {
+                            applyRectFallback();
+                        });
+                });
             });
 
             $(document).on('change', 'select[name="parent_id"]', function () {

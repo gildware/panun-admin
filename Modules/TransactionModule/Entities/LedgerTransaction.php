@@ -65,6 +65,36 @@ class LedgerTransaction extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Who recorded this row in admin UIs / exports. Prefer stored user; else infer from linked partial (e.g. migration backfill).
+     */
+    public function resolvedEntryByLabel(): string
+    {
+        if ($this->creator) {
+            $name = trim((string) ($this->creator->first_name ?? '') . ' ' . (string) ($this->creator->last_name ?? ''));
+            if ($name !== '') {
+                return $name;
+            }
+            if (!empty($this->creator->email)) {
+                return (string) $this->creator->email;
+            }
+        }
+
+        $partial = $this->bookingPartialPayment;
+        if ($partial) {
+            $paidWith = (string) ($partial->paid_with ?? '');
+
+            return match ($paidWith) {
+                'admin_entry' => translate('Admin'),
+                'wallet', 'digital', 'offline_payment' => translate('Customer'),
+                'cash_after_service' => translate('Booking Complete'),
+                default => $paidWith !== '' ? str_replace('_', ' ', $paidWith) : '—',
+            };
+        }
+
+        return '—';
+    }
+
     public function provider(): BelongsTo
     {
         return $this->belongsTo(Provider::class);

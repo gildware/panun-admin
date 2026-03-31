@@ -1271,7 +1271,7 @@ class ProviderController extends Controller
             // Provider ledger: only company↔provider flows (money company sent to provider or received from provider)
             $ledgerQuery = LedgerTransaction::query()
                 ->where('provider_id', $providerId)
-                ->with(['booking', 'repeat', 'creator'])
+                ->with(['booking', 'repeat', 'creator', 'bookingPartialPayment'])
                 ->orderByDesc('date')
                 ->orderByDesc('created_at');
             $providerLedger = $ledgerQuery->paginate(20)->withQueryString();

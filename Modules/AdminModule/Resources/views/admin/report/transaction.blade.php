@@ -3,7 +3,17 @@
 @section('title',translate('Transaction_Report'))
 
 @push('css_or_js')
-
+    <style>
+        .table-responsive--ledger {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table-ledger-nowrap th,
+        .table-ledger-nowrap td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -91,8 +101,11 @@
                     <div class="card mt-3">
                         <div class="card-body">
                             <div class="mb-3 fz-16">{{translate('Search_Data')}}</div>
-                            <form action="{{route('admin.report.transaction', ['transaction_type'=>$queryParams['transaction_type']])}}" method="POST">
-                                @csrf
+                            <form action="{{ route('admin.report.transaction') }}" method="GET">
+                                <input type="hidden" name="transaction_type" value="{{ $queryParams['transaction_type'] ?? 'all' }}">
+                                @if(!empty($queryParams['search']))
+                                    <input type="hidden" name="search" value="{{ $queryParams['search'] }}">
+                                @endif
                                 <div class="row">
                                     <div class="col-lg-4 col-sm-6 mb-30">
                                         <label class="mb-2">{{translate('zone')}}</label>
@@ -166,19 +179,53 @@
 
                     <div class="card mt-3">
                         <div class="card-body">
+                            @php
+                                $tabQueryAll = $queryParams;
+                                $tabQueryAll['transaction_type'] = 'all';
+                                $tabQueryIn = $queryParams;
+                                $tabQueryIn['transaction_type'] = 'credit';
+                                $tabQueryOut = $queryParams;
+                                $tabQueryOut['transaction_type'] = 'debit';
+                            @endphp
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <div class="card border-0 bg-success bg-opacity-10">
+                                        <div class="card-body">
+                                            <p class="text-muted small mb-1">{{ translate('Total_In') }}</p>
+                                            <h4 class="mb-0 text-success">{{ with_currency_symbol($ledgerTotalIn ?? 0) }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-0 bg-danger bg-opacity-10">
+                                        <div class="card-body">
+                                            <p class="text-muted small mb-1">{{ translate('Total_Out') }}</p>
+                                            <h4 class="mb-0 text-danger">{{ with_currency_symbol($ledgerTotalOut ?? 0) }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-0 bg-primary bg-opacity-10">
+                                        <div class="card-body">
+                                            <p class="text-muted small mb-1">{{ translate('Net') }}</p>
+                                            <h4 class="mb-0 text-primary">{{ with_currency_symbol(round($ledgerNet ?? 0, 2)) }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
                                 <ul class="nav nav--tabs">
                                     <li class="nav-item">
-                                        <a class="nav-link {{!isset($queryParams['transaction_type']) || $queryParams['transaction_type']=='all'?'active':''}}"
-                                                href="{{url()->current()}}?transaction_type=all">{{translate('All')}}</a>
+                                        <a class="nav-link {{ !isset($queryParams['transaction_type']) || $queryParams['transaction_type']=='all' ? 'active' : '' }}"
+                                           href="{{ route('admin.report.transaction') }}?{{ http_build_query($tabQueryAll) }}">{{ translate('all') }}</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link {{isset($queryParams['transaction_type']) && $queryParams['transaction_type']=='debit'?'active':''}}"
-                                                href="{{url()->current()}}?transaction_type=debit">{{translate('Debit')}}</a>
+                                        <a class="nav-link {{ isset($queryParams['transaction_type']) && $queryParams['transaction_type']=='credit' ? 'active' : '' }}"
+                                           href="{{ route('admin.report.transaction') }}?{{ http_build_query($tabQueryIn) }}">{{ translate('In') }}</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link {{isset($queryParams['transaction_type']) && $queryParams['transaction_type']=='credit'?'active':''}}"
-                                                href="{{url()->current()}}?transaction_type=credit">{{translate('Credit')}}</a>
+                                        <a class="nav-link {{ isset($queryParams['transaction_type']) && $queryParams['transaction_type']=='debit' ? 'active' : '' }}"
+                                           href="{{ route('admin.report.transaction') }}?{{ http_build_query($tabQueryOut) }}">{{ translate('Out') }}</a>
                                     </li>
                                 </ul>
 
@@ -189,16 +236,37 @@
                             </div>
 
                             <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                <form action="{{url()->current()}}"
+                                <form action="{{ route('admin.report.transaction') }}"
                                         class="search-form search-form_style-two"
                                         method="GET">
+                                    <input type="hidden" name="transaction_type" value="{{ $queryParams['transaction_type'] ?? 'all' }}">
+                                    <input type="hidden" name="filter_by" value="{{ $queryParams['filter_by'] ?? 'all' }}">
+                                    @if(!empty($queryParams['date_range']))
+                                        <input type="hidden" name="date_range" value="{{ $queryParams['date_range'] }}">
+                                    @endif
+                                    @if(!empty($queryParams['from']))
+                                        <input type="hidden" name="from" value="{{ $queryParams['from'] }}">
+                                    @endif
+                                    @if(!empty($queryParams['to']))
+                                        <input type="hidden" name="to" value="{{ $queryParams['to'] }}">
+                                    @endif
+                                    @if(!empty($queryParams['zone_ids']) && is_array($queryParams['zone_ids']))
+                                        @foreach($queryParams['zone_ids'] as $zid)
+                                            <input type="hidden" name="zone_ids[]" value="{{ $zid }}">
+                                        @endforeach
+                                    @endif
+                                    @if(!empty($queryParams['provider_ids']) && is_array($queryParams['provider_ids']))
+                                        @foreach($queryParams['provider_ids'] as $pid)
+                                            <input type="hidden" name="provider_ids[]" value="{{ $pid }}">
+                                        @endforeach
+                                    @endif
                                     <div class="input-group search-form__input_group">
                                     <span class="search-form__icon">
                                         <span class="material-icons">search</span>
                                     </span>
                                         <input type="search" class="theme-input-style search-form__input"
-                                                value="{{$queryParams['search']??''}}" name="search"
-                                                placeholder="{{translate('search by transaction ID')}}">
+                                                value="{{ $queryParams['search'] ?? '' }}" name="search"
+                                                placeholder="{{ translate('search_by_trx_id') }}, {{ translate('Booking_ID') }}…">
                                     </div>
                                     <button type="submit"
                                             class="btn btn--primary">{{translate('search')}}</button>
@@ -225,72 +293,111 @@
                                 @endcan
                             </div>
 
-                            <div class="table-responsive">
-                                <table class="table align-middle">
+                            <div class="table-responsive table-responsive--ledger">
+                                <table class="table align-middle table-hover table-ledger-nowrap">
                                     <thead class="text-nowrap">
                                         <tr>
-                                            <th>{{translate('SL')}}</th>
-                                            <th>{{translate('Transaction_ID')}}</th>
-                                            <th>{{translate('Transaction_Date')}}</th>
-                                            <th>{{translate('Transaction_To')}}</th>
-                                            <th>{{translate('Debit')}}</th>
-                                            <th>{{translate('Credit')}}</th>
-                                            <th>{{translate('Balance')}}</th>
-                                            <th>{{translate('Transaction Type')}}</th>
+                                            <th>{{ translate('SL') }}</th>
+                                            <th>{{ translate('Date') }}</th>
+                                            <th>{{ translate('Type') }}</th>
+                                            <th>{{ translate('Description') }}</th>
+                                            <th>{{ translate('Flow') }}</th>
+                                            <th>{{ translate('Channel') }}</th>
+                                            <th>{{ translate('Received_by') }}</th>
+                                            <th>{{ translate('Booking_ID') }}</th>
+                                            <th>{{ translate('Transaction_ID') }}</th>
+                                            <th>{{ translate('Entry_by') }}</th>
+                                            <th class="text-end">{{ translate('Amount') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($filteredTransactions as $key=>$transaction)
+                                        @forelse($filteredTransactions as $key => $entry)
                                             <tr>
-                                                <td>{{$filteredTransactions->firstitem()+$key}}</td>
-                                                <td>{{$transaction->id}}</td>
+                                                <td>{{ $filteredTransactions->firstItem() + $key }}</td>
+                                                <td>{{ $entry->created_at ? $entry->created_at->format('jS F Y : g i A') : '—' }}</td>
                                                 <td>
-                                                    <div>
-                                                        <div>{{date('d-M-Y',strtotime($transaction->created_at))}}</div>
-                                                        <div>{{date('h:ia',strtotime($transaction->created_at))}}</div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    @if(isset($transaction->to_user) && isset($transaction->to_user->provider))
-                                                        <a href="{{route('admin.customer.detail',[$transaction->to_user->id, 'web_page'=>'overview'])}}">
-                                                            {{$transaction->to_user->provider->company_name}}
-                                                        </a>
-                                                        <div class="d-flex fz-10">{{translate($transaction->trx_type)}}</div>
-                                                    @elseif(isset($transaction->to_user))
-                                                        <a href="{{route('admin.customer.detail',[$transaction->to_user->id, 'web_page'=>'overview'])}}">
-                                                            {{$transaction->to_user->first_name.' '.$transaction->to_user->last_name}}
-                                                        </a>
-                                                        <div class="d-flex fz-10">{{translate($transaction->trx_type)}}</div>
+                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                        <span class="badge bg-success">{{ translate('In') }}</span>
                                                     @else
-                                                        {{translate('User_Unavailable')}}
-                                                    @endif
-                                                </td>
-                                                <td> -
-                                                    @if($transaction->debit > 0)
-                                                        <span>{{with_currency_symbol($transaction->debit)}}</span>
-                                                    @else
-                                                        <span class="disabled">{{with_currency_symbol($transaction->debit)}}</span>
-                                                    @endif</td>
-                                                <td>+
-                                                    @if($transaction->credit > 0)
-                                                        <span>{{with_currency_symbol($transaction->credit)}}</span>
-                                                    @else
-                                                        <span class="disabled">{{with_currency_symbol($transaction->credit)}}</span>
+                                                        <span class="badge bg-danger">{{ translate('Out') }}</span>
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    @if($transaction->balance > 0)
-                                                        <span>{{with_currency_symbol($transaction->balance)}}</span>
+                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                        @if($entry->payment_method === 'collect_from_provider')
+                                                            {{ translate('Cash_collected_from_provider') }}
+                                                        @elseif($entry->payment_method === 'advance_on_booking_create')
+                                                            {{ translate('Advance_payment_on_booking_create') }}
+                                                        @elseif($entry->booking)
+                                                            {{ translate('Booking_payment') }}
+                                                        @else
+                                                            {{ translate('Payment_received') }}{{ $entry->payment_method ? ' (' . str_replace('_', ' ', $entry->payment_method) . ')' : '' }}
+                                                        @endif
                                                     @else
-                                                        <span class="disabled">{{with_currency_symbol($transaction->balance)}}</span>
+                                                        @if($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
+                                                            {{ translate('Refund') }}
+                                                        @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
+                                                            {{ translate('Provider_payout') }}{{ $entry->provider?->company_name ? ' — ' . $entry->provider->company_name : '' }}{{ $entry->reference_note ? ' — ' . $entry->reference_note : '' }}
+                                                        @else
+                                                            {{ $entry->reason ? str_replace('_', ' ', $entry->reason) : translate('Out') }}
+                                                        @endif
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    <span>{{str_replace('_', ' ', $transaction->trx_type)}}</span>
+                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                        @if($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_PROVIDER)
+                                                            {{ translate('Customer_paid_to_provider') }}
+                                                        @elseif($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY)
+                                                            {{ translate('Customer_paid_to_company') }}
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
+                                                        {{ translate('Company_paid_to_customer') }}
+                                                    @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
+                                                        {{ translate('Provider_payout') }}
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
+                                                <td class="text-nowrap">
+                                                    {{ $entry->payment_method ? str_replace('_', ' ', $entry->payment_method) : '—' }}
+                                                </td>
+                                                <td>
+                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                        @if($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_PROVIDER)
+                                                            {{ translate('Received_by_provider') }}
+                                                        @elseif($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY)
+                                                            {{ translate('Received_by_company') }}
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if($entry->booking_id && $entry->relationLoaded('booking') && $entry->booking)
+                                                        <a href="{{ route('admin.booking.details', [$entry->booking_id]) }}"
+                                                           class="text-primary text-decoration-none">{{ $entry->booking->readable_id ?? $entry->booking_id }}</a>
+                                                    @elseif($entry->booking_id)
+                                                        {{ $entry->booking_id }}
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
+                                                <td>{{ $entry->transaction_id ?: '—' }}</td>
+                                                <td>{{ $entry->resolvedEntryByLabel() }}</td>
+                                                <td class="text-end fw-medium">
+                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                        <span class="text-success">+ {{ with_currency_symbol($entry->amount) }}</span>
+                                                    @else
+                                                        <span class="text-danger">- {{ with_currency_symbol($entry->amount) }}</span>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @empty
-                                            <tr><td class="text-center" colspan="7">{{translate('Data_not_available')}}</td></tr>
+                                            <tr><td class="text-center py-4 text-muted" colspan="11">{{ translate('Data_not_available') }}</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>

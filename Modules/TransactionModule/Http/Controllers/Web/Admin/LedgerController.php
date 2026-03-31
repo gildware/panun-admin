@@ -27,6 +27,7 @@ class LedgerController extends Controller
 
         $query = LedgerTransaction::query()->with([
             'booking' => fn ($q) => $q->select('id', 'readable_id'),
+            'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id'),
             'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
         ]);
 
