@@ -462,7 +462,9 @@
                     const fileName = file.name;
                     const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
                     if (!fileName.toLowerCase().endsWith('.json')) {
-                        alert('Only .json files are allowed.');
+                        if (typeof toastr !== 'undefined') {
+                            toastr.warning('{{ translate('Only_JSON_files_are_allowed') }}');
+                        }
                         continue;
                     }
 

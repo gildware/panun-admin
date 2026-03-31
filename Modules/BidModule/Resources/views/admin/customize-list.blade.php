@@ -516,7 +516,9 @@
                     const endDate = $('[name="end_date"]').val();
                     if (!startDate || !endDate) {
                         e.preventDefault();
-                        alert("Please select both a start date and an end date for the custom range.");
+                        if (typeof toastr !== 'undefined') {
+                            toastr.warning(@json(translate('Please_select_both_start_and_end_date_for_the_custom_range')));
+                        }
                     }
                 }
             });

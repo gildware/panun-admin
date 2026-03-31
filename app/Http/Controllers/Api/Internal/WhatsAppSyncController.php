@@ -562,7 +562,7 @@ class WhatsAppSyncController extends Controller
         }
 
         // Otherwise create a new lead specifically for this type.
-        return Lead::create([
+        $lead = Lead::create([
             'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
             'phone_number' => $leadPhone,
             'lead_type' => $leadType,
@@ -570,6 +570,33 @@ class WhatsAppSyncController extends Controller
             'handled_by' => 'AI',
             'created_by' => null,
         ]);
+        $this->seedDefaultTypeHistoryForTypedLead($lead);
+
+        return $lead;
+    }
+
+    private function seedDefaultTypeHistoryForTypedLead(Lead $lead): void
+    {
+        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_CUSTOMER,
+                'data' => [
+                    'customer_lead_status_id' => CustomerLeadStatus::defaultPendingStatusId(),
+                    'booking_status' => 'pending',
+                ],
+                'created_by' => null,
+            ]);
+        } elseif ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_PROVIDER,
+                'data' => [
+                    'provider_lead_status_id' => ProviderLeadStatus::defaultPendingStatusId(),
+                ],
+                'created_by' => null,
+            ]);
+        }
     }
 
     private function isLeadOpen(Lead $lead): bool

@@ -118,8 +118,11 @@ class LeadController extends Controller
                     if ($filterDistrictIds !== [] && !in_array($d['district_id'] ?? null, $filterDistrictIds)) {
                         return false;
                     }
-                    if ($filterZoneIds !== [] && !in_array($d['zone_id'] ?? null, $filterZoneIds)) {
-                        return false;
+                    if ($filterZoneIds !== []) {
+                        $leadZones = $this->providerLeadZoneIdsFromData($d);
+                        if ($leadZones === [] || empty(array_intersect($filterZoneIds, $leadZones))) {
+                            return false;
+                        }
                     }
                     if ($filterCategoryIds !== [] && !in_array($d['provider_service_category'] ?? null, $filterCategoryIds)) {
                         return false;
@@ -301,8 +304,8 @@ class LeadController extends Controller
                 if (!empty($d['district_id'])) {
                     $districtIds[] = $d['district_id'];
                 }
-                if (!empty($d['zone_id'])) {
-                    $zoneIds[] = $d['zone_id'];
+                foreach ($this->providerLeadZoneIdsFromData($d) as $zid) {
+                    $zoneIds[] = $zid;
                 }
                 if (!empty($d['provider_service_category'])) {
                     $categoryIds[] = $d['provider_service_category'];
@@ -333,7 +336,14 @@ class LeadController extends Controller
                 $statusId = $d['provider_lead_status_id'] ?? null;
                 $status = $statusId ? $statuses->get($statusId) : null;
                 $districtId = $d['district_id'] ?? null;
-                $zoneId = $d['zone_id'] ?? null;
+                $leadZoneIds = $this->providerLeadZoneIdsFromData($d);
+                $zoneNames = [];
+                foreach ($leadZoneIds as $zid) {
+                    $zn = $zones->get($zid)?->name;
+                    if ($zn) {
+                        $zoneNames[] = $zn;
+                    }
+                }
                 $categoryId = $d['provider_service_category'] ?? null;
                 $cancelReasonId = $d['provider_cancellation_reason_id'] ?? null;
                 $cancelReason = $cancelReasonId ? $cancelReasons->get($cancelReasonId) : null;
@@ -341,7 +351,7 @@ class LeadController extends Controller
                     'status_name' => $status?->name ?? '—',
                     'status_color' => $status && !empty($status->color) ? $status->color : '#0d6efd',
                     'district_name' => $districtId ? ($districts->get($districtId)?->name ?? '—') : '—',
-                    'zone_name' => $zoneId ? ($zones->get($zoneId)?->name ?? '—') : '—',
+                    'zone_name' => $zoneNames !== [] ? implode(', ', $zoneNames) : '—',
                     'category_name' => $categoryId ? ($categories->get($categoryId)?->name ?? '—') : '—',
                     'cancellation_reason' => $cancelReason?->name ?? '—',
                     'checklist_done' => (int) ($checklistDone[$lid] ?? 0),
@@ -549,7 +559,7 @@ class LeadController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'phone_number' => 'required|string|max:32',
             'source_id' => 'nullable|exists:sources,id',
             'lead_type' => 'required|in:unknown,customer,provider,invalid,future_customer',
@@ -560,8 +570,31 @@ class LeadController extends Controller
             'next_followup_at' => 'nullable|date',
         ]);
 
+        $name = isset($validated['name']) ? trim((string) $validated['name']) : '';
+        $validated['name'] = $name !== '' ? $name : null;
         $validated['created_by'] = Auth::id();
         $lead = Lead::create($validated);
+
+        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_CUSTOMER,
+                'data' => [
+                    'customer_lead_status_id' => CustomerLeadStatus::defaultPendingStatusId(),
+                    'booking_status' => 'pending',
+                ],
+                'created_by' => Auth::id(),
+            ]);
+        } elseif ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_PROVIDER,
+                'data' => [
+                    'provider_lead_status_id' => ProviderLeadStatus::defaultPendingStatusId(),
+                ],
+                'created_by' => Auth::id(),
+            ]);
+        }
 
         $addedByUser = Auth::user();
         $addedByName = $addedByUser
@@ -591,7 +624,7 @@ class LeadController extends Controller
         $lead = Lead::findOrFail($id);
 
         $rules = [
-            'name' => 'sometimes|required|string|max:255',
+            'name' => 'sometimes|nullable|string|max:255',
             'phone_number' => 'sometimes|required|string|max:32',
             'source_id' => 'sometimes|nullable|exists:sources,id',
             'lead_type' => 'sometimes|required|in:unknown,customer,provider,invalid,future_customer',
@@ -603,6 +636,11 @@ class LeadController extends Controller
         ];
 
         $validated = $request->validate($rules);
+
+        if (array_key_exists('name', $validated)) {
+            $trimmedName = trim((string) ($validated['name'] ?? ''));
+            $validated['name'] = $trimmedName !== '' ? $trimmedName : null;
+        }
 
         if (empty($validated)) {
             $url = route('admin.lead.show', $lead->id);
@@ -633,6 +671,23 @@ class LeadController extends Controller
             $url .= '?in_modal=1';
         }
         return redirect($url);
+    }
+
+    /**
+     * Zone UUIDs stored on provider lead history (supports legacy single zone_id).
+     *
+     * @return array<int, string>
+     */
+    protected function providerLeadZoneIdsFromData(array $data): array
+    {
+        if (!empty($data['zone_ids']) && is_array($data['zone_ids'])) {
+            return array_values(array_unique(array_filter(array_map('strval', $data['zone_ids']))));
+        }
+        if (!empty($data['zone_id'])) {
+            return [(string) $data['zone_id']];
+        }
+
+        return [];
     }
 
     /**
@@ -782,6 +837,18 @@ class LeadController extends Controller
 
             $isUpdateCustomer = $request->boolean('update_customer') && $lead->lead_type === Lead::TYPE_CUSTOMER;
 
+            if (empty($data['customer_lead_status_id'])) {
+                if ($isUpdateCustomer) {
+                    $prevCustomerHistory = LeadTypeHistory::where('lead_id', $lead->id)
+                        ->where('type', Lead::TYPE_CUSTOMER)
+                        ->latest()
+                        ->first();
+                    $data['customer_lead_status_id'] = $prevCustomerHistory->data['customer_lead_status_id'] ?? CustomerLeadStatus::defaultPendingStatusId();
+                } else {
+                    $data['customer_lead_status_id'] = CustomerLeadStatus::defaultPendingStatusId();
+                }
+            }
+
             if ($isUpdateCustomer) {
                 $customerHistory = LeadTypeHistory::where('lead_id', $lead->id)
                     ->where('type', 'customer')
@@ -818,7 +885,6 @@ class LeadController extends Controller
             $request->merge([
                 'district_id' => $request->input('district_id') ?: null,
                 'provider_lead_status_id' => $request->input('provider_lead_status_id') ?: null,
-                'zone_id' => $request->input('zone_id') ?: null,
                 'provider_service_category' => $request->input('provider_service_category') ?: null,
                 'provider_service_subcategory' => $request->input('provider_service_subcategory') ?: null,
             ]);
@@ -827,13 +893,29 @@ class LeadController extends Controller
                 'full_address' => 'nullable|string|max:1000',
                 'service_areas' => 'nullable|string|max:1000',
                 'provider_lead_status_id' => 'nullable|exists:provider_lead_statuses,id',
-                'zone_id' => 'nullable|exists:zones,id',
+                'zone_ids' => 'nullable|array',
+                'zone_ids.*' => 'uuid|exists:zones,id',
                 'provider_service_category' => 'nullable|exists:categories,id',
                 'provider_service_subcategory' => 'nullable|exists:categories,id',
                 'provider_service_details' => 'nullable|string|max:1000',
             ]);
+            $zoneIds = array_values(array_unique(array_filter((array) ($data['zone_ids'] ?? []))));
+            $data['zone_ids'] = $zoneIds;
+            $data['zone_id'] = $zoneIds[0] ?? null;
 
             $isUpdateProvider = $request->boolean('update_provider') && $lead->lead_type === Lead::TYPE_PROVIDER;
+
+            if (empty($data['provider_lead_status_id'])) {
+                if ($isUpdateProvider) {
+                    $prevProviderHistory = LeadTypeHistory::where('lead_id', $lead->id)
+                        ->where('type', Lead::TYPE_PROVIDER)
+                        ->latest()
+                        ->first();
+                    $data['provider_lead_status_id'] = $prevProviderHistory->data['provider_lead_status_id'] ?? ProviderLeadStatus::defaultPendingStatusId();
+                } else {
+                    $data['provider_lead_status_id'] = ProviderLeadStatus::defaultPendingStatusId();
+                }
+            }
 
             if ($isUpdateProvider) {
                 $providerHistory = LeadTypeHistory::where('lead_id', $lead->id)
@@ -904,6 +986,7 @@ class LeadController extends Controller
         $providerCancellationReasons = ProviderCancellationReason::where('is_active', true)->orderBy('name')->get();
         $districts = District::where('is_active', true)->orderBy('name')->get();
         $zones = Zone::ofStatus(1)->orderBy('name')->get();
+        $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
 
         $handledByName = null;
         if ($lead->handled_by) {
@@ -989,6 +1072,7 @@ class LeadController extends Controller
             'providerCancellationReasons',
             'districts',
             'zones',
+            'zoneTreeOptions',
             'typeHistory',
             'typeHistoryDisplay',
             'leadOpenStatus',
@@ -1110,6 +1194,15 @@ class LeadController extends Controller
         ]);
         $statusId = $validated['provider_lead_status_id'] ?? null;
 
+        $history = LeadTypeHistory::where('lead_id', $lead->id)
+            ->where('type', 'provider')
+            ->latest()
+            ->first();
+
+        if (($statusId === null || $statusId === '') && !$history) {
+            $statusId = ProviderLeadStatus::defaultPendingStatusId();
+        }
+
         $statusModel = $statusId ? ProviderLeadStatus::find($statusId) : null;
         $baseType = $statusModel?->base_type ?? 'pending';
 
@@ -1118,11 +1211,6 @@ class LeadController extends Controller
                 'provider_cancellation_reason_id' => 'required|exists:provider_cancellation_reasons,id',
             ]);
         }
-
-        $history = LeadTypeHistory::where('lead_id', $lead->id)
-            ->where('type', 'provider')
-            ->latest()
-            ->first();
 
         $data = $history && is_array($history->data) ? $history->data : [];
         $data['provider_lead_status_id'] = $statusId;
@@ -1162,6 +1250,15 @@ class LeadController extends Controller
         ]);
         $statusId = $validated['customer_lead_status_id'] ?? null;
 
+        $history = LeadTypeHistory::where('lead_id', $lead->id)
+            ->where('type', 'customer')
+            ->latest()
+            ->first();
+
+        if (($statusId === null || $statusId === '') && !$history) {
+            $statusId = CustomerLeadStatus::defaultPendingStatusId();
+        }
+
         $statusModel = $statusId ? CustomerLeadStatus::find($statusId) : null;
         $baseType = $statusModel?->base_type ?? 'pending';
 
@@ -1170,11 +1267,6 @@ class LeadController extends Controller
                 'cancellation_reason_id' => 'required|exists:lead_cancellation_reasons,id',
             ]);
         }
-
-        $history = LeadTypeHistory::where('lead_id', $lead->id)
-            ->where('type', 'customer')
-            ->latest()
-            ->first();
 
         $data = $history && is_array($history->data) ? $history->data : [];
         $data['customer_lead_status_id'] = $statusId;
@@ -1292,7 +1384,15 @@ class LeadController extends Controller
         } elseif ($leadType === 'provider') {
             $district = isset($data['district_id']) ? District::find($data['district_id']) : null;
             $status = isset($data['provider_lead_status_id']) ? ProviderLeadStatus::find($data['provider_lead_status_id']) : null;
-            $zone = isset($data['zone_id']) ? Zone::withoutGlobalScopes()->find($data['zone_id']) : null;
+            $leadZoneIds = $this->providerLeadZoneIdsFromData($data);
+            $zoneLabels = [];
+            foreach ($leadZoneIds as $zid) {
+                $zn = Zone::withoutGlobalScopes()->find($zid)?->name;
+                if ($zn) {
+                    $zoneLabels[] = $zn;
+                }
+            }
+            $zoneDisplay = $zoneLabels !== [] ? implode(', ', $zoneLabels) : '—';
             $providerCategory = isset($data['provider_service_category']) ? Category::withoutGlobalScopes()->find($data['provider_service_category']) : null;
             $providerSubCategory = isset($data['provider_service_subcategory']) ? Category::withoutGlobalScopes()->find($data['provider_service_subcategory']) : null;
 
@@ -1302,7 +1402,7 @@ class LeadController extends Controller
                 ['label' => translate('Service_Areas'), 'value' => $data['service_areas'] ?? '—'],
             ];
             $service = [
-                ['label' => translate('Zone'), 'value' => $zone?->name ?? '—'],
+                ['label' => translate('Zone'), 'value' => $zoneDisplay],
                 ['label' => translate('Service_Category'), 'value' => $providerCategory?->name ?? (is_string($data['provider_service_category'] ?? null) ? ($data['provider_service_category'] ?? '—') : '—')],
                 ['label' => translate('Sub_Category'), 'value' => $providerSubCategory?->name ?? '—'],
                 ['label' => translate('Service_Details'), 'value' => $data['provider_service_details'] ?? '—'],
