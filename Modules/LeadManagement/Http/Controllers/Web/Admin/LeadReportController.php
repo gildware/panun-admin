@@ -782,7 +782,7 @@ class LeadReportController extends Controller
 
             return [
                 'ID' => $lead->id,
-                'Name' => $lead->name,
+                'Name' => $lead->name ?? '',
                 'Phone' => $lead->phone_number,
                 'Lead Type' => Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type,
                 'Source' => $lead->source?->name ?? '',

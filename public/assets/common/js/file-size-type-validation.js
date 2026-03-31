@@ -29,8 +29,11 @@
     }
 
     function showError(msg) {
-        if (typeof toastr !== 'undefined' && toastr.error) toastr.error(msg);
-        else { console.error(msg); alert(msg); }
+        if (typeof toastr !== 'undefined' && toastr.error) {
+            toastr.error(msg);
+        } else {
+            console.error(msg);
+        }
     }
 
     function restorePreview(input, file) {

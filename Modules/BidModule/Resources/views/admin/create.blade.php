@@ -324,7 +324,9 @@
 
             $('#open-add-address').on('click', function () {
                 if (!$customerSelect.val()) {
-                    alert('{{ translate('Please_select_a_customer_first') }}');
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error('{{ translate('Please_select_a_customer_first') }}');
+                    }
                     return;
                 }
                 $('#addAddressModal').modal('show');
@@ -364,11 +366,14 @@
                         $form[0].reset();
                     },
                     error: function (xhr) {
+                        if (typeof toastr === 'undefined') return;
                         if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
                             let messages = [];
                             Object.values(xhr.responseJSON.errors).forEach(function (errs) { messages = messages.concat(errs); });
-                            alert(messages.join('\n'));
-                        } else { alert('{{ translate('Something_went_wrong') }}'); }
+                            toastr.error(messages.join(' '));
+                        } else {
+                            toastr.error('{{ translate('Something_went_wrong') }}');
+                        }
                     }
                 });
             });
@@ -377,7 +382,9 @@
                 const $form = $('#quick-address-form');
                 const customerId = $customerSelect.val();
                 if (!customerId) {
-                    alert('{{ translate('Please_select_a_customer_first') }}');
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error('{{ translate('Please_select_a_customer_first') }}');
+                    }
                     return;
                 }
                 const route = '{{ route('admin.customer.address-quick-store', ['id' => ':id']) }}'.replace(':id', customerId);
@@ -393,11 +400,14 @@
                         $form[0].reset();
                     },
                     error: function (xhr) {
+                        if (typeof toastr === 'undefined') return;
                         if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
                             let messages = [];
                             Object.values(xhr.responseJSON.errors).forEach(function (errs) { messages = messages.concat(errs); });
-                            alert(messages.join('\n'));
-                        } else { alert('{{ translate('Something_went_wrong') }}'); }
+                            toastr.error(messages.join(' '));
+                        } else {
+                            toastr.error('{{ translate('Something_went_wrong') }}');
+                        }
                     }
                 });
             });

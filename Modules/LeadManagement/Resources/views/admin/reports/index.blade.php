@@ -588,7 +588,7 @@
                             @forelse($leads as $lead)
                                 <tr>
                                     <td>{{ $lead->id }}</td>
-                                    <td>{{ $lead->name }}</td>
+                                    <td>{{ $lead->name ?? '—' }}</td>
                                     <td>{{ $lead->phone_number }}</td>
                                     <td>
                                         @php

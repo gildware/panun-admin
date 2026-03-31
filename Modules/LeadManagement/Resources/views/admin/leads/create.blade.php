@@ -18,10 +18,10 @@
                                 <div class="row">
                                     <div class="col-lg-6">
                                         <div class="mb-30">
-                                            <label class="form-label">{{ translate('Name') }} *</label>
+                                            <label class="form-label">{{ translate('Name') }}</label>
                                             <input type="text" class="form-control" name="name"
-                                                   placeholder="{{ translate('Name') }} *"
-                                                   required value="{{ old('name') }}">
+                                                   placeholder="{{ translate('Name') }}"
+                                                   value="{{ old('name') }}">
                                             @error('name')
                                                 <div class="text-danger small mt-1">{{ $message }}</div>
                                             @enderror

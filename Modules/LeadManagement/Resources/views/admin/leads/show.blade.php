@@ -157,7 +157,7 @@
                                         <div class="d-flex flex-column gap-3">
                                             <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
                                                 <span class="title-color">{{ translate('Name') }}</span>
-                                                <strong>{{ $lead->name }}</strong>
+                                                <strong>{{ $lead->name ?? '—' }}</strong>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
                                                 <span class="title-color">{{ translate('Phone_Number') }}</span>
@@ -177,7 +177,7 @@
                                             <div class="d-flex flex-column gap-3">
                                                 <div class="p-3 rounded c1-light-bg">
                                                     <label class="title-color d-block mb-2">{{ translate('Name') }}</label>
-                                                    <input type="text" name="name" class="form-control" value="{{ old('name', $lead->name) }}" required>
+                                                    <input type="text" name="name" class="form-control" value="{{ old('name', $lead->name) }}">
                                                 </div>
                                                 <div class="p-3 rounded c1-light-bg">
                                                     <label class="title-color d-block mb-2">{{ translate('Phone_Number') }}</label>
@@ -794,8 +794,8 @@
                                                 <label class="form-label">{{ translate('Zone') }}</label>
                                                 <select name="zone_id" id="lead-zone-select" class="form-control js-select">
                                                     <option value="">{{ translate('Select_Zone') }}</option>
-                                                    @foreach($zones as $zone)
-                                                        <option value="{{ $zone->id }}" {{ ($customerEditData['zone_id'] ?? '') == $zone->id ? 'selected' : '' }}>{{ $zone->name }}</option>
+                                                    @foreach($zoneTreeOptions as $zOpt)
+                                                        <option value="{{ $zOpt['id'] }}" {{ ($customerEditData['zone_id'] ?? '') == $zOpt['id'] ? 'selected' : '' }}>{{ $zOpt['label'] }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -850,9 +850,15 @@
 
                     @php
                         $providerEditData = ($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER && $typeHistory && is_array($typeHistory->data ?? null)) ? $typeHistory->data : [];
+                        $providerZoneIdsForEdit = [];
+                        if (!empty($providerEditData['zone_ids']) && is_array($providerEditData['zone_ids'])) {
+                            $providerZoneIdsForEdit = array_values(array_filter(array_map('strval', $providerEditData['zone_ids'])));
+                        } elseif (!empty($providerEditData['zone_id'])) {
+                            $providerZoneIdsForEdit = [(string) $providerEditData['zone_id']];
+                        }
                     @endphp
                     <div class="modal fade" id="leadProviderModal" tabindex="-1" aria-labelledby="leadProviderModalLabel" aria-hidden="true"
-                         data-edit-zone="{{ $providerEditData['zone_id'] ?? '' }}"
+                         data-edit-zone-ids='@json($providerZoneIdsForEdit)'
                          data-edit-category="{{ $providerEditData['provider_service_category'] ?? '' }}"
                          data-edit-subcategory="{{ $providerEditData['provider_service_subcategory'] ?? '' }}">
                         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -900,10 +906,9 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Zone') }}</label>
-                                                <select name="zone_id" id="provider-zone-select" class="form-select js-select">
-                                                    <option value="">{{ translate('Select_Zone') }}</option>
-                                                    @foreach($zones as $zone)
-                                                        <option value="{{ $zone->id }}" {{ ($providerEditData['zone_id'] ?? '') == $zone->id ? 'selected' : '' }}>{{ $zone->name }}</option>
+                                                <select name="zone_ids[]" id="provider-zone-select" class="form-select" multiple>
+                                                    @foreach($zoneTreeOptions as $zOpt)
+                                                        <option value="{{ $zOpt['id'] }}" {{ in_array((string) $zOpt['id'], $providerZoneIdsForEdit, true) ? 'selected' : '' }}>{{ $zOpt['label'] }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -1803,6 +1808,15 @@
                 }
             }
 
+            function initProviderZoneSelect() {
+                destroySelect2(providerZoneSelect);
+                providerZoneSelect.select2({
+                    width: '100%',
+                    placeholder: '{{ translate("Select_Zone") }}',
+                    closeOnSelect: false
+                });
+            }
+
             function initProviderCategorySelect() {
                 destroySelect2(providerCategorySelect);
                 providerCategorySelect.addClass('js-select');
@@ -1819,19 +1833,30 @@
                 }
             }
 
+            function providerSelectedZoneIds() {
+                const v = providerZoneSelect.val();
+                if (Array.isArray(v)) {
+                    return v.filter(Boolean);
+                }
+                return v ? [v] : [];
+            }
+
             function loadProviderCategories(onLoaded) {
-                const zoneId = providerZoneSelect.val();
-                providerCategorySelect.empty().append(new Option('{{ translate("Select_Category") }}', '', true, true)).prop('disabled', !zoneId);
+                if (typeof onLoaded !== 'function') {
+                    onLoaded = undefined;
+                }
+                const zoneIds = providerSelectedZoneIds();
+                providerCategorySelect.empty().append(new Option('{{ translate("Select_Category") }}', '', true, true)).prop('disabled', !zoneIds.length);
                 providerSubcategorySelect.empty().append(new Option('{{ translate("Select_Sub_Category") }}', '', true, true)).prop('disabled', true);
                 destroySelect2(providerCategorySelect);
                 destroySelect2(providerSubcategorySelect);
-                if (!zoneId) {
+                if (!zoneIds.length) {
                     providerCategorySelect.removeClass('js-select');
                     providerSubcategorySelect.removeClass('js-select');
                     if (onLoaded) onLoaded();
                     return;
                 }
-                $.get(categoriesUrl, { zone_id: zoneId }).done(function (res) {
+                $.get(categoriesUrl, { zone_ids: zoneIds }).done(function (res) {
                     const list = (res && res.content) ? res.content : (res && res.data ? res.data : (Array.isArray(res) ? res : []));
                     list.forEach(function (item) {
                         providerCategorySelect.append(new Option(item.name || item.category_name, item.id, false, false));
@@ -1846,6 +1871,9 @@
             }
 
             function loadProviderSubcategories(onLoaded) {
+                if (typeof onLoaded !== 'function') {
+                    onLoaded = undefined;
+                }
                 const categoryId = providerCategorySelect.val();
                 providerSubcategorySelect.empty().append(new Option('{{ translate("Select_Sub_Category") }}', '', true, true)).prop('disabled', !categoryId);
                 destroySelect2(providerSubcategorySelect);
@@ -1868,11 +1896,33 @@
                 });
             }
 
-            providerZoneSelect.on('change', loadProviderCategories);
-            providerCategorySelect.on('change', loadProviderSubcategories);
+            providerZoneSelect.on('change', function () {
+                loadProviderCategories();
+            });
+            providerCategorySelect.on('change', function () {
+                loadProviderSubcategories();
+            });
+
+            $(function () {
+                if (providerZoneSelect.length) {
+                    initProviderZoneSelect();
+                }
+            });
 
             $('#leadProviderModal').on('show.bs.modal', function () {
                 const $modal = $(this);
+                let editZoneIds = [];
+                try {
+                    editZoneIds = JSON.parse($modal.attr('data-edit-zone-ids') || '[]') || [];
+                } catch (e) {
+                    editZoneIds = [];
+                }
+                if (!Array.isArray(editZoneIds)) {
+                    editZoneIds = [];
+                }
+                providerZoneSelect.val(editZoneIds);
+                initProviderZoneSelect();
+
                 const editCategory = $modal.data('editCategory');
                 const editSubcategory = $modal.data('editSubcategory');
                 loadProviderCategories(function () {

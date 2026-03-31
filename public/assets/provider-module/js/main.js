@@ -809,7 +809,9 @@ We may release future updates so it will overwrite this file. it's better and sa
 
                 // Allow only ZIP files
                 if (!fileName.toLowerCase().endsWith('.zip')) {
-                    alert('Only .zip files are allowed.');
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning('Only .zip files are allowed.');
+                    }
                     continue;
                 }
 

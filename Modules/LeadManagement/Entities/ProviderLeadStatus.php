@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProviderLeadStatus extends Model
 {
+    public const BASE_TYPE_PENDING = 'pending';
+
     protected $fillable = [
         'name',
         'description',
@@ -18,5 +20,19 @@ class ProviderLeadStatus extends Model
         'base_type' => 'string',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Active status row with base_type pending (default for new / converted provider leads).
+     */
+    public static function defaultPendingStatusId(): ?int
+    {
+        $id = static::query()
+            ->where('is_active', true)
+            ->where('base_type', self::BASE_TYPE_PENDING)
+            ->orderBy('id')
+            ->value('id');
+
+        return $id !== null ? (int) $id : null;
+    }
 }
 

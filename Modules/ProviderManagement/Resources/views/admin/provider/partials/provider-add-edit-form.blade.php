@@ -1572,8 +1572,6 @@
                         var msg = "{{ addslashes(translate('Select_Zone')) }}";
                         if (typeof toastr !== "undefined") {
                             toastr.error(msg);
-                        } else {
-                            alert(msg);
                         }
                         var tree = providerFormEl.querySelector(".provider-zone-tree");
                         if (tree && tree.scrollIntoView) {
