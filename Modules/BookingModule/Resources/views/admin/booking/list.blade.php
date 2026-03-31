@@ -92,7 +92,9 @@
                 <div class="col-12">
                     <div
                         class="page-title-wrap d-flex flex-wrap justify-content-between align-items-center border-bottom pb-2">
-                        @if(request('booking_status'))
+                        @if(request('booking_status') === 'reopened')
+                            <h2 class="page-title">{{ translate('Reopened_bookings') }}</h2>
+                        @elseif(request('booking_status'))
                             <h2 class="page-title">{{ ucfirst(request('booking_status')) }}</h2>
                         @else
                             <h2 class="page-title">{{ translate('Booking_Request') }}</h2>
@@ -183,7 +185,11 @@
                                         <tr>
                                             <th>{{ translate('SL') }}</th>
                                             <th>{{ translate('Booking_ID') }}</th>
-                                            <th>{{ translate('Lead_ID') }}</th>
+                                            @if(request('booking_status') === 'reopened')
+                                                <th>{{ translate('Reopened_from') }}</th>
+                                            @else
+                                                <th>{{ translate('Lead_ID') }}</th>
+                                            @endif
                                             <th>{{ translate('Assignee') }}</th>
                                             <th>{{ translate('Fup_Customer') }}</th>
                                             <th>{{ translate('Fup_Provider') }}</th>
@@ -230,17 +236,41 @@
                                                     @else
                                                     <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">
                                                         {{ $booking->readable_id }}</a>
+                                                        @if($booking->isOpenReopenTicket())
+                                                            <span class="badge bg-warning text-dark ms-1">{{ translate('Reopened') }}</span>
+                                                        @elseif($booking->isReopenedTagged())
+                                                            <span class="badge bg-success ms-1">{{ translate('Resolved') }}</span>
+                                                        @endif
                                                     @endif
                                                 </td>
-                                                <td>
-                                                    @if(!empty($booking->lead_id))
-                                                        <a href="{{ route('admin.lead.show', $booking->lead_id) }}">
-                                                            #{{ $booking->lead_id }}
-                                                        </a>
-                                                    @else
-                                                        —
-                                                    @endif
-                                                </td>
+                                                @if(request('booking_status') === 'reopened')
+                                                    <td>
+                                                        @if(!empty($booking->originated_from_booking_id))
+                                                            @php
+                                                                $reopenParent = $booking->originatedFromBooking;
+                                                            @endphp
+                                                            @if($reopenParent)
+                                                                <a href="{{ route('admin.booking.details', [$reopenParent->id, 'web_page' => 'details']) }}">
+                                                                    #{{ $reopenParent->readable_id ?? $booking->originated_from_booking_id }}
+                                                                </a>
+                                                            @else
+                                                                <span class="text-muted">{{ $booking->originated_from_booking_id }}</span>
+                                                            @endif
+                                                        @else
+                                                            <span class="text-muted">{{ translate('Reopened_from_self') }}</span>
+                                                        @endif
+                                                    </td>
+                                                @else
+                                                    <td>
+                                                        @if(!empty($booking->lead_id))
+                                                            <a href="{{ route('admin.lead.show', $booking->lead_id) }}">
+                                                                #{{ $booking->lead_id }}
+                                                            </a>
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                @endif
                                                 <td>
                                                     @if($booking->assignee)
                                                         <div>{{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}</div>
@@ -464,6 +494,16 @@
                                                                 style="--size: 30px">
                                                                 <span class="material-icons">download</span>
                                                             </a>
+                                                            @can('booking_can_manage_status')
+                                                                @if(request('booking_status') === 'reopened' && $booking->canMarkReopenResolved())
+                                                                    <button type="button" class="action-btn btn-success fw-medium text-capitalize fz-14" style="--size: 30px"
+                                                                        title="{{ translate('Mark_reopen_resolved') }}"
+                                                                        data-bs-toggle="modal" data-bs-target="#reopenResolveModalGlobal"
+                                                                        data-resolve-action="{{ route('admin.booking.reopen-resolve', $booking->id) }}">
+                                                                        <span class="material-icons">check_circle</span>
+                                                                    </button>
+                                                                @endif
+                                                            @endcan
                                                         @endif
                                                     </div>
                                                 </td>
@@ -486,6 +526,14 @@
         </div>
     </div>
     </div>
+
+    @if(request('booking_status') === 'reopened')
+        @include('bookingmodule::admin.booking.partials._reopen-resolve-modal', [
+            'modalId' => 'reopenResolveModalGlobal',
+            'formId' => 'reopenResolveFormGlobal',
+            'formAction' => '#',
+        ])
+    @endif
 @endsection
 
 @push('script')
@@ -557,6 +605,28 @@
 
         })(jQuery);
     </script>
+
+    @if(request('booking_status') === 'reopened')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var modalEl = document.getElementById('reopenResolveModalGlobal');
+            if (!modalEl) return;
+            var hasOldRemarks = @json(strlen((string) (old('reopen_resolve_remarks') ?? '')) > 0);
+            modalEl.addEventListener('show.bs.modal', function (e) {
+                var btn = e.relatedTarget;
+                var url = btn && btn.getAttribute('data-resolve-action');
+                var form = modalEl.querySelector('#reopenResolveFormGlobal');
+                if (form && url) {
+                    form.setAttribute('action', url);
+                }
+                var ta = modalEl.querySelector('textarea[name="reopen_resolve_remarks"]');
+                if (ta && !hasOldRemarks) {
+                    ta.value = '';
+                }
+            });
+        });
+    </script>
+    @endif
 
     <script>
         $(document).ready(function() {

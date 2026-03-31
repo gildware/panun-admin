@@ -455,6 +455,17 @@
                                                                     </div>
                                                                 </div>
                                                             </div>
+                                                            <div class="row g-lg-4 g-3 mt-1">
+                                                                @can('commission_custom_service_update')
+                                                                    @include('businesssettingsmodule::admin.partials.commission-entity-form-section')
+                                                                @else
+                                                                    <div class="col-12">
+                                                                        <div class="alert alert-soft-primary fz-12" role="alert">
+                                                                            {{ translate('Commission_customization_no_permission_note') }}
+                                                                        </div>
+                                                                    </div>
+                                                                @endcan
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -514,7 +525,7 @@
                                                 </tr>
                                                 </thead>
                                                 <tbody id="variation-update-table">
-                                                @include('servicemanagement::admin.partials._update-variant-data',['variants'=>$service->variations,'zones'=>$zones])
+                                                @include('servicemanagement::admin.partials._update-variant-data',['variants'=>$service->variations,'zones'=>$zones,'service'=>$service])
                                                 </tbody>
                                             </table>
 
@@ -806,6 +817,9 @@
                         success: function (response) {
                             console.log(response.template)
                             $('#' + id).html(response.template);
+                            if (window.initZonePricingRowControls) {
+                                window.initZonePricingRowControls('#' + id);
+                            }
                         },
                         complete: function () {
                         },
@@ -834,6 +848,9 @@
                     $('#category-wise-zone').html(response.template_for_zone);
                     $('#variation-table').html(response.template_for_variant);
                     $('#variation-update-table').html(response.template_for_update_variant);
+                    if (window.initZonePricingRowControls) {
+                        window.initZonePricingRowControls('#variation-update-table');
+                    }
                 },
                 complete: function () {
                 },
@@ -844,6 +861,9 @@
             tinymce.init({
                 selector: 'textarea.ckeditor'
             });
+            if (window.initZonePricingRowControls) {
+                window.initZonePricingRowControls('#variation-update-table');
+            }
         });
 
         // Per-zone pricing modal (parent -> children propagation)
@@ -861,26 +881,37 @@
                 return Array.from(new Set(ids));
             }
 
+            function getHiddenZoneIdsForVariant(variantKey) {
+                var ids = [];
+                var prefix = variantKey + '_';
+                var suffix = '_price';
+                document.querySelectorAll('input[type="hidden"][name]').forEach(function (inp) {
+                    var n = inp.name;
+                    if (n.indexOf(prefix) !== 0 || !n.endsWith(suffix)) return;
+                    var mid = n.substring(prefix.length, n.length - suffix.length);
+                    if (mid) ids.push(mid);
+                });
+                return ids;
+            }
+
             function setVariantAllZonePricesToDefault(variantKey) {
                 if (!variantKey) return;
                 var btn = document.querySelector('.service-zone-pricing-btn[data-variant-key="' + variantKey + '"]');
                 var defaultInput = null;
                 if (btn) {
                     var tr = btn.closest('tr');
-                    if (tr) defaultInput = tr.querySelector('input[type="number"][id^="default-set-"]');
-                    if (!defaultInput) defaultInput = tr ? tr.querySelector('input[type="number"][id^="default-set-"][id$="-update"]') : null;
-                }
-
-                // fallback: look for update default input
-                if (!defaultInput) {
-                    var tr2 = btn ? btn.closest('tr') : null;
-                    if (tr2) defaultInput = tr2.querySelector('input[type="number"][id^="default-set-"]');
+                    if (tr) {
+                        defaultInput = tr.querySelector('input[name^="variant_default_price"]')
+                            || tr.querySelector('input[type="number"][id^="default-set-"]');
+                    }
                 }
 
                 var defaultPrice = defaultInput ? defaultInput.value : null;
-                if (!defaultPrice || parseFloat(defaultPrice) <= 0) return;
+                if (defaultPrice === null || defaultPrice === '' || isNaN(parseFloat(defaultPrice))) return;
 
-                getAllZoneIdsFromModal().forEach(function (zoneId) {
+                var zoneIds = getHiddenZoneIdsForVariant(variantKey);
+                if (!zoneIds.length) zoneIds = getAllZoneIdsFromModal();
+                zoneIds.forEach(function (zoneId) {
                     var name = variantKey + '_' + zoneId + '_price';
                     var inp = document.querySelector('input[name="' + name + '"]');
                     if (inp) inp.value = defaultPrice;
@@ -892,6 +923,27 @@
                 var selector = 'input[name="' + variantKey + '_' + zoneId + '_price"]';
                 var tableInput = document.querySelector(selector);
                 if (tableInput) tableInput.value = value;
+            }
+
+            /** Push modal field values into form hiddens (source of truth on submit). */
+            function flushActiveVariantModalToHidden() {
+                var vk = window.serviceZonePricingActiveVariantKey;
+                var modalEl = document.getElementById('serviceZonePricingModal');
+                if (!vk || !modalEl) return;
+                modalEl.querySelectorAll('.service-zone-price-input[data-zone-id]').forEach(function (inp) {
+                    if (inp.disabled) return;
+                    var zid = inp.dataset.zoneId;
+                    if (!zid) return;
+                    updateTablePrice(vk, zid, inp.value);
+                });
+            }
+
+            var _zonePricingModalEl = document.getElementById('serviceZonePricingModal');
+            if (_zonePricingModalEl && !_zonePricingModalEl.dataset.flushBound) {
+                _zonePricingModalEl.dataset.flushBound = '1';
+                _zonePricingModalEl.addEventListener('hidden.bs.modal', function () {
+                    flushActiveVariantModalToHidden();
+                });
             }
 
             function propagatePriceToDescendants(inputEl, variantKey) {
@@ -933,7 +985,7 @@
                 });
             });
 
-            document.addEventListener('input', function (e) {
+            function onModalZonePriceInput(e) {
                 var inp = e.target;
                 if (!(inp && inp.classList && inp.classList.contains('service-zone-price-input'))) return;
                 if (!window.serviceZonePricingActiveVariantKey) return;
@@ -946,7 +998,10 @@
                 if (cb && !cb.checked) return;
 
                 propagatePriceToDescendants(inp, window.serviceZonePricingActiveVariantKey);
-            });
+            }
+
+            document.addEventListener('input', onModalZonePriceInput);
+            document.addEventListener('change', onModalZonePriceInput);
 
             // Expand / collapse nodes inside the modal
             document.addEventListener('click', function (e) {
@@ -985,18 +1040,15 @@
                 var titleEl = document.getElementById('serviceZonePricingModalTitle');
                 if (titleEl) titleEl.textContent = 'Set different pricing for ' + variantKey;
 
-                // Fill modal inputs from table values
+                // Fill modal from existing hiddens only — do NOT call setVariantAllZonePricesToDefault here;
+                // that overwrote every hidden with default price and discarded per-zone edits.
                 var modalEl = document.getElementById('serviceZonePricingModal');
                 if (!modalEl) return;
 
-                // Ensure every zone has a default value equal to Default Price when opening modal
-                setVariantAllZonePricesToDefault(variantKey);
-
-                // Read default price from current variation row
                 var rowDefaultPrice = '';
                 var row = btn.closest('tr');
                 if (row) {
-                    var defaultInput = row.querySelector('input[type="number"][id^="default-set-"]');
+                    var defaultInput = row.querySelector('input[name^="variant_default_price"], input[type="number"][id^="default-set-"]');
                     if (defaultInput) rowDefaultPrice = defaultInput.value || '';
                 }
 
@@ -1004,8 +1056,11 @@
                     var zoneId = inp.dataset.zoneId;
                     var selector = 'input[name="' + variantKey + '_' + zoneId + '_price"]';
                     var tableInput = document.querySelector(selector);
-                    // Parent nodes may not have hidden inputs; default to variation default price.
-                    inp.value = tableInput ? tableInput.value : (inp.value || rowDefaultPrice);
+                    if (tableInput) {
+                        inp.value = (tableInput.value !== '' && tableInput.value !== null) ? tableInput.value : rowDefaultPrice;
+                    } else {
+                        inp.value = rowDefaultPrice;
+                    }
                 });
 
                 // Keep modal inputs disabled/enabled based on checkbox state
@@ -1044,11 +1099,10 @@
                 }
 
                 if (!t.checked) {
-                    // Reset this variation's hidden zone prices back to its default price
-                    var defaultPriceInput = tr ? tr.querySelector('input[type="number"][id^="default-set-"]') : null;
+                    var defaultPriceInput = tr ? tr.querySelector('input[name^="variant_default_price"], input[type="number"][id^="default-set-"]') : null;
                     var defaultPrice = defaultPriceInput ? defaultPriceInput.value : null;
-                    if (defaultPrice && parseFloat(defaultPrice) > 0) {
-                        getAllZoneIdsFromModal().forEach(function (zoneId) {
+                    if (defaultPrice !== null && defaultPrice !== '' && !isNaN(parseFloat(defaultPrice))) {
+                        getHiddenZoneIdsForVariant(variantKey).forEach(function (zoneId) {
                             var name = variantKey + '_' + zoneId + '_price';
                             var inp = document.querySelector('input[name="' + name + '"]');
                             if (inp) inp.value = defaultPrice;
@@ -1056,11 +1110,28 @@
                     }
                     window.serviceZonePricingCustomMode[variantKey] = false;
                 } else {
-                    // Ensure all zones start with default price immediately on enable
                     setVariantAllZonePricesToDefault(variantKey);
                 }
             });
         })();
+
+        window.initZonePricingRowControls = function (tableSelector) {
+            var root = tableSelector ? document.querySelector(tableSelector) : document;
+            if (!root) return;
+            root.querySelectorAll('.service-zone-pricing-toggle').forEach(function (cb) {
+                var vk = cb.dataset.variantKey;
+                var tr = cb.closest('tr');
+                var btn = tr && tr.querySelector('.service-zone-pricing-btn[data-variant-key="' + vk + '"]');
+                if (btn) {
+                    btn.disabled = !cb.checked;
+                    btn.setAttribute('aria-disabled', (!cb.checked).toString());
+                }
+                if (!cb.checked && tr) {
+                    var defInp = tr.querySelector('input[name^="variant_default_price"]');
+                    if (defInp) defInp.dispatchEvent(new Event('keyup'));
+                }
+            });
+        };
 
         $(".lang_link").on('click', function (e) {
             e.preventDefault();
@@ -1092,4 +1163,11 @@
             }
         });
     </script>
+    @can('commission_custom_service_update')
+        @include('businesssettingsmodule::admin.partials.commission-entity-form-scripts', [
+            'previewCurrencySymbol' => $previewCurrencySymbol,
+            'previewCurrencyCode' => $previewCurrencyCode,
+            'formSelector' => '#service-add-form',
+        ])
+    @endcan
 @endpush

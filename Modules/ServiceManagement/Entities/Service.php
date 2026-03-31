@@ -33,6 +33,9 @@ class Service extends Model
         'rating_count' => 'integer',
         'avg_rating' => 'float',
         'slug'      => 'string',
+        'variation_pricing' => 'array',
+        'commission_custom' => 'integer',
+        'commission_tier_setup' => 'array',
     ];
 
     protected $fillable = ['slug'];

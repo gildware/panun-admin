@@ -19,6 +19,7 @@ use Modules\PromotionManagement\Entities\PushNotificationUser;
 use Modules\UserManagement\Entities\User;
 use Modules\BookingModule\Entities\Booking;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\Variation;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\BookingModule\Events\BookingRequested;
@@ -865,7 +866,14 @@ trait BookingTrait
     {
         DB::transaction(function () use ($request) {
             $service = Service::with('variations')->find($request['service_id']);
-            $variation = $service->variations->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $request['service_id'],
+                (string) $request['variant_key'],
+                (string) $request['zone_id']
+            );
+            if (!$service || !$variation) {
+                throw new \InvalidArgumentException('Service or variation not found.');
+            }
             $quantity = $request['quantity'];
             $booking = Booking::with(['detail', 'details_amounts'])->find($request['booking_id']);
 
@@ -1013,7 +1021,11 @@ trait BookingTrait
             $booking->save();
 
             $service = Service::with('variations')->find($newServiceId);
-            $variation = $service->variations->where('variant_key', $newVariantKey)->where('zone_id', $zoneId)->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $newServiceId,
+                (string) $newVariantKey,
+                (string) $zoneId
+            );
             if (!$service || !$variation) {
                 throw new \InvalidArgumentException('Service or variation not found.');
             }
@@ -1079,7 +1091,14 @@ trait BookingTrait
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingDetail::whereHas('booking', fn($query) => $query->where('id', $request['booking_id']))->where('variant_key', $request['variant_key'])->first();
             $service = Service::with('variations')->find($request['service_id']);
-            $variation = $service->variations->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $request['service_id'],
+                (string) $request['variant_key'],
+                (string) $request['zone_id']
+            );
+            if (!$service || !$variation) {
+                return;
+            }
             $booking = Booking::with(['detail', 'details_amounts'])->find($request['booking_id']);
 
             $oldQuantity = $request['old_quantity'];
@@ -1211,7 +1230,14 @@ trait BookingTrait
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingRepeatDetails::whereHas('repeat', fn($query) => $query->where('id', $request['booking_repeat_id']))->where('variant_key', $request['variant_key'])->first();
             $service = Service::with('variations')->find($request['service_id']);
-            $variation = $service->variations->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $request['service_id'],
+                (string) $request['variant_key'],
+                (string) $request['zone_id']
+            );
+            if (!$service || !$variation) {
+                return;
+            }
             $booking = BookingRepeat::with(['detail', 'details_amounts'])->find($request['booking_repeat_id']);
 
             $oldQuantity = $request['old_quantity'];
@@ -1345,7 +1371,14 @@ trait BookingTrait
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingDetail::whereHas('booking', fn($query) => $query->where('id', $request['booking_id']))->where('variant_key', $request['variant_key'])->first();
             $service = Service::with('variations')->find($request['service_id']);
-            $variation = $service->variations->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $request['service_id'],
+                (string) $request['variant_key'],
+                (string) $request['zone_id']
+            );
+            if (!$service || !$variation) {
+                return;
+            }
             $quantity = $bookingDetails['quantity'];
             $booking = Booking::with(['detail', 'details_amounts'])->find($request['booking_id']);
 
@@ -1454,7 +1487,14 @@ trait BookingTrait
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingDetail::whereHas('booking', fn($query) => $query->where('id', $request['booking_id']))->where('variant_key', $request['variant_key'])->first();
             $service = Service::with('variations')->find($request['service_id']);
-            $variation = $service->variations->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $request['service_id'],
+                (string) $request['variant_key'],
+                (string) $request['zone_id']
+            );
+            if (!$service || !$variation) {
+                return;
+            }
             $booking = Booking::with(['detail', 'details_amounts'])->find($request['booking_id']);
 
             $oldQuantity = $request['old_quantity'];
@@ -1596,7 +1636,14 @@ trait BookingTrait
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingRepeatDetails::whereHas('repeat', fn($query) => $query->where('id', $request['booking_repeat_id']))->where('variant_key', $request['variant_key'])->first();
             $service = Service::with('variations')->find($request['service_id']);
-            $variation = $service->variations->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $request['service_id'],
+                (string) $request['variant_key'],
+                (string) $request['zone_id']
+            );
+            if (!$service || !$variation) {
+                return;
+            }
             $booking = BookingRepeat::with(['detail', 'details_amounts'])->find($request['booking_repeat_id']);
 
             $oldQuantity = $request['old_quantity'];
@@ -1916,7 +1963,7 @@ trait BookingTrait
             ];
         }
 
-        // Admin commission must follow provider commission setting (custom or Business Model default).
+        // Company tiers unless provider has custom % (see calculate_commission_for_booking).
         $commissionResult = calculate_commission_for_booking($booking, $providerId);
         $adminCommission = $commissionResult['commission'];
 

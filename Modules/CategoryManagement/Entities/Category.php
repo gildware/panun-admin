@@ -25,6 +25,8 @@ class Category extends Model
         'position'  => 'integer',
         'is_active' => 'integer',
         'slug'      => 'string',
+        'commission_custom' => 'integer',
+        'commission_tier_setup' => 'array',
     ];
 
     protected $appends = ['image_full_path'];

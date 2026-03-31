@@ -3,12 +3,26 @@
 namespace Modules\BookingModule\Http\Traits;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
+use Modules\BookingModule\Entities\BookingReopenEvent;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
 
 trait BookingScopes
 {
+    /** @var array<string, bool> */
+    private static array $hasReopenResolvedAtColumn = [];
+
+    private static function bookingsTableHasReopenResolvedAt(string $table): bool
+    {
+        if (! array_key_exists($table, self::$hasReopenResolvedAtColumn)) {
+            self::$hasReopenResolvedAtColumn[$table] = Schema::hasColumn($table, 'reopen_resolved_at');
+        }
+
+        return self::$hasReopenResolvedAtColumn[$table];
+    }
+
 
     public function scopeOfBookingStatus($query, $status): void
     {
@@ -21,6 +35,44 @@ trait BookingScopes
     public function scopeOfRepeatBookingStatus($query, $status): void
     {
         $query->where('is_repeated', '=', $status);
+    }
+
+    /**
+     * Open reopen tickets only: linked follow-up bookings, or the same booking after an in-place reopen.
+     * Excludes resolved cases and the original completed parent when only a new linked booking was created.
+     *
+     * @deprecated Use openReopenTickets(); reopenedChain is an alias for the same filter.
+     */
+    public function scopeReopenedChain($query): void
+    {
+        $query->openReopenTickets();
+    }
+
+    public function scopeOpenReopenTickets($query): void
+    {
+        $table = $query->getModel()->getTable();
+        if (self::bookingsTableHasReopenResolvedAt($table)) {
+            $query->whereNull($table . '.reopen_resolved_at');
+        }
+        $query->where(function ($q) {
+                $q->whereNotNull('originated_from_booking_id')
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('booking_reopen_events')
+                            ->whereColumn('booking_reopen_events.source_booking_id', 'bookings.id')
+                            ->where('booking_reopen_events.resolution', BookingReopenEvent::RESOLUTION_REOPEN_IN_PLACE);
+                    });
+            })
+            ->where(function ($q) {
+                $q->where('booking_status', '!=', 'completed')
+                    ->orWhereNotNull('originated_from_booking_id')
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('booking_reopen_events')
+                            ->whereColumn('booking_reopen_events.source_booking_id', 'bookings.id')
+                            ->where('booking_reopen_events.resolution', BookingReopenEvent::RESOLUTION_REOPEN_IN_PLACE);
+                    });
+            });
     }
 
     public function scopeSearch($query, $keywords, array $searchColumns): mixed

@@ -2,6 +2,7 @@
 
 namespace Modules\ServiceManagement\Http\Controllers\Web\Admin;
 
+use App\Lib\CommissionEntitySetup;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -13,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\CategoryManagement\Entities\Category;
@@ -185,20 +187,18 @@ class ServiceController extends Controller
         })->collapse()->all();
 
         $variationFormat = [];
-        //dd($variations);
         if ($variations) {
             $zones = $this->zone->ofStatus(1)->latest()->get();
+            $variantsSpec = [];
             foreach ($variations as $item) {
-                foreach ($zones as $zone) {
-                    $variationFormat[] = [
-                        'variant' => $item['variant'],
-                        'variant_key' => $item['variant_key'],
-                        'zone_id' => $zone->id,
-                        'price' => $data[$item['variant_key'] . '_' . $zone->id . '_price'] ?? 0,
-                        'service_id' => $service->id
-                    ];
-                }
+                $variantsSpec[] = [
+                    'variant_key' => $item['variant_key'],
+                    'variant' => $item['variant'],
+                ];
             }
+            [$variationFormat, $variationPricing] = $this->buildAdminServiceVariations((string) $service->id, $data, $variantsSpec, $zones);
+            $service->variation_pricing = $variationPricing;
+            $service->save();
         }
 
         $service->variations()->createMany($variationFormat);
@@ -383,7 +383,16 @@ class ServiceController extends Controller
 
             session()->forget('variations');
 
-            return view('servicemanagement::admin.edit', compact('categories', 'zones', 'service', 'tagNames'));
+            $commissionEntityUseCustom = (int) ($service->commission_custom ?? 0) === 1;
+            $commissionCtx = CommissionEntitySetup::tierFormContext(
+                is_array($service->commission_tier_setup) ? $service->commission_tier_setup : [],
+                $commissionEntityUseCustom
+            );
+
+            return view('servicemanagement::admin.edit', array_merge(
+                compact('categories', 'zones', 'service', 'tagNames', 'commissionEntityUseCustom'),
+                $commissionCtx
+            ));
         }
 
         Toastr::info(translate(DEFAULT_204['message']));
@@ -428,6 +437,10 @@ class ServiceController extends Controller
             return response()->json(response_formatter(DEFAULT_204), 200);
         }
 
+        if (Gate::allows('commission_custom_service_update')) {
+            CommissionEntitySetup::applyFromRequestToModel($request, $service);
+        }
+
         $tagIds = [];
         if ($request->tags != null) {
             $tags = explode(",", $request->tags);
@@ -469,19 +482,18 @@ class ServiceController extends Controller
             return [$key => $value];
         })->collapse()->all();
 
-        $variationFormat = [];
         $zones = $this->zone->latest()->get();
+        $variantsSpec = [];
         foreach ($data['variants'] as $item) {
-            foreach ($zones as $zone) {
-                $variationFormat[] = [
-                    'variant' => str_replace('_', ' ', $item),
-                    'variant_key' => $item,
-                    'zone_id' => $zone->id,
-                    'price' => $data[$item . '_' . $zone->id . '_price'] ?? 0,
-                    'service_id' => $service->id
-                ];
-            }
+            $variantsSpec[] = [
+                'variant_key' => $item,
+                'variant' => str_replace('_', ' ', $item),
+            ];
         }
+        [$variationFormat, $variationPricing] = $this->buildAdminServiceVariations((string) $service->id, $data, $variantsSpec, $zones);
+
+        $service->variation_pricing = $variationPricing;
+        $service->save();
 
         $service->variations()->createMany($variationFormat);
         session()->forget('variations');
@@ -705,8 +717,53 @@ class ServiceController extends Controller
         $zones = session()->has('category_wise_zones') ? session('category_wise_zones') : $this->zone->ofStatus(1)->latest()->get();
         $this->variation->where(['variant_key' => $variant_key, 'service_id' => $service_id])->delete();
         $variants = $this->variation->where(['service_id' => $service_id])->get();
+        $service = $this->service->find($service_id);
+        if ($service && is_array($service->variation_pricing)) {
+            $vp = $service->variation_pricing;
+            unset($vp[$variant_key]);
+            $service->variation_pricing = $vp;
+            $service->save();
+        }
 
-        return response()->json(['flag' => 1, 'template' => view('servicemanagement::admin.partials._update-variant-data', compact('zones', 'variants'))->render()]);
+        return response()->json(['flag' => 1, 'template' => view('servicemanagement::admin.partials._update-variant-data', compact('zones', 'variants', 'service'))->render()]);
+    }
+
+    /**
+     * @param  array<int, array{variant_key: string, variant: string}>  $variantsSpec
+     * @return array{0: array<int, array<string, mixed>>, 1: array<string, array{use_zone_pricing: bool, default_price: float}>}
+     */
+    protected function buildAdminServiceVariations(string $serviceId, array $data, array $variantsSpec, $zones): array
+    {
+        $variationFormat = [];
+        $variationPricing = [];
+
+        foreach ($variantsSpec as $spec) {
+            $keyStr = $spec['variant_key'];
+            $variantLabel = $spec['variant'];
+
+            $useZone = ! empty($data['variant_use_zone_pricing'][$keyStr]);
+            $defaultPrice = (float) ($data['variant_default_price'][$keyStr] ?? 0);
+
+            $variationPricing[$keyStr] = [
+                'use_zone_pricing' => $useZone,
+                'default_price' => $defaultPrice,
+            ];
+
+            foreach ($zones as $zone) {
+                $price = $useZone
+                    ? (float) ($data[$keyStr . '_' . $zone->id . '_price'] ?? 0)
+                    : $defaultPrice;
+                $variationFormat[] = [
+                    'variant' => $variantLabel,
+                    'variant_key' => $keyStr,
+                    'zone_id' => $zone->id,
+                    'price' => $price,
+                    'service_id' => $serviceId,
+                ];
+            }
+        }
+
+        return [$variationFormat, $variationPricing];
     }
 
     function searchForKey($variant, $array): int|string|null

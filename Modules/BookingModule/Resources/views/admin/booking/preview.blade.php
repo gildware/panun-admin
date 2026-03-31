@@ -6,7 +6,7 @@
     <div class="content container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="mb-0">{{ translate('Preview_Booking') }}</h2>
-            <a href="{{ route('admin.booking.create') }}" class="btn btn-secondary">
+            <a href="{{ route('admin.booking.create', !empty($data['reopen_source_booking_id'] ?? null) ? ['from_reopen' => 1] : []) }}" class="btn btn-secondary">
                 {{ translate('Back_to_Edit') }}
             </a>
         </div>
@@ -173,14 +173,3 @@
         </div>
     </div>
 @endsection
-
-@push('script')
-    <script>
-        $(document).ready(function() {
-            // Handle form submission
-            $('#confirm-booking-form').on('submit', function(e) {
-                // Form will submit normally
-            });
-        });
-    </script>
-@endpush

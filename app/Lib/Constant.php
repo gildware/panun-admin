@@ -815,6 +815,16 @@ const SYSTEM_MODULES = [
         ]
     ],
 
+    ['key' => 'commission_customization', 'value' => 'Commission customization',
+        'submodules' => [
+            ['key' => 'commission_custom_company', 'value' => 'Company default commission tiers'],
+            ['key' => 'commission_custom_category', 'value' => 'Category custom commission'],
+            ['key' => 'commission_custom_sub_category', 'value' => 'Subcategory custom commission'],
+            ['key' => 'commission_custom_service', 'value' => 'Service custom commission'],
+            ['key' => 'commission_custom_provider', 'value' => 'Provider custom commission'],
+        ]
+    ],
+
 ];
 
 
@@ -3762,6 +3772,7 @@ const BUSINESS_SETTINGS_TYPE = [
     'business_favicon' => 'business_information',
     'business_logo' => 'business_information',
     'default_commission' => 'business_information',
+    'commission_tier_setup' => 'business_information',
     'pagination_limit' => 'business_information',
     'footer_text' => 'business_information',
     'cookies_text' => 'business_information',

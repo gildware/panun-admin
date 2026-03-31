@@ -31,7 +31,7 @@
                     <div class="card category-setup mb-30">
                         <div class="card-body p-30">
                             <form action="{{route('admin.sub-category.update',[$subCategory->id])}}" method="post"
-                                  enctype="multipart/form-data">
+                                  enctype="multipart/form-data" id="sub-category-edit-form">
                                 @csrf
                                 @method('put')
                                 @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
@@ -168,6 +168,15 @@
                                             </div>
                                         </div>
                                     </div>
+                                    @can('commission_custom_sub_category_update')
+                                        @include('businesssettingsmodule::admin.partials.commission-entity-form-section')
+                                    @else
+                                        <div class="col-12">
+                                            <div class="alert alert-soft-primary fz-12" role="alert">
+                                                {{ translate('Commission_customization_no_permission_note') }}
+                                            </div>
+                                        </div>
+                                    @endcan
                                     <div class="col-12">
                                         <div class="d-flex justify-content-end gap-20 mt-30">
                                             <button class="btn btn--secondary"
@@ -191,4 +200,11 @@
     <script src="{{asset('assets/category-module/js/sub-category/edit.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/dataTables/dataTables.select.min.js')}}"></script>
+    @can('commission_custom_sub_category_update')
+        @include('businesssettingsmodule::admin.partials.commission-entity-form-scripts', [
+            'previewCurrencySymbol' => $previewCurrencySymbol,
+            'previewCurrencyCode' => $previewCurrencyCode,
+            'formSelector' => '#sub-category-edit-form',
+        ])
+    @endcan
 @endpush

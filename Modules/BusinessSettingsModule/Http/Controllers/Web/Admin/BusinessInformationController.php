@@ -2,6 +2,7 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Admin;
 
+use App\Lib\CommissionTierPayload;
 use App\Mail\MaintenanceModeStartEmail;
 use App\Traits\ActivationClass;
 use App\Traits\FileManagerTrait;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -189,6 +191,8 @@ class BusinessInformationController extends Controller
         $businessLogoFullPath = '';
         $businessFaviconFullPath = '';
         $providerCount = $this->provider->count();
+        $commissionModelOn = false;
+        $dataValues = collect();
         $addressLat = '';
         $addressLong = '';
         $addressLat = $this->businessSetting->where('key_name','address_latitude')->first()?->live_values ?? 23.811842872190;
@@ -212,11 +216,12 @@ class BusinessInformationController extends Controller
             $dataValues = $this->businessSetting->where('settings_type', 'promotional_setup')->get();
         } elseif ($webPage == 'bookings') {
             $dataValues = $this->businessSetting->whereIn('settings_type', ['booking_setup', 'bidding_system', 'business_information'])->get();
-        }elseif ($webPage == 'business_plan') {
+        } elseif ($webPage == 'business_plan') {
             $dataValues = $this->businessSetting->whereIn('settings_type', ['business_information', 'provider_config'])->get();
+            $commissionModelOn = (int) ($dataValues->where('key_name', 'provider_commision')->first()?->live_values ?? 0) === 1;
         }
 
-        return view('businesssettingsmodule::admin.business', compact('dataValues', 'webPage', 'businessLogoFullPath', 'businessFaviconFullPath','config', 'providerCount', 'addressLat', 'addressLong'));
+        return view('businesssettingsmodule::admin.business', compact('dataValues', 'webPage', 'businessLogoFullPath', 'businessFaviconFullPath', 'config', 'providerCount', 'addressLat', 'addressLong', 'commissionModelOn'));
     }
 
     /**
@@ -691,14 +696,62 @@ class BusinessInformationController extends Controller
             'provider_subscription', 'provider_commision'
         ])->each(fn($item, $key) => $request[$item] = $request->has($item) ? (int)$request[$item] : 0);
 
-        $validated = $request->validate([
+        $canEditCompanyCommission = Gate::allows('commission_custom_company_update');
+
+        $rules = [
             'provider_commision' => 'required|in:0,1',
             'provider_subscription' => 'required|in:0,1',
-            'provider_subscription', 'provider_commision',
-            'default_commission' => 'required',
-        ]);
+        ];
+
+        if ($canEditCompanyCommission) {
+            $rules = array_merge($rules, [
+                'commission_service_mode' => 'required|in:fixed,tiered',
+                'commission_spare_mode' => 'required|in:fixed,tiered',
+                'commission_service_fixed_amount' => 'nullable|numeric|min:0',
+                'commission_spare_fixed_amount' => 'nullable|numeric|min:0',
+                'commission_service_tiers' => 'nullable|array',
+                'commission_service_tiers.*.from' => 'nullable|numeric|min:0',
+                'commission_service_tiers.*.to' => 'nullable|numeric|min:0',
+                'commission_service_tiers.*.amount_type' => 'nullable|in:percentage,fixed',
+                'commission_service_tiers.*.amount' => 'nullable|numeric|min:0',
+                'commission_spare_tiers' => 'nullable|array',
+                'commission_spare_tiers.*.from' => 'nullable|numeric|min:0',
+                'commission_spare_tiers.*.to' => 'nullable|numeric|min:0',
+                'commission_spare_tiers.*.amount_type' => 'nullable|in:percentage,fixed',
+                'commission_spare_tiers.*.amount' => 'nullable|numeric|min:0',
+            ]);
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+        if ($canEditCompanyCommission) {
+            $validator->after(fn (\Illuminate\Validation\Validator $v) => CommissionTierPayload::validateGroups($v, $request, CommissionTierPayload::defaultValidationGroups()));
+        }
+        $validated = $validator->validate();
+
+        $tierSetup = null;
+        if ($canEditCompanyCommission) {
+            $serviceGroup = CommissionTierPayload::normalizeGroupFromRequest(
+                $request,
+                'commission_service_mode',
+                'commission_service_fixed_amount',
+                'commission_service_tiers'
+            );
+            $spareGroup = CommissionTierPayload::normalizeGroupFromRequest(
+                $request,
+                'commission_spare_mode',
+                'commission_spare_fixed_amount',
+                'commission_spare_tiers'
+            );
+            $tierSetup = [
+                'service' => $serviceGroup,
+                'spare_parts' => $spareGroup,
+            ];
+        }
 
         foreach ($validated as $key => $value) {
+            if (!isset(BUSINESS_SETTINGS_TYPE[$key])) {
+                continue;
+            }
             $this->businessSetting->updateOrCreate(['key_name' => $key], [
                 'key_name' => $key,
                 'live_values' => $value,
@@ -707,6 +760,33 @@ class BusinessInformationController extends Controller
                 'mode' => 'live',
                 'is_active' => 1,
             ]);
+        }
+
+        if ($canEditCompanyCommission && is_array($tierSetup)) {
+            $this->businessSetting->updateOrCreate(
+                ['key_name' => 'commission_tier_setup', 'settings_type' => 'business_information'],
+                [
+                    'key_name' => 'commission_tier_setup',
+                    'live_values' => $tierSetup,
+                    'test_values' => $tierSetup,
+                    'settings_type' => 'business_information',
+                    'mode' => 'live',
+                    'is_active' => 1,
+                ]
+            );
+
+            $derivedDefaultPct = derive_default_commission_percentage_from_service_group($tierSetup['service']);
+            $this->businessSetting->updateOrCreate(
+                ['key_name' => 'default_commission', 'settings_type' => 'business_information'],
+                [
+                    'key_name' => 'default_commission',
+                    'live_values' => $derivedDefaultPct,
+                    'test_values' => $derivedDefaultPct,
+                    'settings_type' => 'business_information',
+                    'mode' => 'live',
+                    'is_active' => 1,
+                ]
+            );
         }
 
         //update setup guideline data
