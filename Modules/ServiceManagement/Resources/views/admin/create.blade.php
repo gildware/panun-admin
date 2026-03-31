@@ -39,8 +39,9 @@
                                                             <p class="fs-12 text-color">{{ translate('Provide essential service details') }}</p>
                                                         </div>
                                                         <div class="bg-light p-xxl-20 p-12px rounded">
-                                                            @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
-                                                            @php($default_lang = str_replace('_', '-', app()->getLocale()))
+                                                            @php
+                                                                $language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name', 'system_language')->first();
+                                                            @endphp
                                                             @if($language)
                                                                 <ul class="nav nav--tabs text-nowrap overflow-auto flex-nowrap border-color-primary mb-4">
                                                                     <li class="nav-item">
@@ -486,9 +487,9 @@
         </div>
 
         {{-- Service zone pricing modal (per-zone overrides) --}}
-        @php($zoneTreeForPricing = [])
-        @php($selectedZoneIdsForPricingTree = [])
         @php
+            $zoneTreeForPricing = [];
+            $selectedZoneIdsForPricingTree = [];
             $zonesForPricingTree = session()->has('category_wise_zones') ? session('category_wise_zones') : [];
             $zonesForPricingTree = $zonesForPricingTree instanceof \Illuminate\Support\Collection ? $zonesForPricingTree : collect($zonesForPricingTree);
 
