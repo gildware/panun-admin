@@ -153,6 +153,41 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </a>
             </li>
 
+            <li class="nav-category" title="{{ translate('Reports & Analytics') }}">
+                {{ translate('Reports & Analytics') }}
+            </li>
+            <li class="has-sub-item {{ request()->is('provider/report/*') && !request()->is('provider/report/transaction*') ? 'sub-menu-opened' : '' }}">
+                <a href="#" class="{{ request()->is('provider/report/*') && !request()->is('provider/report/transaction*') ? 'active-menu' : '' }}">
+                    <span class="material-icons" title="Customers">event_note</span>
+                    <span class="link-title">{{ translate('Reports') }}</span>
+                </a>
+                <ul class="nav sub-menu">
+                    <li>
+                        <a href="{{ route('provider.report.business.overview') }}"
+                           class="{{ request()->is('provider/report/business*') ? 'active-menu' : '' }}">
+                            {{ translate('Business Report') }}
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('provider.report.booking') }}"
+                           class="{{ request()->is('provider/report/booking') ? 'active-menu' : '' }}">
+                            {{ translate('Booking Report') }}
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <li class="nav-category" title="{{ translate('transaction_management') }}">
+                {{ translate('transaction_management') }}
+            </li>
+            <li>
+                <a href="{{ route('provider.report.transaction', ['transaction_type' => 'all']) }}"
+                   class="{{ request()->is('provider/report/transaction*') ? 'active-menu' : '' }}">
+                    <span class="material-icons" title="{{ translate('Transaction Report') }}">receipt_long</span>
+                    <span class="link-title">{{ translate('Transaction Report') }}</span>
+                </a>
+            </li>
+
             <li class="nav-category">{{translate('Help & support')}}</li>
             <li>
                 <a href="{{route('provider.chat.index', ['user_type' => 'super_admin'])}}"
@@ -248,36 +283,6 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     <span class="material-icons" title="{{translate('bank_information')}}">account_balance</span>
                     <span class="link-title">{{translate('bank_information')}}</span>
                 </a>
-            </li>
-
-            <li class="nav-category" title="{{translate('Reports & Analytics')}}">
-                {{translate('Reports & Analytics')}}
-            </li>
-            <li class="has-sub-item {{request()->is('provider/report/*')?'sub-menu-opened':''}}">
-                <a href="#" class="{{request()->is('provider/report/*')?'active-menu':''}}">
-                    <span class="material-icons" title="Customers">event_note</span>
-                    <span class="link-title">{{translate('Reports')}}</span>
-                </a>
-                <ul class="nav sub-menu">
-                    <li>
-                        <a href="{{route('provider.report.transaction', ['transaction_type'=>'all'])}}"
-                           class="{{request()->is('provider/report/transaction')?'active-menu':''}}">
-                            {{translate('Transaction Report')}}
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{route('provider.report.business.overview')}}"
-                           class="{{request()->is('provider/report/business*')?'active-menu':''}}">
-                            {{translate('Business Report')}}
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{route('provider.report.booking')}}"
-                           class="{{request()->is('provider/report/booking')?'active-menu':''}}">
-                            {{translate('Booking Report')}}
-                        </a>
-                    </li>
-                </ul>
             </li>
 
             <li class="nav-category" title="{{translate('system_management')}}">{{translate('system_management')}}</li>
