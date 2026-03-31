@@ -1788,6 +1788,7 @@ class BookingController extends Controller
         $booking->booking_status = $status;
 
         if ($booking->isDirty('booking_status')) {
+            $previousParentStatus = (string) $booking->getOriginal('booking_status');
             DB::transaction(function () use ($booking, $status, $request) {
                 if ($booking->repeat) {
                     foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing']) as $repeat) {
@@ -1809,6 +1810,23 @@ class BookingController extends Controller
                 $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id);
             });
 
+            if ((int) ($booking->is_repeated ?? 0) === 1) {
+                try {
+                    $fresh = $this->booking
+                        ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                        ->find($booking->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingStatusChange($fresh, $previousParentStatus);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp booking status (repeat series parent) failed', [
+                        'booking_id' => $booking->id,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
         }
 
@@ -1817,6 +1835,7 @@ class BookingController extends Controller
 
     private function updateRepeatBookingStatus($repeatBooking, string $status, Request $request): JsonResponse
     {
+        $previousRepeatStatus = (string) $repeatBooking->booking_status;
         $repeatBooking->booking_status = $status;
 
         if ($status == 'canceled' && $repeatBooking->extra_fee > 0){
@@ -1872,13 +1891,33 @@ class BookingController extends Controller
                     $repeatBooking->booking->update(['booking_status' => 'completed', 'is_paid' => 1]);
                 }
 
-                if (in_array($repeatBooking->booking_status, ['ongoing', 'completed', 'canceled'])) {
-                    if ($repeatBooking->booking->booking_status != 'ongoing' && $repeatBooking->booking->booking_status != 'completed' && $repeatBooking->booking->booking_status != 'canceled') {
-                        $repeatBooking->booking->booking_status = 'ongoing';
-                        $repeatBooking->booking->save();
+                    if (in_array($repeatBooking->booking_status, ['ongoing', 'completed', 'canceled'])) {
+                        if ($repeatBooking->booking->booking_status != 'ongoing' && $repeatBooking->booking->booking_status != 'completed' && $repeatBooking->booking->booking_status != 'canceled') {
+                            $repeatBooking->booking->booking_status = 'ongoing';
+                            $repeatBooking->booking->save();
+                        }
                     }
+                });
+
+            try {
+                $freshRepeat = $this->bookingRepeat->with([
+                    'booking.customer',
+                    'booking.service_address',
+                    'booking.detail',
+                    'booking.booking_partial_payments',
+                    'detail',
+                    'provider.owner',
+                ])->find($repeatBooking->id);
+                if ($freshRepeat) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
                 }
-            });
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp repeat booking status failed', [
+                    'booking_repeat_id' => $repeatBooking->id ?? null,
+                    'message' => $e->getMessage(),
+                ]);
+            }
 
             return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
         }
@@ -1914,6 +1953,7 @@ class BookingController extends Controller
 
         $repeatBooking = $this->bookingRepeat->where('id', $bookingId)->first();
         if (isset($repeatBooking)){
+            $previousRepeatStatus = (string) $repeatBooking->booking_status;
             $repeatBooking->booking_status = $request['booking_status'];
 
             $bookingStatusHistory = $this->bookingStatusHistory;
@@ -1927,6 +1967,26 @@ class BookingController extends Controller
                     $repeatBooking->save();
                     $bookingStatusHistory->save();
                 });
+
+                try {
+                    $freshRepeat = $this->bookingRepeat->with([
+                        'booking.customer',
+                        'booking.service_address',
+                        'booking.detail',
+                        'booking.booking_partial_payments',
+                        'detail',
+                        'provider.owner',
+                    ])->find($repeatBooking->id);
+                    if ($freshRepeat) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp repeat booking status (upComingBookingCancel) failed', [
+                        'booking_repeat_id' => $repeatBooking->id ?? null,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
 
                 Toastr::success(translate(DEFAULT_STATUS_UPDATE_200['message']));
                 return back();
@@ -1987,8 +2047,19 @@ class BookingController extends Controller
 
         $booking = $this->booking->where('id', $bookingId)->first();
         if (isset($booking) && $request->status == 'deny') {
+            $previousVerified = (int) $booking->is_verified;
             $booking->is_verified = 2;
             $booking->save();
+
+            try {
+                $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingVerificationChange($fresh, $previousVerified, 'deny');
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking verification failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+            }
 
             $additionalInfo = new $this->bookingAdditionalInformation;
             $additionalInfo->booking_id = $booking->id;
@@ -1999,8 +2070,19 @@ class BookingController extends Controller
             Toastr::success(translate(DEFAULT_STORE_200['message']));
             return back();
         } elseif (isset($booking) && $request->status == 'approve') {
+            $previousVerified = (int) $booking->is_verified;
             $booking->is_verified = 1;
             $booking->save();
+
+            try {
+                $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingVerificationChange($fresh, $previousVerified, 'approve');
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking verification failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+            }
 
             if (isset($booking->provider_id)) {
                 $fcmToken = Provider::with('owner')->whereId($booking->provider_id)->first()->owner->fcm_token ?? null;
@@ -2022,6 +2104,7 @@ class BookingController extends Controller
             Toastr::success(translate(DEFAULT_STATUS_UPDATE_200['message']));
             return back();
         } elseif (isset($booking) && $request->status == 'cancel') {
+            $previousVerified = (int) $booking->is_verified;
             $booking->booking_status = 'canceled';
             $booking->is_verified = 3;
 
@@ -2035,6 +2118,16 @@ class BookingController extends Controller
                     $booking->save();
                     $bookingStatusHistory->save();
                 });
+
+                try {
+                    $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingVerificationChange($fresh, $previousVerified, 'cancel');
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp booking verification failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+                }
 
                 Toastr::success(translate(DEFAULT_STATUS_UPDATE_200['message']));
                 return back();
@@ -2067,7 +2160,17 @@ class BookingController extends Controller
             $booking->is_paid = $request->payment_status == '1' ? 1 : 0;
 
             if ($booking->isDirty('is_paid')) {
+                $previousIsPaid = (int) $booking->getOriginal('is_paid');
                 $booking->save();
+                try {
+                    $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingPaymentChange($fresh, $previousIsPaid);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp booking payment failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -2076,7 +2179,20 @@ class BookingController extends Controller
             $repeatBooking->is_paid = $request->payment_status == '1' ? 1 : 0;
 
             if ($repeatBooking->isDirty('is_paid')) {
+                $previousIsPaid = (int) $repeatBooking->getOriginal('is_paid');
                 $repeatBooking->save();
+                try {
+                    $fresh = $this->bookingRepeat->with([
+                        'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
+                        'detail', 'provider.owner', 'serviceman.user', 'booking',
+                    ])->find($repeatBooking->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingRepeatPaymentChange($fresh, $previousIsPaid);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp repeat payment failed', ['booking_repeat_id' => $repeatBooking->id, 'message' => $e->getMessage()]);
+                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -2111,8 +2227,18 @@ class BookingController extends Controller
             $bookingScheduleHistory->schedule = $request['service_schedule'];
 
             if ($booking->isDirty('service_schedule')) {
+                $previousSchedule = $booking->getOriginal('service_schedule');
                 $booking->save();
                 $bookingScheduleHistory->save();
+                try {
+                    $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingScheduleChange($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp booking schedule failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -2128,8 +2254,21 @@ class BookingController extends Controller
             $bookingRepeatScheduleHistory->booking_repeat_id = $bookingId;
 
             if ($bookingRepeat->isDirty('service_schedule')) {
+                $previousSchedule = $bookingRepeat->getOriginal('service_schedule');
                 $bookingRepeat->save();
                 $bookingRepeatScheduleHistory->save();
+                try {
+                    $fresh = $this->bookingRepeat->with([
+                        'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
+                        'detail', 'provider.owner', 'serviceman.user', 'booking',
+                    ])->find($bookingRepeat->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingRepeatScheduleChange($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp repeat schedule failed', ['booking_repeat_id' => $bookingRepeat->id, 'message' => $e->getMessage()]);
+                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -2164,8 +2303,22 @@ class BookingController extends Controller
             $bookingRepeatScheduleHistory->booking_repeat_id = $bookingId;
 
             if ($bookingRepeat->isDirty('service_schedule')) {
+                $previousSchedule = $bookingRepeat->getOriginal('service_schedule');
                 $bookingRepeat->save();
                 $bookingRepeatScheduleHistory->save();
+
+                try {
+                    $fresh = $this->bookingRepeat->with([
+                        'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
+                        'detail', 'provider.owner', 'serviceman.user', 'booking',
+                    ])->find($bookingRepeat->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingRepeatScheduleChange($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp repeat schedule failed', ['booking_repeat_id' => $bookingRepeat->id, 'message' => $e->getMessage()]);
+                }
 
                 Toastr::success(translate(DEFAULT_UPDATE_200['message']));
                 return back();
@@ -2195,6 +2348,7 @@ class BookingController extends Controller
         $booking = $this->booking->where('id', $bookingId)->first();
 
         if (isset($booking)) {
+            $oldProviderId = $booking->provider_id;
             $booking->provider_id = $request->provider_id;
 
             if ($booking->isDirty('provider_id')) {
@@ -2212,6 +2366,22 @@ class BookingController extends Controller
                 }
 
                 $booking->save();
+
+                if ((string) $oldProviderId !== (string) $request->provider_id) {
+                    try {
+                        $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
+                        $booking->refresh();
+                        $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingProviderChange($booking, $previousProvider);
+                    } catch (\Throwable $e) {
+                        Log::warning('WhatsApp provider change (admin booking providerUpdate) failed', [
+                            'booking_id' => $booking->id,
+                            'message' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
 
@@ -2235,6 +2405,7 @@ class BookingController extends Controller
         $bookingRepeat = $this->bookingRepeat->where('id', $request->booking_id)->with('booking')->first();
 
         if (isset($booking)) {
+            $previousServicemanId = $booking->serviceman_id ? (string) $booking->serviceman_id : null;
             $booking->serviceman_id = $request->serviceman_id;
             $booking->save();
 
@@ -2243,6 +2414,16 @@ class BookingController extends Controller
                     $bookingRepeat->serviceman_id = $request->serviceman_id;
                     $bookingRepeat->save();
                 }
+            }
+
+            try {
+                $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingServicemanChange($fresh, $previousServicemanId);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking serviceman failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
             }
 
             $search = $request->search;
@@ -2271,12 +2452,26 @@ class BookingController extends Controller
         }
         if (isset($bookingRepeat)) {
 
+            $previousServicemanId = $bookingRepeat->serviceman_id ? (string) $bookingRepeat->serviceman_id : null;
             $bookingRepeat->serviceman_id = $request->serviceman_id;
             $bookingRepeat->save();
 
             if ($bookingRepeat->booking) {
                 $bookingRepeat->booking->serviceman_id = $request->serviceman_id;
                 $bookingRepeat->booking->save();
+            }
+
+            try {
+                $fresh = $this->bookingRepeat->with([
+                    'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
+                    'detail', 'provider.owner', 'serviceman.user', 'booking',
+                ])->find($bookingRepeat->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingRepeatServicemanChange($fresh, $previousServicemanId);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp repeat serviceman failed', ['booking_repeat_id' => $bookingRepeat->id, 'message' => $e->getMessage()]);
             }
 
             $search = $request->search;

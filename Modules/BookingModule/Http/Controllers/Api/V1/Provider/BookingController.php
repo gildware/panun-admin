@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -1111,6 +1112,7 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_EDITED), 200);
             }
 
+            $previousRepeatStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidence_photos;
             if ($request['booking_status'] == 'completed' && $request->boolean('payment_received_confirmed')) {
@@ -1190,6 +1192,26 @@ class BookingController extends Controller
                     }
                 });
 
+                try {
+                    $freshRepeat = $this->bookingRepeat->with([
+                        'booking.customer',
+                        'booking.service_address',
+                        'booking.detail',
+                        'booking.booking_partial_payments',
+                        'detail',
+                        'provider.owner',
+                    ])->find($booking->id);
+                    if ($freshRepeat) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp repeat booking status (API provider) failed', [
+                        'booking_repeat_id' => $booking->id ?? null,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+
                 return response()->json(response_formatter(BOOKING_STATUS_UPDATE_SUCCESS_200, $booking), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -1220,8 +1242,29 @@ class BookingController extends Controller
         }
 
         if (isset($booking)) {
+            $previousServicemanId = $booking->serviceman_id ? (string) $booking->serviceman_id : null;
             $booking->serviceman_id = $request['serviceman_id'];
             $booking->save();
+            try {
+                if ($request->booking_type == 'repeat') {
+                    $freshRepeat = $this->bookingRepeat->with([
+                        'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
+                        'detail', 'provider.owner', 'serviceman.user', 'booking',
+                    ])->find($booking->id);
+                    if ($freshRepeat) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingRepeatServicemanChange($freshRepeat, $previousServicemanId);
+                    }
+                } else {
+                    $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingServicemanChange($fresh, $previousServicemanId);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp serviceman assign failed', ['id' => $booking->id, 'message' => $e->getMessage()]);
+            }
             return response()->json(response_formatter(SERVICEMAN_ASSIGN_SUCCESS_200, $booking), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);
@@ -1249,6 +1292,7 @@ class BookingController extends Controller
         })->first();
 
         if (isset($booking)) {
+            $previousSchedule = $booking->service_schedule ? (string) $booking->service_schedule : null;
             $booking->service_schedule = $request['schedule'];
 
             $bookingScheduleHistory = $this->bookingScheduleHistory;
@@ -1261,6 +1305,16 @@ class BookingController extends Controller
                 $booking->save();
                 $bookingScheduleHistory->save();
             });
+
+            try {
+                $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingScheduleChange($fresh, $previousSchedule);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking schedule failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+            }
 
             return response()->json(response_formatter(SERVICE_SCHEDULE_UPDATE_200, $booking), 200);
         }

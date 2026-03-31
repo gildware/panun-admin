@@ -833,6 +833,20 @@ trait BookingTrait
            }
         });
 
+        try {
+            $fresh = Booking::query()
+                ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                ->find($booking->id);
+            if ($fresh) {
+                app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingConfirmation($fresh);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp booking confirmation failed (bidding)', [
+                'booking_id' => $booking->id ?? null,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
         return [
             'flag' => 'success',
             'booking_id' => $booking->id,

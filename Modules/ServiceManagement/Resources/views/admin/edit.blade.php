@@ -429,9 +429,9 @@
                                                                     <div class="form-floating form-floating__icon">
                                                                         <input type="text" class="form-control" name="tax" min="0"
                                                                                max="100" step="0.01"
-                                                                               placeholder="{{translate('add_tax_percentage')}} *"
-                                                                               required="" value="{{$service->tax}}">
-                                                                        <label>{{translate('add_tax_percentage')}} *</label>
+                                                                               placeholder="{{translate('add_tax_percentage')}}"
+                                                                               value="{{$service->tax}}">
+                                                                        <label>{{translate('add_tax_percentage')}}</label>
                                                                         <span class="material-icons">percent</span>
                                                                     </div>
                                                                 </div>
