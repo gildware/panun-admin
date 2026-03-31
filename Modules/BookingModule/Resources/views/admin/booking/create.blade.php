@@ -329,7 +329,7 @@
                                     <td>{{ translate('Discount') }}</td>
                                     <td class="text-end" id="billing-discount">—</td>
                                 </tr>
-                                <tr>
+                                <tr id="billing-tax-row" style="display: none;">
                                     <td>{{ translate('Tax') }}</td>
                                     <td class="text-end" id="billing-tax">—</td>
                                 </tr>
@@ -1203,7 +1203,13 @@
                         currentBillingTotal = parseFloat(res.content.total_cost);
                         $('#billing-service-charges').text(formatPrice(res.content.service_cost));
                         $('#billing-discount').text('-' + formatPrice(res.content.total_discount_amount));
-                        $('#billing-tax').text(formatPrice(res.content.tax_amount));
+                        var taxAmt = parseFloat(res.content.tax_amount) || 0;
+                        if (taxAmt > 0) {
+                            $('#billing-tax-row').show();
+                            $('#billing-tax').text(formatPrice(res.content.tax_amount));
+                        } else {
+                            $('#billing-tax-row').hide();
+                        }
                         $('#billing-total').text(formatPrice(res.content.total_cost));
                         $('#billing-summary-box').show();
                         $('#advance-paid-amount').attr('max', currentBillingTotal);

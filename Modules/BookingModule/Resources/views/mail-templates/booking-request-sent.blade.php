@@ -298,11 +298,13 @@
                             <td colspan="2" class="text-uppercase">{{translate('Coupon_Discount')}} </td>
                             <td>{{with_currency_symbol($booking->total_discount_amount)}}</td>
                         </tr>
+                        @if((float)($booking->total_tax_amount ?? 0) > 0)
                         <tr>
                             <td colspan="2"></td>
                             <td colspan="2" class="text-uppercase">{{translate('tax')}} %</td>
                             <td>{{with_currency_symbol($booking->total_tax_amount)}}</td>
                         </tr>
+                        @endif
                         <tr>
                             <td colspan="2"></td>
                             <td colspan="2" class="text-uppercase">{{translate('grand_total')}}</td>

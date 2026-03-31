@@ -389,11 +389,13 @@
                                 <td>- {{with_currency_symbol($booking->total_referral_discount_amount)}}</td>
                             </tr>
                         @endif
+                        @if((float)($booking->total_tax_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
                             <td class="">{{translate('Vat_/_Tax')}} (%)</td>
                             <td>+ {{with_currency_symbol($booking->total_tax_amount)}}</td>
                         </tr>
+                        @endif
                         @if ($booking->extra_fee > 0)
                             @php($additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values??'Fee')
                             <tr>

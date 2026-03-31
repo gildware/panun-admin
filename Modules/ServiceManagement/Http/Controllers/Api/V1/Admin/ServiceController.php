@@ -81,7 +81,7 @@ class ServiceController extends Controller
             'description' => 'required',
             'short_description' => 'required',
             'thumbnail' => 'required',
-            'tax' => 'required|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0|max:100',
             'variations' => 'required|array',
         ]);
 
@@ -97,7 +97,7 @@ class ServiceController extends Controller
         $service->description = $request->description;
         $service->cover_image = file_uploader('service/', APPLICATION_IMAGE_FORMAT, $request->file('cover_image'));
         $service->thumbnail = file_uploader('service/', APPLICATION_IMAGE_FORMAT, $request->file('thumbnail'));
-        $service->tax = $request->tax;
+        $service->tax = (float) ($request->input('tax') ?? 0);
         $service->save();
 
         $variationFormat = [];
@@ -193,7 +193,7 @@ class ServiceController extends Controller
             'category_id' => 'required|uuid',
             'sub_category_id' => 'required|uuid',
             'description' => 'required',
-            'tax' => 'required|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0|max:100',
             'variations' => 'required|array',
         ]);
 
@@ -219,7 +219,7 @@ class ServiceController extends Controller
             $service->thumbnail = file_uploader('service/', APPLICATION_IMAGE_FORMAT, $request->file('thumbnail'));
         }
 
-        $service->tax = $request->tax;
+        $service->tax = (float) ($request->input('tax') ?? 0);
         $service->save();
 
         $service->variations()->delete();

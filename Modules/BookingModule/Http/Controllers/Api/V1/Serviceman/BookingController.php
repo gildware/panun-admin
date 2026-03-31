@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetail;
@@ -154,6 +155,7 @@ class BookingController extends Controller
                 }
             }
 
+            $previousRepeatStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidencePhotos;
             if ($request['booking_status'] == 'completed' && $request->boolean('payment_received_confirmed')) {
@@ -231,6 +233,26 @@ class BookingController extends Controller
                 }
             });
 
+            try {
+                $freshRepeat = $this->bookingRepeat->with([
+                    'booking.customer',
+                    'booking.service_address',
+                    'booking.detail',
+                    'booking.booking_partial_payments',
+                    'detail',
+                    'provider.owner',
+                ])->find($booking->id);
+                if ($freshRepeat) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp repeat booking status (API serviceman) failed', [
+                    'booking_repeat_id' => $booking->id ?? null,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
             return response()->json(response_formatter(BOOKING_STATUS_UPDATE_SUCCESS_200, $booking), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);
@@ -255,8 +277,18 @@ class BookingController extends Controller
 
         $booking = $this->booking->where('id', $bookingId)->where(['serviceman_id' => $request->user()->serviceman->id])->first();
         if (isset($booking)) {
+            $previousIsPaid = (int) $booking->is_paid;
             $booking->is_paid = $request['payment_status'] == 'paid' ? 1 : 0;
             $booking->save();
+            try {
+                $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingPaymentChange($fresh, $previousIsPaid);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking payment failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+            }
             return response()->json(response_formatter(PAYMENT_STATUS_UPDATE_SUCCESS_200, $booking), 200);
         }
 

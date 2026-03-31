@@ -2289,10 +2289,19 @@ class ProviderController extends Controller
         $bookingRepeat = $this->bookingRepeat->where('id', $request->booking_id)->with('booking')->first();
 
         if ($booking) {
+            $oldProviderId = $booking->provider_id;
             $this->updateBooking($booking, $providerId, $changedBy);
 
             if (!is_null($booking->repeat)) {
                 $this->updateRepeatBookings($booking->repeat, $providerId, $booking->provider_id ? 1 : 0);
+            }
+
+            if ((string) $oldProviderId !== (string) $providerId) {
+                $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
+                $booking->refresh();
+                $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+                app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                    ->sendBookingProviderChange($booking, $previousProvider);
             }
 
             $this->sendProviderNotification($providerId, $booking->id, 'booking');
@@ -2304,7 +2313,21 @@ class ProviderController extends Controller
         }
 
         if ($bookingRepeat) {
+            $bookingRepeat->loadMissing('booking');
+            $oldProviderId = $bookingRepeat->booking?->provider_id;
             $this->updateBookingRepeat($bookingRepeat, $providerId, $changedBy);
+
+            if ((string) $oldProviderId !== (string) $providerId) {
+                $mainBooking = $this->booking->find($bookingRepeat->booking_id);
+                if ($mainBooking) {
+                    $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
+                    $mainBooking->refresh();
+                    $mainBooking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingProviderChange($mainBooking, $previousProvider);
+                }
+            }
+
             $this->sendProviderNotification($providerId, $bookingRepeat->id, 'repeat');
             $providers = $this->fetchProviders($request, $bookingRepeat->booking->sub_category_id);
 

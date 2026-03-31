@@ -212,8 +212,8 @@
                                         <table class="table table-md title-color align-right w-100">
                                             <tbody>
                                             <tr>
-                                                <td class="text-capitalize">{{translate('service_amount')}} <small
-                                                        class="fz-12">({{translate('Vat_Excluded')}})</small></td>
+                                                <td class="text-capitalize">{{translate('service_amount')}}@if((float)($booking->total_tax_amount ?? 0) > 0) <small
+                                                        class="fz-12">({{translate('Vat_Excluded')}})</small>@endif</td>
                                                 <td>{{with_currency_symbol($sub_total)}}</td>
                                             </tr>
                                             <tr>
@@ -234,10 +234,12 @@
                                                 <td class="text-capitalize">{{translate('Referral Discount')}}</td>
                                                 <td class="text--end pe--4">{{with_currency_symbol($booking->total_referral_discount_amount)}}</td>
                                             </tr>
+                                            @if((float)($booking->total_tax_amount ?? 0) > 0)
                                             <tr>
                                                 <td class="text-capitalize">{{translate('vat_/_tax')}}</td>
                                                 <td>+{{with_currency_symbol($booking->total_tax_amount)}}</td>
                                             </tr>
+                                            @endif
                                             @if ($booking->extra_fee > 0)
                                                 @php($additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values??'Fee')
                                                 <tr>

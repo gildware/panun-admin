@@ -7,6 +7,9 @@
 @endpush
 
 @section('content')
+    @php
+        $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
@@ -325,7 +328,9 @@
                                         <th>{{ translate('Price') }}</th>
                                         <th>{{ translate('Qty') }}</th>
                                         <th>{{ translate('Discount') }}</th>
+                                        @if($bookingHasTax)
                                         <th>{{ translate('Vat') }}</th>
+                                        @endif
                                         <th class="text--end">{{ translate('Total') }}</th>
                                     </tr>
                                     </thead>
@@ -366,7 +371,9 @@
                                                         class="fz-12 text-capitalize">{{ translate('campaign') }}</span>
                                                 @endif
                                             </td>
+                                            @if($bookingHasTax)
                                             <td>{{ with_currency_symbol($detail->tax_amount) }}</td>
+                                            @endif
                                             <td class="text--end">{{ with_currency_symbol($detail->total_cost) }}</td>
                                         </tr>
                                         @php($subTotal += $detail->service_cost * $detail->quantity)
@@ -380,8 +387,8 @@
                                         <table class="table-md title-color align-right w-100">
                                             <tbody>
                                             <tr>
-                                                <td class="text-capitalize">{{ translate('service_amount') }} <small
-                                                        class="fz-12">({{ translate('Vat_Excluded') }})</small></td>
+                                                <td class="text-capitalize">{{ translate('service_amount') }}@if($bookingHasTax) <small
+                                                        class="fz-12">({{ translate('Vat_Excluded') }})</small>@endif</td>
                                                 <td class="text--end pe--4">{{ with_currency_symbol($subTotal) }}
                                                 </td>
                                             </tr>
@@ -408,11 +415,13 @@
                                                     {{ with_currency_symbol($booking->total_referral_discount_amount) }}
                                                 </td>
                                             </tr>
+                                            @if($bookingHasTax)
                                             <tr>
                                                 <td class="text-capitalize">{{ translate('vat_/_tax') }}</td>
                                                 <td class="text--end pe--4">
                                                     {{ with_currency_symbol($booking->total_tax_amount) }}</td>
                                             </tr>
+                                            @endif
                                             @if ($booking->extra_fee > 0)
                                                 @php($additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values ?? 'Fee')
                                                 <tr>

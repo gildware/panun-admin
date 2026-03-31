@@ -146,7 +146,7 @@ class ServiceController extends Controller
                 'description.0' => 'required',
                 'short_description' => 'required',
                 'short_description.0' => 'required',
-                'tax' => 'required|numeric|min:0|max:100',
+                'tax' => 'nullable|numeric|min:0|max:100',
                 'min_bidding_price' => 'required|numeric|min:0|not_in:0',
             ]
         );
@@ -172,7 +172,7 @@ class ServiceController extends Controller
         $service->description = $request->description[array_search('default', $request->lang)];
         $service->cover_image = file_uploader('service/', 'png', $request->file('cover_image'));
         $service->thumbnail = file_uploader('service/', 'png', $request->file('thumbnail'));
-        $service->tax = $request->tax;
+        $service->tax = (float) ($request->input('tax') ?? 0);
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
         $service->tags()->sync($tagIds);
@@ -415,7 +415,7 @@ class ServiceController extends Controller
             'description.0' => 'required',
             'short_description' => 'required',
             'short_description.0' => 'required',
-            'tax' => 'required|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0|max:100',
             'variants' => 'required|array',
             'min_bidding_price' => 'required|numeric|min:0|not_in:0',
             'cover_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
@@ -455,7 +455,7 @@ class ServiceController extends Controller
             $service->thumbnail = file_uploader('service/', 'png', $request->file('thumbnail'));
         }
 
-        $service->tax = $request->tax;
+        $service->tax = (float) ($request->input('tax') ?? 0);
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
         $service->tags()->sync($tagIds);

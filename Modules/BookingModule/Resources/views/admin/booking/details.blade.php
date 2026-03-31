@@ -24,6 +24,7 @@
         $extraServicesSpareTotal = 0;
         $serviceAmountExclVat = 0;
         $grandTotalCalculated = (float)($booking->total_tax_amount ?? 0) + (float)($booking->extra_fee ?? 0);
+        $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
         $bookingNotEditable = in_array($booking->booking_status ?? '', ['completed', 'canceled', 'refunded']);
     @endphp
     <div class="main-content">
@@ -598,7 +599,9 @@
                                             <th>{{ translate('Price') }}</th>
                                             <th>{{ translate('Qty') }}</th>
                                             <th>{{ translate('Discount') }}</th>
+                                            @if($bookingHasTax)
                                             <th>{{ translate('Vat') }}</th>
+                                            @endif
                                             <th class="text--end">{{ translate('Total') }}</th>
                                         </tr>
                                     </thead>
@@ -655,7 +658,9 @@
                                                     @endif
 
                                                 </td>
+                                                @if($bookingHasTax)
                                                 <td>{{ with_currency_symbol($detail->tax_amount) }}</td>
+                                                @endif
                                                 <td class="text--end">{{ with_currency_symbol($detailLineTotal) }}</td>
                                             </tr>
                                             @php
@@ -687,7 +692,9 @@
                                                 <td>{{ with_currency_symbol($extra->price) }}</td>
                                                 <td>{{ $extra->quantity }}</td>
                                                 <td>{{ with_currency_symbol($extra->discount) }}</td>
+                                                @if($bookingHasTax)
                                                 <td>—</td>
+                                                @endif
                                                 <td class="text--end">{{ with_currency_symbol($extra->total) }}</td>
                                             </tr>
                                             @php
@@ -722,8 +729,8 @@
                                         <table class="table-md title-color align-right w-100">
                                             <tbody>
                                                 <tr>
-                                                    <td class="text-capitalize">{{ translate('service_amount') }} <small
-                                                            class="fz-12">({{ translate('Vat_Excluded') }})</small></td>
+                                                    <td class="text-capitalize">{{ translate('service_amount') }}@if($bookingHasTax) <small
+                                                            class="fz-12">({{ translate('Vat_Excluded') }})</small>@endif</td>
                                                     <td class="text--end pe--4">{{ with_currency_symbol($serviceAmountExclVat) }}
                                                     </td>
                                                 </tr>
@@ -752,11 +759,13 @@
                                                         </td>
                                                     </tr>
                                                 @endif
+                                                @if($bookingHasTax)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('vat_/_tax') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_tax_amount) }}</td>
                                                 </tr>
+                                                @endif
                                                 @if ($extraServicesSpareTotal > 0)
                                                     <tr>
                                                         <td class="text-capitalize">{{ translate('Spare_Parts') }}</td>
