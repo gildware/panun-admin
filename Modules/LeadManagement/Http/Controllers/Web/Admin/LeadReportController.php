@@ -36,295 +36,22 @@ class LeadReportController extends Controller
      */
     public function index(Request $request): Renderable
     {
-        $this->authorize('report_view');
+        $this->authorize('lead_report_view');
+
+        if ($request->input('tab') === 'user') {
+            return redirect()->route('admin.lead.reports.user', array_filter([
+                'user_id' => $request->input('user_id'),
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+            ], fn ($v) => $v !== null && $v !== ''));
+        }
 
         $tab = $request->input('tab', 'inbound');
-        if (!in_array($tab, ['inbound', 'outbound', 'user'], true)) {
+        if (!in_array($tab, ['inbound', 'outbound'], true)) {
             $tab = 'inbound';
         }
 
         [$dateFrom, $dateTo] = $this->resolveDateRange($request);
-
-        if ($tab === 'user') {
-            $userId = $request->input('user_id');
-            if (!$userId) {
-                $userId = Auth::id();
-            }
-
-            $user = User::find($userId);
-            $userName = $user
-                ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: ($user->email ?? (string) $userId)
-                : (string) $userId;
-
-            $baseUserLeads = Lead::query()
-                ->where('handled_by', $userId)
-                ->with(['source', 'adSource'])
-                ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
-                    $q->whereBetween('date_time_of_lead_received', [
-                        $dateFrom->copy()->startOfDay(),
-                        $dateTo->copy()->endOfDay(),
-                    ]);
-                });
-
-            $userLeadsTotal = (clone $baseUserLeads)->count();
-            $userLeadsForOpenClosed = (clone $baseUserLeads)->get(['id', 'lead_type']);
-            $userOpenClosedSummary = $this->buildOpenClosedSummary($userLeadsForOpenClosed);
-
-            $userLeadsByTypeRows = (clone $baseUserLeads)
-                ->select('lead_type', DB::raw('count(*) as total'))
-                ->groupBy('lead_type')
-                ->get();
-
-            $userLeadsByTypeMap = $userLeadsByTypeRows->mapWithKeys(function ($row) {
-                return [(string) $row->lead_type => (int) $row->total];
-            })->all();
-
-            $leadsTimeline = [];
-            $leadsPerDay = [];
-            if ($dateFrom && $dateTo) {
-                $period = CarbonPeriod::create($dateFrom->copy()->startOfDay(), $dateTo->copy()->startOfDay());
-                $dailyCountsRaw = (clone $baseUserLeads)
-                    ->selectRaw('DATE(date_time_of_lead_received) as day, COUNT(*) as total')
-                    ->groupBy('day')
-                    ->orderBy('day')
-                    ->pluck('total', 'day')
-                    ->all();
-
-                foreach ($period as $date) {
-                    $leadsTimeline[] = $date->format('d M');
-                    $key = $date->toDateString();
-                    $leadsPerDay[] = (int) ($dailyCountsRaw[$key] ?? 0);
-                }
-            }
-
-            // Bookings for those leads
-            $userLeadIds = (clone $baseUserLeads)->pluck('id')->all();
-            $bookingsCount = $userLeadIds !== [] ? Booking::whereIn('lead_id', $userLeadIds)->count() : 0;
-
-            $pendingFollowups = (clone $baseUserLeads)
-                ->whereNotNull('next_followup_at')
-                ->where('next_followup_at', '>=', now())
-                ->count();
-
-            $followupTimeline = [];
-            $followupsPerDay = [];
-            if ($dateFrom && $dateTo) {
-                $period = CarbonPeriod::create($dateFrom->copy()->startOfDay(), $dateTo->copy()->startOfDay());
-                $followupsRaw = (clone $baseUserLeads)
-                    ->whereNotNull('next_followup_at')
-                    ->whereBetween('next_followup_at', [
-                        $dateFrom->copy()->startOfDay(),
-                        $dateTo->copy()->endOfDay(),
-                    ])
-                    ->selectRaw('DATE(next_followup_at) as day, COUNT(*) as total')
-                    ->groupBy('day')
-                    ->orderBy('day')
-                    ->pluck('total', 'day')
-                    ->all();
-
-                foreach ($period as $date) {
-                    $followupTimeline[] = $date->format('d M');
-                    $key = $date->toDateString();
-                    $followupsPerDay[] = (int) ($followupsRaw[$key] ?? 0);
-                }
-            }
-
-            // Provider / Customer statuses (latest per lead)
-            $providerLeadIds = (clone $baseUserLeads)
-                ->where('lead_type', Lead::TYPE_PROVIDER)
-                ->pluck('id')
-                ->all();
-            $customerLeadIds = (clone $baseUserLeads)
-                ->where('lead_type', Lead::TYPE_CUSTOMER)
-                ->pluck('id')
-                ->all();
-
-            $providerStatusSummary = [];
-            $providerCanceledCount = 0;
-            if ($providerLeadIds !== []) {
-                $providerHistories = LeadTypeHistory::whereIn('lead_id', $providerLeadIds)
-                    ->where('type', 'provider')
-                    ->orderByDesc('created_at')
-                    ->get()
-                    ->groupBy('lead_id')
-                    ->map(fn ($group) => $group->first());
-
-                $statusIds = $providerHistories->map(function ($h) {
-                    $d = is_array($h->data) ? $h->data : [];
-                    return $d['provider_lead_status_id'] ?? null;
-                })->filter()->unique()->values()->all();
-
-                $statuses = $statusIds !== []
-                    ? ProviderLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id')
-                    : collect();
-
-                foreach ($providerHistories as $history) {
-                    $d = is_array($history->data) ? $history->data : [];
-                    $sid = $d['provider_lead_status_id'] ?? null;
-                    if (!$sid) continue;
-                    $status = $statuses->get($sid);
-                    if (!$status) continue;
-
-                    $baseType = $status->base_type ?? 'pending';
-                    $providerCanceledCount += $baseType === 'cancel' ? 1 : 0;
-
-                    $providerStatusSummary[(string) $sid] = $providerStatusSummary[(string) $sid] ?? [
-                        'name' => $status->name,
-                        'total' => 0,
-                    ];
-                    $providerStatusSummary[(string) $sid]['total']++;
-                }
-            }
-
-            $customerStatusSummary = [];
-            $customerCanceledCount = 0;
-            if ($customerLeadIds !== []) {
-                $customerHistories = LeadTypeHistory::whereIn('lead_id', $customerLeadIds)
-                    ->where('type', 'customer')
-                    ->orderByDesc('created_at')
-                    ->get()
-                    ->groupBy('lead_id')
-                    ->map(fn ($group) => $group->first());
-
-                $statusIds = $customerHistories->map(function ($h) {
-                    $d = is_array($h->data) ? $h->data : [];
-                    return $d['customer_lead_status_id'] ?? null;
-                })->filter()->unique()->values()->all();
-
-                $statuses = $statusIds !== []
-                    ? CustomerLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id')
-                    : collect();
-
-                foreach ($customerHistories as $history) {
-                    $d = is_array($history->data) ? $history->data : [];
-                    $sid = $d['customer_lead_status_id'] ?? null;
-                    if (!$sid) continue;
-                    $status = $statuses->get($sid);
-                    if (!$status) continue;
-
-                    $baseType = $status->base_type ?? 'pending';
-                    $customerCanceledCount += $baseType === 'cancel' ? 1 : 0;
-
-                    $customerStatusSummary[(string) $sid] = $customerStatusSummary[(string) $sid] ?? [
-                        'name' => $status->name,
-                        'total' => 0,
-                    ];
-                    $customerStatusSummary[(string) $sid]['total']++;
-                }
-            }
-
-            $canceledTotal = $providerCanceledCount + $customerCanceledCount;
-
-            $providerStatusSummary = array_values($providerStatusSummary);
-            usort($providerStatusSummary, fn ($a, $b) => ($b['total'] ?? 0) <=> ($a['total'] ?? 0));
-
-            $customerStatusSummary = array_values($customerStatusSummary);
-            usort($customerStatusSummary, fn ($a, $b) => ($b['total'] ?? 0) <=> ($a['total'] ?? 0));
-
-            // Outbound
-            $userOutboundBase = LeadOutboundEnquiry::query()
-                ->where('handled_by', $userId);
-
-            $userOutboundBase->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
-                $q->whereBetween('contacted_at', [
-                    $dateFrom->copy()->startOfDay(),
-                    $dateTo->copy()->endOfDay(),
-                ]);
-            });
-
-            $userOutboundTotal = (clone $userOutboundBase)->count();
-
-            $outboundChannelCounts = (clone $userOutboundBase)
-                ->select('contacted_through', DB::raw('count(*) as total'))
-                ->groupBy('contacted_through')
-                ->pluck('total', 'contacted_through')
-                ->all();
-
-            $userOutboundByChannel = [
-                ['label' => 'Call', 'total' => (int) ($outboundChannelCounts['call'] ?? 0)],
-                ['label' => 'Message', 'total' => (int) ($outboundChannelCounts['message'] ?? 0)],
-            ];
-
-            $outboundStatusRows = (clone $userOutboundBase)
-                ->select('status_id', DB::raw('count(*) as total'))
-                ->whereNotNull('status_id')
-                ->groupBy('status_id')
-                ->get();
-
-            $outboundStatusIds = $outboundStatusRows->pluck('status_id')->filter()->unique()->values()->all();
-            $outboundStatuses = $outboundStatusIds !== []
-                ? LeadOutboundEnquiryStatus::whereIn('id', $outboundStatusIds)->get(['id', 'name'])->keyBy('id')
-                : collect();
-
-            $userOutboundByStatus = $outboundStatusRows->map(function ($row) use ($outboundStatuses) {
-                return [
-                    'label' => $outboundStatuses->get($row->status_id)?->name ?? '—',
-                    'total' => (int) $row->total,
-                ];
-            })->sortByDesc('total')->values()->all();
-
-            $filterEmployees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
-                ->ofStatus(1)
-                ->orderBy('first_name')
-                ->orderBy('last_name')
-                ->get(['id', 'first_name', 'last_name', 'email']);
-
-            $userLeadsByTypeLabels = [];
-            $userLeadsByTypeValues = [];
-            foreach ($userLeadsByTypeMap as $type => $total) {
-                $label = \Modules\LeadManagement\Entities\Lead::leadTypes()[$type] ?? (string) $type;
-                $userLeadsByTypeLabels[] = $label;
-                $userLeadsByTypeValues[] = (int) $total;
-            }
-
-            $providerStatusLabels = array_map(fn ($r) => $r['name'], $providerStatusSummary);
-            $providerStatusValues = array_map(fn ($r) => (int) $r['total'], $providerStatusSummary);
-            $customerStatusLabels = array_map(fn ($r) => $r['name'], $customerStatusSummary);
-            $customerStatusValues = array_map(fn ($r) => (int) $r['total'], $customerStatusSummary);
-
-            $userOutboundStatusLabels = array_map(fn ($r) => $r['label'], $userOutboundByStatus);
-            $userOutboundStatusValues = array_map(fn ($r) => (int) $r['total'], $userOutboundByStatus);
-
-            return view('leadmanagement::admin.reports.index', [
-                'tab' => 'user',
-                'dateFrom' => $dateFrom?->toDateString(),
-                'dateTo' => $dateTo?->toDateString(),
-                'filterEmployees' => $filterEmployees,
-                'filterSources' => Source::active()->orderBy('name')->get(['id', 'name']),
-                'filterAdSources' => AdSource::active()->orderBy('name')->get(['id', 'name']),
-                'selectedUserId' => (string) $userId,
-                'selectedUserName' => $userName,
-                'queryParams' => [
-                    'tab' => 'user',
-                    'date_from' => $dateFrom?->toDateString(),
-                    'date_to' => $dateTo?->toDateString(),
-                    'user_id' => $userId,
-                ],
-                'userLeadsTotal' => (int) $userLeadsTotal,
-                'userCanceledTotal' => (int) $canceledTotal,
-                'userBookingsCount' => (int) $bookingsCount,
-                'userOutboundTotal' => (int) $userOutboundTotal,
-                'userPendingFollowupsTotal' => (int) $pendingFollowups,
-                'userLeadsTimeline' => $leadsTimeline,
-                'userLeadsPerDay' => $leadsPerDay,
-                'userLeadsByTypeLabels' => $userLeadsByTypeLabels,
-                'userLeadsByTypeValues' => $userLeadsByTypeValues,
-                'userOpenClosedLabels' => ['Open', 'Closed'],
-                'userOpenClosedValues' => [
-                    (int) ($userOpenClosedSummary['open'] ?? 0),
-                    (int) ($userOpenClosedSummary['closed'] ?? 0),
-                ],
-                'userProviderStatusLabels' => $providerStatusLabels,
-                'userProviderStatusValues' => $providerStatusValues,
-                'userCustomerStatusLabels' => $customerStatusLabels,
-                'userCustomerStatusValues' => $customerStatusValues,
-                'userOutboundByChannel' => $userOutboundByChannel,
-                'userOutboundStatusLabels' => $userOutboundStatusLabels,
-                'userOutboundStatusValues' => $userOutboundStatusValues,
-                'userFollowupTimeline' => $followupTimeline,
-                'userFollowupsPerDay' => $followupsPerDay,
-            ]);
-        }
 
         if ($tab === 'outbound') {
             $outboundBaseQuery = LeadOutboundEnquiry::query()
@@ -721,6 +448,300 @@ class LeadReportController extends Controller
             'providerStatusByLead' => $providerStatusByLead,
             'invalidReasonByLead' => $invalidReasonByLead,
             'futureCustomerReasonByLead' => $futureCustomerReasonByLead,
+        ]);
+    }
+
+    /**
+     * Per-user analytics (separate from Lead Reports inbound/outbound).
+     *
+     * @throws AuthorizationException
+     */
+    public function userReport(Request $request): Renderable
+    {
+        $this->authorize('lead_report_view');
+
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+
+        $userId = $request->input('user_id');
+        if (!$userId) {
+            $userId = Auth::id();
+        }
+
+        $user = User::find($userId);
+        $userName = $user
+            ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: ($user->email ?? (string) $userId)
+            : (string) $userId;
+
+        $baseUserLeads = Lead::query()
+            ->where('handled_by', $userId)
+            ->with(['source', 'adSource'])
+            ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
+                $q->whereBetween('date_time_of_lead_received', [
+                    $dateFrom->copy()->startOfDay(),
+                    $dateTo->copy()->endOfDay(),
+                ]);
+            });
+
+        $userLeadsTotal = (clone $baseUserLeads)->count();
+        $userLeadsForOpenClosed = (clone $baseUserLeads)->get(['id', 'lead_type']);
+        $userOpenClosedSummary = $this->buildOpenClosedSummary($userLeadsForOpenClosed);
+
+        $userLeadsByTypeRows = (clone $baseUserLeads)
+            ->select('lead_type', DB::raw('count(*) as total'))
+            ->groupBy('lead_type')
+            ->get();
+
+        $userLeadsByTypeMap = $userLeadsByTypeRows->mapWithKeys(function ($row) {
+            return [(string) $row->lead_type => (int) $row->total];
+        })->all();
+
+        $leadsTimeline = [];
+        $leadsPerDay = [];
+        if ($dateFrom && $dateTo) {
+            $period = CarbonPeriod::create($dateFrom->copy()->startOfDay(), $dateTo->copy()->startOfDay());
+            $dailyCountsRaw = (clone $baseUserLeads)
+                ->selectRaw('DATE(date_time_of_lead_received) as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->orderBy('day')
+                ->pluck('total', 'day')
+                ->all();
+
+            foreach ($period as $date) {
+                $leadsTimeline[] = $date->format('d M');
+                $key = $date->toDateString();
+                $leadsPerDay[] = (int) ($dailyCountsRaw[$key] ?? 0);
+            }
+        }
+
+        $userLeadIds = (clone $baseUserLeads)->pluck('id')->all();
+        $bookingsCount = $userLeadIds !== [] ? Booking::whereIn('lead_id', $userLeadIds)->count() : 0;
+
+        $pendingFollowups = (clone $baseUserLeads)
+            ->whereNotNull('next_followup_at')
+            ->where('next_followup_at', '>=', now())
+            ->count();
+
+        $followupTimeline = [];
+        $followupsPerDay = [];
+        if ($dateFrom && $dateTo) {
+            $period = CarbonPeriod::create($dateFrom->copy()->startOfDay(), $dateTo->copy()->startOfDay());
+            $followupsRaw = (clone $baseUserLeads)
+                ->whereNotNull('next_followup_at')
+                ->whereBetween('next_followup_at', [
+                    $dateFrom->copy()->startOfDay(),
+                    $dateTo->copy()->endOfDay(),
+                ])
+                ->selectRaw('DATE(next_followup_at) as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->orderBy('day')
+                ->pluck('total', 'day')
+                ->all();
+
+            foreach ($period as $date) {
+                $followupTimeline[] = $date->format('d M');
+                $key = $date->toDateString();
+                $followupsPerDay[] = (int) ($followupsRaw[$key] ?? 0);
+            }
+        }
+
+        $providerLeadIds = (clone $baseUserLeads)
+            ->where('lead_type', Lead::TYPE_PROVIDER)
+            ->pluck('id')
+            ->all();
+        $customerLeadIds = (clone $baseUserLeads)
+            ->where('lead_type', Lead::TYPE_CUSTOMER)
+            ->pluck('id')
+            ->all();
+
+        $providerStatusSummary = [];
+        $providerCanceledCount = 0;
+        if ($providerLeadIds !== []) {
+            $providerHistories = LeadTypeHistory::whereIn('lead_id', $providerLeadIds)
+                ->where('type', 'provider')
+                ->orderByDesc('created_at')
+                ->get()
+                ->groupBy('lead_id')
+                ->map(fn ($group) => $group->first());
+
+            $statusIds = $providerHistories->map(function ($h) {
+                $d = is_array($h->data) ? $h->data : [];
+                return $d['provider_lead_status_id'] ?? null;
+            })->filter()->unique()->values()->all();
+
+            $statuses = $statusIds !== []
+                ? ProviderLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id')
+                : collect();
+
+            foreach ($providerHistories as $history) {
+                $d = is_array($history->data) ? $history->data : [];
+                $sid = $d['provider_lead_status_id'] ?? null;
+                if (!$sid) {
+                    continue;
+                }
+                $status = $statuses->get($sid);
+                if (!$status) {
+                    continue;
+                }
+
+                $baseType = $status->base_type ?? 'pending';
+                $providerCanceledCount += $baseType === 'cancel' ? 1 : 0;
+
+                $providerStatusSummary[(string) $sid] = $providerStatusSummary[(string) $sid] ?? [
+                    'name' => $status->name,
+                    'total' => 0,
+                ];
+                $providerStatusSummary[(string) $sid]['total']++;
+            }
+        }
+
+        $customerStatusSummary = [];
+        $customerCanceledCount = 0;
+        if ($customerLeadIds !== []) {
+            $customerHistories = LeadTypeHistory::whereIn('lead_id', $customerLeadIds)
+                ->where('type', 'customer')
+                ->orderByDesc('created_at')
+                ->get()
+                ->groupBy('lead_id')
+                ->map(fn ($group) => $group->first());
+
+            $statusIds = $customerHistories->map(function ($h) {
+                $d = is_array($h->data) ? $h->data : [];
+                return $d['customer_lead_status_id'] ?? null;
+            })->filter()->unique()->values()->all();
+
+            $statuses = $statusIds !== []
+                ? CustomerLeadStatus::whereIn('id', $statusIds)->get()->keyBy('id')
+                : collect();
+
+            foreach ($customerHistories as $history) {
+                $d = is_array($history->data) ? $history->data : [];
+                $sid = $d['customer_lead_status_id'] ?? null;
+                if (!$sid) {
+                    continue;
+                }
+                $status = $statuses->get($sid);
+                if (!$status) {
+                    continue;
+                }
+
+                $baseType = $status->base_type ?? 'pending';
+                $customerCanceledCount += $baseType === 'cancel' ? 1 : 0;
+
+                $customerStatusSummary[(string) $sid] = $customerStatusSummary[(string) $sid] ?? [
+                    'name' => $status->name,
+                    'total' => 0,
+                ];
+                $customerStatusSummary[(string) $sid]['total']++;
+            }
+        }
+
+        $canceledTotal = $providerCanceledCount + $customerCanceledCount;
+
+        $providerStatusSummary = array_values($providerStatusSummary);
+        usort($providerStatusSummary, fn ($a, $b) => ($b['total'] ?? 0) <=> ($a['total'] ?? 0));
+
+        $customerStatusSummary = array_values($customerStatusSummary);
+        usort($customerStatusSummary, fn ($a, $b) => ($b['total'] ?? 0) <=> ($a['total'] ?? 0));
+
+        $userOutboundBase = LeadOutboundEnquiry::query()
+            ->where('handled_by', $userId);
+
+        $userOutboundBase->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
+            $q->whereBetween('contacted_at', [
+                $dateFrom->copy()->startOfDay(),
+                $dateTo->copy()->endOfDay(),
+            ]);
+        });
+
+        $userOutboundTotal = (clone $userOutboundBase)->count();
+
+        $outboundChannelCounts = (clone $userOutboundBase)
+            ->select('contacted_through', DB::raw('count(*) as total'))
+            ->groupBy('contacted_through')
+            ->pluck('total', 'contacted_through')
+            ->all();
+
+        $userOutboundByChannel = [
+            ['label' => 'Call', 'total' => (int) ($outboundChannelCounts['call'] ?? 0)],
+            ['label' => 'Message', 'total' => (int) ($outboundChannelCounts['message'] ?? 0)],
+        ];
+
+        $outboundStatusRows = (clone $userOutboundBase)
+            ->select('status_id', DB::raw('count(*) as total'))
+            ->whereNotNull('status_id')
+            ->groupBy('status_id')
+            ->get();
+
+        $outboundStatusIds = $outboundStatusRows->pluck('status_id')->filter()->unique()->values()->all();
+        $outboundStatuses = $outboundStatusIds !== []
+            ? LeadOutboundEnquiryStatus::whereIn('id', $outboundStatusIds)->get(['id', 'name'])->keyBy('id')
+            : collect();
+
+        $userOutboundByStatus = $outboundStatusRows->map(function ($row) use ($outboundStatuses) {
+            return [
+                'label' => $outboundStatuses->get($row->status_id)?->name ?? '—',
+                'total' => (int) $row->total,
+            ];
+        })->sortByDesc('total')->values()->all();
+
+        $filterEmployees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
+            ->ofStatus(1)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'email']);
+
+        $userLeadsByTypeLabels = [];
+        $userLeadsByTypeValues = [];
+        foreach ($userLeadsByTypeMap as $type => $total) {
+            $label = Lead::leadTypes()[$type] ?? (string) $type;
+            $userLeadsByTypeLabels[] = $label;
+            $userLeadsByTypeValues[] = (int) $total;
+        }
+
+        $providerStatusLabels = array_map(fn ($r) => $r['name'], $providerStatusSummary);
+        $providerStatusValues = array_map(fn ($r) => (int) $r['total'], $providerStatusSummary);
+        $customerStatusLabels = array_map(fn ($r) => $r['name'], $customerStatusSummary);
+        $customerStatusValues = array_map(fn ($r) => (int) $r['total'], $customerStatusSummary);
+
+        $userOutboundStatusLabels = array_map(fn ($r) => $r['label'], $userOutboundByStatus);
+        $userOutboundStatusValues = array_map(fn ($r) => (int) $r['total'], $userOutboundByStatus);
+
+        $queryParams = [
+            'date_from' => $dateFrom?->toDateString(),
+            'date_to' => $dateTo?->toDateString(),
+            'user_id' => $userId,
+        ];
+
+        return view('leadmanagement::admin.reports.user-report', [
+            'dateFrom' => $dateFrom?->toDateString(),
+            'dateTo' => $dateTo?->toDateString(),
+            'filterEmployees' => $filterEmployees,
+            'selectedUserId' => (string) $userId,
+            'selectedUserName' => $userName,
+            'queryParams' => $queryParams,
+            'userLeadsTotal' => (int) $userLeadsTotal,
+            'userCanceledTotal' => (int) $canceledTotal,
+            'userBookingsCount' => (int) $bookingsCount,
+            'userOutboundTotal' => (int) $userOutboundTotal,
+            'userPendingFollowupsTotal' => (int) $pendingFollowups,
+            'userLeadsTimeline' => $leadsTimeline,
+            'userLeadsPerDay' => $leadsPerDay,
+            'userLeadsByTypeLabels' => $userLeadsByTypeLabels,
+            'userLeadsByTypeValues' => $userLeadsByTypeValues,
+            'userOpenClosedLabels' => ['Open', 'Closed'],
+            'userOpenClosedValues' => [
+                (int) ($userOpenClosedSummary['open'] ?? 0),
+                (int) ($userOpenClosedSummary['closed'] ?? 0),
+            ],
+            'userProviderStatusLabels' => $providerStatusLabels,
+            'userProviderStatusValues' => $providerStatusValues,
+            'userCustomerStatusLabels' => $customerStatusLabels,
+            'userCustomerStatusValues' => $customerStatusValues,
+            'userOutboundByChannel' => $userOutboundByChannel,
+            'userOutboundStatusLabels' => $userOutboundStatusLabels,
+            'userOutboundStatusValues' => $userOutboundStatusValues,
+            'userFollowupTimeline' => $followupTimeline,
+            'userFollowupsPerDay' => $followupsPerDay,
         ]);
     }
 

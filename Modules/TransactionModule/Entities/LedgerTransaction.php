@@ -6,7 +6,9 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
 
 class LedgerTransaction extends Model
@@ -28,6 +30,7 @@ class LedgerTransaction extends Model
         'transaction_id',
         'booking_id',
         'booking_repeat_id',
+        'booking_partial_payment_id',
         'provider_id',
         'payment_method',
         'reason',
@@ -52,9 +55,19 @@ class LedgerTransaction extends Model
         return $this->belongsTo(BookingRepeat::class, 'booking_repeat_id');
     }
 
+    public function bookingPartialPayment(): BelongsTo
+    {
+        return $this->belongsTo(BookingPartialPayment::class, 'booking_partial_payment_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function provider(): BelongsTo
+    {
+        return $this->belongsTo(Provider::class);
     }
 
     public function scopeIn($query)
