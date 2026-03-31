@@ -2,6 +2,30 @@
 
 @section('title', translate('WhatsApp') . ' — ' . translate('Message_templates'))
 
+@push('css_or_js')
+    <style>
+        .wa-template-input {
+            min-height: 300px;
+            resize: vertical;
+        }
+        .wa-template-tabs-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 1rem;
+        }
+        .wa-template-tabs-scroll .nav {
+            flex-wrap: nowrap;
+        }
+        .wa-template-tabs-scroll .nav-item {
+            flex-shrink: 0;
+        }
+        .wa-template-tabs-scroll .nav-link {
+            white-space: nowrap;
+        }
+    </style>
+@endpush
+
 @section('content')
     <div class="container-fluid">
         <div class="row mb-3">
@@ -53,7 +77,8 @@
 
             <div class="card mb-3">
                 <div class="card-body">
-                    <ul class="nav nav--tabs mb-3" id="waBookingTemplateTabs" role="tablist">
+                    <div class="wa-template-tabs-scroll">
+                    <ul class="nav nav--tabs flex-nowrap" id="waBookingTemplateTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <a class="nav-link active" id="wa-tpl-tab-new-booking" data-bs-toggle="tab"
                                data-bs-target="#wa-tpl-pane-new-booking" href="#wa-tpl-pane-new-booking"
@@ -68,7 +93,43 @@
                                 {{ translate('WhatsApp_tab_booking_status_changed') }}
                             </a>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="wa-tpl-tab-provider-change" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-provider-change" href="#wa-tpl-pane-provider-change"
+                               role="tab" aria-controls="wa-tpl-pane-provider-change" aria-selected="false">
+                                {{ translate('WhatsApp_tab_provider_change') }}
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="wa-tpl-tab-schedule" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-schedule" href="#wa-tpl-pane-schedule"
+                               role="tab" aria-controls="wa-tpl-pane-schedule" aria-selected="false">
+                                {{ translate('WhatsApp_tab_schedule_change') }}
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="wa-tpl-tab-payment" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-payment" href="#wa-tpl-pane-payment"
+                               role="tab" aria-controls="wa-tpl-pane-payment" aria-selected="false">
+                                {{ translate('WhatsApp_tab_payment_change') }}
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="wa-tpl-tab-serviceman" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-serviceman" href="#wa-tpl-pane-serviceman"
+                               role="tab" aria-controls="wa-tpl-pane-serviceman" aria-selected="false">
+                                {{ translate('WhatsApp_tab_serviceman_change') }}
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="wa-tpl-tab-verification" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-verification" href="#wa-tpl-pane-verification"
+                               role="tab" aria-controls="wa-tpl-pane-verification" aria-selected="false">
+                                {{ translate('WhatsApp_tab_verification_change') }}
+                            </a>
+                        </li>
                     </ul>
+                    </div>
 
                     <div class="tab-content" id="waBookingTemplateTabContent">
                         <div class="tab-pane fade show active" id="wa-tpl-pane-new-booking" role="tabpanel"
@@ -78,13 +139,13 @@
                                 <div class="col-md-6">
                                     <label class="form-label" for="tpl_booking_confirmation_customer">{{ translate('Customer_template') }}</label>
                                     <textarea name="booking_confirmation_customer" id="tpl_booking_confirmation_customer"
-                                              class="form-control wa-template-input" rows="16"
+                                              class="form-control wa-template-input"
                                               placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_confirmation_customer', $config['booking_confirmation_customer'] ?? '') }}</textarea>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label" for="tpl_booking_confirmation_provider">{{ translate('Provider_template') }}</label>
                                     <textarea name="booking_confirmation_provider" id="tpl_booking_confirmation_provider"
-                                              class="form-control wa-template-input" rows="16"
+                                              class="form-control wa-template-input"
                                               placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_confirmation_provider', $config['booking_confirmation_provider'] ?? '') }}</textarea>
                                 </div>
                             </div>
@@ -96,14 +157,110 @@
                                 <div class="col-md-6">
                                     <label class="form-label" for="tpl_booking_status_customer">{{ translate('Customer_template') }}</label>
                                     <textarea name="booking_status_customer" id="tpl_booking_status_customer"
-                                              class="form-control wa-template-input" rows="16"
+                                              class="form-control wa-template-input"
                                               placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_customer', $config['booking_status_customer'] ?? '') }}</textarea>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label" for="tpl_booking_status_provider">{{ translate('Provider_template') }}</label>
                                     <textarea name="booking_status_provider" id="tpl_booking_status_provider"
-                                              class="form-control wa-template-input" rows="16"
+                                              class="form-control wa-template-input"
                                               placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_provider', $config['booking_status_provider'] ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="wa-tpl-pane-provider-change" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-provider-change" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_provider_change_hint') }}</p>
+                            <div class="row g-3">
+                                <div class="col-lg-4 col-md-12">
+                                    <label class="form-label" for="tpl_provider_change_customer">{{ translate('Customer_template') }}</label>
+                                    <textarea name="provider_change_customer" id="tpl_provider_change_customer"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('provider_change_customer', $config['provider_change_customer'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-lg-4 col-md-12">
+                                    <label class="form-label" for="tpl_provider_change_previous_provider">{{ translate('Previous_provider_template') }}</label>
+                                    <textarea name="provider_change_previous_provider" id="tpl_provider_change_previous_provider"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('provider_change_previous_provider', $config['provider_change_previous_provider'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-lg-4 col-md-12">
+                                    <label class="form-label" for="tpl_provider_change_new_provider">{{ translate('New_assigned_provider_template') }}</label>
+                                    <textarea name="provider_change_new_provider" id="tpl_provider_change_new_provider"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('provider_change_new_provider', $config['provider_change_new_provider'] ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="wa-tpl-pane-schedule" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-schedule" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_schedule_change_hint') }}</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_schedule_customer">{{ translate('Customer_template') }}</label>
+                                    <textarea name="booking_schedule_customer" id="tpl_booking_schedule_customer"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_schedule_customer', $config['booking_schedule_customer'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_schedule_provider">{{ translate('Provider_template') }}</label>
+                                    <textarea name="booking_schedule_provider" id="tpl_booking_schedule_provider"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_schedule_provider', $config['booking_schedule_provider'] ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="wa-tpl-pane-payment" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-payment" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_payment_change_hint') }}</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_payment_customer">{{ translate('Customer_template') }}</label>
+                                    <textarea name="booking_payment_customer" id="tpl_booking_payment_customer"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_payment_customer', $config['booking_payment_customer'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_payment_provider">{{ translate('Provider_template') }}</label>
+                                    <textarea name="booking_payment_provider" id="tpl_booking_payment_provider"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_payment_provider', $config['booking_payment_provider'] ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="wa-tpl-pane-serviceman" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-serviceman" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_serviceman_change_hint') }}</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_serviceman_customer">{{ translate('Customer_template') }}</label>
+                                    <textarea name="booking_serviceman_customer" id="tpl_booking_serviceman_customer"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_serviceman_customer', $config['booking_serviceman_customer'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_serviceman_provider">{{ translate('Provider_template') }}</label>
+                                    <textarea name="booking_serviceman_provider" id="tpl_booking_serviceman_provider"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_serviceman_provider', $config['booking_serviceman_provider'] ?? '') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="wa-tpl-pane-verification" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-verification" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_verification_change_hint') }}</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_verification_customer">{{ translate('Customer_template') }}</label>
+                                    <textarea name="booking_verification_customer" id="tpl_booking_verification_customer"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_verification_customer', $config['booking_verification_customer'] ?? '') }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="tpl_booking_verification_provider">{{ translate('Provider_template') }}</label>
+                                    <textarea name="booking_verification_provider" id="tpl_booking_verification_provider"
+                                              class="form-control wa-template-input"
+                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_verification_provider', $config['booking_verification_provider'] ?? '') }}</textarea>
                                 </div>
                             </div>
                         </div>

@@ -36,6 +36,17 @@ class WhatsAppBookingTemplateController extends Controller
             'booking_confirmation_provider' => 'nullable|string|max:4096',
             'booking_status_customer' => 'nullable|string|max:4096',
             'booking_status_provider' => 'nullable|string|max:4096',
+            'provider_change_customer' => 'nullable|string|max:4096',
+            'provider_change_previous_provider' => 'nullable|string|max:4096',
+            'provider_change_new_provider' => 'nullable|string|max:4096',
+            'booking_schedule_customer' => 'nullable|string|max:4096',
+            'booking_schedule_provider' => 'nullable|string|max:4096',
+            'booking_payment_customer' => 'nullable|string|max:4096',
+            'booking_payment_provider' => 'nullable|string|max:4096',
+            'booking_serviceman_customer' => 'nullable|string|max:4096',
+            'booking_serviceman_provider' => 'nullable|string|max:4096',
+            'booking_verification_customer' => 'nullable|string|max:4096',
+            'booking_verification_provider' => 'nullable|string|max:4096',
         ]);
 
         $liveValues = [
@@ -45,6 +56,17 @@ class WhatsAppBookingTemplateController extends Controller
             'booking_confirmation_provider' => (string) ($data['booking_confirmation_provider'] ?? ''),
             'booking_status_customer' => (string) ($data['booking_status_customer'] ?? ''),
             'booking_status_provider' => (string) ($data['booking_status_provider'] ?? ''),
+            'provider_change_customer' => (string) ($data['provider_change_customer'] ?? ''),
+            'provider_change_previous_provider' => (string) ($data['provider_change_previous_provider'] ?? ''),
+            'provider_change_new_provider' => (string) ($data['provider_change_new_provider'] ?? ''),
+            'booking_schedule_customer' => (string) ($data['booking_schedule_customer'] ?? ''),
+            'booking_schedule_provider' => (string) ($data['booking_schedule_provider'] ?? ''),
+            'booking_payment_customer' => (string) ($data['booking_payment_customer'] ?? ''),
+            'booking_payment_provider' => (string) ($data['booking_payment_provider'] ?? ''),
+            'booking_serviceman_customer' => (string) ($data['booking_serviceman_customer'] ?? ''),
+            'booking_serviceman_provider' => (string) ($data['booking_serviceman_provider'] ?? ''),
+            'booking_verification_customer' => (string) ($data['booking_verification_customer'] ?? ''),
+            'booking_verification_provider' => (string) ($data['booking_verification_provider'] ?? ''),
         ];
 
         BusinessSettings::updateOrCreate(

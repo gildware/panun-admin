@@ -7,6 +7,9 @@
 @endpush
 
 @section('content')
+    @php
+        $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
+    @endphp
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
@@ -448,11 +451,13 @@
                                                         </td>
                                                     </tr>
                                                 @endif
+                                                @if($bookingHasTax)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('vat_/_tax') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_tax_amount) }}</td>
                                                 </tr>
+                                                @endif
                                                 @if ($booking->extra_fee > 0)
                                                     @php($additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values ?? 'Fee')
                                                     <tr>
@@ -1010,10 +1015,12 @@
                                                     <div>{{('Service Discount')}}:</div>
                                                     <div class="fw-bold">{{ with_currency_symbol($serviceLog->discount_amount) }}</div>
                                                 </div>
+                                                @if((float)($repeat['total_tax_amount'] ?? 0) > 0)
                                                 <div class="d-flex gap-4 justify-content-end px-2">
                                                     <div>{{('Service Vat')}}:</div>
                                                     <div class="fw-bold">{{ with_currency_symbol($repeat['total_tax_amount']) }}</div>
                                                 </div>
+                                                @endif
                                             @endif
                                         </div>
                                     </td>

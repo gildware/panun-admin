@@ -374,9 +374,9 @@
                                                                         <div class="m-0 form-floating form-floating__icon">
                                                                             <input type="number" class="form-control" name="tax" min="0"
                                                                                 max="100" step="any"
-                                                                                placeholder="{{translate('add_tax_percentage')}} *"
-                                                                                required="" value="{{old('tax')}}">
-                                                                            <label>{{translate('add_tax_percentage')}} *</label>
+                                                                                placeholder="{{translate('add_tax_percentage')}}"
+                                                                                value="{{old('tax')}}">
+                                                                            <label>{{translate('add_tax_percentage')}}</label>
                                                                             <span class="material-icons">percent</span>
                                                                         </div>
                                                                     </div>
@@ -628,7 +628,6 @@
                     "name[]": "required",
                     category_id: "required",
                     sub_category_id: "required",
-                    tax: "required",
                     min_bidding_price: "required",
                     "short_description[]": "required",
                     thumbnail: "required",
@@ -639,7 +638,6 @@
                     "name[]": "Please enter name",
                     category_id: "Please enter category id",
                     sub_category_id: "Please select sub category",
-                    tax: "Please enter Tax",
                     min_bidding_price: "Please enter min bidding price",
                     "short_description[]": "Please enter short description",
                     thumbnail: "Please enter thumbnail",

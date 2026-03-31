@@ -33,6 +33,11 @@ class WhatsAppModuleServiceProvider extends ServiceProvider
             if (!$booking->wasChanged('booking_status')) {
                 return;
             }
+            // Repeat series: parent row status is driven alongside BookingRepeat rows; WhatsApp uses
+            // sendBookingStatusChange / sendBookingRepeatStatusChange from those code paths instead.
+            if ((int) ($booking->is_repeated ?? 0) === 1) {
+                return;
+            }
             $previous = (string) Cache::pull(
                 BookingWhatsAppNotificationService::CACHE_PREVIOUS_STATUS_PREFIX . $booking->id,
                 ''
