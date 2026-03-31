@@ -69,12 +69,12 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </a>
             </li>
 
-            @canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view', 'lead_report_view'])
+            @canany(['lead_view', 'lead_outbound_enquiry_view', 'lead_configuration_view'])
                 <li class="nav-category" title="{{ translate('Lead_Management') }}">
                     {{ translate('Lead_Management') }}
                 </li>
-                <li class="has-sub-item {{ request()->is('admin/lead*') ? 'sub-menu-opened' : '' }}">
-                    <a href="#" class="{{ request()->is('admin/lead*') ? 'active-menu' : '' }}">
+                <li class="has-sub-item {{ request()->is('admin/lead*') && !request()->is('admin/lead/reports*') ? 'sub-menu-opened' : '' }}">
+                    <a href="#" class="{{ request()->is('admin/lead*') && !request()->is('admin/lead/reports*') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="{{ translate('Lead_Management') }}">contact_page</span>
                         <span class="link-title">{{ translate('Lead_Management') }}</span>
                     </a>
@@ -82,7 +82,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     @can('lead_view')
                         <li>
                             <a href="{{ route('admin.lead.index') }}"
-                               class="{{ request()->is('admin/lead') && !request()->is('admin/lead/create') && !request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
+                               class="{{ request()->is('admin/lead') && !request()->is('admin/lead/create') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Leads') }}</span>
                             </a>
                         </li>
@@ -100,14 +100,6 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                             <a href="{{ route('admin.lead.configuration.index') }}"
                                class="{{ request()->is('admin/lead/configuration*') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Lead_Configuration') }}</span>
-                            </a>
-                        </li>
-                    @endcan
-                    @can('lead_report_view')
-                        <li>
-                            <a href="{{ route('admin.lead.reports.index') }}"
-                               class="{{ request()->is('admin/lead/reports*') ? 'active-menu' : '' }}">
-                                <span class="link-title">{{ translate('Lead_Reports') }}</span>
                             </a>
                         </li>
                     @endcan
@@ -217,39 +209,60 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
-            @canany(['report_view', 'analytics_view'])
+            @canany(['report_view', 'analytics_view', 'lead_report_view'])
                 <li class="nav-category" title="{{ translate('Reports & Analytics') }}">
                     {{ translate('Reports & Analytics') }}
                 </li>
             @endcanany
-            @can('report_view')
-                <li class="has-sub-item {{ request()->is('admin/report/*') && !request()->is('admin/report/transaction*') ? 'sub-menu-opened' : '' }}">
-                    <a href="#" class="{{ request()->is('admin/report/*') && !request()->is('admin/report/transaction*') ? 'active-menu' : '' }}">
+            @canany(['report_view', 'lead_report_view'])
+                @php
+                    $reportsMenuOpen = (request()->is('admin/report/*') && !request()->is('admin/report/transaction*'))
+                        || request()->routeIs('admin.lead.reports.index')
+                        || request()->routeIs('admin.lead.reports.user');
+                @endphp
+                <li class="has-sub-item {{ $reportsMenuOpen ? 'sub-menu-opened' : '' }}">
+                    <a href="#" class="{{ $reportsMenuOpen ? 'active-menu' : '' }}">
                         <span class="material-icons" title="Customers">event_note</span>
                         <span class="link-title">{{ translate('Reports') }}</span>
                     </a>
                     <ul class="nav sub-menu">
-                        <li>
-                            <a href="{{ route('admin.report.business.overview') }}"
-                               class="{{ request()->is('admin/report/business*') ? 'active-menu' : '' }}">
-                                {{ translate('Business Reports') }}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('admin.report.booking') }}"
-                               class="{{ request()->is('admin/report/booking') ? 'active-menu' : '' }}">
-                                {{ translate('Booking Reports') }}
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('admin.report.provider') }}"
-                               class="{{ request()->is('admin/report/provider') ? 'active-menu' : '' }}">
-                                {{ translate('Provider Reports') }}
-                            </a>
-                        </li>
+                        @can('report_view')
+                            <li>
+                                <a href="{{ route('admin.report.business.overview') }}"
+                                   class="{{ request()->is('admin/report/business*') ? 'active-menu' : '' }}">
+                                    {{ translate('Business Reports') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.report.booking') }}"
+                                   class="{{ request()->is('admin/report/booking') ? 'active-menu' : '' }}">
+                                    {{ translate('Booking Reports') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.report.provider') }}"
+                                   class="{{ request()->is('admin/report/provider') ? 'active-menu' : '' }}">
+                                    {{ translate('Provider Reports') }}
+                                </a>
+                            </li>
+                        @endcan
+                        @can('lead_report_view')
+                            <li>
+                                <a href="{{ route('admin.lead.reports.index', ['tab' => 'inbound']) }}"
+                                   class="{{ request()->routeIs('admin.lead.reports.index') ? 'active-menu' : '' }}">
+                                    {{ translate('Lead_Reports') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.lead.reports.user', ['user_id' => auth()->id()]) }}"
+                                   class="{{ request()->routeIs('admin.lead.reports.user') ? 'active-menu' : '' }}">
+                                    {{ translate('User_Report') }}
+                                </a>
+                            </li>
+                        @endcan
                     </ul>
                 </li>
-            @endcan
+            @endcanany
             @can('analytics_view')
                 <li class="has-sub-item {{ request()->is('admin/analytics/*') ? 'sub-menu-opened' : '' }}">
                     <a href="#" class="{{ request()->is('admin/analytics/*') ? 'active-menu' : '' }}">

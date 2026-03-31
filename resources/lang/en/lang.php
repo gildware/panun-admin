@@ -6567,6 +6567,7 @@ _Message' => 'Customer notification for provider bid offer
   'Refunded' => 'Refunded',
   'Parts_Charges' => 'Parts Charges',
   'Provider_owes_you' => 'Provider owes you',
+  'Received_by' => 'Received by',
   'Received_by_provider' => 'Received by provider',
   'Received_by_company' => 'Received by company',
   'Provider_share' => 'Provider share',
@@ -7146,4 +7147,5 @@ _Message' => 'Customer notification for provider bid offer
   'Internal_booking_feedback' => 'Internal booking feedback',
   'Provider_feedback' => 'Provider feedback',
   'Use_this_only_when_you_want_to_clear_test_data_and_start_with_fresh_operational_data' => 'Use this only when you want to clear test data and start with fresh operational data',
+  'Advance_payment_on_booking_create' => 'Advance payment on booking create',
 );

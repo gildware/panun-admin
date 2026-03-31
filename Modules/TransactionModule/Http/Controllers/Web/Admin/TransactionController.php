@@ -2,174 +2,205 @@
 
 namespace Modules\TransactionModule\Http\Controllers\Web\Admin;
 
+use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Renderable;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Routing\Controller;
-use Modules\TransactionModule\Entities\Transaction;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Modules\TransactionModule\Entities\LedgerTransaction;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-
 
 class TransactionController extends Controller
 {
-    private Transaction $transaction;
-
     use AuthorizesRequests;
 
-    public function __construct(Transaction $transaction)
-    {
-        $this->transaction = $transaction;
-    }
-
     /**
-     * Display a listing of the resource.
-     * @param Request $request
-     * @return Renderable
-     * @throws AuthorizationException
+     * Payment ledger: all money-in / money-out records (bookings, payouts, refunds, etc.).
+     * Query trx_type: all | credit (IN) | debit (OUT) for backward-compatible URLs.
      */
     public function index(Request $request): Renderable
     {
         $this->authorize('transaction_view');
 
         $request->validate([
-            'start_date' => 'date',
-            'end_date' => 'date',
-            'trx_type' => 'in:debit,credit,all'
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'trx_type' => 'in:debit,credit,all',
         ]);
 
-        $search = $request->has('search') ? $request['search'] : '';
-        $trxType = $request->has('trx_type') ? $request['trx_type'] : 'all';
-        $queryParam = ['search' => $search, 'trx_type' => $trxType];
+        $search = trim((string) $request->get('search', ''));
+        $trxType = $request->get('trx_type', 'all');
 
+        $from = $request->get('from_date');
+        $to = $request->get('to_date');
 
-        $transactions = $this->transaction->with(['from_user.provider', 'to_user.provider'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('id', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when($request['trx_type'] != 'all', function ($query) use ($request) {
-                if ($request['trx_type'] == 'debit') {
-                    return $query->where('debit', '!=', 0);
-                } else {
-                    return $query->where('credit', '!=', 0);
-                }
-            })
-            ->when($request->has('from_date') && $request->has('to_date'), function ($query) use ($request) {
-                $query->whereBetween('created_at', [date('Y-m-d', strtotime($request['from_date'])), date('Y-m-d', strtotime($request['to_date']))]);
-            })
-            ->latest()->paginate(pagination_limit())->appends($queryParam);
-
-        $data = [
-            'commissionEarning' => $this->transaction->where('trx_type', 'commission')->whereIn('to_user_account', ['received_balance'])
-                ->when($request->has('start_date') && $request->has('end_date'), function ($query) use ($request) {
-                    return $query->whereBetween('created_at', [$request['start_date'], $request['end_date']]);
-                })->sum('credit'),
-            'totalDebit' => $this->transaction
-                ->when($request->has('start_date') && $request->has('end_date'), function ($query) use ($request) {
-                    return $query->whereBetween('created_at', [$request['start_date'], $request['end_date']]);
-                })->sum('debit'),
-            'totalCredit' => $this->transaction
-                ->when($request->has('start_date') && $request->has('end_date'), function ($query) use ($request) {
-                    return $query->whereBetween('created_at', [$request['start_date'], $request['end_date']]);
-                })->sum('credit')
-        ];
-
-        return view('transactionmodule::admin.list',compact('transactions', 'data', 'trxType', 'search'));
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function store(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'amount' => 'required|numeric|min:1',
-            'from_user_id' => 'required|uuid',
-            'to_user_id' => 'required|uuid'
+        $query = LedgerTransaction::query()->with([
+            'booking' => fn ($q) => $q->select('id', 'readable_id'),
+            'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
+            'provider' => fn ($q) => $q->select('id', 'company_name'),
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        if ($from && $to) {
+            $query->whereBetween('date', [
+                Carbon::parse($from)->startOfDay()->toDateString(),
+                Carbon::parse($to)->endOfDay()->toDateString(),
+            ]);
+        } elseif ($from) {
+            $query->whereDate('date', '>=', Carbon::parse($from)->toDateString());
+        } elseif ($to) {
+            $query->whereDate('date', '<=', Carbon::parse($to)->toDateString());
         }
 
-        DB::transaction(function () use ($request) {
-            $transaction = $this->transaction;
-            $data = [
-                'ref_trx_id' => null,
-                'booking_id' => $request->booking_id,
-                'trx_type' => null,
-                'debit' => $request->amount,
-                'credit' => 0,
-                'balance' => 0,
-                'from_user_id' => $request->from_user_id,
-                'to_user_id' => $request->to_user_id
-            ];
-            $transaction::create($data);
+        if ($trxType === 'credit') {
+            $query->in();
+        } elseif ($trxType === 'debit') {
+            $query->out();
+        }
 
-            $data = [
-                'ref_trx_id' => $transaction['trx_id'],
-                'booking_id' => $request->booking_id,
-                'trx_type' => null,
-                'debit' => 0,
-                'credit' => $request->amount,
-                'balance' => 0,
-                'from_user_id' => $request->to_user_id,
-                'to_user_id' => $request->from_user_id
-            ];
-            $transaction::create($data);
-        });
+        if ($search !== '') {
+            $keys = array_filter(explode(' ', $search));
+            $query->where(function ($q) use ($keys) {
+                foreach ($keys as $key) {
+                    $q->where(function ($q2) use ($key) {
+                        $q2->where('transaction_id', 'LIKE', '%' . $key . '%')
+                            ->orWhere('reference_note', 'LIKE', '%' . $key . '%')
+                            ->orWhere('payment_method', 'LIKE', '%' . $key . '%')
+                            ->orWhere('id', 'LIKE', '%' . $key . '%')
+                            ->orWhereHas('booking', fn ($bq) => $bq->where('readable_id', 'LIKE', '%' . $key . '%'));
+                    });
+                }
+            });
+        }
 
-        return response()->json(response_formatter(DEFAULT_STORE_200), 200);
+        $transactions = $query->orderByDesc('date')
+            ->orderByDesc('created_at')
+            ->paginate(pagination_limit())
+            ->withQueryString();
+
+        $baseQuery = LedgerTransaction::query();
+        if ($from && $to) {
+            $baseQuery->whereBetween('date', [
+                Carbon::parse($from)->startOfDay()->toDateString(),
+                Carbon::parse($to)->endOfDay()->toDateString(),
+            ]);
+        } elseif ($from) {
+            $baseQuery->whereDate('date', '>=', Carbon::parse($from)->toDateString());
+        } elseif ($to) {
+            $baseQuery->whereDate('date', '<=', Carbon::parse($to)->toDateString());
+        }
+
+        $totalIn = (clone $baseQuery)->in()->sum('amount');
+        $totalOut = (clone $baseQuery)->out()->sum('amount');
+
+        $data = [
+            'totalIn' => round((float) $totalIn, 2),
+            'totalOut' => round((float) $totalOut, 2),
+        ];
+
+        return view('transactionmodule::admin.list', [
+            'transactions' => $transactions,
+            'data' => $data,
+            'trxType' => $trxType,
+            'search' => $search,
+            'from_date' => $from,
+            'to_date' => $to,
+        ]);
     }
 
-
     /**
-     * Display a listing of the resource.
-     * @param Request $request
-     * @return string|StreamedResponse
+     * Export payment ledger rows (same filters as list).
      */
-    public function download(Request $request): string|StreamedResponse
+    public function download(Request $request): StreamedResponse
     {
         $this->authorize('transaction_export');
 
         $request->validate([
-            'start_date' => 'date',
-            'end_date' => 'date',
-            'trx_type' => 'in:debit,credit,all'
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'trx_type' => 'in:debit,credit,all',
         ]);
 
-        $items = $this->transaction
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('id', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
-            ->when($request['trx_type'] != 'all', function ($query) use ($request) {
-                if ($request['trx_type'] == 'debit') {
-                    return $query->where('debit', '!=', 0);
-                } else {
-                    return $query->where('credit', '!=', 0);
-                }
-            })
-            ->when($request->has('from_date') && $request->has('to_date'), function ($query) use ($request) {
-                $query->whereBetween('created_at', [date('Y-m-d', strtotime($request['from_date'])), date('Y-m-d', strtotime($request['to_date']))]);
-            })
-            ->latest()->get();
+        $search = trim((string) $request->get('search', ''));
+        $trxType = $request->get('trx_type', 'all');
+        $from = $request->get('from_date');
+        $to = $request->get('to_date');
 
-        return (new FastExcel($items))->download(time().'-file.xlsx');
+        $query = LedgerTransaction::query()->with([
+            'booking' => fn ($q) => $q->select('id', 'readable_id'),
+        ]);
+
+        if ($from && $to) {
+            $query->whereBetween('date', [
+                Carbon::parse($from)->startOfDay()->toDateString(),
+                Carbon::parse($to)->endOfDay()->toDateString(),
+            ]);
+        } elseif ($from) {
+            $query->whereDate('date', '>=', Carbon::parse($from)->toDateString());
+        } elseif ($to) {
+            $query->whereDate('date', '<=', Carbon::parse($to)->toDateString());
+        }
+
+        if ($trxType === 'credit') {
+            $query->in();
+        } elseif ($trxType === 'debit') {
+            $query->out();
+        }
+
+        if ($search !== '') {
+            $keys = array_filter(explode(' ', $search));
+            $query->where(function ($q) use ($keys) {
+                foreach ($keys as $key) {
+                    $q->where(function ($q2) use ($key) {
+                        $q2->where('transaction_id', 'LIKE', '%' . $key . '%')
+                            ->orWhere('reference_note', 'LIKE', '%' . $key . '%')
+                            ->orWhere('payment_method', 'LIKE', '%' . $key . '%')
+                            ->orWhere('id', 'LIKE', '%' . $key . '%')
+                            ->orWhereHas('booking', fn ($bq) => $bq->where('readable_id', 'LIKE', '%' . $key . '%'));
+                    });
+                }
+            });
+        }
+
+        $rows = $query->orderByDesc('date')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function (LedgerTransaction $e) {
+                $flow = '';
+                if ($e->type === LedgerTransaction::TYPE_IN) {
+                    if ($e->received_by === LedgerTransaction::RECEIVED_BY_PROVIDER) {
+                        $flow = 'Customer paid to provider';
+                    } elseif ($e->received_by === LedgerTransaction::RECEIVED_BY_COMPANY) {
+                        $flow = 'Customer paid to company';
+                    }
+                } elseif ($e->type === LedgerTransaction::TYPE_OUT) {
+                    if ($e->reason === LedgerTransaction::REASON_REFUND) {
+                        $flow = 'Company paid to customer';
+                    } elseif ($e->reason === LedgerTransaction::REASON_PROVIDER_PAYOUT) {
+                        $flow = 'Provider payout';
+                    }
+                }
+
+                return [
+                    'date' => $e->date?->format('Y-m-d'),
+                    'created_at' => $e->created_at?->toDateTimeString(),
+                    'type' => $e->type,
+                    'flow' => $flow,
+                    'channel' => $e->payment_method,
+                    'amount' => $e->amount,
+                    'transaction_id' => $e->transaction_id,
+                    'booking_readable_id' => $e->booking?->readable_id,
+                    'reason' => $e->reason,
+                    'received_by' => $e->received_by,
+                    'reference_note' => $e->reference_note,
+                ];
+            });
+
+        return (new FastExcel($rows))->download(time() . '-payment-transactions.xlsx');
     }
 }
