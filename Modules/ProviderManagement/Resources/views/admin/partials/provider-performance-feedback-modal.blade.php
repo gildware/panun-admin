@@ -208,18 +208,5 @@
         }
     });
 
-    $(document).on('submit', '#providerPerformanceFeedbackForm', function (e) {
-        const $form = $(this);
-        const type = $form.find('input[name="incident_type"]:checked').val();
-        if (!type) {
-            return;
-        }
-
-        const selectedTagsCount = $form.find('.provider-feedback-tag-checkbox:checked').length;
-        if (selectedTagsCount < 1) {
-            e.preventDefault();
-            toastr.error('{{ translate('Please select at least one tag.') }}');
-        }
-    });
 </script>
 

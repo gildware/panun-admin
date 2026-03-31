@@ -105,6 +105,7 @@
 
 <script src="{{asset('assets/common')}}/js/common-image-upload.js"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
+<script src="{{asset('assets/common')}}/js/form-submit-once.js"></script>
 
 <script src="{{asset('assets/admin-module')}}/js/sweet_alert.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/toastr.js"></script>
@@ -657,10 +658,6 @@
     $('#cancelButton').on('click', function () {
         hideDeleteContentModal();
     });
-</script>
-
-
-
 </script>
 
 @stack('script')

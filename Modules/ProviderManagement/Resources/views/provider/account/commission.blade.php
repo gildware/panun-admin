@@ -47,7 +47,14 @@
                         </div>
 
                         <div class="d-flex gap-2 align-items-center justify-content-between flex-wrap media-body">
-                            <span>{{translate('Currently_you_are_using_business_commission_percentage_set_by_admin._If_you_want_to_change_the_percentage_please_contact_with_business_admin.')}}</span>
+                            <span>
+                                @if((int)($provider->commission_status ?? 0) === 1)
+                                    {{ translate('Commission_info_uses_custom_fixed_percent') }}
+                                @else
+                                    {{ translate('Commission_info_uses_company_tier_rules') }}
+                                @endif
+                                {{ translate('Commission_info_contact_admin_to_change') }}
+                            </span>
                             <a class="btn btn-primary" href="{{route('provider.chat.index', ['user_type' => 'super_admin'])}}">
                                 <span class="material-icons">forum</span>{{translate('Conversation')}}
                             </a>

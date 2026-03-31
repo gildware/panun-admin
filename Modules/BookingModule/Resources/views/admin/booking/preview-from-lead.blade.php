@@ -162,15 +162,3 @@
         </div>
     </div>
 @endsection
-
-@push('script')
-    <script>
-        $(document).ready(function() {
-            // Handle form submission
-            $('#confirm-booking-form').on('submit', function(e) {
-                // Form will submit normally
-            });
-        });
-    </script>
-@endpush
-

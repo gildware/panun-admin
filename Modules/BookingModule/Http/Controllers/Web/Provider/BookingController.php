@@ -1425,11 +1425,20 @@ class BookingController extends Controller
         $service = Service::active()
             ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
             ->where('id', $request['service_id'])
-            ->with(['variations' => fn($query) => $query->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])])
             ->first();
 
+        $variation = Variation::firstForBookingZone(
+            (string) $request['service_id'],
+            (string) $request['variant_key'],
+            (string) $request['zone_id']
+        );
+
+        if (!$service || !$variation) {
+            return response()->json(response_formatter(DEFAULT_404, null), 200);
+        }
+
         $quantity = $request['quantity'];
-        $variationPrice = $service?->variations[0]?->price;
+        $variationPrice = $variation->price;
 
         $basicDiscount = basic_discount_calculation($service, $variationPrice * $quantity);
         $campaignDiscount = campaign_discount_calculation($service, $variationPrice * $quantity);
@@ -1445,7 +1454,7 @@ class BookingController extends Controller
         $data = collect([
             'service_id' => $service->id,
             'service_name' => $service->name,
-            'variant_key' => $service?->variations[0]?->variant_key,
+            'variant_key' => $variation->variant_key,
             'quantity' => $request['quantity'],
             'service_cost' => $variationPrice,
             'total_discount_amount' => $basicDiscount + $campaignDiscount,
@@ -1475,10 +1484,11 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 200);
         }
 
-        $variations = Variation::where('service_id', $request['service_id'])
-            ->where('zone_id', $request['zone_id'])
-            ->where('price', '>', 0)
-            ->get();
+        $variations = Variation::listForBookingZone(
+            (string) $request['service_id'],
+            (string) $request['zone_id']
+        );
+
         return response()->json(response_formatter(DEFAULT_200, $variations, null), 200);
     }
 

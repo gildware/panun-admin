@@ -15,6 +15,7 @@ class ProviderPerformanceService
     public const ACTION_COMPLETED = 'completed';
     public const ACTION_CANCELLED = 'cancelled';
     public const ACTION_PROVIDER_CHANGED = 'provider_changed';
+    public const ACTION_REOPENED = 'reopened';
 
     public const COMPLAINT_TAGS = [
         'no_show',
@@ -97,6 +98,19 @@ class ProviderPerformanceService
                 ->unique()
                 ->count();
 
+            $reopenedBookings = $rows
+                ->filter(function ($row) {
+                    if (($row->action_type ?? '') === self::ACTION_REOPENED) {
+                        return true;
+                    }
+                    $t = (array) ($row->tags ?? []);
+
+                    return in_array('reopened', $t, true);
+                })
+                ->pluck('booking_id')
+                ->unique()
+                ->count();
+
             $score = (int) $rows->sum(fn ($row) => (int) ($row->score_delta ?? 0));
 
             $totals = $bookingTotals[$providerId] ?? ['completed' => 0, 'cancelled' => 0];
@@ -116,6 +130,7 @@ class ProviderPerformanceService
                     'late_arrival_count' => $lateArrival,
                     'poor_service_count' => $poorService,
                     'positive_feedback_count' => $positiveFeedback,
+                    'reopened_bookings_count' => $reopenedBookings,
                     'suggested_action' => $suggestedAction,
                 ],
             ];

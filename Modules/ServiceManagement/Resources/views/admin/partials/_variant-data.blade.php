@@ -7,8 +7,15 @@
                 <input name="variants[]" value="{{str_replace(' ','-',$item['variant'])}}" class="hide-div">
             </th>
             <td>
-                <input type="number" value="{{$item['price']}}" class="theme-input-style" id="default-set-{{$key}}"
-                       onkeyup="set_values('{{$key}}','{{$item['variant_key']}}')" min="0.00001" step="any" required>
+                <input type="number"
+                       name="variant_default_price[{{ $item['variant_key'] }}]"
+                       value="{{$item['price']}}"
+                       class="theme-input-style"
+                       id="default-set-{{$key}}"
+                       min="0"
+                       step="any"
+                       required
+                       onkeyup="set_values('{{$key}}','{{$item['variant_key']}}')">
                 {{-- Zone-wise prices live only in the modal; keep them as hidden inputs for form submit. --}}
                 @foreach($zones as $zone)
                     <input type="hidden"
@@ -23,6 +30,8 @@
                         <input class="form-check-input service-zone-pricing-toggle"
                                type="checkbox"
                                role="switch"
+                               name="variant_use_zone_pricing[{{ $item['variant_key'] }}]"
+                               value="1"
                                data-variant-key="{{ $item['variant_key'] }}"
                                id="zone-pricing-{{ $item['variant_key'] }}">
                         <label class="form-check-label small" for="zone-pricing-{{ $item['variant_key'] }}">Zone pricing</label>
@@ -50,7 +59,6 @@
 <script>
     "use strict";
 
-    // Equivalent JavaScript code
     document.querySelectorAll('.service-ajax-remove-variant').forEach(function(element) {
         element.addEventListener('click', function() {
             var route = this.getAttribute('data-route');
@@ -64,7 +72,8 @@
             return;
         }
         document.querySelectorAll('.default-get-' + key).forEach(function(element) {
-            element.value = document.getElementById('default-set-' + key).value;
+            var el = document.getElementById('default-set-' + key);
+            element.value = el ? el.value : '';
         });
     }
 

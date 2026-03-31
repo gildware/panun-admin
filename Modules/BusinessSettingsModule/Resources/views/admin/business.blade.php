@@ -219,7 +219,7 @@
                                                                 <div class="col-md-6">
                                                                     <div class="form-business">
                                                                         <label class="mb-2 text-dark">{{translate('Country')}} <span class="text-danger">*</span></label>
-                                                                        @php($countryCode=$dataValues->where('key_name','country_code')->first()->live_values)
+                                                                        <?php ($countryCode=$dataValues->where('key_name','country_code')->first()->live_values); ?>
                                                                         <select class="js-select current-black-color theme-input-style w-100" name="country_code">
                                                                             <option value="0" selected disabled>{{translate('---Select_Country---')}}</option>
                                                                             @foreach(COUNTRIES as $country)
@@ -339,7 +339,7 @@
                                                     <div class="row g-lg-3 g-3">
                                                         <div class="col-lg-4 col-md-6">
                                                             <label class="mb-2 text-dark">{{translate('Time Zone')}}</label>
-                                                            @php($timeZone=$dataValues->where('key_name','time_zone')->first()->live_values)
+                                                            <?php ($timeZone=$dataValues->where('key_name','time_zone')->first()->live_values); ?>
                                                             <select class="js-select current-black-color theme-input-style w-100" name="time_zone">
                                                                 <option value="0" selected disabled>{{translate('---Select_Time_Zone---')}}</option>
                                                                 @foreach(TIME_ZONES as $time)
@@ -351,7 +351,7 @@
                                                         </div>
 
                                                         <div class="col-lg-4 col-md-6">
-                                                            @php($timeFormat = $dataValues->where('key_name', 'time_format')->first()->live_values ?? '24h')
+                                                            <?php ($timeFormat = $dataValues->where('key_name', 'time_format')->first()->live_values ?? '24h'); ?>
                                                             <label class="mb-2 text-dark">{{ translate('Time Format') }}<span class="text-danger">*</span></label>
                                                             <div class="border setup-box p-12 rounded d-flex align-items-center gap-xl-5 gap-3">
                                                                 <div class="custom-radio">
@@ -372,7 +372,7 @@
                                                                    value="{{$dataValues->where('key_name','pagination_limit')->first()->live_values}}">
                                                         </div>
                                                         <div class="col-lg-4 col-md-6">
-                                                            @php($phoneVisibility = $dataValues->where('key_name', 'phone_number_visibility_for_chatting')?->first()?->live_values ?? null)
+                                                            <?php ($phoneVisibility = $dataValues->where('key_name', 'phone_number_visibility_for_chatting')?->first()?->live_values ?? null); ?>
                                                             <div class="mb-2 text-dark">{{translate('Phone number visibility for chatting')}}
                                                                 <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
                                                                    data-bs-placement="top"
@@ -401,7 +401,7 @@
                                                     <div class="row g-lg-3 g-3">
                                                         <div class="col-lg-4 col-md-6">
                                                             <label class="mb-2 text-dark">{{translate('Currency Code')}}</label>
-                                                            @php($currencyCode=$dataValues->where('key_name','currency_code')->first()->live_values)
+                                                            <?php ($currencyCode=$dataValues->where('key_name','currency_code')->first()->live_values); ?>
                                                             <select class="js-select current-black-color theme-input-style w-100"
                                                                     name="currency_code" id="change_currency">
                                                                 <option value="0" selected
@@ -415,7 +415,7 @@
                                                             </select>
                                                         </div>
                                                         <div class="col-lg-4 col-md-6">
-                                                            @php($position=$dataValues->where('key_name','currency_symbol_position')->first()->live_values)
+                                                            <?php ($position=$dataValues->where('key_name','currency_symbol_position')->first()->live_values); ?>
                                                             <label class="mb-2 text-dark">{{translate('Currency Position')}}</label>
                                                             <div class="border setup-box p-12 rounded d-flex align-items-center gap-xl-5 gap-3">
                                                                 <div class="custom-radio">
@@ -448,7 +448,7 @@
                                                 <div class="card2 p-20">
                                                     <div class="row g-3 mb-20">
                                                         <div class="col-lg-4 col-md-6">
-                                                            @php($guestCheckoutStatus = $dataValues->where('key_name', 'guest_checkout')?->first()?->live_values ?? null)
+                                                            <?php ($guestCheckoutStatus = $dataValues->where('key_name', 'guest_checkout')?->first()?->live_values ?? null); ?>
                                                             <div class="mb-2 text-dark">{{translate('Guest Checkout')}} <span class="text-danger">*</span>
                                                                 <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
                                                                    data-bs-placement="top"
@@ -466,7 +466,7 @@
                                                             </div>
                                                         </div>
                                                         <div class="col-lg-4 col-md-6">
-                                                            @php($storeGuestData=$dataValues->where('key_name','create_user_account_from_guest_info')->first()->live_values??null)
+                                                            <?php ($storeGuestData=$dataValues->where('key_name','create_user_account_from_guest_info')->first()->live_values??null); ?>
                                                             <div id="create_user_account_box" class="{{ $guestCheckoutStatus != '1' ? 'disabled' : '' }}">
                                                                 <div class="mb-2 text-dark">{{translate('Create user account from guest info')}}
                                                                     <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
@@ -509,7 +509,7 @@
                                                 <div class="card2 p-20">
                                                     <div class="row g-3 mb-20">
                                                         <div class="col-lg-4 col-md-6">
-                                                            @php($notificationStatus = $dataValues->where('key_name', 'booking_notification')?->first()?->live_values ?? null)
+                                                            <?php ($notificationStatus = $dataValues->where('key_name', 'booking_notification')?->first()?->live_values ?? null); ?>
                                                             <div class="mb-2 text-dark">{{ translate('booking_notification') }}
                                                                 <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
                                                                    data-bs-placement="top"
@@ -527,7 +527,7 @@
                                                             </div>
                                                         </div>
                                                         <div class="col-lg-4 col-md-6">
-                                                            @php($bookingNotificationType = $dataValues->where('key_name', 'booking_notification_type')->first()->live_values ?? null)
+                                                            <?php ($bookingNotificationType = $dataValues->where('key_name', 'booking_notification_type')->first()->live_values ?? null); ?>
                                                             <label class="mb-2 text-dark">{{ translate('booking_notification_type') }}<span class="text-danger">*</span></label>
                                                             <div class="border setup-box p-12 rounded d-flex align-items-center gap-xl-5 gap-3">
                                                                 <div class="custom-radio">
@@ -624,7 +624,7 @@
                                         <div class="cus-shadow rounded p-sm-3 p-2 bg-white">
                                             <div class="row g-3">
                                                 <div class="col-md-6 col-lg-4">
-                                                    @php($CAS = $dataValues->where('key_name', 'cash_after_service')?->first()?->live_values ?? null)
+                                                    <?php ($CAS = $dataValues->where('key_name', 'cash_after_service')?->first()?->live_values ?? null); ?>
                                                     <div class="d-flex gap-sm-2 gap-2 align-items-start">
                                                         <div class="form-check form--check">
                                                             <input class="form-check-input form-check-lg"
@@ -642,7 +642,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="col-md-6 col-lg-4">
-                                                    @php($digital_payment = $dataValues->where('key_name', 'digital_payment')?->first()?->live_values ?? null)
+                                                    <?php ($digital_payment = $dataValues->where('key_name', 'digital_payment')?->first()?->live_values ?? null); ?>
                                                     <div class="d-flex gap-sm-2 gap-2 align-items-start">
                                                         <div class="form-check form--check">
                                                             <input class="form-check-input form-check-lg"
@@ -677,7 +677,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="col-md-6 col-lg-4">
-                                                    @php($offline_payment = $dataValues->where('key_name', 'offline_payment')?->first()?->live_values ?? null)
+                                                    <?php ($offline_payment = $dataValues->where('key_name', 'offline_payment')?->first()?->live_values ?? null); ?>
 
                                                     <div class="d-flex gap-sm-2 gap-2 align-items-start">
                                                         <div class="form-check form--check">
@@ -743,7 +743,7 @@
                                                 <p class="fz-12 mb-20">{{ translate('By switching this feature ON, Customer can pay with wallet balance & partially pay from other payment gateways.') }} </p>
                                             </div>
                                             <div class="col-sm-4">
-                                                @php($partial_payment = $dataValues->where('key_name', 'partial_payment')?->first()?->live_values ?? null)
+                                                <?php ($partial_payment = $dataValues->where('key_name', 'partial_payment')?->first()?->live_values ?? null); ?>
                                                 <div class="border p-12 rounded d-flex justify-content-between bg-white">
                                                     <span class="text-dark fz-14">Status</span>
                                                     <label class="switcher">
@@ -1421,7 +1421,7 @@
                                                         </clipPath>
                                                     </defs>
                                                 </svg>
-                                                <p class="fz-12">{{ translate('You can see all the inactive providers who are suspended from') }} <a @can('provider_view') href="{{route('admin.provider.list', ['status'=>'all'])}}" @endif target="_blank" class="text-primary text-decoration-underline fw-medium">{{ translate('Provider List') }}</a> {{ translate('page.') }}</p>
+                                                <p class="fz-12">{{ translate('You can see all the inactive providers who are suspended from') }} <a @can('provider_view') href="{{route('admin.provider.list', ['status'=>'all'])}}" @endcan target="_blank" class="text-primary text-decoration-underline fw-medium">{{ translate('Provider List') }}</a> {{ translate('page.') }}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1516,7 +1516,7 @@
                                     <!-- Customers Wallet--->
                                     <div class="card p-20 mb-20">
                                         <div class="d-flex flex-sm-nowrap flex-wrap align-items-center justify-content-between gap-2 mb-20">
-                                            @php($customerWallet = $dataValues->where('key_name', 'customer_wallet')?->first()?->live_values ?? null)
+                                            <?php ($customerWallet = $dataValues->where('key_name', 'customer_wallet')?->first()?->live_values ?? null); ?>
                                             <div>
                                                 <h3 class="mb-1">{{ translate('Customer Wallet') }}</h3>
                                                 <p class="fz-12">{{ translate('For these wallet settings customers can get the refund to the wallet and also can use their wallet money to pay for any order.') }}</p>
@@ -1535,7 +1535,7 @@
                                         <div class="card2 p-20 rounded">
                                             <div class="row g-3">
                                                 <div class="col-lg-4 col-md-6">
-                                                    @php($addFundToWallet = $dataValues->where('key_name', 'add_to_fund_wallet')?->first()?->live_values ?? null)
+                                                    <?php ($addFundToWallet = $dataValues->where('key_name', 'add_to_fund_wallet')?->first()?->live_values ?? null); ?>
 
                                                     <div class="mb-2 text-dark">{{translate('Add Fund to Wallet')}}
                                                         <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
@@ -1561,7 +1561,7 @@
                                     <!-- Customers Laylty point--->
                                     <div class="card p-20 mb-20">
                                         <div class="d-flex flex-sm-nowrap flex-wrap align-items-center justify-content-between gap-2 mb-20">
-                                            @php($loyaltyPointStatus = $dataValues->where('key_name', 'customer_loyalty_point')?->first()?->live_values ?? null)
+                                            <?php ($loyaltyPointStatus = $dataValues->where('key_name', 'customer_loyalty_point')?->first()?->live_values ?? null); ?>
 
                                             <div>
                                                 <h3 class="mb-1">{{ translate('Customer Loyalty Point') }}</h3>
@@ -1581,7 +1581,7 @@
                                         <div class="card2 p-20 rounded mb-20">
                                             <div class="row g-3">
                                                 <div class="col-lg-4 col-md-6">
-                                                    @php($loyaltyPointValuePerUnit = $dataValues->where('key_name', 'loyalty_point_value_per_currency_unit')?->first()?->live_values ?? null)
+                                                    <?php ($loyaltyPointValuePerUnit = $dataValues->where('key_name', 'loyalty_point_value_per_currency_unit')?->first()?->live_values ?? null); ?>
                                                     <div class="mb-2 text-dark">{{translate('Equivalent Point to 1')}} ({{currency_symbol()}}) <span class="text-danger">*</span>
                                                         <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
                                                             data-bs-placement="top"
@@ -1593,7 +1593,7 @@
                                                            min="1" value="{{$loyaltyPointValuePerUnit}}" required="">
                                                 </div>
                                                 <div class="col-lg-4 col-md-6">
-                                                    @php($minLoyaltyPontToTransfer = $dataValues->where('key_name', 'min_loyalty_point_to_transfer')?->first()?->live_values ?? null)
+                                                    <?php ($minLoyaltyPontToTransfer = $dataValues->where('key_name', 'min_loyalty_point_to_transfer')?->first()?->live_values ?? null); ?>
 
                                                     <div class="mb-2 text-dark">{{translate('Minimum Point Required To Convert')}} <span class="text-danger">*</span>
                                                         <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
@@ -1607,7 +1607,7 @@
                                                 </div>
 
                                                 <div class="col-lg-4 col-md-6">
-                                                    @php($loyaltyPointPercentage=$dataValues->where('key_name','loyalty_point_percentage_per_booking')->first())
+                                                    <?php ($loyaltyPointPercentage=$dataValues->where('key_name','loyalty_point_percentage_per_booking')->first()); ?>
 
                                                     <div class="mb-2 text-dark">{{translate('Earning Percentage (%)')}} <span class="text-danger">*</span>
                                                         <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
@@ -1630,7 +1630,7 @@
                                                 <h3 class="mb-1">{{ translate('Customer Referral Earning Settings') }}</h3>
                                                 <p class="fz-12">{{ translate('Customers will receive this wallet balance rewards for sharing their referral code.') }}</p>
                                             </div>
-                                            @php($customerReferralEarning = $dataValues->where('key_name', 'customer_referral_earning')?->first()?->live_values ?? null)
+                                            <?php ($customerReferralEarning = $dataValues->where('key_name', 'customer_referral_earning')?->first()?->live_values ?? null); ?>
                                             <div class="w-350 d-flex align-items-center justify-content-between border rounded p-10px">
                                                 <span class="fs-14 text-dark">{{ translate('Status') }}</span>
                                                 <label class="switcher">
@@ -1648,7 +1648,7 @@
                                                     <h4 class="mb-1 fz-14">{{ translate('Who Share the Code') }}</h4>
                                                     <p class="fz-12">{{ translate('Customers will receive this wallet balance rewards for sharing their referral code with friends who use the code when signing up and completing their first order.') }}</p>
                                                 </div>
-                                                @php($value=$dataValues->where('key_name','referral_value_per_currency_unit')->first())
+                                                <?php ($value=$dataValues->where('key_name','referral_value_per_currency_unit')->first()); ?>
 
                                                 <div class="col-lg-8">
                                                     <div class="mb-2 text-dark">{{translate('Earnings To Each Referral')}} ({{currency_symbol()}}) <span class="text-danger">*</span>
@@ -1677,7 +1677,7 @@
                                                                 title="{{ translate('The customer who used referral code will get discount when a place their first order.') }}"
                                                             >info</i>
                                                         </div>
-                                                        @php($newUserDiscount=$dataValues->where('key_name','referral_based_new_user_discount')->first())
+                                                        <?php ($newUserDiscount=$dataValues->where('key_name','referral_based_new_user_discount')->first()); ?>
                                                         <div class="border p-12 rounded d-flex justify-content-between bg-white">
                                                             <span class="text-dark fz-14">{{ translate('Status') }}</span>
                                                             <label class="switcher">
@@ -1693,8 +1693,8 @@
                                                     <div class="bg-white rounded p-12">
                                                         <div class="row g-3">
                                                             <div class="col-md-6">
-                                                                @php($discountAmount=$dataValues->where('key_name','referral_discount_amount')->first())
-                                                                @php($referralDiscountType=$dataValues->where('key_name','referral_discount_type')->first())
+                                                                <?php ($discountAmount=$dataValues->where('key_name','referral_discount_amount')->first()); ?>
+                                                                <?php ($referralDiscountType=$dataValues->where('key_name','referral_discount_type')->first()); ?>
 
                                                                 <label class="mb-2 text-dark">{{ translate('Discount Amount') }}</label> <span class="text-danger">*</span>
                                                                 <div class="d-flex align-items-center restriction-time rounded border">
@@ -1713,8 +1713,8 @@
                                                                 </div>
                                                             </div>
                                                             <div class="col-md-6">
-                                                                @php($validity = $dataValues->where('key_name','referral_discount_validity')->first())
-                                                                @php($validityType = $dataValues->where('key_name','referral_discount_validity_type')->first())
+                                                                <?php ($validity = $dataValues->where('key_name','referral_discount_validity')->first()); ?>
+                                                                <?php ($validityType = $dataValues->where('key_name','referral_discount_validity_type')->first()); ?>
 
                                                                 <label class="mb-2 text-dark">{{ translate('Validity') }}</label> <span class="text-danger">*</span>
                                                                 <div class="d-flex align-items-center restriction-time rounded border">
@@ -1802,7 +1802,7 @@
                                                         <h4 class="mb-1 fz-16">{{ translate('Cancel Booking Request') }}</h4>
                                                         <p class="fz-12">{{ translate('If enabled, Serviceman can cancel a booking request after it has been place') }}</p>
                                                     </div>
-                                                    @php($value = $dataValues->where('key_name', 'serviceman_can_cancel_booking')?->first()?->live_values ?? null)
+                                                    <?php ($value = $dataValues->where('key_name', 'serviceman_can_cancel_booking')?->first()?->live_values ?? null); ?>
 
                                                     <div class="col-lg-4">
                                                         <div class="border p-12 rounded d-flex justify-content-between bg-white">
@@ -1824,7 +1824,7 @@
                                                         <h4 class="mb-1 fz-16">{{ translate('Edit Booking Request') }}</h4>
                                                         <p class="fz-12">{{ translate('If enabled, Serviceman can edit a booking request after it has been place') }}</p>
                                                     </div>
-                                                    @php($value = $dataValues->where('key_name', 'serviceman_can_edit_booking')?->first()?->live_values ?? null)
+                                                    <?php ($value = $dataValues->where('key_name', 'serviceman_can_edit_booking')?->first()?->live_values ?? null); ?>
                                                     <div class="col-lg-4">
                                                         <div class="border p-12 rounded d-flex justify-content-between bg-white">
                                                             <span class="text-dark fz-14">Status</span>
@@ -1889,7 +1889,7 @@
                                             <p class="fz-12">{{ translate('Set who bearers the cost of regular discounts Admin, Provider, or Both.') }}</p>
                                         </div>
 
-                                        @php($DiscountCostData = $dataValues->where('key_name', 'discount_cost_bearer')->first()->live_values ?? null)
+                                        <?php ($DiscountCostData = $dataValues->where('key_name', 'discount_cost_bearer')->first()->live_values ?? null); ?>
 
                                         <div class="card2 rounded p-20 maintenance-dates mb-20">
                                             <h6 class="fw-normal mb-xxl-3 mb-2 text-dark fz-14">{{ translate('Discount Cost Bearer') }}</h6>
@@ -1973,7 +1973,7 @@
                                             <p class="fz-12">{{ translate('Choose who bears the cost of promotional campaign discounts.') }}</p>
                                         </div>
 
-                                        @php($campaignCostData = $dataValues->where('key_name', 'campaign_cost_bearer')->first()->live_values ?? null)
+                                        <?php ($campaignCostData = $dataValues->where('key_name', 'campaign_cost_bearer')->first()->live_values ?? null); ?>
 
                                         <div class="card2 rounded p-20 maintenance-dates mb-20">
                                             <h6 class="fw-normal mb-xxl-3 mb-2 text-dark fz-14">{{ translate('Discount Cost Bearer') }}</h6>
@@ -2057,7 +2057,7 @@
                                             <p class="fz-12">{{ translate('Assign discount responsibility and split costs for coupon-based offers.') }}</p>
                                         </div>
 
-                                        @php($couponDiscountData = $dataValues->where('key_name', 'coupon_cost_bearer')->first()->live_values ?? null)
+                                        <?php ($couponDiscountData = $dataValues->where('key_name', 'coupon_cost_bearer')->first()->live_values ?? null); ?>
 
                                         <div class="card2 rounded p-20 maintenance-dates mb-20">
                                             <h6 class="fw-normal mb-xxl-3 mb-2 text-dark fz-14">{{ translate('Discount Cost Bearer') }}</h6>
@@ -2170,6 +2170,21 @@
                                 <form action="{{route('admin.business-settings.set-business-model-setup')}}" method="POST" enctype="multipart/form-data">
                                     @csrf
                                     @method('PUT')
+                                    @php
+                                        $tierRow = $dataValues->where('key_name', 'commission_tier_setup')->first();
+                                        $tierLive = is_array($tierRow?->live_values) ? $tierRow->live_values : [];
+                                        $defaultCommissionPct = (float) ($dataValues->where('key_name', 'default_commission')->first()->live_values ?? 10);
+                                        $tierService = normalize_commission_tier_group_for_ui($tierLive['service'] ?? null, $defaultCommissionPct);
+                                        $tierSpare = normalize_commission_tier_group_for_ui($tierLive['spare_parts'] ?? null, 0);
+                                        $previewCurrencyCode = $dataValues->where('key_name', 'currency_code')->first()->live_values ?? 'USD';
+                                        $previewCurrencySymbol = '$';
+                                        foreach (CURRENCIES as $_cur) {
+                                            if (($_cur['code'] ?? '') === $previewCurrencyCode) {
+                                                $previewCurrencySymbol = $_cur['symbol'] ?? '$';
+                                                break;
+                                            }
+                                        }
+                                    @endphp
                                     <!--Business Model Setup-->
                                     <div class="card rounded cus-shadow p-20 mb-20">
                                         <h5 class="mb-1 fz-16">{{ translate('Business Model Setup') }}</h5>
@@ -2184,7 +2199,7 @@
                                             <div class="cus-shadow card rounded p-20 bg-white mb-20">
                                                 <div class="row g-3">
                                                     <div class="col-lg-6">
-                                                        @php($subscriptionModel = $dataValues->where('key_name', 'provider_subscription')?->first()?->live_values ?? null)
+                                                        <?php ($subscriptionModel = $dataValues->where('key_name', 'provider_subscription')?->first()?->live_values ?? null); ?>
 
                                                         <div class="d-flex flex-sm-nowrap flex-wrap gap-sm-3 gap-2 align-items-start">
                                                             <div class="form-check form--check">
@@ -2219,7 +2234,7 @@
                                                         </div>
                                                     </div>
                                                     <div class="col-lg-6">
-                                                        @php($commissionModel = $dataValues->where('key_name', 'provider_commision')?->first()?->live_values ?? null)
+                                                        <?php ($commissionModel = $dataValues->where('key_name', 'provider_commision')?->first()?->live_values ?? null); ?>
 
                                                         <div class="d-flex flex-sm-nowrap flex-wrap gap-sm-3 gap-2 align-items-start">
                                                             <div class="form-check form--check">
@@ -2248,21 +2263,23 @@
                                                                             </clipPath>
                                                                         </defs>
                                                                     </svg>
-                                                                    <p class="fz-12">{{ translate('To set different commission for commission based, set the Default commission') }}</p>
+                                                                    <p class="fz-12">{{ translate('Commission_is_set_under_Service_charges_and_Spare_parts_below') }}</p>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="mb-2 text-dark">{{translate('Default commission (%)')}} <span class="text-danger">*</span>
-                                                <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
-                                                   data-bs-placement="top"
-                                                   title="{{translate('set admin commission for per booking')}}"
-                                                >info</i>
-                                            </div>
-                                            <input type="number" class="form-control" name="default_commission" min="0" max="100" placeholder="Ex: 2 *" required
-                                                   value="{{$dataValues->where('key_name','default_commission')->first()->live_values}}">
+
+                                            @can('commission_custom_company_update')
+                                                <div id="commission-tier-settings" class="{{ $commissionModelOn ? '' : 'd-none' }}">
+                                                    @include('businesssettingsmodule::admin.partials.commission-tier-setup-fields', ['tierService' => $tierService, 'tierSpare' => $tierSpare])
+                                                </div>
+                                            @else
+                                                <div class="alert alert-soft-primary fz-12 mb-0" role="alert">
+                                                    {{ translate('Commission_customization_no_permission_note') }}
+                                                </div>
+                                            @endcan
                                         </div>
                                     </div>
 
@@ -2791,16 +2808,28 @@
             </div>
         </div>
     </div>
-    @php($currencyCode = $dataValues->where('key_name', 'currency_code')->first()->live_values ?? 'USD')
+    <?php ($currencyCode = $dataValues->where('key_name', 'currency_code')->first()->live_values ?? 'USD'); ?>
 @endsection
 
 @push('script')
+    @if($webPage === 'business_plan')
+        @can('commission_custom_company_update')
+            @include('businesssettingsmodule::admin.partials.commission-tier-setup-scripts', [
+                'previewCurrencySymbol' => $previewCurrencySymbol,
+                'previewCurrencyCode' => $previewCurrencyCode,
+                'commissionTierBindBusinessCheckbox' => true,
+            ])
+        @endcan
+    @endif
     <script src="{{asset('assets/new/admin-module')}}/plugins/select2/select2.min.js"></script>
     <script src="{{asset('assets/new/admin-module')}}/plugins/dataTables/jquery.dataTables.min.js"></script>
     <script src="{{asset('assets/new/admin-module')}}/plugins/dataTables/dataTables.select.min.js"></script>
 
-    @php($api_key=(business_config('google_map', 'third_party'))->live_values)
-    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client']}}&libraries=drawing,places&v=3.45.8"></script>
+    @php
+        $_googleMapSettings = optional(business_config('google_map', 'third_party'))->live_values;
+        $api_key = is_array($_googleMapSettings) ? $_googleMapSettings : [];
+    @endphp
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ $api_key['map_api_key_client'] ?? '' }}&libraries=drawing,places&v=3.45.8"></script>
 
 
 
@@ -2871,7 +2900,7 @@
                 contentType: false,
                 type: 'POST',
                 success: function (response) {
-                    toastr.success('{{translate('successfully_updated')}}');
+                    toastr.success(@json(translate('successfully_updated')));
 
                     // refresh setup guideline UI
                     refreshSetupGuideUI();
@@ -2910,7 +2939,7 @@
                 contentType: false,
                 type: 'POST',
                 success: function (response) {
-                    toastr.success('{{translate('successfully_updated')}}');
+                    toastr.success(@json(translate('successfully_updated')));
                 },
                 error: function (jqXHR, exception) {
                     if (jqXHR.responseJSON && jqXHR.responseJSON.errors && jqXHR.responseJSON.errors.length > 0) {
@@ -2946,7 +2975,7 @@
                 contentType: false,
                 type: 'POST',
                 success: function (response) {
-                    toastr.success('{{translate('successfully_updated')}}');
+                    toastr.success(@json(translate('successfully_updated')));
                 },
                 error: function (jqXHR, exception) {
                     if (jqXHR.responseJSON && jqXHR.responseJSON.errors && jqXHR.responseJSON.errors.length > 0) {
@@ -2967,7 +2996,7 @@
         function update_action_status(key_name, value, settings_type, will_reload = false) {
             Swal.fire({
                 title: "{{translate('are_you_sure')}}?",
-                text: '{{translate('want_to_update_status')}}',
+                text: @json(translate('want_to_update_status')),
                 type: 'warning',
                 showCloseButton: true,
                 showCancelButton: true,
@@ -2992,7 +3021,7 @@
                         },
                         type: 'put',
                         success: function (response) {
-                            toastr.success('{{translate('successfully_updated')}}');
+                            toastr.success(@json(translate('successfully_updated')));
 
                             if (will_reload) {
                                 setTimeout(() => {
@@ -3110,7 +3139,7 @@
                 } else {
                     if (status === 1) $(`#${id}`).prop('checked', false);
                     if (status === 0) $(`#${id}`).prop('checked', true);
-                    Swal.fire('{{translate('Changes are not saved')}}', '', 'info')
+                    Swal.fire(@json(translate('Changes are not saved')), '', 'info')
                 }
             })
         }
@@ -3160,16 +3189,16 @@
         @endif
 
         @if($dataValues->where('key_name', 'referral_discount_type')->where('settings_type', 'customer_config')->first()?->live_values == 'percentage')
-        $('#discount_amount__label').html('{{translate('discount_percentage')}} (%)');
+        $('#discount_amount__label').html(@json(translate('discount_percentage')) + ' (%)');
         @endif
 
         $('#referral_discount_type').on('change', function () {
             if ($(this).val() === 'flat') {
                 $('#discount_amount').removeAttr('max');
-                $('#discount_amount__label').html('{{translate('discount_amount')}} ({{currency_symbol()}})');
+                $('#discount_amount__label').html(@json(translate('discount_amount') . ' (' . currency_symbol() . ')'));
             } else if ($(this).val() === 'percentage') {
                 $('#discount_amount').attr({"max": 100});
-                $('#discount_amount__label').html('{{translate('discount_percentage')}} (%)');
+                $('#discount_amount__label').html(@json(translate('discount_percentage')) + ' (%)');
             }
         });
 

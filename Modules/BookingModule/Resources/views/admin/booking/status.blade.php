@@ -20,6 +20,11 @@
                         }}">
                             {{ ucwords($booking->booking_status) }}
                         </span>
+                        @if($booking->isOpenReopenTicket())
+                            <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
+                        @elseif($booking->isReopenedTagged())
+                            <span class="badge bg-success">{{ translate('Resolved') }}</span>
+                        @endif
                     </div>
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
@@ -173,9 +178,44 @@
                                 <span class="material-icons">feedback</span>{{ translate('Provide Feedback') }}
                             </button>
                         @endif
+                        @can('booking_can_manage_status')
+                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed')
+                                <button type="button" class="btn btn--secondary" data-bs-toggle="modal"
+                                    data-bs-target="#bookingReopenModal--{{ $booking->id }}">
+                                    <span class="material-icons">restore</span>{{ translate('Reopen_or_complaint') }}
+                                </button>
+                            @endif
+                            @if($booking->canMarkReopenResolved())
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal"
+                                    data-bs-target="#reopenResolveModal--{{ $booking->id }}">
+                                    <span class="material-icons">check_circle</span>{{ translate('Mark_reopen_resolved') }}
+                                </button>
+                            @elseif($booking->isOpenReopenTicket())
+                                <span class="badge bg-info text-dark">{{ translate('Complete_booking_then_mark_resolved') }}</span>
+                            @endif
+                        @endcan
                     </div>
                 </div>
             </div>
+
+            @include('bookingmodule::admin.booking.partials._reopen-from-completed-modal')
+            @include('bookingmodule::admin.booking.partials._reopen-resolve-modal', [
+                'modalId' => 'reopenResolveModal--' . $booking->id,
+                'formId' => 'reopenResolveForm--' . $booking->id,
+                'formAction' => route('admin.booking.reopen-resolve', $booking->id),
+            ])
+            @if($errors->has('reopen_resolve_remarks'))
+                @push('script')
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            var el = document.getElementById('reopenResolveModal--{{ $booking->id }}');
+                            if (el && window.bootstrap && bootstrap.Modal) {
+                                bootstrap.Modal.getOrCreateInstance(el).show();
+                            }
+                        });
+                    </script>
+                @endpush
+            @endif
 
             <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
                 <ul class="nav nav--tabs nav--tabs__style2">

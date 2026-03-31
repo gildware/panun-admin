@@ -115,6 +115,18 @@ class ServiceController extends Controller
 
         $service->variations()->createMany($variationFormat);
 
+        $variationPricing = [];
+        foreach ($request['variations'] as $variant) {
+            $key = Str::slug($variant->variationName);
+            $prices = collect($variant->zoneWiseVariations)->pluck('price')->map(fn ($p) => round((float) $p, 4))->unique();
+            $variationPricing[$key] = [
+                'use_zone_pricing' => $prices->count() > 1,
+                'default_price' => (float) ($prices->first() ?? 0),
+            ];
+        }
+        $service->variation_pricing = $variationPricing;
+        $service->save();
+
         return response()->json(response_formatter(SERVICE_STORE_200), 200);
     }
 
@@ -237,6 +249,18 @@ class ServiceController extends Controller
             }
         }
         $service->variations()->createMany($variationFormat);
+
+        $variationPricing = [];
+        foreach ($request['variations'] as $variant) {
+            $key = Str::slug($variant->variationName);
+            $prices = collect($variant->zoneWiseVariations)->pluck('price')->map(fn ($p) => round((float) $p, 4))->unique();
+            $variationPricing[$key] = [
+                'use_zone_pricing' => $prices->count() > 1,
+                'default_price' => (float) ($prices->first() ?? 0),
+            ];
+        }
+        $service->variation_pricing = $variationPricing;
+        $service->save();
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }

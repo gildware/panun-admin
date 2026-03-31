@@ -26,6 +26,7 @@
     <script src="{{ asset('assets/admin-module/js/toastr.js') }}"></script>
     <script src="{{ asset('assets/admin-module/js/sweet_alert.js') }}"></script>
     <script src="{{ asset('assets/common/js/common.js') }}"></script>
+    <script src="{{ asset('assets/common/js/form-submit-once.js') }}"></script>
     @stack('script')
     <script>
         $(document).ready(function () { $('.js-select').select2({ width: '100%' }); });

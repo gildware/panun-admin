@@ -51,7 +51,7 @@ class BusinessInformationController extends Controller
             'time_format' => 'required',
             'business_favicon' => 'image',
             'business_logo' => 'image',
-            'default_commission' => 'required',
+            'default_commission' => 'nullable|numeric|min:0|max:100',
             'pagination_limit' => 'required',
             'footer_text' => 'required',
         ]);

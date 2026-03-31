@@ -117,6 +117,7 @@ $serviceLocations = getProviderSettings(providerId: auth()->user()->provider->id
 <script src="{{asset('assets/provider-module')}}/js/main.js"></script>
 <script src="{{asset('assets/common')}}/js/common-image-upload.js"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
+<script src="{{asset('assets/common')}}/js/form-submit-once.js"></script>
 
 
 <script src="{{asset('assets/provider-module')}}/plugins/select2/select2.min.js"></script>

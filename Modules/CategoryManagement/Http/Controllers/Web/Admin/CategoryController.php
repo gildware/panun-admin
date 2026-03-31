@@ -2,6 +2,7 @@
 
 namespace Modules\CategoryManagement\Http\Controllers\Web\Admin;
 
+use App\Lib\CommissionEntitySetup;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -12,8 +13,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Gate;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
 use Modules\ZoneManagement\Entities\Zone;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -250,7 +253,16 @@ class CategoryController extends Controller
             $zoneTree = $this->zoneTreeForCategoryForm();
             $selectedZoneIds = $category->zones->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
 
-            return view('categorymanagement::admin.edit', compact('category', 'zones', 'zoneTree', 'selectedZoneIds'));
+            $commissionEntityUseCustom = (int) ($category->commission_custom ?? 0) === 1;
+            $commissionCtx = CommissionEntitySetup::tierFormContext(
+                is_array($category->commission_tier_setup) ? $category->commission_tier_setup : [],
+                $commissionEntityUseCustom
+            );
+
+            return view('categorymanagement::admin.edit', array_merge(
+                compact('category', 'zones', 'zoneTree', 'selectedZoneIds', 'commissionEntityUseCustom'),
+                $commissionCtx
+            ));
         }
 
         Toastr::error(translate(DEFAULT_204['message']));
@@ -286,6 +298,10 @@ class CategoryController extends Controller
         $category = $this->category->ofType('main')->where('id', $id)->first();
         if (!$category) {
             return response()->json(response_formatter(CATEGORY_204), 204);
+        }
+
+        if (Gate::allows('commission_custom_category_update')) {
+            CommissionEntitySetup::applyFromRequestToModel($request, $category);
         }
 
         $category->name = $request->name[array_search('default', $request->lang)];
@@ -423,12 +439,15 @@ class CategoryController extends Controller
         session()->put('category_wise_zones', $zones);
 
         $variants = $this->variation->where(['service_id' => $request['service_id']])->get();
+        $service = $request->filled('service_id')
+            ? Service::query()->find($request->input('service_id'))
+            : null;
 
         return response()->json([
             'template' => view('categorymanagement::admin.partials._childes-selector', compact('categories'))->render(),
             'template_for_zone' => view('servicemanagement::admin.partials._category-wise-zone', compact('zones'))->render(),
             'template_for_variant' => view('servicemanagement::admin.partials._variant-data', compact('zones'))->render(),
-            'template_for_update_variant' => view('servicemanagement::admin.partials._update-variant-data', compact('zones', 'variants'))->render()
+            'template_for_update_variant' => view('servicemanagement::admin.partials._update-variant-data', compact('zones', 'variants', 'service'))->render()
         ], 200);
     }
 

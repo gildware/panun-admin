@@ -50,6 +50,8 @@ class Booking extends Model
         'provider_payment_confirmed_at' => 'datetime',
         'admin_provider_feedback_skipped_at' => 'datetime',
         'admin_customer_feedback_skipped_at' => 'datetime',
+        'last_reopen_event_at' => 'datetime',
+        'reopen_resolved_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -92,6 +94,12 @@ class Booking extends Model
         'lead_id',
         'admin_provider_feedback_skipped_at',
         'admin_customer_feedback_skipped_at',
+        'originated_from_booking_id',
+        'last_reopen_event_at',
+        'reopened_by',
+        'reopen_resolved_at',
+        'reopen_resolved_by',
+        'reopen_resolve_remarks',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
@@ -193,6 +201,75 @@ class Booking extends Model
     public function followups(): HasMany
     {
         return $this->hasMany(BookingFollowup::class)->orderByDesc('date')->orderByDesc('created_at');
+    }
+
+    public function originatedFromBooking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class, 'originated_from_booking_id');
+    }
+
+    public function spawnedFollowupBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'originated_from_booking_id');
+    }
+
+    public function reopenEvents(): HasMany
+    {
+        return $this->hasMany(BookingReopenEvent::class, 'source_booking_id')->orderByDesc('created_at');
+    }
+
+    public function reopenedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reopened_by');
+    }
+
+    public function reopenCaseResolvedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reopen_resolved_by');
+    }
+
+    public function isReopenedTagged(): bool
+    {
+        return $this->originated_from_booking_id !== null
+            || $this->last_reopen_event_at !== null;
+    }
+
+    /**
+     * Open reopen ticket: follow-up booking from a completed job, or same booking after in-place reopen.
+     * Excludes the original completed parent when only a linked follow-up was created.
+     */
+    public function isOpenReopenTicket(): bool
+    {
+        if ($this->reopen_resolved_at !== null) {
+            return false;
+        }
+
+        $hasOriginated = $this->originated_from_booking_id !== null;
+        $hasInPlaceEvent = $this->reopenEvents()
+            ->where('resolution', BookingReopenEvent::RESOLUTION_REOPEN_IN_PLACE)
+            ->exists();
+
+        if (!$hasOriginated && !$hasInPlaceEvent) {
+            return false;
+        }
+
+        if (($this->booking_status ?? '') === 'completed'
+            && !$hasOriginated
+            && $this->spawnedFollowupBookings()->exists()
+            && !$hasInPlaceEvent) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Employee may close the reopen case only after the booking is completed again.
+     */
+    public function canMarkReopenResolved(): bool
+    {
+        return $this->isOpenReopenTicket()
+            && ($this->booking_status ?? '') === 'completed';
     }
 
     public function booking_offline_payments(): HasMany
@@ -388,16 +465,24 @@ class Booking extends Model
                     ];
                 }
 
+                $skipHeavyCompletionAccounting = false;
+                if ($model->isDirty('booking_status') && $model->getOriginal('booking_status') !== 'completed') {
+                    $skipHeavyCompletionAccounting = BookingStatusHistory::query()
+                        ->where('booking_id', $model->id)
+                        ->where('booking_status', 'completed')
+                        ->whereNull('booking_repeat_id')
+                        ->exists();
+                }
+
                 $model->is_paid = 1;
 
                 $provider = $model->provider;
 
-                if ($provider) {
+                if ($provider && !$skipHeavyCompletionAccounting) {
                     $model->update_admin_commission($model, $model->total_booking_amount, $model->provider_id);
                 }
 
-
-                if (!$model->is_guest && $model?->customer) {
+                if (!$skipHeavyCompletionAccounting && !$model->is_guest && $model?->customer) {
                     $model->referral_earning_calculation($model->customer_id, $model->zone_id);
 
                     $model->loyaltyPointCalculation($model->customer_id, $model->total_booking_amount);
@@ -409,7 +494,7 @@ class Booking extends Model
 
                 //================ Transactions for Booking ================
 
-                if ($model?->provider) {
+                if (!$skipHeavyCompletionAccounting && $model?->provider) {
                     if ($model->booking_partial_payments->isNotEmpty()) {
                         $anyReceivedByProvider = $model->booking_partial_payments->contains(fn ($p) => ($p->received_by ?? '') === 'provider');
                         if ($model['payment_method'] == 'cash_after_service' && $anyReceivedByProvider) {

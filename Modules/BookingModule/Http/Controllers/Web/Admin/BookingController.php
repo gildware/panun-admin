@@ -37,6 +37,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingReopenService;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
@@ -50,6 +51,7 @@ use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\Source;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -108,8 +110,9 @@ class BookingController extends Controller
     public function index(Request $request): Renderable
     {
         $this->authorize('booking_view');
+        $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), ['all', 'reopened']);
         $request->validate([
-            'booking_status' => 'in:' . implode(',', array_column(BOOKING_STATUSES, 'key')) . ',all',
+            'booking_status' => 'in:' . implode(',', $allowedBookingStatuses),
         ]);
 
         $queryParams = $request->only(['zone_ids', 'category_ids', 'sub_category_ids', 'start_date', 'end_date', 'search']);
@@ -128,14 +131,18 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $bookings = $this->booking
-            ->with(['customer', 'assignee', 'followups', 'extra_services'])
+            ->with(array_merge(['customer', 'assignee', 'followups', 'extra_services'], $bookingStatus === 'reopened' ? ['reopenEvents', 'spawnedFollowupBookings', 'originatedFromBooking'] : []))
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
-                $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
-                    $query->adminPendingBookings($maxBookingAmount);
-                })->when($bookingStatus == 'accepted', function ($query) use ($maxBookingAmount) {
-                    $query->adminAcceptedBookings($maxBookingAmount);
-                })->ofBookingStatus($request['booking_status']);
+                if ($bookingStatus === 'reopened') {
+                    $query->reopenedChain();
+                } else {
+                    $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
+                        $query->adminPendingBookings($maxBookingAmount);
+                    })->when($bookingStatus == 'accepted', function ($query) use ($maxBookingAmount) {
+                        $query->adminAcceptedBookings($maxBookingAmount);
+                    })->ofBookingStatus($request['booking_status']);
+                }
             })
             ->when($request['service_type'] != 'all', function ($query) use ($request) {
                 return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
@@ -197,7 +204,7 @@ class BookingController extends Controller
      * @return Factory|View|Application
      * @throws AuthorizationException
      */
-    public function create(Request $request): Factory|View|Application
+    public function create(Request $request): Factory|View|Application|RedirectResponse
     {
         try {
             $this->authorize('booking_view');
@@ -206,10 +213,43 @@ class BookingController extends Controller
             return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
         }
 
-        // Merge query parameters with old input for form pre-filling
-        $request->merge(array_merge($request->query(), $request->old()));
+        $reopenNewBookingDraft = null;
+        $reopenPrefill = [];
 
-        return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create');
+        if ($request->boolean('from_reopen')) {
+            $draft = session('reopen_new_booking_draft');
+            if (empty($draft['source_booking_id'])) {
+                session()->forget('reopen_new_booking_draft');
+                Toastr::warning(translate('Invalid_reopen_follow_up_session'));
+
+                return redirect()->route('admin.booking.create');
+            }
+
+            $src = $this->booking->find($draft['source_booking_id']);
+            if (!$src || ($src->booking_status ?? '') !== 'completed') {
+                session()->forget('reopen_new_booking_draft');
+                Toastr::error(translate('Source_booking_must_remain_completed_for_follow_up'));
+
+                return redirect()->route('admin.booking.create');
+            }
+
+            $reopenNewBookingDraft = array_merge($draft, [
+                'source_readable_id' => $src->readable_id,
+            ]);
+
+            $reopenPrefill = [
+                'customer_id' => $src->customer_id,
+                'zone_id' => $src->zone_id,
+                'category_id' => $src->category_id,
+                'sub_category_id' => $src->sub_category_id,
+                'service_address_id' => $src->service_address_id,
+                'service_location' => $src->service_location ?? 'customer',
+            ];
+        }
+
+        $request->merge(array_merge($reopenPrefill, $request->query(), $request->old()));
+
+        return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create', $reopenNewBookingDraft);
     }
 
     /**
@@ -262,26 +302,35 @@ class BookingController extends Controller
             ->latest()
             ->first();
 
-        $customerData = is_array($typeHistory->data ?? null) ? $typeHistory->data : [];
+        $customerData = ($typeHistory && is_array($typeHistory->data)) ? $typeHistory->data : [];
 
-        // Prefill booking form values from lead data
+        $schedulePrefill = null;
+        if (!empty($customerData['estimated_service_at'])) {
+            try {
+                $schedulePrefill = Carbon::parse($customerData['estimated_service_at'])->format('Y-m-d\TH:i');
+            } catch (Throwable $e) {
+                $schedulePrefill = is_string($customerData['estimated_service_at']) ? $customerData['estimated_service_at'] : null;
+            }
+        }
+
+        // Prefill booking form values from lead data (keys match LeadController customer type payload; allow aliases)
         $prefill = [
             'lead_id' => $leadModel->id,
             'customer_id' => $customer->id,
             'zone_id' => $customerData['zone_id'] ?? null,
-            'category_id' => $customerData['service_category'] ?? null,
-            'sub_category_id' => $customerData['service_subcategory'] ?? null,
-            'service_id' => $customerData['service_name'] ?? null,
+            'category_id' => $customerData['service_category'] ?? $customerData['category_id'] ?? null,
+            'sub_category_id' => $customerData['service_subcategory'] ?? $customerData['sub_category_id'] ?? null,
+            'service_id' => $customerData['service_name'] ?? $customerData['service_id'] ?? null,
             'variant_key' => $customerData['variant_key'] ?? null,
             'service_description' => $customerData['service_description'] ?? null,
-            'service_schedule' => $customerData['estimated_service_at'] ?? null,
+            'service_schedule' => $schedulePrefill,
             'booking_source' => $leadModel->source?->name ?? null,
         ];
 
         // Merge prefill data with query params and old input (so user edits win)
         $request->merge(array_merge($prefill, $request->query(), $request->old()));
 
-        return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create-from-lead');
+        return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create-from-lead', null);
     }
 
     /**
@@ -289,9 +338,10 @@ class BookingController extends Controller
      *
      * @param Request $request
      * @param string $view
+     * @param array<string, mixed>|null $reopenNewBookingDraft Session-backed follow-up-from-reopen context (create flow only)
      * @return Factory|View|Application
      */
-    protected function buildBookingCreateView(Request $request, string $view): Factory|View|Application
+    protected function buildBookingCreateView(Request $request, string $view, ?array $reopenNewBookingDraft = null): Factory|View|Application
     {
         $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
@@ -304,6 +354,18 @@ class BookingController extends Controller
             ->select('id', 'first_name', 'last_name', 'phone')
             ->limit(100)
             ->get();
+
+        $prefillCustomerId = $request->input('customer_id');
+        if ($prefillCustomerId && !$customers->contains(fn ($u) => (string) $u->id === (string) $prefillCustomerId)) {
+            $extraCustomer = User::query()
+                ->where('user_type', 'customer')
+                ->where('id', $prefillCustomerId)
+                ->select('id', 'first_name', 'last_name', 'phone')
+                ->first();
+            if ($extraCustomer) {
+                $customers->prepend($extraCustomer);
+            }
+        }
 
         // Lead sources for unified "Booking Source" options (same as Add Lead Source)
         $sources = Source::active()->orderBy('name')->get(['id', 'name']);
@@ -334,7 +396,8 @@ class BookingController extends Controller
             'additionalChargeEnabled',
             'additionalChargeLabel',
             'additionalChargeDefaultAmount',
-            'sources'
+            'sources',
+            'reopenNewBookingDraft'
         ));
     }
 
@@ -379,6 +442,7 @@ class BookingController extends Controller
                 'extra_fee' => ['nullable', 'numeric', 'min:0'],
                 'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
                 'in_modal' => ['nullable', 'boolean'],
+                'reopen_source_booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
             ], [
                 'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
             ]);
@@ -409,10 +473,11 @@ class BookingController extends Controller
         $service = Service::find($data['service_id']);
         $address = $data['service_address_id'] ? $this->userAddress->find($data['service_address_id']) : null;
         $assignee = $data['assignee_id'] ? User::find($data['assignee_id']) : null;
-        $variation = Variation::where('service_id', $data['service_id'])
-            ->where('zone_id', $data['zone_id'])
-            ->where('variant_key', $data['variant_key'])
-            ->first();
+        $variation = Variation::firstForBookingZone(
+            (string) $data['service_id'],
+            (string) $data['variant_key'],
+            (string) $data['zone_id']
+        );
 
         $totalBilling = 0;
         $dueBalance = 0;
@@ -493,6 +558,7 @@ class BookingController extends Controller
             'extra_fee' => ['nullable', 'numeric', 'min:0'],
             'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
             'in_modal' => ['nullable', 'boolean'],
+            'reopen_source_booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
         ], [
             'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
         ]);
@@ -507,6 +573,16 @@ class BookingController extends Controller
         // Normalize booking source
         $data['booking_source'] = strtolower($data['booking_source']);
 
+        $reopenSourceId = $data['reopen_source_booking_id'] ?? null;
+        $reopenDraft = $reopenSourceId ? session('reopen_new_booking_draft') : null;
+        if ($reopenSourceId) {
+            if (!$reopenDraft || (string) ($reopenDraft['source_booking_id'] ?? '') !== (string) $reopenSourceId) {
+                throw ValidationException::withMessages([
+                    'reopen_source_booking_id' => [translate('Invalid_reopen_follow_up_session')],
+                ]);
+            }
+        }
+
         DB::beginTransaction();
 
         try {
@@ -515,10 +591,11 @@ class BookingController extends Controller
                 ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
                 ->find($data['service_id']);
             
-            $variation = Variation::where('service_id', $data['service_id'])
-                ->where('zone_id', $data['zone_id'])
-                ->where('variant_key', $data['variant_key'])
-                ->first();
+            $variation = Variation::firstForBookingZone(
+                (string) $data['service_id'],
+                (string) $data['variant_key'],
+                (string) $data['zone_id']
+            );
 
             if (!$service || !$variation) {
                 throw new \Exception('Service or variation not found');
@@ -558,7 +635,7 @@ class BookingController extends Controller
             $booking->zone_id = $data['zone_id'];
             $booking->category_id = $data['category_id'];
             $booking->sub_category_id = $data['sub_category_id'];
-            $booking->booking_status = 'pending';
+            $booking->booking_status = 'accepted';
             $booking->payment_method = 'cash_after_service';
             $booking->is_paid = 0;
             $booking->service_schedule = $data['service_schedule'];
@@ -649,8 +726,23 @@ class BookingController extends Controller
             $statusHistory = new BookingStatusHistory();
             $statusHistory->changed_by = auth()->id();
             $statusHistory->booking_id = $booking->id;
-            $statusHistory->booking_status = 'pending';
+            $statusHistory->booking_status = 'accepted';
             $statusHistory->save();
+
+            if ($reopenSourceId && $reopenDraft) {
+                $sourceBooking = Booking::query()->whereKey($reopenSourceId)->lockForUpdate()->first();
+                if (!$sourceBooking || ($sourceBooking->booking_status ?? '') !== 'completed') {
+                    throw new \RuntimeException(translate('Source_booking_must_remain_completed_for_follow_up'));
+                }
+
+                app(BookingReopenService::class)->linkNewBookingFromReopenedCompleted(
+                    $sourceBooking,
+                    $booking,
+                    $request->user(),
+                    (string) ($reopenDraft['complaint_notes'] ?? '')
+                );
+                session()->forget('reopen_new_booking_draft');
+            }
 
             DB::commit();
 
@@ -1096,7 +1188,7 @@ class BookingController extends Controller
 
             $booking = $this->booking->with(['detail.service' => function ($query) {
                 $query->withTrashed();
-            }, 'detail.service.variations', 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups', 'extra_services'])
+            }, 'detail.service.variations', 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups', 'extra_services', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])
                 ->find($id);
 
             if (!$booking) {
@@ -1107,10 +1199,12 @@ class BookingController extends Controller
             if ($booking->detail) {
                 foreach ($booking->detail as $detail) {
                     if ($detail->variant_key && $detail->service_id && $booking->zone_id) {
-                        $detail->variation = Variation::where('variant_key', $detail->variant_key)
-                            ->where('service_id', $detail->service_id)
-                            ->where('zone_id', $booking->zone_id)
-                            ->first();
+                        $detail->variation = Variation::firstForBookingZone(
+                            (string) $detail->service_id,
+                            (string) $detail->variant_key,
+                            (string) $booking->zone_id,
+                            false
+                        );
                     }
                 }
             }
@@ -1213,7 +1307,7 @@ class BookingController extends Controller
                 return redirect()->route('admin.booking.list');
             }
         } elseif ($webPage === 'status') {
-            $booking = $this->booking->with(['detail.service', 'customer', 'provider', 'service_address', 'serviceman.user', 'service_address', 'status_histories.user', 'followups'])->find($id);
+            $booking = $this->booking->with(['detail.service', 'customer', 'provider', 'service_address', 'serviceman.user', 'service_address', 'status_histories.user', 'followups', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
 
             $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
@@ -1274,7 +1368,7 @@ class BookingController extends Controller
             $customerPhone = booking_display_customer_phone($booking, $customerAddress);
             return view('bookingmodule::admin.booking.status', compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by', 'currentlyAssignProvider', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone'));
         } elseif ($webPage === 'followups') {
-            $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address'])->find($id);
+            $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
             $webPage = 'followups';
             $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
             $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
@@ -1304,6 +1398,98 @@ class BookingController extends Controller
         \Modules\BookingModule\Entities\BookingFollowup::create($validated);
         Toastr::success(translate('Follow_up_added_successfully'));
         return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
+    }
+
+    public function reopenFromCompleted(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $validated = $request->validate([
+            'resolution' => ['required', Rule::in(['reopen_in_place', 'new_booking'])],
+            'complaint_notes' => ['nullable', 'string', 'max:5000'],
+            'target_status' => ['required_if:resolution,reopen_in_place', 'nullable', Rule::in(['pending', 'accepted'])],
+        ]);
+
+        $booking = $this->booking->findOrFail($id);
+        $service = app(BookingReopenService::class);
+
+        try {
+            if ($validated['resolution'] === 'new_booking') {
+                session([
+                    'reopen_new_booking_draft' => [
+                        'source_booking_id' => $booking->id,
+                        'complaint_notes' => (string) ($validated['complaint_notes'] ?? ''),
+                    ],
+                ]);
+                Toastr::success(translate('Reopen_follow_up_redirect_to_create'));
+
+                return redirect()->route('admin.booking.create', ['from_reopen' => 1]);
+            }
+
+            $targetStatus = (string) ($validated['target_status'] ?? 'accepted');
+            $result = $service->reopenInPlace(
+                $booking,
+                $request->user(),
+                (string) ($validated['complaint_notes'] ?? ''),
+                $targetStatus
+            );
+            Toastr::success(translate('Booking_reopened_in_place'));
+
+            return redirect()->route('admin.booking.details', [$result['booking']->id, 'web_page' => 'details']);
+        } catch (\Throwable $e) {
+            Toastr::error($e->getMessage());
+
+            return back()->withInput();
+        }
+    }
+
+    public function resolveReopenTicket(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $booking = $this->booking->with(['reopenEvents', 'booking_partial_payments'])->findOrFail($id);
+
+        if (!$booking->isOpenReopenTicket()) {
+            Toastr::error(translate('This_booking_is_not_an_open_reopen_ticket'));
+
+            return back();
+        }
+
+        if (($booking->booking_status ?? '') !== 'completed') {
+            Toastr::error(translate('Complete_booking_before_mark_reopen_resolved'));
+
+            return back();
+        }
+
+        $validated = $request->validate([
+            'reopen_resolve_remarks' => ['required', 'string', 'max:5000'],
+        ], [
+            'reopen_resolve_remarks.required' => translate('Reopen_resolve_remarks_required'),
+        ]);
+
+        $remarks = trim((string) $validated['reopen_resolve_remarks']);
+        if ($remarks === '') {
+            throw ValidationException::withMessages([
+                'reopen_resolve_remarks' => [translate('Reopen_resolve_remarks_required')],
+            ]);
+        }
+
+        try {
+            DB::transaction(function () use ($booking, $request, $remarks) {
+                $userId = $request->user()->id;
+                $booking->reopen_resolved_at = now();
+                $booking->reopen_resolved_by = $userId;
+                $booking->reopen_resolve_remarks = $remarks;
+                $booking->save();
+            });
+
+            Toastr::success(translate('Reopen_case_marked_resolved'));
+        } catch (\Throwable $e) {
+            Toastr::error($e->getMessage());
+
+            return back();
+        }
+
+        return back();
     }
 
     public function updateFollowup(Request $request, $id, $followupId): RedirectResponse
@@ -1495,10 +1681,12 @@ class BookingController extends Controller
         if ($booking && $booking->detail) {
             foreach ($booking->detail as $detail) {
                 if ($detail->variant_key && $detail->service_id && $booking->zone_id) {
-                    $detail->variation = Variation::where('variant_key', $detail->variant_key)
-                        ->where('service_id', $detail->service_id)
-                        ->where('zone_id', $booking->zone_id)
-                        ->first();
+                    $detail->variation = Variation::firstForBookingZone(
+                        (string) $detail->service_id,
+                        (string) $detail->variant_key,
+                        (string) $booking->zone_id,
+                        false
+                    );
                 }
             }
         }
@@ -2628,8 +2816,9 @@ class BookingController extends Controller
     public function download(Request $request): string|StreamedResponse
     {
         $this->authorize('booking_view');
+        $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), ['all', 'reopened']);
         $request->validate([
-            'booking_status' => 'in:' . implode(',', array_column(BOOKING_STATUSES, 'key')) . ',all',
+            'booking_status' => 'in:' . implode(',', $allowedBookingStatuses),
         ]);
 
         $bookingStatus = $request->input('booking_status', 'pending');
@@ -2639,11 +2828,15 @@ class BookingController extends Controller
             ->with(['customer'])
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
-                $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
-                    $query->adminPendingBookings($maxBookingAmount);
-                })->when($bookingStatus == 'accepted', function ($query) use ($maxBookingAmount) {
-                    $query->adminAcceptedBookings($maxBookingAmount);
-                })->ofBookingStatus($request['booking_status']);
+                if ($bookingStatus === 'reopened') {
+                    $query->reopenedChain();
+                } else {
+                    $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
+                        $query->adminPendingBookings($maxBookingAmount);
+                    })->when($bookingStatus == 'accepted', function ($query) use ($maxBookingAmount) {
+                        $query->adminAcceptedBookings($maxBookingAmount);
+                    })->ofBookingStatus($request['booking_status']);
+                }
             })
             ->when($request['service_type'] != 'all', function ($query) use ($request) {
                 return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
@@ -2896,10 +3089,11 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 200);
         }
 
-        $variations = Variation::where('service_id', $request['service_id'])
-            ->where('zone_id', $request['zone_id'])
-            ->where('price', '>', 0)
-            ->get();
+        $variations = Variation::listForBookingZone(
+            (string) $request['service_id'],
+            (string) $request['zone_id']
+        );
+
         return response()->json(response_formatter(DEFAULT_200, $variations, null), 200);
     }
 
@@ -2923,11 +3117,20 @@ class BookingController extends Controller
         $service = Service::active()
             ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
             ->where('id', $request['service_id'])
-            ->with(['variations' => fn($query) => $query->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])])
             ->first();
 
+        $variation = Variation::firstForBookingZone(
+            (string) $request['service_id'],
+            (string) $request['variant_key'],
+            (string) $request['zone_id']
+        );
+
+        if (!$service || !$variation) {
+            return response()->json(response_formatter(DEFAULT_404, null), 200);
+        }
+
         $quantity = $request['quantity'];
-        $variation_price = $service?->variations[0]?->price;
+        $variation_price = $variation->price;
 
         $basic_discount = basic_discount_calculation($service, $variation_price * $quantity);
         $campaign_discount = campaign_discount_calculation($service, $variation_price * $quantity);
@@ -2943,7 +3146,7 @@ class BookingController extends Controller
         $data = collect([
             'service_id' => $service->id,
             'service_name' => $service->name,
-            'variant_key' => $service?->variations[0]?->variant_key,
+            'variant_key' => $variation->variant_key,
             'quantity' => $request['quantity'],
             'service_cost' => $variation_price,
             'total_discount_amount' => $basic_discount + $campaign_discount,
@@ -2983,14 +3186,19 @@ class BookingController extends Controller
         $service = Service::active()
             ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
             ->where('id', $request['service_id'])
-            ->with(['variations' => fn($q) => $q->where('variant_key', $request['variant_key'])->where('zone_id', $request['zone_id'])])
             ->first();
 
-        if (!$service || !isset($service->variations[0])) {
+        $variation = Variation::firstForBookingZone(
+            (string) $request['service_id'],
+            (string) $request['variant_key'],
+            (string) $request['zone_id']
+        );
+
+        if (!$service || !$variation) {
             return response()->json(response_formatter(DEFAULT_404, null), 200);
         }
 
-        $variationPrice = $service->variations[0]->price ?? 0;
+        $variationPrice = $variation->price ?? 0;
         $basicDiscount = basic_discount_calculation($service, $variationPrice * $quantity);
         $campaignDiscount = campaign_discount_calculation($service, $variationPrice * $quantity);
         $subtotal = round($variationPrice * $quantity, 2);
@@ -3032,12 +3240,18 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        // category_zone pivot stores leaf zone IDs; parent selections must expand to descendant leaves.
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds($zoneIds);
+        if ($leafZoneIds === []) {
+            return response()->json(response_formatter(DEFAULT_200, collect(), null), 200);
+        }
+
         $categories = $this->category
             ->withoutGlobalScope('translate')
             ->where('position', 1)
             ->where('is_active', 1)
-            ->whereHas('zones', function ($query) use ($zoneIds) {
-                $query->whereIn('zones.id', $zoneIds);
+            ->whereHas('zones', function ($query) use ($leafZoneIds) {
+                $query->whereIn('zones.id', $leafZoneIds);
             })
             ->select('id', 'name')
             ->orderBy('name')
@@ -3741,10 +3955,12 @@ class BookingController extends Controller
             if ($booking && $booking->detail) {
                 foreach ($booking->detail as $detail) {
                     if ($detail->variant_key && $detail->service_id && $booking->zone_id) {
-                        $detail->variation = Variation::where('variant_key', $detail->variant_key)
-                            ->where('service_id', $detail->service_id)
-                            ->where('zone_id', $booking->zone_id)
-                            ->first();
+                        $detail->variation = Variation::firstForBookingZone(
+                            (string) $detail->service_id,
+                            (string) $detail->variant_key,
+                            (string) $booking->zone_id,
+                            false
+                        );
                     }
                 }
             }

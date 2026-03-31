@@ -146,6 +146,15 @@
                                             </div>
                                         </div>
                                     </div>
+                                    @can('commission_custom_category_update')
+                                        @include('businesssettingsmodule::admin.partials.commission-entity-form-section')
+                                    @else
+                                        <div class="col-12">
+                                            <div class="alert alert-soft-primary fz-12" role="alert">
+                                                {{ translate('Commission_customization_no_permission_note') }}
+                                            </div>
+                                        </div>
+                                    @endcan
                                     <div class="col-12">
                                         <div class="d-flex justify-content-end gap-20 mt-30">
                                             <button class="btn btn--secondary"
@@ -305,4 +314,11 @@
         })();
 
     </script>
+    @can('commission_custom_category_update')
+        @include('businesssettingsmodule::admin.partials.commission-entity-form-scripts', [
+            'previewCurrencySymbol' => $previewCurrencySymbol,
+            'previewCurrencyCode' => $previewCurrencyCode,
+            'formSelector' => '#category-form',
+        ])
+    @endcan
 @endpush

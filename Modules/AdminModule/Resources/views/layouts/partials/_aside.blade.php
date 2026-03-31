@@ -17,6 +17,8 @@ $pending_booking_count = \Modules\BookingModule\Entities\Booking::where('booking
 $offline_booking_count = \Modules\BookingModule\Entities\Booking::whereIn('booking_status', ['pending', 'accepted'])
     ->where('payment_method', 'offline_payment')->where('is_paid', 0)->count();
 
+$reopened_bookings_count = \Modules\BookingModule\Entities\Booking::query()->reopenedChain()->count();
+
 $accepted_booking_count = \Modules\BookingModule\Entities\Booking::where('booking_status', 'accepted')
     ->when($max_booking_amount > 0, function ($query) use ($max_booking_amount) {
         $query->where(function ($query) use ($max_booking_amount) {
@@ -200,6 +202,11 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='completed'?'active-menu':''}}"><span
                                     class="link-title">{{translate('Completed')}} <span
                                         class="count">{{$booking->where('booking_status', 'completed')->count()}}</span></span></a>
+                        </li>
+                        <li><a href="{{route('admin.booking.list', ['booking_status'=>'reopened','service_type'=>'all'])}}"
+                               class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='reopened'?'active-menu':''}}"><span
+                                    class="link-title">{{translate('Reopened_bookings')}} <span
+                                        class="count">{{ $reopened_bookings_count }}</span></span></a>
                         </li>
                         <li><a href="{{route('admin.booking.list', ['booking_status'=>'canceled','service_type'=>'all'])}}"
                                class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='canceled'?'active-menu':''}}"><span
