@@ -662,7 +662,7 @@ class BookingController extends Controller
                 $paidAmount = min($data['advance_paid_amount'], $totalCost);
                 $dueAmount = max($totalCost - $paidAmount, 0);
 
-                BookingPartialPayment::create([
+                $advancePartial = BookingPartialPayment::create([
                     'booking_id' => $booking->id,
                     'paid_with' => 'offline',
                     'transaction_id' => $data['advance_transaction_id'] ?? null,
@@ -679,6 +679,7 @@ class BookingController extends Controller
                     'date' => now()->toDateString(),
                     'received_by' => LedgerTransaction::RECEIVED_BY_COMPANY,
                     'created_by' => auth()->id(),
+                    'booking_partial_payment_id' => $advancePartial->id,
                 ]);
             }
 
@@ -3820,7 +3821,7 @@ class BookingController extends Controller
 
         DB::transaction(function () use ($booking, $amount, $receivedBy, $transactionId, $date) {
             $paidWith = 'admin_entry';
-            $booking->booking_partial_payments()->create([
+            $partial = $booking->booking_partial_payments()->create([
                 'paid_with' => $paidWith,
                 'transaction_id' => $receivedBy === 'company' ? $transactionId : null,
                 'paid_amount' => $amount,
@@ -3837,6 +3838,18 @@ class BookingController extends Controller
                     'date' => $date,
                     'received_by' => LedgerTransaction::RECEIVED_BY_COMPANY,
                     'created_by' => auth()->id(),
+                    'booking_partial_payment_id' => $partial->id,
+                ]);
+            } else {
+                ledger_record_in([
+                    'amount' => $amount,
+                    'transaction_id' => null,
+                    'booking_id' => $booking->id,
+                    'payment_method' => $paidWith,
+                    'date' => $date,
+                    'received_by' => LedgerTransaction::RECEIVED_BY_PROVIDER,
+                    'created_by' => auth()->id(),
+                    'booking_partial_payment_id' => $partial->id,
                 ]);
             }
 
