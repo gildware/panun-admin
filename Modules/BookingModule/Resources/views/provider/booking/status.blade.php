@@ -195,9 +195,6 @@
                         <div class="card-body">
                             <div class="d-flex flex-column gap-30">
 
-                                @php($customer_name = $booking?->service_address?->contact_person_name)
-                                @php($customer_phone = $booking?->service_address?->contact_person_number)
-
                                 <div class="c1-light-bg radius-10 flex-grow-1">
                                     <div
                                         class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4">
@@ -235,9 +232,6 @@
                                     </div>
 
                                     <div class="py-3 px-4">
-                                        @php($customer_name = $booking?->service_address?->contact_person_name)
-                                        @php($customer_phone = $booking?->service_address?->contact_person_number)
-
                                         <div class="media gap-2 flex-wrap">
                                             @if(!$booking?->is_guest && $booking?->customer)
                                                 <img width="58" height="58" class="rounded-circle border border-white aspect-square object-fit-cover"
@@ -248,13 +242,13 @@
                                             @endif
                                             <div class="media-body">
                                                 <h5 class="c1 mb-3">
-                                                    <span>{{Str::limit($customer_name??'', 30)}}</span>
+                                                    <span>{{Str::limit($customerName ?? '', 30)}}</span>
                                                 </h5>
                                                 <ul class="list-info">
-                                                    @if ($customer_phone)
+                                                    @if ($customerPhone ?? null)
                                                         <li>
                                                             <span class="material-icons">phone_iphone</span>
-                                                            <a href="tel:{{$customer_phone}}">{{$customer_phone}}</a>
+                                                            <a href="tel:{{$customerPhone}}">{{$customerPhone}}</a>
                                                         </li>
                                                     @endif
                                                     <li>

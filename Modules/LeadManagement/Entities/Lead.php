@@ -15,6 +15,17 @@ class Lead extends Model
     public const TYPE_INVALID = 'invalid';
     public const TYPE_FUTURE_CUSTOMER = 'future_customer';
 
+    /** Stored in `handled_by` when the WhatsApp / AI pipeline owns the thread (not an employee). */
+    public const HANDLED_BY_AI = 'AI';
+
+    /** Filter value for "not assigned to an employee" (AI, empty, or null). */
+    public const FILTER_UNASSIGNED_VALUE = '__unassigned__';
+
+    public static function assigneeIsHuman(?string $handledBy): bool
+    {
+        return $handledBy !== null && $handledBy !== '' && $handledBy !== self::HANDLED_BY_AI;
+    }
+
     public static function leadTypes(): array
     {
         return [
