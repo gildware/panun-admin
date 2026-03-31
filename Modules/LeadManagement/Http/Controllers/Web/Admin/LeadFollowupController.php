@@ -35,7 +35,15 @@ class LeadFollowupController extends Controller
                 $q->whereDate('next_followup_at', '>=', $dateFrom);
             })
             ->when($selectedHandledById !== '', function ($q) use ($selectedHandledById) {
-                $q->where('handled_by', $selectedHandledById);
+                if ($selectedHandledById === Lead::FILTER_UNASSIGNED_VALUE) {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('handled_by')
+                            ->orWhere('handled_by', '')
+                            ->orWhere('handled_by', Lead::HANDLED_BY_AI);
+                    });
+                } else {
+                    $q->where('handled_by', $selectedHandledById);
+                }
             });
 
         $totalFollowups = (clone $baseQuery)->count();
@@ -54,9 +62,13 @@ class LeadFollowupController extends Controller
             : collect();
 
         foreach ($leads as $lead) {
-            $user = $lead->handled_by ? $handledByUsers->get((string) $lead->handled_by) : null;
+            if (!Lead::assigneeIsHuman($lead->handled_by)) {
+                $lead->handled_by_name = translate('Unassigned');
+                continue;
+            }
+            $user = $handledByUsers->get((string) $lead->handled_by);
             $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
-            $lead->handled_by_name = $fullName ?: ($user->email ?? null);
+            $lead->handled_by_name = $fullName ?: ($user->email ?? translate('Unassigned'));
         }
 
         $assignees = User::whereIn('user_type', ['super-admin', 'admin-employee'])

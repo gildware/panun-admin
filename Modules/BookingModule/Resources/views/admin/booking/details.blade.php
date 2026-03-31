@@ -1333,11 +1333,6 @@
                                     </div>
 
                                     <div class="py-3 px-4">
-                                        @php
-                                            $customer_name = $booking?->service_address?->contact_person_name;
-                                            $customer_phone = $booking?->service_address?->contact_person_number;
-                                        @endphp
-
                                         <div class="media gap-2 flex-wrap">
                                             @if (!$booking?->is_guest && $booking?->customer)
                                                 <img width="58" height="58"
@@ -1355,17 +1350,17 @@
                                                 <h5 class="c1 mb-3">
                                                     @if (!$booking?->is_guest && $booking?->customer)
                                                         <a href="{{ route('admin.customer.detail', [$booking?->customer?->id, 'web_page' => 'overview']) }}"
-                                                            class="c1">{{ Str::limit($customer_name, 30) }}</a>
+                                                            class="c1">{{ Str::limit($customerName ?? '', 30) }}</a>
                                                     @else
-                                                        <span>{{ Str::limit($customer_name ?? '', 30) }}</span>
+                                                        <span>{{ Str::limit($customerName ?? '', 30) }}</span>
                                                     @endif
                                                 </h5>
                                                 <ul class="list-info">
-                                                    @if ($customer_phone)
+                                                    @if ($customerPhone ?? null)
                                                         <li>
                                                             <span class="material-icons">phone_iphone</span>
                                                             <a
-                                                                href="tel:{{ $customer_phone }}">{{ $customer_phone }}</a>
+                                                                href="tel:{{ $customerPhone }}">{{ $customerPhone }}</a>
                                                         </li>
                                                     @endif
                                                     @if(!empty($booking?->service_address?->address))
@@ -2915,8 +2910,8 @@
             $("input[name='country']").val("{{ $booking->service_address->country ?? '' }}");
 
             // Update the UI
-            let name = "{{ $customer_name }}";
-            let phone = "{{ $customer_phone }}";
+            let name = {!! json_encode($customerName ?? '') !!};
+            let phone = {!! json_encode($customerPhone ?? '') !!};
             let customerAddress = "{{ $booking?->service_address?->address }}";
 
             $('.updated_customer_name').text(name); // Update the customer name

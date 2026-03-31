@@ -71,6 +71,12 @@
                             <span class="badge rounded-pill {{ !empty($leadOpenStatus) ? 'bg-danger' : 'bg-success' }}">
                                 {{ !empty($leadOpenStatus) ? 'Open' : 'Closed' }}
                             </span>
+                            @if(!empty($whatsappChatUrl))
+                                <a href="{{ $whatsappChatUrl }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" @if(!empty($inModal)) target="_top" rel="noopener noreferrer" @endif>
+                                    <span class="material-icons" style="font-size: 18px;">chat</span>
+                                    {{ translate('View_AI_chat') }}
+                                </a>
+                            @endif
                             <p class="mb-0 text-muted w-100" style="margin-top: 2px;">{{ translate('Lead_ID') }}: #{{ $lead->id }}</p>
                         </div>
                         @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN)
@@ -257,7 +263,7 @@
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
                                                 <span class="title-color">{{ translate('Handled_By') }}</span>
-                                                <strong>{{ $handledByName ?? '—' }}</strong>
+                                                <strong>{{ $handledByName }}</strong>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
                                                 <span class="title-color">{{ translate('Lead_Type') }}</span>

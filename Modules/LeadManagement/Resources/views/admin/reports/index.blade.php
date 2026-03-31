@@ -602,9 +602,12 @@
                                     <td>{{ $lead->date_time_of_lead_received?->format('d F Y h:i a') ?? '—' }}</td>
                                     <td>{{ $lead->next_followup_at?->format('d F Y h:i a') ?? '—' }}</td>
                                     <td>
-                                        @php $handledBy = $lead->handled_by; @endphp
-                                        @if(!$handledBy)
-                                            —
+                                        @php
+                                            $handledBy = $lead->handled_by;
+                                            $isHumanAssignee = \Modules\LeadManagement\Entities\Lead::assigneeIsHuman($handledBy);
+                                        @endphp
+                                        @if(!$isHumanAssignee)
+                                            {{ translate('Unassigned') }}
                                         @elseif(isset($handledByNames[$handledBy]))
                                             {{ $handledByNames[$handledBy] }}
                                         @else

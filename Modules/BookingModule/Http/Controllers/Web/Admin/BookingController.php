@@ -1198,8 +1198,8 @@ class BookingController extends Controller
             $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
             $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
             $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
-            $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($customerAddress->contact_person_name ?? '');
-            $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($customerAddress->contact_person_number ?? '');
+            $customerName = booking_display_customer_name($booking, $customerAddress);
+            $customerPhone = booking_display_customer_phone($booking, $customerAddress);
 
             $totalPaidFromPartials = (float) $booking->booking_partial_payments->sum('paid_amount');
             $remainingDueForAddPayment = round(max(0, get_booking_total_amount($booking) - $totalPaidFromPartials), 2);
@@ -1270,8 +1270,8 @@ class BookingController extends Controller
             $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
             $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
             $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
-            $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($customerAddress->contact_person_name ?? '');
-            $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($customerAddress->contact_person_number ?? '');
+            $customerName = booking_display_customer_name($booking, $customerAddress);
+            $customerPhone = booking_display_customer_phone($booking, $customerAddress);
             return view('bookingmodule::admin.booking.status', compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by', 'currentlyAssignProvider', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone'));
         } elseif ($webPage === 'followups') {
             $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address'])->find($id);

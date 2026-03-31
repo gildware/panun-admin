@@ -65,6 +65,7 @@
                                 <label class="mb-2">{{ translate('Handled_By') }}</label>
                                 <select name="handled_by" class="form-select">
                                     <option value="">{{ translate('All') }}</option>
+                                    <option value="{{ \Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE }}" {{ (string) ($selectedHandledById ?? '') === \Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE ? 'selected' : '' }}>{{ translate('AI_handled_or_Unassigned') }}</option>
                                     @foreach($assignees ?? [] as $assignee)
                                         @php
                                             $fullName = trim(($assignee->first_name ?? '') . ' ' . ($assignee->last_name ?? ''));

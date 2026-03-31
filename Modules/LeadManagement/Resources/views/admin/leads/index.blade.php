@@ -92,7 +92,11 @@
                     @php
                         $sourceIds = $sourceIds ?? [];
                         $adSourceIds = $adSourceIds ?? [];
-                        $handledByFilterIds = $handledByFilterIds ?? [];
+                        $handledByInput = $handledByInput ?? [];
+                        $handledByInputStr = array_map('strval', $handledByInput);
+                        $filterUnassignedSelected = in_array(\Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE, $handledByInputStr, true);
+                        $handledByEmployeePickCount = count(array_filter($handledByInputStr, fn ($v) => $v !== \Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE));
+                        $handledByFilterSelections = $handledByEmployeePickCount + ($filterUnassignedSelected ? 1 : 0);
                         $filterStatusIds = $filterStatusIds ?? [];
                         $filterDistrictIds = $filterDistrictIds ?? [];
                         $filterZoneIds = $filterZoneIds ?? [];
@@ -104,7 +108,7 @@
                         $leadStatusFilter = $leadStatusFilter ?? 'all';
                         $estimatedDateFrom = $estimatedDateFrom ?? '';
                         $estimatedDateTo = $estimatedDateTo ?? '';
-                        $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + count($handledByFilterIds)
+                        $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + $handledByFilterSelections
                             + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
                         if ($leadStatusFilter !== 'all') {
                             $filtersAppliedCount += 1;
@@ -175,9 +179,10 @@
                                         <div>
                                             <label class="form-label">{{ translate('Handled_By') }}</label>
                                             <select name="handled_by[]" class="form-select js-select-multi" multiple>
+                                                <option value="{{ \Modules\LeadManagement\Entities\Lead::FILTER_UNASSIGNED_VALUE }}" {{ $filterUnassignedSelected ? 'selected' : '' }}>{{ translate('AI_handled_or_Unassigned') }}</option>
                                                 @foreach($filterEmployees as $employee)
                                                     @php $fullName = trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? '')); $label = $fullName ?: $employee->email; @endphp
-                                                    <option value="{{ $employee->id }}" {{ in_array((string)$employee->id, array_map('strval', $handledByFilterIds)) ? 'selected' : '' }}>{{ $label }}</option>
+                                                    <option value="{{ $employee->id }}" {{ in_array((string) $employee->id, $handledByInputStr, true) ? 'selected' : '' }}>{{ $label }}</option>
                                                 @endforeach
                                             </select>
                                         </div>

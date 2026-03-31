@@ -274,6 +274,69 @@ if (!function_exists('booking_can_be_completed')) {
     }
 }
 
+if (!function_exists('booking_display_customer_name')) {
+    /**
+     * Resolved customer name for booking UIs: linked user profile first, then saved address row,
+     * then service_address JSON snapshot (when used). Accepts Booking or BookingRepeat.
+     */
+    function booking_display_customer_name($booking, $customerAddressModel = null): string
+    {
+        $main = ($booking instanceof BookingRepeat) ? ($booking->booking ?? null) : $booking;
+        if (!$main instanceof Booking) {
+            return '';
+        }
+        $fromUser = $main->customer
+            ? trim((string) ($main->customer->first_name ?? '') . ' ' . (string) ($main->customer->last_name ?? ''))
+            : '';
+        if ($fromUser !== '') {
+            return trim($fromUser);
+        }
+        $fromAddress = $customerAddressModel?->contact_person_name ?? null;
+        if (is_string($fromAddress) && trim($fromAddress) !== '') {
+            return trim($fromAddress);
+        }
+        $sa = $booking->service_address ?? null;
+        if (is_object($sa) && isset($sa->contact_person_name)) {
+            $n = (string) $sa->contact_person_name;
+            if (trim($n) !== '') {
+                return trim($n);
+            }
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('booking_display_customer_phone')) {
+    /**
+     * Resolved customer phone for booking UIs (same precedence as booking_display_customer_name).
+     */
+    function booking_display_customer_phone($booking, $customerAddressModel = null): string
+    {
+        $main = ($booking instanceof BookingRepeat) ? ($booking->booking ?? null) : $booking;
+        if (!$main instanceof Booking) {
+            return '';
+        }
+        $fromUser = $main->customer ? trim((string) ($main->customer->phone ?? '')) : '';
+        if ($fromUser !== '') {
+            return $fromUser;
+        }
+        $fromAddress = $customerAddressModel?->contact_person_number ?? null;
+        if (is_string($fromAddress) && trim($fromAddress) !== '') {
+            return trim($fromAddress);
+        }
+        $sa = $booking->service_address ?? null;
+        if (is_object($sa) && isset($sa->contact_person_number)) {
+            $p = (string) $sa->contact_person_number;
+            if (trim($p) !== '') {
+                return trim($p);
+            }
+        }
+
+        return '';
+    }
+}
+
 if (!function_exists('ledger_record_in')) {
     /**
      * Record an IN transaction in the ledger.
