@@ -1,8 +1,16 @@
 {{-- Expects $commissionEntityUseCustom (bool), $tierService, $tierSpare --}}
+@php($chargeSectionShell = $chargeSectionShell ?? false)
+@if(!$chargeSectionShell)
 <div class="col-12">
     <div class="card border rounded p-20 mb-30 bg-white">
         <h5 class="mb-2 text-dark">{{ translate('Commission_Settings') }}</h5>
         <p class="fz-12 text-muted mb-3">{{ translate('Commission_entity_priority_hint') }}</p>
+@else
+<div class="mb-3 pb-3 border-bottom border-light">
+    <h5 class="mb-0 text-dark">{{ translate('Commission_Settings') }}</h5>
+    <p class="text-muted fz-12 mb-0 mt-2">{{ translate('Commission_entity_priority_hint') }}</p>
+</div>
+@endif
         <div class="d-flex flex-wrap align-items-start gap-4 mb-3">
             <div class="custom-radio">
                 <input type="radio" name="commission_entity_mode" id="commission_entity_mode_default" value="default"
@@ -23,5 +31,7 @@
                 @include('businesssettingsmodule::admin.partials.commission-tier-setup-fields', ['tierService' => $tierService, 'tierSpare' => $tierSpare])
             </div>
         </div>
+@if(!$chargeSectionShell)
     </div>
 </div>
+@endif

@@ -367,6 +367,12 @@
                     </li>
                     @can('whatsapp_message_template_update')
                         <li class="nav-item">
+                            <a class="nav-link {{ ($tab ?? '') === 'quick_replies' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'quick_replies']) }}">
+                                {{ translate('WhatsApp_quick_replies_tab') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ ($tab ?? '') === 'chat_config' ? 'active' : '' }}"
                                href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']) }}">
                                 {{ translate('whatsapp_chat_configuration') }}
@@ -376,8 +382,8 @@
                 </ul>
             </div>
 
-            {{-- Tab: Active Chats / Human support — left: scrollable list, right: open chat --}}
-            <?php if (($tab ?? '') === 'chats' || ($tab ?? '') === 'human_support'): ?>
+            @php($waSearchableTabs = ['chats', 'human_support', 'leads', 'bookings', 'users', 'quick_replies', 'chat_config'])
+            @if(in_array($tab ?? '', $waSearchableTabs, true))
                 <div class="card card-body mb-3 py-3">
                     <label for="wa-global-search" class="form-label mb-1">{{ translate('Search here') }}</label>
                     <div class="position-relative">
@@ -390,11 +396,18 @@
                                aria-controls="wa-global-search-dropdown">
                         <div id="wa-global-search-dropdown"
                              class="list-group position-absolute w-100 shadow-sm mt-1 rounded border bg-white"
-                             style="z-index: 25; max-height: 340px; overflow-y: auto; display: none;"
+                             style="z-index: 25; max-height: 420px; overflow-y: auto; display: none;"
                              role="listbox"></div>
                     </div>
                 </div>
-                <input type="hidden" id="wa-initial-open-phone" value="{{ e(request()->query('phone', '')) }}">
+                @if(in_array($tab ?? '', ['chats', 'human_support'], true))
+                    <input type="hidden" id="wa-initial-open-phone" value="{{ e(request()->query('phone', '')) }}">
+                    <input type="hidden" id="wa-initial-focus-message-id" value="{{ e(request()->query('focus_message_id', '')) }}">
+                @endif
+            @endif
+
+            {{-- Tab: Active Chats / Human support — left: scrollable list, right: open chat --}}
+            <?php if (($tab ?? '') === 'chats' || ($tab ?? '') === 'human_support'): ?>
                 <div class="row g-3">
                     <div class="col-12 col-md-4 col-lg-3 col-xl-4 whatsapp-active-list-container">
                         <div class="card h-100 d-flex flex-column">
@@ -703,11 +716,8 @@
     var pollTimer = null;
     var currentHandler = null;
     var activeListTimer = null;
-    var searchUrl = '{{ route("admin.whatsapp.conversations.search") }}';
     /** When set, loads a window around this message id and keeps it highlighted until another chat opens. */
     var stickyFocusMessageId = null;
-    var strChats = {!! json_encode(translate('Chats')) !!};
-    var strMessages = {!! json_encode(translate('Messages')) !!};
     var strNoResults = {!! json_encode(translate('No results')) !!};
     var strWaCustomer = {!! json_encode(translate('whatsapp_system_customer')) !!};
     var strWaProvider = {!! json_encode(translate('whatsapp_system_provider')) !!};
@@ -1078,79 +1088,6 @@
             });
         });
     }
-
-    function hideGlobalSearchDropdown() {
-        var dd = document.getElementById('wa-global-search-dropdown');
-        if (dd) {
-            dd.style.display = 'none';
-            dd.innerHTML = '';
-        }
-    }
-
-    function renderGlobalSearchResults(data) {
-        var dd = document.getElementById('wa-global-search-dropdown');
-        if (!dd) return;
-        var chats = data.chats || [];
-        var messages = data.messages || [];
-        if (!chats.length && !messages.length) {
-            dd.innerHTML = '<div class="list-group-item text-muted small">' + escapeHtml(strNoResults) + '</div>';
-            dd.style.display = 'block';
-            return;
-        }
-        var html = '';
-        if (chats.length) {
-            html += '<div class="list-group-item text-uppercase fz-11 text-muted border-0 py-1">' + escapeHtml(strChats) + '</div>';
-            chats.forEach(function(c) {
-                var label = (c.display_line && String(c.display_line).trim()) ? c.display_line : ((c.name || '').trim() ? c.name + ' · ' + formatPhoneDisplay(c.phone) : formatPhoneDisplay(c.phone));
-                var prev = escapeHtml(c.preview || '');
-                var ph = escapeHtml(c.phone || '');
-                html += '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-phone="' + ph + '">';
-                html += '<div class="fw-medium text-truncate">' + escapeHtml(label) + '</div>';
-                html += '<div class="small text-muted text-truncate">' + prev + '</div>';
-                html += '</button>';
-            });
-        }
-        if (messages.length) {
-            html += '<div class="list-group-item text-uppercase fz-11 text-muted border-0 py-1">' + escapeHtml(strMessages) + '</div>';
-            messages.forEach(function(m) {
-                var who = (m.name || '').trim() ? m.name + ' · ' + formatPhoneDisplay(m.phone) : formatPhoneDisplay(m.phone);
-                var snip = escapeHtml(m.snippet || '');
-                var ph = escapeHtml(m.phone || '');
-                var mid = (m.id != null && m.id !== '') ? String(m.id) : '';
-                html += '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-phone="' + ph + '" data-message-id="' + mid.replace(/"/g, '') + '">';
-                html += '<div class="fw-medium text-truncate">' + escapeHtml(who) + '</div>';
-                html += '<div class="small text-muted text-truncate">' + snip + '</div>';
-                html += '</button>';
-            });
-        }
-        dd.innerHTML = html;
-        dd.style.display = 'block';
-        dd.querySelectorAll('.wa-global-hit').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var ph = this.getAttribute('data-phone');
-                var mid = this.getAttribute('data-message-id');
-                hideGlobalSearchDropdown();
-                var gInp = document.getElementById('wa-global-search');
-                if (gInp) gInp.value = '';
-                openChat(ph, mid ? { focusMessageId: mid } : {});
-            });
-        });
-    }
-
-    var debouncedGlobalSearch = debounce(function() {
-        var inp = document.getElementById('wa-global-search');
-        if (!inp) return;
-        var q = inp.value.trim();
-        if (q.length < 2) {
-            hideGlobalSearchDropdown();
-            return;
-        }
-        fetch(searchUrl + '?q=' + encodeURIComponent(q), {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        }).then(function(r) { return r.json(); })
-          .then(renderGlobalSearchResults)
-          .catch(function() { hideGlobalSearchDropdown(); });
-    }, 350);
 
     function formatPhoneDisplay(phone) {
         var digits = String(phone || '').replace(/\D+/g, '');
@@ -1986,11 +1923,6 @@
     var listCol = document.querySelector('.whatsapp-active-list-container');
     if (listCol) bindActiveChatListClicks(listCol);
 
-    document.addEventListener('input', function(e) {
-        if (e.target && e.target.id === 'wa-global-search') {
-            debouncedGlobalSearch();
-        }
-    });
     document.addEventListener('click', function(e) {
         var tagPanel = document.getElementById('wa-manage-tags-panel');
         if (tagPanel && !tagPanel.classList.contains('d-none') && !e.target.closest('.wa-manage-tags-wrap')) {
@@ -1999,7 +1931,9 @@
         if (e.target.closest('#wa-global-search') || e.target.closest('#wa-global-search-dropdown')) {
             return;
         }
-        hideGlobalSearchDropdown();
+        if (typeof window.waHideGlobalSearchDropdown === 'function') {
+            window.waHideGlobalSearchDropdown();
+        }
         if (
             e.target.closest('#wa-tpl-suggest') ||
             e.target.closest('#wa-reply-body') ||
@@ -2033,12 +1967,28 @@
             return;
         }
         var key = waResolvePhoneToListKey(raw);
+        var focusHidden = document.getElementById('wa-initial-focus-message-id');
+        var focusRaw = (focusHidden && focusHidden.value ? String(focusHidden.value).trim() : '') || (new URLSearchParams(window.location.search).get('focus_message_id') || '').trim();
+        var parsedFocus = focusRaw !== '' ? parseInt(focusRaw, 10) : NaN;
+        var focusOpt = !isNaN(parsedFocus) ? { focusMessageId: String(parsedFocus) } : {};
         try {
-            openChat(key);
+            openChat(key, focusOpt);
         } catch (e) {
             console.error('waOpenChatFromQuery', e);
         }
     }
+
+    window.waOpenChatFromSearch = function (phone, messageId) {
+        if (typeof window.waHideGlobalSearchDropdown === 'function') {
+            window.waHideGlobalSearchDropdown();
+        }
+        var gInp = document.getElementById('wa-global-search');
+        if (gInp) {
+            gInp.value = '';
+        }
+        var mid = messageId != null && String(messageId).trim() !== '' ? String(messageId).trim() : '';
+        openChat(phone, mid ? { focusMessageId: mid } : {});
+    };
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             requestAnimationFrame(waOpenChatFromQuery);
@@ -2778,7 +2728,8 @@
                             <tbody>
                             <?php if (($leads ?? collect())->isNotEmpty()) { ?>
                                 @foreach($leads as $lead)
-                                <tr>
+                                @php($waLeadRowId = 'wa-s-l-' . md5((string) ($lead->lead_id ?? $lead->id ?? '')))
+                                <tr id="{{ $waLeadRowId }}">
                                     <td>{{ $lead->lead_id ?? $lead->id ?? '—' }}</td>
                                     <td>{{ $displayPhone($lead->phone ?? null) }}</td>
                                     <td>{{ $lead->name ?? '—' }}</td>
@@ -2822,7 +2773,7 @@
                             <tbody>
                             <?php if (($bookings ?? collect())->isNotEmpty()) { ?>
                                 @foreach($bookings as $booking)
-                                <tr>
+                                <tr id="wa-s-b-{{ (int) ($booking->id ?? 0) }}">
                                     <td>{{ $booking->booking_id ?? $booking->id ?? '—' }}</td>
                                     <td>{{ $displayPhone($booking->phone ?? null) }}</td>
                                     <td>{{ $booking->name ?? '—' }}</td>
@@ -2869,7 +2820,7 @@
                             <tbody>
                             <?php if (($users ?? collect())->isNotEmpty()) { ?>
                                 @foreach($users as $waUser)
-                                <tr>
+                                <tr id="wa-s-u-{{ (int) ($waUser->id ?? 0) }}">
                                     <td>{{ $displayPhone($waUser->phone ?? null) }}</td>
                                     <td>{{ $waUser->name ?? '—' }}</td>
                                     <td class="align-middle">
@@ -3134,9 +3085,408 @@
                 @endpush
             <?php endif; ?>
 
+            <?php if (($tab ?? '') === 'quick_replies'): ?>
+                @include('whatsappmodule::admin.conversations.partials.quick-replies')
+            <?php endif; ?>
+
             <?php if (($tab ?? '') === 'chat_config'): ?>
                 @include('whatsappmodule::admin.conversations.partials.chat-configuration')
             <?php endif; ?>
         </div>
     </div>
+
+    @if(in_array($tab ?? '', $waSearchableTabs ?? [], true))
+        @php
+            $waNavTabsForSearch = [
+                ['key' => 'chats', 'label' => (string) translate('Active Chats'), 'aliases' => ['chat', 'active']],
+                ['key' => 'human_support', 'label' => (string) translate('Human support'), 'aliases' => ['human', 'support', 'agent']],
+                ['key' => 'leads', 'label' => (string) translate('Provider Leads'), 'aliases' => ['lead', 'provider']],
+                ['key' => 'bookings', 'label' => (string) translate('Bookings'), 'aliases' => ['booking', 'order']],
+                ['key' => 'users', 'label' => (string) translate('WhatsApp Users'), 'aliases' => ['user', 'whatsapp']],
+            ];
+            if (auth()->check() && auth()->user()->can('whatsapp_message_template_update')) {
+                $waNavTabsForSearch[] = ['key' => 'quick_replies', 'label' => (string) translate('WhatsApp_quick_replies_tab'), 'aliases' => ['quick', 'reply', 'template']];
+                $waNavTabsForSearch[] = ['key' => 'chat_config', 'label' => (string) translate('whatsapp_chat_configuration'), 'aliases' => ['config', 'configuration', 'status', 'tag']];
+            }
+        @endphp
+        @push('script')
+            <script>
+                (function () {
+                    var waConvBaseUrl = @json(route('admin.whatsapp.conversations.index'));
+                    var searchUrl = @json(route('admin.whatsapp.conversations.search'));
+                    var waNavTabsForSearch = @json($waNavTabsForSearch);
+                    var strPages = {!! json_encode(translate('Pages')) !!};
+                    var strOpenTabHint = {!! json_encode(translate('Open')) !!};
+                    var strChats = {!! json_encode(translate('Chats')) !!};
+                    var strMessages = {!! json_encode(translate('Messages')) !!};
+                    var strProviderLeads = {!! json_encode(translate('Provider Leads')) !!};
+                    var strBookings = {!! json_encode(translate('Bookings')) !!};
+                    var strWaUsers = {!! json_encode(translate('WhatsApp Users')) !!};
+                    var strQuickReplies = {!! json_encode(translate('WhatsApp_quick_replies_tab')) !!};
+                    var strChatConfig = {!! json_encode(translate('whatsapp_chat_configuration')) !!};
+                    var strNoResults = {!! json_encode(translate('No results')) !!};
+
+                    function debounce(fn, ms) {
+                        var t;
+                        return function () {
+                            var a = arguments;
+                            var ctx = this;
+                            clearTimeout(t);
+                            t = setTimeout(function () {
+                                fn.apply(ctx, a);
+                            }, ms);
+                        };
+                    }
+
+                    function escapeHtml(value) {
+                        return String(value || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#039;');
+                    }
+
+                    function formatPhoneDisplay(phone) {
+                        var digits = String(phone || '').replace(/\D+/g, '');
+                        if (!digits) {
+                            return '—';
+                        }
+                        return digits.length > 10 ? digits.slice(-10) : digits;
+                    }
+
+                    function waBuildConvUrl(tab, queryObj) {
+                        var u = new URL(waConvBaseUrl, window.location.origin);
+                        u.search = '';
+                        u.searchParams.set('tab', tab || 'chats');
+                        queryObj = queryObj || {};
+                        Object.keys(queryObj).forEach(function (k) {
+                            var v = queryObj[k];
+                            if (v != null && String(v).trim() !== '') {
+                                u.searchParams.set(k, String(v));
+                            }
+                        });
+                        return u.pathname + u.search;
+                    }
+
+                    window.waHideGlobalSearchDropdown = function () {
+                        var dd = document.getElementById('wa-global-search-dropdown');
+                        if (dd) {
+                            dd.style.display = 'none';
+                            dd.innerHTML = '';
+                        }
+                    };
+
+                    function appendSection(html, title, items, renderRow) {
+                        if (!items || !items.length) {
+                            return html;
+                        }
+                        html += '<div class="list-group-item text-uppercase fz-11 text-muted border-0 py-1">' + escapeHtml(title) + '</div>';
+                        items.forEach(function (item) {
+                            html += renderRow(item);
+                        });
+                        return html;
+                    }
+
+                    function waMatchingNavTabs(needle) {
+                        needle = String(needle || '').trim().toLowerCase();
+                        if (needle.length < 2) {
+                            return [];
+                        }
+                        return waNavTabsForSearch.filter(function (t) {
+                            var parts = [t.label, t.key, ((t.aliases || []).join(' '))].join(' ').toLowerCase();
+                            return parts.indexOf(needle) !== -1;
+                        });
+                    }
+
+                    function renderGlobalSearchResults(data, searchQuery) {
+                        var dd = document.getElementById('wa-global-search-dropdown');
+                        if (!dd) {
+                            return;
+                        }
+                        data = data || {};
+                        var tabHits = waMatchingNavTabs(searchQuery);
+                        var chats = data.chats || [];
+                        var messages = data.messages || [];
+                        var leads = data.leads || [];
+                        var bookings = data.bookings || [];
+                        var users = data.users || [];
+                        var quickReplies = data.quick_replies || [];
+                        var chatConfig = data.chat_config || [];
+                        var total =
+                            tabHits.length +
+                            chats.length +
+                            messages.length +
+                            leads.length +
+                            bookings.length +
+                            users.length +
+                            quickReplies.length +
+                            chatConfig.length;
+                        if (!total) {
+                            dd.innerHTML = '<div class="list-group-item text-muted small">' + escapeHtml(strNoResults) + '</div>';
+                            dd.style.display = 'block';
+                            return;
+                        }
+                        var html = '';
+                        html = appendSection(html, strPages, tabHits, function (t) {
+                            var href = waBuildConvUrl(t.key);
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="link" data-href="' +
+                                escapeHtml(href) +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(t.label || t.key) +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                escapeHtml(strOpenTabHint) +
+                                '</div></button>'
+                            );
+                        });
+                        html = appendSection(html, strChats, chats, function (c) {
+                            var label =
+                                c.display_line && String(c.display_line).trim()
+                                    ? c.display_line
+                                    : (c.name || '').trim()
+                                        ? c.name + ' · ' + formatPhoneDisplay(c.phone)
+                                        : formatPhoneDisplay(c.phone);
+                            var prev = escapeHtml(c.preview || '');
+                            var ph = escapeHtml(c.phone || '');
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="chat" data-phone="' +
+                                ph +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(label) +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                prev +
+                                '</div></button>'
+                            );
+                        });
+                        html = appendSection(html, strMessages, messages, function (m) {
+                            var who =
+                                (m.name || '').trim() ? m.name + ' · ' + formatPhoneDisplay(m.phone) : formatPhoneDisplay(m.phone);
+                            var snip = escapeHtml(m.snippet || '');
+                            var ph = escapeHtml(m.phone || '');
+                            var mid = m.id != null && m.id !== '' ? String(m.id) : '';
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="message" data-phone="' +
+                                ph +
+                                '" data-message-id="' +
+                                mid.replace(/"/g, '') +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(who) +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                snip +
+                                '</div></button>'
+                            );
+                        });
+                        html = appendSection(html, strProviderLeads, leads, function (l) {
+                            var line =
+                                (l.name || '').trim() ? l.name + ' · ' + formatPhoneDisplay(l.phone) : formatPhoneDisplay(l.phone);
+                            var href = l.row_anchor ? waBuildConvUrl('leads') + '#' + l.row_anchor : waBuildConvUrl('leads');
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="link" data-href="' +
+                                escapeHtml(href) +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(line) +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                escapeHtml(l.snippet || '') +
+                                '</div></button>'
+                            );
+                        });
+                        html = appendSection(html, strBookings, bookings, function (b) {
+                            var line =
+                                'Booking ' +
+                                (b.booking_id || b.id || '') +
+                                ' · ' +
+                                ((b.name || '').trim() ? b.name : formatPhoneDisplay(b.phone));
+                            var href = b.row_anchor ? waBuildConvUrl('bookings') + '#' + b.row_anchor : waBuildConvUrl('bookings');
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="link" data-href="' +
+                                escapeHtml(href) +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(line) +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                escapeHtml(b.snippet || '') +
+                                '</div></button>'
+                            );
+                        });
+                        html = appendSection(html, strWaUsers, users, function (u) {
+                            var line = (u.name || '').trim() ? u.name + ' · ' + formatPhoneDisplay(u.phone) : formatPhoneDisplay(u.phone);
+                            var href = u.row_anchor ? waBuildConvUrl('users') + '#' + u.row_anchor : waBuildConvUrl('users');
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="link" data-href="' +
+                                escapeHtml(href) +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(line) +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                escapeHtml(u.snippet || '') +
+                                '</div></button>'
+                            );
+                        });
+                        html = appendSection(html, strQuickReplies, quickReplies, function (t) {
+                            var href = t.row_anchor ? waBuildConvUrl('quick_replies') + '#' + t.row_anchor : waBuildConvUrl('quick_replies');
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="link" data-href="' +
+                                escapeHtml(href) +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(t.title || '') +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                escapeHtml(t.snippet || '') +
+                                '</div></button>'
+                            );
+                        });
+                        html = appendSection(html, strChatConfig, chatConfig, function (c) {
+                            var href = c.row_anchor ? waBuildConvUrl('chat_config') + '#' + c.row_anchor : waBuildConvUrl('chat_config');
+                            var sub = c.detail || '';
+                            return (
+                                '<button type="button" class="list-group-item list-group-item-action text-start wa-global-hit py-2" data-hit-kind="link" data-href="' +
+                                escapeHtml(href) +
+                                '">' +
+                                '<div class="fw-medium text-truncate">' +
+                                escapeHtml(c.name || '') +
+                                '</div>' +
+                                '<div class="small text-muted text-truncate">' +
+                                escapeHtml(sub) +
+                                '</div></button>'
+                            );
+                        });
+                        dd.innerHTML = html;
+                        dd.style.display = 'block';
+                        dd.querySelectorAll('.wa-global-hit').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                var kind = this.getAttribute('data-hit-kind');
+                                var ph = this.getAttribute('data-phone');
+                                var mid = this.getAttribute('data-message-id');
+                                var href = this.getAttribute('data-href');
+                                window.waHideGlobalSearchDropdown();
+                                var gInp = document.getElementById('wa-global-search');
+                                if (gInp) {
+                                    gInp.value = '';
+                                }
+                                if (kind === 'chat' || kind === 'message') {
+                                    if (typeof window.waOpenChatFromSearch === 'function') {
+                                        window.waOpenChatFromSearch(ph, mid || '');
+                                    } else {
+                                        var q = { phone: ph };
+                                        if (mid) {
+                                            q.focus_message_id = mid;
+                                        }
+                                        window.location.href = waBuildConvUrl('chats', q);
+                                    }
+                                    return;
+                                }
+                                if (href) {
+                                    window.location.href = href;
+                                }
+                            });
+                        });
+                    }
+
+                    var debouncedGlobalSearch = debounce(function () {
+                        var inp = document.getElementById('wa-global-search');
+                        if (!inp) {
+                            return;
+                        }
+                        var q = inp.value.trim();
+                        if (q.length < 2) {
+                            window.waHideGlobalSearchDropdown();
+                            return;
+                        }
+                        if (waMatchingNavTabs(q).length) {
+                            renderGlobalSearchResults(
+                                {
+                                    chats: [],
+                                    messages: [],
+                                    leads: [],
+                                    bookings: [],
+                                    users: [],
+                                    quick_replies: [],
+                                    chat_config: [],
+                                },
+                                q
+                            );
+                        }
+                        fetch(searchUrl + '?q=' + encodeURIComponent(q), {
+                            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        })
+                            .then(function (r) {
+                                return r.json();
+                            })
+                            .then(function (data) {
+                                renderGlobalSearchResults(data, q);
+                            })
+                            .catch(function () {
+                                try {
+                                    renderGlobalSearchResults(
+                                        {
+                                            chats: [],
+                                            messages: [],
+                                            leads: [],
+                                            bookings: [],
+                                            users: [],
+                                            quick_replies: [],
+                                            chat_config: [],
+                                        },
+                                        q
+                                    );
+                                } catch (err) {
+                                    window.waHideGlobalSearchDropdown();
+                                }
+                            });
+                    }, 350);
+
+                    document.addEventListener('input', function (e) {
+                        if (e.target && e.target.id === 'wa-global-search') {
+                            debouncedGlobalSearch();
+                        }
+                    });
+                    document.addEventListener('click', function (e) {
+                        if (e.target.closest('#wa-global-search') || e.target.closest('#wa-global-search-dropdown')) {
+                            return;
+                        }
+                        window.waHideGlobalSearchDropdown();
+                    });
+
+                    function waScrollHashTarget() {
+                        var h = window.location.hash;
+                        if (!h || h.length < 2) {
+                            return;
+                        }
+                        var id = decodeURIComponent(h.slice(1));
+                        if (!/^[-_a-zA-Z0-9]+$/.test(id)) {
+                            return;
+                        }
+                        var el = document.getElementById(id);
+                        if (el) {
+                            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                            el.classList.add('table-warning');
+                            setTimeout(function () {
+                                el.classList.remove('table-warning');
+                            }, 2000);
+                        }
+                    }
+
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', function () {
+                            requestAnimationFrame(waScrollHashTarget);
+                        });
+                    } else {
+                        requestAnimationFrame(waScrollHashTarget);
+                    }
+                })();
+            </script>
+        @endpush
+    @endif
 @endsection

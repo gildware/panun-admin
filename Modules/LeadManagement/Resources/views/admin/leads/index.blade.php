@@ -45,41 +45,57 @@
                         @php
                             $baseQuery = request()->only(['tab']);
                         @endphp
-                        <ul class="nav nav--tabs">
+                        @php
+                            $leadTabCounts = $leadTabCounts ?? [
+                                'all' => 0,
+                                'unknown' => 0,
+                                'customer' => 0,
+                                'future_customer' => 0,
+                                'provider' => 0,
+                                'invalid' => 0,
+                            ];
+                        @endphp
+                        <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2">
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'all' ? 'active' : '' }}"
                                    href="{{ route('admin.lead.index', ['tab' => 'all']) }}">
                                     {{ translate('All_Leads') }}
+                                    <span class="count js-lead-tab-count" data-tab="all">{{ $leadTabCounts['all'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'unknown' ? 'active' : '' }}"
                                    href="{{ route('admin.lead.index', ['tab' => 'unknown']) }}">
                                     {{ translate('Unknown_Leads') }}
+                                    <span class="count js-lead-tab-count" data-tab="unknown">{{ $leadTabCounts['unknown'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'customer' ? 'active' : '' }}"
                                    href="{{ route('admin.lead.index', ['tab' => 'customer']) }}">
                                     {{ translate('Customer_Lead') }}
+                                    <span class="count js-lead-tab-count" data-tab="customer">{{ $leadTabCounts['customer'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'future_customer' ? 'active' : '' }}"
                                    href="{{ route('admin.lead.index', ['tab' => 'future_customer']) }}">
                                     {{ translate('Future_Customer_Lead') }}
+                                    <span class="count js-lead-tab-count" data-tab="future_customer">{{ $leadTabCounts['future_customer'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'provider' ? 'active' : '' }}"
                                    href="{{ route('admin.lead.index', ['tab' => 'provider']) }}">
                                     {{ translate('Provider_Leads') }}
+                                    <span class="count js-lead-tab-count" data-tab="provider">{{ $leadTabCounts['provider'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ $tab == 'invalid' ? 'active' : '' }}"
                                    href="{{ route('admin.lead.index', ['tab' => 'invalid']) }}">
                                     {{ translate('Invalid_Leads') }}
+                                    <span class="count js-lead-tab-count" data-tab="invalid">{{ $leadTabCounts['invalid'] }}</span>
                                 </a>
                             </li>
                         </ul>
@@ -457,6 +473,11 @@
                     }
                     if (typeof response.total !== 'undefined') {
                         $('#lead-total-count').text(response.total);
+                    }
+                    if (response.lead_tab_counts && typeof response.lead_tab_counts === 'object') {
+                        Object.keys(response.lead_tab_counts).forEach(function (key) {
+                            $('.js-lead-tab-count[data-tab="' + key + '"]').text(response.lead_tab_counts[key]);
+                        });
                     }
                     var count = typeof response.filters_applied_count !== 'undefined' ? response.filters_applied_count : 0;
                     var $badge = $('#lead-filter-count-badge');

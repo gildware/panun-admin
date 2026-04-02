@@ -30,12 +30,29 @@
 
                     <div class="card category-setup mb-30">
                         <div class="card-body p-30">
+                                @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
+                                @php($default_lang = str_replace('_', '-', app()->getLocale()))
+
+                                <ul class="nav nav--tabs border-color-primary mb-4" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="subcategory-edit-tab-basic" data-bs-toggle="tab"
+                                                data-bs-target="#subcategory-edit-pane-basic" type="button" role="tab"
+                                                aria-controls="subcategory-edit-pane-basic" aria-selected="true">{{ translate('Basic') }}</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="subcategory-edit-tab-charges" data-bs-toggle="tab"
+                                                data-bs-target="#subcategory-edit-pane-charges" type="button" role="tab"
+                                                aria-controls="subcategory-edit-pane-charges" aria-selected="false">{{ translate('Charges_and_Taxes') }}</button>
+                                    </li>
+                                </ul>
+
+                                <div class="tab-content">
+                                    <div class="tab-pane fade show active" id="subcategory-edit-pane-basic" role="tabpanel"
+                                         aria-labelledby="subcategory-edit-tab-basic" tabindex="0">
                             <form action="{{route('admin.sub-category.update',[$subCategory->id])}}" method="post"
                                   enctype="multipart/form-data" id="sub-category-edit-form">
                                 @csrf
                                 @method('put')
-                                @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
-                                @php($default_lang = str_replace('_', '-', app()->getLocale()))
                                 @if($language)
                                     <ul class="nav nav--tabs border-color-primary mb-4">
                                         <li class="nav-item">
@@ -140,7 +157,6 @@
 
                                                 <input type="hidden" name="lang[]" value="default">
                                             @endif
-                                            @include('categorymanagement::admin.partials.category-tax-override', ['taxModel' => $subCategory])
                                         </div>
                                     </div>
                                     <div class="col-lg-4">
@@ -169,19 +185,8 @@
                                             </div>
                                         </div>
                                     </div>
-                                    @can('commission_custom_sub_category_update')
-                                        @include('businesssettingsmodule::admin.partials.commission-entity-form-section')
-                                    @else
-                                        <div class="col-12">
-                                            <div class="alert alert-soft-primary fz-12" role="alert">
-                                                {{ translate('Commission_customization_no_permission_note') }}
-                                            </div>
-                                        </div>
-                                    @endcan
-                                    @include('businesssettingsmodule::admin.partials.additional-charge-entity-overrides-section', [
-                                        'additionalChargeOverrideRows' => $additionalChargeOverrideRows,
-                                        'formSelector' => '#sub-category-edit-form',
-                                    ])
+                                </div>
+                                <div class="row">
                                     <div class="col-12">
                                         <div class="d-flex justify-content-end gap-20 mt-30">
                                             <button class="btn btn--secondary"
@@ -192,6 +197,65 @@
                                     </div>
                                 </div>
                             </form>
+                                    </div>
+
+                                    <div class="tab-pane fade" id="subcategory-edit-pane-charges" role="tabpanel"
+                                         aria-labelledby="subcategory-edit-tab-charges" tabindex="0">
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <form action="{{ route('admin.sub-category.update.charges.tax', $subCategory->id) }}" method="post" id="subcategory-charges-tax-form">
+                                                    @csrf
+                                                    @method('put')
+                                                    <div class="border rounded p-20 mb-30 bg-white">
+                                                        @include('categorymanagement::admin.partials.category-tax-override', ['taxModel' => $subCategory, 'chargeSectionShell' => true])
+                                                        <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
+                                                            <button type="submit" class="btn btn--primary">{{ translate('save') }}</button>
+                                                        </div>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                            <div class="col-12">
+                                                @can('commission_custom_sub_category_update')
+                                                    <form action="{{ route('admin.sub-category.update.charges.commission', $subCategory->id) }}" method="post" id="subcategory-charges-commission-form">
+                                                        @csrf
+                                                        @method('put')
+                                                        <div class="border rounded p-20 mb-30 bg-white">
+                                                            @include('businesssettingsmodule::admin.partials.commission-entity-form-section', ['chargeSectionShell' => true])
+                                                            <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
+                                                                <button type="submit" class="btn btn--primary">{{ translate('save') }}</button>
+                                                            </div>
+                                                        </div>
+                                                    </form>
+                                                @else
+                                                    <div class="border rounded p-20 mb-30 bg-white">
+                                                        <div class="mb-3 pb-3 border-bottom border-light">
+                                                            <h5 class="mb-0 text-dark">{{ translate('Commission_Settings') }}</h5>
+                                                        </div>
+                                                        <div class="alert alert-soft-primary fz-12 mb-0" role="alert">
+                                                            {{ translate('Commission_customization_no_permission_note') }}
+                                                        </div>
+                                                    </div>
+                                                @endcan
+                                            </div>
+                                            <div class="col-12">
+                                                <form action="{{ route('admin.sub-category.update.charges.additional', $subCategory->id) }}" method="post" id="subcategory-charges-additional-form">
+                                                    @csrf
+                                                    @method('put')
+                                                    <div class="border rounded p-20 mb-30 bg-white">
+                                                        @include('businesssettingsmodule::admin.partials.additional-charge-entity-overrides-section', [
+                                                            'additionalChargeOverrideRows' => $additionalChargeOverrideRows,
+                                                            'formSelector' => '#subcategory-charges-additional-form',
+                                                            'chargeSectionShell' => true,
+                                                        ])
+                                                        <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
+                                                            <button type="submit" class="btn btn--primary">{{ translate('save') }}</button>
+                                                        </div>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                         </div>
                     </div>
                 </div>
@@ -209,7 +273,7 @@
         @include('businesssettingsmodule::admin.partials.commission-entity-form-scripts', [
             'previewCurrencySymbol' => $previewCurrencySymbol,
             'previewCurrencyCode' => $previewCurrencyCode,
-            'formSelector' => '#sub-category-edit-form',
+            'formSelector' => '#subcategory-charges-commission-form',
         ])
     @endcan
 @endpush

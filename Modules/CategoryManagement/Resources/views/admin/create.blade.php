@@ -24,7 +24,9 @@
                     </div>
 
                     @can('category_add')
-                        <div class="card category-setup mb-30">
+                        <div id="category-add-form-panel"
+                             class="category-add-form-panel mb-30 {{ $errors->any() ? '' : 'd-none' }}">
+                        <div class="card category-setup mb-0">
                             <div class="card-body p-30">
                                 <form action="{{route('admin.category.store')}}" method="post"
                                       enctype="multipart/form-data" id="category-form">
@@ -134,7 +136,8 @@
                                             </div>
                                         </div>
                                         <div class="col-12">
-                                            <div class="d-flex justify-content-end gap-20 mt-30">
+                                            <div class="d-flex justify-content-end gap-20 mt-30 flex-wrap">
+                                                <button class="btn btn--secondary" type="button" id="category-add-cancel">{{translate('cancel')}}</button>
                                                 <button class="btn btn--secondary" type="reset">{{translate('reset')}}</button>
                                                 <button class="btn btn--primary" type="submit">{{translate('submit')}}
                                                 </button>
@@ -143,6 +146,7 @@
                                     </div>
                                 </form>
                             </div>
+                        </div>
                         </div>
                     @endcan
 
@@ -168,9 +172,16 @@
                             </li>
                         </ul>
 
-                        <div class="d-flex gap-2 fw-medium">
-                            <span class="opacity-75">{{translate('Total_Categories')}}:</span>
-                            <span class="title-color" id="totalListCount">{{$categories->total()}}</span>
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div class="d-flex gap-2 fw-medium">
+                                <span class="opacity-75">{{translate('Total_Categories')}}:</span>
+                                <span class="title-color" id="totalListCount">{{$categories->total()}}</span>
+                            </div>
+                            @can('category_add')
+                                <button type="button"
+                                        class="btn btn--primary btn-sm text-capitalize {{ $errors->any() ? 'd-none' : '' }}"
+                                        id="btn-show-category-add-form">{{translate('add_new')}} {{translate('category')}}</button>
+                            @endcan
                         </div>
                     </div>
 
@@ -237,6 +248,41 @@
     <script src="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.js"></script>
     <script src="{{asset('assets/admin-module')}}/plugins/dataTables/dataTables.select.min.js"></script>
 
+    {{-- Own script tag so add/cancel still work if the main block below has a JS parse error (e.g. quotes in translations). --}}
+    <script>
+        (function () {
+            function bindCategoryAddFormToggle() {
+                var panel = document.getElementById('category-add-form-panel');
+                var btnShow = document.getElementById('btn-show-category-add-form');
+                var btnCancel = document.getElementById('category-add-cancel');
+                var form = document.getElementById('category-form');
+
+                function showPanel() {
+                    if (panel) panel.classList.remove('d-none');
+                    if (btnShow) btnShow.classList.add('d-none');
+                }
+
+                function hidePanel() {
+                    if (panel) panel.classList.add('d-none');
+                    if (btnShow) btnShow.classList.remove('d-none');
+                    if (form) {
+                        var resetBtn = form.querySelector('button[type="reset"]');
+                        if (resetBtn) resetBtn.click();
+                    }
+                }
+
+                if (btnShow) btnShow.addEventListener('click', showPanel);
+                if (btnCancel) btnCancel.addEventListener('click', hidePanel);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bindCategoryAddFormToggle);
+            } else {
+                bindCategoryAddFormToggle();
+            }
+        })();
+    </script>
+
     <script>
         "use strict"
 
@@ -255,7 +301,7 @@
             let itemId = $(this).data('featured');
             let route = '{{route('admin.category.featured-update',['id' => ':itemId'])}}';
             route = route.replace(':itemId', itemId);
-            route_alert(route, '{{ translate('want_to_update_feature_status') }}', $this, initialState);
+            route_alert(route, @json(translate('want_to_update_feature_status')), $this, initialState);
         })
 
         $('button[type="reset"]').on('click', function () {
@@ -268,8 +314,16 @@
         let currentStatus = "{{ request('status', 'all') }}"; // Keep the current tab status
 
         $('.nav-link').on('click', function () {
-            const urlParams = new URLSearchParams($(this).attr('href').split('?')[1]);
-            currentStatus = urlParams.get('status') || 'all';
+            var href = $(this).attr('href') || '';
+            var query = href.split('?')[1];
+            if (!query) {
+                return;
+            }
+            try {
+                currentStatus = new URLSearchParams(query).get('status') || 'all';
+            } catch (e) {
+                /* ignore invalid href */
+            }
         });
 
         // Attach event listener for status change with event delegation
@@ -287,14 +341,14 @@
             selectedRoute = '{{ route('admin.category.status-update', ['id' => ':itemId']) }}'.replace(':itemId', itemId);
 
             let confirmationTitleText = initialState
-                ? '{{ translate('Are you sure to Turn On the Category Status') }}?'
-                : '{{ translate('Are you sure to Turn Off the Category Status') }}?';
+                ? @json(translate('Are you sure to Turn On the Category Status') . '?')
+                : @json(translate('Are you sure to Turn Off the Category Status') . '?');
 
             $('.confirmation-title-text').text(confirmationTitleText);
 
             let confirmationDescriptionText = initialState
-                ? '{{ translate('Once you turn on the Category Status, the user can find the Category and its service for selection') }}.'
-                : '{{ translate('Once you turn off the Category Status, the Provider can’t subscribe to the services of that category and the Customer can’t find the category & its service when they want to book') }}.';
+                ? @json(translate('Once you turn on the Category Status, the user can find the Category and its service for selection') . '.')
+                : @json(translate('Once you turn off the Category Status, the Provider can’t subscribe to the services of that category and the Customer can’t find the category & its service when they want to book') . '.');
 
             $('.confirmation-description-text').text(confirmationDescriptionText);
 
@@ -517,7 +571,7 @@
                     var anyChecked = formEl.querySelectorAll("input.category-zone-leaf-cb:checked").length > 0;
                     if (!anyChecked) {
                         e.preventDefault();
-                        var msg = "{{ addslashes(translate('Select_Zone')) }}";
+                        var msg = @json(translate('Select_Zone'));
                         if (typeof toastr !== "undefined") toastr.error(msg);
                         var tree = formEl.querySelector(".category-zone-tree");
                         if (tree && tree.scrollIntoView) tree.scrollIntoView({ behavior: "smooth", block: "nearest" });

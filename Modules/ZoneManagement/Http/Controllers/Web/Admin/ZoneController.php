@@ -55,48 +55,77 @@ class ZoneController extends Controller
             ];
             session()->put('location', $location);
         }
-        $search = $request['search'];
-        $queryParam = $search ? ['search' => $request['search']] : '';
+        $search = $request->input('search', '');
+        $queryParam = $search !== '' && $search !== null ? ['search' => $search] : [];
 
-        $zones = $this->zone
-            ->withCount(['providers', 'categories'])
-            ->with([
-                'parentZone' => fn($q) => $q->withoutGlobalScope('translate'),
-                'childZones' => fn($q) => $q->withoutGlobalScope('translate'),
-            ])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', '%' . $key . '%');
-                }
-            })
-            ->withoutGlobalScope('translate')
-            ->latest()->paginate(pagination_limit())->appends($queryParam);
+        $zones = $this->buildZoneListingQuery($request)
+            ->paginate(pagination_limit())
+            ->appends($queryParam);
         $parentZoneChoices = $this->zone->withoutGlobalScope('translate')->orderBy('name')->get(['id', 'name']);
 
         return view('zonemanagement::admin.create', compact('zones', 'search', 'parentZoneChoices'));
     }
 
-    public function getTable(Request $request)
+    /**
+     * Zone list: root zones only when not searching; search matches any zone by name.
+     */
+    protected function buildZoneListingQuery(Request $request)
     {
-        $search = $request->input('search', '');
-        $page = $request->input('page', 1);
-        $queryParam = ['search' => $search];
+        $search = trim((string) $request->input('search', ''));
 
-        $zones = $this->zone
+        return $this->zone
             ->withCount(['providers', 'categories'])
-            ->with([
-                'parentZone' => fn($q) => $q->withoutGlobalScope('translate'),
-                'childZones' => fn($q) => $q->withoutGlobalScope('translate'),
-            ])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', '%' . $key . '%');
+            ->with(array_merge(
+                [
+                    'parentZone' => fn ($q) => $q->withoutGlobalScope('translate'),
+                ],
+                $this->zoneNestedChildZonesWith(12),
+            ))
+            ->when($search === '', fn ($q) => $q->whereNull('parent_id'))
+            ->when($search !== '', function ($query) use ($search) {
+                $keys = array_filter(explode(' ', $search));
+                if ($keys !== []) {
+                    $query->where(function ($q) use ($keys) {
+                        foreach ($keys as $key) {
+                            $q->orWhere('name', 'LIKE', '%'.$key.'%');
+                        }
+                    });
                 }
             })
             ->withoutGlobalScope('translate')
-            ->latest()->paginate(pagination_limit())->appends($queryParam);
+            ->latest();
+    }
+
+    /**
+     * Eager-load zone trees up to $depth levels (direct children per level).
+     */
+    protected function zoneNestedChildZonesWith(int $depth): array
+    {
+        if ($depth <= 0) {
+            return [];
+        }
+
+        return [
+            'childZones' => function ($query) use ($depth) {
+                $query->withoutGlobalScope('translate')
+                    ->with(['parentZone' => fn ($p) => $p->withoutGlobalScope('translate')])
+                    ->withCount(['providers', 'categories', 'childZones']);
+                if ($depth > 1) {
+                    $query->with($this->zoneNestedChildZonesWith($depth - 1));
+                }
+            },
+        ];
+    }
+
+    public function getTable(Request $request)
+    {
+        $search = $request->input('search', '');
+        $page = (int) $request->input('page', 1);
+        $queryParam = $search !== '' && $search !== null ? ['search' => $search] : [];
+
+        $zones = $this->buildZoneListingQuery($request)
+            ->paginate(pagination_limit())
+            ->appends($queryParam);
 
         $totalCount = $zones->total();
         $zones->withPath(route('admin.zone.create'));
@@ -106,20 +135,14 @@ class ZoneController extends Controller
             $page = $page - 1;
             $request->merge(['page' => $page]);
 
-            $zones = $this->zone
-                ->withCount(['providers', 'categories'])
-                ->when($request->has('search'), function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    foreach ($keys as $key) {
-                        $query->orWhere('name', 'LIKE', '%' . $key . '%');
-                    }
-                })
-                ->withoutGlobalScope('translate')
-                ->latest()->paginate(pagination_limit())->appends($queryParam);
+            $zones = $this->buildZoneListingQuery($request)
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
+            $totalCount = $zones->total();
         }
 
         return response()->json([
-            'view' =>  view('zonemanagement::admin.partials._table', compact('zones', 'search', 'totalCount'))->render(),
+            'view' => view('zonemanagement::admin.partials._table', compact('zones', 'search', 'totalCount'))->render(),
             'totalCount' => $totalCount,
             'offset' => ($zones->currentPage() - 1) * $zones->perPage(),
             'page' => $zones->currentPage(),
@@ -413,6 +436,7 @@ class ZoneController extends Controller
             'name.0' => 'required',
             'coordinates' => 'required',
             'parent_id' => 'nullable|uuid|exists:zones,id',
+            'description' => 'nullable|string|max:65535',
         ],
         [
             'name.0.required' => translate('default_name_is_required'),
@@ -436,6 +460,8 @@ class ZoneController extends Controller
             $zone->name = $request->name[array_search('default', $request->lang)];
             $zone->coordinates = new Polygon([new LineString($polygon)]);
             $zone->parent_id = $request->filled('parent_id') ? $request->parent_id : null;
+            $desc = $request->input('description');
+            $zone->description = is_string($desc) && trim($desc) !== '' ? trim($desc) : null;
             $zone->save();
 
             $defaultLang = str_replace('_', '-', app()->getLocale());
@@ -615,6 +641,7 @@ class ZoneController extends Controller
                 'exists:zones,id',
                 Rule::notIn([$id]),
             ],
+            'description' => 'nullable|string|max:65535',
         ],
         [
             'name.0.required' => translate('default_name_is_required'),
@@ -643,6 +670,8 @@ class ZoneController extends Controller
         $zone->name = $request->name[array_search('default', $request->lang)];
         $zone->coordinates = new Polygon([new LineString($polygon)]);
         $zone->parent_id = $request->filled('parent_id') ? $request->parent_id : null;
+        $desc = $request->input('description');
+        $zone->description = is_string($desc) && trim($desc) !== '' ? trim($desc) : null;
         $zone->save();
 
         $defaultLang = str_replace('_', '-', app()->getLocale());
@@ -706,14 +735,7 @@ class ZoneController extends Controller
     public function download(Request $request): string|StreamedResponse
     {
         $this->authorize('zone_export');
-        $items = $this->zone->withoutGlobalScope('translate')->withCount(['providers', 'categories'])
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                foreach ($keys as $key) {
-                    $query->orWhere('name', 'LIKE', '%' . $key . '%');
-                }
-            })
-            ->latest()->get();
+        $items = $this->buildZoneListingQuery($request)->get();
         return (new FastExcel($items))->download(time() . '-file.xlsx');
     }
 

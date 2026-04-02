@@ -7,7 +7,12 @@ use Modules\ServiceManagement\Entities\Service;
 
 if (! function_exists('resolve_additional_charge_group_for_service')) {
     /**
-     * Priority: service → subcategory → category (main) → company charge type default.
+     * Resolve which commission-style group applies for one additional-charge type and service.
+     *
+     * Precedence (first match wins): service.additional_charge_overrides[type] →
+     * subCategory (service.sub_category_id) additional_charge_overrides[type] →
+     * parent category (service.category_id) additional_charge_overrides[type] →
+     * company default on AdditionalChargeType.charge_setup.
      *
      * @return array{mode: string, fixed_amount: float, tiers: list<array<string, mixed>>}
      */
@@ -69,9 +74,12 @@ if (! function_exists('compute_additional_charges_for_cart_items')) {
         foreach ($cartItems as $item) {
             $service = null;
             if (is_object($item) && isset($item->service_id)) {
-                $service = $item->relationLoaded('service') && $item->service
-                    ? $item->service
-                    : Service::query()->with(['category', 'subCategory'])->find($item->service_id);
+                if ($item->relationLoaded('service') && $item->service) {
+                    $service = $item->service;
+                    $service->loadMissing(['category', 'subCategory']);
+                } else {
+                    $service = Service::query()->with(['category', 'subCategory'])->find($item->service_id);
+                }
             }
 
             $basis = 0.0;
@@ -81,7 +89,7 @@ if (! function_exists('compute_additional_charges_for_cart_items')) {
 
             foreach ($types as $type) {
                 $group = resolve_additional_charge_group_for_service((string) $type->id, $service);
-                $amount = (float) (commission_calc_line_preview($basis, $group)['admin_commission'] ?? 0);
+                $amount = (float) (commission_calc_line_preview($basis, $group, true)['admin_commission'] ?? 0);
                 if ($amount <= 0) {
                     continue;
                 }
@@ -131,7 +139,7 @@ if (! function_exists('compute_additional_charges_for_service_basis')) {
 
         foreach ($types as $type) {
             $group = resolve_additional_charge_group_for_service((string) $type->id, $service);
-            $amount = round((float) (commission_calc_line_preview($basisExTax, $group)['admin_commission'] ?? 0), 2);
+            $amount = round((float) (commission_calc_line_preview($basisExTax, $group, true)['admin_commission'] ?? 0), 2);
             if ($amount > 0) {
                 $lines[] = [
                     'id' => (string) $type->id,
@@ -153,6 +161,7 @@ if (! function_exists('get_additional_charges_cart_total')) {
     function get_additional_charges_cart_total(int|string $customerUserId): float
     {
         $cart = \Modules\CartModule\Entities\Cart::query()
+            ->with(['service.category', 'service.subCategory'])
             ->where('customer_id', $customerUserId)
             ->get();
 

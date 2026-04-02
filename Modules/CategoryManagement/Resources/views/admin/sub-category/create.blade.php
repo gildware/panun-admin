@@ -24,10 +24,13 @@
                     </div>
 
                     @can('category_add')
-                        <div class="card category-setup mb-30">
+                        <div id="sub-category-add-form-panel"
+                             class="sub-category-add-form-panel mb-30 {{ $errors->any() ? '' : 'd-none' }}">
+                        <div class="card category-setup mb-0">
                             <div class="card-body p-30">
                                 <form action="{{route('admin.sub-category.store')}}" method="post"
-                                      enctype="multipart/form-data">
+                                      enctype="multipart/form-data"
+                                      id="sub-category-form">
                                     @csrf
                                     @php($language= Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
                                     @php($default_lang = str_replace('_', '-', app()->getLocale()))
@@ -144,7 +147,9 @@
                                             </div>
                                         </div>
                                         <div class="col-12">
-                                            <div class="d-flex justify-content-end gap-20 mt-30">
+                                            <div class="d-flex justify-content-end gap-20 mt-30 flex-wrap">
+                                                <button class="btn btn--secondary" type="button"
+                                                        id="sub-category-add-cancel">{{translate('cancel')}}</button>
                                                 <button class="btn btn--secondary"
                                                         type="reset">{{translate('reset')}}</button>
                                                 <button class="btn btn--primary" type="submit">{{translate('submit')}}
@@ -154,6 +159,7 @@
                                     </div>
                                 </form>
                             </div>
+                        </div>
                         </div>
                     @endcan
 
@@ -180,9 +186,16 @@
                             </li>
                         </ul>
 
-                        <div class="d-flex gap-2 fw-medium">
-                            <span class="opacity-75">{{translate('Total_Sub_Categories')}}:</span>
-                            <span class="title-color">{{$subCategories->total()}}</span>
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div class="d-flex gap-2 fw-medium">
+                                <span class="opacity-75">{{translate('Total_Sub_Categories')}}:</span>
+                                <span class="title-color" id="totalSubCategoryCount">{{$subCategories->total()}}</span>
+                            </div>
+                            @can('category_add')
+                                <button type="button"
+                                        class="btn btn--primary btn-sm text-capitalize {{ $errors->any() ? 'd-none' : '' }}"
+                                        id="btn-show-sub-category-add-form">{{translate('add_new')}} {{translate('sub_category')}}</button>
+                            @endcan
                         </div>
                     </div>
 
@@ -334,6 +347,54 @@
     <script src="{{asset('assets/category-module/js/sub-category/create.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/dataTables/dataTables.select.min.js')}}"></script>
+
+    <script>
+        (function () {
+            function bindSubCategoryAddFormToggle() {
+                var panel = document.getElementById('sub-category-add-form-panel');
+                var btnShow = document.getElementById('btn-show-sub-category-add-form');
+                var btnCancel = document.getElementById('sub-category-add-cancel');
+                var form = document.getElementById('sub-category-form');
+
+                function ensureSelect2() {
+                    if (!window.jQuery) return;
+                    var $s = jQuery('#category_selector');
+                    if ($s.length && !$s.data('select2')) {
+                        $s.select2();
+                    }
+                }
+
+                function showPanel() {
+                    if (panel) panel.classList.remove('d-none');
+                    if (btnShow) btnShow.classList.add('d-none');
+                    ensureSelect2();
+                }
+
+                function hidePanel() {
+                    if (panel) panel.classList.add('d-none');
+                    if (btnShow) btnShow.classList.remove('d-none');
+                    if (form) {
+                        var resetBtn = form.querySelector('button[type="reset"]');
+                        if (resetBtn) resetBtn.click();
+                    }
+                }
+
+                if (btnShow) btnShow.addEventListener('click', showPanel);
+                if (btnCancel) btnCancel.addEventListener('click', hidePanel);
+
+                if (panel && !panel.classList.contains('d-none')) {
+                    ensureSelect2();
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bindSubCategoryAddFormToggle);
+            } else {
+                bindSubCategoryAddFormToggle();
+            }
+        })();
+    </script>
+
     <script>
         "use strict"
 
@@ -341,17 +402,17 @@
             let itemId = $(this).data('status');
             let route = '{{route('admin.sub-category.status-update',['id' => ':itemId'])}}';
             route = route.replace(':itemId', itemId);
-            route_alert(route, '{{ translate('want_to_update_status') }}');
+            route_alert(route, @json(translate('want_to_update_status')));
         })
 
         $('.action-btn.btn--danger').on('click', function () {
             let itemId = $(this).data('delete');
             @if(env('APP_ENV')!='demo')
-            form_alert('delete-' + itemId, '{{translate('want_to_delete_this')}}?')
+            form_alert('delete-' + itemId, @json(translate('want_to_delete_this') . '?'))
             @endif
         })
 
-        $('button[type="reset"]').on('click', function (e) {
+        $('#sub-category-form button[type="reset"]').on('click', function (e) {
             $('#category_selector').val('').trigger('change');
         });
     </script>

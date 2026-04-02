@@ -546,7 +546,7 @@
                             <hr>
                              @can('booking_can_manage_status')
                                 <div class="mt-3">
-                                        <select class="js-select without-search" id="booking_status">
+                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}">
                                             @if ($booking->booking_status != 'pending')
                                                 @if ($booking->booking_status == 'accepted')
                                                     <option value="0" disabled
@@ -823,6 +823,8 @@
     </div>
 
     @include('bookingmodule::admin.booking.partials.details._service-address-modal')
+
+    @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
 
     @include('bookingmodule::admin.booking.partials.details._repeat-details-service-location-modal')
 
@@ -1199,7 +1201,7 @@
             payment_status_change(paymentStatus)
         })
 
-        $('.reassign-provider').on('click', function() {
+        $(document).on('click', '.reassign-provider', function() {
             let newProviderId = $(this).data('provider-reassign');
             pendingReassignProviderId = newProviderId;
             pendingPostFeedbackAction = 'reassign';
@@ -1226,16 +1228,26 @@
         @endif
 
         $("#booking_status").change(function() {
-            var booking_status = $("#booking_status option:selected").val();
-            if (parseInt(booking_status) !== 0) {
-                var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' +
-                    booking_status;
-                if(booking_status === 'canceled'){
+            var $sel = $("#booking_status");
+            var booking_status = $sel.val();
+            var previous_status = $sel.data('current');
+            if (booking_status && booking_status !== '0' && parseInt(booking_status, 10) !== 0) {
+                if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(booking_status, previous_status)) {
+                    $sel.val(previous_status);
+                    if ($sel.next('.select2-container').length) {
+                        $sel.next('.select2-container').find('.select2-selection__rendered').text($sel.find('option:selected').text());
+                    }
+                    if (typeof bookingAdminOpenStatusReasonModal === 'function') {
+                        bookingAdminOpenStatusReasonModal(booking_status, previous_status);
+                    }
+                    return;
+                }
+                var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
+                if (booking_status === 'canceled') {
                     update_booking_details(route, '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}', 'booking_status',
                         booking_status, '{{ translate('Are you sure you want to cancel the entire booking?') }}');
-                }else{
-                    update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status',
-                        booking_status);
+                } else {
+                    update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status', booking_status);
                 }
             } else {
                 toastr.error('{{ translate('choose_proper_status') }}');
@@ -1283,14 +1295,16 @@
                 reverseButtons: true
             }).then((result) => {
                 if (result.value) {
-                    $.get({
-                        url: route,
+                    var revertStatus = componentId === 'booking_status' ? $('#booking_status').data('current') : undefined;
+                    var ajaxOpts = {
                         dataType: 'json',
-                        data: {},
                         beforeSend: function() {
                             toastr.info('{{ translate('Processing request...') }}');
                         },
                         success: function(data) {
+                            if (componentId === 'booking_status') {
+                                $('#booking_status').data('current', updatedValue);
+                            }
                             update_component(componentId, updatedValue);
                             toastr.success(data.message, {
                                 CloseButton: true,
@@ -1311,8 +1325,34 @@
                                 location.reload();
                             }
                         },
+                        error: function(xhr) {
+                            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '{{ translate('Something went wrong. Please try again.') }}';
+                            if (componentId === 'booking_status' && revertStatus !== undefined) {
+                                $('#booking_status').val(revertStatus);
+                                $('#booking_status').data('current', revertStatus);
+                                if ($('#booking_status').next('.select2-container').length) {
+                                    $('#booking_status').next('.select2-container').find('.select2-selection__rendered').text($('#booking_status option:selected').text());
+                                }
+                            }
+                            toastr.error(msg, { CloseButton: true, ProgressBar: true });
+                        },
                         complete: function() {},
-                    });
+                    };
+                    if (componentId === 'booking_status') {
+                        ajaxOpts.url = '{{ route('admin.booking.status_update', [$booking->id]) }}';
+                        ajaxOpts.method = 'POST';
+                        ajaxOpts.data = {
+                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            booking_status: updatedValue
+                        };
+                        ajaxOpts.headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
+                        $.ajax(ajaxOpts);
+                    } else {
+                        ajaxOpts.url = route;
+                        ajaxOpts.method = 'GET';
+                        ajaxOpts.data = {};
+                        $.ajax(ajaxOpts);
+                    }
                 }
             })
         }

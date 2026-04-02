@@ -133,6 +133,16 @@
                                                 </div>
                                             @endif
 
+                                            <div class="form-group mb-30">
+                                                <label class="input-label d-block mb-2" for="zone-description">{{ translate('Zone_description') }}</label>
+                                                <span class="input-label-secondary d-block mb-2 fs-12">{{ translate('Zone_description_hint') }}</span>
+                                                <textarea name="description"
+                                                          id="zone-description"
+                                                          class="form-control theme-input-style"
+                                                          rows="5"
+                                                          placeholder="{{ translate('Zone_description_placeholder') }}">{{ old('description') }}</textarea>
+                                            </div>
+
                                             <div class="form-group mb-3 coordinates">
                                                 <label class="input-label"
                                                        for="exampleFormControlInput1">{{translate('coordinates')}}
@@ -167,7 +177,7 @@
                     <div class="d-flex justify-content-end border-bottom mx-lg-4 mb-10">
                         <div class="d-flex gap-2 fw-medium">
                             <span class="opacity-75">{{translate('Total_Zones')}}:</span>
-                            <span class="title-color">{{ $zones->total() }}</span>
+                            <span class="title-color" id="totalListCount">{{ $zones->total() }}</span>
                         </div>
                     </div>
 
@@ -863,6 +873,153 @@
             });
         }
 
+        function zoneListToggleButtonSetCollapsed($btn) {
+            if (!$btn || !$btn.length) {
+                return;
+            }
+            $btn.attr('aria-expanded', 'false');
+            $btn.removeClass('zone-toggle-children--hide').addClass('zone-toggle-children--view');
+            $btn.find('.zone-toggle-children__icon').text('expand_more');
+            $btn.find('.zone-toggle-children__label').text($btn.data('label-show'));
+        }
+
+        function zoneListToggleButtonSetExpanded($btn) {
+            if (!$btn || !$btn.length) {
+                return;
+            }
+            $btn.attr('aria-expanded', 'true');
+            $btn.removeClass('zone-toggle-children--view').addClass('zone-toggle-children--hide');
+            $btn.find('.zone-toggle-children__icon').text('expand_less');
+            $btn.find('.zone-toggle-children__label').text($btn.data('label-hide'));
+        }
+
+        function zoneListNestContiguousRuns(parentZoneId) {
+            const $rows = $('tr.zone-list-tree-row[data-child-of="' + parentZoneId + '"]').filter(':not(.d-none)');
+            const runs = [];
+            let run = [];
+            $rows.each(function () {
+                const el = this;
+                if (run.length === 0) {
+                    run.push(el);
+                    return;
+                }
+                const last = run[run.length - 1];
+                if (last.nextElementSibling === el) {
+                    run.push(el);
+                } else {
+                    runs.push(run);
+                    run = [el];
+                }
+            });
+            if (run.length) {
+                runs.push(run);
+            }
+            return runs;
+        }
+
+        function zoneListRefreshBranchHighlight() {
+            $('tr.zone-list-tree-row').removeClass(
+                'zone-branch-subtree zone-branch-nest zone-branch-nest--l1 zone-branch-nest--l2 zone-branch-nest--l3 zone-branch-nest--l4 zone-branch-nest-first zone-branch-nest-last'
+            );
+            const $openTop = $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').first();
+            if (!$openTop.length) {
+                return;
+            }
+            const rootId = $openTop.attr('data-branch-root');
+            if (!rootId) {
+                return;
+            }
+            const $subtree = $('tr.zone-list-tree-row[data-branch-root="' + rootId + '"]').filter(function () {
+                if ($(this).hasClass('d-none')) {
+                    return false;
+                }
+                const co = $(this).attr('data-child-of');
+                return co !== undefined && co !== '';
+            });
+            $subtree.addClass('zone-branch-subtree');
+
+            $('tr.zone-list-expandable.zone-children-open').each(function () {
+                const $p = $(this);
+                const pid = $p.data('zone-id');
+                if (!pid) {
+                    return;
+                }
+                const pDepth = parseInt($p.attr('data-depth'), 10);
+                const depth = Number.isNaN(pDepth) ? 0 : pDepth;
+                const lvl = Math.min(depth + 1, 4);
+                const runs = zoneListNestContiguousRuns(pid);
+                runs.forEach(function (elements) {
+                    const $r = $(elements);
+                    $r.addClass('zone-branch-nest zone-branch-nest--l' + lvl);
+                    $r.first().addClass('zone-branch-nest-first');
+                    $r.last().addClass('zone-branch-nest-last');
+                });
+            });
+        }
+
+        function zoneListCloseBranch($row) {
+            const id = $row.data('zone-id');
+            $row.removeClass('zone-children-open');
+            const $btn = $row.find('.zone-toggle-children');
+            zoneListToggleButtonSetCollapsed($btn);
+            $('tr.zone-list-tree-row[data-child-of="' + id + '"]').each(function () {
+                const $child = $(this);
+                if ($child.hasClass('zone-list-expandable') && $child.hasClass('zone-children-open')) {
+                    zoneListCloseBranch($child);
+                }
+                $child.addClass('d-none');
+            });
+            zoneListRefreshBranchHighlight();
+        }
+
+        function zoneListOpenBranch($row) {
+            const parentId = $row.attr('data-child-of');
+            const hasParent = parentId !== undefined && parentId !== '';
+
+            if (!hasParent) {
+                $('tr.zone-list-top-level.zone-list-expandable.zone-children-open').not($row).each(function () {
+                    zoneListCloseBranch($(this));
+                });
+            } else {
+                $('tr.zone-list-expandable.zone-children-open[data-child-of="' + parentId + '"]').not($row).each(function () {
+                    zoneListCloseBranch($(this));
+                });
+            }
+
+            const id = $row.data('zone-id');
+            $row.addClass('zone-children-open');
+            $('tr.zone-list-tree-row[data-child-of="' + id + '"]').removeClass('d-none');
+            const $openBtn = $row.find('.zone-toggle-children');
+            zoneListToggleButtonSetExpanded($openBtn);
+            zoneListRefreshBranchHighlight();
+        }
+
+        function zoneListToggleBranch($row) {
+            const has = $row.data('has-children') === 1 || $row.attr('data-has-children') === '1';
+            if (!has) {
+                return;
+            }
+            if ($row.hasClass('zone-children-open')) {
+                zoneListCloseBranch($row);
+            } else {
+                zoneListOpenBranch($row);
+            }
+        }
+
+        $(document).on('click', '.zone-toggle-children', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const $expandRow = $(this).closest('tr.zone-list-expandable');
+            zoneListToggleBranch($expandRow);
+        });
+
+        $(document).on('click', '.zone-list-expandable', function (e) {
+            if ($(e.target).closest('a, button, label, input, .switcher').length) {
+                return;
+            }
+            zoneListToggleBranch($(this));
+        });
+
         function reloadTable(page) {
             let search = $('.zone-search-input').val();
             $.ajax({
@@ -883,6 +1040,7 @@
 
                     $('#totalListCount').html(response.totalCount)
                     $('#ListTableContainer').empty().html(response.view);
+                    zoneListRefreshBranchHighlight();
                 },
                 error: function () {
                     toastr.error('Failed to update table. Please reload the page.', {
@@ -901,6 +1059,10 @@
             const newUrl = `${window.location.pathname}?${params.toString()}`;
             window.history.replaceState({}, '', newUrl);
         }
+
+        $(function () {
+            zoneListRefreshBranchHighlight();
+        });
 
         // Toggle zone form visibility (default: list only)
         document.addEventListener('DOMContentLoaded', function () {

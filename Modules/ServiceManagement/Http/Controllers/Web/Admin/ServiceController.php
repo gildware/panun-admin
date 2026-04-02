@@ -445,8 +445,8 @@ class ServiceController extends Controller
             'short_description.0' => 'required',
             'variants' => 'required|array',
             'min_bidding_price' => 'required|numeric|min:0|not_in:0',
-            'cover_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'thumbnail' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'cover_image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'thumbnail' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
         ]);
 
@@ -454,12 +454,6 @@ class ServiceController extends Controller
         if (!isset($service)) {
             return response()->json(response_formatter(DEFAULT_204), 200);
         }
-
-        if (Gate::allows('commission_custom_service_update')) {
-            CommissionEntitySetup::applyFromRequestToModel($request, $service);
-        }
-
-        AdditionalChargeEntityOverrides::applyFromRequestToModel($request, $service);
 
         $tagIds = [];
         if ($request->tags != null) {
@@ -480,15 +474,14 @@ class ServiceController extends Controller
         $service->short_description = $request->short_description[array_search('default', $request->lang)];;
         $service->description = $request->description[array_search('default', $request->lang)];
 
-        if ($request->has('cover_image')) {
+        if ($request->hasFile('cover_image')) {
             $service->cover_image = file_uploader('service/', 'png', $request->file('cover_image'));
         }
 
-        if ($request->has('thumbnail')) {
+        if ($request->hasFile('thumbnail')) {
             $service->thumbnail = file_uploader('service/', 'png', $request->file('thumbnail'));
         }
 
-        $this->applyServiceTaxFieldsFromRequest($request, $service);
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
         $service->tags()->sync($tagIds);
@@ -603,6 +596,60 @@ class ServiceController extends Controller
             ->route('admin.service.edit', $id)
             ->with('service_updated', translate(DEFAULT_UPDATE_200['message']));
 
+    }
+
+    public function updateChargesTax(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('service_update');
+        $service = $this->service->find($id);
+        if (! isset($service)) {
+            Toastr::error(translate(DEFAULT_204['message']));
+
+            return back();
+        }
+        $this->applyServiceTaxFieldsFromRequest($request, $service);
+        $service->save();
+
+        return redirect()
+            ->route('admin.service.edit', $id)
+            ->with('service_updated', translate('Entity_charges_saved'));
+    }
+
+    public function updateChargesCommission(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('service_update');
+        if (! Gate::allows('commission_custom_service_update')) {
+            abort(403);
+        }
+        $service = $this->service->find($id);
+        if (! isset($service)) {
+            Toastr::error(translate(DEFAULT_204['message']));
+
+            return back();
+        }
+        CommissionEntitySetup::applyFromRequestToModel($request, $service);
+        $service->save();
+
+        return redirect()
+            ->route('admin.service.edit', $id)
+            ->with('service_updated', translate('Entity_charges_saved'));
+    }
+
+    public function updateChargesAdditional(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('service_update');
+        $service = $this->service->find($id);
+        if (! isset($service)) {
+            Toastr::error(translate(DEFAULT_204['message']));
+
+            return back();
+        }
+        AdditionalChargeEntityOverrides::applyFromRequestToModel($request, $service);
+        $service->save();
+
+        return redirect()
+            ->route('admin.service.edit', $id)
+            ->with('service_updated', translate('Entity_charges_saved'));
     }
 
     /**

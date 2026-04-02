@@ -44,6 +44,13 @@
                 </ul>
             </div>
 
+            @php
+                $ssFilterQuery = array_filter([
+                    'web_page' => 'subscribed_services',
+                    'search' => trim((string) ($search ?? '')) !== '' ? $search : null,
+                    'category_ids' => ! empty($selectedCategoryIds ?? []) ? $selectedCategoryIds : null,
+                ], fn ($v) => $v !== null && $v !== '');
+            @endphp
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="subscribed-tab-pane">
                     <div
@@ -51,15 +58,15 @@
                         <ul class="nav nav--tabs">
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='all'?'active':''}}"
-                                   href="{{url()->current()}}?web_page=subscribed_services&status=all">{{translate('All')}}</a>
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($ssFilterQuery, ['status' => 'all'])) }}">{{translate('All')}}</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='subscribed'?'active':''}}"
-                                   href="{{url()->current()}}?web_page=subscribed_services&status=subscribed">{{translate('Subscribed')}}</a>
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($ssFilterQuery, ['status' => 'subscribed'])) }}">{{translate('Subscribed')}}</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='unsubscribed'?'active':''}}"
-                                   href="{{url()->current()}}?web_page=subscribed_services&status=unsubscribed">{{translate('Unsubscribed')}}</a>
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($ssFilterQuery, ['status' => 'unsubscribed'])) }}">{{translate('Unsubscribed')}}</a>
                             </li>
                         </ul>
 
@@ -73,25 +80,44 @@
                         <div class="tab-pane fade show active" id="all-tab-pane">
                             <div class="card">
                                 <div class="card-body">
-                                    <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                        <form
-                                            action="{{url()->current()}}?web_page=subscribed_services&status={{$status}}"
-                                            class="search-form search-form_style-two"
-                                            method="POST">
-                                            @csrf
-                                            <div class="input-group search-form__input_group">
-                                            <span class="search-form__icon">
-                                                <span class="material-icons">search</span>
-                                            </span>
+                                    <form id="subscribed-services-toolbar-form"
+                                          method="get"
+                                          action="{{ url()->current() }}"
+                                          class="data-table-top provider-subscribed-services-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 gap-sm-3 mb-3 w-100">
+                                        <input type="hidden" name="web_page" value="subscribed_services">
+                                        <input type="hidden" name="status" value="{{ $status }}">
+                                        <div class="search-form search-form_style-two d-flex flex-wrap align-items-center gap-2 flex-grow-1" style="min-width: 12rem;">
+                                            <div class="input-group search-form__input_group flex-grow-1" style="max-width: 28rem;">
+                                                <span class="search-form__icon">
+                                                    <span class="material-icons">search</span>
+                                                </span>
                                                 <input type="search" class="theme-input-style search-form__input"
-                                                       value="{{$search??''}}" name="search"
-                                                       placeholder="{{translate('search_here')}}">
+                                                       value="{{ $search ?? '' }}" name="search"
+                                                       placeholder="{{ translate('search_here') }}"
+                                                       autocomplete="off">
                                             </div>
                                             <button type="submit" class="btn btn--primary">
-                                                {{translate('search')}}
+                                                {{ translate('search') }}
                                             </button>
-                                        </form>
-                                    </div>
+                                        </div>
+                                        @if(($subscribedFilterCategories ?? collect())->isNotEmpty())
+                                            <div class="flex-shrink-0 ms-sm-auto subscribed-services-category-filter-wrap" style="width: min(20rem, 100%);">
+                                                <label class="visually-hidden" for="subscribed-services-category-filter">{{ translate('Category') }}</label>
+                                                <select id="subscribed-services-category-filter"
+                                                        class="subscribed-services-category-filter w-100"
+                                                        name="category_ids[]"
+                                                        multiple="multiple"
+                                                        data-placeholder="{{ translate('Select_Categories') }}">
+                                                    @foreach($subscribedFilterCategories as $filterCategory)
+                                                        <option value="{{ $filterCategory->id }}"
+                                                            {{ in_array($filterCategory->id, $selectedCategoryIds ?? [], true) ? 'selected' : '' }}>
+                                                            {{ $filterCategory->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        @endif
+                                    </form>
 
                                     @if($subCategories->total() > 0)
                                         <div class="table-responsive">
@@ -167,4 +193,60 @@
             </div>
         </div>
     </div>
+@push('css_or_js')
+    <style>
+        .provider-subscribed-services-toolbar .search-form_style-two {
+            width: auto;
+        }
+        .provider-subscribed-services-toolbar .select2-container {
+            width: 100% !important;
+        }
+        .provider-subscribed-services-toolbar .select2-container .select2-selection--multiple {
+            min-height: 1.875rem;
+            padding: 0.125rem 0.25rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.3125rem;
+            background-color: var(--bg-color);
+            display: flex;
+            align-items: center;
+        }
+        .provider-subscribed-services-toolbar .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.125rem;
+            padding: 0;
+            margin: 0;
+        }
+        .provider-subscribed-services-toolbar .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+    </style>
+@endpush
+@push('script')
+    <script>
+        (function ($) {
+            'use strict';
+            var $sel = $('#subscribed-services-category-filter');
+            var $form = $('#subscribed-services-toolbar-form');
+            if (!$sel.length || !$form.length) {
+                return;
+            }
+            $sel.select2({
+                placeholder: $sel.data('placeholder') || '',
+                allowClear: true,
+                width: '100%',
+                closeOnSelect: false
+            });
+            var filterSubmitTimer;
+            $sel.on('change', function () {
+                clearTimeout(filterSubmitTimer);
+                filterSubmitTimer = setTimeout(function () {
+                    $form.trigger('submit');
+                }, 400);
+            });
+        })(jQuery);
+    </script>
+@endpush
 @endsection

@@ -2317,11 +2317,16 @@ if (!function_exists('refundTransactionForCanceledBooking')) {
                 $refund_amount = $booking->booking_partial_payments->where('paid_with', '!=', 'offline_payment')->sum('paid_amount');
 
             } elseif ($booking->payment_method != 'offline_payment') {
-                $refund_amount = $booking->booking_partial_payments->where('paid_with', '!=', 'cash_after_service')->sum('paid_amount');
+                $refund_amount = booking_sum_partials_for_cancel_platform_auto_refund($booking->booking_partial_payments);
             }
         }
 
         if ($refund_amount == 0) return;
+
+        $alreadyOnLedger = booking_ledger_refund_out_total((string) $booking->id);
+        if (round($alreadyOnLedger, 2) >= round((float) $refund_amount, 2)) {
+            return;
+        }
 
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         DB::transaction(function () use ($booking, $admin_user_id, $refund_amount) {

@@ -68,14 +68,14 @@ class WhatsAppController extends Controller
         return $name !== '' ? $name : (string) ($user->email ?? '');
     }
     /**
-     * Tabbed index: Active Chats | Provider Leads | Bookings | Users (all from Neon/WhatsApp DB only).
+     * Tabbed index: chats, human support, leads, bookings, users, quick replies, chat config (WhatsApp DB).
      */
     public function index(Request $request): View|RedirectResponse
     {
         $this->authorize('whatsapp_chat_view');
 
         $tab = $request->get('tab', 'chats');
-        if (!in_array($tab, ['chats', 'human_support', 'leads', 'bookings', 'users', 'chat_config'], true)) {
+        if (!in_array($tab, ['chats', 'human_support', 'leads', 'bookings', 'users', 'quick_replies', 'chat_config'], true)) {
             $tab = 'chats';
         }
 
@@ -262,6 +262,20 @@ class WhatsAppController extends Controller
             return view('whatsappmodule::admin.conversations.index', compact('tab', 'users', 'usersError'));
         }
 
+        if ($tab === 'quick_replies') {
+            $this->authorize('whatsapp_message_template_update');
+
+            $conversationTemplates = collect();
+            if (Schema::hasTable('whatsapp_conversation_templates')) {
+                $conversationTemplates = WhatsAppConversationTemplate::query()
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get();
+            }
+
+            return view('whatsappmodule::admin.conversations.index', compact('tab', 'conversationTemplates'));
+        }
+
         if ($tab === 'chat_config') {
             $this->authorize('whatsapp_message_template_update');
 
@@ -411,7 +425,8 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * Validate WhatsApp reachability (when Cloud API probe is enabled), assign thread to current admin, return conversations URL.
+     * Ensure the number is well-formed, then (when Cloud is configured) confirm with Meta that the user is on WhatsApp
+     * before redirecting to the conversations UI. Existing inbound threads skip Graph checks.
      */
     public function prepareOpenChat(Request $request): JsonResponse
     {
@@ -426,7 +441,8 @@ class WhatsAppController extends Controller
         if ($normalized === null) {
             return response()->json([
                 'ok' => false,
-                'message' => translate('not_a_valid_whatsapp_number'),
+                'message' => translate('whatsapp_invalid_phone_format'),
+                'code' => 'invalid_phone_format',
             ], 422);
         }
 
@@ -436,7 +452,9 @@ class WhatsAppController extends Controller
         $token = (string) config('services.whatsapp_cloud.token');
         $phoneId = (string) config('services.whatsapp_cloud.phone_id');
         $cloudOk = $token !== '' && $phoneId !== '';
+        $useContacts = (bool) config('services.whatsapp_cloud.open_chat_use_contacts', true);
         $probeEnabled = (bool) config('services.whatsapp_cloud.open_chat_probe_enabled', true);
+        $probeAfterContacts = (bool) config('services.whatsapp_cloud.open_chat_probe_fallback_after_contacts', false);
         $allowBypass = (bool) config('services.whatsapp_cloud.allow_open_without_graph_verify', false);
 
         $hasInbound = $this->whatsappThreadHasInboundMessage($phoneKeys);
@@ -445,33 +463,50 @@ class WhatsAppController extends Controller
             return response()->json([
                 'ok' => false,
                 'message' => translate('whatsapp_open_requires_cloud_api'),
+                'code' => 'cloud_not_configured',
             ], 422);
         }
 
-        if (!$hasInbound && $cloudOk && !$probeEnabled && !$allowBypass) {
+        $verifyNeeded = !$hasInbound && $cloudOk && !$allowBypass;
+        $hasVerifyMethod = $useContacts || $probeEnabled;
+
+        if ($verifyNeeded && !$hasVerifyMethod) {
             return response()->json([
                 'ok' => false,
-                'message' => translate('whatsapp_open_probe_required'),
+                'message' => translate('whatsapp_open_verify_method_required'),
+                'code' => 'verify_method_required',
             ], 422);
         }
 
-        $shouldProbe = $probeEnabled && $cloudOk && !$hasInbound;
-
-        if ($shouldProbe) {
+        if ($verifyNeeded) {
             $probeErr = null;
             $probeCtx = null;
-            $accepted = $this->whatsAppCloud->probeRecipientAcceptsWhatsApp($normalized, $probeErr, $probeCtx);
+            $accepted = false;
+
+            if ($useContacts) {
+                $accepted = $this->whatsAppCloud->checkRecipientRegisteredViaContacts($normalized, $probeErr, $probeCtx);
+                if (!$accepted && $probeAfterContacts && $probeEnabled) {
+                    $probeErr = null;
+                    $probeCtx = null;
+                    $accepted = $this->whatsAppCloud->probeRecipientAcceptsWhatsApp($normalized, $probeErr, $probeCtx);
+                }
+            } elseif ($probeEnabled) {
+                $accepted = $this->whatsAppCloud->probeRecipientAcceptsWhatsApp($normalized, $probeErr, $probeCtx);
+            }
+
             if (!$accepted) {
                 if ($probeErr === 'not_on_whatsapp') {
                     return response()->json([
                         'ok' => false,
-                        'message' => translate('not_a_valid_whatsapp_number'),
+                        'message' => translate('whatsapp_number_not_registered'),
+                        'code' => 'not_on_whatsapp',
                     ], 422);
                 }
 
                 return response()->json([
                     'ok' => false,
                     'message' => translate('whatsapp_open_chat_verify_failed'),
+                    'code' => 'verify_failed',
                 ], 422);
             }
 
@@ -1078,11 +1113,27 @@ class WhatsAppController extends Controller
 
         $q = trim((string) $request->get('q', ''));
         if (mb_strlen($q) < 2) {
-            return response()->json(['chats' => [], 'messages' => []]);
+            return response()->json([
+                'chats' => [],
+                'messages' => [],
+                'leads' => [],
+                'bookings' => [],
+                'users' => [],
+                'quick_replies' => [],
+                'chat_config' => [],
+            ]);
         }
 
         try {
-            $active = $this->getActiveChatsList();
+            $byPhone = $this->getActiveChatsList()->keyBy(fn ($r) => (string) ($r->phone ?? ''));
+            foreach ($this->getHumanSupportChatsList() as $row) {
+                $k = (string) ($row->phone ?? '');
+                if ($k !== '' && !$byPhone->has($k)) {
+                    $byPhone->put($k, $row);
+                }
+            }
+            $active = $byPhone->values();
+
             $needle = mb_strtolower($q);
             $digitsNeedle = preg_replace('/\D+/', '', $q);
             $qLowerPhone = mb_strtolower($q);
@@ -1143,13 +1194,202 @@ class WhatsAppController extends Controller
                     'created_at' => $created,
                 ];
             })->values()->all();
+
+            $leadsOut = [];
+            $bookingsOut = [];
+            $usersOut = [];
+
+            try {
+                $leadsOut = ProviderLead::query()
+                    ->where(function ($w) use ($like, $digitsNeedle) {
+                        $w->where('name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('service', 'like', $like)
+                            ->orWhere('status', 'like', $like)
+                            ->orWhere('lead_id', 'like', $like)
+                            ->orWhere('address', 'like', $like);
+                        if (strlen($digitsNeedle) >= 3) {
+                            $w->orWhere('phone', 'like', '%' . $digitsNeedle . '%');
+                        }
+                    })
+                    ->orderByDesc('created_at')
+                    ->limit(15)
+                    ->get()
+                    ->map(function ($row) {
+                        $parts = array_filter([
+                            (string) ($row->service ?? ''),
+                            (string) ($row->status ?? ''),
+                        ]);
+
+                        return [
+                            'lead_id' => (string) ($row->lead_id ?? ''),
+                            'phone' => $row->phone ?? '',
+                            'name' => $row->name ?? null,
+                            'snippet' => implode(' · ', $parts) ?: '—',
+                            'row_anchor' => 'wa-s-l-' . md5((string) ($row->lead_id ?? '')),
+                        ];
+                    })->values()->all();
+            } catch (\Throwable $e) {
+                \Log::debug('WhatsApp search leads skipped.', ['error' => $e->getMessage()]);
+            }
+
+            try {
+                $bookingsOut = WhatsAppBooking::query()
+                    ->where(function ($w) use ($like, $digitsNeedle) {
+                        $w->where('name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('service', 'like', $like)
+                            ->orWhere('status', 'like', $like)
+                            ->orWhere('booking_id', 'like', $like);
+                        if (strlen($digitsNeedle) >= 3) {
+                            $w->orWhere('phone', 'like', '%' . $digitsNeedle . '%');
+                        }
+                    })
+                    ->orderByDesc('created_at')
+                    ->limit(15)
+                    ->get()
+                    ->map(function ($row) {
+                        $bid = $row->booking_id ?? $row->id;
+                        $svc = trim((string) ($row->service ?? ''));
+                        $st = trim((string) ($row->status ?? ''));
+                        $snippet = $svc !== '' && $st !== '' ? $svc . ' · ' . $st : ($svc !== '' ? $svc : $st);
+
+                        return [
+                            'id' => (string) ($row->id ?? ''),
+                            'booking_id' => $bid !== null ? (string) $bid : '',
+                            'phone' => $row->phone ?? '',
+                            'name' => $row->name ?? null,
+                            'snippet' => $snippet !== '' ? $snippet : '—',
+                            'row_anchor' => 'wa-s-b-' . (int) ($row->id ?? 0),
+                        ];
+                    })->values()->all();
+            } catch (\Throwable $e) {
+                \Log::debug('WhatsApp search bookings skipped.', ['error' => $e->getMessage()]);
+                $bookingsOut = [];
+            }
+
+            try {
+                $usersOut = WhatsAppUser::query()
+                    ->where(function ($w) use ($like, $digitsNeedle) {
+                        $w->where('name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('alternate_phone', 'like', $like)
+                            ->orWhere('address', 'like', $like)
+                            ->orWhere('type', 'like', $like);
+                        if (strlen($digitsNeedle) >= 3) {
+                            $w->orWhere('phone', 'like', '%' . $digitsNeedle . '%')
+                                ->orWhere('alternate_phone', 'like', '%' . $digitsNeedle . '%');
+                        }
+                    })
+                    ->orderByDesc('created_at')
+                    ->limit(15)
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'phone' => $row->phone ?? '',
+                            'name' => $row->name ?? null,
+                            'snippet' => (string) ($row->type ?? ''),
+                            'row_anchor' => 'wa-s-u-' . (int) ($row->id ?? 0),
+                        ];
+                    })->values()->all();
+            } catch (\Throwable $e) {
+                \Log::debug('WhatsApp search users skipped.', ['error' => $e->getMessage()]);
+            }
+
+            $quickOut = [];
+            $cfgOut = [];
+            if ($request->user()?->can('whatsapp_message_template_update')) {
+                try {
+                    if (Schema::hasTable('whatsapp_conversation_templates')) {
+                        $quickOut = WhatsAppConversationTemplate::query()
+                            ->where(function ($w) use ($like) {
+                                $w->where('title', 'like', $like)
+                                    ->orWhere('body', 'like', $like);
+                            })
+                            ->orderBy('sort_order')
+                            ->orderBy('id')
+                            ->limit(15)
+                            ->get()
+                            ->map(function ($t) {
+                                $body = (string) ($t->body ?? '');
+                                $snip = mb_strlen($body) > 120 ? mb_substr($body, 0, 120) . '…' : $body;
+
+                                return [
+                                    'id' => (int) $t->id,
+                                    'title' => (string) ($t->title ?? ''),
+                                    'snippet' => $snip,
+                                    'row_anchor' => 'wa-s-qr-' . (int) $t->id,
+                                ];
+                            })->values()->all();
+                    }
+                } catch (\Throwable $e) {
+                    \Log::debug('WhatsApp search templates skipped.', ['error' => $e->getMessage()]);
+                }
+
+                try {
+                    if (Schema::hasTable('whatsapp_chat_statuses')) {
+                        foreach (WhatsAppChatStatus::query()
+                            ->where('name', 'like', $like)
+                            ->orderBy('bucket')
+                            ->orderBy('sort_order')
+                            ->limit(10)
+                            ->get() as $st) {
+                            $cfgOut[] = [
+                                'kind' => 'status',
+                                'id' => (int) $st->id,
+                                'name' => (string) ($st->name ?? ''),
+                                'detail' => (string) ($st->bucket ?? ''),
+                                'row_anchor' => 'wa-s-cs-' . (int) $st->id,
+                            ];
+                        }
+                    }
+                    if (Schema::hasTable('whatsapp_chat_tags')) {
+                        foreach (WhatsAppChatTag::query()
+                            ->where(function ($w) use ($like) {
+                                $w->where('name', 'like', $like)
+                                    ->orWhere('color', 'like', $like);
+                            })
+                            ->orderBy('sort_order')
+                            ->limit(10)
+                            ->get() as $tg) {
+                            $cfgOut[] = [
+                                'kind' => 'tag',
+                                'id' => (int) $tg->id,
+                                'name' => (string) ($tg->name ?? ''),
+                                'detail' => (string) ($tg->color ?? ''),
+                                'row_anchor' => 'wa-s-ct-' . (int) $tg->id,
+                            ];
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    \Log::debug('WhatsApp search chat config skipped.', ['error' => $e->getMessage()]);
+                }
+            }
         } catch (\Throwable $e) {
             \Log::warning('WhatsApp conversationsSearch failed.', ['error' => $e->getMessage()]);
 
-            return response()->json(['chats' => [], 'messages' => [], 'error' => 'Search failed'], 500);
+            return response()->json([
+                'chats' => [],
+                'messages' => [],
+                'leads' => [],
+                'bookings' => [],
+                'users' => [],
+                'quick_replies' => [],
+                'chat_config' => [],
+                'error' => 'Search failed',
+            ], 500);
         }
 
-        return response()->json(['chats' => $chatsOut, 'messages' => $messagesOut]);
+        return response()->json([
+            'chats' => $chatsOut,
+            'messages' => $messagesOut,
+            'leads' => $leadsOut,
+            'bookings' => $bookingsOut,
+            'users' => $usersOut,
+            'quick_replies' => $quickOut,
+            'chat_config' => $cfgOut,
+        ]);
     }
 
     /**

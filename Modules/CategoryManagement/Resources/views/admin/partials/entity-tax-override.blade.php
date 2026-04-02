@@ -1,4 +1,5 @@
 @php
+    $chargeSectionShell = $chargeSectionShell ?? false;
     $mode = $mode ?? 'category';
     $taxModel = $taxModel ?? null;
     $percentageName = $mode === 'service' ? 'tax' : 'tax_percentage';
@@ -19,10 +20,17 @@
         $percentageDefault = $mode === 'service' ? ($taxModel->tax ?? '') : ($taxModel->tax_percentage ?? '');
     }
 @endphp
+@if(!$chargeSectionShell)
 <div class="col-12 mb-30">
     <div class="border rounded p-20">
         <h5 class="c1 mb-2">{{ translate($titleKey) }}</h5>
         <p class="text-muted fz-12 mb-3">{{ translate($hintKey) }}</p>
+@else
+<div class="mb-3 pb-3 border-bottom border-light">
+    <h5 class="mb-0 text-dark">{{ translate($titleKey) }}</h5>
+    <p class="text-muted fz-12 mb-0 mt-2">{{ translate($hintKey) }}</p>
+</div>
+@endif
         <input type="hidden" name="tax_override" value="0">
         <div class="form-check mb-3">
             <input type="checkbox" name="tax_override" value="1" class="form-check-input" id="{{ $idPrefix }}_tax_override_cb"
@@ -49,8 +57,10 @@
                 </div>
             </div>
         </div>
+@if(!$chargeSectionShell)
     </div>
 </div>
+@endif
 @push('script')
 <script>
     (function () {

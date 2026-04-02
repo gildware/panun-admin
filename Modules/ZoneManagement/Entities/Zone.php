@@ -31,7 +31,8 @@ class Zone extends Model
     ];
 
     protected $fillable = [
-        'coordinates'
+        'coordinates',
+        'description',
     ];
 
     public function scopeOfStatus($query, $status)

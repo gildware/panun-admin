@@ -654,15 +654,198 @@
 
             let formWizard = $("#create-provider-form");
 
+            function isProviderCompanyType() {
+                return formWizard.find('.provider-add-edit-form-root input[name="provider_type"]:checked').val() === 'company';
+            }
+
+            function providerUploadHasFile(inputName) {
+                var $inp = formWizard.find('[name="' + inputName + '"]');
+                var inp = $inp[0];
+                if (!inp) {
+                    return false;
+                }
+                if (inp.files && inp.files.length) {
+                    return true;
+                }
+                var wrap = inp.closest('.provider-upload-wrapper');
+                if (!wrap) {
+                    return false;
+                }
+                var removeField = wrap.getAttribute('data-remove-field') || '';
+                var hidden = removeField ? wrap.querySelector('input[type="hidden"][name="' + removeField + '"]') : null;
+                if (hidden && hidden.value === '1') {
+                    return false;
+                }
+                var img = wrap.querySelector('img[data-placeholder-src]');
+                if (!img || !img.dataset.placeholderSrc) {
+                    return false;
+                }
+                return String(img.src || '') !== String(img.dataset.placeholderSrc || '');
+            }
+
+            function clearProviderCreateBasicSummary() {
+                var $s = $("#provider-create-basic-step-summary");
+                if ($s.length) {
+                    $s.addClass("d-none").empty();
+                }
+            }
+
+            function showProviderCreateBasicSummary(messages) {
+                var $s = $("#provider-create-basic-step-summary");
+                if (!$s.length) {
+                    return;
+                }
+                var seen = {};
+                var list = [];
+                messages.forEach(function (m) {
+                    var t = (m || "").trim();
+                    if (t && !seen[t]) {
+                        seen[t] = true;
+                        list.push(t);
+                    }
+                });
+                if (!list.length) {
+                    $s.addClass("d-none").empty();
+                    return;
+                }
+                var esc = function (s) {
+                    return String(s)
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;");
+                };
+                var html = '<p class="mb-2 fw-semibold">' + esc("{{ addslashes(translate('Please_review_the_following_issues')) }}") + '</p><ul class="mb-0 ps-3">';
+                list.forEach(function (msg) {
+                    html += "<li>" + esc(msg) + "</li>";
+                });
+                html += "</ul>";
+                $s.removeClass("d-none").html(html);
+            }
+
+            $.validator.addMethod("providerZoneLeafPick", function () {
+                var form = document.getElementById("create-provider-form");
+                if (!form) {
+                    return true;
+                }
+                return form.querySelectorAll("input.provider-zone-leaf-cb:checked").length > 0;
+            }, "{{ addslashes(translate('Select_Zone')) }}");
+
             formWizard.validate({
+                errorElement: "div",
+                errorClass: "provider-jqv-error",
+                ignore: function (index, element) {
+                    var $el = $(element);
+                    if ($el.is(":disabled")) {
+                        return true;
+                    }
+                    if ($el.is('input[type="file"]')) {
+                        return false;
+                    }
+                    if ($el.hasClass("provider-zone-leaf-cb")) {
+                        return false;
+                    }
+                    if ($el.is(":hidden")) {
+                        return true;
+                    }
+                    return false;
+                },
                 errorPlacement: function (error, element) {
-                    element.parents('.form-floating, .form-error-wrap').after(error);
+                    error.addClass("invalid-feedback d-block text-danger small mt-1");
+                    if (element.hasClass("provider-zone-leaf-cb")) {
+                        var $ze = $("#provider-create-zone-error");
+                        if ($ze.length) {
+                            $ze.removeClass("d-none").html(error.html());
+                        } else {
+                            element.closest(".form-check").after(error);
+                        }
+                        return;
+                    }
+                    if (element.attr("type") === "radio" && element.attr("name") === "provider_type") {
+                        element.closest(".d-flex.flex-wrap.gap-3").append(error);
+                        return;
+                    }
+                    element.parents('.form-floating, .form-error-wrap').first().after(error);
+                },
+                highlight: function (element, errorClass, validClass) {
+                    $(element).addClass("is-invalid");
+                },
+                unhighlight: function (element, errorClass, validClass) {
+                    $(element).removeClass("is-invalid");
                 },
                 rules: {
-                    provider_type: {
-                        required: true
+                    provider_type: { required: true },
+                    contact_person_name: { required: true, maxlength: 191 },
+                    contact_person_phone: {
+                        required: true,
+                        minlength: 8,
+                        pattern: /^([0-9\s\-\+\(\)]*)$/
+                    },
+                    contact_person_email: { required: true, email: true },
+                    company_address: { required: true },
+                    identity_type: { required: true },
+                    identity_number: { required: true },
+                    latitude: { required: true },
+                    longitude: { required: true },
+                    company_name: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        },
+                        maxlength: 191
+                    },
+                    company_phone: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        },
+                        minlength: 8,
+                        pattern: /^([0-9\s\-\+\(\)]*)$/
+                    },
+                    company_email: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        },
+                        email: true
+                    },
+                    company_identity_type: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        }
+                    },
+                    company_identity_number: {
+                        required: function () {
+                            return isProviderCompanyType();
+                        }
+                    },
+                    logo: {
+                        required: function () {
+                            if (!isProviderCompanyType()) {
+                                return false;
+                            }
+                            return !providerUploadHasFile("logo");
+                        }
+                    },
+                    contact_person_photo: {
+                        required: function () {
+                            return !providerUploadHasFile("contact_person_photo");
+                        }
+                    }
+                },
+                messages: {
+                    contact_person_phone: {
+                        pattern: "{{ addslashes(translate('The phone format is invalid.')) }}"
+                    },
+                    company_phone: {
+                        pattern: "{{ addslashes(translate('The phone format is invalid.')) }}"
                     }
                 }
+            });
+
+            formWizard.find("input.provider-zone-leaf-cb").first().each(function () {
+                $(this).rules("add", { providerZoneLeafPick: true });
+            });
+
+            $(document).on("change", "#create-provider-form input.provider-zone-leaf-cb", function () {
+                $("#provider-create-zone-error").addClass("d-none").empty();
             });
 
             document.querySelectorAll('input[type="tel"]').forEach(function(input) {
@@ -687,15 +870,53 @@
                     next: "Proceed",
                     previous: "Back"
                 },
-                onInit: function (event, currentIndex) {
-                  //
+                onInit: function () {
+                    var $actions = formWizard.find("ul.actions");
+                    if ($actions.length && !document.getElementById("provider-create-basic-step-summary")) {
+                        $('<div id="provider-create-basic-step-summary" class="alert alert-danger mt-3 d-none" role="alert"></div>').insertAfter($actions);
+                    }
+                    if ($actions.length && !document.getElementById("provider-create-reset-btn")) {
+                        var resetUrl = "{{ route('admin.provider.create', ['reset' => 1]) }}";
+                        var $nextLi = $actions.find('a[href="#next"]').closest("li");
+                        var $resetLi = $("<li></li>").attr("id", "provider-create-reset-li").append(
+                            $('<button type="button" id="provider-create-reset-btn" class="btn btn--secondary btn-sm"></button>')
+                                .text("{{ addslashes(translate('Reset')) }}")
+                                .on("click", function () {
+                                    window.location.href = resetUrl;
+                                })
+                        );
+                        if ($nextLi.length) {
+                            $resetLi.insertBefore($nextLi);
+                        } else {
+                            $actions.prepend($resetLi);
+                        }
+                    }
+                },
+                onStepChanged: function (event, currentIndex, priorIndex) {
+                    $("#provider-create-reset-li").toggle(currentIndex === 0);
                 },
                 onStepChanging: function (event, currentIndex, newIndex) {
                     if (newIndex < currentIndex) {
+                        clearProviderCreateBasicSummary();
                         return true;
                     }
 
-                    formWizard.validate().settings.ignore = ":disabled,:hidden";
+                    formWizard.validate().settings.ignore = function (index, element) {
+                        var $el = $(element);
+                        if ($el.is(":disabled")) {
+                            return true;
+                        }
+                        if ($el.is('input[type="file"]')) {
+                            return false;
+                        }
+                        if ($el.hasClass("provider-zone-leaf-cb")) {
+                            return false;
+                        }
+                        if ($el.is(":hidden")) {
+                            return true;
+                        }
+                        return false;
+                    };
                     const providerType = $(".provider-add-edit-form-root").find("input[name='provider_type']:checked").val();
                     let identityDocsOk = true;
 
@@ -730,30 +951,26 @@
                     }
 
                     if (!identityDocsOk) {
-                        return false;
-                    }
-
-                    if (currentIndex === 0 && newIndex === 1) {
-                        var zPick = typeof window.getAdminProviderFormZoneIds === "function" ? window.getAdminProviderFormZoneIds() : [];
-                        if (!zPick.length) {
-                            if (typeof toastr !== "undefined") {
-                                toastr.error("{{ addslashes(translate('Select_Zone')) }}");
+                        var idMsgs = [];
+                        $(".identity-docs-error-msg, .company-identity-docs-error-msg").each(function () {
+                            var t = ($(this).text() || "").trim();
+                            if (t) {
+                                idMsgs.push(t);
                             }
-                            return false;
+                        });
+                        showProviderCreateBasicSummary(idMsgs);
+                        var $firstIdErr = $(".identity-docs-error-msg, .company-identity-docs-error-msg").first();
+                        if ($firstIdErr.length && $firstIdErr[0].scrollIntoView) {
+                            $firstIdErr[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
                         }
-                    }
-
-                    if (currentIndex === 0 && typeof window.checkOwnerContactUniqueSync === "function") {
-                        if (!window.checkOwnerContactUniqueSync()) {
-                            return false;
-                        }
+                        return false;
                     }
 
                     var validator = formWizard.data("validator");
                     if (!validator) {
                         return formWizard.valid();
                     }
-                    var $currentSection = formWizard.find("> section").eq(currentIndex);
+                    var $currentSection = formWizard.find("section").eq(currentIndex);
                     var stepValid = true;
                     $currentSection.find(":input").each(function () {
                         if (!this.name) {
@@ -765,10 +982,41 @@
                         if ($(this).is(":disabled")) {
                             return;
                         }
+                        if (validator.settings.ignore && typeof validator.settings.ignore === "function") {
+                            if (validator.settings.ignore(0, this)) {
+                                return;
+                            }
+                        }
                         if (!validator.element(this)) {
                             stepValid = false;
                         }
                     });
+                    if (currentIndex === 0 && newIndex === 1) {
+                        if (!stepValid) {
+                            var msgs = [];
+                            if (validator.errorList && validator.errorList.length) {
+                                validator.errorList.forEach(function (e) {
+                                    if (e && e.message) {
+                                        msgs.push(e.message);
+                                    }
+                                });
+                            }
+                            if (!msgs.length) {
+                                msgs.push("{{ addslashes(translate('Please_complete_all_required_fields_before_proceeding')) }}");
+                            }
+                            showProviderCreateBasicSummary(msgs);
+                            validator.focusInvalid();
+                            return false;
+                        }
+                        clearProviderCreateBasicSummary();
+                        if (typeof window.checkOwnerContactUniqueSync === "function") {
+                            if (!window.checkOwnerContactUniqueSync()) {
+                                showProviderCreateBasicSummary(["{{ addslashes(translate('Please_fix_contact_details_errors')) }}"]);
+                                return false;
+                            }
+                        }
+                        clearProviderCreateBasicSummary();
+                    }
                     if (stepValid && currentIndex === 0 && newIndex === 1 && typeof window.loadProviderCreateSubscribedServices === "function") {
                         window.loadProviderCreateSubscribedServices();
                     }
