@@ -368,21 +368,27 @@
                             <td class="">{{translate('subtotal')}} x {{ count($booking->repeat) }} {{translate('days')}}</td>
                             <td>{{with_currency_symbol($sub_total*count($booking->repeat))}}</td>
                         </tr>
+                        @if((float)($booking->total_discount_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
                             <td>{{translate('Discount')}}</td>
                             <td>- {{with_currency_symbol($booking->total_discount_amount)}}</td>
                         </tr>
+                        @endif
+                        @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
                             <td>{{translate('Campaign_Discount')}}</td>
                             <td>- {{with_currency_symbol($booking->total_campaign_discount_amount)}}</td>
                         </tr>
+                        @endif
+                        @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
                             <td class="">{{translate('Coupon_Discount')}} </td>
                             <td>- {{with_currency_symbol($booking->total_coupon_discount_amount)}}</td>
                         </tr>
+                        @endif
                         <tr>
                             <td colspan="3"></td>
                             <td class="">{{translate('Referral_Discount')}} </td>
@@ -391,17 +397,28 @@
                         @if((float)($booking->total_tax_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
-                            <td class="">{{translate('Vat_/_Tax')}} (%)</td>
+                            <td class="">{{ company_default_tax_label() }} (%)</td>
                             <td>+ {{with_currency_symbol($booking->total_tax_amount)}}</td>
                         </tr>
                         @endif
                         @if ($booking->extra_fee > 0)
-                            @php($additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values??'Fee')
-                            <tr>
-                                <td colspan="2"></td>
-                                <td colspan="2" class="text-uppercase">{{$additional_charge_label_name}}</td>
-                                <td>+ {{with_currency_symbol($booking->extra_fee)}}</td>
-                            </tr>
+                            @if(is_array($booking->additional_charges_breakdown) && count($booking->additional_charges_breakdown))
+                                @foreach($booking->additional_charges_breakdown as $acRow)
+                                    @if((float)($acRow['amount'] ?? 0) > 0)
+                                    <tr>
+                                        <td colspan="2"></td>
+                                        <td colspan="2" class="text-uppercase">{{ $acRow['name'] ?? translate('Additional_charges') }}</td>
+                                        <td>+ {{ with_currency_symbol($acRow['amount'] ?? 0) }}</td>
+                                    </tr>
+                                    @endif
+                                @endforeach
+                            @else
+                                <tr>
+                                    <td colspan="2"></td>
+                                    <td colspan="2" class="text-uppercase">{{ translate('Additional_charges') }}</td>
+                                    <td>+ {{ with_currency_symbol($booking->extra_fee) }}</td>
+                                </tr>
+                            @endif
                         @endif
                         @if(isset($extraServicesTotal) && $extraServicesTotal > 0)
                             <tr>

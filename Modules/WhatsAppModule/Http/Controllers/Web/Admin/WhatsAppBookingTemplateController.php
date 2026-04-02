@@ -8,7 +8,9 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Schema;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
+use Modules\WhatsAppModule\Entities\WhatsAppConversationTemplate;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 
 class WhatsAppBookingTemplateController extends Controller
@@ -23,15 +25,24 @@ class WhatsAppBookingTemplateController extends Controller
         $config = $service->getConfig();
         $placeholders = BookingWhatsAppNotificationService::PLACEHOLDER_HINTS;
 
-        return view('whatsappmodule::admin.booking-message-templates', compact('config', 'placeholders'));
+        $conversationTemplates = collect();
+        if (Schema::hasTable('whatsapp_conversation_templates')) {
+            $conversationTemplates = WhatsAppConversationTemplate::query()
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+        }
+
+        return view('whatsappmodule::admin.booking-message-templates', compact('config', 'placeholders', 'conversationTemplates'));
     }
 
     public function update(Request $request): RedirectResponse
     {
         $this->authorize('whatsapp_message_template_update');
 
+        $service = app(BookingWhatsAppNotificationService::class);
+
         $data = $request->validate([
-            'default_phone_prefix' => 'nullable|string|max:20',
             'booking_confirmation_customer' => 'nullable|string|max:4096',
             'booking_confirmation_provider' => 'nullable|string|max:4096',
             'booking_status_customer' => 'nullable|string|max:4096',
@@ -49,9 +60,12 @@ class WhatsAppBookingTemplateController extends Controller
             'booking_verification_provider' => 'nullable|string|max:4096',
         ]);
 
+        $current = $service->getConfig();
+
         $liveValues = [
-            'enabled' => $request->boolean('enabled'),
-            'default_phone_prefix' => preg_replace('/\D+/', '', (string) ($data['default_phone_prefix'] ?? '')),
+            'enabled' => (bool) ($current['enabled'] ?? false),
+            'default_phone_prefix' => '91',
+            'apply_default_phone_prefix' => true,
             'booking_confirmation_customer' => (string) ($data['booking_confirmation_customer'] ?? ''),
             'booking_confirmation_provider' => (string) ($data['booking_confirmation_provider'] ?? ''),
             'booking_status_customer' => (string) ($data['booking_status_customer'] ?? ''),
@@ -68,6 +82,37 @@ class WhatsAppBookingTemplateController extends Controller
             'booking_verification_customer' => (string) ($data['booking_verification_customer'] ?? ''),
             'booking_verification_provider' => (string) ($data['booking_verification_provider'] ?? ''),
         ];
+
+        BusinessSettings::updateOrCreate(
+            [
+                'key_name' => BookingWhatsAppNotificationService::SETTINGS_KEY,
+                'settings_type' => BookingWhatsAppNotificationService::SETTINGS_TYPE,
+            ],
+            [
+                'live_values' => $liveValues,
+                'mode' => 'live',
+                'is_active' => 1,
+            ]
+        );
+
+        Toastr::success(translate('successfully_updated'));
+
+        return redirect()->route('admin.whatsapp.booking-templates.edit');
+    }
+
+    public function toggleEnabled(Request $request): RedirectResponse
+    {
+        $this->authorize('whatsapp_message_template_update');
+
+        $request->validate([
+            'enabled' => 'required|boolean',
+        ]);
+
+        $service = app(BookingWhatsAppNotificationService::class);
+        $liveValues = $service->getConfig();
+        $liveValues['enabled'] = $request->boolean('enabled');
+        $liveValues['default_phone_prefix'] = '91';
+        $liveValues['apply_default_phone_prefix'] = true;
 
         BusinessSettings::updateOrCreate(
             [

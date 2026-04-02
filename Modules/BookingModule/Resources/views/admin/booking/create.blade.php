@@ -44,7 +44,7 @@
     <div class="content container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="mb-0">{{ translate('Add_New_Booking') }}</h2>
-            <a href="{{ route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']) }}"
+            <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
                class="btn btn-secondary">
                 {{ translate('Back_to_Booking_List') }}
             </a>
@@ -101,8 +101,11 @@
                             </div>
                         </div>
 
+                        @php
+                            $bookingCanEditCustomerAddress = auth()->user()->can('customer_add') || auth()->user()->can('customer_update');
+                        @endphp
                         <div class="row">
-                            <div class="col-md-10">
+                            <div class="col-md-{{ $bookingCanEditCustomerAddress ? 8 : 10 }}">
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Service_Address') }}</label>
                                     <select name="service_address_id" id="customer-address-select" class="form-control" disabled>
@@ -121,6 +124,16 @@
                                     </button>
                                 </div>
                             </div>
+                            @if($bookingCanEditCustomerAddress)
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button type="button" class="btn btn-outline-secondary w-100" id="open-edit-address" disabled>
+                                        {{ translate('Edit_Address') }}
+                                    </button>
+                                </div>
+                            </div>
+                            @endif
                         </div>
 
                         <div id="booking-customer-info-alert" class="d-none mt-2">
@@ -331,6 +344,7 @@
                         <div id="billing-summary-box" class="mb-4 p-3 bg-light rounded" style="display: none;">
                             <h5 class="mb-2">{{ translate('Total_Billing') }}</h5>
                             <table class="table table-sm table-borderless mb-0">
+                                <tbody>
                                 <tr>
                                     <td>{{ translate('Service_Charges') }}</td>
                                     <td class="text-end" id="billing-service-charges">—</td>
@@ -343,20 +357,14 @@
                                     <td>{{ translate('Tax') }}</td>
                                     <td class="text-end" id="billing-tax">—</td>
                                 </tr>
-                                @if(!empty($additionalChargeEnabled))
-                                <tr id="billing-extra-fee-row">
-                                    <td>{{ $additionalChargeLabel }}</td>
-                                    <td class="text-end">
-                                        <input type="number" step="0.01" min="0" name="extra_fee" id="extra-fee-input"
-                                               class="form-control form-control-sm d-inline-block text-end" style="width: 6rem;"
-                                               value="{{ old('extra_fee', request('extra_fee', $additionalChargeDefaultAmount)) }}" placeholder="0">
-                                    </td>
-                                </tr>
-                                @endif
+                                </tbody>
+                                <tbody id="billing-additional-charges-rows"></tbody>
+                                <tbody>
                                 <tr class="fw-bold">
                                     <td>{{ translate('Total_Amount') }}</td>
                                     <td class="text-end c1" id="billing-total">—</td>
                                 </tr>
+                                </tbody>
                             </table>
                         </div>
 
@@ -539,36 +547,7 @@
                     </div>
                     <form id="quick-address-form">
                         @csrf
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('City') }}</label>
-                                    <input type="text" name="city" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Street') }}</label>
-                                    <input type="text" name="street" class="form-control" required>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Country') }}</label>
-                                    <input type="text" name="country" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Zip_Code') }}</label>
-                                    <input type="text" name="zip_code" class="form-control" required>
-                                </div>
-                            </div>
-                        </div>
-
+                        <input type="hidden" id="quick-address-edit-id" value="">
                         <div class="mb-3">
                             <label class="form-label">{{ translate('Address') }}</label>
                             <textarea name="address" class="form-control" rows="2" required></textarea>
@@ -576,7 +555,27 @@
 
                         <div class="mb-3">
                             <label class="form-label">{{ translate('Address_Label') }}</label>
-                            <input type="text" name="address_label" class="form-control" placeholder="{{ translate('Home/Office/Others') }}">
+                            <input type="text" name="address_label" class="form-control" placeholder="{{ translate('Home/Office/Others') }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Landmark') }} ({{ translate('Optional') }})</label>
+                            <input type="text" name="landmark" class="form-control">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('lat') }} ({{ translate('Optional') }})</label>
+                                    <input type="text" name="lat" class="form-control">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('long') }} ({{ translate('Optional') }})</label>
+                                    <input type="text" name="lon" class="form-control">
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -690,17 +689,44 @@
             $('#addAddressModal').on('show.bs.modal', function () {
                 resetQuickAddressModalAlert();
             });
+            $('#addAddressModal').on('hidden.bs.modal', function () {
+                const $f = $('#quick-address-form')[0];
+                if ($f) {
+                    $f.reset();
+                }
+                $('#quick-address-edit-id').val('');
+                $('#addAddressModalLabel').text('{{ translate('Add_Customer_Address') }}');
+                resetQuickAddressModalAlert();
+            });
 
             const $customerSelect = $('#customer-select');
             const $addressSelect = $('#customer-address-select');
             const $addAddressBtn = $('#open-add-address');
+            const $editAddressBtn = $('#open-edit-address');
             const $serviceLocationHidden = $('#service-location-hidden');
             const $addressRow = $('#customer-address-select').closest('.row');
+            const $quickAddressForm = $('#quick-address-form');
+
+            function syncEditAddressButtonState() {
+                if (!$editAddressBtn.length) {
+                    return;
+                }
+                if ($addressSelect.prop('disabled') || !$addressSelect.val()) {
+                    $editAddressBtn.prop('disabled', true);
+                } else {
+                    $editAddressBtn.prop('disabled', false);
+                }
+            }
 
             // Function to enable/disable address controls
             function toggleAddressControls(enabled) {
                 $addressSelect.prop('disabled', !enabled);
                 $addAddressBtn.prop('disabled', !enabled);
+                if (!enabled && $editAddressBtn.length) {
+                    $editAddressBtn.prop('disabled', true);
+                } else {
+                    syncEditAddressButtonState();
+                }
             }
 
             // Initially disable address controls
@@ -742,6 +768,8 @@
                     }).fail(function() {
                         // If no addresses found, still enable the controls
                         toggleAddressControls(true);
+                    }).always(function () {
+                        syncEditAddressButtonState();
                     });
                 } else {
                     // Provider location - hide address fields
@@ -750,13 +778,57 @@
                 }
             });
 
+            $addressSelect.on('change', function () {
+                syncEditAddressButtonState();
+            });
+
             $('#open-add-address').on('click', function () {
                 if (!$customerSelect.val()) {
                     renderBookingCustomerAlert('{{ translate('Please_select_a_customer_first') }}');
                     return;
                 }
                 resetBookingCustomerAlert();
+                $('#quick-address-edit-id').val('');
+                $('#addAddressModalLabel').text('{{ translate('Add_Customer_Address') }}');
+                if ($quickAddressForm[0]) {
+                    $quickAddressForm[0].reset();
+                }
                 $('#addAddressModal').modal('show');
+            });
+
+            $editAddressBtn.on('click', function () {
+                if (!$editAddressBtn.length) {
+                    return;
+                }
+                const customerId = $customerSelect.val();
+                const addressId = $addressSelect.val();
+                if (!customerId) {
+                    renderBookingCustomerAlert('{{ translate('Please_select_a_customer_first') }}');
+                    return;
+                }
+                if (!addressId) {
+                    renderBookingCustomerAlert('{{ translate('Select_Address') }}');
+                    return;
+                }
+                resetBookingCustomerAlert();
+                let showUrl = '{{ route('admin.customer.address-quick-show', ['id' => '__CID__', 'addressId' => '__AID__']) }}';
+                showUrl = showUrl.replace('__CID__', encodeURIComponent(customerId)).replace('__AID__', encodeURIComponent(addressId));
+                $.get(showUrl, function (addr) {
+                    $('#quick-address-edit-id').val(addr.id);
+                    $('#addAddressModalLabel').text('{{ translate('Edit_Address') }}');
+                    $quickAddressForm.find('[name="address"]').val(addr.address || '');
+                    $quickAddressForm.find('[name="address_label"]').val(addr.address_label || '');
+                    $quickAddressForm.find('[name="landmark"]').val(addr.landmark || '');
+                    $quickAddressForm.find('[name="lat"]').val(addr.lat || '');
+                    $quickAddressForm.find('[name="lon"]').val(addr.lon || '');
+                    $('#addAddressModal').modal('show');
+                }).fail(function (xhr) {
+                    if (xhr.status === 404) {
+                        renderBookingCustomerAlert('{{ translate('not_found') }}');
+                    } else {
+                        renderBookingCustomerAlert('{{ translate('Something_went_wrong') }}');
+                    }
+                });
             });
 
             $('#save-customer-btn').on('click', function () {
@@ -802,32 +874,52 @@
             $('#save-address-btn').on('click', function () {
                 const $form = $('#quick-address-form');
                 const customerId = $customerSelect.val();
+                const editId = $('#quick-address-edit-id').val();
                 resetQuickAddressModalAlert();
                 if (!customerId) {
                     renderBookingCustomerAlert('{{ translate('Please_select_a_customer_first') }}');
                     return;
                 }
 
-                let route = '{{ route('admin.customer.address-quick-store', ['id' => ':id']) }}';
-                route = route.replace(':id', customerId);
+                let route;
+                let payload;
+                if (editId) {
+                    route = '{{ route('admin.customer.address-quick-update', ['id' => '__CID__', 'addressId' => '__AID__']) }}';
+                    route = route.replace('__CID__', encodeURIComponent(customerId)).replace('__AID__', encodeURIComponent(editId));
+                    payload = $form.serialize() + '&_method=PUT';
+                } else {
+                    route = '{{ route('admin.customer.address-quick-store', ['id' => ':id']) }}';
+                    route = route.replace(':id', customerId);
+                    payload = $form.serialize();
+                }
 
                 $.ajax({
                     url: route,
                     method: 'POST',
-                    data: $form.serialize(),
+                    data: payload,
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
                     success: function (response) {
                         resetBookingCustomerAlert();
                         resetQuickAddressModalAlert();
-                        const option = new Option(
-                            response.label + ' - ' + response.full_address,
-                            response.id,
-                            true,
-                            true
-                        );
-                        $addressSelect.append(option).trigger('change');
+                        if (editId) {
+                            const summaryLine = (response.label ? response.label + ' - ' : '') +
+                                ($form.find('textarea[name="address"]').val() || '');
+                            const $opt = $addressSelect.find('option[value="' + response.id + '"]');
+                            if ($opt.length) {
+                                $opt.text(summaryLine);
+                            }
+                            $addressSelect.val(String(response.id)).trigger('change');
+                        } else {
+                            const option = new Option(
+                                response.label + ' - ' + response.full_address,
+                                response.id,
+                                true,
+                                true
+                            );
+                            $addressSelect.append(option).trigger('change');
+                        }
                         $('#addAddressModal').modal('hide');
                         $form[0].reset();
                     },
@@ -934,6 +1026,7 @@
             });
 
             var currentBillingTotal = null;
+            var billingBaseWithoutAc = null;
             var currencySymbol = $('#booking-form').data('currency') || '';
             function formatPrice(price) {
                 if (price == null || price === '') return '—';
@@ -1281,19 +1374,37 @@
                 });
             });
 
+            function recalcBookingBillingTotal() {
+                if (billingBaseWithoutAc == null) {
+                    return;
+                }
+                var acTotal = 0;
+                $('#billing-additional-charges-rows .js-ac-line-input').each(function () {
+                    acTotal += parseFloat($(this).val()) || 0;
+                });
+                var total = billingBaseWithoutAc + acTotal;
+                currentBillingTotal = total;
+                $('#billing-total').text(formatPrice(total));
+                $('#advance-paid-amount').attr('max', currentBillingTotal);
+                updateDueBalance();
+            }
+
+            $(document).on('input change', '#billing-additional-charges-rows .js-ac-line-input', function () {
+                recalcBookingBillingTotal();
+            });
+
             function fetchBillingSummary() {
                 var variantKey = $variantSelect.val();
                 var serviceId = $serviceSelect.val();
                 var zoneId = $zoneSelect.val();
                 if (!variantKey || !serviceId || !zoneId) return;
-                var extraFee = 0;
-                if ($('#extra-fee-input').length) {
-                    extraFee = parseFloat($('#extra-fee-input').val()) || 0;
-                }
                 var billingRoute = '{{ route('admin.booking.service.ajax-get-billing-summary') }}';
-                $.get(billingRoute, { zone_id: zoneId, service_id: serviceId, variant_key: variantKey, quantity: 1, extra_fee: extraFee }, function (res) {
+                $.get(billingRoute, { zone_id: zoneId, service_id: serviceId, variant_key: variantKey, quantity: 1 }, function (res) {
                     if (res.content && res.content.total_cost != null) {
-                        currentBillingTotal = parseFloat(res.content.total_cost);
+                        var serverTotal = parseFloat(res.content.total_cost);
+                        var extraFee = parseFloat(res.content.extra_fee) || 0;
+                        billingBaseWithoutAc = serverTotal - extraFee;
+                        currentBillingTotal = serverTotal;
                         $('#billing-service-charges').text(formatPrice(res.content.service_cost));
                         $('#billing-discount').text('-' + formatPrice(res.content.total_discount_amount));
                         var taxAmt = parseFloat(res.content.tax_amount) || 0;
@@ -1302,6 +1413,29 @@
                             $('#billing-tax').text(formatPrice(res.content.tax_amount));
                         } else {
                             $('#billing-tax-row').hide();
+                        }
+                        var $acBody = $('#billing-additional-charges-rows');
+                        $acBody.empty();
+                        var lines = res.content.additional_charges_lines || [];
+                        if (lines.length) {
+                            lines.forEach(function (row) {
+                                var cust = row.customizable === true || row.customizable === 1;
+                                var commHtml = '';
+                                var idEsc = $('<div/>').text(row.id || '').html();
+                                var nameEsc = $('<div/>').text(row.name || '').html();
+                                if (cust) {
+                                    var amt = parseFloat(row.amount) || 0;
+                                    $acBody.append(
+                                        '<tr class="billing-ac-line"><td>' + nameEsc + commHtml + '</td><td class="text-end">' +
+                                        '<input type="number" class="form-control form-control-sm text-end js-ac-line-input d-inline-block" style="max-width:8rem" min="0" step="0.01" name="ac_line_amount[' + idEsc + ']" value="' + amt + '">' +
+                                        '</td></tr>'
+                                    );
+                                } else {
+                                    $acBody.append(
+                                        '<tr class="billing-ac-line"><td>' + nameEsc + commHtml + '</td><td class="text-end">' + formatPrice(row.amount) + '</td></tr>'
+                                    );
+                                }
+                            });
                         }
                         $('#billing-total').text(formatPrice(res.content.total_cost));
                         $('#billing-summary-box').show();
@@ -1318,6 +1452,7 @@
                 var zoneId = $zoneSelect.val();
                 $('#billing-summary-box').hide();
                 currentBillingTotal = null;
+                billingBaseWithoutAc = null;
                 $('#advance-paid-amount').removeAttr('max');
                 $('#due-balance-row').hide();
 
@@ -1328,12 +1463,6 @@
 
             $('#advance-paid-amount').on('input change', function () {
                 updateDueBalance();
-            });
-
-            $('#extra-fee-input').on('input change', function () {
-                if ($variantSelect.val() && $serviceSelect.val() && $zoneSelect.val()) {
-                    fetchBillingSummary();
-                }
             });
 
             // Provider section
@@ -1510,6 +1639,7 @@
                         if ($customerSelect.val()) {
                             $addressSelect.prop('disabled', false);
                             $addAddressBtn.prop('disabled', false);
+                            syncEditAddressButtonState();
                         }
                     }
                 } else {
@@ -1517,6 +1647,9 @@
                     $addressRow.hide();
                     $addressSelect.val('').prop('disabled', true);
                     $addAddressBtn.prop('disabled', true);
+                    if ($editAddressBtn.length) {
+                        $editAddressBtn.prop('disabled', true);
+                    }
                 }
             });
             
@@ -1682,16 +1815,6 @@
                     var txnId = ($('#advance-transaction-id').val() || '').trim();
                     if (!txnId) {
                         pushError('{{ translate('Advance_Payment_Transaction_ID') }}', '{{ translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero') }}', $('#advance-transaction-id'));
-                    }
-                }
-
-                if ($('#extra-fee-input').length) {
-                    var feeRaw = ($('#extra-fee-input').val() || '').trim();
-                    if (feeRaw !== '') {
-                        var fee = parseFloat(feeRaw);
-                        if (isNaN(fee) || fee < 0) {
-                            pushError(@json($additionalChargeLabel), @json(translate('Enter_a_valid_non_negative_number')), $('#extra-fee-input'));
-                        }
                     }
                 }
 

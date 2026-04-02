@@ -174,9 +174,11 @@ class ConfigController extends Controller
             'min_booking_amount' => (float)(business_config('min_booking_amount', 'booking_setup'))?->live_values ?? null,
             'guest_checkout' => (int)(business_config('guest_checkout', 'service_setup'))?->live_values ?? null,
             'partial_payment' => (int)(business_config('partial_payment', 'service_setup'))?->live_values ?? null,
-            'booking_additional_charge' => (int)(business_config('booking_additional_charge', 'booking_setup'))?->live_values ?? null,
-            'additional_charge_label_name' => (string)(business_config('additional_charge_label_name', 'booking_setup'))?->live_values ?? null,
-            'additional_charge_fee_amount' => (float)(business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values ?? null,
+            'additional_charge_types' => \Modules\BusinessSettingsModule\Entities\AdditionalChargeType::query()
+                ->active()
+                ->ordered()
+                ->get(['id', 'name', 'sort_order', 'is_commissionable', 'customizable_at_booking'])
+                ->values(),
             'offline_payment' => (int)(business_config('offline_payment', 'service_setup'))?->live_values ?? null,
             'partial_payment_combinator' => (string)(business_config('partial_payment_combinator', 'service_setup'))?->live_values ?? null,
             'provider_self_registration' => (int)business_config('provider_self_registration', 'provider_config')?->live_values,

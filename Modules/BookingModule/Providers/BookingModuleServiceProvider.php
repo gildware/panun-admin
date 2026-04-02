@@ -2,8 +2,16 @@
 
 namespace Modules\BookingModule\Providers;
 
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Factory;
+use Illuminate\Support\ServiceProvider;
+use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingDetail;
+use Modules\BookingModule\Entities\BookingExtraService;
+use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BookingModule\Observers\BookingDetailObserver;
+use Modules\BookingModule\Observers\BookingExtraServiceObserver;
+use Modules\BookingModule\Observers\BookingObserver;
+use Modules\BookingModule\Observers\BookingRepeatObserver;
 
 class BookingModuleServiceProvider extends ServiceProvider
 {
@@ -28,6 +36,11 @@ class BookingModuleServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+
+        Booking::observe(BookingObserver::class);
+        BookingDetail::observe(BookingDetailObserver::class);
+        BookingExtraService::observe(BookingExtraServiceObserver::class);
+        BookingRepeat::observe(BookingRepeatObserver::class);
     }
 
     /**

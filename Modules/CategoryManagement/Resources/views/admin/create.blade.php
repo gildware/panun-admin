@@ -105,6 +105,7 @@
                                                     <div class="alert alert-info mb-0 mx-1">{{ translate('no_data_found') }}</div>
                                                 @endif
                                             </div>
+                                            @include('categorymanagement::admin.partials.category-tax-override', ['taxModel' => null])
                                             </div>
                                         </div>
                                         <div class="col-lg-4">

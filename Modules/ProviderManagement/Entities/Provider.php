@@ -87,8 +87,15 @@ class Provider extends Model
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereHas('zones', function ($q) use ($leafZoneId) {
-            $q->where('zones.id', $leafZoneId);
+        $table = $query->getModel()->getTable();
+
+        return $query->where(function ($outer) use ($leafZoneId, $table) {
+            $outer->whereHas('zones', function ($q) use ($leafZoneId) {
+                $q->where('zones.id', $leafZoneId);
+            })->orWhere(function ($q) use ($leafZoneId, $table) {
+                $q->whereDoesntHave('zones')
+                    ->where($table . '.zone_id', $leafZoneId);
+            });
         });
     }
 

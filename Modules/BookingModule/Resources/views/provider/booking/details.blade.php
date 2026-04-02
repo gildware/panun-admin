@@ -36,19 +36,6 @@
                     <div class="d-flex gap-3">
                         @php($provider_can_edit_booking = (int)(business_config('provider_can_edit_booking', 'provider_config'))?->live_values)
 
-                        @if(($provider_can_edit_booking &&
-                                in_array($booking['booking_status'], ['accepted', 'ongoing']) &&
-                                $booking->booking_partial_payments->isEmpty() &&
-                                empty($booking->customizeBooking)) &&
-                                ($booking->is_guest == 1 && $booking->payment_method != "cash_after_service" ? false : true))
-                            <button class="btn btn--primary" data-bs-toggle="modal"
-                                    data-bs-target="#serviceUpdateModal--{{$booking['id']}}"
-                                    data-toggle="tooltip"
-                                    title="{{translate('Add or remove services')}}">
-                                <span
-                                    class="material-symbols-outlined">edit</span>{{translate('Edit Services')}}
-                            </button>
-                        @endif
                         <a href="{{route('provider.booking.invoice',[$booking->id])}}"
                            class="btn btn-primary" target="_blank">
                             <span class="material-icons">description</span>
@@ -86,7 +73,7 @@
                                             @endif</span>
                                     </h5>
                                     <p>
-                                        <span>{{translate('Amount')}} : </span> {{with_currency_symbol($booking->total_booking_amount)}}
+                                        <span>{{translate('Amount')}} : </span> {{with_currency_symbol(get_booking_total_amount($booking))}}
                                     </p>
                                     @if($booking->payment_method == 'offline_payment')
                                         <h4 class="mb-2">{{translate('Payment_Info')}}</h4>
@@ -151,7 +138,21 @@
                                     </h5>
                                 </div>
                             </div>
-                            <h3 class="mb-3 mt-4">{{translate('Booking_Summary')}}</h3>
+                            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3 mt-4">
+                                <h3 class="mb-0">{{translate('Booking_Summary')}}</h3>
+                                @if(($provider_can_edit_booking &&
+                                        in_array($booking['booking_status'], ['accepted', 'ongoing']) &&
+                                        $booking->booking_partial_payments->isEmpty() &&
+                                        empty($booking->customizeBooking)) &&
+                                        ($booking->is_guest == 1 && $booking->payment_method != "cash_after_service" ? false : true))
+                                    <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal"
+                                            data-bs-target="#serviceUpdateModal--{{$booking['id']}}"
+                                            data-toggle="tooltip"
+                                            title="{{translate('Add or remove services')}}">
+                                        <span class="material-symbols-outlined">edit</span>{{translate('Edit Services')}}
+                                    </button>
+                                @endif
+                            </div>
                             <div class="table-responsive border-bottom">
                                 <table class="table text-nowrap align-right align-middle mb-0">
                                     <thead>
@@ -213,72 +214,100 @@
                                             <tbody>
                                             <tr>
                                                 <td class="text-capitalize">{{translate('service_amount')}}@if((float)($booking->total_tax_amount ?? 0) > 0) <small
-                                                        class="fz-12">({{translate('Vat_Excluded')}})</small>@endif</td>
+                                                        class="fz-12">{{ booking_tax_excluded_bracket_hint() }}</small>@endif</td>
                                                 <td>{{with_currency_symbol($sub_total)}}</td>
                                             </tr>
+                                            @if((float)($booking->total_discount_amount ?? 0) > 0)
                                             <tr>
                                                 <td class="text-capitalize">{{translate('service_discount')}}</td>
                                                 <td>-{{with_currency_symbol($booking->total_discount_amount)}}</td>
                                             </tr>
+                                            @endif
+                                            @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
                                             <tr>
                                                 <td class="text-capitalize">{{translate('coupon_discount')}}</td>
                                                 <td>
                                                     -{{with_currency_symbol($booking->total_coupon_discount_amount)}}</td>
                                             </tr>
+                                            @endif
+                                            @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
                                             <tr>
                                                 <td class="text-capitalize">{{translate('campaign_discount')}}</td>
                                                 <td>
                                                     -{{with_currency_symbol($booking->total_campaign_discount_amount)}}</td>
                                             </tr>
+                                            @endif
+                                            @if((float)($booking->total_referral_discount_amount ?? 0) > 0)
                                             <tr>
                                                 <td class="text-capitalize">{{translate('Referral Discount')}}</td>
                                                 <td class="text--end pe--4">{{with_currency_symbol($booking->total_referral_discount_amount)}}</td>
                                             </tr>
+                                            @endif
                                             @if((float)($booking->total_tax_amount ?? 0) > 0)
                                             <tr>
-                                                <td class="text-capitalize">{{translate('vat_/_tax')}}</td>
+                                                <td>{{ company_default_tax_label() }}</td>
                                                 <td>+{{with_currency_symbol($booking->total_tax_amount)}}</td>
                                             </tr>
                                             @endif
                                             @if ($booking->extra_fee > 0)
-                                                @php($additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values??'Fee')
-                                                <tr>
-                                                    <td class="text-capitalize">{{$additional_charge_label_name}}</td>
-                                                    <td>{{with_currency_symbol($booking->extra_fee)}}</td>
-                                                </tr>
+                                                @if(is_array($booking->additional_charges_breakdown) && count($booking->additional_charges_breakdown))
+                                                    @foreach($booking->additional_charges_breakdown as $acRow)
+                                                        @if((float)($acRow['amount'] ?? 0) > 0)
+                                                        <tr>
+                                                            <td class="text-capitalize">{{ $acRow['name'] ?? translate('Additional_charges') }}</td>
+                                                            <td>{{ with_currency_symbol($acRow['amount'] ?? 0) }}</td>
+                                                        </tr>
+                                                        @endif
+                                                    @endforeach
+                                                @else
+                                                    <tr>
+                                                        <td class="text-capitalize">{{ translate('Additional_charges') }}</td>
+                                                        <td>{{ with_currency_symbol($booking->extra_fee) }}</td>
+                                                    </tr>
+                                                @endif
                                             @endif
 
                                             <tr>
                                                 <td><strong>{{translate('Grand_Total')}}</strong></td>
                                                 <td>
-                                                    <strong>{{with_currency_symbol($booking->total_booking_amount)}}</strong>
+                                                    <strong>{{with_currency_symbol(get_booking_total_amount($booking))}}</strong>
                                                 </td>
                                             </tr>
 
                                             @if ($booking->booking_partial_payments->isNotEmpty())
-                                                @foreach($booking->booking_partial_payments as $partial)
+                                                @php
+                                                    $__provSettlement = get_booking_received_and_settlement($booking);
+                                                    $__sumPaidProviderP = round((float) ($__provSettlement['amount_received_by_provider'] ?? 0), 2);
+                                                    $__sumPaidCompanyP = round((float) ($__provSettlement['amount_received_by_company'] ?? 0), 2);
+                                                    $__sumPaidTotalP = round((float) ($__provSettlement['total_paid'] ?? 0), 2);
+                                                @endphp
+                                                @if ($__sumPaidProviderP > 0)
                                                     <tr>
-                                                        <td>{{translate('Paid_by')}} {{str_replace('_', ' ',$partial->paid_with)}}</td>
-                                                        <td>{{with_currency_symbol($partial->paid_amount)}}</td>
+                                                        <td>{{ translate('Paid_to_service_provider') }}</td>
+                                                        <td>{{ with_currency_symbol($__sumPaidProviderP) }}</td>
                                                     </tr>
-                                                @endforeach
+                                                @endif
+                                                @if ($__sumPaidCompanyP > 0)
+                                                    <tr>
+                                                        <td>{{ translate('Paid_to_company') }}</td>
+                                                        <td>{{ with_currency_symbol($__sumPaidCompanyP) }}</td>
+                                                    </tr>
+                                                @endif
+                                                @if ($__sumPaidTotalP > 0)
+                                                    <tr>
+                                                        <td><strong>{{ translate('Total_paid') }}</strong></td>
+                                                        <td><strong>{{ with_currency_symbol($__sumPaidTotalP) }}</strong></td>
+                                                    </tr>
+                                                @endif
                                             @endif
 
-                                            <?php
-                                            $dueAmount = 0;
-
-                                            if (!$booking->is_paid && $booking?->booking_partial_payments?->count() == 1) {
-                                                $dueAmount = $booking->booking_partial_payments->first()?->due_amount;
-                                            }
-
-                                            if (in_array($booking->booking_status, ['pending', 'accepted', 'ongoing']) && $booking->payment_method != 'cash_after_service' && $booking->additional_charge > 0) {
-                                                $dueAmount += $booking->additional_charge;
-                                            }
-
-                                            if (!$booking->is_paid && $booking->payment_method == 'cash_after_service') {
-                                                $dueAmount = $booking->total_booking_amount;
-                                            }
-                                            ?>
+                                            @php
+                                                $__providerBookingTotal = round(get_booking_total_amount($booking), 2);
+                                                $__providerPaid = (float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount');
+                                                $dueAmount = ($booking->is_paid || round($__providerPaid, 2) >= $__providerBookingTotal)
+                                                    ? 0.0
+                                                    : round(max(0, $__providerBookingTotal - $__providerPaid), 2);
+                                            @endphp
 
                                             @if($dueAmount > 0)
                                                 <tr>

@@ -312,7 +312,7 @@ class SearchController extends Controller
         }
 
 
-        $customers = $this->customer->ofType(['customer'])
+        $customers = $this->customer->inCustomerDirectory()
             ->with(['visited_services', 'added_to_carts'])
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);

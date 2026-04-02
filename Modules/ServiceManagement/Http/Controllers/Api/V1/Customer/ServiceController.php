@@ -710,6 +710,9 @@ class ServiceController extends Controller
     private function variationMapper($services)
     {
         $services->map(function ($service) {
+            $service->loadMissing(['category', 'subCategory']);
+            $service->setAttribute('tax', effective_service_tax_percentage($service));
+            $service->setAttribute('tax_label', effective_service_tax_label($service));
             $service['variations_app_format'] = self::variationsAppFormat($service);
             return $service;
         });
@@ -741,7 +744,7 @@ class ServiceController extends Controller
     public function show(Request $request, string $slug): JsonResponse
     {
         $service = $this->service->where('slug', $slug)
-            ->with(['category.children', 'variations', 'faqs' => function ($query) {
+            ->with(['category', 'subCategory', 'category.children', 'variations', 'faqs' => function ($query) {
                 return $query->where('is_active', 1);
             }])
             ->ofStatus(1)
@@ -768,6 +771,9 @@ class ServiceController extends Controller
                 $recentView->save();
             }
 
+            $service->loadMissing(['category', 'subCategory']);
+            $service->setAttribute('tax', effective_service_tax_percentage($service));
+            $service->setAttribute('tax_label', effective_service_tax_label($service));
             $service['variations_app_format'] = self::variationsAppFormat($service);
             return response()->json(response_formatter(DEFAULT_200, $service), 200);
         }

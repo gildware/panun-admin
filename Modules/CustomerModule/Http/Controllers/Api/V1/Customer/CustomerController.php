@@ -49,7 +49,7 @@ class CustomerController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        if (in_array($request->user()->user_type, CUSTOMER_USER_TYPES)) {
+        if (user_can_use_customer_app($request->user())) {
             $customer = $this->customer->withCount('bookings')->where('id', auth()->user()->id)->first();
 
             $lastIncompleteOfflineBooking = Booking::where('customer_id', auth()->user()->id)
@@ -152,6 +152,10 @@ class CustomerController extends Controller
      */
     public function removeAccount(Request $request): JsonResponse
     {
+        if ($request->user()->user_type !== 'customer') {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
         $customer = $this->customer->whereIn('user_type', CUSTOMER_USER_TYPES)->find($request->user()->id);
         if (!isset($customer)) {
             return response()->json(response_formatter(DEFAULT_404), 200);

@@ -15,12 +15,21 @@ class WhatsAppBooking extends Model
         return config('whatsappmodule.tables.bookings', 'whatsapp_bookings');
     }
 
+    public const STATUS_DRAFT = 'DRAFT';
+
+    public const STATUS_TENTATIVE_PENDING_HUMAN = 'TENTATIVE_PENDING_HUMAN';
+
+    public const STATUS_HUMAN_CONFIRMED = 'HUMAN_CONFIRMED';
+
+    public const STATUS_CANCELLED = 'CANCELLED';
+
     protected $fillable = [
         'booking_id',
         'phone',
         'name',
         'alt_phone',
         'address',
+        'district',
         'service',
         'prefered_datetime',
         'status',
@@ -28,6 +37,7 @@ class WhatsAppBooking extends Model
     ];
 
     protected $casts = [
+        'prefered_datetime' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

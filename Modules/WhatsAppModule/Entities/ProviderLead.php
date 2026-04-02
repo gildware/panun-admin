@@ -24,6 +24,12 @@ class ProviderLead extends Model
 
     protected $keyType = 'string';
 
+    public const STATUS_DRAFT = 'DRAFT';
+
+    public const STATUS_TENTATIVE_PENDING_HUMAN = 'TENTATIVE_PENDING_HUMAN';
+
+    public const STATUS_HUMAN_CONFIRMED = 'HUMAN_CONFIRMED';
+
     protected $fillable = [
         'lead_id',
         'phone',

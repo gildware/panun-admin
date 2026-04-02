@@ -61,7 +61,13 @@ class ChattingController extends Controller
                 $query->whereHas('channelUsers.user', function ($query) use ($type) {
                     $query->where(function ($query) use ($type) {
                         if ($type == 'customer') {
-                            $query->where('user_type', 'customer');
+                            $query->where(function ($q) {
+                                $q->whereIn('user_type', CUSTOMER_USER_TYPES)
+                                    ->orWhere(function ($q2) {
+                                        $q2->where('user_type', 'provider-admin')
+                                            ->where('customer_app_access', 1);
+                                    });
+                            });
                         } elseif ($type == 'super_admin') {
                             $query->where('user_type', 'super-admin');
                         } elseif ($type == 'provider_serviceman') {

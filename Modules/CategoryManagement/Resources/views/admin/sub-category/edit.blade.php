@@ -140,6 +140,7 @@
 
                                                 <input type="hidden" name="lang[]" value="default">
                                             @endif
+                                            @include('categorymanagement::admin.partials.category-tax-override', ['taxModel' => $subCategory])
                                         </div>
                                     </div>
                                     <div class="col-lg-4">
@@ -177,6 +178,10 @@
                                             </div>
                                         </div>
                                     @endcan
+                                    @include('businesssettingsmodule::admin.partials.additional-charge-entity-overrides-section', [
+                                        'additionalChargeOverrideRows' => $additionalChargeOverrideRows,
+                                        'formSelector' => '#sub-category-edit-form',
+                                    ])
                                     <div class="col-12">
                                         <div class="d-flex justify-content-end gap-20 mt-30">
                                             <button class="btn btn--secondary"

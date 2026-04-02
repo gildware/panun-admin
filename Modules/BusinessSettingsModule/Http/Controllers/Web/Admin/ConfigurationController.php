@@ -25,6 +25,7 @@ use Modules\BusinessSettingsModule\Http\Requests\ThirdPartyDataStoreOrUpdateRequ
 use Modules\PaymentModule\Entities\OfflinePayment;
 use Modules\PaymentModule\Entities\Setting;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 
 
@@ -956,7 +957,7 @@ class ConfigurationController extends Controller
     {
         $this->authorize('ai_configuration_view');
 
-        $data = AISetting::where('ai_name', 'OpenAI')->first();
+        $data = AISetting::where('ai_name', 'Gemini')->first();
         return view('businesssettingsmodule::admin.configurations.third-party.ai-settings', compact( 'data'));
     }
 
@@ -965,18 +966,29 @@ class ConfigurationController extends Controller
         $this->authorize('ai_configuration_update');
 
         $request->validate([
-            'api_key' => 'required',
-            'organization_id' => 'required',
+            'api_key' => 'nullable|string',
+            'organization_id' => 'nullable|string',
         ]);
 
+        $incomingKey = trim((string) $request->input('api_key', ''));
+        $envGeminiKey = trim((string) config('services.gemini.api_key'));
+        if ($incomingKey === '' && $envGeminiKey === '') {
+            return back()->withErrors([
+                'api_key' => translate('Gemini requires an API key in this form or GEMINI_API_KEY in .env'),
+            ])->withInput();
+        }
+
         AISetting::updateOrCreate(
-            ['ai_name' => 'OpenAI'],
+            ['ai_name' => 'Gemini'],
             [
-                'ai_name' => 'OpenAI',
-                'api_key' => $request->api_key,
-                'organization_id' => $request->organization_id,
+                'ai_name' => 'Gemini',
+                'organization_id' => $request->input('organization_id'),
+                'api_key' => $incomingKey !== '' ? $request->input('api_key') : '',
             ]
         );
+
+        Cache::forget('active_ai_provider');
+        Cache::forget('active_ai_provider_v2');
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
@@ -986,18 +998,28 @@ class ConfigurationController extends Controller
     {
         $this->authorize('ai_configuration_manage_status');
 
-        $openAI = AISetting::where('ai_name', 'OpenAI')->first();
+        $gemini = AISetting::where('ai_name', 'Gemini')->first();
 
-        if (!$openAI){
+        if (!$gemini) {
             return response()->json([
                 'response_code' => 'ai_404',
-                'message' => 'Add the api key and organization id first'
+                'message' => translate('Add the Gemini API key or set GEMINI_API_KEY in .env first'),
             ], 404);
-
         }
 
-        $openAI->status = !$openAI->status;
-        $openAI->save();
+        $hasKey = trim((string) ($gemini->api_key ?? '')) !== '' || trim((string) config('services.gemini.api_key')) !== '';
+        if (!$hasKey) {
+            return response()->json([
+                'response_code' => 'ai_404',
+                'message' => translate('Add the Gemini API key or set GEMINI_API_KEY in .env first'),
+            ], 404);
+        }
+
+        $gemini->status = !$gemini->status;
+        $gemini->save();
+
+        Cache::forget('active_ai_provider');
+        Cache::forget('active_ai_provider_v2');
 
         return response()->json(response_formatter(constant: DEFAULT_UPDATE_200), 200);
     }

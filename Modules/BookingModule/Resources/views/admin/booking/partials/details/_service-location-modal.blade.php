@@ -49,14 +49,11 @@
                             <!-- Hidden Fields in Service Location Modal -->
                             <input type="hidden" name="contact_person_name" value="{{ $booking->service_address->contact_person_name ?? '' }}">
                             <input type="hidden" name="contact_person_number" value="{{ $booking->service_address->contact_person_number ?? '' }}">
-                            <input type="hidden" name="address_label" value="{{ $booking->service_address->label ?? '' }}">
+                            <input type="hidden" name="address_label" value="{{ $booking->service_address->address_label ?? '' }}">
                             <input type="hidden" name="address" value="{{ $booking->service_address->address ?? '' }}">
-                            <input type="hidden" name="latitude" value="{{ $booking->service_address->latitude ?? '' }}">
-                            <input type="hidden" name="longitude" value="{{ $booking->service_address->longitude ?? '' }}">
-                            <input type="hidden" name="city" value="{{ $booking->service_address->city ?? '' }}">
-                            <input type="hidden" name="street" value="{{ $booking->service_address->street ?? '' }}">
-                            <input type="hidden" name="zip_code" value="{{ $booking->service_address->zip_code ?? '' }}">
-                            <input type="hidden" name="country" value="{{ $booking->service_address->country ?? '' }}">
+                            <input type="hidden" name="landmark" value="{{ $booking->service_address->landmark ?? '' }}">
+                            <input type="hidden" name="latitude" value="{{ $booking->service_address->lat ?? '' }}">
+                            <input type="hidden" name="longitude" value="{{ $booking->service_address->lon ?? '' }}">
 
                             <h6 class="font-weight-bold">{{ translate('Customer Details') }}</h6>
                             <div class="media gap-2 flex-wrap p-3 rounded bg-card mt-3">

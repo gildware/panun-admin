@@ -159,15 +159,6 @@
                             </div>
                         @endif
 
-                         @if (in_array($booking['booking_status'], ['accepted', 'ongoing']) && !is_null($booking->nextService) && !$booking->nextService['is_paid'] && $booking->nextService['payment_method'] == 'cash_after_service')
-                            @can('booking_edit')
-                                <button class="btn btn--primary" data-bs-toggle="modal"
-                                    data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
-                                    title="{{ translate('Add or remove services') }}">
-                                    <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
-                                </button>
-                            @endcan
-                         @endif
                         <a href="{{ route('admin.booking.full_repeat_invoice', [$booking->id]) }}" class="btn btn-primary"
                             target="_blank">
                             <span class="material-icons">description</span>{{ translate('Invoice') }}
@@ -273,9 +264,20 @@
                     @endif
                     <div class="card mb-3">
                         <div class="card-header shadow-none border-bottom">
-                            <div class="d-flex justify-content-between flex-wrap gap-3">
-                                <h3>{{ translate('All_Booking_Summary') }}</h3>
-                                <a href="{{ url()->current() }}?web_page=service_log" class="btn-link text-primary fw-semibold">{{translate('View All Booking')}}</a>
+                            <div class="d-flex justify-content-between flex-wrap gap-3 align-items-center">
+                                <h3 class="mb-0">{{ translate('All_Booking_Summary') }}</h3>
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    @if (in_array($booking['booking_status'], ['accepted', 'ongoing']) && !is_null($booking->nextService) && !$booking->nextService['is_paid'] && $booking->nextService['payment_method'] == 'cash_after_service')
+                                        @can('booking_edit')
+                                            <button type="button" class="btn btn--primary btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
+                                                title="{{ translate('Add or remove services') }}">
+                                                <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
+                                            </button>
+                                        @endcan
+                                    @endif
+                                    <a href="{{ url()->current() }}?web_page=service_log" class="btn-link text-primary fw-semibold">{{translate('View All Booking')}}</a>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body pb-5">
@@ -426,23 +428,29 @@
                                                         <td class="text--end pe--4">{{ with_currency_symbol($subTotal * $booking->totalCount) }}</td>
                                                     </tr>
                                                 @endif
+                                                @if((float)($booking->total_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('Discount') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_discount_amount) }}</td>
                                                 </tr>
+                                                @endif
+                                                @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_coupon_discount_amount) }}
                                                     </td>
                                                 </tr>
+                                                @endif
+                                                @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_campaign_discount_amount) }}
                                                     </td>
                                                 </tr>
+                                                @endif
                                                 @if($booking->total_referral_discount_amount > 0)
                                                     <tr>
                                                         <td class="text-capitalize">{{ translate('Referral Discount') }}</td>
@@ -453,19 +461,27 @@
                                                 @endif
                                                 @if($bookingHasTax)
                                                 <tr>
-                                                    <td class="text-capitalize">{{ translate('vat_/_tax') }}</td>
+                                                    <td>{{ company_default_tax_label() }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_tax_amount) }}</td>
                                                 </tr>
                                                 @endif
                                                 @if ($booking->extra_fee > 0)
-                                                    @php($additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values ?? 'Fee')
-                                                    <tr>
-                                                        <td class="text-capitalize">{{ $additional_charge_label_name }}
-                                                        </td>
-                                                        <td class="text--end pe--4">
-                                                            {{ with_currency_symbol($booking->extra_fee) }}</td>
-                                                    </tr>
+                                                    @if(is_array($booking->additional_charges_breakdown) && count($booking->additional_charges_breakdown))
+                                                        @foreach($booking->additional_charges_breakdown as $acRow)
+                                                            @if((float)($acRow['amount'] ?? 0) > 0)
+                                                            <tr>
+                                                                <td class="text-capitalize">{{ $acRow['name'] ?? translate('Additional_charges') }}</td>
+                                                                <td class="text--end pe--4">{{ with_currency_symbol($acRow['amount'] ?? 0) }}</td>
+                                                            </tr>
+                                                            @endif
+                                                        @endforeach
+                                                    @else
+                                                        <tr>
+                                                            <td class="text-capitalize">{{ translate('Additional_charges') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($booking->extra_fee) }}</td>
+                                                        </tr>
+                                                    @endif
                                                 @endif
 
                                                 <tr>
@@ -1017,7 +1033,7 @@
                                                 </div>
                                                 @if((float)($repeat['total_tax_amount'] ?? 0) > 0)
                                                 <div class="d-flex gap-4 justify-content-end px-2">
-                                                    <div>{{('Service Vat')}}:</div>
+                                                    <div>{{ translate('Service') }} {{ company_default_tax_label() }}:</div>
                                                     <div class="fw-bold">{{ with_currency_symbol($repeat['total_tax_amount']) }}</div>
                                                 </div>
                                                 @endif

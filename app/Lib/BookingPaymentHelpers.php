@@ -8,8 +8,9 @@ use Modules\TransactionModule\Entities\LedgerTransaction;
 
 if (!function_exists('get_booking_total_amount')) {
     /**
-     * Total amount for the booking (main amount + extra services total + visiting/extra fee).
-     * Must match the details page Grand Total so payment checks are correct.
+     * Payable grand total for the booking: stored line total (total_booking_amount) + sum(extra_services.total) + extra_fee.
+     * Admin/cart flows store total_booking_amount excluding extra_fee; extra_fee is added here. Use this everywhere
+     * payment due, invoices, and UI totals must agree (do not rebuild from gross subtotal + tax in Blade).
      * Works for both Booking and BookingRepeat (repeat uses parent booking's extra_services).
      */
     function get_booking_total_amount($booking): float
@@ -27,6 +28,28 @@ if (!function_exists('get_booking_total_amount')) {
         }
         $extraFee = (float) ($booking->extra_fee ?? 0);
         return round($base + $extraTotal + $extraFee, 2);
+    }
+}
+
+if (!function_exists('get_booking_invoice_due_amount')) {
+    /**
+     * Remaining amount due on an invoice (payable total minus partial payments), with legacy additional_charge for non–cash-after-service.
+     */
+    function get_booking_invoice_due_amount($booking): float
+    {
+        $invTotal = round(get_booking_total_amount($booking), 2);
+        $partials = $booking->booking_partial_payments ?? collect();
+        $paid = (float) $partials->sum('paid_amount');
+        $due = ((bool) ($booking->is_paid ?? false) || round($paid, 2) >= $invTotal)
+            ? 0.0
+            : round(max(0, $invTotal - $paid), 2);
+        if ($due > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
+            && ($booking->payment_method ?? '') !== 'cash_after_service'
+            && (float) ($booking->additional_charge ?? 0) > 0) {
+            $due = round($due + (float) $booking->additional_charge, 2);
+        }
+
+        return $due;
     }
 }
 
@@ -77,16 +100,48 @@ if (!function_exists('get_booking_service_amount')) {
     }
 }
 
+if (!function_exists('get_booking_non_commissionable_additional_charges_total')) {
+    /**
+     * Sum of additional charge lines marked not commissionable (excluded from admin commission basis).
+     */
+    function get_booking_non_commissionable_additional_charges_total($booking): float
+    {
+        if ($booking instanceof \Modules\BookingModule\Entities\BookingRepeat) {
+            $parent = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
+            $breakdown = $parent ? ($parent->additional_charges_breakdown ?? null) : null;
+        } else {
+            $breakdown = $booking->additional_charges_breakdown ?? null;
+        }
+
+        if (! is_array($breakdown) || $breakdown === []) {
+            return 0.0;
+        }
+
+        $sum = 0.0;
+        foreach ($breakdown as $row) {
+            $commissionable = $row['commissionable'] ?? true;
+            if ($commissionable === false || $commissionable === 0 || $commissionable === '0') {
+                $sum += (float) ($row['amount'] ?? 0);
+            }
+        }
+
+        return round($sum, 2);
+    }
+}
+
 if (!function_exists('get_booking_commissionable_amount')) {
     /**
      * Service-side total for commission: grand total (incl. non–spare extras & fees) minus spare-parts extras.
+     * Additional charge lines marked not commissionable are excluded from this basis.
      * Admin commission on this portion uses Business Model “Service charges” rules.
      */
     function get_booking_commissionable_amount($booking): float
     {
         $grandTotal = get_booking_total_amount($booking);
         $spareParts = get_booking_spare_parts_amount($booking);
-        return round(max(0, $grandTotal - $spareParts), 2);
+        $nonCommissionableAc = get_booking_non_commissionable_additional_charges_total($booking);
+
+        return round(max(0, $grandTotal - $spareParts - $nonCommissionableAc), 2);
     }
 }
 

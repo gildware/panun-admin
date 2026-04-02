@@ -11,26 +11,33 @@ trait PaymentHelperTrait
 {
     public function find_total_Booking_amount($customer_user_id, $post_id, $provider_id): float
     {
-        $booking_additional_charge_status = business_config('booking_additional_charge', 'booking_setup')->live_values??0;
-        $extra_fee = 0;
-        if($booking_additional_charge_status){
-            $extra_fee = business_config('additional_charge_fee_amount', 'booking_setup')->live_values??0;
+        if (! isset($post_id)) {
+            return (float) cart_total($customer_user_id) + getServiceFee($customer_user_id);
         }
 
-        if (!isset($post_id)) {
-            $total_amount = cart_total($customer_user_id);
-        } else {
-            //for bidding
-            $post_bid = PostBid::whereHas('post', fn ($query) => $query->where('is_booked', '!=', 1))
+        $post_bid = PostBid::with(['post.service.category', 'post.service.subCategory'])
+                ->whereHas('post', fn ($query) => $query->where('is_booked', '!=', 1))
                 ->where('post_id', $post_id)
                 ->where('provider_id', $provider_id)
                 ->where('status', 'pending')
                 ->first();
 
-            $total_amount = $post_bid->offered_price;
+        if (! $post_bid) {
+            return 0.0;
         }
 
-        return $total_amount+$extra_fee;
+        $basis = (float) $post_bid->offered_price;
+        $service = $post_bid->relationLoaded('post')
+            ? ($post_bid->post?->service ?? null)
+            : null;
+        if (! $service && $post_bid->post_id) {
+            $post_bid->load(['post.service.category', 'post.service.subCategory']);
+            $service = $post_bid->post?->service;
+        }
+
+        $extra = compute_additional_charges_for_service_basis($basis, $service)['total'];
+
+        return round($basis + $extra, 2);
     }
 
     public function find_customer_info($customer_user_id, $service_address_id): array
@@ -63,7 +70,7 @@ trait PaymentHelperTrait
             $response = $this->place_booking_request($customer_user_id, $request, $tran_id, $is_guest);
         } else {
             //for bidding
-            $post_bid = PostBid::with(['post'])
+            $post_bid = PostBid::with(['post.service.category', 'post.service.subCategory'])
                 ->where('post_id', $request['post_id'])
                 ->where('provider_id', $request['provider_id'])
                 ->first();
@@ -71,7 +78,7 @@ trait PaymentHelperTrait
             $data = [
                 'payment_method' => $request['payment_method'],
                 'zone_id' => $request['zone_id'],
-                'service_tax' => $post_bid?->post?->service?->tax,
+                'service_tax' => $post_bid?->post?->service ? effective_service_tax_percentage($post_bid->post->service) : null,
                 'provider_id' => $post_bid->provider_id,
                 'price' => $post_bid->offered_price,
                 'service_schedule' => !is_null($request['booking_schedule']) ? $request['booking_schedule'] : $post_bid->post->booking_schedule,

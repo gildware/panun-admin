@@ -2,6 +2,7 @@
 
 namespace Modules\CategoryManagement\Http\Controllers\Web\Admin;
 
+use App\Lib\AdditionalChargeEntityOverrides;
 use App\Lib\CommissionEntitySetup;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
@@ -46,6 +47,21 @@ class CategoryController extends Controller
      *
      * @return list<array{id: string, name: string, children: list<array{id: string, name: string, children: list}>}>>
      */
+    private function applyCategoryTaxFieldsFromRequest(Request $request, Category $category): void
+    {
+        if ($request->boolean('tax_override')) {
+            $request->validate([
+                'tax_percentage' => 'required|numeric|min:0|max:100',
+                'tax_label' => 'nullable|string|max:191',
+            ]);
+            $category->tax_percentage = (float) $request->tax_percentage;
+            $category->tax_label = $request->filled('tax_label') ? $request->tax_label : null;
+        } else {
+            $category->tax_percentage = null;
+            $category->tax_label = null;
+        }
+    }
+
     private function zoneTreeForCategoryForm(): array
     {
         $zones = $this->zone->ofStatus(1)->orderBy('id')->get();
@@ -197,6 +213,7 @@ class CategoryController extends Controller
         $category->parent_id = 0;
         $category->position = 1;
         $category->description = null;
+        $this->applyCategoryTaxFieldsFromRequest($request, $category);
         $category->save();
         $category->zones()->sync($request->zone_ids);
 
@@ -259,8 +276,12 @@ class CategoryController extends Controller
                 $commissionEntityUseCustom
             );
 
+            $additionalChargeOverrideRows = AdditionalChargeEntityOverrides::rowsForEntity(
+                is_array($category->additional_charge_overrides) ? $category->additional_charge_overrides : null
+            );
+
             return view('categorymanagement::admin.edit', array_merge(
-                compact('category', 'zones', 'zoneTree', 'selectedZoneIds', 'commissionEntityUseCustom'),
+                compact('category', 'zones', 'zoneTree', 'selectedZoneIds', 'commissionEntityUseCustom', 'additionalChargeOverrideRows'),
                 $commissionCtx
             ));
         }
@@ -304,6 +325,8 @@ class CategoryController extends Controller
             CommissionEntitySetup::applyFromRequestToModel($request, $category);
         }
 
+        AdditionalChargeEntityOverrides::applyFromRequestToModel($request, $category);
+
         $category->name = $request->name[array_search('default', $request->lang)];
 
         if ($request->has('image')) {
@@ -313,6 +336,7 @@ class CategoryController extends Controller
         $category->parent_id = 0;
         $category->position = 1;
         $category->description = null;
+        $this->applyCategoryTaxFieldsFromRequest($request, $category);
         $category->update();
 
         $category->zones()->sync($request->zone_ids);

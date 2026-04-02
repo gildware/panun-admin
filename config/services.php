@@ -33,11 +33,34 @@ return [
     'whatsapp_cloud' => [
         'token' => env('WHATSAPP_CLOUD_TOKEN'),
         'phone_id' => env('WHATSAPP_CLOUD_PHONE_ID'),
+        'waba_id' => env('WHATSAPP_CLOUD_WABA_ID'),
+        /** Meta (Facebook) App ID — required for Graph Resumable Upload when creating IMAGE/VIDEO template headers via API. */
+        'app_id' => env('WHATSAPP_CLOUD_APP_ID'),
         'version' => env('WHATSAPP_CLOUD_VERSION', 'v19.0'),
+        'app_secret' => env('WHATSAPP_APP_SECRET'),
+        'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
+        /**
+         * When opening admin chat from booking, call Graph API with a minimal text to confirm the recipient can receive WhatsApp.
+         * Set WHATSAPP_OPEN_CHAT_PROBE=false to skip the API call (format check + existing inbound thread only).
+         */
+        'open_chat_probe_enabled' => filter_var(env('WHATSAPP_OPEN_CHAT_PROBE', 'true'), FILTER_VALIDATE_BOOL),
+        /** Single-character probe body (Meta often rejects empty / invisible-only). Override in .env if needed. */
+        'open_chat_probe_text' => (string) (env('WHATSAPP_OPEN_CHAT_PROBE_TEXT') ?: '.'),
+        /**
+         * Local/dev only: allow opening a thread without Cloud API + without a successful probe.
+         * Production should keep this false so numbers are verified via Graph when there is no prior inbound message.
+         */
+        'allow_open_without_graph_verify' => filter_var(env('WHATSAPP_ALLOW_OPEN_WITHOUT_GRAPH_VERIFY', 'false'), FILTER_VALIDATE_BOOL),
     ],
 
     'whatsapp_internal' => [
         'token' => env('INTERNAL_WHATSAPP_API_TOKEN'),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        /** Default model for admin AI content generation (WhatsApp uses WHATSAPP_GEMINI_MODEL). */
+        'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
     ],
 
 ];

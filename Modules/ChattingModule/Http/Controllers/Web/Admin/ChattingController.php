@@ -57,7 +57,13 @@ class ChattingController extends Controller
                 $query->whereHas('channelUsers.user', function ($query) use ($type) {
                     $query->where(function ($query) use ($type) {
                         if ($type == 'customer') {
-                            $query->where('user_type', 'customer');
+                            $query->where(function ($q) {
+                                $q->whereIn('user_type', CUSTOMER_USER_TYPES)
+                                    ->orWhere(function ($q2) {
+                                        $q2->where('user_type', 'provider-admin')
+                                            ->where('customer_app_access', 1);
+                                    });
+                            });
                         } elseif ($type == 'provider_admin') {
                             $query->where('user_type', 'provider-admin');
                         } elseif ($type == 'provider_serviceman') {
@@ -73,7 +79,7 @@ class ChattingController extends Controller
         });
 
         $type = $request['user_type'];
-        $customers = $this->user->ofStatus(1)->where(['user_type' => 'customer'])->get();
+        $customers = $this->user->ofStatus(1)->inCustomerDirectory()->get();
         $providers = $this->user->ofStatus(1)->where(['user_type' => 'provider-admin'])->with(['provider'])->get();
         $servicemen = $this->user->ofStatus(1)->where(['user_type' => 'provider-serviceman'])->get();
 

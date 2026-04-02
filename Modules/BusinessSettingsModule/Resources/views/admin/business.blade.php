@@ -31,6 +31,12 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a href="{{url()->current()}}?web_page=company_tax"
+                                   class="nav-link {{$webPage=='company_tax'?'active':''}}">
+                                    {{translate('default_company_tax_info')}}
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a href="{{url()->current()}}?web_page=payment"
                                    class="nav-link {{$webPage=='payment'?'active':''}}">
                                     {{translate('Payment')}}
@@ -40,6 +46,12 @@
                                 <a href="{{url()->current()}}?web_page=bookings"
                                    class="nav-link {{$webPage=='bookings'?'active':''}}">
                                     {{translate('bookings')}}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{url()->current()}}?web_page=additional_charges"
+                                   class="nav-link {{$webPage=='additional_charges'?'active':''}}">
+                                    {{translate('Additional_charges')}}
                                 </a>
                             </li>
                             <li class="nav-item">
@@ -610,6 +622,58 @@
                         </div>
                     @endif
 
+                    @if($webPage=='company_tax')
+                        <div class="tab-content">
+                            <div class="tab-pane fade active show">
+                                <div class="card p-20 mb-20">
+                                    <h5 class="mb-1 fz-16">{{ translate('default_company_tax_info') }}</h5>
+                                    <p class="fz-12 mb-20">{{ translate('default_company_tax_info_hint') }}</p>
+
+                                    @can('business_update')
+                                        <form action="{{ route('admin.business-settings.set-company-tax') }}" method="POST">
+                                            @csrf
+                                            @method('PUT')
+                                            <div class="row g-3 max-w-720">
+                                                <div class="col-md-6">
+                                                    <div class="form-floating">
+                                                        <input type="text" class="form-control" name="default_tax_label" id="default_tax_label"
+                                                               maxlength="191" required
+                                                               value="{{ $dataValues->where('key_name','default_tax_label')->first()->live_values ?? '' }}"
+                                                               placeholder="">
+                                                        <label for="default_tax_label">{{ translate('tax_label') }}</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-floating">
+                                                        <input type="number" step="0.001" min="0" max="100" class="form-control" name="default_tax_percentage" id="default_tax_percentage"
+                                                               required
+                                                               value="{{ $dataValues->where('key_name','default_tax_percentage')->first()->live_values ?? '0' }}"
+                                                               placeholder="">
+                                                        <label for="default_tax_percentage">{{ translate('tax_percentage') }} (%)</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex justify-content-end mt-4">
+                                                <button type="submit" class="btn btn--primary">{{ translate('update') }}</button>
+                                            </div>
+                                        </form>
+                                    @else
+                                        <div class="row g-3 max-w-720">
+                                            <div class="col-md-6">
+                                                <p class="mb-1 text-muted fz-12">{{ translate('tax_label') }}</p>
+                                                <p class="mb-0">{{ $dataValues->where('key_name','default_tax_label')->first()->live_values ?? '—' }}</p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <p class="mb-1 text-muted fz-12">{{ translate('tax_percentage') }}</p>
+                                                <p class="mb-0">{{ $dataValues->where('key_name','default_tax_percentage')->first()->live_values ?? '0' }}%</p>
+                                            </div>
+                                        </div>
+                                    @endcan
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     @if($webPage=='payment')
                         <div class="">
                             <div class="card p-20 mb-20">
@@ -956,58 +1020,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Additional booking -->
-                                    <div class="card p-20 mb-15">
-                                        <div class="row g-3 mb-20">
-                                            <div class="col-md-8">
-                                                <h5 class="mb-1 fz-16">{{ translate('Additional Charge on Booking') }}</h5>
-                                                <p class="fz-12 mb-20">{{ translate('Here you can enable or disable the ability to add extra charges or fees to a customer booking.') }}</p>
-                                            </div>
-                                            <div class="col-sm-4">
-                                                <div class="border p-12 rounded d-flex justify-content-between bg-white">
-                                                    <span class="text-dark fz-14">{{ translate('Status') }}</span>
-                                                    <label class="switcher">
-                                                        <input class="switcher_input" type="checkbox"
-                                                               name="booking_additional_charge" value="1"
-                                                               id="booking_additional_charge"
-                                                               {{$dataValues->where('key_name', 'booking_additional_charge')->first()?->live_values ?'checked':''}}>
-                                                        <span class="switcher_control"></span>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="card2 p-20" id="additional_charge_on_booking_section">
-                                            <div class="row g-3">
-                                                <div class="col-lg-4 col-md-6">
-                                                    <div class="mb-2 text-dark">{{translate('Additional Charge Label')}}
-                                                        <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
-                                                           data-bs-placement="top"
-                                                           title="{{translate('This will be shown as the level for the additional charge to the customers.')}}"
-                                                        >info</i>
-                                                    </div>
-                                                    <input class="form-control" name="additional_charge_label_name"
-                                                           placeholder="{{translate('Additional Charge Label')}} *"
-                                                           type="text" required
-                                                           value="{{$dataValues->where('key_name', 'additional_charge_label_name')->first()->live_values ?? ''}}">
-                                                </div>
-                                                <div class="col-lg-4 col-md-6">
-                                                    <div class="mb-2 text-dark">{{translate('Additional Charge Fee')}}
-                                                        <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
-                                                           data-bs-placement="top"
-                                                           title="{{translate('Specify the necessary amount for the additional charge.')}}"
-                                                        >info</i>
-                                                    </div>
-                                                    <input type="number" class="form-control"
-                                                           name="additional_charge_fee_amount"
-                                                           placeholder="{{translate('Additional charge fee')}} *"
-                                                           min="0" step="any" required
-                                                           value="{{$dataValues->where('key_name', 'additional_charge_fee_amount')->first()->live_values ?? ''}}"
-                                                    >
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <!-- Booking Setup -->
                                     <div class="card p-20 mb-15">
                                         <h5 class="mb-1 fz-16">{{ translate('Booking Type') }}</h5>
@@ -1200,6 +1212,10 @@
                                 </form>
                             </div>
                         </div>
+                    @endif
+
+                    @if($webPage=='additional_charges')
+                        @include('businesssettingsmodule::admin.partials.additional-charges-tab')
                     @endif
 
                     @if($webPage=='providers')
@@ -3172,12 +3188,6 @@
         })
         @endif
 
-        @if(!$dataValues->where('key_name', 'booking_additional_charge')->where('settings_type', 'booking_setup')->first()?->live_values)
-        $(document).ready(function () {
-            $('#additional_charge_on_booking_section').hide();
-        })
-        @endif
-
         @if(!$dataValues->where('key_name', 'referral_based_new_user_discount')->where('settings_type', 'customer_config')->first()?->live_values)
         $(document).ready(function () {
             $('#user_discount_section').hide();
@@ -3252,28 +3262,6 @@
             }
         });
 
-        $(document).ready(function () {
-            if ($('#booking_additional_charge').is(':checked')) {
-                $('[name="additional_charge_label_name"]').prop('required', true);
-                $('[name="additional_charge_fee_amount"]').prop('required', true);
-            } else {
-                $('[name="additional_charge_label_name"]').prop('required', false);
-                $('[name="additional_charge_fee_amount"]').prop('required', false);
-            }
-        });
-
-        $('#booking_additional_charge').on('change', function () {
-            if ($(this).is(':checked') === true) {
-                $('#additional_charge_on_booking_section').show();
-                $('[name="additional_charge_label_name"]').prop('required', true);
-                $('[name="additional_charge_fee_amount"]').prop('required', true);
-            } else {
-                $('#additional_charge_on_booking_section').hide();
-                $('[name="additional_charge_label_name"]').prop('required', false);
-                $('[name="additional_charge_fee_amount"]').prop('required', false);
-            }
-        });
-
         function toggleVisibility(checkbox, element) {
             $(checkbox).on('change', function () {
                 $(element).toggle($(this).is(':checked'));
@@ -3283,7 +3271,6 @@
         toggleVisibility('#schedule_booking_switch', '#schedule_booking_section');
         toggleVisibility('#schedule_booking_checkbox', '#schedule_booking_restriction');
         toggleVisibility('#bidding_status', '#custom_bidding_post_section');
-        toggleVisibility('#booking_additional_charge', '#additional_charge_on_booking_section');
         toggleVisibility('#user_discount_switch', '#user_discount_section');
     </script>
 

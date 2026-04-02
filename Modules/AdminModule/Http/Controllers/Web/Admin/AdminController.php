@@ -16,6 +16,7 @@ use function response_formatter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Illuminate\Contracts\View\View;
 use Brian2694\Toastr\Facades\Toastr;
@@ -28,6 +29,7 @@ use Illuminate\Contracts\Support\Renderable;
 use Modules\AdminModule\Services\AdvanceSearch;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\TransactionModule\Entities\Account;
 use Illuminate\Contracts\Foundation\Application;
 use Modules\ChattingModule\Entities\ChannelList;
@@ -165,13 +167,14 @@ class AdminController extends Controller
         $todaysPendingFollowupsBase = BookingFollowup::query()
             ->where('status', 'scheduled')
             // Include missed follow-ups from previous days up to and including today.
-            ->whereDate('date', '<=', Carbon::today());
+            ->whereDate('date', '<=', Carbon::today())
+            ->whereHas('booking', function ($bookingQuery) {
+                $bookingQuery->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
+            });
         $todaysPendingFollowupsTotal = (clone $todaysPendingFollowupsBase)->count();
 
-        $todays_pending_followups = BookingFollowup::with(['booking.assignee', 'booking.customer', 'booking.provider'])
-            ->where('status', 'scheduled')
-            // Include missed follow-ups from previous days up to and including today.
-            ->whereDate('date', '<=', Carbon::today())
+        $todays_pending_followups = (clone $todaysPendingFollowupsBase)
+            ->with(['booking.assignee', 'booking.customer', 'booking.provider'])
             // Sort from previous to current.
             ->orderBy('date')
             ->take(5)
@@ -185,12 +188,10 @@ class AdminController extends Controller
             ->whereNotNull('next_followup_at')
             // Include missed follow-ups from previous days up to and including today.
             ->whereDate('next_followup_at', '<=', Carbon::today());
+        app(LeadOpenStatusService::class)->restrictQueryToOpenLeads($todaysPendingLeadFollowupsBase);
         $todaysPendingLeadFollowupsTotal = (clone $todaysPendingLeadFollowupsBase)->count();
 
-        $todays_pending_lead_followups = Lead::query()
-            ->whereNotNull('next_followup_at')
-            // Include missed follow-ups from previous days up to and including today.
-            ->whereDate('next_followup_at', '<=', Carbon::today())
+        $todays_pending_lead_followups = (clone $todaysPendingLeadFollowupsBase)
             // Sort from previous to current.
             ->orderBy('next_followup_at')
             ->take(5)
@@ -491,10 +492,18 @@ class AdminController extends Controller
             $query->where('user_id', $request->user()->id)->where('is_read', 0);
         })->count();
 
+        $whatsappUnreadChats = 0;
+        $whatsappUnreadMessages = 0;
+        if ($request->user()->can('whatsapp_chat_view')) {
+            [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
+        }
+
         return response()->json([
             'status' => 1,
             'data' => [
-                'message' => $message
+                'message' => $message,
+                'whatsapp_unread_chats' => $whatsappUnreadChats,
+                'whatsapp_unread_messages' => $whatsappUnreadMessages,
             ]
         ]);
     }
@@ -506,7 +515,7 @@ class AdminController extends Controller
             $fullURL = url($uri) . '?booking_status=pending&type=pending';
         }
         if ($uri == 'admin/booking/list') {
-            $fullURL = url($uri) . '?booking_status=pending';
+            $fullURL = url($uri) . '?booking_status=all&service_type=all';
         }
         if ($uri == 'admin/configuration/get-notification-setting') {
             $fullURL = url($uri) . '?type=customers';

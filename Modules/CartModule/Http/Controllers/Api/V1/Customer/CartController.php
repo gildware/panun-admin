@@ -89,7 +89,7 @@ class CartController extends Controller
             ->first();
 
         if (isset($variation)) {
-            $service = $this->service->find($request['service_id']);
+            $service = $this->service->with(['category', 'subCategory'])->find($request['service_id']);
 
             $checkCart = $this->cart->where([
                 'service_id' => $request['service_id'],
@@ -104,7 +104,7 @@ class CartController extends Controller
 
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
 
-            $tax = round((($variation->price * $quantity - $applicableDiscount) * $service['tax']) / 100, 2);
+            $tax = round((($variation->price * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             //between normal discount & campaign discount, greater one will be calculated
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
@@ -158,7 +158,7 @@ class CartController extends Controller
 
         $customerUserId = $this->customerUserId;
         $cart = $this->cart
-            ->with(['customer', 'provider.owner', 'category', 'sub_category', 'service'])
+            ->with(['customer', 'provider.owner', 'category', 'sub_category', 'service.category', 'service.subCategory'])
             ->where(['customer_id' => $customerUserId])
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
@@ -166,10 +166,7 @@ class CartController extends Controller
 
         $walletBalance = $this->user->find($customerUserId)?->wallet_balance ?? 0;
 
-        $additionalCharge = 0;
-        if ((business_config('booking_additional_charge', 'booking_setup'))?->live_values) {
-            $additionalCharge = (business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values;
-        }
+        $additionalCharge = compute_additional_charges_for_cart_items($cart)['total'];
 
         foreach ($cart as $cartItem) {
             if ($cartItem?->coupon_code && $cartItem?->coupon_id) {
@@ -239,7 +236,7 @@ class CartController extends Controller
 
         $customerUserId = $this->customerUserId;
         $cart = $this->cart
-            ->with(['customer', 'provider.owner', 'category', 'sub_category', 'service'])
+            ->with(['customer', 'provider.owner', 'category', 'sub_category', 'service.category', 'service.subCategory'])
             ->where(['customer_id' => $customerUserId])
             ->latest()
             ->paginate(100, ['*'], 'offset', 1)
@@ -259,10 +256,7 @@ class CartController extends Controller
             }
         }
 
-        $additionalCharge = 0;
-        if ((business_config('booking_additional_charge', 'booking_setup'))?->live_values) {
-            $additionalCharge = (business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values;
-        }
+        $additionalCharge = compute_additional_charges_for_cart_items($cart)['total'];
         $totalCost = $cart->sum('total_cost');
         $totalTax = $cart->sum('tax_amount');
 
@@ -394,7 +388,7 @@ class CartController extends Controller
 
                 if (isset($variation)) {
                     DB::transaction(function () use ($detail, $customerUserId, $variation, $provider, $booking, $request) {
-                        $service = $this->service->find($detail->service_id);
+                        $service = $this->service->with(['category', 'subCategory'])->find($detail->service_id);
 
                         $checkCart = $this->cart->where([
                             'service_id' => $detail->service_id,
@@ -411,7 +405,7 @@ class CartController extends Controller
 
                         $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
 
-                        $tax = round((($variation->price * $quantity - $applicableDiscount) * $service['tax']) / 100, 2);
+                        $tax = round((($variation->price * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
                         //between normal discount & campaign discount, greater one will be calculated
                         $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;

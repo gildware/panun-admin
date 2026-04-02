@@ -4,6 +4,164 @@
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/swiper/swiper-bundle.min.css') }}">
+    <style>
+        .booking-details-overview-row {
+            align-items: stretch;
+            /* Taller base so Payment / Revenue / left cards show full content without tight scroll areas */
+            --booking-overview-small-card-h: 9.5rem;
+            --booking-overview-column-gap: 1rem;
+            /* Left: Customer + tall Provider (2× small + gap); same total as former 3 small cards + 2 gaps */
+            --booking-overview-left-stack-h: calc(3 * var(--booking-overview-small-card-h) + 2 * var(--booking-overview-column-gap));
+            --booking-overview-provider-card-h: calc(2 * var(--booking-overview-small-card-h) + var(--booking-overview-column-gap));
+            --booking-overview-mid-card-h: calc((var(--booking-overview-left-stack-h) - var(--booking-overview-column-gap)) / 2);
+            /* Shift a bit from Payment → Revenue (heights still sum to stack − gap) */
+            --booking-overview-mid-split-shift: 1rem;
+            --booking-overview-mid-payment-h: calc(var(--booking-overview-mid-card-h) - var(--booking-overview-mid-split-shift));
+            --booking-overview-mid-revenue-h: calc(var(--booking-overview-mid-card-h) + var(--booking-overview-mid-split-shift));
+            /* Right: Booking dates + Booking Information + Service location (2 gaps between three cards) */
+            --booking-overview-right-dates-shift: 2rem;
+            --booking-overview-right-dates-h: calc(var(--booking-overview-small-card-h) + 1rem - var(--booking-overview-right-dates-shift));
+            --booking-overview-right-service-loc-h: var(--booking-overview-small-card-h);
+            --booking-overview-right-info-h: calc(var(--booking-overview-left-stack-h) - 2 * var(--booking-overview-column-gap) - var(--booking-overview-right-dates-h) - var(--booking-overview-right-service-loc-h));
+            min-height: var(--booking-overview-left-stack-h);
+        }
+        .booking-details-overview-row > [class*="col-"] {
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            align-self: stretch;
+        }
+        .booking-details-overview-row .booking-overview-min-h-0 { min-height: 0; }
+        .booking-details-overview-row .booking-overview-column-inner {
+            flex: 0 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--booking-overview-column-gap);
+            min-height: var(--booking-overview-left-stack-h);
+        }
+        .booking-details-overview-row .booking-overview-left-card {
+            flex: 0 0 var(--booking-overview-small-card-h);
+            min-height: var(--booking-overview-small-card-h);
+            max-height: var(--booking-overview-small-card-h);
+            height: var(--booking-overview-small-card-h);
+        }
+        .booking-details-overview-row .booking-overview-left-card--provider {
+            flex: 0 0 var(--booking-overview-provider-card-h);
+            min-height: var(--booking-overview-provider-card-h);
+            max-height: var(--booking-overview-provider-card-h);
+            height: var(--booking-overview-provider-card-h);
+        }
+        .booking-details-overview-row .booking-overview-mid-card--payment {
+            flex: 0 0 var(--booking-overview-mid-payment-h);
+            min-height: var(--booking-overview-mid-payment-h);
+            max-height: var(--booking-overview-mid-payment-h);
+            height: var(--booking-overview-mid-payment-h);
+        }
+        .booking-details-overview-row .booking-overview-mid-card--revenue {
+            flex: 0 0 var(--booking-overview-mid-revenue-h);
+            min-height: var(--booking-overview-mid-revenue-h);
+            max-height: var(--booking-overview-mid-revenue-h);
+            height: var(--booking-overview-mid-revenue-h);
+        }
+        .booking-details-overview-row .booking-overview-booking-dates-card {
+            flex: 0 0 var(--booking-overview-right-dates-h);
+            min-height: var(--booking-overview-right-dates-h);
+            max-height: var(--booking-overview-right-dates-h);
+            height: var(--booking-overview-right-dates-h);
+        }
+        .booking-details-overview-row .booking-overview-booking-info-card {
+            flex: 0 0 var(--booking-overview-right-info-h);
+            min-height: var(--booking-overview-right-info-h);
+            max-height: var(--booking-overview-right-info-h);
+            height: var(--booking-overview-right-info-h);
+        }
+        .booking-details-overview-row .booking-overview-right-service-loc-card {
+            flex: 0 0 var(--booking-overview-right-service-loc-h);
+            min-height: var(--booking-overview-right-service-loc-h);
+            max-height: var(--booking-overview-right-service-loc-h);
+            height: var(--booking-overview-right-service-loc-h);
+        }
+
+        /* Booking status overview: pill buttons — light fill + border, solid + white text on hover */
+        #booking-status-overview-actions .booking-status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            padding: 0.4rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            line-height: 1.25;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: transparent;
+            cursor: pointer;
+            transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        #booking-status-overview-actions .booking-status-pill:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        #booking-status-overview-actions .booking-status-pill:focus-visible {
+            outline: 2px solid var(--bs-primary, #0d6efd);
+            outline-offset: 2px;
+        }
+        #booking-status-overview-actions .booking-status-pill--success {
+            color: var(--bs-success, #198754);
+            border-color: var(--bs-success, #198754);
+            background-color: color-mix(in srgb, var(--bs-success, #198754) 14%, transparent);
+        }
+        #booking-status-overview-actions .booking-status-pill--success:hover:not(:disabled) {
+            color: #fff !important;
+            background-color: var(--bs-success, #198754);
+            border-color: var(--bs-success, #198754);
+        }
+        #booking-status-overview-actions .booking-status-pill--danger {
+            color: var(--bs-danger, #dc3545);
+            border-color: var(--bs-danger, #dc3545);
+            background-color: color-mix(in srgb, var(--bs-danger, #dc3545) 14%, transparent);
+        }
+        #booking-status-overview-actions .booking-status-pill--danger:hover:not(:disabled) {
+            color: #fff !important;
+            background-color: var(--bs-danger, #c82333);
+            border-color: var(--bs-danger, #c82333);
+        }
+        #booking-status-overview-actions .booking-status-pill--warning {
+            color: #856404;
+            border-color: #ffc107;
+            background-color: color-mix(in srgb, #ffc107 22%, transparent);
+        }
+        #booking-status-overview-actions .booking-status-pill--warning:hover:not(:disabled) {
+            color: #fff !important;
+            background-color: #d39e00;
+            border-color: #d39e00;
+        }
+        #booking-status-overview-actions .booking-status-pill--secondary {
+            color: var(--bs-secondary, #6c757d);
+            border-color: var(--bs-secondary, #6c757d);
+            background-color: color-mix(in srgb, var(--bs-secondary, #6c757d) 14%, transparent);
+        }
+        #booking-status-overview-actions .booking-status-pill--secondary:hover:not(:disabled) {
+            color: #fff !important;
+            background-color: var(--bs-secondary, #5c636a);
+            border-color: var(--bs-secondary, #5c636a);
+        }
+        @supports not (background-color: color-mix(in srgb, red 50%, transparent)) {
+            #booking-status-overview-actions .booking-status-pill--success {
+                background-color: rgba(25, 135, 84, 0.12);
+            }
+            #booking-status-overview-actions .booking-status-pill--danger {
+                background-color: rgba(220, 53, 69, 0.12);
+            }
+            #booking-status-overview-actions .booking-status-pill--warning {
+                background-color: rgba(255, 193, 7, 0.22);
+            }
+            #booking-status-overview-actions .booking-status-pill--secondary {
+                background-color: rgba(108, 117, 125, 0.14);
+            }
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -30,6 +188,7 @@
         $grandTotalCalculated = (float)($booking->total_tax_amount ?? 0) + (float)($booking->extra_fee ?? 0);
         $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
         $bookingNotEditable = in_array($booking->booking_status ?? '', ['completed', 'canceled', 'refunded']);
+        $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
     @endphp
     <div class="main-content">
         <div class="container-fluid">
@@ -60,11 +219,12 @@
                         <h3 class="c1 fw-bold">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
                         <span class="badge badge-{{
                             $booking->booking_status == 'ongoing' ? 'warning' :
+                            ($booking->booking_status == 'on_hold' ? 'secondary' :
                             ($booking->booking_status == 'completed' ? 'success' :
                             ($booking->booking_status == 'canceled' ? 'danger' :
-                            ($booking->booking_status == 'refunded' ? 'secondary' : 'info')))
+                            ($booking->booking_status == 'refunded' ? 'secondary' : 'info'))))
                         }}">
-                            {{ ucwords($booking->booking_status) }}
+                            {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}
                         </span>
                         @if($booking->isOpenReopenTicket())
                             <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
@@ -222,15 +382,6 @@
                             </div>
                         @endif
 
-                        @if (in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing']))
-                            @can('booking_edit')
-                                <button class="btn btn--primary" data-bs-toggle="modal"
-                                    data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
-                                    title="{{ translate('Add or remove services') }}">
-                                    <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
-                                </button>
-                            @endcan
-                        @endif
                         <a href="{{ route('admin.booking.invoice', [$booking->id]) }}" class="btn btn-primary"
                             target="_blank">
                             <span class="material-icons">description</span>{{ translate('Invoice') }}
@@ -503,8 +654,8 @@
                             href="{{ url()->current() }}?web_page=details">{{ translate('details') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'status' ? 'active' : '' }}"
-                            href="{{ url()->current() }}?web_page=status">{{ translate('status') }}</a>
+                        <a class="nav-link {{ $webPage == 'history' ? 'active' : '' }}"
+                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'history']) }}">{{ translate('History') }}</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'followups' ? 'active' : '' }}"
@@ -552,164 +703,733 @@
 
             </div>
 
-            <div class="row mb-3 g-3">
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body c1-light-bg">
-                            <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Provider') }}</h5>
-                            @if($booking->provider)
-                                <p class="mb-1 fw-semibold">{{ $booking->provider->company_name ?? '' }}</p>
-                                <p class="mb-1 small">
-                                    <a href="tel:{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '—' }}</a>
-                                </p>
-                            @endif
-                            @if($nextFollowupProvider ?? null)
-                                <p class="mb-0 fw-semibold">{{ $nextFollowupProvider->date->format('d-M-Y h:ia') }}
-                                    @if($nextFollowupProvider->reason)
-                                        <span class="text-muted">({{ Str::limit($nextFollowupProvider->reason, 60) }})</span>
-                                    @endif
-                                </p>
-                            @else
-                                <p class="mb-0 text-muted">—</p>
-                            @endif
+            @php
+                $__overviewMaxBa = $maxBookingAmount ?? (business_config('max_booking_amount', 'booking_setup')->live_values ?? 0);
+                $__overviewStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && (float) $booking->total_booking_amount >= (float) $__overviewMaxBa;
+                $__overviewSt = $booking->booking_status ?? '';
+                $__overviewShowReopenInCard = (int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'completed';
+                $__overviewBadge = 'info';
+                if ($__overviewSt === 'ongoing') {
+                    $__overviewBadge = 'warning';
+                } elseif ($__overviewSt === 'on_hold') {
+                    $__overviewBadge = 'secondary';
+                } elseif ($__overviewSt === 'completed') {
+                    $__overviewBadge = 'success';
+                } elseif ($__overviewSt === 'canceled' || $__overviewSt === 'cancelled') {
+                    $__overviewBadge = 'danger';
+                } elseif ($__overviewSt === 'refunded') {
+                    $__overviewBadge = 'secondary';
+                }
+                $__adminNextStatuses = booking_admin_allowed_next_statuses($__overviewSt);
+            @endphp
+            <div class="row mb-3 g-3 align-items-stretch">
+                <div class="col-xl-4 col-md-6 d-flex">
+                    <div class="card h-100 w-100">
+                        <div class="card-body py-3 px-3 d-flex flex-column">
+                            <div class="d-flex align-items-center justify-content-between gap-2 border-bottom pb-2 mb-2 flex-shrink-0 flex-wrap">
+                                <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                    <span class="material-icons title-color fz-16">event</span>
+                                    {{ translate('Next_Follow_up_Date') }}
+                                </h6>
+                                <span class="fz-12 fw-semibold text-uppercase c1 flex-shrink-0">{{ translate('Provider') }}</span>
+                            </div>
+                            <div class="d-flex flex-column gap-2 flex-grow-1 fz-12">
+                                @if($booking->provider)
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <span class="title-color flex-shrink-0">{{ translate('company_name') }}:</span>
+                                        <span class="text-break text-end fw-semibold">{{ $booking->provider->company_name ?? '—' }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <span class="title-color flex-shrink-0">{{ translate('Phone') }}:</span>
+                                        <span class="text-break text-end">
+                                            <a href="tel:{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '' }}" class="text-muted">{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '—' }}</a>
+                                        </span>
+                                    </div>
+                                @endif
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <span class="title-color flex-shrink-0">{{ translate('Date_&_Time') }}:</span>
+                                    <span class="text-break text-end fw-semibold">
+                                        @if($nextFollowupProvider ?? null)
+                                            {{ $nextFollowupProvider->date->format('d-M-Y h:ia') }}
+                                            @if($nextFollowupProvider->reason)
+                                                <span class="text-muted fw-normal"> ({{ Str::limit($nextFollowupProvider->reason, 60) }})</span>
+                                            @endif
+                                        @else
+                                            <span class="text-muted fw-normal">—</span>
+                                        @endif
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body c1-light-bg">
-                            <h5 class="mb-2">{{ translate('Next_Follow_up_Date_Customer') }}</h5>
-                            @if(($customerName ?? '') || ($customerPhone ?? ''))
-                                <p class="mb-1 fw-semibold">{{ ($customerName ?? '') ?: '—' }}</p>
-                                <p class="mb-1 small">
-                                    @if($customerPhone ?? null)
-                                        <a href="tel:{{ $customerPhone }}">{{ $customerPhone }}</a>
-                                    @else
-                                        —
+                <div class="col-xl-4 col-md-6 d-flex">
+                    <div class="card h-100 w-100">
+                        <div class="card-body py-3 px-3 d-flex flex-column">
+                            <div class="d-flex align-items-center justify-content-between gap-2 border-bottom pb-2 mb-2 flex-shrink-0 flex-wrap">
+                                <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                    <span class="material-icons title-color fz-16">event</span>
+                                    {{ translate('Next_Follow_up_Date') }}
+                                </h6>
+                                <span class="fz-12 fw-semibold text-uppercase c1 flex-shrink-0">{{ translate('Customer') }}</span>
+                            </div>
+                            <div class="d-flex flex-column gap-2 flex-grow-1 fz-12">
+                                @if(($customerName ?? '') || ($customerPhone ?? ''))
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <span class="title-color flex-shrink-0">{{ translate('Name') }}:</span>
+                                        <span class="text-break text-end fw-semibold">{{ ($customerName ?? '') ?: '—' }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <span class="title-color flex-shrink-0">{{ translate('Phone') }}:</span>
+                                        <span class="text-break text-end">
+                                            @if($customerPhone ?? null)
+                                                <a href="tel:{{ $customerPhone }}" class="text-muted">{{ $customerPhone }}</a>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </span>
+                                    </div>
+                                @endif
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <span class="title-color flex-shrink-0">{{ translate('Date_&_Time') }}:</span>
+                                    <span class="text-break text-end fw-semibold">
+                                        @if($nextFollowupCustomer ?? null)
+                                            {{ $nextFollowupCustomer->date->format('d-M-Y h:ia') }}
+                                            @if($nextFollowupCustomer->reason)
+                                                <span class="text-muted fw-normal"> ({{ Str::limit($nextFollowupCustomer->reason, 60) }})</span>
+                                            @endif
+                                        @else
+                                            <span class="text-muted fw-normal">—</span>
+                                        @endif
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-4 col-md-6 d-flex">
+                    <div class="card h-100 w-100">
+                        <div class="card-body py-3 px-3 d-flex flex-column">
+                            <div class="d-flex align-items-center justify-content-between gap-2 border-bottom pb-2 mb-2 flex-shrink-0 flex-wrap">
+                                <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                    <span class="material-icons title-color fz-16">flag</span>
+                                    {{ translate('Booking_Status') }}
+                                </h6>
+                                <div class="d-flex flex-column align-items-end gap-1 text-end flex-shrink-0">
+                                    <span class="badge badge-{{ $__overviewBadge }} text-capitalize px-2 py-1 fz-12" id="booking-status-overview-badge">
+                                        {{ ucwords(str_replace('_', ' ', $__overviewSt)) }}
+                                    </span>
+                                    @if($booking->isOpenReopenTicket())
+                                        <span class="badge bg-warning text-dark fz-12">{{ translate('Reopened') }}</span>
+                                    @elseif($booking->isReopenedTagged())
+                                        <span class="badge bg-success fz-12">{{ translate('Resolved') }}</span>
                                     @endif
-                                </p>
-                            @endif
-                            @if($nextFollowupCustomer ?? null)
-                                <p class="mb-0 fw-semibold">{{ $nextFollowupCustomer->date->format('d-M-Y h:ia') }}
-                                    @if($nextFollowupCustomer->reason)
-                                        <span class="text-muted">({{ Str::limit($nextFollowupCustomer->reason, 60) }})</span>
-                                    @endif
-                                </p>
+                                </div>
+                            </div>
+                            @can('booking_can_manage_status')
+                                @if(!$bookingNotEditable)
+                                    <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
+                                        @forelse ($__adminNextStatuses as $__nextSt)
+                                            @php
+                                                $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
+                                                $__btnDisabled = $__overviewStatusCashBlock && in_array($__nextSt, $__cashBlockTargets, true);
+                                                if ($__nextSt === 'completed' && ! booking_can_be_completed($booking)) {
+                                                    $__btnDisabled = true;
+                                                }
+                                                $__pillClass = match ($__nextSt) {
+                                                    'accepted' => 'booking-status-pill--success',
+                                                    'canceled' => 'booking-status-pill--danger',
+                                                    'pending' => 'booking-status-pill--secondary',
+                                                    'ongoing' => 'booking-status-pill--warning',
+                                                    'on_hold' => 'booking-status-pill--secondary',
+                                                    'completed' => 'booking-status-pill--success',
+                                                    default => 'booking-status-pill--secondary',
+                                                };
+                                                $__pillLabel = match ($__nextSt) {
+                                                    'accepted' => translate('Accept_Booking'),
+                                                    'canceled' => translate('Cancel_Booking'),
+                                                    'pending' => translate('Mark_as_Pending'),
+                                                    'ongoing' => translate('Mark_as_Ongoing'),
+                                                    'on_hold' => translate('Put_on_hold'),
+                                                    'completed' => translate('Complete_Booking'),
+                                                    default => ucwords(str_replace('_', ' ', $__nextSt)),
+                                                };
+                                            @endphp
+                                            <button type="button" class="booking-status-pill {{ $__pillClass }} booking-status-overview-btn" data-status="{{ $__nextSt }}"
+                                                @if($__btnDisabled) disabled title="{{ translate('Not available for this booking') }}" @endif>{{ $__pillLabel }}</button>
+                                        @empty
+                                            <p class="fz-12 text-muted mb-0">{{ translate('No_status_changes_available') }}</p>
+                                        @endforelse
+                                    </div>
+                                @elseif($__overviewShowReopenInCard)
+                                    <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
+                                        <button type="button" class="booking-status-pill booking-status-pill--secondary" data-bs-toggle="modal"
+                                            data-bs-target="#bookingReopenModal--{{ $booking->id }}">
+                                            {{ translate('Reopen_Booking') }}
+                                        </button>
+                                        @if($booking->canMarkReopenResolved())
+                                            <button type="button" class="booking-status-pill booking-status-pill--success" data-bs-toggle="modal"
+                                                data-bs-target="#reopenResolveModal--{{ $booking->id }}">
+                                                {{ translate('Mark_as_Resolved') }}
+                                            </button>
+                                        @elseif($booking->isOpenReopenTicket())
+                                            <span class="fz-12 text-muted align-self-center">{{ translate('Complete_booking_then_mark_resolved') }}</span>
+                                        @endif
+                                    </div>
+                                @else
+                                    <p class="fz-12 text-muted mb-0 mt-auto">{{ translate('Status is fixed for this booking.') }}</p>
+                                @endif
                             @else
-                                <p class="mb-0 text-muted">—</p>
-                            @endif
+                                <p class="fz-12 text-muted mb-0 mt-auto">{{ translate('You do not have permission to change booking status.') }}</p>
+                            @endcan
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="row gy-3">
-                <div class="col-lg-8">
-                    <div class="card mb-3">
-                        <div class="card-body pb-5">
-                            <div class="border-bottom pb-3 mb-3">
-                                <div
-                                    class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3 flex-wrap mb-40">
-                                    <div>
-                                        <h4 class="mb-2">{{ translate('Payment_Method') }}</h4>
-                                        <h5 class="c1 mb-2 fw-bold"><span
-                                                class="text-capitalize">{{ str_replace(['_', '-'], ' ', $booking->payment_method) }}
-                                                @if ($booking->payment_method == 'offline_payment' && $booking?->booking_offline_payments?->first()?->method_name)
-                                                    ({{ $booking?->booking_offline_payments?->first()?->method_name }})
-                                                @endif
-                                            </span>
-                                        </h5>
-                                        <p>
-                                            <span>{{ translate('Total_Amount') }} : </span>
-                                            <span
-                                                class="c1">{{ with_currency_symbol($bookingTotalForPayment) }}</span>
-                                        </p>
-                                        @if($displayPaidAmount > 0)
-                                            <p class="mb-1">
-                                                <span>{{ $showAsAmountPaidLabel ? translate('Amount_Paid') : translate('Advance_Paid') }} : </span>
-                                                <span class="c1">{{ with_currency_symbol($displayPaidAmount) }}</span>
-                                                @if($advanceOffline && $advanceOffline->transaction_id)
-                                                    <span class="small text-muted">({{ translate('Txn') }}: {{ $advanceOffline->transaction_id }})</span>
-                                                @endif
-                                            </p>
-                                            <p class="mb-0">
-                                                <span>{{ translate('Due_Balance') }} : </span>
-                                                <span class="c1">{{ with_currency_symbol(max(0, $bookingTotalForPayment - $displayPaidAmount)) }}</span>
-                                            </p>
-                                        @endif
-                                    </div>
-                                    <div class="text-start text-sm-end">
-                                        @if($booking->payment_method == 'offline_payment' && $booking->booking_offline_payments->isNotEmpty())
-                                            <p class="mb-2"><span>{{ translate('Request Verify Status') }} :</span>
-                                                @if($booking->booking_offline_payments?->first()?->payment_status == 'pending')
-                                                    <span class="text-info text-capitalize fw-bold">{{ translate('Pending') }}</span>
-                                                @endif
-                                                @if($booking->booking_offline_payments?->first()?->payment_status == 'denied')
-                                                    <span class="text-danger text-capitalize fw-bold">{{ translate('Denied') }}</span>
-                                                @endif
-                                                @if($booking->booking_offline_payments?->first()?->payment_status == 'approved')
-                                                    <span class="text-primary text-capitalize fw-bold">{{ translate('Approved') }}</span>
-                                                @endif
-                                            </p>
-                                        @endif
-
-                                        @if ($booking->is_verified == '0' && $booking->payment_method == 'cash_after_service' && $booking->total_booking_amount >= $maxBookingAmount)
-                                            <p class="mb-2"><span>{{ translate('Request Verify Status:') }} :</span>
-                                                <span class="c1 text-capitalize">{{ translate('Pending') }}</span>
-                                            </p>
-                                        @elseif($booking->is_verified == '2' &&  $booking->payment_method == 'cash_after_service' && $booking->total_booking_amount >= $maxBookingAmount)
-                                            <p class="mb-2"><span>{{ translate('Request Verify Status:') }} :</span>
-                                                <span class="text-danger text-capitalize"
-                                                    id="booking_status__span">{{ translate('Denied') }}</span>
-                                            </p>
-                                        @endif
-
-                                        <p class="mb-2">
-                                            <span>{{ translate('Payment_Status') }} : </span>
-                                            @if(in_array($booking->booking_status, ['canceled', 'refunded']))
-                                                <span class="ms-3 badge badge-secondary" id="payment_status__span">{{ translate('Refunded') }}</span>
-                                            @else
-                                                <span class="ms-3 badge badge-{{ $paymentFullyCovered ? 'success' : 'danger' }}"
-                                                    id="payment_status__span">{{ $paymentFullyCovered ? translate('Paid') : translate('Unpaid') }}</span>
-                                                @if (!$paymentFullyCovered && $booking->booking_partial_payments->isNotEmpty())
-                                                    <span
-                                                        class="small badge badge-info text-success p-1 fz-10">{{ translate('Partially paid') }}</span>
-                                                @endif
+            @php
+                $revenueSettlement = get_booking_received_and_settlement($booking);
+                $dueBalanceDisplay = round(max(0, (float) $bookingTotalForPayment - (float) $displayPaidAmount), 2);
+                if ($dueBalanceDisplay > 0 && in_array($booking->booking_status, ['pending', 'accepted', 'ongoing'], true) && $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) > 0) {
+                    $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
+                }
+                if (in_array($booking->booking_status, ['canceled', 'refunded'])) {
+                    $adminPaymentStatusLabel = translate('Refunded');
+                    $adminPaymentStatusBadgeClass = 'secondary';
+                } elseif ($paymentFullyCovered) {
+                    $adminPaymentStatusLabel = translate('Paid');
+                    $adminPaymentStatusBadgeClass = 'success';
+                } elseif ($booking->booking_partial_payments->isNotEmpty()) {
+                    $adminPaymentStatusLabel = translate('Partially paid');
+                    $adminPaymentStatusBadgeClass = 'info';
+                } else {
+                    $adminPaymentStatusLabel = translate('Unpaid');
+                    $adminPaymentStatusBadgeClass = 'danger';
+                }
+            @endphp
+            <div class="row g-3 mb-3 align-items-stretch booking-details-overview-row">
+                <div class="col-xl-4 col-md-6 d-flex flex-column booking-overview-min-h-0">
+                    <div class="booking-overview-column-inner">
+                        <div class="card mb-0 d-flex flex-column overflow-hidden booking-overview-left-card">
+                            <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
+                                <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
+                                    <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                        <span class="material-icons title-color fz-16">person</span>
+                                        {{ translate('Customer_Information') }}
+                                    </h6>
+                                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                        @can('whatsapp_chat_view')
+                                            @if (!empty($customerPhone))
+                                                <button type="button"
+                                                        class="btn btn-link p-0 border-0 d-inline-flex align-items-center wa-open-admin-chat"
+                                                        data-phone="{{ e($customerPhone) }}"
+                                                        data-prepare-url="{{ route('admin.whatsapp.conversations.prepare-open') }}"
+                                                        title="{{ translate('WhatsApp') }} — {{ translate('chat_with_Customer') }}">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                                                </button>
                                             @endif
-                                        </p>
-                                        <p class="mb-2"><span>{{ translate('Booking_Otp') }} :</span> <span
-                                                class="c1 text-capitalize">{{ $booking?->booking_otp ?? '' }}</span></p>
-                                        <h5 class="d-flex gap-1 flex-wrap align-items-center">
-                                            <div>{{ translate('Schedule_Date') }} :</div>
-                                            <div id="service_schedule__span">
-                                                <div>{{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }} <span
-                                                        class="text-secondary">{{ $booking?->schedule_histories->count() > 1 ? '(' . translate('Edited') . ')' : '' }}</span>
-                                                </div>
-
-                                                <div class="timeline-container">
-                                                    <ul class="timeline-sessions">
-                                                        <p class="fs-14">{{ translate('Schedule Change Log') }}</p>
-                                                        @foreach ($booking?->schedule_histories()->orderBy('created_at', 'desc')->get() as $history)
-                                                            <li
-                                                                class="{{ $booking->service_schedule == $history->schedule ? 'active' : '' }}">
-                                                                <div class="timeline-date">
-                                                                    {{ \Carbon\Carbon::parse($history->schedule)->format('d-M-Y') }}
-                                                                </div>
-                                                                <div class="timeline-time">
-                                                                    {{ \Carbon\Carbon::parse($history->schedule)->format('h:i A') }}
-                                                                </div>
-                                                            </li>
-                                                        @endforeach
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </h5>
+                                        @endcan
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
+                                    @if (!$booking?->is_guest && $booking?->customer)
+                                        <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover align-self-start" src="{{ $booking?->customer?->profile_image_full_path }}" alt="">
+                                    @else
+                                        <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover align-self-start" src="{{ asset('assets/provider-module/img/user2x.png') }}" alt="">
+                                    @endif
+                                    <div class="min-w-0 flex-grow-1 small">
+                                        @if (!$booking?->is_guest && $booking?->customer)
+                                            <a href="{{ route('admin.customer.detail', [$booking?->customer?->id, 'web_page' => 'overview']) }}" class="c1 d-block text-break fw-semibold fz-12">{{ Str::limit($customerName ?? '', 48) }}</a>
+                                        @else
+                                            <span class="d-block text-break fw-semibold fz-12">{{ Str::limit($customerName ?? '', 48) }}</span>
+                                        @endif
+                                        @if ($customerPhone ?? null)
+                                            <a href="tel:{{ $customerPhone }}" class="d-block text-break fz-12 text-muted">{{ $customerPhone }}</a>
+                                        @endif
+                                        @if(!empty($booking?->service_address?->address))
+                                            <span class="d-block text-break fz-12 text-muted mt-1" title="{{ $booking?->service_address?->address }}"><span class="material-icons fz-12 align-middle">map</span> {{ Str::limit($booking?->service_address?->address, 180) }}</span>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="card mb-0 d-flex flex-column overflow-hidden booking-overview-left-card--provider">
+                            <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
+                                <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
+                                    <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                        <span class="material-icons title-color fz-16">person</span>
+                                        {{ translate('Provider_Information') }}
+                                    </h6>
+                                    @if (isset($booking->provider))
+                                        @php
+                                            $providerWaPhone = trim((string) ($booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? ''));
+                                        @endphp
+                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                            @can('whatsapp_chat_view')
+                                                @if ($providerWaPhone !== '')
+                                                    <button type="button"
+                                                            class="btn btn-link p-0 border-0 d-inline-flex align-items-center wa-open-admin-chat"
+                                                            data-phone="{{ e($providerWaPhone) }}"
+                                                            data-prepare-url="{{ route('admin.whatsapp.conversations.prepare-open') }}"
+                                                            title="{{ translate('WhatsApp') }} — {{ translate('chat_with_Provider') }}">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                                                    </button>
+                                                @endif
+                                            @endcan
+                                            @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
+                                                @can('booking_can_manage_status')
+                                                    <span class="cursor-pointer d-inline-flex align-items-center" role="button" tabindex="0" data-bs-target="#providerModal" data-bs-toggle="modal" title="{{ translate('change_Provider') }}">
+                                                        <span class="material-symbols-outlined fz-18">manage_history</span>
+                                                    </span>
+                                                @endcan
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-y-auto gap-2">
+                                    @if (isset($booking->provider))
+                                        <div class="d-flex align-items-center gap-2">
+                                            <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover align-self-start" src="{{ $booking?->provider?->logo_full_path }}" alt="">
+                                            <div class="min-w-0 flex-grow-1 small">
+                                                <a href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}" class="c1 d-block text-break fw-semibold fz-12">{{ Str::limit($booking->provider->company_name ?? '', 48) }}</a>
+                                                <a href="tel:{{ $booking->provider->contact_person_phone ?? '' }}" class="d-block text-break fz-12 text-muted">{{ $booking->provider->contact_person_phone ?? '' }}</a>
+                                                <span class="d-block text-break fz-12 text-muted mt-1" title="{{ $booking->provider->company_address }}"><span class="material-icons fz-12 align-middle">map</span> {{ Str::limit($booking->provider->company_address ?? '', 180) }}</span>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="d-flex align-items-center justify-content-between gap-2 py-1">
+                                            <span class="text-muted small mb-0">{{ translate('No Provider Information') }}</span>
+                                            @if($booking->is_verified != 2)
+                                                <button type="button" class="btn btn-sm btn--primary py-0 px-2 fz-11 flex-shrink-0" data-bs-target="#providerModal" data-bs-toggle="modal">{{ translate('assign provider') }}</button>
+                                            @endif
+                                        </div>
+                                    @endif
+                                    <div class="border-top pt-2 mt-1">
+                                        <div class="d-flex align-items-center justify-content-between gap-1 pb-2 mb-0 flex-shrink-0">
+                                            <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                                <span class="material-icons title-color fz-16">engineering</span>
+                                                {{ translate('Serviceman_Information') }}
+                                            </h6>
+                                            @if (isset($booking->serviceman))
+                                                <div class="btn-group">
+                                                    @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
+                                                        <div class="cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <span class="material-symbols-outlined fz-18">more_vert</span>
+                                                        </div>
+                                                        <ul class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
+                                                            <li>
+                                                                <div class="d-flex align-items-center gap-2 cursor-pointer provider-chat">
+                                                                    <span class="material-symbols-outlined">chat</span>
+                                                                    {{ translate('chat_with_Serviceman') }}
+                                                                    <form action="{{ route('admin.chat.create-channel') }}" method="post" id="chatForm-serviceman-overview-{{ $booking->id }}">
+                                                                        @csrf
+                                                                        <input type="hidden" name="serviceman_id" value="{{ $booking?->serviceman?->user?->id }}">
+                                                                        <input type="hidden" name="type" value="booking">
+                                                                        <input type="hidden" name="user_type" value="provider-serviceman">
+                                                                    </form>
+                                                                </div>
+                                                            </li>
+                                                            @can('booking_can_manage_status')
+                                                                <li>
+                                                                    <div class="d-flex align-items-center gap-2" data-bs-target="#servicemanModal" data-bs-toggle="modal">
+                                                                        <span class="material-symbols-outlined">manage_history</span>
+                                                                        {{ translate('change serviceman') }}
+                                                                    </div>
+                                                                </li>
+                                                            @endcan
+                                                        </ul>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                        </div>
+                                        @if (isset($booking->serviceman))
+                                            <div class="d-flex align-items-center gap-2">
+                                                <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover align-self-start" src="{{ $booking?->serviceman?->user?->profile_image_full_path }}" alt="{{ translate('serviceman') }}">
+                                                <div class="min-w-0 flex-grow-1 small">
+                                                    <span class="c1 d-block text-break fw-semibold fz-12">{{ Str::limit($booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->first_name . ' ' . $booking->serviceman->user->last_name : '', 48) }}</span>
+                                                    <a href="tel:{{ $booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->phone : '' }}" class="d-block text-break fz-12 text-muted">{{ $booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->phone : '' }}</a>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <div class="d-flex flex-column gap-2 align-items-center py-2">
+                                                <span class="material-icons text-muted fs-2">account_circle</span>
+                                                <p class="text-muted text-center fw-medium mb-2 fz-12">{{ translate('No Serviceman Information') }}</p>
+                                            </div>
+                                            <div class="text-center pb-1">
+                                                <button type="button" class="btn btn--primary" data-bs-target="#servicemanModal" data-bs-toggle="modal"
+                                                    @if($booking['booking_status'] == 'completed' || $booking['booking_status'] == 'canceled' || !isset($booking->provider)) disabled @endif>
+                                                    {{ translate('assign Serviceman') }}
+                                                </button>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-4 col-md-6 d-flex flex-column booking-overview-min-h-0">
+                    <div class="booking-overview-column-inner">
+                        <div class="card mb-0 w-100 d-flex flex-column overflow-hidden booking-overview-mid-card--payment">
+                            <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
+                                <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
+                                    <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                        <span class="material-icons title-color fz-16">payments</span>
+                                        {{ translate('Payment_Details') }}
+                                    </h6>
+                                </div>
+                                <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
+                                    <div class="d-flex justify-content-between align-items-center gap-2 mb-0">
+                                        <span class="title-color flex-shrink-0">{{ translate('Payment_Status') }}</span>
+                                        <span class="badge badge-{{ $adminPaymentStatusBadgeClass }} mb-0 fz-12 flex-shrink-0" id="payment_status__span">{{ $adminPaymentStatusLabel }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <span class="title-color flex-shrink-0">{{ translate('Payment_Method') }}</span>
+                                        <span class="c1 fw-semibold text-end text-break text-capitalize min-w-0">{{ str_replace(['_', '-'], ' ', $booking->payment_method) }}
+                                            @if ($booking->payment_method == 'offline_payment' && $booking?->booking_offline_payments?->first()?->method_name)
+                                                ({{ $booking?->booking_offline_payments?->first()?->method_name }})
+                                            @endif
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <span class="title-color flex-shrink-0">{{ translate('Total_Amount') }}</span>
+                                        <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($bookingTotalForPayment) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <span class="title-color flex-shrink-0">{{ $showAsAmountPaidLabel ? translate('Amount_Paid') : translate('Advance_Paid') }}</span>
+                                        <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($displayPaidAmount) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <span class="title-color flex-shrink-0">{{ translate('Due_Balance') }}</span>
+                                        <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($dueBalanceDisplay) }}</span>
+                                    </div>
+                                    @if($booking->payment_method == 'offline_payment' && $booking->booking_offline_payments->isNotEmpty())
+                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Request Verify Status') }}</span>
+                                            <span class="text-end min-w-0">
+                                            @if($booking->booking_offline_payments?->first()?->payment_status == 'pending')
+                                                <span class="text-info text-capitalize fw-bold">{{ translate('Pending') }}</span>
+                                            @endif
+                                            @if($booking->booking_offline_payments?->first()?->payment_status == 'denied')
+                                                <span class="text-danger text-capitalize fw-bold">{{ translate('Denied') }}</span>
+                                            @endif
+                                            @if($booking->booking_offline_payments?->first()?->payment_status == 'approved')
+                                                <span class="text-primary text-capitalize fw-bold">{{ translate('Approved') }}</span>
+                                            @endif
+                                            </span>
+                                        </div>
+                                    @endif
+                                    @if ($booking->is_verified == '0' && $booking->payment_method == 'cash_after_service' && $booking->total_booking_amount >= $maxBookingAmount)
+                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Request Verify Status:') }}</span>
+                                            <span class="c1 text-capitalize text-end min-w-0">{{ translate('Pending') }}</span>
+                                        </div>
+                                    @elseif($booking->is_verified == '2' &&  $booking->payment_method == 'cash_after_service' && $booking->total_booking_amount >= $maxBookingAmount)
+                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Request Verify Status:') }}</span>
+                                            <span class="text-danger text-capitalize text-end min-w-0" id="booking_status__span">{{ translate('Denied') }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                                @can('booking_can_manage_status')
+                                    @if(!in_array($booking->booking_status, ['canceled', 'refunded']) && !$bookingNotEditable && !$paymentFullyCovered)
+                                        <div class="flex-shrink-0 pt-2 border-top mt-2">
+                                            <button type="button" class="btn btn--primary w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal-{{ $booking->id }}">{{ translate('Add payment') }}</button>
+                                        </div>
+                                    @endif
+                                @endcan
+                            </div>
+                        </div>
+                        <div class="card border-primary mb-0 w-100 d-flex flex-column overflow-hidden booking-overview-mid-card--revenue">
+                            <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
+                                <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
+                                    <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                        <span class="material-icons title-color fz-16">account_balance</span>
+                                        {{ translate('Revenue_&_Settlement') }}
+                                    </h6>
+                                </div>
+                                <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
+                                    <div class="d-flex justify-content-between align-items-center p-2 rounded c1-light-bg">
+                                        <span class="title-color">{{ translate('Company_share') }} ({{ translate('Commission') }})</span>
+                                        <strong class="text-primary">{{ with_currency_symbol($revenueSettlement['company_share']) }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center p-2 rounded c1-light-bg">
+                                        <span class="title-color">{{ translate('Provider_share') }}</span>
+                                        <strong>{{ with_currency_symbol($revenueSettlement['provider_share']) }}</strong>
+                                    </div>
+                                    <div class="text-muted border-top pt-2">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span>{{ translate('Received_by_company') }}:</span>
+                                            <span>{{ with_currency_symbol($revenueSettlement['amount_received_by_company']) }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span>{{ translate('Received_by_provider') }}:</span>
+                                            <span>{{ with_currency_symbol($revenueSettlement['amount_received_by_provider']) }}</span>
+                                        </div>
+                                    </div>
+                                    @if($revenueSettlement['pay_to_provider'] > 0)
+                                        <div class="alert alert-info mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center">
+                                            <span>{{ translate('Pay_to_provider') }}:</span>
+                                            <strong>{{ with_currency_symbol($revenueSettlement['pay_to_provider']) }}</strong>
+                                        </div>
+                                    @elseif($revenueSettlement['provider_owes_company'] > 0)
+                                        <div class="alert alert-warning mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center">
+                                            <span>{{ translate('Provider_owes_you') }}:</span>
+                                            <strong>{{ with_currency_symbol($revenueSettlement['provider_owes_company']) }}</strong>
+                                        </div>
+                                    @else
+                                        <div class="alert alert-secondary mb-0 py-2 px-2 fz-12">
+                                            {{ $revenueSettlement['total_paid'] >= $bookingTotalForPayment ? translate('Settled') : translate('Unpaid_or_partially_paid') }}
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @can('booking_can_manage_status')
+                        @if(!$bookingNotEditable && !$paymentFullyCovered)
+                            <div class="modal fade" id="addPaymentModal-{{ $booking->id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form method="post" action="{{ route('admin.booking.add-payment', $booking->id) }}" class="add-payment-form" data-due-amount="{{ $remainingDueForAddPayment }}">
+                                            @csrf
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">{{ translate('Add payment') }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="alert alert-danger d-none add-payment-modal-errors mb-3" role="alert"></div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span> <small class="text-muted">({{ translate('Due amount') }}: {{ with_currency_symbol($remainingDueForAddPayment) }})</small></label>
+                                                    <input type="number" step="0.01" min="0.01" max="{{ $remainingDueForAddPayment }}" name="amount" class="form-control add-payment-amount" required placeholder="{{ translate('Max') }} {{ with_currency_symbol($remainingDueForAddPayment) }}">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label d-block">{{ translate('Received by') }} <span class="text-danger">*</span></label>
+                                                    <div class="d-flex flex-wrap gap-3">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedProvider--{{ $booking->id }}" value="provider" checked>
+                                                            <label class="form-check-label" for="addPaymentReceivedProvider--{{ $booking->id }}">{{ translate('Provider') }}</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedCompany--{{ $booking->id }}" value="company">
+                                                            <label class="form-check-label" for="addPaymentReceivedCompany--{{ $booking->id }}">{{ translate('Company') }}</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3 add-payment-txn-wrap d-none">
+                                                    <label class="form-label">{{ translate('Transaction ID') }} <span class="text-danger">*</span> <span class="text-muted small">({{ translate('if received by company') }})</span></label>
+                                                    <input type="text" name="transaction_id" class="form-control add-payment-transaction-id" maxlength="100" placeholder="{{ translate('Gateway or manual reference') }}">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">{{ translate('Date') }}</label>
+                                                    <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}">
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                                <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    @endcan
+                </div>
+                <div class="col-xl-4 col-md-12 d-flex flex-column booking-overview-min-h-0">
+                    <div class="booking-overview-column-inner">
+                        <div class="card mb-0 w-100 d-flex flex-column overflow-hidden booking-overview-booking-dates-card">
+                            <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
+                                <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
+                                    <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                        <span class="material-icons title-color fz-16">event</span>
+                                        {{ translate('Booking_Dates') }}
+                                    </h6>
+                                </div>
+                                <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
+                                    @php
+                                        $serviceScheduleLocalValue = \Carbon\Carbon::parse($booking->service_schedule)->format('Y-m-d\TH:i');
+                                        $scheduleHistoriesCount = (int) ($booking?->schedule_histories?->count() ?? 0);
+                                    @endphp
+                                    <div class="d-flex justify-content-between align-items-start gap-2 mb-0 flex-wrap">
+                                        <span class="title-color flex-shrink-0">{{ translate('Schedule_Date') }}</span>
+                                        <div class="min-w-0 text-end flex-grow-1" style="max-width: min(100%, 22rem);">
+                                            @can('booking_can_manage_status')
+                                                @if(!$bookingNotEditable && !in_array($booking->booking_status, ['ongoing', 'completed']))
+                                                    <div id="booking-schedule-view-mode">
+                                                        <div class="d-flex align-items-center gap-1 justify-content-end flex-wrap">
+                                                            <span class="fw-semibold text-break" id="booking-overview-service-schedule">
+                                                                {{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }}
+                                                                @if($scheduleHistoriesCount > 1)
+                                                                    <span class="small text-muted ms-1">({{ translate('Edited') }})</span>
+                                                                @endif
+                                                            </span>
+                                                            <button type="button" class="btn btn-link p-0 lh-1 border-0 align-baseline text-decoration-none" id="booking-schedule-edit-toggle" title="{{ translate('Edit') }}" aria-label="{{ translate('Edit') }}">
+                                                                <span class="material-icons title-color" style="font-size: 14px;">edit</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div id="booking-schedule-edit-mode" class="d-none">
+                                                        <input type="datetime-local" class="form-control form-control-sm"
+                                                               name="service_schedule"
+                                                               value="{{ $serviceScheduleLocalValue }}"
+                                                               id="service_schedule"
+                                                               data-original="{{ $serviceScheduleLocalValue }}"
+                                                               min="{{ date('Y-m-d\TH:i') }}"
+                                                               onchange="service_schedule_update()">
+                                                    </div>
+                                                @else
+                                                    <span class="fw-semibold text-end text-break d-inline-block" id="booking-overview-service-schedule">
+                                                        {{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }}
+                                                        @if($scheduleHistoriesCount > 1)
+                                                            <span class="small text-muted ms-1">({{ translate('Edited') }})</span>
+                                                        @endif
+                                                    </span>
+                                                @endif
+                                            @else
+                                                <span class="fw-semibold text-end text-break d-inline-block" id="booking-overview-service-schedule">
+                                                    {{ date('d-M-Y h:ia', strtotime($booking->service_schedule)) }}
+                                                    @if($scheduleHistoriesCount > 1)
+                                                        <span class="small text-muted ms-1">({{ translate('Edited') }})</span>
+                                                    @endif
+                                                </span>
+                                            @endcan
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <span class="title-color flex-shrink-0">{{ translate('Booking_Placed_On') }}</span>
+                                        <span class="fw-semibold text-end text-break min-w-0">{{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <span class="title-color flex-shrink-0">{{ translate('Booking_Otp') }}</span>
+                                        <span class="c1 fw-semibold text-capitalize text-end text-break min-w-0" id="booking-overview-booking-otp">{{ $booking?->booking_otp !== null && $booking?->booking_otp !== '' ? $booking->booking_otp : '—' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card w-100 d-flex flex-column booking-overview-booking-info-card overflow-hidden">
+                            <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
+                            <div class="d-flex justify-content-between align-items-center gap-2 border-bottom pb-2 mb-2 flex-shrink-0">
+                                <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                    <span class="material-icons title-color fz-16">info</span>
+                                    {{ translate('Booking_Information') }}
+                                </h6>
+                                @can('booking_edit')
+                                    @if(!$bookingNotEditable)
+                                        <button type="button" class="btn btn-sm btn--primary" data-bs-toggle="modal"
+                                                data-bs-target="#bookingInfoModal--{{ $booking->id }}">
+                                            <span class="material-symbols-outlined" style="font-size: 18px;">edit_square</span>
+                                            {{ translate('Update') }}
+                                        </button>
+                                    @endif
+                                @endcan
+                            </div>
+                            <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
+                                <div>
+                                    <span class="title-color">{{ translate('Assignee') }}:</span>
+                                    <span id="booking-assignee-display">
+                                        @if($booking->assignee_id && $booking->assignee)
+                                            {{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}
+                                            ({{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }})
+                                            — {{ $booking->assignee->email ?? $booking->assignee->phone }}
+                                        @else
+                                            <span class="text-muted">{{ translate('Unassigned') }}</span>
+                                        @endif
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="title-color">{{ translate('Source') }}:</span>
+                                    <span id="booking-source-display">
+                                        @switch(strtolower((string)($booking->booking_source ?? 'app')))
+                                            @case('app'){{ translate('App') }}@break
+                                            @case('call'){{ translate('Call') }}@break
+                                            @case('whatsapp'){{ translate('Whatsapp') }}@break
+                                            @case('social_media'){{ translate('Social_Media') }}@break
+                                            @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
+                                        @endswitch
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="title-color">{{ translate('Service_Additional_Details') }}:</span>
+                                    <span id="booking-service-description-display" class="text-break">
+                                        {{ $booking->service_description ?: translate('Not_specified') }}
+                                    </span>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                        <div class="card mb-0 w-100 d-flex flex-column overflow-hidden booking-overview-right-service-loc-card">
+                            <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
+                                <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
+                                    <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
+                                        <span class="material-icons title-color fz-16">map</span>
+                                        {{ translate('Service_location') }}
+                                    </h6>
+                                    @if($serviceAtProviderPlace == 1)
+                                        @if($booking->provider_id)
+                                            @php
+                                                $serviceLocationStack = getProviderSettings(providerId: $booking->provider_id, key: 'service_location', type: 'provider_config');
+                                            @endphp
+                                            @if(in_array('customer', $serviceLocationStack) && in_array('provider', $serviceLocationStack))
+                                                @can('booking_edit')
+                                                    @if(!$bookingNotEditable)
+                                                        <div data-bs-toggle="modal" data-bs-target="#serviceLocationModal--{{ $booking['id'] }}" class="cursor-pointer" data-toggle="tooltip" data-placement="top">
+                                                            <span class="material-symbols-outlined fz-18">edit_square</span>
+                                                        </div>
+                                                    @endif
+                                                @endcan
+                                            @endif
+                                        @else
+                                            @can('booking_edit')
+                                                @if(!$bookingNotEditable)
+                                                    <div data-bs-toggle="modal" data-bs-target="#serviceLocationModal--{{ $booking['id'] }}" class="cursor-pointer" data-toggle="tooltip" data-placement="top">
+                                                        <span class="material-symbols-outlined fz-18">edit_square</span>
+                                                    </div>
+                                                @endif
+                                            @endcan
+                                        @endif
+                                    @endif
+                                </div>
+                                <div class="flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
+                                @if($booking->service_location == 'provider')
+                                    <p class="fz-12 mb-2 text-muted lh-sm">{{ translate('Customer has to go to the Provider Location to receive the service') }}</p>
+                                    @if($booking->provider_id != null)
+                                        @if($booking->provider)
+                                            <p class="fw-semibold fz-12 mb-1">{{ translate('Service Location') }}:</p>
+                                            <p class="mb-0 fz-12 text-break" title="{{ $booking?->provider?->company_address }}">{{ Str::limit($booking?->provider?->company_address ?? translate('not_available'), 280) }}</p>
+                                        @else
+                                            <p class="mb-0 fz-12">{{ translate('Provider Unavailable') }}</p>
+                                        @endif
+                                    @else
+                                        <p class="mb-0 fz-12">{{ translate('The Service Location will be available after this booking accepts or assign to a provider') }}</p>
+                                    @endif
+                                @else
+                                    <p class="fz-12 mb-2 text-muted lh-sm">{{ translate('Provider has to go to the Customer Location to provide the service') }}</p>
+                                    <p class="fw-semibold fz-12 mb-1">{{ translate('Service Location') }}:</p>
+                                    <p class="mb-0 fz-12 text-break" title="{{ $booking?->service_address?->address }}">{{ Str::limit($booking?->service_address?->address ?? translate('not_available'), 280) }}</p>
+                                @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                            <div class="d-flex justify-content-start gap-2">
-                                <h3 class="mb-3">{{ translate('Booking_Summary') }}</h3>
+            <div class="row gy-3 align-items-start">
+                <div class="col-12">
+                    <div class="card mb-3">
+                        <div class="card-body pb-5">
+                            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                                <h3 class="mb-0">{{ translate('Booking_Summary') }}</h3>
+                                @if (in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing', 'on_hold']))
+                                    @can('booking_edit')
+                                        <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal"
+                                            data-bs-target="#serviceUpdateModal--{{ $booking['id'] }}" data-toggle="tooltip"
+                                            title="{{ translate('Add or remove services') }}">
+                                            <span class="material-symbols-outlined">edit</span>{{ translate('Edit Services') }}
+                                        </button>
+                                    @endcan
+                                @endif
                             </div>
 
                             <div class="table-responsive border-bottom">
@@ -721,7 +1441,7 @@
                                             <th>{{ translate('Qty') }}</th>
                                             <th>{{ translate('Discount') }}</th>
                                             @if($bookingHasTax)
-                                            <th>{{ translate('Vat') }}</th>
+                                            <th>{{ company_default_tax_label() }}</th>
                                             @endif
                                             <th class="text--end">{{ translate('Total') }}</th>
                                         </tr>
@@ -842,7 +1562,9 @@
                             @endcan
                             @php
                                 $serviceAmountExclVat = $subTotal + $extraServicesServiceTotal;
-                                $grandTotalCalculated = $serviceAmountExclVat + $extraServicesSpareTotal + (float)$booking->total_tax_amount + (float)$booking->extra_fee;
+                                // Canonical payable total (matches Payment Details / get_booking_total_amount); do not rebuild from gross subtotal + tax or discounts drift from stored lines.
+                                $grandTotalCalculated = round(get_booking_total_amount($booking), 2);
+                                $acDisplayRows = $additionalChargesDisplayRows ?? enrich_booking_additional_charges_breakdown_for_display($booking);
                             @endphp
                             <div class="row justify-content-end mt-3">
                                 <div class="col-sm-10 col-md-6 col-xl-5">
@@ -851,27 +1573,33 @@
                                             <tbody>
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('service_amount') }}@if($bookingHasTax) <small
-                                                            class="fz-12">({{ translate('Vat_Excluded') }})</small>@endif</td>
+                                                            class="fz-12">{{ booking_tax_excluded_bracket_hint() }}</small>@endif</td>
                                                     <td class="text--end pe--4">{{ with_currency_symbol($serviceAmountExclVat) }}
                                                     </td>
                                                 </tr>
+                                                @if((float)($booking->total_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('service_discount') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_discount_amount) }}</td>
                                                 </tr>
+                                                @endif
+                                                @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_coupon_discount_amount) }}
                                                     </td>
                                                 </tr>
+                                                @endif
+                                                @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
                                                 <tr>
                                                     <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_campaign_discount_amount) }}
                                                     </td>
                                                 </tr>
+                                                @endif
                                                 @if($booking->total_referral_discount_amount > 0)
                                                     <tr>
                                                         <td class="text-capitalize">{{ translate('Referral Discount') }}</td>
@@ -882,7 +1610,7 @@
                                                 @endif
                                                 @if($bookingHasTax)
                                                 <tr>
-                                                    <td class="text-capitalize">{{ translate('vat_/_tax') }}</td>
+                                                    <td>{{ company_default_tax_label() }}</td>
                                                     <td class="text--end pe--4">
                                                         {{ with_currency_symbol($booking->total_tax_amount) }}</td>
                                                 </tr>
@@ -894,15 +1622,56 @@
                                                     </tr>
                                                 @endif
                                                 @if ($booking->extra_fee > 0)
-                                                    @php
-                                                        $additional_charge_label_name = business_config('additional_charge_label_name', 'booking_setup')->live_values ?? 'Visiting Charges';
-                                                    @endphp
-                                                    <tr>
-                                                        <td class="text-capitalize">{{ $additional_charge_label_name }}
-                                                        </td>
-                                                        <td class="text--end pe--4">
-                                                            {{ with_currency_symbol($booking->extra_fee) }}</td>
-                                                    </tr>
+                                                    @if(count($acDisplayRows))
+                                                        @foreach($acDisplayRows as $acRow)
+                                                            @if((float)($acRow['amount'] ?? 0) > 0)
+                                                            @php
+                                                                $acLineAmount = (float) ($acRow['amount'] ?? 0);
+                                                                $acLineAmountInput = number_format($acLineAmount, 2, '.', '');
+                                                                $acLineCustomizable = ! empty($acRow['customizable']);
+                                                            @endphp
+                                                            <tr>
+                                                                <td class="text-capitalize">
+                                                                    {{ $acRow['name'] ?? translate('Additional_charges') }}
+                                                                </td>
+                                                                <td class="text--end pe--4">
+                                                                    <div class="ac-charge-line-wrap text-end ms-auto" style="max-width: 14rem;">
+                                                                        <div class="ac-charge-line-view d-inline-flex align-items-center gap-1 justify-content-end flex-wrap">
+                                                                            <span class="ac-charge-line-amount">{{ with_currency_symbol($acLineAmount) }}</span>
+                                                                            @can('booking_edit')
+                                                                                @if(!$bookingNotEditable && $acLineCustomizable)
+                                                                                    <button type="button" class="btn btn-link p-0 border-0 lh-1 text-decoration-none ac-charge-line-edit-btn" title="{{ translate('Edit') }}" aria-label="{{ translate('Edit') }}">
+                                                                                        <span class="material-icons title-color" style="font-size: 14px;">edit</span>
+                                                                                    </button>
+                                                                                @endif
+                                                                            @endcan
+                                                                        </div>
+                                                                        @can('booking_edit')
+                                                                            @if(!$bookingNotEditable && $acLineCustomizable)
+                                                                                <div class="ac-charge-line-edit d-none mt-1">
+                                                                                    <form method="post" action="{{ route('admin.booking.additional-charges.update', $booking->id) }}" class="d-flex flex-column align-items-end gap-1">
+                                                                                        @csrf
+                                                                                        @method('PUT')
+                                                                                        <input type="number" name="ac_line_amount[{{ $acRow['id'] }}]" value="{{ $acLineAmountInput }}" min="0" step="0.01" class="form-control form-control-sm text-end ac-charge-line-input" style="max-width: 7.5rem">
+                                                                                        <div class="d-flex flex-wrap gap-1 justify-content-end">
+                                                                                            <button type="submit" class="btn btn-sm btn--primary">{{ translate('Save') }}</button>
+                                                                                            <button type="button" class="btn btn-sm btn-outline-secondary ac-charge-line-cancel-btn">{{ translate('cancel') }}</button>
+                                                                                        </div>
+                                                                                    </form>
+                                                                                </div>
+                                                                            @endif
+                                                                        @endcan
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                            @endif
+                                                        @endforeach
+                                                    @else
+                                                        <tr>
+                                                            <td class="text-capitalize">{{ translate('Additional_charges') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($booking->extra_fee) }}</td>
+                                                        </tr>
+                                                    @endif
                                                 @endif
                                                 @if($extraServicesServiceTotal > 0)
                                                     <tr>
@@ -919,31 +1688,38 @@
                                                 </tr>
 
                                                 @if ($booking->booking_partial_payments->isNotEmpty())
-                                                    @foreach ($booking->booking_partial_payments as $partial)
+                                                    @php
+                                                        $__sumPaidProvider = round((float) ($revenueSettlement['amount_received_by_provider'] ?? 0), 2);
+                                                        $__sumPaidCompany = round((float) ($revenueSettlement['amount_received_by_company'] ?? 0), 2);
+                                                        $__sumPaidTotal = round((float) ($revenueSettlement['total_paid'] ?? 0), 2);
+                                                    @endphp
+                                                    @if ($__sumPaidProvider > 0)
                                                         <tr>
-                                                            <td>
-                                                                @if($partial->paid_with === 'offline')
-                                                                    {{ translate('Advance_Paid') }} ({{ translate('offline') }})
-                                                                    @if($partial->transaction_id)
-                                                                        <span class="small text-muted">— {{ $partial->transaction_id }}</span>
-                                                                    @endif
-                                                                @else
-                                                                    {{ translate('Paid_by') }} {{ str_replace('_', ' ', $partial->paid_with) }}
-                                                                @endif
-                                                            </td>
-                                                            <td class="text--end pe--4">
-                                                                {{ with_currency_symbol($partial->paid_amount) }}</td>
+                                                            <td>{{ translate('Paid_to_service_provider') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($__sumPaidProvider) }}</td>
                                                         </tr>
-                                                    @endforeach
+                                                    @endif
+                                                    @if ($__sumPaidCompany > 0)
+                                                        <tr>
+                                                            <td>{{ translate('Paid_to_company') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($__sumPaidCompany) }}</td>
+                                                        </tr>
+                                                    @endif
+                                                    @if ($__sumPaidTotal > 0)
+                                                        <tr>
+                                                            <td><strong>{{ translate('Total_paid') }}</strong></td>
+                                                            <td class="text--end pe--4"><strong>{{ with_currency_symbol($__sumPaidTotal) }}</strong></td>
+                                                        </tr>
+                                                    @endif
                                                 @endif
 
                                                 @php
-                                                $dueAmount = 0;
-                                                if (!$paymentFullyCovered) {
-                                                    $dueAmount = $grandTotalCalculated - $totalPaidFromPartials;
-                                                }
-                                                if (in_array($booking->booking_status, ['pending', 'accepted', 'ongoing']) && $booking->payment_method != 'cash_after_service' && $booking->additional_charge > 0) {
-                                                    $dueAmount += $booking->additional_charge;
+                                                // Match Payment Details Due_Balance (incl. legacy additional_charge for non–cash-after-service when applicable).
+                                                $dueAmount = $paymentFullyCovered
+                                                    ? 0.0
+                                                    : round(max(0, (float) $bookingTotalForPayment - (float) $totalPaidFromPartials), 2);
+                                                if ($dueAmount > 0 && in_array($booking->booking_status, ['pending', 'accepted', 'ongoing'], true) && $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) > 0) {
+                                                    $dueAmount = round($dueAmount + (float) $booking->additional_charge, 2);
                                                 }
                                                 @endphp
 
@@ -971,170 +1747,46 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-4">
-                    @php
-                        $revenueSettlement = get_booking_received_and_settlement($booking);
-                    @endphp
-                    {{-- Revenue split: what company keeps vs provider gets, and who owes whom --}}
-                    <div class="card mb-3 border-primary">
-                        <div class="card-body">
-                            <h3 class="c1 mb-3">{{ translate('Revenue_&_Settlement') }}</h3>
-                            <hr>
-                            <div class="d-flex flex-column gap-3">
-                                <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                    <span class="title-color">{{ translate('Company_share') }} ({{ translate('Commission') }})</span>
-                                    <strong class="text-primary">{{ with_currency_symbol($revenueSettlement['company_share']) }}</strong>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center p-3 rounded c1-light-bg">
-                                    <span class="title-color">{{ translate('Provider_share') }}</span>
-                                    <strong>{{ with_currency_symbol($revenueSettlement['provider_share']) }}</strong>
-                                </div>
-                                <div class="small text-muted border-top pt-2">
-                                    <div class="d-flex justify-content-between mb-1">
-                                        <span>{{ translate('Received_by_company') }}:</span>
-                                        <span>{{ with_currency_symbol($revenueSettlement['amount_received_by_company']) }}</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between mb-1">
-                                        <span>{{ translate('Received_by_provider') }}:</span>
-                                        <span>{{ with_currency_symbol($revenueSettlement['amount_received_by_provider']) }}</span>
-                                    </div>
-                                </div>
-                                @if($revenueSettlement['pay_to_provider'] > 0)
-                                    <div class="alert alert-info mb-0 py-2 px-3 d-flex justify-content-between align-items-center">
-                                        <span>{{ translate('Pay_to_provider') }}:</span>
-                                        <strong>{{ with_currency_symbol($revenueSettlement['pay_to_provider']) }}</strong>
-                                    </div>
-                                @elseif($revenueSettlement['provider_owes_company'] > 0)
-                                    <div class="alert alert-warning mb-0 py-2 px-3 d-flex justify-content-between align-items-center">
-                                        <span>{{ translate('Provider_owes_you') }}:</span>
-                                        <strong>{{ with_currency_symbol($revenueSettlement['provider_owes_company']) }}</strong>
-                                    </div>
-                                @else
-                                    <div class="alert alert-secondary mb-0 py-2 px-3 small">
-                                        {{ $revenueSettlement['total_paid'] >= $bookingTotalForPayment ? translate('Settled') : translate('Unpaid_or_partially_paid') }}
-                                    </div>
-                                @endif
+            </div>
+            <div class="row gy-3 align-items-start">
+                <div class="col-lg-5 col-xl-4 d-flex flex-column gap-3 align-items-stretch">
+                    @can('booking_can_manage_status')
+                        @if(!$bookingNotEditable)
+                            <div class="d-none" aria-hidden="true">
+                                @php
+                                    $__statusSelectNext = booking_admin_allowed_next_statuses($booking->booking_status);
+                                    $__statusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmount;
+                                @endphp
+                                <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}" data-can-complete="{{ booking_can_be_completed($booking) ? '1' : '0' }}">
+                                    <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}</option>
+                                    @foreach ($__statusSelectNext as $__selSt)
+                                        @php
+                                            $__optDisabled = $__statusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                            if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
+                                                $__optDisabled = true;
+                                            }
+                                            $__optLabel = match ($__selSt) {
+                                                'accepted' => translate('Accept_Booking'),
+                                                'canceled' => translate('Cancel_Booking'),
+                                                'pending' => translate('Mark_as_Pending'),
+                                                'ongoing' => translate('Mark_as_Ongoing'),
+                                                'on_hold' => translate('Put_on_hold'),
+                                                'completed' => translate('Complete_Booking'),
+                                                default => ucwords(str_replace('_', ' ', $__selSt)),
+                                            };
+                                        @endphp
+                                        <option value="{{ $__selSt }}" @if($__optDisabled) disabled @endif>{{ $__optLabel }}</option>
+                                    @endforeach
+                                </select>
                             </div>
-                        </div>
-                    </div>
+                        @endif
+                    @endcan
 
-                    {{-- Booking information: Assignee, Source, Additional service info --}}
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-                                <h3 class="c1 mb-0">{{ translate('Booking_Information') }}</h3>
-                                @can('booking_edit')
-                                    @if(!$bookingNotEditable)
-                                    <button type="button" class="btn btn-sm btn--primary" data-bs-toggle="modal"
-                                            data-bs-target="#bookingInfoModal--{{ $booking->id }}">
-                                        <span class="material-symbols-outlined" style="font-size: 18px;">edit_square</span>
-                                        {{ translate('Update') }}
-                                    </button>
-                                    @endif
-                                @endcan
-                            </div>
-                            <hr>
-                            <div class="d-flex flex-column gap-2">
-                                <div>
-                                    <span class="title-color">{{ translate('Assignee') }}:</span>
-                                    <span id="booking-assignee-display">
-                                        @if($booking->assignee_id && $booking->assignee)
-                                            {{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}
-                                            ({{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }})
-                                            — {{ $booking->assignee->email ?? $booking->assignee->phone }}
-                                        @else
-                                            <span class="text-muted">{{ translate('Unassigned') }}</span>
-                                        @endif
-                                    </span>
-                                </div>
-                                <div>
-                                    <span class="title-color">{{ translate('Source') }}:</span>
-                                    <span id="booking-source-display">
-                                        @switch(strtolower((string)($booking->booking_source ?? 'app')))
-                                            @case('app'){{ translate('App') }}@break
-                                            @case('call'){{ translate('Call') }}@break
-                                            @case('whatsapp'){{ translate('Whatsapp') }}@break
-                                            @case('social_media'){{ translate('Social_Media') }}@break
-                                            @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
-                                        @endswitch
-                                    </span>
-                                </div>
-                                <div>
-                                    <span class="title-color">{{ translate('Service_Additional_Details') }}:</span>
-                                    <span id="booking-service-description-display" class="text-break">
-                                        {{ $booking->service_description ?: translate('Not_specified') }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="c1">{{ translate('Booking Setup') }}</h3>
-                            <hr>
-                            @php
-                                $bookingNotEditable = in_array($booking->booking_status, ['completed', 'canceled', 'refunded']);
-                            @endphp
-                            @can('booking_can_manage_status')
-                                <div class="d-flex justify-content-between align-items-center gap-10 form-control h-45">
-                                    <span class="title-color">{{ translate('Payment') }}</span>
-                                    @if(in_array($booking->booking_status, ['canceled', 'refunded']))
-                                        <span class="text-muted">{{ translate('Refunded') }}</span>
-                                    @elseif(!$bookingNotEditable && !$paymentFullyCovered)
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="text-muted">{{ translate('Due_Amount') }}: <strong>{{ with_currency_symbol($remainingDueForAddPayment) }}</strong></span>
-                                            <button type="button" class="btn btn--primary btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal-{{ $booking->id }}">{{ translate('Add payment') }}</button>
-                                        </div>
-                                    @else
-                                        <span class="text-muted">{{ $paymentFullyCovered ? translate('Paid') : '' }}</span>
-                                    @endif
-                                </div>
-                                @if(!$bookingNotEditable && !$paymentFullyCovered)
-                                    <div class="modal fade" id="addPaymentModal-{{ $booking->id }}" tabindex="-1">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <form method="post" action="{{ route('admin.booking.add-payment', $booking->id) }}" class="add-payment-form" data-due-amount="{{ $remainingDueForAddPayment }}">
-                                                    @csrf
-                                                    <div class="modal-header">
-                                                        <h5 class="modal-title">{{ translate('Add payment') }}</h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                    </div>
-                                                    <div class="modal-body">
-                                                        <div class="mb-3">
-                                                            <label class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span> <small class="text-muted">({{ translate('Due amount') }}: {{ with_currency_symbol($remainingDueForAddPayment) }})</small></label>
-                                                            <input type="number" step="0.01" min="0.01" max="{{ $remainingDueForAddPayment }}" name="amount" class="form-control add-payment-amount" required placeholder="{{ translate('Max') }} {{ with_currency_symbol($remainingDueForAddPayment) }}">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">{{ translate('Received by') }} <span class="text-danger">*</span></label>
-                                                            <select name="received_by" class="form-control form-select add-payment-received-by" required>
-                                                                <option value="company">{{ translate('Company') }}</option>
-                                                                <option value="provider">{{ translate('Provider') }}</option>
-                                                            </select>
-                                                        </div>
-                                                        <div class="mb-3 add-payment-txn-wrap">
-                                                            <label class="form-label">{{ translate('Transaction ID') }} <span class="text-danger">*</span> ({{ translate('if received by company') }})</label>
-                                                            <input type="text" name="transaction_id" class="form-control" maxlength="100" placeholder="{{ translate('Gateway or manual reference') }}">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label class="form-label">{{ translate('Date') }}</label>
-                                                            <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}">
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
-                                                        <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endif
-                            @endcan
-
-                            @can('booking_can_manage_status')
+                    @can('booking_can_manage_status')
                                 @if($booking->booking_status == 'canceled' && isset($maxRefundAmount) && $maxRefundAmount > 0)
-                                    <div class="d-flex justify-content-between align-items-center gap-10 form-control h-45 mt-3">
+                                    <div class="card mb-3">
+                                        <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center gap-10 form-control h-45">
                                         <span class="title-color">{{ translate('Refund') }}</span>
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="text-muted">{{ translate('Max_refund') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
@@ -1173,55 +1825,10 @@
                                             </div>
                                         </div>
                                     </div>
-                                @endif
-                            @endcan
-
-                            @can('booking_can_manage_status')
-                                <div class="mt-3">
-                                    @if($bookingNotEditable)
-                                        <div class="form-control h-45 d-flex align-items-center title-color">
-                                            {{ translate('Booking_Status') }}: {{ translate(ucfirst($booking->booking_status)) }}
                                         </div>
-                                    @else
-                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}" data-can-complete="{{ booking_can_be_completed($booking) ? '1' : '0' }}">
-                                            @if ($booking->booking_status == 'pending')
-                                                <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ translate('Pending') }}</option>
-                                                <option value="accepted">{{ translate('Accept') }} {{ translate('Booking') }}</option>
-                                                <option value="canceled">{{ translate('Cancel') }} {{ translate('Booking') }}</option>
-                                            @else
-                                                <option value="0" disabled {{ $booking['booking_status'] == 'accepted' ? 'selected' : '' }}>
-                                                    {{ translate('Booking_Status') }}: {{ translate('Accepted') }}</option>
-                                                <option value="ongoing"  @if ($booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmount ) disabled @endif
-                                                    {{ $booking['booking_status'] == 'ongoing' ? 'selected' : '' }}>
-                                                    {{ translate('Booking_Status') }}: {{ translate('Ongoing') }}</option>
-                                                <option value="completed"  @if ($booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmount ) disabled @endif
-                                                    {{ $booking['booking_status'] == 'completed' ? 'selected' : '' }}>
-                                                    {{ translate('Booking_Status') }}: {{ translate('Completed') }}</option>
-                                                @if ($booking->booking_status != 'completed')
-                                                <option value="canceled"  @if ($booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmount ) disabled @endif
-                                                    {{ $booking['booking_status'] == 'canceled' ? 'selected' : '' }}>
-                                                    {{ translate('Booking_Status') }}: {{ translate('Canceled') }}</option>
-                                                @endif
-                                            @endif
-                                        </select>
-                                    @endif
-                                </div>
-                            @endcan
-
-                            <div class="mt-3">
-                                @if (!$bookingNotEditable && !in_array($booking->booking_status, ['ongoing', 'completed']))
-                                    @can('booking_can_manage_status')
-                                        <input type="datetime-local" class="form-control h-45"
-                                               name="service_schedule"
-                                               value="{{ $booking->service_schedule }}"
-                                               id="service_schedule"
-                                               data-original="{{ $booking->service_schedule }}"
-                                               min="{{ date('Y-m-d\TH:i') }}"
-                                               onchange="service_schedule_update()">
-                                    @endcan
+                                    </div>
                                 @endif
-                            </div>
-
+                            @endcan
 
                             @if($booking->payment_method == 'offline_payment')
                                 <div class="mt-3 border border-color-primary">
@@ -1286,406 +1893,16 @@
                                 </div>
                             @endif
 
-                            <div class="py-3 d-flex flex-column gap-3 mb-2">
-                                @if ($booking->evidence_photos)
-                                    <div class="c1-light-bg radius-10 py-3 px-4">
-                                        <div class="d-flex justify-content-start gap-2">
-                                            <h4 class="mb-2">{{ translate('uploaded_Images') }}</h4>
-                                        </div>
-
-                                        <div class="py-3 px-4">
-                                            <div class="d-flex flex-wrap gap-3 justify-content-lg-start">
-                                                @foreach ($booking->evidence_photos_full_path ?? [] as $key => $img)
-                                                    <img width="100" class="max-height-100"
-                                                        src="{{ $img }}"
-                                                        alt="{{ translate('evidence-photo') }}">
-                                                @endforeach
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endif
-
-                                @php
-                                    $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
-                                @endphp
-                                <div class="c1-light-bg radius-10">
-                                    <div class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">map</span>
-                                            {{ translate('Service_location') }}
-                                        </h4>
-                                        @if($serviceAtProviderPlace == 1)
-                                            @if($booking->provider_id)
-                                                @php
-                                                    $serviceLocation = getProviderSettings(providerId: $booking->provider_id, key: 'service_location', type: 'provider_config');
-                                                @endphp
-                                                @if(in_array('customer', $serviceLocation) && in_array('provider', $serviceLocation))
-                                                    <div class="btn-group">
-                                                        @can('booking_edit')
-                                                            @if(!$bookingNotEditable)
-                                                            <div data-bs-toggle="modal"
-                                                                 data-bs-target="#serviceLocationModal--{{ $booking['id'] }}"
-                                                                 data-toggle="tooltip" data-placement="top">
-                                                                <div class="d-flex align-items-center gap-2">
-                                                                    <span class="material-symbols-outlined">edit_square</span>
-                                                                </div>
-                                                            </div>
-                                                            @endif
-                                                        @endcan
-                                                    </div>
-                                                @endif
-                                            @else
-                                                <div class="btn-group">
-                                                    @can('booking_edit')
-                                                        @if(!$bookingNotEditable)
-                                                        <div data-bs-toggle="modal"
-                                                             data-bs-target="#serviceLocationModal--{{ $booking['id'] }}"
-                                                             data-toggle="tooltip" data-placement="top">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="material-symbols-outlined">edit_square</span>
-                                                            </div>
-                                                        </div>
-                                                        @endif
-                                                    @endcan
-                                                </div>
-                                            @endif
-                                        @endif
-                                    </div>
-
-                                    <div class="py-3 px-4">
-                                        @if($booking->service_location == 'provider')
-                                            <div class="bg-warning p-3 rounded">
-                                                <h5>{{ translate('Customer has to go to the Provider Location to receive the service') }}</h5>
-                                            </div>
-                                            <div class="mt-3">
-                                                @if($booking->provider_id != null)
-                                                    @if($booking->provider)
-                                                        <h5 class="mb-1">{{ translate('Service Location') }}:</h5>
-                                                        <div class="d-flex justify-content-between">
-                                                            <p>{{ Str::limit($booking?->provider?->company_address ?? translate('not_available'), 100) }}</p>
-                                                            <span class="material-icons">map</span>
-                                                        </div>
-                                                    @else
-                                                        <p>{{ translate('Provider Unavailable') }}</p>
-                                                    @endif
-                                                @else
-                                                    <h5 class="mb-1">{{ translate('Service Location') }}:</h5>
-                                                    <p>{{ translate('The Service Location will be available after this booking accepts or assign to a provider') }}</p>
-                                                @endif
-                                            </div>
-                                        @else
-                                            <div class="bg-warning p-3 rounded">
-                                                <h5>{{ translate('Provider has to go to the Customer Location to provide the service') }}</h5>
-                                            </div>
-                                            <div class="mt-3">
-                                                <h5 class="mb-1">{{ translate('Service Location') }}:</h5>
-                                                <div class="d-flex justify-content-between">
-                                                    <p>{{ Str::limit($booking?->service_address?->address ?? translate('not_available'), 100) }}</p>
-                                                    <span class="material-icons">map</span>
-                                                </div>
-                                            </div>
-                                        @endif
+                            @if ($booking->evidence_photos)
+                                <div class="mt-3 c1-light-bg radius-10 py-3 px-3">
+                                    <h4 class="mb-2 h6">{{ translate('uploaded_Images') }}</h4>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        @foreach ($booking->evidence_photos_full_path ?? [] as $key => $img)
+                                            <img width="100" class="max-height-100" src="{{ $img }}" alt="{{ translate('evidence-photo') }}">
+                                        @endforeach
                                     </div>
                                 </div>
-
-                                <div class="c1-light-bg radius-10">
-                                    <div class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">person</span>
-                                            {{ translate('Customer_Information') }}
-                                        </h4>
-
-                                        <div class="btn-group">
-                                            @if (in_array($booking->booking_status, ['completed', 'cancelled']))
-                                                @if (!$booking?->is_guest)
-                                                    <div
-                                                        class="d-flex align-items-center gap-2 cursor-pointer customer-chat">
-                                                        <span class="material-symbols-outlined">chat</span>
-                                                        <form action="{{ route('admin.chat.create-channel') }}"
-                                                            method="post" id="chatForm-{{ $booking->id }}">
-                                                            @csrf
-                                                            <input type="hidden" name="customer_id"
-                                                                value="{{ $booking?->customer?->id }}">
-                                                            <input type="hidden" name="type" value="booking">
-                                                            <input type="hidden" name="user_type" value="customer">
-                                                        </form>
-                                                    </div>
-                                                @endif
-                                            @else
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown"
-                                                    aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                <ul
-                                                    class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    @can('booking_edit')
-                                                        @if(!$bookingNotEditable)
-                                                        <li data-bs-toggle="modal"
-                                                            data-bs-target="#serviceAddressModal--{{ $booking['id'] }}"
-                                                            data-toggle="tooltip" data-placement="top">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="material-symbols-outlined">edit_square</span>
-                                                                {{ translate('Edit_Details') }}
-                                                            </div>
-                                                        </li>
-                                                        @endif
-                                                    @endcan
-                                                    @if (!$booking?->is_guest)
-                                                        <li>
-                                                            <div
-                                                                class="d-flex align-items-center gap-2 cursor-pointer customer-chat">
-                                                                <span class="material-symbols-outlined">chat</span>
-                                                                {{ translate('chat_with_Customer') }}
-                                                                <form action="{{ route('admin.chat.create-channel') }}"
-                                                                    method="post" id="chatForm-{{ $booking->id }}">
-                                                                    @csrf
-                                                                    <input type="hidden" name="customer_id"
-                                                                        value="{{ $booking?->customer?->id }}">
-                                                                    <input type="hidden" name="type" value="booking">
-                                                                    <input type="hidden" name="user_type"
-                                                                        value="customer">
-                                                                </form>
-                                                            </div>
-                                                        </li>
-                                                    @endif
-                                                </ul>
-                                            @endif
-                                        </div>
-                                    </div>
-
-                                    <div class="py-3 px-4">
-                                        <div class="media gap-2 flex-wrap">
-                                            @if (!$booking?->is_guest && $booking?->customer)
-                                                <img width="58" height="58"
-                                                    class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                    src="{{ $booking?->customer?->profile_image_full_path }}"
-                                                    alt="{{ translate('user_image') }}">
-                                            @else
-                                                <img width="58" height="58"
-                                                    class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                    src="{{ asset('assets/provider-module/img/user2x.png') }}"
-                                                    alt="{{ translate('user_image') }}">
-                                            @endif
-
-                                            <div class="media-body">
-                                                <h5 class="c1 mb-3">
-                                                    @if (!$booking?->is_guest && $booking?->customer)
-                                                        <a href="{{ route('admin.customer.detail', [$booking?->customer?->id, 'web_page' => 'overview']) }}"
-                                                            class="c1">{{ Str::limit($customerName ?? '', 30) }}</a>
-                                                    @else
-                                                        <span>{{ Str::limit($customerName ?? '', 30) }}</span>
-                                                    @endif
-                                                </h5>
-                                                <ul class="list-info">
-                                                    @if ($customerPhone ?? null)
-                                                        <li>
-                                                            <span class="material-icons">phone_iphone</span>
-                                                            <a
-                                                                href="tel:{{ $customerPhone }}">{{ $customerPhone }}</a>
-                                                        </li>
-                                                    @endif
-                                                    @if(!empty($booking?->service_address?->address))
-                                                            <li>
-                                                                <span class="material-icons">map</span>
-                                                                <p>{{ Str::limit($booking?->service_address?->address ?? translate('not_available'), 100) }}
-                                                                </p>
-                                                            </li>
-                                                    @endif
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="c1-light-bg radius-10 provider-information">
-                                    <div
-                                        class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">person</span>
-                                            {{ translate('Provider_Information') }}
-                                        </h4>
-                                        @if (isset($booking->provider))
-                                            <div class="btn-group">
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                <ul class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    <li>
-                                                        <div
-                                                            class="d-flex align-items-center gap-2 cursor-pointer provider-chat">
-                                                            <span class="material-symbols-outlined">chat</span>
-                                                            {{ translate('chat_with_Provider') }}
-                                                            <form action="{{ route('admin.chat.create-channel') }}"
-                                                                method="post" id="chatForm-{{ $booking->id }}">
-                                                                @csrf
-                                                                <input type="hidden" name="provider_id"
-                                                                    value="{{ $booking?->provider?->owner?->id ?? $booking?->provider?->user_id }}">
-                                                                <input type="hidden" name="type" value="booking">
-                                                                <input type="hidden" name="user_type"
-                                                                    value="provider-admin">
-                                                            </form>
-                                                        </div>
-                                                    </li>
-                                                    @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
-                                                        @can('booking_can_manage_status')
-                                                            <li>
-                                                                <div class="d-flex align-items-center gap-2"
-                                                                    data-bs-target="#providerModal" data-bs-toggle="modal">
-                                                                    <span
-                                                                        class="material-symbols-outlined">manage_history</span>
-                                                                    {{ translate('change_Provider') }}
-                                                                </div>
-                                                            </li>
-                                                        @endcan
-                                                    @endif
-                                                    <li>
-                                                        <a class="d-flex align-items-center gap-2 cursor-pointer p-0"
-                                                            href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}">
-                                                            <span class="material-icons">person</span>
-                                                            {{ translate('View_Details') }}
-                                                        </a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        @endif
-                                    </div>
-
-                                    @if (isset($booking->provider))
-                                        <div class="py-3 px-4">
-                                            <div class="media gap-2 flex-wrap">
-                                                <img width="58" height="58"
-                                                    class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                    src="{{ $booking?->provider?->logo_full_path }}"
-                                                    alt="{{ translate('provider') }}">
-                                                <div class="media-body">
-                                                    <a
-                                                        href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}">
-                                                        <h5 class="c1 mb-3">
-                                                            {{ Str::limit($booking->provider->company_name ?? '', 30) }}
-                                                        </h5>
-                                                    </a>
-                                                    <ul class="list-info">
-                                                        <li>
-                                                            <span class="material-icons">phone_iphone</span>
-                                                            <a
-                                                                href="tel:{{ $booking->provider->contact_person_phone ?? '' }}">{{ $booking->provider->contact_person_phone ?? '' }}</a>
-                                                        </li>
-                                                        <li>
-                                                            <span class="material-icons">map</span>
-                                                            <p>{{ Str::limit($booking->provider->company_address ?? '', 100) }}
-                                                            </p>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @else
-                                        <div class="d-flex flex-column gap-2 mt-30 align-items-center">
-                                            <span class="material-icons text-muted fs-2">account_circle</span>
-                                            <p class="text-muted text-center fw-medium mb-3">
-                                                {{ translate('No Provider Information') }}</p>
-                                        </div>
-                                        @if($booking->is_verified != 2)
-                                            <div class="text-center pb-4">
-                                                <button class="btn btn--primary" data-bs-target="#providerModal" data-bs-toggle="modal">{{ translate('assign provider') }}</button>
-                                            </div>
-                                        @endif
-                                    @endif
-                                </div>
-
-                                <div class="c1-light-bg radius-10 serviceman-information">
-                                    <div
-                                        class="border-bottom d-flex align-items-center justify-content-between gap-2 py-3 px-4 mb-2">
-                                        <h4 class="d-flex align-items-center gap-2">
-                                            <span class="material-icons title-color">person</span>
-                                            {{ translate('Serviceman_Information') }}
-                                        </h4>
-                                        @if (isset($booking->serviceman))
-                                            <div class="btn-group">
-                                                @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
-
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown"
-                                                     aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                    <ul class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                        <li>
-                                                            <div
-                                                                class="d-flex align-items-center gap-2 cursor-pointer provider-chat">
-                                                                <span class="material-symbols-outlined">chat</span>
-                                                                {{ translate('chat_with_Serviceman') }}
-                                                                <form action="{{ route('admin.chat.create-channel') }}"
-                                                                      method="post" id="chatForm-{{ $booking->id }}">
-                                                                    @csrf
-                                                                    <input type="hidden" name="serviceman_id"
-                                                                           value="{{ $booking?->serviceman?->user?->id }}">
-                                                                    <input type="hidden" name="type" value="booking">
-                                                                    <input type="hidden" name="user_type"
-                                                                           value="provider-serviceman">
-                                                                </form>
-                                                            </div>
-                                                        </li>
-                                                        @can('booking_can_manage_status')
-                                                            <li>
-                                                                <div class="d-flex align-items-center gap-2"
-                                                                     data-bs-target="#servicemanModal" data-bs-toggle="modal">
-                                                                    <span
-                                                                        class="material-symbols-outlined">manage_history</span>
-                                                                    {{ translate('change serviceman') }}
-                                                                </div>
-                                                            </li>
-                                                        @endcan
-                                                    </ul>
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
-                                    @if (isset($booking->serviceman))
-                                        <div class="py-3 px-4">
-                                            <div class="media gap-2 flex-wrap">
-                                                <img width="58" height="58"
-                                                    class="rounded-circle border border-white aspect-square object-fit-cover"
-                                                    src="{{ $booking?->serviceman?->user?->profile_image_full_path }}"
-                                                    alt="{{ translate('serviceman') }}">
-                                                <div class="media-body">
-                                                    <h5 class="c1 mb-3">
-                                                        {{ Str::limit($booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->first_name . ' ' . $booking->serviceman->user->last_name : '', 30) }}
-                                                    </h5>
-                                                    <ul class="list-info">
-                                                        <li>
-                                                            <span class="material-icons">phone_iphone</span>
-                                                            <a
-                                                                href="tel:{{ $booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->phone : '' }}">
-                                                                {{ $booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->phone : '' }}
-                                                            </a>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @else
-                                        <div class="d-flex flex-column gap-2 mt-30 align-items-center">
-                                            <span class="material-icons text-muted fs-2">account_circle</span>
-                                            <p class="text-muted text-center fw-medium mb-3">
-                                                {{ translate('No Serviceman Information') }}</p>
-                                        </div>
-
-                                        <div class="text-center pb-4">
-                                            <button
-                                                class="btn btn--primary"
-                                                data-bs-target="#servicemanModal"
-                                                data-bs-toggle="modal"
-                                                @if($booking['booking_status'] == 'completed' || $booking['booking_status'] == 'canceled' || !isset($booking->provider))
-                                                    disabled
-                                                @endif>
-                                                {{ translate('assign Serviceman') }}
-                                            </button>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                            @endif
                 </div>
             </div>
         </div>
@@ -1750,6 +1967,44 @@
 @push('script')
     <script>
         "use strict";
+
+        $(document).on('click', '.wa-open-admin-chat', function (e) {
+            e.preventDefault();
+            var $btn = $(this);
+            if ($btn.data('wa-opening')) {
+                return;
+            }
+            var phone = $btn.data('phone');
+            var url = $btn.data('prepare-url');
+            if (!phone || !url) {
+                return;
+            }
+            $btn.data('wa-opening', true);
+            $.ajax({
+                url: url,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    phone: String(phone),
+                },
+                success: function (res) {
+                    if (res && res.redirect_url) {
+                        window.location.href = res.redirect_url;
+                        return;
+                    }
+                    $btn.data('wa-opening', false);
+                    toastr.error('{{ translate('Something went wrong') }}');
+                },
+                error: function (xhr) {
+                    $btn.data('wa-opening', false);
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message)
+                        ? xhr.responseJSON.message
+                        : '{{ translate('Something went wrong') }}';
+                    toastr.error(msg);
+                },
+            });
+        });
 
         $('.switcher_input').on('click', function() {
             let paymentStatus = $(this).is(':checked') === true ? 1 : 0;
@@ -2037,6 +2292,76 @@
             }
         });
 
+        $(document).on('click', '.booking-status-overview-btn:not(:disabled)', function() {
+            var status = $(this).data('status');
+            var $select = $('#booking_status');
+            if (!$select.length) {
+                return;
+            }
+            var previous_status = $select.data('current');
+            if (String(status) === String(previous_status)) {
+                return;
+            }
+            if (status === 'completed' && $select.data('can-complete') === '0') {
+                toastr.error('{{ translate('Booking cannot be completed until full payment is received.') }}', { CloseButton: true, ProgressBar: true });
+                return;
+            }
+            $select.val(status);
+            if ($select.val() !== String(status)) {
+                toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
+                return;
+            }
+            if ($select.next('.select2-container').length) {
+                $select.next('.select2-container').find('.select2-selection__rendered').text($select.find('option:selected').text());
+            }
+            $select.trigger('change');
+        });
+
+        $('#booking-schedule-edit-toggle').on('click', function () {
+            $('#booking-schedule-view-mode').addClass('d-none');
+            $('#booking-schedule-edit-mode').removeClass('d-none');
+            setTimeout(function () {
+                $('#service_schedule').trigger('focus');
+            }, 0);
+        });
+
+        $(document).on('click', '.ac-charge-line-edit-btn', function () {
+            $('.ac-charge-line-wrap').each(function () {
+                var $w = $(this);
+                $w.find('.ac-charge-line-edit').addClass('d-none');
+                $w.find('.ac-charge-line-view').removeClass('d-none');
+                var $inp = $w.find('.ac-charge-line-input');
+                if ($inp.length && $inp.data('original') !== undefined) {
+                    $inp.val($inp.data('original'));
+                }
+            });
+            var $wrap = $(this).closest('.ac-charge-line-wrap');
+            var $input = $wrap.find('.ac-charge-line-input');
+            $input.data('original', $input.val());
+            $wrap.find('.ac-charge-line-view').addClass('d-none');
+            $wrap.find('.ac-charge-line-edit').removeClass('d-none');
+            $input.trigger('focus');
+        });
+        $(document).on('click', '.ac-charge-line-cancel-btn', function () {
+            var $wrap = $(this).closest('.ac-charge-line-wrap');
+            var $input = $wrap.find('.ac-charge-line-input');
+            if ($input.length && $input.data('original') !== undefined) {
+                $input.val($input.data('original'));
+            }
+            $wrap.find('.ac-charge-line-edit').addClass('d-none');
+            $wrap.find('.ac-charge-line-view').removeClass('d-none');
+        });
+
+        function bookingScheduleExitEditMode() {
+            var $in = $('#service_schedule');
+            if (!$in.length) {
+                return;
+            }
+            $in.val($in.data('original'));
+            $('#booking-schedule-edit-mode').addClass('d-none');
+            $('#booking-schedule-view-mode').removeClass('d-none');
+        }
+
         $(".change-booking-status").on('click', function() {
             var booking_status = 'canceled';
             var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
@@ -2064,6 +2389,9 @@
 
         function service_schedule_update() {
             var $input = $("#service_schedule");
+            if (!$input.length) {
+                return;
+            }
             var service_schedule = $input.val();
             var original = $input.data('original');
 
@@ -2074,7 +2402,7 @@
 
             // Normalize formats (replace space with 'T' for parsing)
             var newDate = new Date(service_schedule);
-            var originalDate = new Date(original.replace(" ", "T"));
+            var originalDate = new Date(String(original).replace(" ", "T"));
             var now = new Date();
 
             // Compare with current time
@@ -2102,15 +2430,124 @@
             update_booking_details(route, '{{ translate('want_to_switch_payment_method_to_cash_after_service') }}', 'payment_method', payment_method);
         });
 
+        function toggleAddPaymentTransactionField($form) {
+            var receivedBy = $form.find('input[name="received_by"]:checked').val();
+            var $wrap = $form.find('.add-payment-txn-wrap');
+            var $txn = $form.find('.add-payment-transaction-id');
+            if (receivedBy === 'company') {
+                $wrap.removeClass('d-none');
+                $txn.prop('required', true);
+            } else {
+                $wrap.addClass('d-none');
+                $txn.prop('required', false).val('');
+            }
+        }
+
+        $(document).on('change', '.add-payment-form input[name="received_by"]', function() {
+            toggleAddPaymentTransactionField($(this).closest('.add-payment-form'));
+        });
+
+        $(document).on('shown.bs.modal', '[id^="addPaymentModal-"]', function() {
+            var $form = $(this).find('.add-payment-form');
+            if ($form.length) {
+                toggleAddPaymentTransactionField($form);
+            }
+        });
+
+        $(document).on('hidden.bs.modal', '[id^="addPaymentModal-"]', function() {
+            var $form = $(this).find('.add-payment-form');
+            $form.find('.add-payment-modal-errors').addClass('d-none').empty();
+            $form.find('button[type="submit"]').prop('disabled', false);
+        });
+
         $(document).on('submit', '.add-payment-form', function(e) {
+            e.preventDefault();
             var $form = $(this);
+            var $modal = $form.closest('.modal');
+            var $errBox = $form.find('.add-payment-modal-errors');
+            $errBox.addClass('d-none').empty();
+
             var dueAmount = parseFloat($form.data('due-amount')) || 0;
             var amount = parseFloat($form.find('.add-payment-amount').val()) || 0;
             if (dueAmount > 0 && amount > dueAmount) {
-                e.preventDefault();
-                toastr.error('{{ translate('Amount cannot exceed the due amount. Due amount') }}: ' + dueAmount.toFixed(2));
+                $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Amount cannot exceed the due amount. Due amount') }}: ' + dueAmount.toFixed(2) + '</li></ul>');
                 return false;
             }
+
+            var receivedBy = $form.find('input[name="received_by"]:checked').val();
+            if (receivedBy === 'company') {
+                var tid = ($form.find('.add-payment-transaction-id').val() || '').trim();
+                if (!tid) {
+                    $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Transaction ID') }} {{ translate('is_required') }}</li></ul>');
+                    return false;
+                }
+            }
+
+            var $btn = $form.find('button[type="submit"]');
+            $btn.prop('disabled', true);
+
+            $.ajax({
+                url: $form.attr('action'),
+                method: 'POST',
+                data: $form.serialize(),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            }).done(function(res) {
+                var modalEl = $modal[0];
+                if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    var inst = bootstrap.Modal.getInstance(modalEl);
+                    if (inst) {
+                        inst.hide();
+                    }
+                }
+                if (res && res.message && typeof toastr !== 'undefined') {
+                    toastr.success(res.message);
+                }
+                location.reload();
+            }).fail(function(xhr) {
+                $btn.prop('disabled', false);
+                var msgs = [];
+                var payload = xhr.responseJSON;
+                if (payload && payload.errors) {
+                    if (Array.isArray(payload.errors)) {
+                        payload.errors.forEach(function(er) {
+                            if (er && er.message) {
+                                msgs.push(er.message);
+                            } else if (typeof er === 'string') {
+                                msgs.push(er);
+                            }
+                        });
+                    } else if (typeof payload.errors === 'object') {
+                        Object.keys(payload.errors).forEach(function(k) {
+                            var v = payload.errors[k];
+                            if (Array.isArray(v)) {
+                                v.forEach(function(m) {
+                                    msgs.push(m);
+                                });
+                            } else if (v) {
+                                msgs.push(String(v));
+                            }
+                        });
+                    }
+                }
+                if (msgs.length === 0 && payload && payload.message) {
+                    msgs.push(payload.message);
+                }
+                if (msgs.length === 0) {
+                    msgs.push('{{ translate('Something went wrong. Please try again.') }}');
+                }
+                var esc = function(t) {
+                    return $('<div/>').text(t).html();
+                };
+                var html = '<ul class="mb-0 ps-3">' + msgs.map(function(m) {
+                    return '<li>' + esc(m) + '</li>';
+                }).join('') + '</ul>';
+                $errBox.removeClass('d-none').html(html);
+            });
+
+            return false;
         });
 
         $(document).on('submit', '.refund-form', function(e) {
@@ -2125,7 +2562,7 @@
         });
 
         function update_booking_details(route, message, componentId, updatedValue, revertValue) {
-            Swal.fire({
+            var swalOpts = {
                 title: "{{ translate('are_you_sure') }}?",
                 text: message,
                 type: 'warning',
@@ -2135,8 +2572,15 @@
                 cancelButtonText: '{{ translate('Cancel') }}',
                 confirmButtonText: '{{ translate('Yes') }}',
                 reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
+            };
+            if (componentId === 'service_schedule') {
+                swalOpts.onClose = function () {
+                    bookingScheduleExitEditMode();
+                };
+            }
+            Swal.fire(swalOpts).then((result) => {
+                var confirmed = result.value === true || result.isConfirmed === true;
+                if (confirmed) {
                     $.get({
                         url: route,
                         dataType: 'json',
@@ -2970,34 +3414,20 @@
                 let customerAddressModal = $("#customerAddressModal--" + bookingId);
                 let serviceLocationModal = $("#serviceLocationModal--" + bookingId);
 
-                // Copy updated data from customerAddressModal inputs
-                let contactPersonName = customerAddressModal.find("input[name='contact_person_name']").val();
-                let contactPersonNumber = customerAddressModal.find("input[name='contact_person_number']").val();
-                let addressLabel = customerAddressModal.find("select[name='address_label']").val();
-                let address = customerAddressModal.find("input[name='address']").val();
+                let addressLabel = customerAddressModal.find("input[name='address_label']").val();
+                let address = customerAddressModal.find("textarea[name='address']").val();
+                let landmark = customerAddressModal.find("input[name='landmark']").val();
                 let latitude = customerAddressModal.find("input[name='latitude']").val();
                 let longitude = customerAddressModal.find("input[name='longitude']").val();
-                let city = customerAddressModal.find("input[name='city']").val();
-                let street = customerAddressModal.find("input[name='street']").val();
-                let zipCode = customerAddressModal.find("input[name='zip_code']").val();
-                let country = customerAddressModal.find("input[name='country']").val();
 
-                // Update the corresponding hidden inputs in serviceLocationModal
-                serviceLocationModal.find("input[name='contact_person_name']").val(contactPersonName);
-                serviceLocationModal.find("input[name='contact_person_number']").val(contactPersonNumber);
                 serviceLocationModal.find("input[name='address_label']").val(addressLabel);
                 serviceLocationModal.find("input[name='address']").val(address);
+                serviceLocationModal.find("input[name='landmark']").val(landmark);
                 serviceLocationModal.find("input[name='latitude']").val(latitude);
                 serviceLocationModal.find("input[name='longitude']").val(longitude);
-                serviceLocationModal.find("input[name='city']").val(city);
-                serviceLocationModal.find("input[name='street']").val(street);
-                serviceLocationModal.find("input[name='zip_code']").val(zipCode);
-                serviceLocationModal.find("input[name='country']").val(country);
 
-                $('.updated_customer_name').text(contactPersonName); // Update the customer name
-                $('#updated_customer_phone').text(contactPersonNumber); // Update the customer
-                $('#customer_service_location').removeClass('text-danger'); // Update the customer service location
-                $('#customer_service_location').text(address); // Update the customer service location
+                $('#customer_service_location').removeClass('text-danger');
+                $('#customer_service_location').text(address);
                 $('.customer-address-update-btn').removeAttr('disabled'); // Update the customer service location update button
 
                // Close the customerAddressModal
@@ -3017,14 +3447,11 @@
             // Restore hidden inputs to original values from server
             $("input[name='contact_person_name']").val("{{ $booking->service_address->contact_person_name ?? '' }}");
             $("input[name='contact_person_number']").val("{{ $booking->service_address->contact_person_number ?? '' }}");
-            $("input[name='address_label']").val("{{ $booking->service_address->label ?? '' }}");
-            $("input[name='address']").val("{{ $booking->service_address->address ?? '' }}");
-            $("input[name='latitude']").val("{{ $booking->service_address->latitude ?? '' }}");
-            $("input[name='longitude']").val("{{ $booking->service_address->longitude ?? '' }}");
-            $("input[name='city']").val("{{ $booking->service_address->city ?? '' }}");
-            $("input[name='street']").val("{{ $booking->service_address->street ?? '' }}");
-            $("input[name='zip_code']").val("{{ $booking->service_address->zip_code ?? '' }}");
-            $("input[name='country']").val("{{ $booking->service_address->country ?? '' }}");
+            $("input[name='address_label']").val("{{ $booking->service_address->address_label ?? '' }}");
+            $("textarea[name='address']").val({!! json_encode($booking->service_address->address ?? '') !!});
+            $("input[name='landmark']").val("{{ $booking->service_address->landmark ?? '' }}");
+            $("input[name='latitude']").val("{{ $booking->service_address->lat ?? '' }}");
+            $("input[name='longitude']").val("{{ $booking->service_address->lon ?? '' }}");
 
             // Update the UI
             let name = {!! json_encode($customerName ?? '') !!};

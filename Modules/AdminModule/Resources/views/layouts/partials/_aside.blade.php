@@ -1,36 +1,6 @@
 <?php
-$booking = \Modules\BookingModule\Entities\Booking::get();
 $max_booking_amount = (business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0;
-$pending_booking_count = \Modules\BookingModule\Entities\Booking::where('booking_status', 'pending')
-    ->when($max_booking_amount > 0, function ($query) use ($max_booking_amount) {
-        $query->where(function ($query) use ($max_booking_amount) {
-            $query->where('payment_method', 'cash_after_service')
-                ->where(function ($query) use ($max_booking_amount) {
-                    $query->where('is_verified', 1)
-                        ->orWhere('total_booking_amount', '<=', $max_booking_amount);
-                })
-                ->orWhere('payment_method', '<>', 'cash_after_service');
-        });
-    })
-    ->count();
-
-$offline_booking_count = \Modules\BookingModule\Entities\Booking::whereIn('booking_status', ['pending', 'accepted'])
-    ->where('payment_method', 'offline_payment')->where('is_paid', 0)->count();
-
-$reopened_bookings_count = \Modules\BookingModule\Entities\Booking::query()->reopenedChain()->count();
-
-$accepted_booking_count = \Modules\BookingModule\Entities\Booking::where('booking_status', 'accepted')
-    ->when($max_booking_amount > 0, function ($query) use ($max_booking_amount) {
-        $query->where(function ($query) use ($max_booking_amount) {
-            $query->where('payment_method', 'cash_after_service')
-                ->where(function ($query) use ($max_booking_amount) {
-                    $query->where('is_verified', 1)
-                        ->orWhere('total_booking_amount', '<=', $max_booking_amount);
-                })
-                ->orWhere('payment_method', '<>', 'cash_after_service');
-        });
-    })
-    ->count();
+$all_bookings_menu_count = \Modules\BookingModule\Entities\Booking::count();
 $pending_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(2)->count();
 $denied_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(0)->count();
 $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/', defaultPath: 'assets/placeholder.png');
@@ -129,6 +99,62 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </a>
                     </li>
                 @endcan
+                @can('whatsapp_chat_view')
+                    <li>
+                        <a href="{{ route('admin.whatsapp.ai-settings.edit') }}"
+                           class="{{ request()->is('admin/whatsapp/ai-support') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ __('whatsapp_ai.page_title') }}">smart_toy</span>
+                            <span class="link-title">{{ __('whatsapp_ai.page_title') }}</span>
+                        </a>
+                    </li>
+                @endcan
+            @endcanany
+
+            @canany(['whatsapp_marketing_template_view', 'whatsapp_marketing_bulk_view', 'whatsapp_marketing_campaign_view', 'whatsapp_marketing_report_view'])
+                <li class="nav-category" title="{{ translate('WhatsApp_Marketing') }}">
+                    {{ translate('WhatsApp_Marketing') }}
+                </li>
+                <li class="has-sub-item {{ request()->is('admin/whatsapp/marketing*') ? 'sub-menu-opened' : '' }}">
+                    <a href="#"
+                       class="{{ request()->is('admin/whatsapp/marketing*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('WhatsApp_Marketing') }}">campaign</span>
+                        <span class="link-title">{{ translate('WhatsApp_Marketing') }}</span>
+                    </a>
+                    <ul class="nav sub-menu">
+                        @can('whatsapp_marketing_bulk_view')
+                            <li>
+                                <a href="{{ route('admin.whatsapp.marketing.bulk.create') }}"
+                                   class="{{ request()->is('admin/whatsapp/marketing/send') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('Send_Bulk_Message') }}</span>
+                                </a>
+                            </li>
+                        @endcan
+                        @can('whatsapp_marketing_campaign_view')
+                            <li>
+                                <a href="{{ route('admin.whatsapp.marketing.campaigns.index') }}"
+                                   class="{{ request()->is('admin/whatsapp/marketing/campaigns*') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('campaigns') }}</span>
+                                </a>
+                            </li>
+                        @endcan
+                        @can('whatsapp_marketing_template_view')
+                            <li>
+                                <a href="{{ route('admin.whatsapp.marketing.templates.index') }}"
+                                   class="{{ request()->is('admin/whatsapp/marketing/templates*') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('Templates') }}</span>
+                                </a>
+                            </li>
+                        @endcan
+                        @can('whatsapp_marketing_report_view')
+                            <li>
+                                <a href="{{ route('admin.whatsapp.marketing.reports.index') }}"
+                                   class="{{ request()->is('admin/whatsapp/marketing/reports*') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('Reports') }}</span>
+                                </a>
+                            </li>
+                        @endcan
+                    </ul>
+                </li>
             @endcanany
 
             @can('booking_view')
@@ -168,42 +194,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                     class="link-title">{{translate('verify_requests')}} <span
                                         class="count">{{\Modules\BookingModule\Entities\Booking::where('is_verified', '0')->where('payment_method', 'cash_after_service')->Where('total_booking_amount', '>', $max_booking_amount)->whereIn('booking_status', ['pending', 'accepted'])->count()}}</span></span></a>
                         </li>
-                        <li><a href="{{route('admin.booking.list', ['booking_status'=>'pending','service_type'=>'all'])}}"
-                               class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='pending'?'active-menu':''}}"><span
-                                    class="link-title">{{translate('Booking_Requests')}} <span
-                                        class="count">{{$pending_booking_count}}</span></span></a>
-                        </li>
-
-                        <li><a href="{{route('admin.booking.offline.payment')}}"
-                               class="{{request()->is('admin/booking/list/offline-payment') && request()->query('booking_status')=='pending'?'active-menu':''}}"><span
-                                    class="link-title">{{translate('Offline Payment List')}} <span
-                                        class="count">{{$offline_booking_count}}</span></span></a>
-                        </li>
-
-                        <li><a href="{{route('admin.booking.list', ['booking_status'=>'accepted','service_type'=>'all'])}}"
-                               class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='accepted'?'active-menu':''}}"><span
-                                    class="link-title">{{translate('Accepted')}} <span
-                                        class="count">{{$accepted_booking_count}}</span></span></a>
-                        </li>
-                        <li><a href="{{route('admin.booking.list', ['booking_status'=>'ongoing','service_type'=>'all'])}}"
-                               class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='ongoing'?'active-menu':''}}"><span
-                                    class="link-title">{{translate('Ongoing')}} <span
-                                        class="count">{{$booking->where('booking_status', 'ongoing')->count()}}</span></span></a>
-                        </li>
-                        <li><a href="{{route('admin.booking.list', ['booking_status'=>'completed','service_type'=>'all'])}}"
-                               class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='completed'?'active-menu':''}}"><span
-                                    class="link-title">{{translate('Completed')}} <span
-                                        class="count">{{$booking->where('booking_status', 'completed')->count()}}</span></span></a>
-                        </li>
-                        <li><a href="{{route('admin.booking.list', ['booking_status'=>'reopened','service_type'=>'all'])}}"
-                               class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='reopened'?'active-menu':''}}"><span
-                                    class="link-title">{{translate('Reopened_bookings')}} <span
-                                        class="count">{{ $reopened_bookings_count }}</span></span></a>
-                        </li>
-                        <li><a href="{{route('admin.booking.list', ['booking_status'=>'canceled','service_type'=>'all'])}}"
-                               class="{{request()->is('admin/booking/list') && request()->query('booking_status')=='canceled'?'active-menu':''}}"><span
-                                    class="link-title">{{translate('Canceled')}} <span
-                                        class="count">{{$booking->where('booking_status', 'canceled')->count()}}</span></span></a>
+                        <li>
+                            <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
+                               class="{{ request()->is('admin/booking/list') && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Booking_Requests') }}
+                                    <span class="count">{{ $all_bookings_menu_count }}</span>
+                                </span>
+                            </a>
                         </li>
                     </ul>
                 </li>
