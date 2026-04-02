@@ -382,7 +382,9 @@
                 </ul>
             </div>
 
-            @php($waSearchableTabs = ['chats', 'human_support', 'leads', 'bookings', 'users', 'quick_replies', 'chat_config'])
+            @php
+                $waSearchableTabs = ['chats', 'human_support', 'leads', 'bookings', 'users', 'quick_replies', 'chat_config'];
+            @endphp
             @if(in_array($tab ?? '', $waSearchableTabs, true))
                 <div class="card card-body mb-3 py-3">
                     <label for="wa-global-search" class="form-label mb-1">{{ translate('Search here') }}</label>
@@ -413,7 +415,7 @@
                         <div class="card h-100 d-flex flex-column">
                             <div class="card-header py-2 d-flex align-items-center gap-2 min-w-0">
                                 <strong class="flex-shrink-0">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
-                                @php($handlerFilter = $handlerFilter ?? 'all')
+                                <?php $handlerFilter = $handlerFilter ?? 'all'; ?>
                                 <?php if (empty($humanSupportTab ?? false) && !empty($chatHandlers ?? null)) { ?>
                                     <div class="flex-grow-1 min-w-0">
                                         <select id="chat-handler-filter"
@@ -2728,7 +2730,7 @@
                             <tbody>
                             <?php if (($leads ?? collect())->isNotEmpty()) { ?>
                                 @foreach($leads as $lead)
-                                @php($waLeadRowId = 'wa-s-l-' . md5((string) ($lead->lead_id ?? $lead->id ?? '')))
+                                <?php $waLeadRowId = 'wa-s-l-' . md5((string) ($lead->lead_id ?? $lead->id ?? '')); ?>
                                 <tr id="{{ $waLeadRowId }}">
                                     <td>{{ $lead->lead_id ?? $lead->id ?? '—' }}</td>
                                     <td>{{ $displayPhone($lead->phone ?? null) }}</td>
@@ -2831,7 +2833,7 @@
                                         ])
                                     </td>
                                     <td>
-                                        @php($leadCount = (int) ($waUser->lead_count ?? 0))
+                                        <?php $leadCount = (int) ($waUser->lead_count ?? 0); ?>
                                         @if($leadCount > 0)
                                             <span class="badge bg-success">
                                                 {{ $leadCount }} {{ $leadCount === 1 ? translate('lead') : translate('leads') }}
