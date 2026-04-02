@@ -370,16 +370,7 @@
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="col-lg-4 col-md-6">
-                                                                        <div class="m-0 form-floating form-floating__icon">
-                                                                            <input type="number" class="form-control" name="tax" min="0"
-                                                                                max="100" step="any"
-                                                                                placeholder="{{translate('add_tax_percentage')}}"
-                                                                                value="{{old('tax')}}">
-                                                                            <label>{{translate('add_tax_percentage')}}</label>
-                                                                            <span class="material-icons">percent</span>
-                                                                        </div>
-                                                                    </div>
+                                                                    @include('categorymanagement::admin.partials.entity-tax-override', ['mode' => 'service', 'taxModel' => null])
                                                                     <div class="col-lg-4 col-md-5">
                                                                         <div class="m-0 form-floating form-floating__icon">
                                                                             <input type="number" class="form-control"

@@ -24,6 +24,7 @@ use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\District;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\UserManagement\Entities\User;
 use Modules\CategoryManagement\Entities\Category;
@@ -1466,70 +1467,10 @@ class LeadController extends Controller
      */
     protected function buildLeadStatusMeta(\Illuminate\Support\Collection $leads): array
     {
-        $leadIds = $leads->pluck('id')->all();
-        if (empty($leadIds)) {
-            return [];
-        }
-
-        $histories = LeadTypeHistory::whereIn('lead_id', $leadIds)
-            ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
-            ->orderByDesc('created_at')
-            ->get();
-
-        $latestByComposite = [];
-        foreach ($histories as $history) {
-            $compositeKey = $history->lead_id . '|' . $history->type;
-            if (!isset($latestByComposite[$compositeKey])) {
-                $latestByComposite[$compositeKey] = $history;
-            }
-        }
-
-        $customerStatusIds = [];
-        $providerStatusIds = [];
-        foreach ($latestByComposite as $key => $history) {
-            $data = is_array($history->data) ? $history->data : [];
-            if (str_ends_with((string) $key, '|' . Lead::TYPE_CUSTOMER) && !empty($data['customer_lead_status_id'])) {
-                $customerStatusIds[] = (int) $data['customer_lead_status_id'];
-            }
-            if (str_ends_with((string) $key, '|' . Lead::TYPE_PROVIDER) && !empty($data['provider_lead_status_id'])) {
-                $providerStatusIds[] = (int) $data['provider_lead_status_id'];
-            }
-        }
-
-        $customerStatuses = !empty($customerStatusIds)
-            ? CustomerLeadStatus::whereIn('id', array_unique($customerStatusIds))->get()->keyBy('id')
-            : collect();
-        $providerStatuses = !empty($providerStatusIds)
-            ? ProviderLeadStatus::whereIn('id', array_unique($providerStatusIds))->get()->keyBy('id')
-            : collect();
-
-        $meta = [];
-        foreach ($leads as $lead) {
-            $history = $latestByComposite[$lead->id . '|' . $lead->lead_type] ?? null;
-            $isOpen = $this->isLeadOpenByTypeHistory($lead, $history, $customerStatuses, $providerStatuses);
-            $meta[(int) $lead->id] = [
-                'is_open' => $isOpen,
-                'label' => $isOpen ? 'Open' : 'Closed',
-                'badge_class' => $isOpen ? 'bg-danger' : 'bg-success',
-            ];
-        }
-
-        return $meta;
+        return app(LeadOpenStatusService::class)->buildLeadStatusMeta($leads);
     }
 
     /**
-     * A lead is open if:
-     * - unknown
-     * - customer with pending base_type status
-     * - provider with pending base_type status
-     *
-     * A lead is closed if:
-     * - invalid / future_customer
-     * - customer with completed/cancel base_type status
-     * - provider with completed/cancel base_type status
-     *
-     * Missing customer/provider status defaults to pending (open).
-     *
      * @param \Illuminate\Support\Collection<int, CustomerLeadStatus>|null $customerStatuses
      * @param \Illuminate\Support\Collection<int, ProviderLeadStatus>|null $providerStatuses
      */
@@ -1539,37 +1480,12 @@ class LeadController extends Controller
         ?\Illuminate\Support\Collection $customerStatuses = null,
         ?\Illuminate\Support\Collection $providerStatuses = null
     ): bool {
-        if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
-            return true;
-        }
-
-        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
-            return false;
-        }
-
-        $data = ($typeHistory && is_array($typeHistory->data)) ? $typeHistory->data : [];
-
-        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
-            $statusId = $data['customer_lead_status_id'] ?? null;
-            if (!$statusId) {
-                return true;
-            }
-            $status = $customerStatuses?->get((int) $statusId) ?? CustomerLeadStatus::find($statusId);
-            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
-            return !in_array($baseType, ['completed', 'cancel'], true);
-        }
-
-        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
-            $statusId = $data['provider_lead_status_id'] ?? null;
-            if (!$statusId) {
-                return true;
-            }
-            $status = $providerStatuses?->get((int) $statusId) ?? ProviderLeadStatus::find($statusId);
-            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
-            return !in_array($baseType, ['completed', 'cancel'], true);
-        }
-
-        return false;
+        return app(LeadOpenStatusService::class)->isLeadOpenByTypeHistory(
+            $lead,
+            $typeHistory,
+            $customerStatuses,
+            $providerStatuses
+        );
     }
 
     public function storeFollowup(Request $request, int $leadId): RedirectResponse

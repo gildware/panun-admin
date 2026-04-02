@@ -17,6 +17,7 @@ use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use MatanYadaev\EloquentSpatial\Objects\Point;
 use Modules\BookingModule\Entities\Booking;
 use Modules\CustomerModule\Emails\CustomerRegistrationMail;
 use Modules\ProviderManagement\Entities\CustomerIncident;
@@ -26,6 +27,7 @@ use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\UserManagement\Entities\UserVerification;
+use Modules\ZoneManagement\Services\ZoneGeometryService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -80,7 +82,7 @@ class CustomerController extends Controller
 
         $queryParam = ['search' => $search, 'status' => $status, 'from' => $from, 'to' => $to, 'sort_by' => $sort_by, 'limit' => $limit];
 
-        $query = $this->user->withCount(['bookings'])->whereIn('user_type', CUSTOMER_USER_TYPES)
+        $query = $this->user->withCount(['bookings'])->inCustomerDirectory()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -145,7 +147,7 @@ class CustomerController extends Controller
         $this->authorize('customer_view');
 
         $customers = $this->user
-            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->inCustomerDirectory()
             ->withCount(['bookings as completed_bookings_count' => function ($query) {
                 $query->ofBookingStatus('completed');
             }])
@@ -195,6 +197,7 @@ class CustomerController extends Controller
         $user->gender = $request->gender ?? 'male';
         $user->password = bcrypt($request->password);
         $user->user_type = 'customer';
+        $user->customer_app_access = true;
         $user->is_active = 1;
         $user->save();
 
@@ -277,6 +280,7 @@ class CustomerController extends Controller
         $user->gender = 'male';
         $user->password = bcrypt($defaultPassword);
         $user->user_type = 'customer';
+        $user->customer_app_access = true;
         $user->is_active = 1;
         $user->save();
 
@@ -300,9 +304,79 @@ class CustomerController extends Controller
 
         $addresses = $this->address
             ->where('user_id', $id)
-            ->get(['id', 'address_label', 'address', 'city', 'country', 'zip_code']);
+            ->get(['id', 'address_label', 'address', 'landmark', 'lat', 'lon']);
 
         return response()->json($addresses, 200);
+    }
+
+    /**
+     * Single address for admin quick edit (booking flow, customer detail).
+     */
+    public function quickShowAddress(string $id, string $addressId): JsonResponse
+    {
+        $this->authorize('customer_view');
+
+        $address = $this->address
+            ->where('user_id', $id)
+            ->where('id', $addressId)
+            ->first(['id', 'address', 'address_label', 'landmark', 'lat', 'lon']);
+
+        if (!$address) {
+            return response()->json(['message' => translate('not_found')], 404);
+        }
+
+        return response()->json($address, 200);
+    }
+
+    /**
+     * Update address using the same fields as quickStoreAddress.
+     */
+    public function quickUpdateAddress(Request $request, string $id, string $addressId): JsonResponse
+    {
+        if (!$request->user()->can('customer_update') && !$request->user()->can('customer_add')) {
+            throw new AuthorizationException();
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address' => 'required|string',
+            'address_label' => 'required|string|max:191',
+            'landmark' => 'nullable|string|max:500',
+            'lat' => 'nullable|string|max:191',
+            'lon' => 'nullable|string|max:191',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $address = $this->address
+            ->where('user_id', $id)
+            ->where('id', $addressId)
+            ->first();
+
+        if (!$address) {
+            return response()->json(['message' => translate('not_found')], 404);
+        }
+
+        $address->address = $request->address;
+        $address->address_label = $request->address_label;
+        $address->landmark = $request->landmark;
+        $address->lat = $request->lat;
+        $address->lon = $request->lon;
+        $address->city = null;
+        $address->street = null;
+        $address->zip_code = null;
+        $address->country = null;
+        $this->applyZoneIdFromCoords($address, $request->lat, $request->lon);
+        $address->save();
+
+        return response()->json([
+            'id' => $address->id,
+            'label' => $address->address_label,
+            'full_address' => $this->formatSimplifiedFullAddress($address),
+        ], 200);
     }
 
     /**
@@ -318,12 +392,11 @@ class CustomerController extends Controller
         $this->authorize('customer_add');
 
         $validator = Validator::make($request->all(), [
-            'city' => 'required|string',
-            'street' => 'required|string',
-            'country' => 'required|string',
-            'zip_code' => 'required|string',
             'address' => 'required|string',
-            'address_label' => 'nullable|string',
+            'address_label' => 'required|string|max:191',
+            'landmark' => 'nullable|string|max:500',
+            'lat' => 'nullable|string|max:191',
+            'lon' => 'nullable|string|max:191',
         ]);
 
         if ($validator->fails()) {
@@ -334,18 +407,22 @@ class CustomerController extends Controller
 
         $address = $this->address;
         $address->user_id = $id;
-        $address->city = $request->city;
-        $address->street = $request->street;
-        $address->country = $request->country;
-        $address->zip_code = $request->zip_code;
         $address->address = $request->address;
-        $address->address_label = $request->address_label ?: 'home';
+        $address->address_label = $request->address_label;
+        $address->landmark = $request->landmark;
+        $address->lat = $request->lat;
+        $address->lon = $request->lon;
+        $address->city = null;
+        $address->street = null;
+        $address->zip_code = null;
+        $address->country = null;
+        $address->zone_id = $this->resolveZoneIdForAddressCoords($request->lat, $request->lon);
         $address->save();
 
         return response()->json([
             'id' => $address->id,
             'label' => $address->address_label,
-            'full_address' => $address->city . ', ' . $address->street . ', ' . $address->country . ' ' . $address->zip_code,
+            'full_address' => $this->formatSimplifiedFullAddress($address),
         ], 200);
     }
 
@@ -424,7 +501,7 @@ class CustomerController extends Controller
     public function edit(string $id): Application|Factory|View
     {
         $this->authorize('customer_update');
-        $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+        $customer = $this->user->inCustomerDirectory()->find($id);
         return view('customermodule::admin.edit', compact('customer'));
     }
 
@@ -444,7 +521,7 @@ class CustomerController extends Controller
             return $check;
         }
 
-        $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+        $customer = $this->user->inCustomerDirectory()->find($id);
 
         $request->validate([
             'first_name' => 'required',
@@ -489,8 +566,13 @@ class CustomerController extends Controller
     public function destroy(Request $request, $id): RedirectResponse
     {
         $this->authorize('customer_delete');
-        $user = $this->user->where('id', $id)->first();
+        $user = $this->user->inCustomerDirectory()->where('id', $id)->first();
         if (isset($user)) {
+            if ($user->provider()->exists()) {
+                Toastr::error(translate('This user is linked to a provider business and cannot be deleted as a customer.'));
+
+                return back();
+            }
             file_remover('user/profile_image/', $user->profile_image);
             foreach ($user->identification_image as $image_name) {
                 file_remover('user/identity/', $image_name);
@@ -515,7 +597,7 @@ class CustomerController extends Controller
     public function statusUpdate(Request $request, $id): JsonResponse
     {
         $this->authorize('customer_manage_status');
-        $user = $this->user->where('id', $id)->first();
+        $user = $this->user->inCustomerDirectory()->where('id', $id)->first();
         $user->is_active = !$user->is_active;
         $user->save();
 
@@ -530,17 +612,14 @@ class CustomerController extends Controller
     public function storeAddress(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'lat' => '',
-            'lon' => '',
-            'city' => 'required',
-            'street' => '',
-            'zip_code' => 'required',
-            'country' => 'required',
-            'address' => 'required',
-            'address_type' => 'required|in:service,billing',
-            'contact_person_name' => 'required',
-            'contact_person_number' => 'required',
-            'address_label' => 'required',
+            'address' => 'required|string',
+            'address_label' => 'required|string|max:191',
+            'landmark' => 'nullable|string|max:500',
+            'lat' => 'nullable|string|max:191',
+            'lon' => 'nullable|string|max:191',
+            'address_type' => 'nullable|in:service,billing',
+            'contact_person_name' => 'nullable|string|max:191',
+            'contact_person_number' => 'nullable|string|max:191',
             'customer_id' => 'required|uuid',
         ]);
 
@@ -550,17 +629,19 @@ class CustomerController extends Controller
 
         $address = $this->address;
         $address->user_id = $request['customer_id'];
+        $address->address = $request->address;
+        $address->address_label = $request->address_label;
+        $address->landmark = $request->landmark;
         $address->lat = $request->lat;
         $address->lon = $request->lon;
-        $address->city = $request->city;
-        $address->street = $request->street ?? '';
-        $address->zip_code = $request->zip_code;
-        $address->country = $request->country;
-        $address->address = $request->address;
-        $address->address_type = $request->address_type;
-        $address->contact_person_name = $request->contact_person_name;
-        $address->contact_person_number = $request->contact_person_number;
-        $address->address_label = $request->address_label;
+        $address->city = null;
+        $address->street = null;
+        $address->zip_code = null;
+        $address->country = null;
+        $address->address_type = $request->input('address_type', 'service');
+        $address->contact_person_name = $request->input('contact_person_name', '');
+        $address->contact_person_number = $request->input('contact_person_number', '');
+        $address->zone_id = $this->resolveZoneIdForAddressCoords($request->lat, $request->lon);
         $address->save();
 
         return response()->json(response_formatter(DEFAULT_STORE_200), 200);
@@ -589,17 +670,14 @@ class CustomerController extends Controller
     public function updateAddress(Request $request, string $id): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'lat' => '',
-            'lon' => '',
-            'city' => 'required',
-            'street' => '',
-            'zip_code' => 'required',
-            'country' => 'required',
-            'address' => 'required',
-            'address_type' => 'required|in:service,billing',
-            'contact_person_name' => 'required',
-            'contact_person_number' => 'required',
-            'address_label' => 'required',
+            'address' => 'required|string',
+            'address_label' => 'required|string|max:191',
+            'landmark' => 'nullable|string|max:500',
+            'lat' => 'nullable|string|max:191',
+            'lon' => 'nullable|string|max:191',
+            'address_type' => 'nullable|in:service,billing',
+            'contact_person_name' => 'nullable|string|max:191',
+            'contact_person_number' => 'nullable|string|max:191',
             'customer_id' => 'required|uuid',
         ]);
 
@@ -612,17 +690,19 @@ class CustomerController extends Controller
             return response()->json(response_formatter(DEFAULT_204), 200);
         }
 
-        $address->lat = $request->lat ?? "";
-        $address->lon = $request->lon ?? "";
-        $address->city = $request->city;
-        $address->street = $request->has('street') ? $request->street : $address->street;
-        $address->zip_code = $request->zip_code;
-        $address->country = $request->country;
         $address->address = $request->address;
-        $address->address_type = $request->address_type;
-        $address->contact_person_name = $request->contact_person_name;
-        $address->contact_person_number = $request->contact_person_number;
         $address->address_label = $request->address_label;
+        $address->landmark = $request->landmark;
+        $address->lat = $request->lat;
+        $address->lon = $request->lon;
+        $address->city = null;
+        $address->street = null;
+        $address->zip_code = null;
+        $address->country = null;
+        $address->address_type = $request->input('address_type', $address->address_type ?? 'service');
+        $address->contact_person_name = $request->input('contact_person_name', $address->contact_person_name ?? '');
+        $address->contact_person_number = $request->input('contact_person_number', $address->contact_person_number ?? '');
+        $this->applyZoneIdFromCoords($address, $request->lat, $request->lon);
         $address->save();
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
@@ -668,7 +748,7 @@ class CustomerController extends Controller
         $sort_by = $request->get('sort_by', 'latest');
         $limit = $request->get('limit');
 
-        $query = $this->user->withCount(['bookings'])->whereIn('user_type', CUSTOMER_USER_TYPES)
+        $query = $this->user->withCount(['bookings'])->inCustomerDirectory()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -732,7 +812,7 @@ class CustomerController extends Controller
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
 
         if ($webPage === 'overview') {
-            $customer = $this->user->with(['account', 'addresses'])->withCount(['bookings'])->find($id);
+            $customer = $this->user->inCustomerDirectory()->with(['account', 'addresses'])->withCount(['bookings'])->find($id);
             $totalBookingAmount = $this->booking->where('customer_id', $id)->sum('total_booking_amount');
 
             $booking_overview = DB::table('bookings')->where('customer_id', $id)
@@ -750,7 +830,19 @@ class CustomerController extends Controller
                 }
             }
 
-            return view('customermodule::admin.detail.overview', compact('customer', 'totalBookingAmount', 'webPage', 'total'));
+            $bookingOverviewStatuses = ['pending', 'accepted', 'ongoing', 'completed', 'canceled'];
+            $bookingOverviewChartLabels = [];
+            foreach ($bookingOverviewStatuses as $idx => $statusKey) {
+                $bookingOverviewChartLabels[] = translate($statusKey).' ('.(int) ($total[$idx] ?? 0).')';
+            }
+
+            return view('customermodule::admin.detail.overview', compact(
+                'customer',
+                'totalBookingAmount',
+                'webPage',
+                'total',
+                'bookingOverviewChartLabels'
+            ));
 
         } elseif ($webPage == 'bookings') {
 
@@ -768,7 +860,7 @@ class CustomerController extends Controller
                 ->latest()
                 ->paginate(pagination_limit())->appends($queryParam);
 
-            $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+            $customer = $this->user->inCustomerDirectory()->find($id);
 
             return view('customermodule::admin.detail.bookings', compact('bookings', 'webPage', 'customer', 'search'));
 
@@ -780,11 +872,11 @@ class CustomerController extends Controller
                 ->whereIn('booking_id', $bookingIds)
                 ->latest()
                 ->paginate(pagination_limit())->appends($queryParam);
-            $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+            $customer = $this->user->inCustomerDirectory()->find($id);
             return view('customermodule::admin.detail.reviews', compact('reviews', 'webPage', 'customer', 'search'));
 
         } elseif ($webPage == 'performance') {
-            $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+            $customer = $this->user->inCustomerDirectory()->find($id);
             $performanceService = app(CustomerPerformanceService::class);
             $metricsRow = $performanceService->getAggregatedCustomerPerformanceMetrics([$id])->get($id);
             $metrics = (object) ($metricsRow ? (array) $metricsRow : []);
@@ -798,7 +890,7 @@ class CustomerController extends Controller
 
             return view('customermodule::admin.detail.performance', compact('customer', 'webPage', 'metrics', 'incidents'));
         } elseif ($webPage == 'payments') {
-            $customer = $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)->find($id);
+            $customer = $this->user->inCustomerDirectory()->find($id);
 
             $bookingIds = $this->booking->where('customer_id', $id)->pluck('id')->toArray();
             $totals = (object) [
@@ -894,6 +986,39 @@ class CustomerController extends Controller
         }
 
 
+    }
+
+    private function resolveZoneIdForAddressCoords($lat, $lon): ?string
+    {
+        if ($lat === null || $lat === '' || $lon === null || $lon === '') {
+            return null;
+        }
+        if (!is_numeric($lat) || !is_numeric($lon)) {
+            return null;
+        }
+        $point = new Point((float) $lat, (float) $lon);
+
+        return app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point)?->id;
+    }
+
+    private function applyZoneIdFromCoords(UserAddress $address, $lat, $lon): void
+    {
+        if ($lat !== null && $lat !== '' && $lon !== null && $lon !== '' && is_numeric($lat) && is_numeric($lon)) {
+            $address->zone_id = $this->resolveZoneIdForAddressCoords($lat, $lon);
+
+            return;
+        }
+        if (($lat === null || $lat === '') && ($lon === null || $lon === '')) {
+            return;
+        }
+        $address->zone_id = null;
+    }
+
+    private function formatSimplifiedFullAddress(UserAddress $address): string
+    {
+        $parts = array_filter([$address->address, $address->landmark]);
+
+        return implode(', ', $parts);
     }
 
 }

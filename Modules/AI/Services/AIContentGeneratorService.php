@@ -5,7 +5,7 @@ namespace Modules\AI\Services;
 use App\Traits\FileManagerTrait;
 use Modules\AI\AIProviders\AIProviderManager;
 use Modules\AI\AIProviders\ClaudeProvider;
-use Modules\AI\AIProviders\OpenAIProvider;
+use Modules\AI\AIProviders\GeminiProvider;
 use Modules\AI\app\Models\AISetting;
 
 class AIContentGeneratorService
@@ -17,7 +17,7 @@ class AIContentGeneratorService
     public function __construct()
     {
         $this->loadTemplates();
-        $this->providers = [new OpenAIProvider(), new ClaudeProvider()];
+        $this->providers = [new GeminiProvider(), new ClaudeProvider()];
     }
     protected function loadTemplates(): void
     {

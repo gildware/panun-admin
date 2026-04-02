@@ -198,8 +198,8 @@ class ProviderController extends Controller
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'contact_person_email' => 'required|email|unique:users,email',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'contact_person_email' => 'required|email',
 
             'account_first_name' => 'required',
             'account_last_name' => 'required',
@@ -222,6 +222,15 @@ class ProviderController extends Controller
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
         ]);
+
+        $validator->after(function ($v) use ($request) {
+            foreach (User::providerContactRegistrationErrors(
+                (string) $request->contact_person_phone,
+                (string) $request->contact_person_email
+            ) as $field => $message) {
+                $v->errors()->add($field, $message);
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
@@ -262,7 +271,18 @@ class ProviderController extends Controller
         $provider->is_active = 1;
         $provider->zone_id = $leafZoneIds[0];
 
-        $owner = $this->owner;
+        $upgradeOwner = User::resolveCustomerUserForProviderOnboarding(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email
+        );
+        if ($upgradeOwner) {
+            $owner = User::query()->findOrFail($upgradeOwner->id);
+            $owner->customer_app_access = true;
+        } else {
+            $owner = $this->owner;
+            $owner->customer_app_access = false;
+        }
+
         $owner->first_name = $request->account_first_name;
         $owner->last_name = $request->account_last_name;
         // Account info defaults to contact person details.

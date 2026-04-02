@@ -27,6 +27,8 @@ class Category extends Model
         'slug'      => 'string',
         'commission_custom' => 'integer',
         'commission_tier_setup' => 'array',
+        'additional_charge_overrides' => 'array',
+        'tax_percentage' => 'float',
     ];
 
     protected $appends = ['image_full_path'];

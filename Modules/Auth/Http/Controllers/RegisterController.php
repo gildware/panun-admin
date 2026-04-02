@@ -100,6 +100,7 @@ class RegisterController extends Controller
         $user->gender = $request->gender ?? 'male';
         $user->password = bcrypt($request->password);
         $user->user_type = 'customer';
+        $user->customer_app_access = true;
         $user->is_active = 1;
         $user->save();
 
@@ -154,12 +155,12 @@ class RegisterController extends Controller
 
         $identityIn = $request->provider_type === 'company' ? 'trade_license,company_id' : 'passport,driving_license,nid';
 
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'contact_person_email' => 'required|email|unique:users,email',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'contact_person_email' => 'required|email',
 
             'zone_id' => 'required|uuid',
 
@@ -177,6 +178,19 @@ class RegisterController extends Controller
             'latitude' => 'required',
             'longitude' => 'required',
         ]);
+
+        $validator->after(function ($v) use ($request) {
+            foreach (User::providerContactRegistrationErrors(
+                (string) $request->contact_person_phone,
+                (string) $request->contact_person_email
+            ) as $field => $message) {
+                $v->errors()->add($field, $message);
+            }
+        });
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
 
         $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds([(string) $request->zone_id], []);
         if ($leafZoneIds === []) {
@@ -226,8 +240,22 @@ class RegisterController extends Controller
         $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
+        $upgradeOwner = User::resolveCustomerUserForProviderOnboarding(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email
+        );
+        if ($upgradeOwner) {
+            $owner = User::query()->findOrFail($upgradeOwner->id);
+            $owner->customer_app_access = true;
+        } else {
+            $owner = $this->owner;
+            $owner->customer_app_access = false;
+        }
 
-        $owner = $this->owner;
+        $nameParts = preg_split('/\s+/u', trim((string) $request->contact_person_name), 2, PREG_SPLIT_NO_EMPTY);
+        $owner->first_name = $nameParts[0] ?? $owner->first_name ?? '';
+        $owner->last_name = $nameParts[1] ?? $owner->last_name ?? '';
+
         // Account info defaults to contact person details.
         $owner->email = $request->contact_person_email;
         $owner->phone = $request->contact_person_phone;
@@ -323,8 +351,8 @@ class RegisterController extends Controller
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'contact_person_email' => 'required|email|unique:users,email',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'contact_person_email' => 'required|email',
 
             'account_first_name' => 'required',
             'account_last_name' => 'required',
@@ -345,6 +373,15 @@ class RegisterController extends Controller
             'identity_images' => 'required|array',
             'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
         ]);
+
+        $validator->after(function ($v) use ($request) {
+            foreach (User::providerContactRegistrationErrors(
+                (string) $request->contact_person_phone,
+                (string) $request->contact_person_email
+            ) as $field => $message) {
+                $v->errors()->add($field, $message);
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
@@ -382,7 +419,18 @@ class RegisterController extends Controller
         $provider->is_active = 0;
         $provider->zone_id = $leafZoneIds[0];
 
-        $owner = $this->owner;
+        $upgradeOwner = User::resolveCustomerUserForProviderOnboarding(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email
+        );
+        if ($upgradeOwner) {
+            $owner = User::query()->findOrFail($upgradeOwner->id);
+            $owner->customer_app_access = true;
+        } else {
+            $owner = $this->owner;
+            $owner->customer_app_access = false;
+        }
+
         $owner->first_name = $request->account_first_name;
         $owner->last_name = $request->account_last_name;
         $owner->email = $request->contact_person_email;
@@ -440,8 +488,7 @@ class RegisterController extends Controller
             ->where(['otp' => $request['otp']])->first();
 
         if (isset($data)) {
-            $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)
-                ->where('phone', $request['identity'])
+            $this->user->where('phone', $request['identity'])
                 ->update([
                     'is_phone_verified' => 1
                 ]);

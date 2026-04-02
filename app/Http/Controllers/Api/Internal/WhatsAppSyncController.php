@@ -8,20 +8,22 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
-use Modules\LeadManagement\Entities\LeadTypeHistory;
-use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
+use Modules\WhatsAppModule\Services\WhatsAppLeadLifecycleService;
+use Modules\WhatsAppModule\Services\WhatsAppMessagePersistenceService;
 
 class WhatsAppSyncController extends Controller
 {
+    public function __construct(
+        protected WhatsAppMessagePersistenceService $messagePersistence,
+        protected WhatsAppLeadLifecycleService $leadLifecycle
+    ) {}
+
     public function message(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -32,6 +34,7 @@ class WhatsAppSyncController extends Controller
             'message_type' => 'nullable|string|max:20',
             'created_at' => 'nullable|date',
             'wa_message_id' => 'nullable|string|max:255',
+            'reply_to_wa_message_id' => 'nullable|string|max:255',
             'sent_by_id' => 'nullable|string|max:64',
             'sent_by' => 'nullable|string|max:255',
             // Optional media fields for inbound messages from WhatsApp (image/document/video/audio)
@@ -40,160 +43,9 @@ class WhatsAppSyncController extends Controller
             'media_mime_type' => 'nullable|string|max:255',
         ]);
 
-        // If this is a media message and no explicit message_type is provided, infer from mime type.
-        $messageType = $data['message_type'] ?? null;
-        if (!$messageType && !empty($data['media_mime_type'])) {
-            $mime = strtolower($data['media_mime_type']);
-            if (str_starts_with($mime, 'image/')) {
-                $messageType = 'IMAGE';
-            } elseif ($mime === 'application/pdf' || str_starts_with($mime, 'application/')) {
-                $messageType = 'DOCUMENT';
-            } elseif (str_starts_with($mime, 'video/')) {
-                $messageType = 'VIDEO';
-            } elseif (str_starts_with($mime, 'audio/')) {
-                $messageType = 'AUDIO';
-            }
-        }
-
-        // Attempt to download and store media if media id or URL has been provided.
-        $mediaPath = null;
-        if (!empty($data['media_id']) || !empty($data['media_url'])) {
-            $mediaPath = $this->downloadWhatsAppMedia(
-                $data['media_id'] ?? null,
-                $data['media_url'] ?? null,
-                $data['media_mime_type'] ?? null
-            );
-        }
-
-        $msg = new WhatsAppMessage();
-        $msg->fill([
-            'phone' => $data['phone'],
-            // DB column is non-nullable; store empty string when there is no text (pure media)
-            'message_text' => $data['message_text'] ?? '',
-            'direction' => $data['direction'],
-            'message_type' => $messageType ?? ($mediaPath ? 'IMAGE' : 'TEXT'),
-            'wa_message_id' => $data['wa_message_id'] ?? null,
-            'sent_by_id' => $data['sent_by_id'] ?? null,
-            'sent_by' => $data['sent_by'] ?? ($data['direction'] === 'OUT' ? 'AI' : 'Customer'),
-        ]);
-        if ($mediaPath) {
-            $msg->media_path = $mediaPath;
-        }
-        if (!empty($data['created_at'])) {
-            $msg->created_at = $data['created_at'];
-        }
-        $msg->save();
-
-        // Ensure inbound chats always have a lead in the main CRM.
-        if (($data['direction'] ?? null) === 'IN') {
-            $waUser = WhatsAppUser::where('phone', $data['phone'])->first();
-            if (!$waUser) {
-                $waUser = WhatsAppUser::create([
-                    'phone' => $data['phone'],
-                    'name' => null,
-                    'handled_by' => 'AI',
-                ]);
-            } elseif (empty($waUser->handled_by)) {
-                $waUser->handled_by = 'AI';
-                $waUser->save();
-            }
-
-            $this->ensureUnknownLeadForPhone(
-                $data['phone'],
-                $waUser->name ?? null
-            );
-        }
-
-        // Bust caches so Active Chats list and chat panel pick up new message.
-        Cache::forget('whatsapp_active_chats_list');
-        Cache::forget('whatsapp_chat_full_' . md5($data['phone']));
+        $msg = $this->messagePersistence->persist($data);
 
         return response()->json(['ok' => true, 'id' => $msg->id]);
-    }
-
-    /**
-     * Download WhatsApp Cloud media by id or direct URL and store it on the public disk.
-     * Returns stored media path relative to the disk (e.g. whatsapp_attachments/xyz.jpg) or null on failure.
-     */
-    private function downloadWhatsAppMedia(?string $mediaId, ?string $directUrl, ?string $mimeType): ?string
-    {
-        $token = (string) config('services.whatsapp_cloud.token');
-        $phoneId = (string) config('services.whatsapp_cloud.phone_id');
-        if (!$token || !$phoneId) {
-            \Log::warning('WhatsApp inbound media: missing cloud API config.');
-            return null;
-        }
-
-        $version = (string) config('services.whatsapp_cloud.version', 'v19.0');
-
-        try {
-            $url = $directUrl;
-            $resolvedMime = $mimeType;
-
-            // If we have a media id, resolve it to a download URL first.
-            if ($mediaId && !$url) {
-                $metaResp = Http::withToken($token)
-                    ->acceptJson()
-                    ->get("https://graph.facebook.com/{$version}/{$mediaId}");
-
-                if ($metaResp->failed()) {
-                    \Log::warning('WhatsApp inbound media: failed to fetch media metadata', [
-                        'media_id' => $mediaId,
-                        'status' => $metaResp->status(),
-                        'body' => $metaResp->body(),
-                    ]);
-                    return null;
-                }
-
-                $meta = $metaResp->json();
-                $url = $meta['url'] ?? null;
-                $resolvedMime = $resolvedMime ?: ($meta['mime_type'] ?? null);
-            }
-
-            if (!$url) {
-                \Log::warning('WhatsApp inbound media: no URL resolved', ['media_id' => $mediaId]);
-                return null;
-            }
-
-            // Download the actual binary
-            $fileResp = Http::withToken($token)->get($url);
-            if ($fileResp->failed()) {
-                \Log::warning('WhatsApp inbound media: failed to download file', [
-                    'media_id' => $mediaId,
-                    'status' => $fileResp->status(),
-                ]);
-                return null;
-            }
-
-            $contentType = strtolower($resolvedMime ?: ($fileResp->header('Content-Type') ?? ''));
-            $ext = 'bin';
-            if (str_starts_with($contentType, 'image/')) {
-                $ext = match ($contentType) {
-                    'image/jpeg', 'image/jpg' => 'jpg',
-                    'image/png' => 'png',
-                    'image/gif' => 'gif',
-                    default => 'jpg',
-                };
-            } elseif ($contentType === 'application/pdf') {
-                $ext = 'pdf';
-            } elseif (str_starts_with($contentType, 'video/')) {
-                $ext = 'mp4';
-            } elseif (str_starts_with($contentType, 'audio/')) {
-                $ext = 'mp3';
-            }
-
-            $filename = 'in_' . ($mediaId ?: uniqid('', true)) . '.' . $ext;
-            $path = 'whatsapp_attachments/' . $filename;
-            Storage::disk('public')->put($path, $fileResp->body());
-
-            return $path;
-        } catch (\Throwable $e) {
-            \Log::warning('WhatsApp inbound media: exception while downloading', [
-                'media_id' => $mediaId,
-                'error' => $e->getMessage(),
-            ]);
-            return null;
-        }
     }
 
     /**
@@ -236,7 +88,7 @@ class WhatsAppSyncController extends Controller
 
         // Clear per-chat and list caches so ticks update.
         Cache::forget('whatsapp_active_chats_list');
-        Cache::forget('whatsapp_chat_full_' . md5($msg->phone));
+        Cache::forget('whatsapp_chat_full_v2_' . md5($msg->phone));
 
         return response()->json(['ok' => true]);
     }
@@ -303,6 +155,7 @@ class WhatsAppSyncController extends Controller
             'prefered_datetime' => 'nullable',
             'status' => 'nullable|string|max:50',
             'location_hint' => 'nullable',
+            'district' => 'nullable|string|max:191',
         ]);
 
         // Normalize literal \"null\" strings to real nulls
@@ -329,7 +182,7 @@ class WhatsAppSyncController extends Controller
         $booking->save();
 
         // Booking flow should classify this WhatsApp lead as customer.
-        $this->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_CUSTOMER, $data['name'] ?? null);
+        $this->leadLifecycle->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_CUSTOMER, $data['name'] ?? null);
 
         return response()->json([
             'ok' => true,
@@ -448,7 +301,7 @@ class WhatsAppSyncController extends Controller
         $lead->save();
 
         // Provider flow should classify this WhatsApp lead as provider.
-        $this->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_PROVIDER, $data['name'] ?? null);
+        $this->leadLifecycle->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_PROVIDER, $data['name'] ?? null);
 
         return response()->json([
             'ok' => true,
@@ -487,159 +340,12 @@ class WhatsAppSyncController extends Controller
         $user->save();
 
         // Ensure there is always a CRM lead for this WhatsApp identity.
-        $this->ensureUnknownLeadForPhone($data['phone'], $data['name'] ?? null);
+        $this->leadLifecycle->ensureUnknownLeadForPhone($data['phone'], $data['name'] ?? null);
 
         return response()->json([
             'ok' => true,
             'user' => $user,
         ]);
-    }
-
-    private function normalizeLeadPhone(?string $phone): ?string
-    {
-        if (!$phone) {
-            return null;
-        }
-
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-        if (strlen($digits) < 10) {
-            return null;
-        }
-
-        return substr($digits, -10);
-    }
-
-    private function ensureUnknownLeadForPhone(string $whatsAppPhone, ?string $name = null): ?Lead
-    {
-        $leadPhone = $this->normalizeLeadPhone($whatsAppPhone);
-        if (!$leadPhone) {
-            return null;
-        }
-
-        $existing = Lead::where('phone_number', $leadPhone)
-            ->orderByDesc('id')
-            ->get()
-            ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
-
-        if ($existing) {
-            if (empty($existing->handled_by)) {
-                $existing->handled_by = 'AI';
-                $existing->save();
-            }
-            return $existing;
-        }
-
-        return Lead::create([
-            'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
-            'phone_number' => $leadPhone,
-            'lead_type' => Lead::TYPE_UNKNOWN,
-            'date_time_of_lead_received' => now(),
-            'handled_by' => 'AI',
-            'created_by' => null,
-        ]);
-    }
-
-    private function ensureLeadTypeForPhone(string $whatsAppPhone, string $leadType, ?string $name = null): ?Lead
-    {
-        $leadPhone = $this->normalizeLeadPhone($whatsAppPhone);
-        if (!$leadPhone) {
-            return null;
-        }
-
-        // Reuse only an OPEN lead with the same phone and desired type.
-        $existing = Lead::where('phone_number', $leadPhone)
-            ->where('lead_type', $leadType)
-            ->orderByDesc('id')
-            ->get()
-            ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
-
-        if ($existing) {
-            if (empty($existing->handled_by)) {
-                $existing->handled_by = 'AI';
-                $existing->save();
-            }
-            return $existing;
-        }
-
-        // Otherwise create a new lead specifically for this type.
-        $lead = Lead::create([
-            'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
-            'phone_number' => $leadPhone,
-            'lead_type' => $leadType,
-            'date_time_of_lead_received' => now(),
-            'handled_by' => 'AI',
-            'created_by' => null,
-        ]);
-        $this->seedDefaultTypeHistoryForTypedLead($lead);
-
-        return $lead;
-    }
-
-    private function seedDefaultTypeHistoryForTypedLead(Lead $lead): void
-    {
-        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
-            LeadTypeHistory::create([
-                'lead_id' => $lead->id,
-                'type' => Lead::TYPE_CUSTOMER,
-                'data' => [
-                    'customer_lead_status_id' => CustomerLeadStatus::defaultPendingStatusId(),
-                    'booking_status' => 'pending',
-                ],
-                'created_by' => null,
-            ]);
-        } elseif ($lead->lead_type === Lead::TYPE_PROVIDER) {
-            LeadTypeHistory::create([
-                'lead_id' => $lead->id,
-                'type' => Lead::TYPE_PROVIDER,
-                'data' => [
-                    'provider_lead_status_id' => ProviderLeadStatus::defaultPendingStatusId(),
-                ],
-                'created_by' => null,
-            ]);
-        }
-    }
-
-    private function isLeadOpen(Lead $lead): bool
-    {
-        if ($lead->lead_type === Lead::TYPE_UNKNOWN) {
-            return true;
-        }
-
-        if (in_array($lead->lead_type, [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
-            return false;
-        }
-
-        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
-            $history = LeadTypeHistory::where('lead_id', $lead->id)
-                ->where('type', Lead::TYPE_CUSTOMER)
-                ->latest()
-                ->first();
-            $data = ($history && is_array($history->data)) ? $history->data : [];
-            $statusId = $data['customer_lead_status_id'] ?? null;
-            if (!$statusId) {
-                return true; // default pending
-            }
-            $status = CustomerLeadStatus::find($statusId);
-            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
-            return !in_array($baseType, ['completed', 'cancel'], true);
-        }
-
-        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
-            $history = LeadTypeHistory::where('lead_id', $lead->id)
-                ->where('type', Lead::TYPE_PROVIDER)
-                ->latest()
-                ->first();
-            $data = ($history && is_array($history->data)) ? $history->data : [];
-            $statusId = $data['provider_lead_status_id'] ?? null;
-            if (!$statusId) {
-                return true; // default pending
-            }
-            $status = ProviderLeadStatus::find($statusId);
-            $baseType = strtolower((string) ($status?->base_type ?? 'pending'));
-            return !in_array($baseType, ['completed', 'cancel'], true);
-        }
-
-        return false;
     }
 
     /**

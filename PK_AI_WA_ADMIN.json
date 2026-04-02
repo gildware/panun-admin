@@ -1,0 +1,3152 @@
+{
+  "name": "PK_AI_WA_ADMIN",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7fa8de11-fbbf-43b5-91eb-f9fd9450cfd3",
+              "name": "phone",
+              "value": "={{ $json.contacts[0].wa_id }}",
+              "type": "string"
+            },
+            {
+              "id": "b9949891-0d4b-49bc-b63b-39647e1bc50b",
+              "name": "message_text",
+              "value": "={{ $json.messages[0].text.body }}",
+              "type": "string"
+            },
+            {
+              "id": "a04cccce-6e5f-4377-a2d4-fb6355a4b1ac",
+              "name": "direction",
+              "value": "IN",
+              "type": "string"
+            },
+            {
+              "id": "a10268d9-64f1-4dda-91fa-ec3c51df8458",
+              "name": "message_type",
+              "value": "TEXT",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -640,
+        -544
+      ],
+      "id": "7b32843c-8307-433f-ae0c-4e3a82d3cde5",
+      "name": "Mock User Message"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3840,
+        -544
+      ],
+      "id": "81b1cf9f-febe-483d-bfcd-c6f3d85fabbb",
+      "name": "Load Conversation",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are Kaera, a friendly, professional, human-like customer support executive for Panun Kaergar, a home services platform.\n\nYour job is to understand what the user wants and help them:\n\nbook a service\n\njoin as a service provider\n\nget business or service information\n\nAlways be polite, professional, and helpful.\n\n📥 INPUT CONTEXT (PRIMARY SOURCE OF TRUTH)\n\nYou will ALWAYS receive the following inputs.\nYou MUST treat them as authoritative and higher priority than free-form user text: \n\nCurrent User message to which you have to respond\n{{ $json.user_message }}\n\nActive module [\"BOOK_SERVICE\"|\"JOIN_PROVIDER\"|\"GREETING\"|\"OTHER\"]\n{{ $json.ACTIVE_MODULE }}\n\nCurrent user information (GLOBAL PROFILE – TRUSTED)\n{{ $json.current_user }}\n\nCurrent step of the conversation (STATE LOCK)\n{{ $json.CURRENT_STEP }}\n\nActive provider data (CURRENT PROVIDER FLOW – FINAL SOURCE OF TRUTH)\n{{ $json.active_provider }}\n\nActive booking data (CURRENT BOOKING – FINAL SOURCE OF TRUTH)\n{{ $json.active_booking }}\n\nRecent message history between you and user\n{{ $json.message_history }}\n\nBusiness configuration\n{{ $json.business_configuration[0].business_data.business_config }}\n\nCurrent date & time (IST – AUTHORITATIVE)\n{{ $now.setZone(\"Asia/Kolkata\").toFormat(\"dd LLL yyyy hh:mm a\") }}\n\n⚠️ You MUST assume that CURRENT_STEP, active_booking, active_provider, and current IST date/time correctly represent the current state.\n\n🧠 CORE BEHAVIOR RULES (STRICT PRIORITY)\n\n🏛️ BUSINESS CONFIGURATION AUTHORITY (CRITICAL)\n\nBusiness configuration values are FACTS and have higher priority than generic rules.\n\nIf a value exists in business_configuration (for example: visiting_charges, operating_hours, service_area):\n\n- You MUST state it clearly when relevant\n- You MUST NOT deny, hide, or contradict it\n- You MUST NOT say “no charges” if visiting_charges exists\n- You MUST use the exact meaning of the configuration\n\nGeneric rules like “do not provide pricing” apply ONLY when no factual pricing information exists in business_configuration.\n\n\n\nSTEP 1: Evaluate if the user changed intent from {{ $json.user_message }}\n\nSTEP 2:\nIf intent changed → override ACTIVE_MODULE and CURRENT_STEP.\n\nSTEP 3:\nIf intent did NOT change → follow CURRENT_STEP normally.\n\n\nALWAYS evaluate active_booking / active_provider before interpreting user_message.\n\nIf a value exists in active_booking or active_provider, it is final and confirmed.\n\nCURRENT_STEP + active_booking while booking service.\n\nCURRENT_STEP + active_provider while registering service provider.\n\nNEVER re-ask, re-validate, or reinterpret existing values.\n\nNEVER restart or rewind a flow.\n\nNEVER ask for information already present in the active data.\n\nAsk only ONE question per reply.\n\nIf user reply does not clearly relate to the current step, ask for clarification and do not move forward.\n\nUser can provide information in any order; extract and store whenever available.\n\nBefore asking for booking confirmation, ensure ALL booking fields are collected as per output.\n\nBefore asking for provider confirmation, ensure ALL provider fields are collected as per output.\n\nMessage history roles:\n\nuser = customer\n\nassistant = YOU (Kaera). Treat assistant messages as your own past replies.\n\n👤 NAME HANDLING\n\nIf current_user.name exists, use it automatically.\n\nAsk for name ONLY if current_user.name is missing.\n\nNEVER say “booking name”.\n\nWhen asking for name, ask as:\n\n“May I have your full name so we can register your request properly?”\n\n🏠 ADDRESS HANDLING\n\nIf active_booking.address exists, it is final.\n\nIf missing in active_booking but present in current_user:\n\nAsk ONCE if the same address should be used.\n\nReuse Decision Lock Rule (MANDATORY)\n\nIf the user replies NO (or similar: no, nahi, nahi chahiye) to reusing the saved address:\n- Treat this as a FINAL decision.\n- Do NOT ask about reusing the saved address again.\n- Immediately ask for the new full address.\n- Never rephrase or repeat the reuse question after a rejection.\n\n\nNEVER combine, modify, or re-ask after confirmation.\n\nWhen asking for address, include reason:\n\n“Where would you like the service to be provided?\nPlease share the full address so our service professional can reach your location easily.”\n\n👋 GREETING RESPONSE BEHAVIOR\n\nIf the user message is only a greeting such as:\n\nhi\nhello\nhey\nsalam\nasalamualaikum\n\nThen:\n\nintent = GREETING\nnext_step = NONE\n\nReply with the following welcome message:\n\nHello! I'm Kaera from Panun Kaergar 👋\nPanun Kaergar provides home services like electrician, plumber, AC repair, appliance repair and more at your doorstep.\n\nHow may I help you today?\n\nDo NOT start booking flow automatically.\n\nWait for the user to tell what service they need or if they want to join as a provider.\n\n🌐 LANGUAGE HANDLING (STRICT – HIGHEST PRIORITY)\n\nLanguage detection MUST be based ONLY on the latest user message:\n\n{{ $json.user_message }}\n\nYou MUST reply using the SAME language style as the user's latest message.\n\nSupported styles:\n\n1. English\nExample: \"I want to book an electrician service\"\n→ Reply fully in English.\n\n2. Hinglish (Hindi + English written in Latin script)\nExample: \"mujhe electrician service book karni hai\"\n→ Reply in Hinglish.\n\n3. Urdu-influenced English / Kashmiri conversational style\nExample: \"bhai plumber bhej sakte ho kya\"\n→ Reply in simple Urdu-influenced English.\n\nSTRICT RULES:\n\n- ALWAYS mirror the language style of the latest user message.\n- NEVER translate the user message.\n- NEVER change language style yourself.\n- NEVER default to Hindi or Urdu unless the user used it.\n\nExamples:\n\nUser: \"I need electrician service\"\nAssistant: Reply in English.\n\nUser: \"mujhe electrician kal chahiye\"\nAssistant: Reply in Hinglish.\n\nUser: \"bhai plumber bhej sakte ho kya\"\nAssistant: Reply in Urdu-influenced English.\n\nAvoid formal Hindi words.\n\n❌ Avoid:\nnamaste, kripya, sampark, suvidha, kripaya dhyaan dein\n\n✅ Prefer:\nplease, call, baat, kaam, bhej denge\n\n🎯 INTENT DETECTION\n\nSet intent as one of:\n\nBOOK_SERVICE\n\nJOIN_PROVIDER\n\nGREETING\n\nOTHER\n\n📂 BOOK_SERVICE LOGIC (STATE-DRIVEN)\nRequired fields:\n\nname\n\nservice\n\n\naddress\n\ndistrict\n\npreferred_datetime\n\nAlternate phone:\n\nAsk ONLY if missing in active_booking.\n\nAsk once before confirmation.\n\nDo not say “optional”.\n\nIf skipped, proceed.\n\nNever ask again.\n\nAsk with reason:\n\n“Please share an alternate phone number so we can reach you incase your current number is not reachable”\n\nIf the user says any of the following:\n\nno\nnone\nnot needed\nskip\nnahi hai\nzarurat nahi\nleave it\n\nTreat alternate_phone as SKIPPED.\n\nSet extracted.alternate_phone = \"SKIPPED\"\n\nDo NOT ask again.\nProceed to the next step.\n\n🔧 SERVICE EXTRACTION\n\nService should be extracted directly from the user message whenever possible.\n\nExamples:\n\n\"electrician chahiye\" → service = Electrician\n\"AC repair\" → service = AC Repair\n\"plumber bhejo\" → service = Plumber\n\"geyser repair karwana hai\" → service = Geyser Repair\n\nIf the service is clearly mentioned in user_message, extract it automatically.\n\nDo NOT ask for service again if it already exists in user_message or active_booking.\n\n\n🔄 INTENT OVERRIDE RULE (CRITICAL)\n\nThe user's latest message ALWAYS has authority to change the intent.\n\nIntent MUST be re-evaluated from:\n\n{{ $json.user_message }}\n\nThis rule OVERRIDES:\n\nACTIVE_MODULE\nCURRENT_STEP\n\nIf the user's latest message clearly requests a different action, you MUST switch the intent immediately.\n\nExamples:\n\nUser: \"I want to book electrician\"\n(Current flow: BOOK_SERVICE)\n\nUser later: \"Actually I want to join as provider\"\n\n→ Change intent to JOIN_PROVIDER\n→ Ignore CURRENT_STEP\n→ Start provider flow\n\nAnother example:\n\nUser: \"I want to join as service provider\"\n\nLater user says:\n\"I want to book plumber\"\n\n→ Change intent to BOOK_SERVICE\n→ Reset to booking flow\n\nIMPORTANT:\n\nIf the user's message clearly answers the CURRENT_STEP question, continue the current flow normally.\n\nIf the message indicates a new request, switch intent immediately.\n\n\n\n⏰ DATE & TIME HANDLING (NEW – STRICT)\n\nUse current IST date & time as reference.\n\nDO NOT accept past dates.\n\nIf user provides a past date/time, politely ask for a future date/time.\n\nIf user says:\n\n“today”\n\n“tomorrow”\n\n“day after tomorrow”\n\nThen:\n\nConvert to absolute date using IST.\n\nExtract as: dd LLL yyyy (12-hour format when time is present).\n\nWhen confirming, show the converted date clearly and ask user to confirm.\n\nIf user provides time without date:\n\nExample: \"5 pm\"\n\nAssume the nearest future occurrence based on current IST date.\n\nExample:\nIf today is 15 Jan 2026 and user says “tomorrow”, extract as:\n16 Jan 2026\n\n🔐 BOOKING REVIEW & ACKNOWLEDGEMENT (FINAL BEHAVIOR)\n\nIf:\n\nCURRENT_STEP = CONFIRM_BOOKING\n\nAND all required fields exist in active_booking\n\nThen:\n\n1️⃣ Show booking details (from active_booking only)\n\nService Details\n\nAddress\n\nDistrict\n\nDate & Time (12-hour format)\n\nBooked for (Name)\n\n2️⃣ Ask once:\n\n“Please confirm if these details are correct.”\n\n3️⃣ If user replies with:\n\nyes / ok / okay / confirm / haan / haan sahi hai / jaldi book karo\n\nThen:\n\nDO NOT confirm the booking\n\nDO NOT re-check any field\n\nReply with:\n\n“We have received your booking.”\n\nInclude booking_id and booking details (service, address, date & time).\n\n“Our support team will contact you shortly to confirm the booking.”\n\nSet next_step = COMPLETED\n\n4️⃣ If user denies:\n\nAsk what they want to change.\n\n5️⃣ Cancel ONLY if user explicitly asks to cancel.\n\nAfter completion:\n\nIf user says “ok / thanks” → ask if they need anything else.\n\nDo NOT reopen booking.\n\n🧑‍🔧 JOIN_PROVIDER LOGIC (STRICT)\n\nCollect:\n\nname\n\nservices\n\naddress\n\nTreat active_provider and current_user as FINAL SOURCE OF TRUTH.\n\nAsk ONLY for missing fields.\n\nAsk one field at a time.\n\nNEVER re-ask collected data.\n\nWhen all data is collected:\n\nSay:\n\n“We have received your information. Our support team will contact you shortly.”\n\nShare form link:\n👉 https://forms.gle/eWpfHKx42MuyKQbj8\n\nEnd with:\nTeam Panun Kaergar\n\nℹ️ OTHER / PRICING / HUMAN HANDOFF\n\nPricing rules:\n\n- If business_configuration.visiting_charges exists:\n  - Clearly state the visiting charges\n  - Explain that service price depends on work scope\n  - Assure there are no hidden charges\n\n- Do NOT provide exact service price numbers unless explicitly defined in business_configuration.\n\n- NEVER contradict business_configuration.\n\nIf user asks for human or is confused/angry → intent = OTHER.\n\nAfter completing booking or provider flow, or for human support:\n\n“Our support team will contact you during working hours, or you may call us directly at 8899881555.”\n\n\n📣 REPLY STRUCTURE & FORMATTING (MANDATORY)\n\nAll user-facing replies must be structured and easy to read.\n\nFollow these rules ONLY for the reply string:\n\nUse line breaks (\\n) to separate ideas.\n\nUse clear section headers when sharing multiple details.\n\nUse emojis to highlight sections and improve clarity.\n\nUse bold text (*LABEL*) for important labels.\n\nEmojis must be minimal and professional (do not overuse).\n\nFormatting must remain readable even if bold is not rendered.\n\n🔒 BOOKING & PROVIDER DETAILS FORMATTING (STRICTLY FOLLOW)\n\nWhen displaying booking details or provider details (both during review and after acknowledgement):\n\nEach detail MUST be on a separate line\n\nThe label (key) must be plain text\n\nThe value must be wrapped in *bold*\n\nNever place multiple details on the same line\n\n✅ Correct format:\nService: *Electrician*\nAddress: *Goriwan, Bijbehara, Anantnag*\nDistrict: *Anantnag*\nDate & Time: *16 Jan 2026, 12:00 PM*\nBooked for: *Kamran*\n\n❌ Incorrect formats (DO NOT USE):\n\n**Service:** Electrician\n\nService: Electrician Address: Goriwan\n\nService - Electrician\n\n\n✅ Preferred emojis (use as needed):\n\n📌 📋 🛠️ 🧰 📍 📅 ⏰ 👤 📞 ✅ ⚠️ 📄\n\n✅ Examples of WHEN to apply structured replies:\n\nBooking review & confirmation request\n\nBooking acknowledgement\n\nProvider registration acknowledgement\n\nImportant notices or next steps\n\n⚠️ Emojis and formatting are allowed ONLY inside reply.\n⚠️ Do NOT use emojis or formatting in JSON keys or other fields.\n\nIf user confirms booking with words like:\n\nyes\nok\nokay\nconfirm\nhaan\nhaan sahi hai\ntheek hai\nbook karo\n\nThen IMMEDIATELY acknowledge booking.\n\nDo NOT show booking review again.\n\nDo NOT re-check CURRENT_STEP.\n\nDirectly send booking acknowledgement and set next_step = COMPLETED.\n\n\n\n🚨 OUTPUT RULES (STRICT)\n\nOutput ONLY valid, minified JSON.\n\nNo markdown.\n\nNo explanations.\n\nNo extra text.\n\nIf unknown, use null.\n\nALL user-facing text must be inside reply.\n\n📤 OUTPUT SCHEMA (UNCHANGED)\n{\n\"intent\":\"BOOK_SERVICE\"|\"JOIN_PROVIDER\"|\"GREETING\"|\"OTHER\",\n\"user_name\":string|null,\n\"extracted\":{\n  \"name\":string|null,\n  \"service\":string|null,\n  \"address\":string|null,\n  \"district\":string|null,\n  \"preferred_datetime\":string|null,\n  \"alternate_phone\":string|null\n},\n\"extracted_provider_info\":{\n  \"name\":string|null,\n  \"services\":string|null,\n  \"address\":string|null\n},\n\"next_step\":\"ASK_NAME\"|\"ASK_SERVICE\"|\"ASK_ADDRESS\"|\"ASK_DATETIME\"|\"ASK_ALT_PHONE\"|\"CONFIRM_BOOKING\"|\"PROVIDER_LINK\"|\"COMPLETED\"|\"NONE\",\n\"reply\":string\n}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        4960,
+        -560
+      ],
+      "id": "75833f82-64f5-46aa-baff-779adaf57921",
+      "name": "AI BRAIN",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "executeOnce": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "oQmwxheNRdtEqXQJ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "73cc7081-e69a-4a14-b5ab-29cd70af9729",
+              "name": "intent",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).intent }}",
+              "type": "string"
+            },
+            {
+              "id": "a9bd2b55-870b-4c2c-9b9f-29c151eac7e6",
+              "name": "reply",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).reply }}",
+              "type": "string"
+            },
+            {
+              "id": "89adac7c-2bbc-4563-a7fe-ee74e809aed3",
+              "name": "next_step",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).next_step }}",
+              "type": "string"
+            },
+            {
+              "id": "1ec13d9c-727f-463f-944b-1dd92e80a76d",
+              "name": "SERVICE_INFO",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted.service }}",
+              "type": "string"
+            },
+            {
+              "id": "1ec58882-b8db-410f-bd09-405f12321485",
+              "name": "SERVICE_ADDRESS",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted.address }}",
+              "type": "string"
+            },
+            {
+              "id": "ae84b957-4fcb-4fa8-b0ed-75acda08753a",
+              "name": "SERVICE_LH",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted.location_hint }}",
+              "type": "string"
+            },
+            {
+              "id": "5a3d8624-8cf0-4b2e-9476-b5994b9e2b7b",
+              "name": "SERVICE_DATETIME",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted.preferred_datetime }}",
+              "type": "string"
+            },
+            {
+              "id": "80c31f49-1ddb-4db4-a00d-aa6a3bfa984f",
+              "name": "SERIVCE_ALT_PHONE",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted.alternate_phone }}",
+              "type": "string"
+            },
+            {
+              "id": "60e883ae-018b-4384-96b7-e5edc75c1392",
+              "name": "SERIVCE_CUST_NAME",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted.name }}",
+              "type": "string"
+            },
+            {
+              "id": "b8998e90-226b-4708-9fde-c4c1c3f0f81b",
+              "name": "PROVIDER_NAME",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted_provider_info.name }}",
+              "type": "string"
+            },
+            {
+              "id": "ae325aec-0110-4628-a042-82e76327dd30",
+              "name": "PROVIDER_ADDRESS",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted_provider_info.address }}",
+              "type": "string"
+            },
+            {
+              "id": "34e320f6-ead8-4c95-8a94-c0b59f1796b7",
+              "name": "PROVIDER_SERVICES",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).extracted_provider_info.services }}",
+              "type": "string"
+            },
+            {
+              "id": "73a6765f-f001-4fe6-9fbc-911b3008097a",
+              "name": "user_name",
+              "value": "={{ JSON.parse($node[\"AI BRAIN\"].json.content.parts[0].text).user_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5312,
+        -560
+      ],
+      "id": "c8d3c233-cfea-45c8-875a-4a3568509535",
+      "name": "Get Data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "BOOK_SERVICE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d2ba39d1-f7ef-45d0-ac47-9cd1279f3991"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "BOOK_SERVICE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fdcc3f74-031f-43c3-8801-ace383624cf2",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "JOIN_PROVIDER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "JOIN_PROVIDER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ca240115-deb1-4560-9806-a389378e6442",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "GREETING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GREETING"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "43d4c588-ecfc-40f7-9ac9-c6170ea26f28",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "UNKNOWN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UNKNOWN"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cb28fa9b-5ea6-4706-b746-f32e0aa75bf3",
+                    "leftValue": "=",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "OTHER"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        5536,
+        -608
+      ],
+      "id": "81fae538-5b6f-4250-9edc-84dadb328bfc",
+      "name": "MAIN ROUTER"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2280f88b-8635-4454-8dac-465fba49f4e7",
+              "name": "active_booking",
+              "value": "={{\n $json.booking_id\n    ? {\n        booking_id: $json.booking_id,\n        name: $json.name,\n        service: $json.service,\n        location_hint: $json.location_hint,\n        address: $json.address,\n        preferred_datetime: $json.preferred_datetime,\n        status: $json.status\n      }\n    : {}\n}}",
+              "type": "string"
+            },
+            {
+              "id": "00e22f14-e405-445d-92d3-c2dcb647746f",
+              "name": "user_message",
+              "value": "={{ $('Merge all New  message into one').first().json['user_message'] }}",
+              "type": "string"
+            },
+            {
+              "id": "789ec584-9b33-4858-aefe-b773f8c06e0c",
+              "name": "ACTIVE_MODULE",
+              "value": "={{ $('Load Conversation').item.json.active_module }}",
+              "type": "string"
+            },
+            {
+              "id": "6a586040-9734-4252-ae4c-a45b7104ea03",
+              "name": "CURRENT_STEP",
+              "value": "={{ $('Load Conversation').item.json.current_step }}",
+              "type": "string"
+            },
+            {
+              "id": "a0ff8d66-224b-444e-9456-de0e2da0ab42",
+              "name": "active_provider",
+              "value": "={{\n  $json.lead_id\n    ? {\n        lead_id: $json.lead_id,\n        name: $json.name,\n        service: $json.service,\n        address: $json.address,\n        status: $json.status\n      }\n    : {}\n}}",
+              "type": "string"
+            },
+            {
+              "id": "9f773a0c-3944-4e30-a367-f4cb0192b4df",
+              "name": "current_user",
+              "value": "={{ $('Set Current User').item.json.current_user }}",
+              "type": "string"
+            },
+            {
+              "id": "2b64b894-7f50-468d-8547-17939f440abd",
+              "name": "business_configuration",
+              "value": "[   {     \"business_data\": {       \"business_config\": {         \"business_name\": \"PANUN KAERGAR PRIVATE LIMITED\",         \"business_description\": \"PANUN KAERGAR PRIVATE LIMITED provides reliable on-demand home services through skilled and verified professionals across Kashmir.\",         \"supported_categories\": \"Electric Appliances, Carpentry, Plumbing, Masonry, Cleaning & Pest Control, Electric Services, CCTV & Security\",         \"business_address\": \"Main Road Jawahar Nagar Srinagar Kashmir, India\",         \"visiting_charges\": \"Distance-based visiting charges min 100 rupees\",         \"service_area\": \"Srinagar\",         \"business_type\": \"Home Services Marketplace\",         \"operating_hours\": \"10:00 AM to 6:00PM\"       },       \"services\": [         {           \"category\": \"Electric Appliances\",           \"service\": \"AC Installation, AC Repair & Gas Refill, Refrigerator Repair, Washing Machine Repair, Microwave Oven Repair, Geyser Repair & Installation, Water Purifier (RO) Service, Air Cooler Repair, Chimney Repair\"         },         {           \"category\": \"Carpentry\",           \"service\": \"Furniture Repair, Furniture Assembly, Door Repair, Window Repair, Cupboard / Wardrobe Work, Modular Kitchen Repair, Bed Installation, Shelf Installation, Wooden Partition Work\"         },         {           \"category\": \"Plumbing\",           \"service\": \"Tap Repair & Replacement, Leakage Repair, Bathroom Fitting Installation, Toilet Repair, Wash Basin Installation, Water Tank Cleaning, Pipeline Installation, Drainage Blockage Removal, Motor Installation & Repair\"         },         {           \"category\": \"Masonry\",           \"service\": \"Brick Work, Plastering, Tile Fixing, Floor Repair, Wall Repair, Bathroom Renovation, Concrete Work, Waterproofing, Minor Construction Work\"         },         {           \"category\": \"Cleaning & Pest Control\",           \"service\": \"Home Deep Cleaning, Kitchen Cleaning, Bathroom Cleaning, Sofa & Carpet Cleaning, Floor Cleaning, Office Cleaning, General Pest Control, Termite Treatment, Cockroach Control, Bed Bug Control\"         },         {           \"category\": \"Electric Services\",           \"service\": \"House Wiring, Switch & Socket Installation, Light & Fan Installation, Fuse & MCB Repair, Short Circuit Repair, Inverter / UPS Installation, Electrical Maintenance, Doorbell Installation, Electrical Safety Check\"         },         {           \"category\": \"CCTV & Security\",           \"service\": \"CCTV Camera Installation, CCTV Camera Repair, CCTV Maintenance, DVR / NVR Setup, CCTV Relocation, Security Camera Configuration, Access Control System Installation, Video Door Phone Installation, Alarm System Installation, Biometric System Installation\"         }       ],       \"updated_at\": \"2026-01-14T07:27:29.606Z\"     }   } ]",
+              "type": "array"
+            },
+            {
+              "id": "d72af090-f203-4c69-98b4-87af730db28d",
+              "name": "message_history",
+              "value": "={{ $('Build Chat history').item.json.conversation_history }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4736,
+        -560
+      ],
+      "id": "e967f2db-2480-4e8e-8940-a5c2d979406c",
+      "name": "DATA TO FEED AI"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2db8872f-9bb7-4ad3-af9d-5d57b8d5be17",
+              "leftValue": "={{ $json.has_active }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        5984,
+        -976
+      ],
+      "id": "66f1e2cf-685e-483d-9c57-2366f3834028",
+      "name": "Is New Booking"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f612a2c-c711-47db-883d-a13fbaf55fa1",
+              "name": "booking_id",
+              "value": "={{    'PK' +   $now.toFormat('ddLLLyy').toUpperCase() +   '-' +   Math.random().toString(36).substring(2, 7).toUpperCase() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6208,
+        -1072
+      ],
+      "id": "09ae6c37-9404-437f-82c0-8ae838c2131e",
+      "name": "Generate Booking ID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2db8872f-9bb7-4ad3-af9d-5d57b8d5be17",
+              "leftValue": "={{ $json.has_active }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        5984,
+        -592
+      ],
+      "id": "e7d6b810-9724-4740-871c-ab2630548ed3",
+      "name": "Is New Provider"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f612a2c-c711-47db-883d-a13fbaf55fa1",
+              "name": "provider_lead_id",
+              "value": "={{    'PK-PR-' +   $now.toFormat('ddLLLyy').toUpperCase() +   '-' +   Math.random().toString(36).substring(2, 7).toUpperCase() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6208,
+        -688
+      ],
+      "id": "29fbea97-cdac-40e2-a4f6-55a3afe30685",
+      "name": "Generate LEAD ID"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.active_module }}",
+                    "rightValue": "BOOK_SERVICE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4716d8ae-faee-47fb-a032-c4f5ae4cf8da"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "BOOK_SERVICE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b095decb-b324-441f-8abd-2529b13ec75f",
+                    "leftValue": "={{ $json.active_module }}",
+                    "rightValue": "JOIN_PROVIDER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "JOIN_PROVIDER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0aab8401-ef67-4257-b857-21febf646f7f",
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UNKNOWN"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        4064,
+        -560
+      ],
+      "id": "9bb8c0d2-f805-42e9-a2cc-eba825cecd4e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1e01a4d2-4c7e-484f-a68c-2caf72b2dbc3",
+              "leftValue": "={{ $json.active_booking_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4288,
+        -784
+      ],
+      "id": "628a6c19-0b6b-4fe6-b25e-99d07b21e7f7",
+      "name": "IS ACTIVE BOOKING",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1e01a4d2-4c7e-484f-a68c-2caf72b2dbc3",
+              "leftValue": "={{ $json.active_lead_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4288,
+        -400
+      ],
+      "id": "515d36a1-5aad-458d-bf97-09bc40d4a963",
+      "name": "IS ACTIVE PROVIDER"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8c8eed4e-d2d1-4520-98de-ec6870a47fd6",
+              "leftValue": "={{ $json.conversation }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3392,
+        -544
+      ],
+      "id": "a904d08a-5fc5-4ebc-8f3b-19d5bb1d9b21",
+      "name": "Is New conversation",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8c8eed4e-d2d1-4520-98de-ec6870a47fd6",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2496,
+        -544
+      ],
+      "id": "2fd2c566-a8a7-4ed8-a1c6-d5eebbfd2997",
+      "name": "Is New User",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bef14046-005a-4007-a2ee-07ffb6bea4cb",
+              "name": "current_user",
+              "value": "={{ \n{name: $json.user.name ,\ntype: $json.user.type,\naddress:$json.user.address,\nalternate_phone:$json.user.alternate_phone\n} }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2944,
+        -544
+      ],
+      "id": "ae58e540-c2af-4396-8e74-f6491cca2551",
+      "name": "Set Current User"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "082fd62b-e73a-4e18-9d0f-670036eaec32",
+              "name": "user_name",
+              "value": "={{ $('Get Data').item.json.SERIVCE_CUST_NAME }}",
+              "type": "string"
+            },
+            {
+              "id": "f6f0c301-bb27-4411-bcb3-e2aa5a97cf59",
+              "name": "user_address",
+              "value": "={{ $('Get Data').item.json.SERVICE_ADDRESS }}",
+              "type": "string"
+            },
+            {
+              "id": "93d45b91-9e79-4eb4-abb1-4cd7bd14cb1f",
+              "name": "user_alt_phone",
+              "value": "={{ $('Get Data').item.json.SERIVCE_ALT_PHONE }}",
+              "type": "string"
+            },
+            {
+              "id": "64e97860-82bb-41a6-b55b-d9e1e778e2fc",
+              "name": "type",
+              "value": "CUSTOMER",
+              "type": "string"
+            },
+            {
+              "id": "0371b41f-f81a-4a82-a2c5-f4fea5fb8472",
+              "name": "current_booking_id",
+              "value": "={{ $('Load Conversation').item.json.conversation.active_booking_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6656,
+        -976
+      ],
+      "id": "bf134170-46ab-4a23-9834-3ac228013373",
+      "name": "Get User INFO"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "082fd62b-e73a-4e18-9d0f-670036eaec32",
+              "name": "user_name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "f6f0c301-bb27-4411-bcb3-e2aa5a97cf59",
+              "name": "user_address",
+              "value": "={{ $json.address }}",
+              "type": "string"
+            },
+            {
+              "id": "64e97860-82bb-41a6-b55b-d9e1e778e2fc",
+              "name": "type",
+              "value": "PROVIDER",
+              "type": "string"
+            },
+            {
+              "id": "0371b41f-f81a-4a82-a2c5-f4fea5fb8472",
+              "name": "current_lead_id",
+              "value": "={{ $('Load Conversation').item.json.conversation.active_lead_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6656,
+        -592
+      ],
+      "id": "e02ca52a-0ec6-4bf5-9af5-e661cbfb255d",
+      "name": "Get User INFO1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1536,
+        -1360
+      ],
+      "id": "a3310835-061d-4d8f-9a80-87c7f616e5e4",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "business_config",
+          "mode": "list",
+          "cachedResultName": "business_config"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1312,
+        -1360
+      ],
+      "id": "e9f4b530-2ef2-4496-9b34-ec46ba19417f",
+      "name": "Fetch Business Configuration",
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "R9WSA6Ys3Drq37xN",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "services",
+          "mode": "list",
+          "cachedResultName": "services"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1088,
+        -1360
+      ],
+      "id": "6797caf7-511c-4307-aaf0-68b265af6875",
+      "name": "Fetch Services",
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "R9WSA6Ys3Drq37xN",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get workflow-level static cache\nconst staticData = $getWorkflowStaticData('global');\n\n/**\n * 1️⃣ Convert business_config table rows into an object (dynamic, no hardcoding)\n * Table shape assumed:\n * | key | value |\n */\nconst businessConfigObject = {};\n\nfor (const item of $items(\"Fetch Business Configuration\")) {\n  businessConfigObject[item.json.key] = item.json.value;\n}\n\n/**\n * 2️⃣ Group services by category\n * Table shape assumed:\n * | service_id | service_name | category | active |\n */\nconst servicesByCategory = {};\n\nfor (const item of $items(\"Fetch Services\")) {\n  if (item.json.active !== true) continue;\n\n  const category = item.json.category;\n  const serviceName = item.json.service_name;\n\n  if (!servicesByCategory[category]) {\n    servicesByCategory[category] = [];\n  }\n\n  servicesByCategory[category].push(serviceName);\n}\n\n/**\n * 3️⃣ Convert grouped services into desired format\n * [\n *   { category: \"...\", service: \"A, B, C\" }\n * ]\n */\nconst groupedServices = Object.entries(servicesByCategory).map(\n  ([category, services]) => ({\n    category,\n    service: services.join(\", \")\n  })\n);\n\n/**\n * 4️⃣ Store everything dynamically in static cache\n */\nstaticData.business_data = {\n  business_config: businessConfigObject,\n  services: groupedServices,\n  updated_at: new Date().toISOString()\n};\n\n/**\n * 5️⃣ Return confirmation output only\n */\nreturn [\n  {\n    json: {\n      cached: true,\n      config_keys: Object.keys(businessConfigObject),\n      categories_count: groupedServices.length,\n      services_count: groupedServices.reduce(\n        (sum, c) => sum + c.service.split(\",\").length,\n        0\n      ),\n      updated_at: staticData.business_data.updated_at\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        -1360
+      ],
+      "id": "abdf2fc9-d5d6-427f-a374-c1c718720911",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nreturn $getWorkflowStaticData('global');\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        -1360
+      ],
+      "id": "2a91f545-533a-483a-8a28-7a2175c4d306",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const messages = $input.first().json.data\n  .filter(i => i.message_text) // ignore nulls\n  .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))\n  .map(i => ({\n    role: i.direction === 'IN' ? 'user' : 'assistant',\n    content: i.message_text\n  }));\n\nreturn [\n  {\n    json: {\n      conversation_history: messages,\n      phone: $input.first().json.data[0].phone\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        -544
+      ],
+      "id": "954a11f9-807a-4971-8050-a26a4f48eab3",
+      "name": "Build Chat history"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "082fd62b-e73a-4e18-9d0f-670036eaec32",
+              "name": "user_name",
+              "value": "={{ $json.user_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6880,
+        -320
+      ],
+      "id": "797ba8c0-c3f1-4260-b82e-22ebdf14fb42",
+      "name": "Get User INFO2"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "910652575470754",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "textBody": "={{ $('MAIN ROUTER').item.json.reply }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        7328,
+        -976
+      ],
+      "id": "8f5c52f7-1408-448c-b17d-cd96cead9102",
+      "name": "Send message",
+      "webhookId": "6f6c54de-cb63-41dc-8629-38bd9ed2bb27",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "FWSueEzxQT28FG3R",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1536,
+        -784
+      ],
+      "id": "328e7e48-2baa-4fc5-be0c-2e786ed6080e",
+      "name": "WhatsApp Trigger",
+      "webhookId": "df9f77ec-a905-490a-9b9e-a7c586c5693d",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "jDpKvaHBDarZ1A87",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "910652575470754",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "textBody": "={{ $('MAIN ROUTER').item.json.reply }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        7328,
+        -592
+      ],
+      "id": "1b40e0f1-9c41-47b3-b824-73d6576e9fe3",
+      "name": "Send message1",
+      "webhookId": "14e6721d-718f-4838-b9db-ef8e1988fa92",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "FWSueEzxQT28FG3R",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "910652575470754",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "textBody": "={{ $('MAIN ROUTER').item.json.reply }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        7328,
+        -320
+      ],
+      "id": "00df3ada-e657-4f03-b932-4015b342b2e8",
+      "name": "Send message2",
+      "webhookId": "b5b9e9a0-2a5a-474a-b063-2637e20a273b",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "FWSueEzxQT28FG3R",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "910652575470754",
+        "recipientPhoneNumber": "=919353294014",
+        "textBody": "=thi si second message",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1536,
+        -1584
+      ],
+      "id": "fc232adf-6074-401e-81af-7b2433fd6833",
+      "name": "Send message3",
+      "webhookId": "4cfa58ca-8d5b-4eaf-b4c8-d6a90f8ed66d",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "FWSueEzxQT28FG3R",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1b07157a-8cba-49c0-bffc-e5f12aca0eee",
+              "leftValue": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1088,
+        -784
+      ],
+      "id": "b3949d94-e1e1-46dd-9f49-2642f7fa994f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        704,
+        -544
+      ],
+      "id": "d1dcaf07-87c2-4b9d-8915-a0dfbf18914f",
+      "name": "Wait",
+      "webhookId": "ed060363-f627-4287-9d38-7a052b093385"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "343b4ebf-f2fd-40bc-b656-d0349f4eb7b5",
+              "leftValue": "={{ $json.has_new }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1152,
+        -544
+      ],
+      "id": "80a811b2-ebd2-4d57-b85b-76581bc85513",
+      "name": "Should reply"
+    },
+    {
+      "parameters": {
+        "jsCode": "const messages = $input.first().json.data.map(item => item.message_text);\n\n// Merge into one user turn\nconst mergedUserMessage = messages\n  .map(text => (text || '').trim())\n  .filter(Boolean)\n  .join(' \\n ');\n\n// Return as single item\nreturn [\n  {\n    json: {\n      user_message: mergedUserMessage\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -544
+      ],
+      "id": "2a3054ae-f946-4bf8-8f2b-ffc6af0b54d0",
+      "name": "Merge all New  message into one",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "90cadaa0-963e-4594-b018-e0d5ee71d566",
+              "name": "api_url_base",
+              "value": "https://live.panunkaergar.com/api/internal/whatsapp/",
+              "type": "string"
+            },
+            {
+              "id": "e475f2c2-20e6-484b-9cb8-5bc55dcd3a8e",
+              "name": "api_token",
+              "value": "9f7c1a4e6d3b8c2f5a9e7d1c4b6f8a3d2e9c5f7a1b4d6e8c3a9f2b7d5e1c4a8f6d3b9e7c2a5f1d8b4c6e3a9d7f2c5b8e1a4d6f9c3b7a2e5d8f1c4b6a9e3d7c2f5b8a1e4d6f9c3b7a2e5d8f1c4b6a9e3d7c2f5b8a1e4d6f9c3b7a2e5d8f1c4b6a9e3d7",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1312,
+        -784
+      ],
+      "id": "d4c1645c-191d-47b6-bb23-467681662f51",
+      "name": "API_CONFIG"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"message_text\":\"{{ $('WhatsApp Trigger').item.json.messages[0].text.body }}\",\n\"direction\": \"IN\",\n \"message_type\": \"{{ $('WhatsApp Trigger').item.json.messages[0].type }}\", \n\"wa_message_id\":\"{{ $('WhatsApp Trigger').item.json.messages[0].id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -416,
+        -544
+      ],
+      "id": "7c5b732f-7ed4-4125-86b9-584dc63d55ad",
+      "name": "SAVE MESSAGE"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}message-status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.statuses[0].recipient_id }}\",\n \"status\": \"{{ $('WhatsApp Trigger').item.json.statuses[0].status }}\", \n\"wa_message_id\":\"{{ $('WhatsApp Trigger').item.json.statuses[0].id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -864,
+        -672
+      ],
+      "id": "51f6ab22-1877-4d4c-99ad-7d4119c3b0a1",
+      "name": "Update Message Status"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"message_text\": {{ JSON.stringify($('Get Data').item.json.reply) }},\n\"direction\": \"OUT\",\n \"message_type\": \"text\", \n\"wa_message_id\":\"{{ $json.messages[0].id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        7552,
+        -560
+      ],
+      "id": "d65965ce-ff15-4aab-9e06-7cb31c307a1e",
+      "name": "SAVE MESSAGE SENT FROM AI"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}has-new-messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"last_id\":\"{{ $('SAVE MESSAGE').item.json.id }}\"\n\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        928,
+        -544
+      ],
+      "id": "2899baa6-8e56-4ece-8fcf-01b0d1e07116",
+      "name": "HAS NEW MESSAGE RECEIVED"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}messages-since-last-out",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"limit\": \"100\"\n\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1376,
+        -544
+      ],
+      "id": "412c017e-e0a1-4b23-82d0-596264171ec0",
+      "name": "MESSAGES SINCE LAST SENT"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}last-messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"limit\": \"30\"\n\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1824,
+        -544
+      ],
+      "id": "6e6f64aa-73f2-471b-952f-1c341326815b",
+      "name": "GET MESSAGE HISTORY"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}user-exists",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2272,
+        -544
+      ],
+      "id": "62c3ff55-7d9c-4d9f-8427-a652d22bdb98",
+      "name": "DOES USER EXIST"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2720,
+        -576
+      ],
+      "id": "b6960f97-4f04-449d-b9db-d52aeaa78291",
+      "name": "CREATE NEW USER"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}active-conversation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3168,
+        -544
+      ],
+      "id": "bc0eaae6-e340-42e3-b1a4-5e683b1d5eb7",
+      "name": "CHECK ACTIVE CONVERSATION"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}conversation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"active_module\": \"MAIN_MENU\",\n  \"current_step\": \"START\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3616,
+        -576
+      ],
+      "id": "9a2b8a84-29d6-4ac5-9e87-e8f8c91e0304",
+      "name": "CREATE NEW CONVERSATION"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}booking-details",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"booking_id\":\"{{ $('Load Conversation').item.json.conversation.active_booking_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4512,
+        -848
+      ],
+      "id": "485084b2-4a8d-4273-aa2a-62bc27e10850",
+      "name": "Get Active Booking"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}active-booking",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        5760,
+        -976
+      ],
+      "id": "c3a6b33a-a8c6-4ca7-8dda-ace8ebedcaa5",
+      "name": "GET ACTIVE BOOKING"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}booking",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n  \"booking_id\": \"{{ $json.booking_id }}\",\n  \"name\": \"{{ $('Get Data').item.json.SERIVCE_CUST_NAME }}\",\n  \"alt_phone\": \"{{ $('Get Data').item.json.SERIVCE_ALT_PHONE }}\",\n  \"address\": \"{{ $('Get Data').item.json.SERVICE_ADDRESS }}\",\n  \"service\": \"{{ $('Get Data').item.json.SERVICE_INFO }}\",\n  \"prefered_datetime\": \"{{ $('Get Data').item.json.SERVICE_DATETIME }}\",\n  \"status\": \"DRAFT\",\n  \"location_hint\": \"{{ $('Get Data').item.json.SERVICE_LH }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6432,
+        -1072
+      ],
+      "id": "73efd2a9-6f1a-4b75-a487-48292b86c016",
+      "name": "CREATE NEW BOOKING"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}booking-details",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"booking_id\":\"{{ $json.booking.booking_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6208,
+        -880
+      ],
+      "id": "64fe297d-9e56-44ad-9ecf-f8341e0c93d4",
+      "name": "GET CURRENT BOOKING2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n  \"name\": \"{{ $('Get Data').item.json.SERIVCE_CUST_NAME }}\",\n  \"alternate_phone\": \"{{ $('Get Data').item.json.SERIVCE_ALT_PHONE }}\",\n  \"address\": \"{{ $('Get Data').item.json.SERVICE_ADDRESS }}\",\n  \"service\": \"{{ $('Get Data').item.json.SERVICE_INFO }}\",\n  \"prefered_datetime\": \"{{ $('Get Data').item.json.SERVICE_DATETIME }}\",\n  \"status\": \"DRAFT\",\n  \"type\": \"{{ $json.type }}\",\n  \"location_hint\": \"{{ $('Get Data').item.json.SERVICE_LH }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6880,
+        -976
+      ],
+      "id": "14cb9b42-19e3-499d-bdfe-0a692844f028",
+      "name": "UPDATE USER INFORMATION4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}conversation-update",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n  \"conversation_id\": \"{{ $('Load Conversation').item.json.conversation.id }}\",\n  \"active_module\": \"{{ $('Get Data').item.json.intent }}\",\n\"current_step\": \"{{ $('Get Data').item.json.next_step }}\",\n\"active_booking_id\":\"{{ $('Get User INFO').item.json.current_booking_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        7104,
+        -976
+      ],
+      "id": "c1e341aa-6e84-438e-8aed-30d0d7708437",
+      "name": "UPDATE CONVERSATION3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n  \"name\": \"{{ $('Get Data').item.json.SERIVCE_CUST_NAME }}\",\n  \"alternate_phone\": \"{{ $('Get Data').item.json.SERIVCE_ALT_PHONE }}\",\n  \"address\": \"{{ $('Get Data').item.json.SERVICE_ADDRESS }}\",\n  \"service\": \"{{ $('Get Data').item.json.SERVICE_INFO }}\",\n  \"prefered_datetime\": \"{{ $('Get Data').item.json.SERVICE_DATETIME }}\",\n  \"status\": \"DRAFT\",\n  \"location_hint\": \"{{ $('Get Data').item.json.SERVICE_LH }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        7104,
+        -320
+      ],
+      "id": "448a0f32-c345-46dd-9551-0d7b6abaa882",
+      "name": "UPDATE USER INFORMATION5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}active-provider-lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        5760,
+        -592
+      ],
+      "id": "0e61bbbc-129e-4da1-bb47-bf57c7bc1ab8",
+      "name": "GET ACTIVE PROVIDER LEAD"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}provider-lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n   \"lead_id\": \"{{ $json.provider_lead_id }}\",\n  \"phone\": \"{{ $('Load Conversation').item.json.conversation.phone }}\",\n  \"name\": \"{{ $('Get Data').item.json.PROVIDER_NAME }}\",\n  \"address\": \"{{ $('Get Data').item.json.PROVIDER_ADDRESS }}\",\n  \"service\": \"{{ $('Get Data').item.json.PROVIDER_SERVICES }}\",\n  \"status\": \"DRAFT\"      \n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6432,
+        -688
+      ],
+      "id": "fba93dba-8e78-40e1-a546-57983b2964d9",
+      "name": "CREATE NEW PROVIDER"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n  \"name\": \"{{ $('Get Data').item.json.SERIVCE_CUST_NAME }}\",\n  \"alternate_phone\": \"{{ $('Get Data').item.json.SERIVCE_ALT_PHONE }}\",\n  \"address\": \"{{ $('Get Data').item.json.SERVICE_ADDRESS }}\",\n  \"service\": \"{{ $('Get Data').item.json.SERVICE_INFO }}\",\n  \"prefered_datetime\": \"{{ $('Get Data').item.json.SERVICE_DATETIME }}\",\n  \"status\": \"DRAFT\",\n  \"type\": \"{{ $json.type }}\",\n  \"location_hint\": \"{{ $('Get Data').item.json.SERVICE_LH }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6880,
+        -592
+      ],
+      "id": "66291652-d362-4af8-a797-0a8fe73d664f",
+      "name": "UPDATE USER INFORMATION"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}conversation-update",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n  \"conversation_id\": \"{{ $('Load Conversation').item.json.conversation.id }}\",\n  \"active_module\": \"{{ $('Get Data').item.json.intent }}\",\n\"current_step\": \"{{ $('Get Data').item.json.next_step }}\",\n\"active_lead_id\":\"{{ $('Get User INFO1').item.json.current_lead_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        7104,
+        -592
+      ],
+      "id": "9ab5899b-77ce-439a-bdf4-889006b42a5c",
+      "name": "UPDATE CONVERSATION"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}provider-lead-details",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"lead_id\":\"{{ $json.lead.lead_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6208,
+        -496
+      ],
+      "id": "a1fbc697-5590-4c6c-ba84-95ac5179a634",
+      "name": "GET CURRENT PROVIDR"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}provider-lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n   \"lead_id\": \"{{ $json.lead.lead_id }}\",\n  \"phone\": \"{{ $('Load Conversation').item.json.conversation.phone }}\",\n  \"name\": \"{{ $('Get Data').item.json.PROVIDER_NAME }}\",\n  \"address\": \"{{ $('Get Data').item.json.PROVIDER_ADDRESS }}\",\n  \"service\": \"{{ $('Get Data').item.json.PROVIDER_SERVICES }}\",\n  \"status\": \"{{ $('Get Data').item.json.next_step === 'NONE' ? \"FORM_SENT\" : $json.lead.status}}\" \n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6432,
+        -496
+      ],
+      "id": "9d9be3a6-28e4-44d4-88e9-b3c000de4580",
+      "name": "UPDATE PROVIder"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}booking",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n  \"booking_id\": \"{{ $json.booking.booking_id }}\",\n  \"name\": \"{{ $('Get Data').item.json.SERIVCE_CUST_NAME }}\",\n  \"alt_phone\": \"{{ $('Get Data').item.json.SERIVCE_ALT_PHONE }}\",\n  \"address\": \"{{ $('Get Data').item.json.SERVICE_ADDRESS }}\",\n  \"service\": \"{{ $('Get Data').item.json.SERVICE_INFO }}\",\n  \"prefered_datetime\": \"{{ $('Get Data').item.json.SERVICE_DATETIME }}\",\n  \"status\": \"{{ $('Get Data').item.json.next_step === 'COMPLETED' ? 'RECEIVED' :( $json.booking.status || '').trim()}}\",\n  \"location_hint\": \"{{ $('Get Data').item.json.SERVICE_LH }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6432,
+        -880
+      ],
+      "id": "1d6c1b0e-d919-468e-932a-66bcd586b593",
+      "name": "UPDATE Booking"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}provider-lead-details",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"lead_id\":\"{{ $('Load Conversation').item.json.conversation.active_lead_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4512,
+        -320
+      ],
+      "id": "335b39a3-3dba-4887-9a54-8f13d352d233",
+      "name": "Get Active Provider Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d8791cde-af77-40f2-877c-abfdc3307b44",
+              "leftValue": "={{ $json.user.handled_by }}",
+              "rightValue": "AI",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        -432
+      ],
+      "id": "5783d278-c72d-490a-a0a8-a1ebbdb91d03",
+      "name": "IF AI SHOULD HANDLE1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}user-details",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        256,
+        -432
+      ],
+      "id": "48a61e99-926d-40be-a8c5-a9c6ab584a0e",
+      "name": "GET USER DETAILS1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}user-exists",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -192,
+        -544
+      ],
+      "id": "b91e0564-25b1-4e92-a94c-cce725b593ff",
+      "name": "DOES USER EXIST1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8c8eed4e-d2d1-4520-98de-ec6870a47fd6",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        32,
+        -544
+      ],
+      "id": "0b0926a8-07bb-480b-85a7-8dfdb665ad27",
+      "name": "Is New User1",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('WhatsApp Trigger').item.json.messages[0].type }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7a2ba888-5a3f-48b8-90c7-c422884496e8"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Is Image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2205204e-5851-4712-93f6-f1140c21afe3",
+                    "leftValue": "={{ $('WhatsApp Trigger').item.json.messages[0].type }}",
+                    "rightValue": "video",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Is Video"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8f353076-05d1-4a67-a9eb-53446a8f3c00",
+                    "leftValue": "={{ $('WhatsApp Trigger').item.json.messages[0].type }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Is Audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "496a0bd0-5a1e-4873-b141-39bcebd2a302",
+                    "leftValue": "={{ $('WhatsApp Trigger').item.json.messages[0].type }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Is Text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        -928
+      ],
+      "id": "a2d51b2b-31eb-4230-a9bc-cd3e4e19a797",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"message_text\":\"{{ $('WhatsApp Trigger').item.json.messages[0].image.caption || ''  }}\",\n\"direction\": \"IN\",\n \"message_type\": \"{{ $('WhatsApp Trigger').item.json.messages[0].type }}\", \n\"wa_message_id\":\"{{ $('WhatsApp Trigger').item.json.messages[0].id }}\",\n\"message_type\":\"{{ $('WhatsApp Trigger').item.json.messages[0].type }}\",\n\"sent_by\":\"Customer\",\n\"media_id\":\"{{ $('WhatsApp Trigger').item.json.messages[0].image.id }}\",\n\"media_mime_type\":\"{{ $('WhatsApp Trigger').item.json.messages[0].image.mime_type }}\",\n\"media_url\":\"{{ $('WhatsApp Trigger').item.json.messages[0].image.url }}\"\n\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -640,
+        -1136
+      ],
+      "id": "3b5e658f-c771-4dc6-bb34-b3fd972857f4",
+      "name": "SAVE Image MESSAGE"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"message_text\":\"{{ $('WhatsApp Trigger').item.json.messages[0].video.caption || ''  }}\",\n\"direction\": \"IN\",\n \"message_type\": \"{{ $('WhatsApp Trigger').item.json.messages[0].type }}\", \n\"wa_message_id\":\"{{ $('WhatsApp Trigger').item.json.messages[0].id }}\",\n\"message_type\":\"{{ $('WhatsApp Trigger').item.json.messages[0].type }}\",\n\"sent_by\":\"Customer\",\n\"media_id\":\"{{ $('WhatsApp Trigger').item.json.messages[0].video.id }}\",\n\"media_mime_type\":\"{{ $('WhatsApp Trigger').item.json.messages[0].video.mime_type }}\",\n\"media_url\":\"{{ $('WhatsApp Trigger').item.json.messages[0].video.url }}\"\n\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -640,
+        -944
+      ],
+      "id": "81fbf656-31db-4973-826c-06b087778b82",
+      "name": "SAVE VIdeo MESSAGE"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('API_CONFIG').item.json.api_url_base }}message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Internal-Token",
+              "value": "={{ $('API_CONFIG').item.json.api_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\":\"{{ $('WhatsApp Trigger').item.json.messages[0].from }}\",\n \"message_text\":\"{{ $('WhatsApp Trigger').item.json.messages[0].audio.caption || ''  }}\",\n\"direction\": \"IN\",\n \"message_type\": \"{{ $('WhatsApp Trigger').item.json.messages[0].type }}\", \n\"wa_message_id\":\"{{ $('WhatsApp Trigger').item.json.messages[0].id }}\",\n\"message_type\":\"{{ $('WhatsApp Trigger').item.json.messages[0].type }}\",\n\"sent_by\":\"Customer\",\n\"media_id\":\"{{ $('WhatsApp Trigger').item.json.messages[0].audio.id }}\",\n\"media_mime_type\":\"{{ $('WhatsApp Trigger').item.json.messages[0].audio.mime_type }}\",\n\"media_url\":\"{{ $('WhatsApp Trigger').item.json.messages[0].audio.url }}\"\n\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -640,
+        -736
+      ],
+      "id": "df971d32-41d4-458b-9c3c-20d3ca8deaf3",
+      "name": "SAVE Audio MESSAGE"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Mock User Message": {
+      "main": [
+        [
+          {
+            "node": "SAVE MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Conversation": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI BRAIN": {
+      "main": [
+        [
+          {
+            "node": "Get Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Data": {
+      "main": [
+        [
+          {
+            "node": "MAIN ROUTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAIN ROUTER": {
+      "main": [
+        [
+          {
+            "node": "GET ACTIVE BOOKING",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GET ACTIVE PROVIDER LEAD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get User INFO2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get User INFO2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get User INFO2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DATA TO FEED AI": {
+      "main": [
+        [
+          {
+            "node": "AI BRAIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Booking": {
+      "main": [
+        [
+          {
+            "node": "Generate Booking ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GET CURRENT BOOKING2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Booking ID": {
+      "main": [
+        [
+          {
+            "node": "CREATE NEW BOOKING",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Provider": {
+      "main": [
+        [
+          {
+            "node": "Generate LEAD ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GET CURRENT PROVIDR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate LEAD ID": {
+      "main": [
+        [
+          {
+            "node": "CREATE NEW PROVIDER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "IS ACTIVE BOOKING",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IS ACTIVE PROVIDER",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DATA TO FEED AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IS ACTIVE BOOKING": {
+      "main": [
+        [
+          {
+            "node": "Get Active Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DATA TO FEED AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IS ACTIVE PROVIDER": {
+      "main": [
+        [
+          {
+            "node": "Get Active Provider Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DATA TO FEED AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New conversation": {
+      "main": [
+        [
+          {
+            "node": "Load Conversation",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "CREATE NEW CONVERSATION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New User": {
+      "main": [
+        [
+          {
+            "node": "CREATE NEW USER",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Current User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Current User": {
+      "main": [
+        [
+          {
+            "node": "CHECK ACTIVE CONVERSATION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User INFO": {
+      "main": [
+        [
+          {
+            "node": "UPDATE USER INFORMATION4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User INFO1": {
+      "main": [
+        [
+          {
+            "node": "UPDATE USER INFORMATION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Fetch Business Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Business Configuration": {
+      "main": [
+        [
+          {
+            "node": "Fetch Services",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Services": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Chat history": {
+      "main": [
+        [
+          {
+            "node": "DOES USER EXIST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User INFO2": {
+      "main": [
+        [
+          {
+            "node": "UPDATE USER INFORMATION5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "API_CONFIG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message": {
+      "main": [
+        [
+          {
+            "node": "SAVE MESSAGE SENT FROM AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message1": {
+      "main": [
+        [
+          {
+            "node": "SAVE MESSAGE SENT FROM AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message2": {
+      "main": [
+        [
+          {
+            "node": "SAVE MESSAGE SENT FROM AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Message Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HAS NEW MESSAGE RECEIVED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should reply": {
+      "main": [
+        [
+          {
+            "node": "MESSAGES SINCE LAST SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge all New  message into one": {
+      "main": [
+        [
+          {
+            "node": "GET MESSAGE HISTORY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API_CONFIG": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SAVE MESSAGE": {
+      "main": [
+        [
+          {
+            "node": "DOES USER EXIST1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HAS NEW MESSAGE RECEIVED": {
+      "main": [
+        [
+          {
+            "node": "Should reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MESSAGES SINCE LAST SENT": {
+      "main": [
+        [
+          {
+            "node": "Merge all New  message into one",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET MESSAGE HISTORY": {
+      "main": [
+        [
+          {
+            "node": "Build Chat history",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DOES USER EXIST": {
+      "main": [
+        [
+          {
+            "node": "Is New User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CREATE NEW USER": {
+      "main": [
+        [
+          {
+            "node": "Set Current User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CHECK ACTIVE CONVERSATION": {
+      "main": [
+        [
+          {
+            "node": "Is New conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CREATE NEW CONVERSATION": {
+      "main": [
+        [
+          {
+            "node": "Load Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Booking": {
+      "main": [
+        [
+          {
+            "node": "DATA TO FEED AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET ACTIVE BOOKING": {
+      "main": [
+        [
+          {
+            "node": "Is New Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CREATE NEW BOOKING": {
+      "main": [
+        [
+          {
+            "node": "Get User INFO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET CURRENT BOOKING2": {
+      "main": [
+        [
+          {
+            "node": "UPDATE Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE USER INFORMATION4": {
+      "main": [
+        [
+          {
+            "node": "UPDATE CONVERSATION3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE CONVERSATION3": {
+      "main": [
+        [
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE USER INFORMATION5": {
+      "main": [
+        [
+          {
+            "node": "Send message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET ACTIVE PROVIDER LEAD": {
+      "main": [
+        [
+          {
+            "node": "Is New Provider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CREATE NEW PROVIDER": {
+      "main": [
+        [
+          {
+            "node": "Get User INFO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE USER INFORMATION": {
+      "main": [
+        [
+          {
+            "node": "UPDATE CONVERSATION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE CONVERSATION": {
+      "main": [
+        [
+          {
+            "node": "Send message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET CURRENT PROVIDR": {
+      "main": [
+        [
+          {
+            "node": "UPDATE PROVIder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE PROVIder": {
+      "main": [
+        [
+          {
+            "node": "Get User INFO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE Booking": {
+      "main": [
+        [
+          {
+            "node": "Get User INFO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Provider Data": {
+      "main": [
+        [
+          {
+            "node": "DATA TO FEED AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET USER DETAILS1": {
+      "main": [
+        [
+          {
+            "node": "IF AI SHOULD HANDLE1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF AI SHOULD HANDLE1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DOES USER EXIST1": {
+      "main": [
+        [
+          {
+            "node": "Is New User1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New User1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GET USER DETAILS1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "SAVE Image MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SAVE VIdeo MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SAVE Audio MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mock User Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "d56d2c25-32d5-4a44-90f9-fdbd921d3bb9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dcdd571108deb86590cdee1835214b857a2eefbdb316f1b86a2e46b5e33fa910"
+  },
+  "id": "VVDcTRet1VQVGMXr",
+  "tags": []
+}

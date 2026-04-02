@@ -39,7 +39,7 @@
                                                        data-off-description="If disabled, AI feature will be inactive and could not able to generate content by AI"
                                                        data-on-image="{{ asset('assets/admin-module/img/icons/status-on.png') }}"
                                                        data-off-image="{{ asset('assets/admin-module/img/icons/status-off.png') }}"
-                                                    {{ isset($data['status']) && $data['status'] == 1 ? 'checked' : '' }}>
+                                                    {{ optional($data)->status == 1 ? 'checked' : '' }}>
                                                 <span class="switcher_control"></span>
                                             </label>
                                         </div>
@@ -50,24 +50,25 @@
                                     <div class="row g-4">
                                         <div class="col-md-6 col-12">
                                             <div class="">
-                                                <label class="mb-2 text-dark d-flex align-items-center gap-1">{{translate('OpenAI API Key')}}<span class="text-danger"> *</span>
+                                                <label class="mb-2 text-dark d-flex align-items-center gap-1">{{translate('Gemini API Key')}}
                                                     <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
                                                        data-bs-placement="top"
-                                                       title="{{ translate('Sign in to OpenAI, create an API key, and use it here.') }}"
+                                                       title="{{ translate('Create a key in Google AI Studio or use GEMINI_API_KEY from .env; leave blank here if the env key is set.') }}"
                                                     >info</i>
                                                 </label>
-                                                <input type="text" class="form-control" name="api_key" placeholder="{{translate('Type API Key')}} *" required="" value="{{env('APP_ENV')=='demo' ? '' : $data['api_key'] ?? ''}}">
+                                                <input type="text" class="form-control" name="api_key" placeholder="{{translate('Type API Key')}} ({{ translate('optional if GEMINI_API_KEY is set') }})" value="{{env('APP_ENV')=='demo' ? '' : (optional($data)->api_key ?? '')}}">
                                             </div>
                                         </div>
                                         <div class="col-md-6 col-12">
                                             <div class="">
-                                                <label class="mb-2 text-dark d-flex align-items-center gap-1">{{translate('OpenAI Organization Id')}}<span class="text-danger"> *</span>
+                                                <label class="mb-2 text-dark d-flex align-items-center gap-1">{{translate('Gemini model ID')}}
+                                                    <span class="text-muted fz-12">({{ translate('optional') }})</span>
                                                     <i class="material-icons fz-14 text-light-gray" data-bs-toggle="tooltip"
                                                        data-bs-placement="top"
-                                                       title="{{ translate('Get your OpenAI Organization ID and enter it here for access and billing.') }}"
+                                                       title="{{ translate('Override GEMINI_MODEL e.g. gemini-2.5-flash; leave empty to use .env default.') }}"
                                                     >info</i>
                                                 </label>
-                                                <input type="text" class="form-control" name="organization_id" placeholder="{{translate('Type Organization Id')}} *" required="" value="{{env('APP_ENV')=='demo' ? '' : $data['organization_id'] ?? ""}}">
+                                                <input type="text" class="form-control" name="organization_id" placeholder="gemini-2.5-flash" value="{{env('APP_ENV')=='demo' ? '' : (optional($data)->organization_id ?? '')}}">
                                             </div>
                                         </div>
                                     </div>
@@ -110,7 +111,7 @@
                 <div class="collapse mt-3 show" id="collapsePurpose">
                     <div class="card card-body">
                         <p class="fs-12">
-                            {{ translate('To_configure_your_preferred_AI_provider_(e.g.,_OpenAI)_by_entering_the_necessary_credentials_and_AI_based_features_like_content_generation_or_image_processing') }}
+                            {{ translate('To_configure_Gemini_for_AI_content_generation_using_your_API_key_or_GEMINI_API_KEY_in_env') }}
                         </p>
                     </div>
                 </div>
@@ -145,28 +146,23 @@
             <div class="p-12 p-sm-20 body-bg rounded mb-3 mb-sm-20">
                 <div class="d-flex gap-3 align-items-center justify-content-between overflow-hidden">
                     <button class="btn-collapse d-flex gap-3 align-items-center bg-transparent border-0 p-0 collapsed" type="button"
-                            data-bs-toggle="collapse" data-bs-target="#collapseAiFeatureEnableOpenAlConfigurationToggle" aria-expanded="true">
+                            data-bs-toggle="collapse"                             data-bs-target="#collapseAiFeatureEnableGeminiConfigurationToggle" aria-expanded="true">
                         <div class="btn-collapse-icon border bg-light icon-btn rounded-circle text-dark collapsed">
                             <i class="fi fi-sr-angle-down"></i>
                         </div>
-                        <span class="fw-bold text-start">{{ translate('Enable OpenAl Configuration') }} </span>
+                        <span class="fw-bold text-start">{{ translate('Enable Gemini configuration') }} </span>
                     </button>
                 </div>
 
-                <div class="collapse mt-3" id="collapseAiFeatureEnableOpenAlConfigurationToggle">
+                <div class="collapse mt-3" id="collapseAiFeatureEnableGeminiConfigurationToggle">
                     <div class="card card-body">
                         <ul class="fs-12">
                             <li>
-                                {{ translate('Go to the OpenAl API platform and') }}
-                                <a target="_blank" href="{{ 'https://platform.openai.com/docs/overview' }}">{{ translate('Sign up') }}</a>
-                                <span class="px-1">{{ translate('or') }}</span>
-                                <a target="_blank" href="{{ 'https://platform.openai.com/docs/overview' }}">{{ translate('Log in.') }}</a>
+                                <a target="_blank" rel="noopener" href="https://aistudio.google.com/apikey">{{ translate('Open Google AI Studio') }}</a>
+                                {{ translate('and create an API key, or set GEMINI_API_KEY in your .env file.') }}
                             </li>
                             <li>
-                                {{ translate('Create a new API key and use it in the OpenAI API key section.') }}
-                            </li>
-                            <li>
-                                {{ translate('Get your OpenAI Organization ID and enter it here for access and billing.') }}
+                                {{ translate('Optionally set GEMINI_MODEL (defaults to gemini-2.5-flash).') }}
                             </li>
                         </ul>
                     </div>

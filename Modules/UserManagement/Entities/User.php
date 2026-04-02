@@ -3,12 +3,15 @@
 namespace Modules\UserManagement\Entities;
 
 use App\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Laravel\Passport\HasApiTokens;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BusinessSettingsModule\Entities\SettingsTutorials;
@@ -41,13 +44,14 @@ class User extends Authenticatable
         'identification_image' => 'array',
         'wallet_balance' => 'float',
         'loyalty_point' => 'float',
+        'customer_app_access' => 'boolean',
     ];
 
     protected $appends = ['profile_image_full_path', 'identification_image_full_path'];
 
     protected $fillable = [
         'uuid', 'first_name', 'last_name', 'email', 'phone', 'identification_number', 'identification_type', 'identification_image', 'date_of_birth', 'gender',
-        'profile_image', 'fcm_token', 'is_phone_verified', 'is_email_verified', 'phone_verified_at', 'email_verified_at', 'password', 'is_active', 'provider_id', 'user_type',
+        'profile_image', 'fcm_token', 'is_phone_verified', 'is_email_verified', 'phone_verified_at', 'email_verified_at', 'password', 'is_active', 'provider_id', 'user_type', 'customer_app_access',
         'wallet_balance', 'loyalty_point', 'ref_code', 'referred_by'
     ];
 
@@ -79,6 +83,114 @@ class User extends Authenticatable
     protected function scopeOfType($query, array $type)
     {
         $query->whereIn('user_type', $type);
+    }
+
+    /**
+     * Users who may authenticate against the customer mobile app or appear in customer-facing flows.
+     */
+    public function scopeEligibleCustomerAppUsers(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereIn('user_type', CUSTOMER_USER_TYPES)
+                ->orWhere(function (Builder $q2) {
+                    $q2->where('user_type', 'provider-admin')
+                        ->where('customer_app_access', true);
+                });
+        });
+    }
+
+    /**
+     * Admin lists, booking customer pickers, coupons, marketing: anyone who acts as a customer in the business.
+     */
+    public function scopeInCustomerDirectory(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereIn('user_type', CUSTOMER_USER_TYPES)
+                ->orWhere(function (Builder $q2) {
+                    $q2->where('user_type', 'provider-admin')
+                        ->where('customer_app_access', true);
+                });
+        });
+    }
+
+    public function qualifiesForCustomerToProviderUpgrade(): bool
+    {
+        return $this->user_type === 'customer' && ! $this->provider()->exists();
+    }
+
+    public static function findByContactPhone(string $phone): ?self
+    {
+        $trim = trim($phone);
+        $digits = preg_replace('/\D+/', '', $trim) ?? '';
+
+        $q = static::query();
+        $q->where(function ($w) use ($trim, $digits) {
+            if ($trim !== '') {
+                $w->where('phone', $trim);
+            }
+            if ($digits !== '' && $digits !== $trim) {
+                $w->orWhere('phone', $digits);
+            }
+            if ($digits !== '' && DB::connection()->getDriverName() === 'mysql') {
+                $w->orWhereRaw('REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?', [$digits]);
+            }
+        });
+
+        return $q->first();
+    }
+
+    public static function findByContactEmail(string $email): ?self
+    {
+        $email = Str::lower(trim($email));
+        if ($email === '') {
+            return null;
+        }
+
+        return static::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+    }
+
+    /**
+     * @return array<string, string> field => message
+     */
+    public static function providerContactRegistrationErrors(string $phone, string $email): array
+    {
+        $errors = [];
+        $byPhone = self::findByContactPhone($phone);
+        $byEmail = self::findByContactEmail($email);
+
+        if ($byPhone && ! $byPhone->qualifiesForCustomerToProviderUpgrade()) {
+            $errors['contact_person_phone'] = translate('The contact person phone has already been taken.');
+        }
+        if ($byEmail && ! $byEmail->qualifiesForCustomerToProviderUpgrade()) {
+            $errors['contact_person_email'] = translate('The contact person email has already been taken.');
+        }
+        if ($byPhone && $byEmail && $byPhone->id !== $byEmail->id) {
+            $msg = translate('Phone and email must belong to the same user account.');
+            $errors['contact_person_phone'] = $msg;
+            $errors['contact_person_email'] = $msg;
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Existing customer row to attach a new provider to, or null to create a new owner user.
+     */
+    public static function resolveCustomerUserForProviderOnboarding(string $phone, string $email): ?self
+    {
+        $byPhone = self::findByContactPhone($phone);
+        $byEmail = self::findByContactEmail($email);
+        if (self::providerContactRegistrationErrors($phone, $email) !== []) {
+            return null;
+        }
+        if ($byPhone && $byPhone->qualifiesForCustomerToProviderUpgrade()) {
+            return $byPhone;
+        }
+        if ($byEmail && $byEmail->qualifiesForCustomerToProviderUpgrade()) {
+            return $byEmail;
+        }
+
+        return null;
     }
 
     protected function scopeOfStatus($query, $status)

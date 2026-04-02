@@ -2,6 +2,7 @@
 
 namespace Modules\CategoryManagement\Http\Controllers\Web\Admin;
 
+use App\Lib\AdditionalChargeEntityOverrides;
 use App\Lib\CommissionEntitySetup;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
@@ -36,6 +37,21 @@ class SubCategoryController extends Controller
     {
         $this->category = $category;
         $this->subscribedService = $subscribedService;
+    }
+
+    private function applyCategoryTaxFieldsFromRequest(Request $request, Category $category): void
+    {
+        if ($request->boolean('tax_override')) {
+            $request->validate([
+                'tax_percentage' => 'required|numeric|min:0|max:100',
+                'tax_label' => 'nullable|string|max:191',
+            ]);
+            $category->tax_percentage = (float) $request->tax_percentage;
+            $category->tax_label = $request->filled('tax_label') ? $request->tax_label : null;
+        } else {
+            $category->tax_percentage = null;
+            $category->tax_label = null;
+        }
     }
 
     /**
@@ -104,6 +120,7 @@ class SubCategoryController extends Controller
         $category->parent_id = $request['parent_id'];
         $category->position = 2;
         $category->description = $request->short_description[array_search('default', $request->lang)];
+        $this->applyCategoryTaxFieldsFromRequest($request, $category);
         $category->save();
 
         $defaultLanguage = str_replace('_', '-', app()->getLocale());
@@ -192,8 +209,12 @@ class SubCategoryController extends Controller
                 $commissionEntityUseCustom
             );
 
+            $additionalChargeOverrideRows = AdditionalChargeEntityOverrides::rowsForEntity(
+                is_array($subCategory->additional_charge_overrides) ? $subCategory->additional_charge_overrides : null
+            );
+
             return view('categorymanagement::admin.sub-category.edit', array_merge(
-                compact('subCategory', 'mainCategories', 'commissionEntityUseCustom'),
+                compact('subCategory', 'mainCategories', 'commissionEntityUseCustom', 'additionalChargeOverrideRows'),
                 $commissionCtx
             ));
         }
@@ -240,6 +261,8 @@ class SubCategoryController extends Controller
             CommissionEntitySetup::applyFromRequestToModel($request, $category);
         }
 
+        AdditionalChargeEntityOverrides::applyFromRequestToModel($request, $category);
+
         $category->name = $request->name[array_search('default', $request->lang)];
         if ($request->has('image')) {
             $category->image = file_uploader('category/', APPLICATION_IMAGE_FORMAT, $request->file('image'), $category->image);
@@ -247,6 +270,7 @@ class SubCategoryController extends Controller
         $category->parent_id = $request['parent_id'];
         $category->position = 2;
         $category->description = $request->short_description[array_search('default', $request->lang)];;
+        $this->applyCategoryTaxFieldsFromRequest($request, $category);
         $category->save();
 
         $defaultLanguage = str_replace('_', '-', app()->getLocale());

@@ -47,8 +47,11 @@
                                 </div>
                             </div>
                         </div>
+                        @php
+                            $bidCanEditCustomerAddress = auth()->user()->can('customer_add') || auth()->user()->can('customer_update');
+                        @endphp
                         <div class="row">
-                            <div class="col-md-10">
+                            <div class="col-md-{{ $bidCanEditCustomerAddress ? 8 : 10 }}">
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Service_Address') }} *</label>
                                     <select name="service_address_id" id="customer-address-select" class="form-control js-select" disabled required>
@@ -65,6 +68,16 @@
                                     </button>
                                 </div>
                             </div>
+                            @if($bidCanEditCustomerAddress)
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button type="button" class="btn btn-outline-secondary w-100" id="open-edit-address" disabled>
+                                        {{ translate('Edit_Address') }}
+                                    </button>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                     </div>
 
@@ -263,41 +276,32 @@
                 <div class="modal-body">
                     <form id="quick-address-form">
                         @csrf
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('City') }}</label>
-                                    <input type="text" name="city" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Street') }}</label>
-                                    <input type="text" name="street" class="form-control" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Country') }}</label>
-                                    <input type="text" name="country" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Zip_Code') }}</label>
-                                    <input type="text" name="zip_code" class="form-control" required>
-                                </div>
-                            </div>
-                        </div>
+                        <input type="hidden" id="quick-address-edit-id" value="">
                         <div class="mb-3">
                             <label class="form-label">{{ translate('Address') }}</label>
                             <textarea name="address" class="form-control" rows="2" required></textarea>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">{{ translate('Address_Label') }}</label>
-                            <input type="text" name="address_label" class="form-control" placeholder="{{ translate('Home/Office/Others') }}">
+                            <input type="text" name="address_label" class="form-control" placeholder="{{ translate('Home/Office/Others') }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Landmark') }} ({{ translate('Optional') }})</label>
+                            <input type="text" name="landmark" class="form-control">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('lat') }} ({{ translate('Optional') }})</label>
+                                    <input type="text" name="lat" class="form-control">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('long') }} ({{ translate('Optional') }})</label>
+                                    <input type="text" name="lon" class="form-control">
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -319,17 +323,80 @@
 
             const $customerSelect = $('#customer-select');
             const $addressSelect = $('#customer-address-select');
+            const $addAddressBtn = $('#open-add-address');
+            const $editAddressBtn = $('#open-edit-address');
+            const $quickAddressForm = $('#quick-address-form');
+
+            function bidToastError(msg) {
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(msg);
+                }
+            }
+
+            function syncBidEditAddressButtonState() {
+                if (!$editAddressBtn.length) {
+                    return;
+                }
+                if ($addressSelect.prop('disabled') || !$addressSelect.val()) {
+                    $editAddressBtn.prop('disabled', true);
+                } else {
+                    $editAddressBtn.prop('disabled', false);
+                }
+            }
+
+            $('#addAddressModal').on('hidden.bs.modal', function () {
+                const f = $('#quick-address-form')[0];
+                if (f) {
+                    f.reset();
+                }
+                $('#quick-address-edit-id').val('');
+                $('#addAddressModalLabel').text('{{ translate('Add_Customer_Address') }}');
+            });
 
             $('#open-add-customer').on('click', function () { $('#addCustomerModal').modal('show'); });
 
             $('#open-add-address').on('click', function () {
                 if (!$customerSelect.val()) {
-                    if (typeof toastr !== 'undefined') {
-                        toastr.error('{{ translate('Please_select_a_customer_first') }}');
-                    }
+                    bidToastError('{{ translate('Please_select_a_customer_first') }}');
                     return;
                 }
+                $('#quick-address-edit-id').val('');
+                $('#addAddressModalLabel').text('{{ translate('Add_Customer_Address') }}');
+                if ($quickAddressForm[0]) {
+                    $quickAddressForm[0].reset();
+                }
                 $('#addAddressModal').modal('show');
+            });
+
+            $editAddressBtn.on('click', function () {
+                const customerId = $customerSelect.val();
+                const addressId = $addressSelect.val();
+                if (!customerId) {
+                    bidToastError('{{ translate('Please_select_a_customer_first') }}');
+                    return;
+                }
+                if (!addressId) {
+                    bidToastError('{{ translate('Select_Address') }}');
+                    return;
+                }
+                let showUrl = '{{ route('admin.customer.address-quick-show', ['id' => '__CID__', 'addressId' => '__AID__']) }}';
+                showUrl = showUrl.replace('__CID__', encodeURIComponent(customerId)).replace('__AID__', encodeURIComponent(addressId));
+                $.get(showUrl, function (addr) {
+                    $('#quick-address-edit-id').val(addr.id);
+                    $('#addAddressModalLabel').text('{{ translate('Edit_Address') }}');
+                    $quickAddressForm.find('[name="address"]').val(addr.address || '');
+                    $quickAddressForm.find('[name="address_label"]').val(addr.address_label || '');
+                    $quickAddressForm.find('[name="landmark"]').val(addr.landmark || '');
+                    $quickAddressForm.find('[name="lat"]').val(addr.lat || '');
+                    $quickAddressForm.find('[name="lon"]').val(addr.lon || '');
+                    $('#addAddressModal').modal('show');
+                }).fail(function (xhr) {
+                    bidToastError(xhr.status === 404 ? '{{ translate('not_found') }}' : '{{ translate('Something_went_wrong') }}');
+                });
+            });
+
+            $addressSelect.on('change', function () {
+                syncBidEditAddressButtonState();
             });
 
             $customerSelect.on('change', function () {
@@ -337,17 +404,22 @@
                 $addressSelect.empty().append(new Option('{{ translate('Select_Address') }}', '', true, true));
                 if (!customerId) {
                     $addressSelect.prop('disabled', true);
-                    $('#open-add-address').prop('disabled', true);
+                    $addAddressBtn.prop('disabled', true);
+                    if ($editAddressBtn.length) {
+                        $editAddressBtn.prop('disabled', true);
+                    }
                     return;
                 }
                 $addressSelect.prop('disabled', false);
-                $('#open-add-address').prop('disabled', false);
+                $addAddressBtn.prop('disabled', false);
                 const route = '{{ route('admin.customer.addresses', ['id' => ':id']) }}'.replace(':id', customerId);
                 $.get(route, function (addresses) {
                     addresses.forEach(function (addr) {
-                        const text = (addr.address_label ? addr.address_label + ' - ' : '') + (addr.address || addr.street);
+                        const text = (addr.address_label ? addr.address_label + ' - ' : '') + (addr.address || '');
                         $addressSelect.append(new Option(text, addr.id, false, false));
                     });
+                }).always(function () {
+                    syncBidEditAddressButtonState();
                 });
             });
             if ($customerSelect.val()) $customerSelect.trigger('change');
@@ -381,21 +453,39 @@
             $('#save-address-btn').on('click', function () {
                 const $form = $('#quick-address-form');
                 const customerId = $customerSelect.val();
+                const editId = $('#quick-address-edit-id').val();
                 if (!customerId) {
-                    if (typeof toastr !== 'undefined') {
-                        toastr.error('{{ translate('Please_select_a_customer_first') }}');
-                    }
+                    bidToastError('{{ translate('Please_select_a_customer_first') }}');
                     return;
                 }
-                const route = '{{ route('admin.customer.address-quick-store', ['id' => ':id']) }}'.replace(':id', customerId);
+                let route;
+                let payload;
+                if (editId) {
+                    route = '{{ route('admin.customer.address-quick-update', ['id' => '__CID__', 'addressId' => '__AID__']) }}';
+                    route = route.replace('__CID__', encodeURIComponent(customerId)).replace('__AID__', encodeURIComponent(editId));
+                    payload = $form.serialize() + '&_method=PUT';
+                } else {
+                    route = '{{ route('admin.customer.address-quick-store', ['id' => ':id']) }}'.replace(':id', customerId);
+                    payload = $form.serialize();
+                }
                 $.ajax({
                     url: route,
                     method: 'POST',
-                    data: $form.serialize(),
+                    data: payload,
                     headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                     success: function (response) {
-                        const option = new Option(response.label + ' - ' + response.full_address, response.id, true, true);
-                        $addressSelect.append(option).trigger('change');
+                        if (editId) {
+                            const summaryLine = (response.label ? response.label + ' - ' : '') +
+                                ($form.find('textarea[name="address"]').val() || '');
+                            const $opt = $addressSelect.find('option[value="' + response.id + '"]');
+                            if ($opt.length) {
+                                $opt.text(summaryLine);
+                            }
+                            $addressSelect.val(String(response.id)).trigger('change');
+                        } else {
+                            const option = new Option(response.label + ' - ' + response.full_address, response.id, true, true);
+                            $addressSelect.append(option).trigger('change');
+                        }
                         $('#addAddressModal').modal('hide');
                         $form[0].reset();
                     },

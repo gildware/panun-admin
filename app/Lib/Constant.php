@@ -24,6 +24,7 @@ const BOOKING_STATUSES = [
     ['key' => 'pending', 'value' => 'Pending'],
     ['key' => 'accepted', 'value' => 'Accepted'],
     ['key' => 'ongoing', 'value' => 'Ongoing'],
+    ['key' => 'on_hold', 'value' => 'On hold'],
     ['key' => 'completed', 'value' => 'Completed'],
     ['key' => 'canceled', 'value' => 'Canceled'],
     ['key' => 'refunded', 'value' => 'Refunded'],
@@ -803,6 +804,15 @@ const SYSTEM_MODULES = [
         'submodules' => [
             ['key' => 'whatsapp_chat', 'value' => 'WhatsApp Conversations'],
             ['key' => 'whatsapp_message_template', 'value' => 'Message Templates'],
+        ]
+    ],
+
+    ['key' => 'whatsapp_marketing', 'value' => 'WhatsApp Marketing',
+        'submodules' => [
+            ['key' => 'whatsapp_marketing_template', 'value' => 'Marketing Templates'],
+            ['key' => 'whatsapp_marketing_bulk', 'value' => 'Send Bulk Message'],
+            ['key' => 'whatsapp_marketing_campaign', 'value' => 'Marketing Campaigns'],
+            ['key' => 'whatsapp_marketing_report', 'value' => 'Marketing Reports'],
         ]
     ],
 
@@ -3785,6 +3795,8 @@ const BUSINESS_SETTINGS_TYPE = [
     'create_user_account_from_guest_info' => 'business_information',
     'address_latitude' => 'business_information',
     'address_longitude' => 'business_information',
+    'default_tax_label' => 'business_information',
+    'default_tax_percentage' => 'business_information',
     'guest_checkout' => 'service_setup',
     'cash_after_service' => 'service_setup',
     'digital_payment' => 'service_setup',
@@ -3796,9 +3808,6 @@ const BUSINESS_SETTINGS_TYPE = [
     'bidding_status' => 'bidding_system',
     'bidding_post_validity' => 'bidding_system',
     'bid_offers_visibility_for_providers' => 'bidding_system',
-    'booking_additional_charge' => 'booking_setup',
-    'additional_charge_label_name' => 'booking_setup',
-    'additional_charge_fee_amount' => 'booking_setup',
     'instant_booking' => 'booking_setup',
     'schedule_booking' => 'booking_setup',
     'repeat_booking' => 'booking_setup',

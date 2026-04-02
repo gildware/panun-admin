@@ -309,7 +309,7 @@ class CouponController extends Controller
         foreach ($cartItems as $item) {
             if (in_array($item->service_id, $discountedIds) || in_array($item->category_id, $discountedIds)) {
                 $cartItem = $this->cart->where('id', $item['id'])->first();
-                $service = $this->service->find($cartItem['service_id']);
+                $service = $this->service->with(['category', 'subCategory'])->find($cartItem['service_id']);
 
                 //calculation
                 $basicDiscount = $cartItem->discount_amount;
@@ -317,7 +317,7 @@ class CouponController extends Controller
                 $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
                 $couponDiscountAmount = booking_discount_calculator($coupon->discount, (($cartItem->service_cost * $cartItem['quantity'])-($applicableDiscount)));
                 $subtotal = round($cartItem->service_cost * $cartItem['quantity'], 2);
-                $tax = round((((($cartItem->service_cost *  $cartItem['quantity']) - $applicableDiscount - $couponDiscountAmount) * $service['tax']) / 100) , 2);
+                $tax = round((((($cartItem->service_cost *  $cartItem['quantity']) - $applicableDiscount - $couponDiscountAmount) * effective_service_tax_percentage($service)) / 100) , 2);
 
                 //update carts table
                 $cartItem->coupon_discount = $couponDiscountAmount;
@@ -350,13 +350,13 @@ class CouponController extends Controller
         }
 
         foreach ($cartItems as $cart) {
-            $service = $this->service->find($cart['service_id']);
+            $service = $this->service->with(['category', 'subCategory'])->find($cart['service_id']);
 
             $basicDiscount = $cart->discount_amount;
             $campaignDiscount = $cart->campaign_discount;
             $subtotal = round($cart->service_cost * $cart['quantity'], 2);
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($cart->service_cost - $applicableDiscount) * $service['tax']) / 100) * $cart['quantity'], 2);
+            $tax = round(((($cart->service_cost - $applicableDiscount) * effective_service_tax_percentage($service)) / 100) * $cart['quantity'], 2);
 
             //updated values
             $cart->tax_amount = $tax;

@@ -2,6 +2,7 @@
 
 namespace Modules\ServiceManagement\Http\Controllers\Web\Admin;
 
+use App\Lib\AdditionalChargeEntityOverrides;
 use App\Lib\CommissionEntitySetup;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
@@ -56,6 +57,21 @@ class ServiceController extends Controller
         $this->review = $review;
         $this->reviewReply = $reviewReply;
         $this->provider = $provider;
+    }
+
+    private function applyServiceTaxFieldsFromRequest(Request $request, Service $service): void
+    {
+        if ($request->boolean('tax_override')) {
+            $request->validate([
+                'tax' => 'required|numeric|min:0|max:100',
+                'tax_label' => 'nullable|string|max:191',
+            ]);
+            $service->tax = (float) $request->tax;
+            $service->tax_label = $request->filled('tax_label') ? $request->tax_label : null;
+        } else {
+            $service->tax = null;
+            $service->tax_label = null;
+        }
     }
 
     /**
@@ -148,7 +164,6 @@ class ServiceController extends Controller
                 'description.0' => 'required',
                 'short_description' => 'required',
                 'short_description.0' => 'required',
-                'tax' => 'nullable|numeric|min:0|max:100',
                 'min_bidding_price' => 'required|numeric|min:0|not_in:0',
             ]
         );
@@ -174,7 +189,7 @@ class ServiceController extends Controller
         $service->description = $request->description[array_search('default', $request->lang)];
         $service->cover_image = file_uploader('service/', 'png', $request->file('cover_image'));
         $service->thumbnail = file_uploader('service/', 'png', $request->file('thumbnail'));
-        $service->tax = (float) ($request->input('tax') ?? 0);
+        $this->applyServiceTaxFieldsFromRequest($request, $service);
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
         $service->tags()->sync($tagIds);
@@ -389,8 +404,12 @@ class ServiceController extends Controller
                 $commissionEntityUseCustom
             );
 
+            $additionalChargeOverrideRows = AdditionalChargeEntityOverrides::rowsForEntity(
+                is_array($service->additional_charge_overrides) ? $service->additional_charge_overrides : null
+            );
+
             return view('servicemanagement::admin.edit', array_merge(
-                compact('categories', 'zones', 'service', 'tagNames', 'commissionEntityUseCustom'),
+                compact('categories', 'zones', 'service', 'tagNames', 'commissionEntityUseCustom', 'additionalChargeOverrideRows'),
                 $commissionCtx
             ));
         }
@@ -424,7 +443,6 @@ class ServiceController extends Controller
             'description.0' => 'required',
             'short_description' => 'required',
             'short_description.0' => 'required',
-            'tax' => 'nullable|numeric|min:0|max:100',
             'variants' => 'required|array',
             'min_bidding_price' => 'required|numeric|min:0|not_in:0',
             'cover_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
@@ -440,6 +458,8 @@ class ServiceController extends Controller
         if (Gate::allows('commission_custom_service_update')) {
             CommissionEntitySetup::applyFromRequestToModel($request, $service);
         }
+
+        AdditionalChargeEntityOverrides::applyFromRequestToModel($request, $service);
 
         $tagIds = [];
         if ($request->tags != null) {
@@ -468,7 +488,7 @@ class ServiceController extends Controller
             $service->thumbnail = file_uploader('service/', 'png', $request->file('thumbnail'));
         }
 
-        $service->tax = (float) ($request->input('tax') ?? 0);
+        $this->applyServiceTaxFieldsFromRequest($request, $service);
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
         $service->tags()->sync($tagIds);

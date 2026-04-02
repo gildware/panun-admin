@@ -38,8 +38,8 @@
                             href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">{{ translate('details') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ $webPage == 'status' ? 'active' : '' }}"
-                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'status']) }}">{{ translate('status') }}</a>
+                        <a class="nav-link {{ $webPage == 'history' ? 'active' : '' }}"
+                            href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'history']) }}">{{ translate('History') }}</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'followups' ? 'active' : '' }}"

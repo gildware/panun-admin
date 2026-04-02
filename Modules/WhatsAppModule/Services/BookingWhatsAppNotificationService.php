@@ -812,12 +812,17 @@ class BookingWhatsAppNotificationService
         $base = array_merge(
             [
                 'enabled' => false,
-                'default_phone_prefix' => '',
+                'default_phone_prefix' => '91',
+                'apply_default_phone_prefix' => true,
             ],
             self::defaultTemplateBodies()
         );
 
-        return array_replace($base, $stored);
+        $merged = array_replace($base, $stored);
+        $merged['default_phone_prefix'] = '91';
+        $merged['apply_default_phone_prefix'] = true;
+
+        return $merged;
     }
 
     /**

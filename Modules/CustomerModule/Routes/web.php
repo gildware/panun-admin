@@ -22,6 +22,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('create', [CustomerController::class, 'create'])->name('create');
         Route::post('store', [CustomerController::class, 'store'])->name('store');
         Route::post('quick-store', [CustomerController::class, 'quickStore'])->name('quick-store');
+        Route::get('{id}/addresses/{addressId}', [CustomerController::class, 'quickShowAddress'])->name('address-quick-show');
+        Route::put('{id}/addresses/{addressId}', [CustomerController::class, 'quickUpdateAddress'])->name('address-quick-update');
         Route::get('{id}/addresses', [CustomerController::class, 'addresses'])->name('addresses');
         Route::post('{id}/addresses', [CustomerController::class, 'quickStoreAddress'])->name('address-quick-store');
         Route::any('detail/{id}', [CustomerController::class, 'show'])->name('detail');

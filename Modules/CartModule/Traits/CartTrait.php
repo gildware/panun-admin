@@ -18,7 +18,7 @@ trait CartTrait
     public function updateCartQuantity($cartId, $quantity): bool
     {
         $cart = Cart::find($cartId);
-        $service = Service::with(['service_discount', 'campaign_discount'])->find($cart['service_id']);
+        $service = Service::with(['service_discount', 'campaign_discount', 'category', 'subCategory'])->find($cart['service_id']);
 
         if (!isset($cart) || !isset($service)) return false;
 
@@ -27,7 +27,7 @@ trait CartTrait
         $subtotal = round($cart->service_cost * $quantity, 2);
 
         $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-        $tax = round(((($cart->service_cost*$quantity - $applicableDiscount) * $service['tax']) / 100), 2);
+        $tax = round((($cart->service_cost * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
         //between normal discount & campaign discount, greater one will be calculated
         $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;

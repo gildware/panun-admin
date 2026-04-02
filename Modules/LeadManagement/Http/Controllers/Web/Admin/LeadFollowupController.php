@@ -7,6 +7,7 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\UserManagement\Entities\User;
 
 class LeadFollowupController extends Controller
@@ -45,6 +46,8 @@ class LeadFollowupController extends Controller
                     $q->where('handled_by', $selectedHandledById);
                 }
             });
+
+        app(LeadOpenStatusService::class)->restrictQueryToOpenLeads($baseQuery);
 
         $totalFollowups = (clone $baseQuery)->count();
 

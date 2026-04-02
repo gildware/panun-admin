@@ -150,7 +150,7 @@ class DomainSnapshotTransfer
     private function exportCustomers(): array
     {
         $userIds = DB::table('users')
-            ->whereIn('user_type', CUSTOMER_USER_TYPES)
+            ->inCustomerDirectory()
             ->pluck('id')
             ->all();
 

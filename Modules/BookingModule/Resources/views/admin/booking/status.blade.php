@@ -532,40 +532,18 @@
                                             {{ translate('Customer_Information') }}
                                         </h4>
 
-                                        <div class="btn-group">
-                                            <div class="cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <span class="material-symbols-outlined">more_vert</span>
-                                            </div>
-                                            <ul class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                @if (
-                                                    $booking['booking_status'] == 'pending' ||
-                                                        $booking['booking_status'] == 'accepted' ||
-                                                        $booking['booking_status'] == 'ongoing')
-                                                    <li data-bs-toggle="modal"
-                                                        data-bs-target="#serviceAddressModal--{{ $booking['id'] }}"
-                                                        data-toggle="tooltip" data-placement="top">
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <span class="material-symbols-outlined">edit_square</span>
-                                                            {{ translate('Edit_Details') }}
-                                                        </div>
-                                                    </li>
+                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                            @can('whatsapp_chat_view')
+                                                @if (!empty($customerPhone))
+                                                    <button type="button"
+                                                            class="btn btn-link p-0 border-0 d-inline-flex align-items-center wa-open-admin-chat"
+                                                            data-phone="{{ e($customerPhone) }}"
+                                                            data-prepare-url="{{ route('admin.whatsapp.conversations.prepare-open') }}"
+                                                            title="{{ translate('WhatsApp') }} — {{ translate('chat_with_Customer') }}">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                                                    </button>
                                                 @endif
-                                                <li>
-                                                    <div
-                                                        class="d-flex align-items-center gap-2 cursor-pointer customer-chat">
-                                                        <span class="material-symbols-outlined">chat</span>
-                                                        {{ translate('chat_with_Customer') }}
-                                                        <form action="{{ route('admin.chat.create-channel') }}"
-                                                            method="post" id="chatForm-{{ $booking->id }}">
-                                                            @csrf
-                                                            <input type="hidden" name="customer_id"
-                                                                value="{{ $booking?->customer?->id }}">
-                                                            <input type="hidden" name="type" value="booking">
-                                                            <input type="hidden" name="user_type" value="customer">
-                                                        </form>
-                                                    </div>
-                                                </li>
-                                            </ul>
+                                            @endcan
                                         </div>
                                     </div>
 
@@ -617,47 +595,28 @@
                                             {{ translate('Provider_Information') }}
                                         </h4>
                                         @if (isset($booking->provider))
-                                            <div class="btn-group">
-                                                <div class="cursor-pointer" data-bs-toggle="dropdown"
-                                                    aria-expanded="false">
-                                                    <span class="material-symbols-outlined">more_vert</span>
-                                                </div>
-                                                <ul
-                                                    class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    <li>
-                                                        <div
-                                                            class="d-flex align-items-center gap-2 cursor-pointer provider-chat">
-                                                            <span class="material-symbols-outlined">chat</span>
-                                                            {{ translate('chat_with_Provider') }}
-                                                            <form action="{{ route('admin.chat.create-channel') }}"
-                                                                method="post" id="chatForm-{{ $booking->id }}">
-                                                                @csrf
-                                                                <input type="hidden" name="provider_id"
-                                                                    value="{{ $booking?->provider?->owner?->id }}">
-                                                                <input type="hidden" name="type" value="booking">
-                                                                <input type="hidden" name="user_type"
-                                                                    value="provider-admin">
-                                                            </form>
-                                                        </div>
-                                                    </li>
-                                                    @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
-                                                        <li>
-                                                            <div class="d-flex align-items-center gap-2"
-                                                                data-bs-target="#providerModal" data-bs-toggle="modal">
-                                                                <span
-                                                                    class="material-symbols-outlined">manage_history</span>
-                                                                {{ translate('change_Provider') }}
-                                                            </div>
-                                                        </li>
+                                            @php
+                                                $providerWaPhoneStatus = trim((string) ($booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? ''));
+                                            @endphp
+                                            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                                @can('whatsapp_chat_view')
+                                                    @if ($providerWaPhoneStatus !== '')
+                                                        <button type="button"
+                                                                class="btn btn-link p-0 border-0 d-inline-flex align-items-center wa-open-admin-chat"
+                                                                data-phone="{{ e($providerWaPhoneStatus) }}"
+                                                                data-prepare-url="{{ route('admin.whatsapp.conversations.prepare-open') }}"
+                                                                title="{{ translate('WhatsApp') }} — {{ translate('chat_with_Provider') }}">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                                                        </button>
                                                     @endif
-                                                    <li>
-                                                        <a class="d-flex align-items-center gap-2 cursor-pointer p-0"
-                                                            href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}">
-                                                            <span class="material-icons">person</span>
-                                                            {{ translate('View_Details') }}
-                                                        </a>
-                                                    </li>
-                                                </ul>
+                                                @endcan
+                                                @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
+                                                    @can('booking_can_manage_status')
+                                                        <span class="cursor-pointer d-inline-flex align-items-center" role="button" tabindex="0" data-bs-target="#providerModal" data-bs-toggle="modal" title="{{ translate('change_Provider') }}">
+                                                            <span class="material-symbols-outlined">manage_history</span>
+                                                        </span>
+                                                    @endcan
+                                                @endif
                                             </div>
                                         @endif
                                     </div>
@@ -1547,6 +1506,44 @@
 
         $('.provider-chat').on('click', function() {
             $(this).find('form').submit();
+        });
+
+        $(document).on('click', '.wa-open-admin-chat', function (e) {
+            e.preventDefault();
+            var $btn = $(this);
+            if ($btn.data('wa-opening')) {
+                return;
+            }
+            var phone = $btn.data('phone');
+            var url = $btn.data('prepare-url');
+            if (!phone || !url) {
+                return;
+            }
+            $btn.data('wa-opening', true);
+            $.ajax({
+                url: url,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    phone: String(phone),
+                },
+                success: function (res) {
+                    if (res && res.redirect_url) {
+                        window.location.href = res.redirect_url;
+                        return;
+                    }
+                    $btn.data('wa-opening', false);
+                    toastr.error('{{ translate('Something went wrong') }}');
+                },
+                error: function (xhr) {
+                    $btn.data('wa-opening', false);
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message)
+                        ? xhr.responseJSON.message
+                        : '{{ translate('Something went wrong') }}';
+                    toastr.error(msg);
+                },
+            });
         });
 
 

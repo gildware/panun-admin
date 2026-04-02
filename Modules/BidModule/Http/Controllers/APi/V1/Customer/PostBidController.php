@@ -137,6 +137,7 @@ class PostBidController extends Controller
         }
 
         $postBid = $this->post_bid
+            ->with(['post.service.category', 'post.service.subCategory'])
             ->whereHas('post', function ($query) {
                 $query->where('is_booked', '!=', 1);
             })
@@ -175,7 +176,7 @@ class PostBidController extends Controller
         $data = [
             'payment_method' => 'cash_after_service',
             'zone_id' => config('zone_id'),
-            'service_tax' => $postBid?->post?->service?->tax,
+            'service_tax' => $postBid?->post?->service ? effective_service_tax_percentage($postBid->post->service) : null,
             'provider_id' => $postBid->provider_id,
             'price' => $postBid->offered_price,
             'service_schedule' => !is_null($request['booking_schedule']) ? $request['booking_schedule'] : $postBid->post->booking_schedule,

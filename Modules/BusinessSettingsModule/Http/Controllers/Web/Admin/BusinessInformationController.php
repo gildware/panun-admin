@@ -33,6 +33,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Madnest\Madzipper\Facades\Madzipper;
 use Modules\BusinessSettingsModule\Emails\ServiceLocationUpdateMail;
+use Modules\BusinessSettingsModule\Entities\AdditionalChargeType;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Entities\DataSetting;
 use Modules\BusinessSettingsModule\Entities\NotificationSetup;
@@ -192,6 +193,7 @@ class BusinessInformationController extends Controller
         $businessFaviconFullPath = '';
         $providerCount = $this->provider->count();
         $commissionModelOn = false;
+        $additionalChargeTypes = collect();
         $dataValues = collect();
         $addressLat = '';
         $addressLong = '';
@@ -202,6 +204,8 @@ class BusinessInformationController extends Controller
             $dataValues = $this->businessSetting->whereIn('settings_type', ['business_information', 'service_setup'])->get();
             $businessLogoFullPath = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/admin-module/img/media/banner-upload-file.png');
             $businessFaviconFullPath  = getBusinessSettingsImageFullPath(key: 'business_favicon', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/admin-module/img/media/upload-file.png');
+        } elseif ($webPage == 'company_tax') {
+            $dataValues = $this->businessSetting->whereIn('key_name', ['default_tax_label', 'default_tax_percentage'])->get();
         } elseif ($webPage == 'payment') {
             $dataValues = $this->businessSetting->where('settings_type', 'service_setup')->get();
         } elseif ($webPage == 'service_setup') {
@@ -219,9 +223,11 @@ class BusinessInformationController extends Controller
         } elseif ($webPage == 'business_plan') {
             $dataValues = $this->businessSetting->whereIn('settings_type', ['business_information', 'provider_config'])->get();
             $commissionModelOn = (int) ($dataValues->where('key_name', 'provider_commision')->first()?->live_values ?? 0) === 1;
+        } elseif ($webPage == 'additional_charges') {
+            $additionalChargeTypes = AdditionalChargeType::query()->ordered()->get();
         }
 
-        return view('businesssettingsmodule::admin.business', compact('dataValues', 'webPage', 'businessLogoFullPath', 'businessFaviconFullPath', 'config', 'providerCount', 'addressLat', 'addressLong', 'commissionModelOn'));
+        return view('businesssettingsmodule::admin.business', compact('dataValues', 'webPage', 'businessLogoFullPath', 'businessFaviconFullPath', 'config', 'providerCount', 'addressLat', 'addressLong', 'commissionModelOn', 'additionalChargeTypes'));
     }
 
     /**
@@ -327,6 +333,31 @@ class BusinessInformationController extends Controller
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }
 
+    public function companyTaxSetup(Request $request): RedirectResponse
+    {
+        $this->authorize('business_update');
+
+        $validated = $request->validate([
+            'default_tax_label' => 'required|string|max:191',
+            'default_tax_percentage' => 'required|numeric|min:0|max:100',
+        ]);
+
+        foreach ($validated as $key => $value) {
+            $stored = $key === 'default_tax_percentage' ? (string) $value : $value;
+            $this->businessSetting->updateOrCreate(['key_name' => $key], [
+                'key_name' => $key,
+                'live_values' => $stored,
+                'test_values' => $stored,
+                'settings_type' => BUSINESS_SETTINGS_TYPE[$key],
+                'mode' => 'live',
+                'is_active' => 1,
+            ]);
+        }
+
+        Toastr::success(translate(DEFAULT_UPDATE_200['message']));
+
+        return redirect()->route('admin.business-settings.get-business-information', ['web_page' => 'company_tax']);
+    }
 
     public function notificationChannel(Request $request)
     {
@@ -428,7 +459,7 @@ class BusinessInformationController extends Controller
     {
         $this->authorize('business_update');
 
-        collect(['booking_otp', 'service_complete_photo_evidence', 'bidding_status', 'bid_offers_visibility_for_providers', 'booking_additional_charge', 'instant_booking', 'repeat_booking', 'schedule_booking_time_restriction', 'schedule_booking', 'direct_provider_booking'])
+        collect(['booking_otp', 'service_complete_photo_evidence', 'bidding_status', 'bid_offers_visibility_for_providers', 'instant_booking', 'repeat_booking', 'schedule_booking_time_restriction', 'schedule_booking', 'direct_provider_booking'])
             ->each(fn($item, $key) => $request[$item] = $request->has($item) ? (int)$request[$item] : 0);
 
         $validator = Validator::make($request->all(), [
@@ -437,9 +468,6 @@ class BusinessInformationController extends Controller
             'bidding_status' => 'required|in:0,1',
             'bidding_post_validity' => 'required|numeric|gt:0',
             'bid_offers_visibility_for_providers' => 'required|in:0,1',
-            'booking_additional_charge' => 'required|in:0,1',
-            'additional_charge_label_name' => 'required_if:booking_additional_charge,1',
-            'additional_charge_fee_amount' => 'required_if:booking_additional_charge,1',
             'instant_booking' => 'required|in:0,1',
             'schedule_booking' => 'required|in:0,1',
             'repeat_booking' => 'required|in:0,1',
@@ -817,7 +845,6 @@ class BusinessInformationController extends Controller
             'admin_order_notification' => 'in:1,0',
             'provider_self_registration' => 'in:1,0',
             'guest_checkout' => 'in:1,0',
-            'booking_additional_charge' => 'in:1,0',
 
             //bidding
             'bidding_status' => 'in:0,1',

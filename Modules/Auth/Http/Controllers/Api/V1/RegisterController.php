@@ -88,6 +88,7 @@ class RegisterController extends Controller
         $user->gender = $request->gender ?? 'male';
         $user->password = bcrypt($request->password);
         $user->user_type = 'customer';
+        $user->customer_app_access = true;
         $user->is_active = 1;
 
         if ($request->has('referral_code')) {
@@ -156,8 +157,8 @@ class RegisterController extends Controller
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'contact_person_email' => 'required|email|unique:users,email',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'contact_person_email' => 'required|email',
 
             'account_first_name' => 'nullable|max:191',
             'account_last_name' => 'nullable|max:191',
@@ -180,6 +181,15 @@ class RegisterController extends Controller
             'latitude' => 'required',
             'longitude' => 'required',
         ]);
+
+        $validator->after(function ($v) use ($request) {
+            foreach (User::providerContactRegistrationErrors(
+                (string) $request->contact_person_phone,
+                (string) $request->contact_person_email
+            ) as $field => $message) {
+                $v->errors()->add($field, $message);
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
@@ -237,7 +247,18 @@ class RegisterController extends Controller
         $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
-        $owner = $this->owner;
+        $upgradeOwner = User::resolveCustomerUserForProviderOnboarding(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email
+        );
+        if ($upgradeOwner) {
+            $owner = User::query()->findOrFail($upgradeOwner->id);
+            $owner->customer_app_access = true;
+        } else {
+            $owner = $this->owner;
+            $owner->customer_app_access = false;
+        }
+
         $owner->first_name = $request->account_first_name;
         $owner->last_name = $request->account_last_name;
         // Account info defaults to contact person details.
@@ -326,8 +347,7 @@ class RegisterController extends Controller
             ->where(['otp' => $request['otp']])->first();
 
         if (isset($data)) {
-            $this->user->whereIn('user_type', CUSTOMER_USER_TYPES)
-                ->where('phone', $request['identity'])
+            $this->user->where('phone', $request['identity'])
                 ->update([
                     'is_phone_verified' => 1
                 ]);

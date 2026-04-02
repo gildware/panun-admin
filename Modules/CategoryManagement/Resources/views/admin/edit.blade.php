@@ -122,6 +122,7 @@
                                                 <div class="alert alert-info mb-0 mx-1">{{ translate('no_data_found') }}</div>
                                             @endif
                                         </div>
+                                        @include('categorymanagement::admin.partials.category-tax-override', ['taxModel' => $category])
                                         </div>
                                     </div>
                                     <div class="col-lg-4">
@@ -155,6 +156,10 @@
                                             </div>
                                         </div>
                                     @endcan
+                                    @include('businesssettingsmodule::admin.partials.additional-charge-entity-overrides-section', [
+                                        'additionalChargeOverrideRows' => $additionalChargeOverrideRows,
+                                        'formSelector' => '#category-form',
+                                    ])
                                     <div class="col-12">
                                         <div class="d-flex justify-content-end gap-20 mt-30">
                                             <button class="btn btn--secondary"

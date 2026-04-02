@@ -183,7 +183,7 @@ class OTPVerificationController extends Controller
 
             $this->userVerification->where(['identity' => $request['identity']])->delete();
 
-            if ($user->user_type == 'customer'){
+            if (user_can_use_customer_app($user)) {
                 $loginData = ['token' => $user->createToken(CUSTOMER_PANEL_ACCESS)->accessToken, 'is_active' => $user['is_active']];
                 return response()->json(response_formatter(OTP_VERIFICATION_SUCCESS_200, $loginData), 200);
             }
@@ -279,18 +279,18 @@ class OTPVerificationController extends Controller
 
             $isUserExist = $this->user->where('phone', $request['phone'])->first();
             if ($isUserExist) {
-                if ($isUserExist?->user_type == 'provider-admin' || $isUserExist?->user_type == 'provider-serviceman'){
+                if ($isUserExist->user_type === 'provider-serviceman' || ($isUserExist->user_type === 'provider-admin' && ! user_can_use_customer_app($isUserExist))) {
                     return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
-                }else{
-                    $isUserExist->is_phone_verified = 1;
-                    $isUserExist->save();
-
-                    if ($isUserExist->is_active != 1){
-                        return response()->json(response_formatter(USER_INACTIVE_400), 400);
-                    }
-
-                    return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($isUserExist, CUSTOMER_PANEL_ACCESS)), 200);
                 }
+
+                $isUserExist->is_phone_verified = 1;
+                $isUserExist->save();
+
+                if ($isUserExist->is_active != 1) {
+                    return response()->json(response_formatter(USER_INACTIVE_400), 400);
+                }
+
+                return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($isUserExist, CUSTOMER_PANEL_ACCESS)), 200);
             } else {
                 return response()->json(response_formatter(AUTH_LOGIN_200, ['temporary_token' => $temporaryToken, 'status' => false], 200));
             }
@@ -424,14 +424,19 @@ class OTPVerificationController extends Controller
             $this->updateAddressAndCartUser($user->id, $request['guest_id']);
         }
 
-        if (isset($user)){
-            if ($user?->user_type == $request->user_type){
+        if (isset($user)) {
+            $requestedType = $request->user_type;
+            $typeOk = ($user->user_type === $requestedType)
+                || ($requestedType === 'customer' && user_can_use_customer_app($user));
+
+            if ($typeOk) {
                 $user->is_phone_verified = 1;
                 $user->save();
+
                 return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, CUSTOMER_PANEL_ACCESS)), 200);
-            }else{
-                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
             }
+
+            return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
         }
 
         $tempToken = Str::random(120);

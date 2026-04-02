@@ -216,7 +216,7 @@ h1, h2,h3,h4, h5, h6 {
                         <td class="border-bottom">
                             <div class="text-right">
                                 <div>{{translate('Invoice of')}} ({{currency_code()}})</div>
-                                <h5 style="font-size:20px; font-weight: 700;margin:0;color:#007bff">{{with_currency_symbol($booking->total_booking_amount)}}</h5>
+                                <h5 style="font-size:20px; font-weight: 700;margin:0;color:#007bff">{{with_currency_symbol(get_booking_total_amount($booking))}}</h5>
                             </div>
                         </td>
                     </tr>
@@ -310,90 +310,135 @@ h1, h2,h3,h4, h5, h6 {
                             </tr>
                         @endforeach
                         </tbody>
+                        <?php
+                            $invDetailSubTotal = (float) $booking->detail->sum(static fn ($d) => (float) $d->service_cost * (int) $d->quantity);
+                            $invExtraServicesSpareTotal = 0.0;
+                            $invExtraServicesServiceTotal = 0.0;
+                            foreach (($booking->extra_services ?? collect()) as $invExtra) {
+                                if (($invExtra->type ?? '') === \Modules\BookingModule\Entities\BookingExtraService::TYPE_SPARE_PART) {
+                                    $invExtraServicesSpareTotal += (float) $invExtra->total;
+                                } else {
+                                    $invExtraServicesServiceTotal += (float) $invExtra->total;
+                                }
+                            }
+                            $invServiceAmountExclVat = $invDetailSubTotal + $invExtraServicesServiceTotal;
+                            $invBookingHasTax = (float) ($booking->total_tax_amount ?? 0) > 0;
+                            $invAcDisplayRows = enrich_booking_additional_charges_breakdown_for_display($booking);
+                            $invGrandTotal = round(get_booking_total_amount($booking), 2);
+                            $invSettlement = get_booking_received_and_settlement($booking);
+                            $invDueAmount = get_booking_invoice_due_amount($booking);
+                            $invPaidProvider = round((float) ($invSettlement['amount_received_by_provider'] ?? 0), 2);
+                            $invPaidCompany = round((float) ($invSettlement['amount_received_by_company'] ?? 0), 2);
+                            $invPaidTotal = round((float) ($invSettlement['total_paid'] ?? 0), 2);
+                        ?>
                         <tfoot>
                         <tr>
                             <td colspan="3"></td>
-                            <td class="">{{translate('subtotal')}}</td>
-                            <td>{{ with_currency_symbol($sub_total ?? 0) }}</td>
+                            <td class="text-capitalize">{{ translate('service_amount') }}@if($invBookingHasTax) <span class="fs-9">{{ booking_tax_excluded_bracket_hint() }}</span>@endif</td>
+                            <td class="text-right">{{ with_currency_symbol($invServiceAmountExclVat) }}</td>
                         </tr>
+                        @if((float)($booking->total_discount_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
-                            <td>{{translate('Discount')}}</td>
-                            <td>- {{with_currency_symbol($booking->total_discount_amount)}}</td>
+                            <td class="text-capitalize">{{ translate('service_discount') }}</td>
+                            <td class="text-right">{{ with_currency_symbol($booking->total_discount_amount) }}</td>
                         </tr>
+                        @endif
+                        @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
-                            <td>{{translate('Campaign_Discount')}}</td>
-                            <td>- {{with_currency_symbol($booking->total_campaign_discount_amount)}}</td>
+                            <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
+                            <td class="text-right">{{ with_currency_symbol($booking->total_coupon_discount_amount) }}</td>
                         </tr>
+                        @endif
+                        @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
                         <tr>
                             <td colspan="3"></td>
-                            <td class="">{{translate('Coupon_Discount')}} </td>
-                            <td>- {{with_currency_symbol($booking->total_coupon_discount_amount)}}</td>
+                            <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
+                            <td class="text-right">{{ with_currency_symbol($booking->total_campaign_discount_amount) }}</td>
                         </tr>
-                        @if($booking->total_referral_discount_amount > 0)
+                        @endif
+                        @if((float)($booking->total_referral_discount_amount ?? 0) > 0)
                             <tr>
                                 <td colspan="3"></td>
-                                <td class="">{{translate('Referral_Discount')}} </td>
-                                <td>- {{with_currency_symbol($booking->total_referral_discount_amount)}}</td>
+                                <td class="text-capitalize">{{ translate('Referral Discount') }}</td>
+                                <td class="text-right">{{ with_currency_symbol($booking->total_referral_discount_amount) }}</td>
                             </tr>
                         @endif
-                        @if((float)($booking->total_tax_amount ?? 0) > 0)
+                        @if($invBookingHasTax)
                         <tr>
                             <td colspan="3"></td>
-                            <td class="">{{translate('Vat_/_Tax')}} (%)</td>
-                            <td>+ {{with_currency_symbol($booking->total_tax_amount)}}</td>
+                            <td>{{ company_default_tax_label() }}</td>
+                            <td class="text-right">{{ with_currency_symbol($booking->total_tax_amount) }}</td>
                         </tr>
+                        @endif
+                        @if ($invExtraServicesSpareTotal > 0)
+                            <tr>
+                                <td colspan="3"></td>
+                                <td class="text-capitalize">{{ translate('Spare_Parts') }}</td>
+                                <td class="text-right">{{ with_currency_symbol($invExtraServicesSpareTotal) }}</td>
+                            </tr>
                         @endif
                         @if ($booking->extra_fee > 0)
-                            <tr>
-                                <td colspan="2"></td>
-                                <td colspan="2" class="text-uppercase">{{ (business_config('additional_charge_label_name', 'booking_setup')->live_values ?? 'Fee') }}</td>
-                                <td>+ {{ with_currency_symbol($booking->extra_fee) }}</td>
-                            </tr>
+                            @if(count($invAcDisplayRows))
+                                @foreach($invAcDisplayRows as $acRow)
+                                    @if((float)($acRow['amount'] ?? 0) > 0)
+                                    <tr>
+                                        <td colspan="3"></td>
+                                        <td class="text-capitalize">{{ $acRow['name'] ?? translate('Additional_charges') }}</td>
+                                        <td class="text-right">{{ with_currency_symbol($acRow['amount'] ?? 0) }}</td>
+                                    </tr>
+                                    @endif
+                                @endforeach
+                            @else
+                                <tr>
+                                    <td colspan="3"></td>
+                                    <td class="text-capitalize">{{ translate('Additional_charges') }}</td>
+                                    <td class="text-right">{{ with_currency_symbol($booking->extra_fee) }}</td>
+                                </tr>
+                            @endif
                         @endif
-                        @if(($extraServicesTotal ?? 0) > 0)
+                        @if($invExtraServicesServiceTotal > 0)
                             <tr>
                                 <td colspan="3"></td>
-                                <td>{{ translate('Extra_Services') }}</td>
-                                <td>+ {{ with_currency_symbol($extraServicesTotal ?? 0) }}</td>
+                                <td class="text-capitalize">{{ translate('Extra_Services') }}</td>
+                                <td class="text-right">{{ with_currency_symbol($invExtraServicesServiceTotal) }}</td>
                             </tr>
                         @endif
                         <tr>
                             <td colspan="3"></td>
-                            <td class="fw-700 border-top">{{translate('Total')}}</td>
-                            <td class="fw-700 border-top">{{ with_currency_symbol($booking->total_booking_amount + ($extraServicesTotal ?? 0)) }}</td>
+                            <td class="fw-700 border-top">{{ translate('Grand_Total') }}</td>
+                            <td class="fw-700 border-top text-right">{{ with_currency_symbol($invGrandTotal) }}</td>
                         </tr>
                         @if ($booking->booking_partial_payments->isNotEmpty())
-                            @foreach($booking->booking_partial_payments as $partial)
+                            @if ($invPaidProvider > 0)
                                 <tr>
                                     <td colspan="3"></td>
-                                    <td class="fw-700">{{translate('Paid_by')}} {{str_replace('_', ' ',$partial->paid_with)}}</td>
-                                    <td class="fw-700 border-top">{{with_currency_symbol($partial->paid_amount)}}</td>
+                                    <td class="fw-700">{{ translate('Paid_to_service_provider') }}</td>
+                                    <td class="fw-700 text-right">{{ with_currency_symbol($invPaidProvider) }}</td>
                                 </tr>
-                            @endforeach
+                            @endif
+                            @if ($invPaidCompany > 0)
+                                <tr>
+                                    <td colspan="3"></td>
+                                    <td class="fw-700">{{ translate('Paid_to_company') }}</td>
+                                    <td class="fw-700 text-right">{{ with_currency_symbol($invPaidCompany) }}</td>
+                                </tr>
+                            @endif
+                            @if ($invPaidTotal > 0)
+                                <tr>
+                                    <td colspan="3"></td>
+                                    <td class="fw-700 border-top">{{ translate('Total_paid') }}</td>
+                                    <td class="fw-700 border-top text-right">{{ with_currency_symbol($invPaidTotal) }}</td>
+                                </tr>
+                            @endif
                         @endif
 
-                        <?php
-                        $dueAmount = 0;
-
-                        if (!$booking->is_paid && $booking?->booking_partial_payments?->count() == 1) {
-                            $dueAmount = $booking->booking_partial_payments->first()?->due_amount;
-                        }
-
-                        if (in_array($booking->booking_status, ['pending', 'accepted', 'ongoing']) && $booking->payment_method != 'cash_after_service' && $booking->additional_charge > 0) {
-                            $dueAmount += $booking->additional_charge;
-                        }
-
-                        if (!$booking->is_paid && $booking->payment_method == 'cash_after_service') {
-                            $dueAmount = $booking->total_booking_amount + ($extraServicesTotal ?? 0);
-                        }
-                        ?>
-                        @if($dueAmount > 0)
+                        @if($invDueAmount > 0)
                             <tr>
                                 <td colspan="3"></td>
                                 <td class="fw-700">{{ translate('Due_Amount') }}</td>
-                                <td class="fw-700">{{ with_currency_symbol($dueAmount) }}</td>
+                                <td class="fw-700 text-right">{{ with_currency_symbol($invDueAmount) }}</td>
                             </tr>
                         @endif
 
@@ -401,7 +446,7 @@ h1, h2,h3,h4, h5, h6 {
                             <tr>
                                 <td colspan="3"></td>
                                 <td class="fw-700">{{translate('Refund')}}</td>
-                                <td class="fw-700">{{with_currency_symbol(abs($booking->additional_charge))}}</td>
+                                <td class="fw-700 text-right">{{with_currency_symbol(abs($booking->additional_charge))}}</td>
                             </tr>
                         @endif
                         </tfoot>

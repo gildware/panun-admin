@@ -24,6 +24,15 @@ class AddressController extends Controller
         $this->customerUserId = $this->isCustomerLoggedIn ? auth('api')->user()->id : $request['guest_id'];
     }
 
+    private function rejectIfLoggedInWithoutCustomerApp(): ?JsonResponse
+    {
+        if ($this->isCustomerLoggedIn && ! user_can_use_customer_app(auth('api')->user())) {
+            return response()->json(response_formatter(DEFAULT_403), 401);
+        }
+
+        return null;
+    }
+
     /**
      * Display a listing of the resource.
      * @param Request $request
@@ -41,8 +50,8 @@ class AddressController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        if ($this->isCustomerLoggedIn && !in_array(auth('api')->user()?->user_type, CUSTOMER_USER_TYPES)) {
-            return response()->json(response_formatter(DEFAULT_403), 401);
+        if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
         }
 
         $addresses = $this->address->where(['user_id' => $this->customerUserId])
@@ -81,6 +90,10 @@ class AddressController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
+        }
+
         $point = new Point($request->lat, $request->lon, 0);
         $zone_id = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point)?->id;
 
@@ -114,6 +127,10 @@ class AddressController extends Controller
      */
     public function edit(string $id, Request $request): JsonResponse
     {
+        if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
+        }
+
         $address = $this->address->where(['user_id' => $this->customerUserId])->where('id', $id)->first();
         if (!isset($address)) return response()->json(response_formatter(DEFAULT_404), 404);
 
@@ -146,6 +163,10 @@ class AddressController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
         }
 
         $point = new Point($request->lat, $request->lon);
@@ -189,6 +210,10 @@ class AddressController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
         }
 
         if (!$this->address->where('id', $id)->where('user_id', $this->customerUserId)->exists()) {

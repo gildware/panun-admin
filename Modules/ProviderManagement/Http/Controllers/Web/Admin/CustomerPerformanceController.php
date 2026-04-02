@@ -144,7 +144,7 @@ class CustomerPerformanceController
             'manual_status' => ['required', Rule::in(['active', 'suspended', 'blacklisted'])],
         ]);
 
-        $customer = User::query()->whereIn('user_type', CUSTOMER_USER_TYPES)->findOrFail($validated['customer_id']);
+        $customer = User::query()->inCustomerDirectory()->findOrFail($validated['customer_id']);
         $status = $validated['manual_status'];
         $suspendedUntil = $status === 'suspended' ? Carbon::now()->addDays(30) : null;
 

@@ -18,8 +18,16 @@
                     
                     {{-- Hidden fields with all data --}}
                     @foreach($data as $key => $value)
+                        @if($key === 'ac_line_amount' || is_array($value))
+                            @continue
+                        @endif
                         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                     @endforeach
+                    @if(!empty($data['ac_line_amount']) && is_array($data['ac_line_amount']))
+                        @foreach($data['ac_line_amount'] as $acTypeId => $acAmt)
+                            <input type="hidden" name="ac_line_amount[{{ $acTypeId }}]" value="{{ $acAmt }}">
+                        @endforeach
+                    @endif
 
                     {{-- 0. Booking Source --}}
                     <div class="mb-4 border rounded-3 p-3">
@@ -52,7 +60,7 @@
                                     <p><strong>{{ translate('Service_Location') }}:</strong> {{ translate('Provider_Location') }}</p>
                                 @elseif($address)
                                     <p><strong>{{ translate('Service_Address') }}:</strong></p>
-                                    <p>{{ $address->address ?? 'N/A' }}, {{ $address->city ?? '' }}, {{ $address->zip_code ?? '' }}</p>
+                                    <p>{{ $address->address ?? 'N/A' }}@if(!empty($address->landmark)), {{ $address->landmark }}@endif</p>
                                 @elseif(!empty($data['service_location']) && $data['service_location'] !== 'customer')
                                     <p><strong>{{ translate('Service_Location') }}:</strong> {{ $data['service_location'] }}</p>
                                 @else
@@ -137,9 +145,12 @@
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Payment_information') }}</h4>
                         @if(isset($totalBilling) && $totalBilling > 0)
-                            @if(!empty($data['extra_fee']) && (float)$data['extra_fee'] > 0)
-                                @php($additionalChargeLabelName = (business_config('additional_charge_label_name', 'booking_setup'))?->live_values ?? translate('extra_fee'))
-                                <p class="mb-1"><strong>{{ $additionalChargeLabelName }}:</strong> {{ with_currency_symbol($data['extra_fee']) }}</p>
+                            @if(!empty($additionalChargeLines) && is_array($additionalChargeLines))
+                                @foreach($additionalChargeLines as $acLine)
+                                    <p class="mb-1"><strong>{{ $acLine['name'] ?? translate('Additional_charges') }}:</strong> {{ with_currency_symbol($acLine['amount'] ?? 0) }}</p>
+                                @endforeach
+                            @elseif(!empty($data['extra_fee']) && (float)$data['extra_fee'] > 0)
+                                <p class="mb-1"><strong>{{ translate('Additional_charges') }}:</strong> {{ with_currency_symbol($data['extra_fee']) }}</p>
                             @endif
                             <p class="mb-2"><strong>{{ translate('Total_Billing') }}:</strong> {{ with_currency_symbol($totalBilling) }}</p>
                         @endif
@@ -158,8 +169,16 @@
                     <div class="d-flex justify-content-end gap-2">
                         <form action="{{ route('admin.booking.create') }}" method="GET" style="display: inline;">
                             @foreach($data as $key => $value)
+                                @if($key === 'ac_line_amount' || is_array($value))
+                                    @continue
+                                @endif
                                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                             @endforeach
+                            @if(!empty($data['ac_line_amount']) && is_array($data['ac_line_amount']))
+                                @foreach($data['ac_line_amount'] as $acTypeId => $acAmt)
+                                    <input type="hidden" name="ac_line_amount[{{ $acTypeId }}]" value="{{ $acAmt }}">
+                                @endforeach
+                            @endif
                             <button type="submit" class="btn btn-secondary">
                                 {{ translate('Edit_Details') }}
                             </button>
