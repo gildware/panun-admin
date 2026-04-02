@@ -8,9 +8,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Schema;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
-use Modules\WhatsAppModule\Entities\WhatsAppConversationTemplate;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 
 class WhatsAppBookingTemplateController extends Controller
@@ -24,16 +22,9 @@ class WhatsAppBookingTemplateController extends Controller
         $service = app(BookingWhatsAppNotificationService::class);
         $config = $service->getConfig();
         $placeholders = BookingWhatsAppNotificationService::PLACEHOLDER_HINTS;
+        $statusTemplateSegments = BookingWhatsAppNotificationService::statusTemplateSegmentKeys();
 
-        $conversationTemplates = collect();
-        if (Schema::hasTable('whatsapp_conversation_templates')) {
-            $conversationTemplates = WhatsAppConversationTemplate::query()
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get();
-        }
-
-        return view('whatsappmodule::admin.booking-message-templates', compact('config', 'placeholders', 'conversationTemplates'));
+        return view('whatsappmodule::admin.booking-message-templates', compact('config', 'placeholders', 'statusTemplateSegments'));
     }
 
     public function update(Request $request): RedirectResponse
@@ -41,8 +32,9 @@ class WhatsAppBookingTemplateController extends Controller
         $this->authorize('whatsapp_message_template_update');
 
         $service = app(BookingWhatsAppNotificationService::class);
+        $segments = BookingWhatsAppNotificationService::statusTemplateSegmentKeys();
 
-        $data = $request->validate([
+        $rules = [
             'booking_confirmation_customer' => 'nullable|string|max:4096',
             'booking_confirmation_provider' => 'nullable|string|max:4096',
             'booking_status_customer' => 'nullable|string|max:4096',
@@ -58,7 +50,13 @@ class WhatsAppBookingTemplateController extends Controller
             'booking_serviceman_provider' => 'nullable|string|max:4096',
             'booking_verification_customer' => 'nullable|string|max:4096',
             'booking_verification_provider' => 'nullable|string|max:4096',
-        ]);
+        ];
+        foreach ($segments as $segment) {
+            $rules['booking_status_customer_' . $segment] = 'nullable|string|max:4096';
+            $rules['booking_status_provider_' . $segment] = 'nullable|string|max:4096';
+        }
+
+        $data = $request->validate($rules);
 
         $current = $service->getConfig();
 
@@ -82,6 +80,13 @@ class WhatsAppBookingTemplateController extends Controller
             'booking_verification_customer' => (string) ($data['booking_verification_customer'] ?? ''),
             'booking_verification_provider' => (string) ($data['booking_verification_provider'] ?? ''),
         ];
+
+        foreach ($segments as $segment) {
+            $liveValues['booking_status_customer_' . $segment] = (string) ($data['booking_status_customer_' . $segment] ?? '');
+            $liveValues['booking_status_provider_' . $segment] = (string) ($data['booking_status_provider_' . $segment] ?? '');
+            $liveValues['booking_status_invoice_customer_' . $segment] = $request->boolean('booking_status_invoice_customer_' . $segment);
+            $liveValues['booking_status_invoice_provider_' . $segment] = $request->boolean('booking_status_invoice_provider_' . $segment);
+        }
 
         BusinessSettings::updateOrCreate(
             [

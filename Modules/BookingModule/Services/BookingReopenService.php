@@ -22,7 +22,7 @@ class BookingReopenService
     /**
      * @return array{event: BookingReopenEvent, booking: Booking}
      */
-    public function reopenInPlace(Booking $source, User $actor, string $complaintNotes, string $targetStatus): array
+    public function reopenInPlace(Booking $source, User $actor, string $complaintNotes, string $targetStatus, ?int $holdReopenReasonId = null): array
     {
         if (!in_array($targetStatus, ['pending', 'accepted'], true)) {
             throw new \InvalidArgumentException('Invalid target status for reopen.');
@@ -36,7 +36,7 @@ class BookingReopenService
             throw new \RuntimeException(translate('Only completed bookings can be reopened this way.'));
         }
 
-        return DB::transaction(function () use ($source, $actor, $complaintNotes, $targetStatus) {
+        return DB::transaction(function () use ($source, $actor, $complaintNotes, $targetStatus, $holdReopenReasonId) {
             $event = BookingReopenEvent::query()->create([
                 'source_booking_id' => $source->id,
                 'actor_user_id' => $actor->id,
@@ -44,6 +44,7 @@ class BookingReopenService
                 'complaint_notes' => $complaintNotes ?: null,
                 'child_booking_id' => null,
                 'target_status' => $targetStatus,
+                'booking_hold_reopen_reason_id' => $holdReopenReasonId,
             ]);
 
             $source->last_reopen_event_at = now();
@@ -60,6 +61,8 @@ class BookingReopenService
                 'booking_repeat_id' => null,
                 'changed_by' => $actor->id,
                 'booking_status' => $targetStatus,
+                'booking_hold_reopen_reason_id' => $holdReopenReasonId,
+                'status_change_remarks' => $complaintNotes !== '' ? $complaintNotes : null,
             ]);
 
             $this->recordProviderReopenIncident($source, $actor, $complaintNotes, 'reopen_in_place');
@@ -77,6 +80,7 @@ class BookingReopenService
         Booking $newBooking,
         User $actor,
         string $complaintNotes,
+        ?int $holdReopenReasonId = null,
     ): BookingReopenEvent {
         if ((int) ($source->is_repeated ?? 0) !== 0) {
             throw new \RuntimeException(translate('Creating a follow-up booking from a repeat series is not supported in this version.'));
@@ -96,6 +100,7 @@ class BookingReopenService
             'complaint_notes' => $complaintNotes ?: null,
             'child_booking_id' => $newBooking->id,
             'target_status' => null,
+            'booking_hold_reopen_reason_id' => $holdReopenReasonId,
         ]);
 
         $source->last_reopen_event_at = now();

@@ -37,6 +37,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Entities\BookingCancellationReason;
+use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Services\BookingReopenService;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CategoryManagement\Entities\Category;
@@ -102,6 +104,77 @@ class BookingController extends Controller
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function bookingConfigurationReasonVariables(): array
+    {
+        return [
+            'bookingCancellationReasons' => BookingCancellationReason::query()->where('is_active', true)->orderBy('name')->get(),
+            'bookingHoldReasons' => BookingHoldReopenReason::query()->where('is_active', true)->where('kind', BookingHoldReopenReason::KIND_HOLD)->orderBy('name')->get(),
+            'bookingReopenReasons' => BookingHoldReopenReason::query()->where('is_active', true)->where('kind', BookingHoldReopenReason::KIND_REOPEN)->orderBy('name')->get(),
+        ];
+    }
+
+    /**
+     * @return array<string, array<int, mixed>>
+     */
+    private function adminBookingStatusReasonRules(string $from, string $to): array
+    {
+        $from = strtolower(trim($from));
+        $to = strtolower(trim($to));
+        if (! booking_admin_status_transition_allowed($from, $to)) {
+            return [];
+        }
+        if ($to === 'canceled') {
+            return [
+                'booking_cancellation_reason_id' => [
+                    'required',
+                    Rule::exists('booking_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
+                ],
+                'status_change_remarks' => 'nullable|string|max:2000',
+            ];
+        }
+        if ($to === 'on_hold') {
+            return [
+                'booking_hold_reopen_reason_id' => [
+                    'required',
+                    Rule::exists('booking_hold_reopen_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)->where('kind', BookingHoldReopenReason::KIND_HOLD)),
+                ],
+                'status_change_remarks' => 'nullable|string|max:2000',
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{0: ?int, 1: ?int, 2: ?string}
+     */
+    private function extractStatusChangeReasonMeta(array $validated, string $from, string $to): array
+    {
+        $from = strtolower(trim($from));
+        $to = strtolower(trim($to));
+        $remarks = $validated['status_change_remarks'] ?? null;
+        if ($to === 'canceled') {
+            return [
+                isset($validated['booking_cancellation_reason_id']) ? (int) $validated['booking_cancellation_reason_id'] : null,
+                null,
+                is_string($remarks) ? $remarks : null,
+            ];
+        }
+        if ($to === 'on_hold') {
+            return [
+                null,
+                isset($validated['booking_hold_reopen_reason_id']) ? (int) $validated['booking_hold_reopen_reason_id'] : null,
+                is_string($remarks) ? $remarks : null,
+            ];
+        }
+
+        return [null, null, null];
+    }
+
+    /**
      * Display a listing of the resource.
      * @param Request $request
      * @return Renderable
@@ -132,7 +205,16 @@ class BookingController extends Controller
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $bookings = $this->booking
-            ->with(array_merge(['customer', 'assignee', 'followups', 'extra_services'], $bookingStatus === 'reopened' ? ['reopenEvents', 'spawnedFollowupBookings', 'originatedFromBooking'] : []))
+            ->with(array_merge(
+                ['customer', 'assignee', 'followups', 'extra_services'],
+                $bookingStatus === 'reopened' ? [
+                    'reopenEvents.holdReopenReason',
+                    'spawnedFollowupBookings',
+                    'originatedFromBooking.reopenEvents.holdReopenReason',
+                ] : [],
+                $bookingStatus === 'canceled' ? ['latestParentCancellationStatusHistory.cancellationReason'] : [],
+                $bookingStatus === 'on_hold' ? ['latestParentHoldStatusHistory.holdReopenReason'] : [],
+            ))
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
                 if ($bookingStatus === 'reopened') {
@@ -636,6 +718,21 @@ class BookingController extends Controller
                     'reopen_source_booking_id' => [translate('Invalid_reopen_follow_up_session')],
                 ]);
             }
+            $draftReopenReasonId = (int) ($reopenDraft['booking_hold_reopen_reason_id'] ?? 0);
+            if ($draftReopenReasonId <= 0) {
+                throw ValidationException::withMessages([
+                    'reopen_source_booking_id' => [translate('Reopen_reason_required')],
+                ]);
+            }
+            if (! BookingHoldReopenReason::query()
+                ->whereKey($draftReopenReasonId)
+                ->where('is_active', 1)
+                ->where('kind', BookingHoldReopenReason::KIND_REOPEN)
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'reopen_source_booking_id' => [translate('Invalid_reopen_follow_up_session')],
+                ]);
+            }
         }
 
         DB::beginTransaction();
@@ -800,7 +897,8 @@ class BookingController extends Controller
                     $sourceBooking,
                     $booking,
                     $request->user(),
-                    (string) ($reopenDraft['complaint_notes'] ?? '')
+                    (string) ($reopenDraft['complaint_notes'] ?? ''),
+                    (int) ($reopenDraft['booking_hold_reopen_reason_id'] ?? 0) ?: null
                 );
                 session()->forget('reopen_new_booking_draft');
             }
@@ -1254,9 +1352,31 @@ class BookingController extends Controller
 
         if ($webPage === 'details') {
 
-            $booking = $this->booking->with(['detail.service' => function ($query) {
-                $query->withTrashed();
-            }, 'detail.service.variations', 'detail.service.category', 'detail.service.subCategory', 'customer', 'provider', 'serviceman', 'assignee', 'status_histories.user', 'booking_partial_payments', 'followups', 'extra_services', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])
+            $booking = $this->booking->with([
+                'detail.service' => function ($query) {
+                    $query->withTrashed();
+                },
+                'detail.service.variations',
+                'detail.service.category',
+                'detail.service.subCategory',
+                'customer',
+                'provider',
+                'serviceman',
+                'assignee',
+                'status_histories' => fn ($q) => $q->with(['user', 'cancellationReason', 'holdReopenReason']),
+                'latestParentCancellationStatusHistory.cancellationReason',
+                'latestParentHoldStatusHistory.holdReopenReason',
+                'booking_partial_payments',
+                'followups',
+                'extra_services',
+                'reopenEvents.actor',
+                'reopenEvents.holdReopenReason',
+                'originatedFromBooking',
+                'originatedFromBooking.reopenEvents.holdReopenReason',
+                'spawnedFollowupBookings',
+                'reopenedByUser',
+                'reopenCaseResolvedByUser',
+            ])
                 ->find($id);
 
             if (!$booking) {
@@ -1319,7 +1439,6 @@ class BookingController extends Controller
                 ->where('is_active_for_jobs', 1)
                 ->withCount('reviews')
                 ->ofApproval(1)->ofStatus(1)
-                ->whereNot('id', $booking->provider_id)
                 ->get();
 
             $providers = [];
@@ -1329,10 +1448,6 @@ class BookingController extends Controller
                     $providers[] = $provider;
                 }
             }
-
-            $currentlyAssignProvider = $booking->provider_id
-                ? $this->provider->withCount('bookings', 'reviews')->find($booking->provider_id)
-                : null;
 
             $sort_by = 'default';
             $zoneCenter = Zone::selectRaw("*,ST_AsText(ST_Centroid(`coordinates`)) as center")->withoutGlobalScope('translate')->find($booking->zone_id);
@@ -1368,7 +1483,10 @@ class BookingController extends Controller
             $additionalChargesDisplayRows = enrich_booking_additional_charges_breakdown_for_display($booking);
 
             try {
-                return view('bookingmodule::admin.booking.details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'currentlyAssignProvider', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows'));
+                return view('bookingmodule::admin.booking.details', array_merge(
+                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows'),
+                    $this->bookingConfigurationReasonVariables()
+                ));
             } catch (Throwable $e) {
                 Log::error('Booking details view failed: ' . $e->getMessage(), ['exception' => $e, 'booking_id' => $id]);
                 Toastr::error(translate('Unable to load booking details. Please try again.'));
@@ -1430,9 +1548,15 @@ class BookingController extends Controller
         $this->authorize('booking_can_manage_status');
         $validated = $request->validate([
             'resolution' => ['required', Rule::in(['reopen_in_place', 'new_booking'])],
+            'booking_hold_reopen_reason_id' => [
+                'required',
+                'integer',
+                Rule::exists('booking_hold_reopen_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)->where('kind', BookingHoldReopenReason::KIND_REOPEN)),
+            ],
             'complaint_notes' => ['nullable', 'string', 'max:5000'],
             'target_status' => ['required_if:resolution,reopen_in_place', 'nullable', Rule::in(['pending', 'accepted'])],
         ]);
+        $reopenReasonId = (int) $validated['booking_hold_reopen_reason_id'];
 
         $booking = $this->booking->findOrFail($id);
         $service = app(BookingReopenService::class);
@@ -1443,6 +1567,7 @@ class BookingController extends Controller
                     'reopen_new_booking_draft' => [
                         'source_booking_id' => $booking->id,
                         'complaint_notes' => (string) ($validated['complaint_notes'] ?? ''),
+                        'booking_hold_reopen_reason_id' => $reopenReasonId,
                     ],
                 ]);
                 Toastr::success(translate('Reopen_follow_up_redirect_to_create'));
@@ -1455,7 +1580,8 @@ class BookingController extends Controller
                 $booking,
                 $request->user(),
                 (string) ($validated['complaint_notes'] ?? ''),
-                $targetStatus
+                $targetStatus,
+                $reopenReasonId
             );
             Toastr::success(translate('Booking_reopened_in_place'));
 
@@ -1506,6 +1632,16 @@ class BookingController extends Controller
                 $booking->reopen_resolve_remarks = $remarks;
                 $booking->save();
             });
+
+            $booking->refresh();
+            try {
+                app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendReopenCaseResolved($booking);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('WhatsApp reopen resolved notification failed', [
+                    'booking_id' => $booking->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
 
             Toastr::success(translate('Reopen_case_marked_resolved'));
         } catch (\Throwable $e) {
@@ -1856,10 +1992,10 @@ class BookingController extends Controller
         }
 
         if ($webPage == 'details') {
-            return view('bookingmodule::admin.booking.repeat-booking-details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by'));
+            return view('bookingmodule::admin.booking.repeat-booking-details', array_merge(compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by'), $this->bookingConfigurationReasonVariables()));
 
         }elseif ($webPage == 'service_log'){
-            return view('bookingmodule::admin.booking.service-log', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by'));
+            return view('bookingmodule::admin.booking.service-log', array_merge(compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by'), $this->bookingConfigurationReasonVariables()));
 
         }
 
@@ -1956,7 +2092,7 @@ class BookingController extends Controller
             $area = json_decode($zoneCenter->coordinates[0]->toJson(), true);
         }
         if ($request->web_page == 'details') {
-            return view('bookingmodule::admin.booking.rebooking-ongoing', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by'));
+            return view('bookingmodule::admin.booking.rebooking-ongoing', array_merge(compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by'), $this->bookingConfigurationReasonVariables()));
 
         } elseif ($request->web_page == 'history') {
             $mainBooking = $this->booking->with(['change_logs.changedBy'])->find($booking->booking_id);
@@ -1980,44 +2116,62 @@ class BookingController extends Controller
     {
         $this->authorize('booking_can_manage_status');
 
-        $validated = $request->validate([
-            'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
-        ]);
-
         $booking = $this->booking->find($bookingId);
         $repeatBooking = $this->bookingRepeat->find($bookingId);
 
+        if (! $booking && ! $repeatBooking) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
+
+        $current = $booking ? (string) $booking->booking_status : (string) $repeatBooking->booking_status;
+        $toInput = (string) $request->input('booking_status');
+
+        $validated = $request->validate(array_merge(
+            [
+                'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            ],
+            $this->adminBookingStatusReasonRules($current, $toInput)
+        ));
+
+        $to = $validated['booking_status'];
+
         try {
             if ($booking) {
-                if (! booking_admin_status_transition_allowed((string) $booking->booking_status, $validated['booking_status'])) {
+                if (! booking_admin_status_transition_allowed($current, $to)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Invalid_booking_status_transition'),
                     ]), 422);
                 }
-                if ($validated['booking_status'] === 'completed' && ! booking_can_be_completed($booking)) {
+                if ($to === 'completed' && ! booking_can_be_completed($booking)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Booking cannot be completed until full payment is received.'),
                     ]), 422);
                 }
-                return $this->updateBookingStatus($booking, $validated['booking_status'], $request);
+                [$cId, $hId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $current, $to);
+                $meta = ['cancellation_reason_id' => $cId, 'hold_reopen_reason_id' => $hId, 'remarks' => $remarks];
+
+                return $this->updateBookingStatus($booking, $to, $request, $meta);
             }
 
             if ($repeatBooking) {
-                if (! booking_admin_status_transition_allowed((string) $repeatBooking->booking_status, $validated['booking_status'])) {
+                if (! booking_admin_status_transition_allowed($current, $to)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Invalid_booking_status_transition'),
                     ]), 422);
                 }
-                if ($validated['booking_status'] === 'completed' && ! booking_can_be_completed($repeatBooking)) {
+                if ($to === 'completed' && ! booking_can_be_completed($repeatBooking)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Booking cannot be completed until full payment is received.'),
                     ]), 422);
                 }
-                return $this->updateRepeatBookingStatus($repeatBooking, $validated['booking_status'], $request);
+                [$cId, $hId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $current, $to);
+                $meta = ['cancellation_reason_id' => $cId, 'hold_reopen_reason_id' => $hId, 'remarks' => $remarks];
+
+                return $this->updateRepeatBookingStatus($repeatBooking, $to, $request, $meta);
             }
         } catch (\RuntimeException $e) {
             return response()->json(response_formatter([
@@ -2029,13 +2183,20 @@ class BookingController extends Controller
         return response()->json(response_formatter(DEFAULT_204), 204);
     }
 
-    private function updateBookingStatus($booking, string $status, Request $request): JsonResponse
+    /**
+     * @param  array{cancellation_reason_id: ?int, hold_reopen_reason_id: ?int, remarks: ?string}  $meta
+     */
+    private function updateBookingStatus($booking, string $status, Request $request, array $meta = []): JsonResponse
     {
+        $cancellationId = $meta['cancellation_reason_id'] ?? null;
+        $holdReopenId = $meta['hold_reopen_reason_id'] ?? null;
+        $remarks = $meta['remarks'] ?? null;
+
         $booking->booking_status = $status;
 
         if ($booking->isDirty('booking_status')) {
             $previousParentStatus = (string) $booking->getOriginal('booking_status');
-            DB::transaction(function () use ($booking, $status, $request) {
+            DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks) {
                 if ($booking->repeat) {
                     foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold']) as $repeat) {
                         $repeat->update([
@@ -2044,7 +2205,7 @@ class BookingController extends Controller
                             'serviceman_id' => null,
                         ]);
 
-                        $this->logBookingStatusHistory($repeat->id, $status, $request->user()->id, $booking->id);
+                        $this->logBookingStatusHistory($repeat->id, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, $remarks);
                     }
 
                     if ($status == 'canceled' && $booking->repeat->contains('booking_status', 'completed')) {
@@ -2053,7 +2214,7 @@ class BookingController extends Controller
                 }
 
                 $booking->save();
-                $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id);
+                $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, $remarks);
             });
 
             if ((int) ($booking->is_repeated ?? 0) === 1) {
@@ -2079,32 +2240,39 @@ class BookingController extends Controller
         return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
     }
 
-    private function updateRepeatBookingStatus($repeatBooking, string $status, Request $request): JsonResponse
+    /**
+     * @param  array{cancellation_reason_id: ?int, hold_reopen_reason_id: ?int, remarks: ?string}  $meta
+     */
+    private function updateRepeatBookingStatus($repeatBooking, string $status, Request $request, array $meta = []): JsonResponse
     {
+        $cancellationId = $meta['cancellation_reason_id'] ?? null;
+        $holdReopenId = $meta['hold_reopen_reason_id'] ?? null;
+        $remarks = $meta['remarks'] ?? null;
+
         $previousRepeatStatus = (string) $repeatBooking->booking_status;
         $repeatBooking->booking_status = $status;
 
         if ($repeatBooking->isDirty('booking_status')) {
-            DB::transaction(function () use ($repeatBooking, $status, $request) {
+            DB::transaction(function () use ($repeatBooking, $status, $request, $cancellationId, $holdReopenId, $remarks) {
 
                 $repeatBooking->save();
                 sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
-                $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id);
+                $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id, $cancellationId, $holdReopenId, $remarks);
 
                 $relatedRepeats = $this->bookingRepeat->where('booking_id', $repeatBooking->booking_id)->get();
                 if ($relatedRepeats->every(fn ($repeat) => ! in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing', 'on_hold'], true))) {
                     $repeatBooking->booking->update(['booking_status' => 'completed', 'is_paid' => 1]);
                 }
 
-                    $repeatSt = (string) $repeatBooking->booking_status;
-                    if (in_array($repeatSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
-                        $parentSt = (string) $repeatBooking->booking->booking_status;
-                        if (! in_array($parentSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
-                            $repeatBooking->booking->booking_status = $repeatSt === 'on_hold' ? 'on_hold' : 'ongoing';
-                            $repeatBooking->booking->save();
-                        }
+                $repeatSt = (string) $repeatBooking->booking_status;
+                if (in_array($repeatSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
+                    $parentSt = (string) $repeatBooking->booking->booking_status;
+                    if (! in_array($parentSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
+                        $repeatBooking->booking->booking_status = $repeatSt === 'on_hold' ? 'on_hold' : 'ongoing';
+                        $repeatBooking->booking->save();
                     }
-                });
+                }
+            });
 
             try {
                 $freshRepeat = $this->bookingRepeat->with([
@@ -2132,13 +2300,27 @@ class BookingController extends Controller
         return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
     }
 
-    private function logBookingStatusHistory(?string $repeatId, string $status, string $changedBy, string $bookingId): void
-    {
+    private function logBookingStatusHistory(
+        ?string $repeatId,
+        string $status,
+        string $changedBy,
+        string $bookingId,
+        ?int $cancellationReasonId = null,
+        ?int $holdReopenReasonId = null,
+        ?string $remarks = null,
+    ): void {
+        $remarksTrimmed = is_string($remarks) ? trim($remarks) : null;
+        if ($remarksTrimmed === '') {
+            $remarksTrimmed = null;
+        }
         $this->bookingStatusHistory->create([
             'booking_id' => $bookingId,
             'booking_repeat_id' => $repeatId,
             'changed_by' => $changedBy,
             'booking_status' => $status,
+            'booking_cancellation_reason_id' => $cancellationReasonId,
+            'booking_hold_reopen_reason_id' => $holdReopenReasonId,
+            'status_change_remarks' => $remarksTrimmed,
         ]);
     }
 
@@ -2154,59 +2336,75 @@ class BookingController extends Controller
     {
         $this->authorize('booking_can_manage_status');
 
-        Validator::make($request->all(), [
-            'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
-        ]);
-
         $repeatBooking = $this->bookingRepeat->where('id', $bookingId)->first();
-        if (isset($repeatBooking)){
-            if (! booking_admin_status_transition_allowed((string) $repeatBooking->booking_status, (string) $request['booking_status'])) {
-                Toastr::error(translate('Invalid_booking_status_transition'));
+        if (! $repeatBooking) {
+            Toastr::success(translate(DEFAULT_204['message']));
 
-                return back();
-            }
-            $previousRepeatStatus = (string) $repeatBooking->booking_status;
-            $repeatBooking->booking_status = $request['booking_status'];
-
-            $bookingStatusHistory = $this->bookingStatusHistory;
-            $bookingStatusHistory->booking_id = $bookingId;
-            $bookingStatusHistory->changed_by = $request->user()->id;
-            $bookingStatusHistory->booking_status = $request['booking_status'];
-            $bookingStatusHistory->booking_repeat_id = $repeatBooking->id;
-
-            if ($repeatBooking->isDirty('booking_status')) {
-                DB::transaction(function () use ($bookingStatusHistory, $repeatBooking) {
-                    $repeatBooking->save();
-                    $bookingStatusHistory->save();
-                });
-
-                try {
-                    $freshRepeat = $this->bookingRepeat->with([
-                        'booking.customer',
-                        'booking.service_address',
-                        'booking.detail',
-                        'booking.booking_partial_payments',
-                        'detail',
-                        'provider.owner',
-                    ])->find($repeatBooking->id);
-                    if ($freshRepeat) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp repeat booking status (upComingBookingCancel) failed', [
-                        'booking_repeat_id' => $repeatBooking->id ?? null,
-                        'message' => $e->getMessage(),
-                    ]);
-                }
-
-                Toastr::success(translate(DEFAULT_STATUS_UPDATE_200['message']));
-                return back();
-            }
-            Toastr::success(translate(NO_CHANGES_FOUND['message']));
             return back();
         }
-        Toastr::success(translate(DEFAULT_204['message']));
+
+        $from = (string) $repeatBooking->booking_status;
+        $toInput = (string) $request->input('booking_status');
+
+        if (! booking_admin_status_transition_allowed($from, $toInput)) {
+            Toastr::error(translate('Invalid_booking_status_transition'));
+
+            return back();
+        }
+
+        $validated = Validator::make($request->all(), array_merge(
+            [
+                'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            ],
+            $this->adminBookingStatusReasonRules($from, $toInput)
+        ))->validate();
+
+        [$cancellationId, $holdReopenId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $from, $validated['booking_status']);
+
+        $previousRepeatStatus = (string) $repeatBooking->booking_status;
+        $repeatBooking->booking_status = $validated['booking_status'];
+
+        if ($repeatBooking->isDirty('booking_status')) {
+            DB::transaction(function () use ($repeatBooking, $request, $cancellationId, $holdReopenId, $remarks, $validated) {
+                $repeatBooking->save();
+                sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
+                $this->bookingStatusHistory->create([
+                    'booking_id' => $repeatBooking->booking_id,
+                    'booking_repeat_id' => $repeatBooking->id,
+                    'changed_by' => $request->user()->id,
+                    'booking_status' => $validated['booking_status'],
+                    'booking_cancellation_reason_id' => $cancellationId,
+                    'booking_hold_reopen_reason_id' => $holdReopenId,
+                    'status_change_remarks' => $remarks,
+                ]);
+            });
+
+            try {
+                $freshRepeat = $this->bookingRepeat->with([
+                    'booking.customer',
+                    'booking.service_address',
+                    'booking.detail',
+                    'booking.booking_partial_payments',
+                    'detail',
+                    'provider.owner',
+                ])->find($repeatBooking->id);
+                if ($freshRepeat) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp repeat booking status (upComingBookingCancel) failed', [
+                    'booking_repeat_id' => $repeatBooking->id ?? null,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            Toastr::success(translate(DEFAULT_STATUS_UPDATE_200['message']));
+
+            return back();
+        }
+        Toastr::success(translate(NO_CHANGES_FOUND['message']));
+
         return back();
     }
 
@@ -2254,7 +2452,12 @@ class BookingController extends Controller
 
         $request->validate([
             'status' => 'required|in:approve,deny,cancel',
-            'booking_deny_note' => 'required_if:status,deny|string|nullable'
+            'booking_deny_note' => 'required_if:status,deny|string|nullable',
+            'booking_cancellation_reason_id' => [
+                'required_if:status,cancel',
+                Rule::exists('booking_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
+            ],
+            'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
         $booking = $this->booking->where('id', $bookingId)->first();
@@ -2324,6 +2527,8 @@ class BookingController extends Controller
             $bookingStatusHistory->booking_id = $bookingId;
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = 'canceled';
+            $bookingStatusHistory->booking_cancellation_reason_id = $request->input('booking_cancellation_reason_id');
+            $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
 
             if ($booking->isDirty('booking_status')) {
                 DB::transaction(function () use ($bookingStatusHistory, $booking) {
@@ -3260,6 +3465,8 @@ class BookingController extends Controller
             'service_id' => 'required|uuid',
             'variant_key' => 'required',
             'quantity' => 'nullable|numeric',
+            'ac_line_amount' => ['nullable', 'array'],
+            'ac_line_amount.*' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($validator->fails()) {
@@ -3267,6 +3474,10 @@ class BookingController extends Controller
         }
 
         $quantity = (float) ($request->input('quantity', 1));
+        $acOverrides = array_map(
+            static fn ($v) => is_numeric($v) ? (float) $v : 0.0,
+            (array) $request->input('ac_line_amount', [])
+        );
         $service = Service::active()
             ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
             ->where('id', $request['service_id'])
@@ -3292,7 +3503,9 @@ class BookingController extends Controller
         $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
         $basisExTax = round($subtotal - $basicDiscount - $campaignDiscount, 2);
         $computed = compute_additional_charges_for_service_basis($basisExTax, $service);
-        $extraFee = $computed['total'];
+        $mergedLines = merge_additional_charge_line_amount_overrides($computed['lines'], $acOverrides);
+        $finalAc = finalize_additional_charge_lines($mergedLines);
+        $extraFee = $finalAc['total'];
         $totalCost = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
 
         $data = [
@@ -3300,7 +3513,7 @@ class BookingController extends Controller
             'total_discount_amount' => round($basicDiscount + $campaignDiscount, 2),
             'tax_amount' => $tax,
             'extra_fee' => $extraFee,
-            'additional_charges_lines' => $computed['lines'],
+            'additional_charges_lines' => $finalAc['lines'],
             'total_cost' => $totalCost,
         ];
 
@@ -3987,8 +4200,8 @@ class BookingController extends Controller
             return back();
         }
 
-        if ($booking->booking_status !== 'canceled') {
-            $message = translate('Refund is only available for canceled bookings.');
+        if ($booking->booking_status === 'refunded') {
+            $message = translate('This booking has already been refunded.');
             if ($request->wantsJson()) {
                 return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
             }
@@ -3996,8 +4209,8 @@ class BookingController extends Controller
             return back();
         }
 
-        if ($booking->booking_status === 'refunded') {
-            $message = translate('This booking has already been refunded.');
+        if ($booking->booking_status !== 'canceled') {
+            $message = translate('Refund is only available for canceled bookings.');
             if ($request->wantsJson()) {
                 return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
             }
@@ -4019,14 +4232,19 @@ class BookingController extends Controller
         $transactionId = $request->transaction_id;
         $date = $request->date ? \Carbon\Carbon::parse($request->date)->toDateString() : now()->toDateString();
 
-        DB::transaction(function () use ($booking, $amount, $transactionId, $date) {
-            ledger_record_out([
-                'amount' => $amount,
-                'transaction_id' => $transactionId,
-                'booking_id' => $booking->id,
-                'reason' => LedgerTransaction::REASON_REFUND,
-                'date' => $date,
-            ]);
+        $alreadyOnLedger = booking_ledger_refund_out_total((string) $booking->id);
+        $ledgerAmountToRecord = max(0, round($amount - $alreadyOnLedger, 2));
+
+        DB::transaction(function () use ($booking, $amount, $transactionId, $date, $ledgerAmountToRecord) {
+            if ($ledgerAmountToRecord > 0) {
+                ledger_record_out([
+                    'amount' => $ledgerAmountToRecord,
+                    'transaction_id' => $transactionId,
+                    'booking_id' => $booking->id,
+                    'reason' => LedgerTransaction::REASON_REFUND,
+                    'date' => $date,
+                ]);
+            }
 
             $booking->booking_status = 'refunded';
             $booking->save();
@@ -4162,7 +4380,7 @@ class BookingController extends Controller
                 ->withCount('bookings', 'reviews')
                 ->ofApproval(1)->ofStatus(1)->get();
             $sort_by = 'default';
-            return view('bookingmodule::admin.booking.service-log', compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by'));
+            return view('bookingmodule::admin.booking.service-log', array_merge(compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by'), $this->bookingConfigurationReasonVariables()));
         }
 
         Toastr::success(translate(ACCESS_DENIED['message']));

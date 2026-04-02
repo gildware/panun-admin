@@ -40,8 +40,17 @@ return [
         'app_secret' => env('WHATSAPP_APP_SECRET'),
         'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
         /**
-         * When opening admin chat from booking, call Graph API with a minimal text to confirm the recipient can receive WhatsApp.
-         * Set WHATSAPP_OPEN_CHAT_PROBE=false to skip the API call (format check + existing inbound thread only).
+         * When opening admin chat from booking, ask Meta whether the number is on WhatsApp (POST .../contacts).
+         * Does not send the customer a message. Set false to use the probe message instead (or alongside fallback).
+         */
+        'open_chat_use_contacts' => filter_var(env('WHATSAPP_OPEN_CHAT_USE_CONTACTS', 'true'), FILTER_VALIDATE_BOOL),
+        /**
+         * Fallback: if the contacts check fails with an ambiguous response, try a minimal outbound text (same as legacy probe).
+         */
+        'open_chat_probe_fallback_after_contacts' => filter_var(env('WHATSAPP_OPEN_CHAT_PROBE_FALLBACK', 'false'), FILTER_VALIDATE_BOOL),
+        /**
+         * When contacts is off, call Graph messages API with a minimal text to confirm the recipient can receive WhatsApp.
+         * Set WHATSAPP_OPEN_CHAT_PROBE=false to skip the probe (contacts-only or inbound-thread-only).
          */
         'open_chat_probe_enabled' => filter_var(env('WHATSAPP_OPEN_CHAT_PROBE', 'true'), FILTER_VALIDATE_BOOL),
         /** Single-character probe body (Meta often rejects empty / invisible-only). Override in .env if needed. */

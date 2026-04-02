@@ -32,7 +32,7 @@
                     </thead>
                     <tbody>
                         @forelse($statuses as $st)
-                            <tr class="border-bottom">
+                            <tr id="wa-s-cs-{{ (int) $st->id }}" class="border-bottom">
                                 <td class="ps-3 fw-medium">{{ $st->name }}</td>
                                 <td>
                                     @if($st->bucket === 'closed')
@@ -98,7 +98,7 @@
                         <tbody>
                             @forelse($tags as $tg)
                                 @php($tc = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $tg->color) ? $tg->color : '#6c757d')
-                                <tr class="border-bottom">
+                                <tr id="wa-s-ct-{{ (int) $tg->id }}" class="border-bottom">
                                     <td class="ps-3 fw-medium">{{ $tg->name }}</td>
                                     <td>
                                         <span class="d-inline-flex align-items-center gap-2">

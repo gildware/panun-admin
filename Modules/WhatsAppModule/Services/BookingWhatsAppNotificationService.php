@@ -2,8 +2,10 @@
 
 namespace Modules\WhatsAppModule\Services;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\ProviderManagement\Entities\Provider;
@@ -45,6 +47,12 @@ class BookingWhatsAppNotificationService
 
     public const CACHE_VERIFICATION_SENT_PREFIX = 'wa:bver:sent:';
 
+    public const CACHE_REOPEN_RESOLVED_LOCK_PREFIX = 'wa:lock:brv:';
+
+    public const CACHE_REOPEN_RESOLVED_SENT_PREFIX = 'wa:brv:sent:';
+
+    private const WHATSAPP_DOC_CAPTION_MAX = 1024;
+
     /** @var array<string, string> */
     public const PLACEHOLDER_HINTS = [
         '{service_name}' => 'Service name(s)',
@@ -54,7 +62,7 @@ class BookingWhatsAppNotificationService
         '{provider_name}' => 'Provider / company name',
         '{provider_phone}' => 'Provider phone',
         '{booking_id}' => 'Booking reference (readable id)',
-        '{booking_datetime}' => 'Scheduled service date & time',
+        '{booking_datetime}' => 'Scheduled service date & time (e.g. 4th April 2026 11:33 AM)',
         '{service_where}' => 'Where service will be provided',
         '{total_bill}' => 'Total bill',
         '{amount_paid}' => 'Amount paid so far',
@@ -63,7 +71,7 @@ class BookingWhatsAppNotificationService
         '{previous_booking_status}' => 'Previous booking status (status updates only)',
         '{previous_provider_name}' => 'Previous provider name (provider change only)',
         '{previous_provider_phone}' => 'Previous provider phone (provider change only)',
-        '{previous_service_schedule}' => 'Previous service date & time (schedule change only)',
+        '{previous_service_schedule}' => 'Previous service date & time (schedule change only; same format as booking date/time)',
         '{payment_status}' => 'Payment status (Paid / Unpaid)',
         '{previous_payment_status}' => 'Previous payment status (payment updates only)',
         '{serviceman_name}' => 'Assigned serviceman name',
@@ -73,7 +81,21 @@ class BookingWhatsAppNotificationService
         '{verification_status}' => 'Booking verification state (e.g. Approved, Denied)',
         '{previous_verification_status}' => 'Previous verification state',
         '{verification_action}' => 'Last verification action: approve, deny, or cancel',
+        '{reopen_resolve_remarks}' => 'Remarks when a reopen case is marked resolved (reopen resolved template only)',
     ];
+
+    /**
+     * Sub-keys for per-status WhatsApp templates (booking_status_customer_{segment}, etc.).
+     *
+     * @return list<string>
+     */
+    public static function statusTemplateSegmentKeys(): array
+    {
+        return array_merge(
+            array_column(BOOKING_STATUSES, 'key'),
+            ['reopened', 'reopen_resolved']
+        );
+    }
 
     /**
      * Default bodies for new installs / migrations (customer: service + provider; provider: customer + service).
@@ -82,11 +104,36 @@ class BookingWhatsAppNotificationService
      */
     public static function defaultTemplateBodies(): array
     {
-        return [
+        $statusCustomerDefault = "Booking update\n\nBooking *{booking_id}* status changed:\n{previous_booking_status} → *{booking_status}*\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\n*Provider*\n{provider_name}\nPhone: {provider_phone}\n\nIf anything looks wrong, contact us.";
+        $statusProviderDefault = "Booking update\n\nBooking *{booking_id}* status changed:\n{previous_booking_status} → *{booking_status}*\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\nCheck your app for full details.";
+        $reopenedCustomer = "Booking reopened\n\nBooking *{booking_id}* was completed and has been *reopened*.\nNew status: *{booking_status}*\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\n*Provider*\n{provider_name}\nPhone: {provider_phone}\n\nWe will follow up on your case.";
+        $reopenedProvider = "Booking reopened\n\nBooking *{booking_id}* status is now *{booking_status}* (reopened from completed).\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $resolvedCustomer = "Reopen case resolved\n\nBooking *{booking_id}* — your reopen request is marked *resolved*.\n\nRemarks: {reopen_resolve_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $resolvedProvider = "Reopen case resolved\n\nBooking *{booking_id}* reopen case marked resolved.\n\nRemarks: {reopen_resolve_remarks}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
+
+        $perStatus = [];
+        foreach (self::statusTemplateSegmentKeys() as $segment) {
+            if ($segment === 'reopened') {
+                $perStatus['booking_status_customer_reopened'] = $reopenedCustomer;
+                $perStatus['booking_status_provider_reopened'] = $reopenedProvider;
+
+                continue;
+            }
+            if ($segment === 'reopen_resolved') {
+                $perStatus['booking_status_customer_reopen_resolved'] = $resolvedCustomer;
+                $perStatus['booking_status_provider_reopen_resolved'] = $resolvedProvider;
+
+                continue;
+            }
+            $perStatus['booking_status_customer_' . $segment] = $statusCustomerDefault;
+            $perStatus['booking_status_provider_' . $segment] = $statusProviderDefault;
+        }
+
+        return array_merge([
             'booking_confirmation_customer' => "Hello {customer_name},\n\nYour booking *{booking_id}* is confirmed.\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\nWhere: {service_where}\n\n*Provider*\n{provider_name}\nPhone: {provider_phone}\n\n*Payment*\nTotal: {total_bill}\nPaid: {amount_paid}\nDue: {due_amount}\n\nThank you for choosing us. Reply here if you have questions.",
             'booking_confirmation_provider' => "New booking *{booking_id}*\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\nAddress: {customer_address}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\nService at: {service_where}\n\n*Payment*\nTotal: {total_bill}\nPaid: {amount_paid}\nDue: {due_amount}\n\nPlease review the booking in your app or dashboard.",
-            'booking_status_customer' => "Booking update\n\nBooking *{booking_id}* status changed:\n{previous_booking_status} → *{booking_status}*\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\n*Provider*\n{provider_name}\nPhone: {provider_phone}\n\nIf anything looks wrong, contact us.",
-            'booking_status_provider' => "Booking update\n\nBooking *{booking_id}* status changed:\n{previous_booking_status} → *{booking_status}*\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\nCheck your app for full details.",
+            'booking_status_customer' => $statusCustomerDefault,
+            'booking_status_provider' => $statusProviderDefault,
             'provider_change_customer' => "Hello {customer_name},\n\nYour booking *{booking_id}* now has a different service provider.\n\n*New provider*\n{provider_name}\nPhone: {provider_phone}\n\n*Previous provider*\n{previous_provider_name}\nPhone: {previous_provider_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\nWhere: {service_where}\n\n*Payment*\nTotal: {total_bill}\nPaid: {amount_paid}\nDue: {due_amount}\n\nPlease save the new provider's contact details for your records.",
             'provider_change_previous_provider' => "Booking reassigned\n\nBooking *{booking_id}* has been reassigned and is *no longer on your list*.\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\n*New provider*\n{provider_name}\nPhone: {provider_phone}\n\nThank you for your work on this booking.",
             'provider_change_new_provider' => "You have been assigned booking *{booking_id}*\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\nAddress: {customer_address}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\nService at: {service_where}\n\n*Payment*\nTotal: {total_bill}\nPaid: {amount_paid}\nDue: {due_amount}\n\n*Previous provider*\n{previous_provider_name}\nPhone: {previous_provider_phone}\n\nPlease accept and prepare in your app.",
@@ -98,7 +145,7 @@ class BookingWhatsAppNotificationService
             'booking_serviceman_provider' => "Serviceman update\n\nBooking *{booking_id}*\n\nServiceman: {previous_serviceman_name} → *{serviceman_name}*\nPhone: {serviceman_phone}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
             'booking_verification_customer' => "Booking verification\n\nBooking *{booking_id}* — action: *{verification_action}*\n\nStatus was: {previous_verification_status}\nNow: {verification_status}\n\nService: {service_name}\nWhen: {booking_datetime}",
             'booking_verification_provider' => "Booking verification\n\nBooking *{booking_id}* — *{verification_action}*\n\nVerification: {previous_verification_status} → {verification_status}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
-        ];
+        ], $perStatus);
     }
 
     public function __construct(
@@ -177,28 +224,91 @@ class BookingWhatsAppNotificationService
 
             $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
             $vars = $this->buildReplacements($booking, $previousBookingStatus);
-            $customerTpl = trim((string) ($config['booking_status_customer'] ?? ''));
-            $providerTpl = trim((string) ($config['booking_status_provider'] ?? ''));
+            $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
 
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-            if ($customerTpl !== '' && $customerPhone) {
-                $body = $this->interpolate($customerTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($customerPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp booking status (customer) failed', ['booking_id' => $booking->id, 'error' => $err]);
-                }
-            }
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'customer',
+                $vars,
+                $customerPhone,
+                $booking,
+                null,
+                'booking status',
+                (string) $booking->id
+            );
 
             $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
-            if ($providerTpl !== '' && $providerPhone) {
-                $body = $this->interpolate($providerTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($providerPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp booking status (provider) failed', ['booking_id' => $booking->id, 'error' => $err]);
-                }
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'provider',
+                $vars,
+                $providerPhone,
+                $booking,
+                null,
+                'booking status',
+                (string) $booking->id
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * When an admin marks a reopen case resolved (no booking_status change).
+     */
+    public function sendReopenCaseResolved(Booking $booking): void
+    {
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            return;
+        }
+
+        $dedupKey = self::CACHE_REOPEN_RESOLVED_SENT_PREFIX . $booking->id;
+        $lock = Cache::lock(self::CACHE_REOPEN_RESOLVED_LOCK_PREFIX . $booking->id, 30);
+        if (!$lock->get()) {
+            return;
+        }
+        try {
+            if (!Cache::add($dedupKey, 1, now()->addYears(5))) {
+                return;
             }
+
+            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+            $vars = array_merge($this->buildReplacements($booking, null), [
+                '{reopen_resolve_remarks}' => trim((string) ($booking->reopen_resolve_remarks ?? '')) !== ''
+                    ? (string) $booking->reopen_resolve_remarks
+                    : '—',
+            ]);
+            $segment = 'reopen_resolved';
+
+            $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'customer',
+                $vars,
+                $customerPhone,
+                $booking,
+                null,
+                'reopen resolved',
+                (string) $booking->id
+            );
+
+            $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'provider',
+                $vars,
+                $providerPhone,
+                $booking,
+                null,
+                'reopen resolved',
+                (string) $booking->id
+            );
         } finally {
             $lock->release();
         }
@@ -243,29 +353,34 @@ class BookingWhatsAppNotificationService
             }
 
             $vars = $this->buildRepeatStatusReplacements($repeat, $parent, $previousBookingStatus);
-            $customerTpl = trim((string) ($config['booking_status_customer'] ?? ''));
-            $providerTpl = trim((string) ($config['booking_status_provider'] ?? ''));
+            $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
 
             $customerPhone = $this->normalizePhone($parent->customer?->phone, $config);
-            if ($customerTpl !== '' && $customerPhone) {
-                $body = $this->interpolate($customerTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($customerPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp repeat booking status (customer) failed', ['booking_repeat_id' => $repeat->id, 'error' => $err]);
-                }
-            }
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'customer',
+                $vars,
+                $customerPhone,
+                $parent,
+                $repeat,
+                'repeat booking status',
+                (string) $repeat->id
+            );
 
             $provider = $repeat->provider ?? $parent->provider;
             $providerPhone = $this->resolveProviderPhone($provider, $config);
-            if ($providerTpl !== '' && $providerPhone) {
-                $body = $this->interpolate($providerTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($providerPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp repeat booking status (provider) failed', ['booking_repeat_id' => $repeat->id, 'error' => $err]);
-                }
-            }
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'provider',
+                $vars,
+                $providerPhone,
+                $parent,
+                $repeat,
+                'repeat booking status',
+                (string) $repeat->id
+            );
         } finally {
             $lock->release();
         }
@@ -286,10 +401,9 @@ class BookingWhatsAppNotificationService
         $vars['{previous_booking_status}'] = '—';
         $vars['{booking_id}'] = (string) ($repeat->readable_id ?? $parent->readable_id ?? $parent->id);
 
-        $schedule = $repeat->service_schedule
-            ? \Carbon\Carbon::parse($repeat->service_schedule)->format('Y-m-d H:i')
-            : '—';
-        $vars['{booking_datetime}'] = $schedule;
+        $vars['{booking_datetime}'] = $this->formatServiceDateTimeForMessages(
+            $repeat->service_schedule ? (string) $repeat->service_schedule : null
+        );
 
         $provider = $repeat->provider ?? $parent->provider;
         $providerName = $provider?->company_name
@@ -323,6 +437,7 @@ class BookingWhatsAppNotificationService
         $vars['{serviceman_name}'] = $sm['name'];
         $vars['{serviceman_phone}'] = $sm['phone'];
         $vars['{verification_status}'] = $this->verificationStateLabel((int) ($parent->is_verified ?? 0));
+        $vars['{reopen_resolve_remarks}'] = '—';
 
         return $vars;
     }
@@ -645,16 +760,26 @@ class BookingWhatsAppNotificationService
         }
     }
 
-    protected function formatScheduleToken(?string $raw): string
+    /**
+     * Human-readable service date/time for all booking WhatsApp placeholders (booking_datetime, previous_service_schedule, dedupe keys).
+     */
+    protected function formatServiceDateTimeForMessages(?string $raw): string
     {
         if (!$raw) {
             return '—';
         }
         try {
-            return \Carbon\Carbon::parse($raw)->format('Y-m-d H:i');
+            $dt = \Carbon\Carbon::parse($raw)->timezone(config('app.timezone'));
+
+            return $dt->format('jS F Y g:i A');
         } catch (\Throwable) {
             return '—';
         }
+    }
+
+    protected function formatScheduleToken(?string $raw): string
+    {
+        return $this->formatServiceDateTimeForMessages($raw);
     }
 
     protected function paymentPaidLabel(int $isPaid): string
@@ -822,6 +947,19 @@ class BookingWhatsAppNotificationService
         $merged['default_phone_prefix'] = '91';
         $merged['apply_default_phone_prefix'] = true;
 
+        foreach (self::statusTemplateSegmentKeys() as $segment) {
+            $ck = 'booking_status_invoice_customer_' . $segment;
+            $pk = 'booking_status_invoice_provider_' . $segment;
+            if (!array_key_exists($ck, $merged)) {
+                $merged[$ck] = false;
+            }
+            if (!array_key_exists($pk, $merged)) {
+                $merged[$pk] = false;
+            }
+            $merged[$ck] = filter_var($merged[$ck], FILTER_VALIDATE_BOOLEAN);
+            $merged[$pk] = filter_var($merged[$pk], FILTER_VALIDATE_BOOLEAN);
+        }
+
         return $merged;
     }
 
@@ -878,9 +1016,9 @@ class BookingWhatsAppNotificationService
         $amountPaid = get_booking_total_paid($booking);
         $due = max(0, round($totalBill - $amountPaid, 2));
 
-        $schedule = $booking->service_schedule
-            ? \Carbon\Carbon::parse($booking->service_schedule)->format('Y-m-d H:i')
-            : '—';
+        $schedule = $this->formatServiceDateTimeForMessages(
+            $booking->service_schedule ? (string) $booking->service_schedule : null
+        );
 
         $serviceWhere = $this->serviceWhereLabel($booking, $customerAddress, $provider);
 
@@ -917,7 +1055,205 @@ class BookingWhatsAppNotificationService
             '{verification_status}' => $this->verificationStateLabel((int) ($booking->is_verified ?? 0)),
             '{previous_verification_status}' => '—',
             '{verification_action}' => '—',
+            '{reopen_resolve_remarks}' => '—',
         ];
+    }
+
+    protected function resolveStatusTemplateSegment(string $previousBookingStatus, string $newStatus): string
+    {
+        $prev = strtolower(trim($previousBookingStatus));
+        $new = strtolower(trim($newStatus));
+        if ($prev === 'completed' && in_array($new, ['pending', 'accepted'], true)) {
+            return 'reopened';
+        }
+
+        $allowed = array_column(BOOKING_STATUSES, 'key');
+        if (in_array($new, $allowed, true)) {
+            return $new;
+        }
+
+        return $new !== '' ? $new : 'pending';
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    protected function pickStatusPartyTemplate(array $config, string $party, string $segment): string
+    {
+        $suffix = $party === 'customer' ? 'customer' : 'provider';
+        $specific = trim((string) ($config['booking_status_' . $suffix . '_' . $segment] ?? ''));
+        if ($specific !== '') {
+            return $specific;
+        }
+
+        return trim((string) ($config['booking_status_' . $suffix] ?? ''));
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    protected function statusInvoiceEnabled(array $config, string $party, string $segment): bool
+    {
+        $key = $party === 'customer'
+            ? 'booking_status_invoice_customer_' . $segment
+            : 'booking_status_invoice_provider_' . $segment;
+
+        return !empty($config[$key]);
+    }
+
+    protected function truncateWhatsAppCaption(string $body): string
+    {
+        if (strlen($body) <= self::WHATSAPP_DOC_CAPTION_MAX) {
+            return $body;
+        }
+
+        return substr($body, 0, self::WHATSAPP_DOC_CAPTION_MAX - 1) . '…';
+    }
+
+    /**
+     * @param  array<string, string>  $vars
+     */
+    protected function deliverStatusTemplateMessage(
+        array $config,
+        string $segment,
+        string $party,
+        array $vars,
+        ?string $phone,
+        Booking $booking,
+        ?BookingRepeat $repeat,
+        string $logContext,
+        string $entityId
+    ): void {
+        if (!$phone) {
+            return;
+        }
+
+        $template = $this->pickStatusPartyTemplate($config, $party, $segment);
+        if ($template === '') {
+            return;
+        }
+
+        $body = $this->interpolate($template, $vars);
+        $attachInvoice = $this->statusInvoiceEnabled($config, $party, $segment);
+        $relativePath = null;
+        if ($attachInvoice) {
+            $relativePath = $this->writeBookingInvoiceToPublicDisk($booking, $repeat);
+        }
+
+        $err = null;
+        if ($relativePath) {
+            $caption = $this->truncateWhatsAppCaption($body);
+            $this->cloud->sendOutbound($phone, $caption, $relativePath, $err);
+            Storage::disk('public')->delete($relativePath);
+            $invoiceParent = dirname($relativePath);
+            if (str_starts_with(basename($invoiceParent), 'wa_')) {
+                Storage::disk('public')->deleteDirectory($invoiceParent);
+            }
+            if ($err) {
+                Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') document send failed, retrying text', [
+                    'entity_id' => $entityId,
+                    'error' => $err,
+                ]);
+                $err = null;
+                $this->cloud->sendText($phone, $body, $err);
+                if ($err) {
+                    Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') text fallback failed', ['entity_id' => $entityId, 'error' => $err]);
+                }
+            }
+
+            return;
+        }
+
+        if ($attachInvoice && !$relativePath) {
+            Log::warning('WhatsApp ' . $logContext . ' (' . $party . '): invoice PDF not generated, sending text only', ['entity_id' => $entityId]);
+        }
+
+        $this->cloud->sendText($phone, $body, $err);
+        if ($err) {
+            Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') failed', ['entity_id' => $entityId, 'error' => $err]);
+        }
+    }
+
+    protected function writeBookingInvoiceToPublicDisk(Booking $booking, ?BookingRepeat $repeat): ?string
+    {
+        try {
+            if (!class_exists(Pdf::class)) {
+                return null;
+            }
+
+            $dir = 'whatsapp-booking-invoices';
+            Storage::disk('public')->makeDirectory($dir);
+
+            if ($repeat) {
+                $row = BookingRepeat::query()
+                    ->with([
+                        'detail.service' => static fn ($q) => $q->withTrashed(),
+                        'booking.extra_services',
+                        'provider',
+                        'serviceman',
+                    ])
+                    ->find($repeat->id);
+                if (!$row || !$row->booking) {
+                    return null;
+                }
+                $row->booking->loadMissing(['customer', 'service_address']);
+                $row->booking->service_address = $row->booking->service_address_location != null
+                    ? json_decode($row->booking->service_address_location)
+                    : $row->booking->service_address;
+                $pdf = Pdf::loadView('bookingmodule::admin.booking.fullbooking-single-invoice', ['booking' => $row]);
+            } else {
+                $b = Booking::query()
+                    ->with([
+                        'detail.service' => static fn ($q) => $q->withTrashed(),
+                        'customer',
+                        'provider',
+                        'serviceman',
+                        'status_histories.user',
+                        'extra_services',
+                        'booking_partial_payments',
+                    ])
+                    ->find($booking->id);
+                if (!$b) {
+                    return null;
+                }
+                $b->service_address = $b->service_address_location != null
+                    ? json_decode($b->service_address_location)
+                    : $b->service_address;
+                $sub_total = $b->detail->sum(fn ($item) => $item->service_cost * $item->quantity);
+                $extraServicesTotal = ($b->extra_services ?? collect())->sum('total');
+                $pdf = Pdf::loadView('bookingmodule::admin.booking.invoice', [
+                    'booking' => $b,
+                    'sub_total' => $sub_total,
+                    'extraServicesTotal' => $extraServicesTotal,
+                ]);
+            }
+
+            $bookingRef = $repeat
+                ? (string) ($repeat->readable_id ?? $booking->readable_id ?? $booking->id)
+                : (string) ($booking->readable_id ?? $booking->id);
+            $bookingRef = trim($bookingRef) !== '' ? trim($bookingRef) : (string) $booking->id;
+            $safeRef = trim(preg_replace('/[^A-Za-z0-9\-_.]+/', '-', $bookingRef), '-');
+            if ($safeRef === '') {
+                $safeRef = (string) $booking->id;
+            }
+
+            $uniqueDir = $dir . '/' . str_replace('.', '', uniqid('wa_', true));
+            Storage::disk('public')->makeDirectory($uniqueDir);
+
+            $basename = 'Invoice - (' . $safeRef . ').pdf';
+            $name = $uniqueDir . '/' . $basename;
+            Storage::disk('public')->put($name, $pdf->output());
+
+            return $name;
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp booking invoice PDF failed', [
+                'booking_id' => $booking->id,
+                'repeat_id' => $repeat?->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**

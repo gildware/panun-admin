@@ -205,6 +205,67 @@ class Booking extends Model
         return $this->hasMany(BookingStatusHistory::class);
     }
 
+    /**
+     * Latest parent-row status history when the booking was set to canceled (not a repeat-instance row).
+     */
+    public function latestParentCancellationStatusHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereIn('booking_status', ['canceled', 'cancelled'])
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest parent-row history when the booking was set to on_hold.
+     */
+    public function latestParentHoldStatusHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->where('booking_status', 'on_hold')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest reopen-from-completed event relevant to this row (in-place / new linked booking, or child follow-up).
+     */
+    public function reopenFromCompletedDisplayEvent(): ?BookingReopenEvent
+    {
+        if (! empty($this->originated_from_booking_id)) {
+            if ($this->relationLoaded('originatedFromBooking') && $this->originatedFromBooking?->relationLoaded('reopenEvents')) {
+                foreach ($this->originatedFromBooking->reopenEvents as $ev) {
+                    if ((string) ($ev->child_booking_id ?? '') === (string) $this->id) {
+                        return $ev;
+                    }
+                }
+            }
+
+            return BookingReopenEvent::query()
+                ->where('source_booking_id', $this->originated_from_booking_id)
+                ->where('child_booking_id', $this->id)
+                ->with('holdReopenReason')
+                ->orderByDesc('created_at')
+                ->first();
+        }
+
+        if ($this->relationLoaded('reopenEvents')) {
+            return $this->reopenEvents->first(fn ($ev) => in_array($ev->resolution, [
+                BookingReopenEvent::RESOLUTION_REOPEN_IN_PLACE,
+                BookingReopenEvent::RESOLUTION_NEW_BOOKING,
+            ], true));
+        }
+
+        return $this->reopenEvents()
+            ->whereIn('resolution', [
+                BookingReopenEvent::RESOLUTION_REOPEN_IN_PLACE,
+                BookingReopenEvent::RESOLUTION_NEW_BOOKING,
+            ])
+            ->with('holdReopenReason')
+            ->orderByDesc('created_at')
+            ->first();
+    }
+
     public function followups(): HasMany
     {
         return $this->hasMany(BookingFollowup::class)->orderByDesc('date')->orderByDesc('created_at');

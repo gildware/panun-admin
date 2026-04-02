@@ -4,9 +4,13 @@
 
 @push('css_or_js')
     <style>
-        .wa-template-input {
-            min-height: 300px;
-            resize: vertical;
+        /* Admin style.css sets textarea.form-control { block-size: 5rem } — override so min-height works */
+        textarea.form-control.wa-template-input {
+            min-height: 400px !important;
+            min-block-size: 400px !important;
+            block-size: auto !important;
+            height: auto !important;
+            resize: vertical !important;
         }
         .wa-template-tabs-scroll {
             overflow-x: auto;
@@ -188,21 +192,81 @@
                         </div>
                         <div class="tab-pane fade" id="wa-tpl-pane-status" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-status" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_status_change_hint') }}</p>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label" for="tpl_booking_status_customer">{{ translate('Customer_template') }}</label>
-                                    <textarea name="booking_status_customer" id="tpl_booking_status_customer"
-                                              class="form-control wa-template-input"
-                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_customer', $config['booking_status_customer'] ?? '') }}</textarea>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="tpl_booking_status_provider">{{ translate('Provider_template') }}</label>
-                                    <textarea name="booking_status_provider" id="tpl_booking_status_provider"
-                                              class="form-control wa-template-input"
-                                              placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_provider', $config['booking_status_provider'] ?? '') }}</textarea>
-                                </div>
+                            <p class="text-muted small mb-2">{{ translate('WhatsApp_template_status_change_hint') }}</p>
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_status_change_per_status_hint') }}</p>
+
+                            <div class="wa-template-tabs-scroll">
+                                <ul class="nav nav-pills flex-nowrap mb-2" id="waStatusSubTabs" role="tablist">
+                                    @foreach($statusTemplateSegments as $i => $segment)
+                                        <li class="nav-item" role="presentation">
+                                            <button type="button" class="nav-link {{ $i === 0 ? 'active' : '' }}"
+                                                    id="wa-status-sub-tab-{{ $segment }}"
+                                                    data-bs-toggle="tab" data-bs-target="#wa-status-sub-{{ $segment }}"
+                                                    role="tab" aria-controls="wa-status-sub-{{ $segment }}"
+                                                    aria-selected="{{ $i === 0 ? 'true' : 'false' }}">
+                                                {{ translate('Booking_status_tpl_' . $segment) }}
+                                            </button>
+                                        </li>
+                                    @endforeach
+                                </ul>
                             </div>
+
+                            <div class="tab-content" id="waStatusSubTabContent">
+                                @foreach($statusTemplateSegments as $i => $segment)
+                                    @php
+                                        $ck = 'booking_status_customer_' . $segment;
+                                        $pk = 'booking_status_provider_' . $segment;
+                                        $ick = 'booking_status_invoice_customer_' . $segment;
+                                        $ipk = 'booking_status_invoice_provider_' . $segment;
+                                    @endphp
+                                    <div class="tab-pane fade {{ $i === 0 ? 'show active' : '' }}" id="wa-status-sub-{{ $segment }}"
+                                         role="tabpanel" aria-labelledby="wa-status-sub-tab-{{ $segment }}" tabindex="0">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="tpl_{{ $ck }}">{{ translate('Customer_template') }}</label>
+                                                <textarea name="{{ $ck }}" id="tpl_{{ $ck }}"
+                                                          class="form-control wa-template-input"
+                                                          placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old($ck, $config[$ck] ?? '') }}</textarea>
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input" type="checkbox" name="{{ $ick }}" id="{{ $ick }}" value="1"
+                                                           @checked((bool) old($ick, $config[$ick] ?? false))>
+                                                    <label class="form-check-label small" for="{{ $ick }}">{{ translate('WhatsApp_send_booking_invoice_with_message') }} ({{ translate('Customer') }})</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="tpl_{{ $pk }}">{{ translate('Provider_template') }}</label>
+                                                <textarea name="{{ $pk }}" id="tpl_{{ $pk }}"
+                                                          class="form-control wa-template-input"
+                                                          placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old($pk, $config[$pk] ?? '') }}</textarea>
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input" type="checkbox" name="{{ $ipk }}" id="{{ $ipk }}" value="1"
+                                                           @checked((bool) old($ipk, $config[$ipk] ?? false))>
+                                                    <label class="form-check-label small" for="{{ $ipk }}">{{ translate('WhatsApp_send_booking_invoice_with_message') }} ({{ translate('Provider') }})</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <details class="mt-4 border rounded p-3 bg-light">
+                                <summary class="fw-semibold cursor-pointer user-select-none">{{ translate('WhatsApp_status_fallback_templates') }}</summary>
+                                <p class="text-muted small mt-2 mb-3">{{ translate('WhatsApp_status_fallback_templates_help') }}</p>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="tpl_booking_status_customer">{{ translate('Customer_template') }}</label>
+                                        <textarea name="booking_status_customer" id="tpl_booking_status_customer"
+                                                  class="form-control wa-template-input"
+                                                  placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_customer', $config['booking_status_customer'] ?? '') }}</textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="tpl_booking_status_provider">{{ translate('Provider_template') }}</label>
+                                        <textarea name="booking_status_provider" id="tpl_booking_status_provider"
+                                                  class="form-control wa-template-input"
+                                                  placeholder="{{ translate('Leave_empty_to_skip_sending_this_message') }}">{{ old('booking_status_provider', $config['booking_status_provider'] ?? '') }}</textarea>
+                                    </div>
+                                </div>
+                            </details>
                         </div>
                         <div class="tab-pane fade" id="wa-tpl-pane-provider-change" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-provider-change" tabindex="0">
@@ -307,158 +371,6 @@
             <button type="submit" class="btn btn--primary">{{ translate('update') }}</button>
             <a href="{{ route('admin.whatsapp.conversations.index') }}" class="btn btn-secondary">{{ translate('cancel') }}</a>
         </form>
-
-        <div class="card mb-3 mt-4">
-            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <strong>{{ translate('WhatsApp_conversation_templates_heading') }}</strong>
-                @can('whatsapp_message_template_update')
-                    <button type="button" class="btn btn-sm btn--primary" id="waConvTplBtnAdd" data-bs-toggle="modal" data-bs-target="#waConvTplModal">
-                        {{ translate('WhatsApp_conversation_template_add_button') }}
-                    </button>
-                @endcan
-            </div>
-            <div class="card-body">
-                <p class="text-muted small mb-3">{{ translate('WhatsApp_conversation_templates_help') }}</p>
-                <p class="small mb-3">
-                    <code>{agent_name}</code> {{ translate('WhatsApp_conversation_templates_agent_placeholder') }}
-                    <code>{customer_name}</code> {{ translate('WhatsApp_conversation_templates_customer_placeholder') }}
-                </p>
-
-                @can('whatsapp_message_template_update')
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 5rem;">{{ translate('Sort') }}</th>
-                                    <th style="min-width: 8rem;">{{ translate('Title') }}</th>
-                                    <th>{{ translate('Message_body') }}</th>
-                                    <th style="width: 6rem;" class="text-center">{{ translate('Status') }}</th>
-                                    <th style="width: 9rem;" class="text-end">{{ translate('Action') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($conversationTemplates ?? [] as $tpl)
-                                    <tr>
-                                        <td>{{ (int) $tpl->sort_order }}</td>
-                                        <td class="fw-semibold">{{ $tpl->title }}</td>
-                                        <td class="text-muted small text-break">{{ \Illuminate\Support\Str::limit($tpl->body, 120) }}</td>
-                                        <td class="text-center">
-                                            <form method="post" action="{{ route('admin.whatsapp.conversation-templates.toggle-active', $tpl) }}" class="d-inline">
-                                                @csrf
-                                                <div class="form-check form-switch d-flex justify-content-center mb-0">
-                                                    <input class="form-check-input" type="checkbox" role="switch"
-                                                           {{ !empty($tpl->is_active) ? 'checked' : '' }}
-                                                           onchange="this.form.requestSubmit();"
-                                                           title="{{ translate('Status') }}">
-                                                </div>
-                                            </form>
-                                        </td>
-                                        <td class="text-end text-nowrap">
-                                            <button type="button" class="btn btn-sm btn-outline-primary wa-conv-tpl-open-edit"
-                                                    data-bs-toggle="modal" data-bs-target="#waConvTplModal"
-                                                    data-tpl-id="{{ $tpl->id }}">
-                                                {{ translate('edit') }}
-                                            </button>
-                                            <form action="{{ route('admin.whatsapp.conversation-templates.destroy', $tpl) }}" method="post" class="d-inline"
-                                                  onsubmit="return confirm({{ json_encode(translate('are_you_sure')) }});">
-                                                @csrf
-                                                @method('delete')
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">{{ translate('delete') }}</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted py-4">{{ translate('no_data_found') }}</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="modal fade" id="waConvTplModal" tabindex="-1" aria-labelledby="waConvTplModalTitle" aria-hidden="true">
-                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="waConvTplModalTitle">{{ translate('WhatsApp_conversation_template_add') }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
-                                </div>
-                                <form id="waConvTplForm" method="post" action="{{ route('admin.whatsapp.conversation-templates.store') }}">
-                                    @csrf
-                                    <input type="hidden" name="_method" id="waConvTplSpoofMethod" value="" disabled autocomplete="off">
-                                    <input type="hidden" name="ct_edit_template_id" id="waConvTplEditId" value="{{ old('ct_edit_template_id', '') }}">
-                                    <div class="modal-body">
-                                        <div class="mb-3">
-                                            <label class="form-label" for="waConvTplTitle">{{ translate('Title') }}</label>
-                                            <input type="text" name="ct_title" id="waConvTplTitle" class="form-control @error('ct_title') is-invalid @enderror"
-                                                   value="{{ old('ct_title') }}" required maxlength="191" placeholder="{{ translate('WhatsApp_conversation_template_title_placeholder') }}">
-                                            @error('ct_title')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label" for="waConvTplBody">{{ translate('Message_body') }}</label>
-                                            <textarea name="ct_body" id="waConvTplBody" class="form-control @error('ct_body') is-invalid @enderror" rows="5" required maxlength="4096"
-                                                      placeholder="{{ translate('WhatsApp_conversation_template_body_placeholder') }}">{{ old('ct_body') }}</textarea>
-                                            @error('ct_body')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                                        </div>
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label" for="waConvTplSort">{{ translate('Sort') }}</label>
-                                                <input type="number" name="ct_sort_order" id="waConvTplSort" class="form-control @error('ct_sort_order') is-invalid @enderror"
-                                                       value="{{ old('ct_sort_order', 0) }}" min="0">
-                                                @error('ct_sort_order')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label d-block">{{ translate('Status') }}</label>
-                                                <input type="hidden" name="ct_is_active" value="0">
-                                                <div class="form-check form-switch mt-2">
-                                                    <input class="form-check-input" type="checkbox" name="ct_is_active" value="1" id="waConvTplActive"
-                                                           @checked(
-                                                               !(old('ct_title') !== null || old('ct_body') !== null || old('ct_sort_order') !== null || old('ct_edit_template_id') !== null)
-                                                               || (string) old('ct_is_active', '1') === '1'
-                                                           )>
-                                                    <label class="form-check-label" for="waConvTplActive">{{ translate('Active') }}</label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('cancel') }}</button>
-                                        <button type="submit" class="btn btn--primary" id="waConvTplSubmitBtn">{{ translate('Save') }}</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <script type="application/json" id="wa-conv-tpl-json">{!! json_encode(($conversationTemplates ?? collect())->map(static fn ($t) => [
-                        'id' => $t->id,
-                        'title' => $t->title,
-                        'body' => $t->body,
-                        'sort_order' => (int) $t->sort_order,
-                        'is_active' => (bool) ($t->is_active ?? true),
-                    ])->values()) !!}</script>
-                @else
-                    @if(($conversationTemplates ?? collect())->isEmpty())
-                        <p class="text-muted mb-0">{{ translate('no_data_found') }}</p>
-                    @else
-                        <div class="table-responsive">
-                            <table class="table table-sm mb-0">
-                                <thead><tr><th>{{ translate('Title') }}</th><th>{{ translate('Message_body') }}</th><th>{{ translate('Status') }}</th></tr></thead>
-                                <tbody>
-                                    @foreach($conversationTemplates as $tpl)
-                                        <tr>
-                                            <td>{{ $tpl->title }}</td>
-                                            <td class="text-muted small">{{ \Illuminate\Support\Str::limit($tpl->body, 120) }}</td>
-                                            <td>{{ !empty($tpl->is_active) ? translate('Active') : translate('Inactive') }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
-                @endcan
-            </div>
-        </div>
     </div>
 @endsection
 
@@ -499,7 +411,9 @@
                 var ta = document.activeElement;
                 if (!ta || !ta.classList || !ta.classList.contains('wa-template-input')) {
                     var activePane = document.querySelector('#waBookingTemplateTabContent .tab-pane.active');
-                    var inPane = activePane ? activePane.querySelectorAll('.wa-template-input') : [];
+                    var nestedPane = activePane ? activePane.querySelector('#waStatusSubTabContent .tab-pane.active') : null;
+                    var scope = nestedPane || activePane;
+                    var inPane = scope ? scope.querySelectorAll('.wa-template-input') : [];
                     ta = inPane.length ? inPane[0] : areas[0];
                 }
                 if (!ta) return;
@@ -512,100 +426,5 @@
                 ta.setSelectionRange(pos, pos);
             });
         });
-
-        (function () {
-            var form = document.getElementById('waConvTplForm');
-            var modalEl = document.getElementById('waConvTplModal');
-            if (!form || !modalEl) return;
-
-            var storeUrl = @json(route('admin.whatsapp.conversation-templates.store'));
-            var updateBase = @json(url('admin/whatsapp/conversation-templates'));
-            var jsonEl = document.getElementById('wa-conv-tpl-json');
-            var payloads = [];
-            try {
-                payloads = jsonEl ? JSON.parse(jsonEl.textContent || '[]') : [];
-            } catch (e) {
-                payloads = [];
-            }
-            var byId = {};
-            payloads.forEach(function (p) {
-                byId[p.id] = p;
-            });
-
-            var spoof = document.getElementById('waConvTplSpoofMethod');
-            var editIdField = document.getElementById('waConvTplEditId');
-            var titleIn = document.getElementById('waConvTplTitle');
-            var bodyIn = document.getElementById('waConvTplBody');
-            var sortIn = document.getElementById('waConvTplSort');
-            var activeIn = document.getElementById('waConvTplActive');
-            var modalTitle = document.getElementById('waConvTplModalTitle');
-            var submitBtn = document.getElementById('waConvTplSubmitBtn');
-            var strAddTitle = {!! json_encode(translate('WhatsApp_conversation_template_add')) !!};
-            var strEditTitle = {!! json_encode(translate('WhatsApp_conversation_template_modal_edit')) !!};
-            var strSave = {!! json_encode(translate('Save')) !!};
-            var strUpdate = {!! json_encode(translate('update')) !!};
-
-            function openAdd() {
-                form.action = storeUrl;
-                if (spoof) {
-                    spoof.value = '';
-                    spoof.disabled = true;
-                }
-                if (editIdField) editIdField.value = '';
-                if (titleIn) titleIn.value = '';
-                if (bodyIn) bodyIn.value = '';
-                if (sortIn) sortIn.value = '0';
-                if (activeIn) activeIn.checked = true;
-                if (modalTitle) modalTitle.textContent = strAddTitle;
-                if (submitBtn) submitBtn.textContent = strSave;
-            }
-
-            function openEdit(id) {
-                var p = byId[id];
-                if (!p) return;
-                form.action = updateBase.replace(/\/$/, '') + '/' + id;
-                if (spoof) {
-                    spoof.value = 'PUT';
-                    spoof.disabled = false;
-                }
-                if (editIdField) editIdField.value = String(id);
-                if (titleIn) titleIn.value = p.title || '';
-                if (bodyIn) bodyIn.value = p.body || '';
-                if (sortIn) sortIn.value = String(p.sort_order != null ? p.sort_order : 0);
-                if (activeIn) activeIn.checked = !!p.is_active;
-                if (modalTitle) modalTitle.textContent = strEditTitle;
-                if (submitBtn) submitBtn.textContent = strUpdate;
-            }
-
-            modalEl.addEventListener('show.bs.modal', function (ev) {
-                var t = ev.relatedTarget;
-                if (!t) return;
-                if (t.id === 'waConvTplBtnAdd') {
-                    openAdd();
-                    return;
-                }
-                var editBtn = t.classList.contains('wa-conv-tpl-open-edit') ? t : (t.closest ? t.closest('.wa-conv-tpl-open-edit') : null);
-                if (editBtn) {
-                    var id = parseInt(editBtn.getAttribute('data-tpl-id'), 10);
-                    if (!isNaN(id)) openEdit(id);
-                }
-            });
-
-            @if($errors->has('ct_title') || $errors->has('ct_body') || $errors->has('ct_sort_order'))
-            document.addEventListener('DOMContentLoaded', function () {
-                var eid = @json(old('ct_edit_template_id'));
-                if (eid) {
-                    form.action = updateBase.replace(/\/$/, '') + '/' + eid;
-                    if (spoof) {
-                        spoof.value = 'PUT';
-                        spoof.disabled = false;
-                    }
-                }
-                if (typeof bootstrap !== 'undefined' && modalEl) {
-                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
-                }
-            });
-            @endif
-        })();
     </script>
 @endpush

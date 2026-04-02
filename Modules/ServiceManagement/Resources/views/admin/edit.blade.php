@@ -34,8 +34,25 @@
                         </div>
                     @endif
 
-                    <div class="card-wrap">
-                        <div class="card-body-inner">
+                    <div class="card category-setup mb-30">
+                        <div class="card-body p-30">
+                            @php
+                                $lang = $lang ?? ['code' => 'default'];
+                                $language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first();
+                                $default_lang = str_replace('_', '-', app()->getLocale());
+                            @endphp
+                            <ul class="nav nav--tabs border-color-primary mb-4" id="service-edit-main-tabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="service-edit-tab-basic" data-bs-toggle="tab"
+                                            data-bs-target="#service-edit-pane-basic" type="button" role="tab"
+                                            aria-controls="service-edit-pane-basic" aria-selected="true">{{ translate('Basic') }}</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="service-edit-tab-charges" data-bs-toggle="tab"
+                                            data-bs-target="#service-edit-pane-charges" type="button" role="tab"
+                                            aria-controls="service-edit-pane-charges" aria-selected="false">{{ translate('Charges_and_Taxes') }}</button>
+                                </li>
+                            </ul>
                             <form action="{{route('admin.service.update',[$service->id])}}" method="post"
                                   enctype="multipart/form-data"
                                   id="service-add-form">
@@ -45,6 +62,9 @@
                                 <div id="form-wizard">
                                     <h3>{{translate('service_information')}}</h3>
                                     <section class="">
+                                        <div class="tab-content">
+                                            <div class="tab-pane fade show active" id="service-edit-pane-basic" role="tabpanel"
+                                                 aria-labelledby="service-edit-tab-basic" tabindex="0">
                                         <div class="row service-description-wrapper">
                                             <div class="col-xxl-9 col-lg-8 mb-5 mb-lg-0">
                                                 <div class="card h-100">
@@ -54,14 +74,6 @@
                                                             <p class="fs-12 text-color">{{ translate('Provide essential service details') }}</p>
                                                         </div>
                                                         <div class="bg-light p-xxl-20 p-12px rounded">
-                                                            @php
-                                                                // Defensive default to avoid "Undefined variable $lang" in edge cases.
-                                                                $lang = $lang ?? ['code' => 'default'];
-                                                                $language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first();
-
-                                                                // Keep this as a normal multiline @php block so Blade always parses it.
-                                                                $default_lang = str_replace('_', '-', app()->getLocale());
-                                                            @endphp
                                                             @if($language)
                                                                 <ul class="nav nav--tabs border-color-primary mb-5 flex-nowrap text-nowrap overflow-auto">
                                                                     <li class="nav-item">
@@ -445,22 +457,60 @@
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div class="row g-lg-4 g-3 mt-1">
-                                                                @can('commission_custom_service_update')
-                                                                    @include('businesssettingsmodule::admin.partials.commission-entity-form-section')
-                                                                @else
-                                                                    <div class="col-12">
-                                                                        <div class="alert alert-soft-primary fz-12" role="alert">
-                                                                            {{ translate('Commission_customization_no_permission_note') }}
-                                                                        </div>
-                                                                    </div>
-                                                                @endcan
-                                                                @include('businesssettingsmodule::admin.partials.additional-charge-entity-overrides-section', [
-                                                                    'additionalChargeOverrideRows' => $additionalChargeOverrideRows,
-                                                                    'formSelector' => '#service-add-form',
-                                                                ])
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                            </div>
+
+                                            <div class="tab-pane fade" id="service-edit-pane-charges" role="tabpanel"
+                                                 aria-labelledby="service-edit-tab-charges" tabindex="0">
+                                                <div class="row mt-2">
+                                                    <div class="col-12">
+                                                        <div id="service-charge-tax-section" class="border rounded p-20 mb-30 bg-white">
+                                                            @include('categorymanagement::admin.partials.entity-tax-override', ['mode' => 'service', 'taxModel' => $service, 'chargeSectionShell' => true])
+                                                            <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
+                                                                <button type="button" class="btn btn--primary js-service-charge-section-save"
+                                                                        data-action-url="{{ route('admin.service.update.charges.tax', $service->id) }}"
+                                                                        data-container-id="service-charge-tax-section">{{ translate('save') }}</button>
                                                             </div>
-                                                            @include('categorymanagement::admin.partials.entity-tax-override', ['mode' => 'service', 'taxModel' => $service])
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        @can('commission_custom_service_update')
+                                                            <div id="service-charge-commission-section" class="border rounded p-20 mb-30 bg-white">
+                                                                @include('businesssettingsmodule::admin.partials.commission-entity-form-section', ['chargeSectionShell' => true])
+                                                                <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
+                                                                    <button type="button" class="btn btn--primary js-service-charge-section-save"
+                                                                            data-action-url="{{ route('admin.service.update.charges.commission', $service->id) }}"
+                                                                            data-container-id="service-charge-commission-section">{{ translate('save') }}</button>
+                                                                </div>
+                                                            </div>
+                                                        @else
+                                                            <div class="border rounded p-20 mb-30 bg-white">
+                                                                <div class="mb-3 pb-3 border-bottom border-light">
+                                                                    <h5 class="mb-0 text-dark">{{ translate('Commission_Settings') }}</h5>
+                                                                </div>
+                                                                <div class="alert alert-soft-primary fz-12 mb-0" role="alert">
+                                                                    {{ translate('Commission_customization_no_permission_note') }}
+                                                                </div>
+                                                            </div>
+                                                        @endcan
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <div id="service-charge-additional-section" class="border rounded p-20 mb-30 bg-white">
+                                                            @include('businesssettingsmodule::admin.partials.additional-charge-entity-overrides-section', [
+                                                                'additionalChargeOverrideRows' => $additionalChargeOverrideRows,
+                                                                'formSelector' => '#service-add-form',
+                                                                'chargeSectionShell' => true,
+                                                            ])
+                                                            <div class="d-flex justify-content-end mt-4 pt-3 border-top border-light">
+                                                                <button type="button" class="btn btn--primary js-service-charge-section-save"
+                                                                        data-action-url="{{ route('admin.service.update.charges.additional', $service->id) }}"
+                                                                        data-container-id="service-charge-additional-section">{{ translate('save') }}</button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -686,6 +736,7 @@
             transitionEffect: "slideLeft",
             autoFocus: true,
             onStepChanged: function (event, currentIndex, priorIndex) {
+                $("#service-edit-main-tabs").toggleClass("d-none", currentIndex !== 0);
                 let nextBtn = $(".actions a[href='#next']");
                 if (nextBtn.hasClass("proceed-to-next")) {
                     setTimeout(function () {
@@ -726,6 +777,17 @@
 
             }
         });
+
+        (function () {
+            function syncServiceEditWizardChromeVisible() {
+                var chargesPane = document.getElementById('service-edit-pane-charges');
+                var chargesActive = chargesPane && chargesPane.classList.contains('active');
+                var $wiz = $('#form-wizard');
+                $wiz.find('.steps').first().add($wiz.find('.actions').first()).toggleClass('d-none', chargesActive);
+            }
+            syncServiceEditWizardChromeVisible();
+            $('#service-edit-tab-basic, #service-edit-tab-charges').on('shown.bs.tab', syncServiceEditWizardChromeVisible);
+        })();
 
         ajax_get('{{url('/')}}/admin/category/ajax-childes-only/{{$service->category_id}}?sub_category_id={{$service->sub_category_id}}', 'sub-category-selector')
 
@@ -1156,6 +1218,60 @@
             } else {
                 $(".from_part_2").addClass('d-none');
             }
+        });
+
+        window.submitServiceChargeSection = function (actionUrl, containerId) {
+            var root = document.getElementById(containerId);
+            if (!root || !actionUrl) return;
+            var tokenInput = document.querySelector('#service-add-form input[name="_token"]');
+            if (!tokenInput) return;
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = actionUrl;
+            form.style.display = 'none';
+            var t = document.createElement('input');
+            t.type = 'hidden';
+            t.name = '_token';
+            t.value = tokenInput.value;
+            form.appendChild(t);
+            var m = document.createElement('input');
+            m.type = 'hidden';
+            m.name = '_method';
+            m.value = 'PUT';
+            form.appendChild(m);
+
+            var prevDisabled = [];
+            root.querySelectorAll('input, select, textarea').forEach(function (el) {
+                if (!el.name) return;
+                prevDisabled.push([el, el.disabled]);
+                el.disabled = false;
+            });
+
+            root.querySelectorAll('input, select, textarea').forEach(function (el) {
+                if (!el.name) return;
+                if (el.type === 'checkbox' || el.type === 'radio') {
+                    if (!el.checked) return;
+                }
+                if (el.type === 'file') return;
+                var c = el.cloneNode(true);
+                c.removeAttribute('id');
+                form.appendChild(c);
+            });
+
+            prevDisabled.forEach(function (pair) {
+                pair[0].disabled = pair[1];
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        };
+
+        document.querySelectorAll('.js-service-charge-section-save').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var url = btn.getAttribute('data-action-url');
+                var cid = btn.getAttribute('data-container-id');
+                window.submitServiceChargeSection(url, cid);
+            });
         });
     </script>
     @can('commission_custom_service_update')

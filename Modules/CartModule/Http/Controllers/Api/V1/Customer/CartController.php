@@ -166,7 +166,8 @@ class CartController extends Controller
 
         $walletBalance = $this->user->find($customerUserId)?->wallet_balance ?? 0;
 
-        $additionalCharge = compute_additional_charges_for_cart_items($cart)['total'];
+        $acComputed = compute_additional_charges_for_cart_items($cart);
+        $additionalCharge = $acComputed['total'];
 
         foreach ($cart as $cartItem) {
             if ($cartItem?->coupon_code && $cartItem?->coupon_id) {
@@ -212,7 +213,16 @@ class CartController extends Controller
 
         $totalCost += $additionalCharge;
 
-        return response()->json(response_formatter(DEFAULT_200, ['total_cost' => $totalCost, 'referral_amount' => $referralAmount, 'wallet_balance' => with_decimal_point($walletBalance), 'cart' => $cart]), 200);
+        return response()->json(response_formatter(DEFAULT_200, [
+            'total_cost' => $totalCost,
+            'referral_amount' => $referralAmount,
+            'wallet_balance' => with_decimal_point($walletBalance),
+            'additional_charges' => [
+                'total' => $additionalCharge,
+                'lines' => $acComputed['lines'],
+            ],
+            'cart' => $cart,
+        ]), 200);
     }
 
     /**
@@ -256,7 +266,8 @@ class CartController extends Controller
             }
         }
 
-        $additionalCharge = compute_additional_charges_for_cart_items($cart)['total'];
+        $acComputed = compute_additional_charges_for_cart_items($cart);
+        $additionalCharge = $acComputed['total'];
         $totalCost = $cart->sum('total_cost');
         $totalTax = $cart->sum('tax_amount');
 
@@ -267,7 +278,16 @@ class CartController extends Controller
 
         $walletBalance = $this->user->find($customerUserId)?->wallet_balance ?? 0;
 
-        return response()->json(response_formatter(DEFAULT_UPDATE_200, ['total_cost' => $totalCost,'referral_amount' => $referralAmount, 'wallet_balance' => with_decimal_point($walletBalance), 'cart' => $cart]), 200);
+        return response()->json(response_formatter(DEFAULT_UPDATE_200, [
+            'total_cost' => $totalCost,
+            'referral_amount' => $referralAmount,
+            'wallet_balance' => with_decimal_point($walletBalance),
+            'additional_charges' => [
+                'total' => $additionalCharge,
+                'lines' => $acComputed['lines'],
+            ],
+            'cart' => $cart,
+        ]), 200);
     }
 
     /**

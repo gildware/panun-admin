@@ -709,6 +709,7 @@ const LANGUAGES = [
 const SYSTEM_MODULES = [
     ['key' => 'dashboard', 'value' => 'Dashboard'],
     ['key' => 'booking', 'value' => 'Booking Management'],
+    ['key' => 'booking_configuration', 'value' => 'Booking Configuration'],
     ['key' => 'promotion', 'value' => 'Promotion Management',
         'submodules' => [
             ['key' => 'discount', 'value' => 'Discounts'],

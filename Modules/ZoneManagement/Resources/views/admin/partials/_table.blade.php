@@ -1,5 +1,17 @@
+@php
+    $defaultOpenRootZoneId = null;
+    foreach ($zones as $z) {
+        if (($z->parent_id ?? null) !== null && ($z->parent_id ?? '') !== '') {
+            continue;
+        }
+        if (($z->childZones ?? collect())->isNotEmpty()) {
+            $defaultOpenRootZoneId = $z->id;
+            break;
+        }
+    }
+@endphp
 <div class="table-responsive">
-    <table id="example" class="table align-middle">
+    <table id="example" class="table align-middle zone-list-table">
         <thead>
         <tr>
             <th>{{translate('SL')}}</th>
@@ -11,68 +23,19 @@
             @can('zone_manage_status')
                 <th>{{translate('status')}}</th>
             @endcan
-            @canany(['zone_delete', 'zone_update'])
-                <th>{{translate('action')}}</th>
-            @endcan
+            <th>{{translate('action')}}</th>
         </tr>
         </thead>
         <tbody>
-        @foreach($zones as $key=>$zone)
-            <tr>
-                <td>{{$key+$zones->firstItem()}}</td>
-                <td>{{$zone->name}}</td>
-                <td>
-                    @if(isset($zone->parentZone) && $zone->parentZone)
-                        {{$zone->parentZone->name}}
-                    @else
-                        {{translate('No_parent_root_zone')}}
-                    @endif
-                </td>
-                <td>
-                    @php($childrenNames = $zone->childZones?->pluck('name')->filter()->values()->all() ?? [])
-                    {{count($childrenNames) ? implode(', ', $childrenNames) : '-'}}
-                </td>
-                <td>{{$zone->providers_count}}</td>
-                <td>{{$zone->categories_count}}</td>
-                @can('zone_manage_status')
-                    <td>
-                        <label class="switcher">
-                            <input class="switcher_input status-update"
-                                   data-id="{{$zone->id}}"
-                                   type="checkbox" {{$zone->is_active?'checked':''}}>
-                            <span class="switcher_control"></span>
-                        </label>
-                    </td>
-                @endcan
-                @canany(['zone_delete', 'zone_update'])
-                    <td>
-                        <div class="d-flex gap-2">
-                            @can('zone_update')
-                                <a href="{{route('admin.zone.edit',[$zone->id])}}"
-                                   class="action-btn btn--light-primary demo_check">
-                                    <span class="material-icons">edit</span>
-                                </a>
-                            @endcan
-                            @can('zone_delete')
-                                <button type="button"
-                                        data-id="delete-{{$zone->id}}"
-                                        data-message="{{translate('want_to_delete_this_zone')}}?"
-                                        class="action-btn btn--danger {{ env('APP_ENV') != 'demo' ? 'form-alert' : 'demo_check' }}"
-                                        style="--size: 30px">
-                                    <span class="material-symbols-outlined">delete</span>
-                                </button>
-                                <form
-                                    action="{{route('admin.zone.delete',[$zone->id])}}"
-                                    method="post" id="delete-{{$zone->id}}"
-                                    class="hidden">
-                                    @csrf
-                                    @method('DELETE')
-                                </form>
-                            @endcan
-                        </div>
-                    </td>
-                @endcan
-            </tr>
+        @foreach($zones as $key => $zone)
+            @include('zonemanagement::admin.partials._zone-table-tree-rows', [
+                'zone' => $zone,
+                'depth' => 0,
+                'parentZoneId' => null,
+                'slIndex' => $key + $zones->firstItem(),
+                'defaultOpenRootZoneId' => $defaultOpenRootZoneId,
+                'branchRootId' => $zone->id,
+            ])
         @endforeach
         </tbody>
     </table>

@@ -319,6 +319,38 @@ if (!function_exists('get_booking_total_paid')) {
     }
 }
 
+if (!function_exists('booking_sum_partials_for_cancel_platform_auto_refund')) {
+    /**
+     * Sum of partial paid_amount that qualifies for automatic wallet + ledger refund on cancel
+     * (see refundTransactionForCanceledBooking). Excludes manual/offline paths so admin Refund does not double-count.
+     */
+    function booking_sum_partials_for_cancel_platform_auto_refund($partials): float
+    {
+        $exclude = ['cash_after_service', 'admin_entry', 'offline', 'offline_payment'];
+
+        return (float) collect($partials)
+            ->reject(fn ($p) => in_array((string) ($p->paid_with ?? ''), $exclude, true))
+            ->sum('paid_amount');
+    }
+}
+
+if (!function_exists('booking_ledger_refund_out_total')) {
+    /**
+     * Sum of ledger OUT rows for this booking with reason refund (money already recorded as leaving the platform).
+     * Cancel auto-refund and admin "Refund customer" both write these; subtract this before recording another OUT.
+     */
+    function booking_ledger_refund_out_total(string $bookingId): float
+    {
+        $sum = LedgerTransaction::query()
+            ->where('booking_id', $bookingId)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->sum('amount');
+
+        return round((float) $sum, 2);
+    }
+}
+
 if (!function_exists('booking_can_be_completed')) {
     /**
      * Booking can only be completed if total_paid >= booking_total.

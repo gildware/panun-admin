@@ -227,9 +227,21 @@ class ProviderController extends Controller
      * @return Renderable
      * @throws AuthorizationException
      */
-    public function create(): Renderable
+    public function create(Request $request): Renderable|RedirectResponse
     {
         $this->authorize('provider_add');
+
+        if ($request->boolean('reset')) {
+            $request->session()->forget('_old_input');
+            $this->clearProviderFormDraft('create');
+
+            return redirect()->route('admin.provider.create');
+        }
+
+        if (! $request->session()->has('_old_input')) {
+            $this->clearProviderFormDraft('create');
+        }
+
         $zones = $this->zone->get();
         $zoneTree = $this->zoneTreeForProviderForm();
         $commission = (int)((business_config('provider_commision', 'provider_config'))->live_values ?? null);
@@ -954,7 +966,12 @@ class ProviderController extends Controller
         elseif ($request->web_page == 'subscribed_services') {
             $search = $request->has('search') ? $request['search'] : '';
             $status = $request->has('status') ? $request['status'] : 'all';
-            $queryParam = ['web_page' => $webPage, 'status' => $status, 'search' => $search];
+            $rawCategoryIds = $request->input('category_ids', []);
+            if (! is_array($rawCategoryIds)) {
+                $rawCategoryIds = [];
+            }
+            $selectedCategoryIds = [];
+            $subscribedFilterCategories = collect();
 
             $subscribedServicesEmptyState = null;
             $subscribedServicesZoneNames = [];
@@ -970,6 +987,12 @@ class ProviderController extends Controller
             $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds($coverageZoneIds);
 
             if ($leafZoneIds === []) {
+                $queryParam = array_filter([
+                    'web_page' => $webPage,
+                    'status' => $status,
+                    'search' => trim((string) $search) !== '' ? $search : null,
+                ], fn ($v) => $v !== null && $v !== '');
+
                 $subCategories = new \Illuminate\Pagination\LengthAwarePaginator(
                     collect(),
                     0,
@@ -1002,6 +1025,35 @@ class ProviderController extends Controller
                     ->values()
                     ->all();
 
+                $allowedParentIds = $this->subCategoriesForZonesQuery($leafZoneIds)
+                    ->pluck('parent_id')
+                    ->unique()
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                $subscribedFilterCategories = $this->category
+                    ->whereIn('id', $allowedParentIds)
+                    ->ofType('main')
+                    ->ofStatus(1)
+                    ->orderBy('name')
+                    ->get();
+
+                $allowedParentIdSet = array_flip($allowedParentIds);
+                foreach ($rawCategoryIds as $rid) {
+                    if (is_string($rid) && Str::isUuid($rid) && isset($allowedParentIdSet[$rid])) {
+                        $selectedCategoryIds[] = $rid;
+                    }
+                }
+                $selectedCategoryIds = array_values(array_unique($selectedCategoryIds));
+
+                $queryParam = array_filter([
+                    'web_page' => $webPage,
+                    'status' => $status,
+                    'search' => trim((string) $search) !== '' ? $search : null,
+                    'category_ids' => $selectedCategoryIds !== [] ? $selectedCategoryIds : null,
+                ], fn ($v) => $v !== null && $v !== '');
+
                 // Get all subcategories available for the provider's zones
                 $subCategoriesQuery = $this->category->withCount('services')
                     ->with(['services'])
@@ -1012,7 +1064,10 @@ class ProviderController extends Controller
                         $query->where('is_active', 1);
                     })
                     ->ofStatus(1)
-                    ->ofType('sub');
+                    ->ofType('sub')
+                    ->when($selectedCategoryIds !== [], function ($query) use ($selectedCategoryIds) {
+                        $query->whereIn('parent_id', $selectedCategoryIds);
+                    });
 
                 // Apply search filter
                 if ($search) {
@@ -1027,48 +1082,62 @@ class ProviderController extends Controller
                 // Get all subcategories
                 $allSubCategories = $subCategoriesQuery->get();
 
-                // Ensure all subcategories have a subscribed_service record
-                foreach ($allSubCategories as $subCategory) {
-                    $existingService = $this->subscribedService
-                        ->where('provider_id', $id)
-                        ->where('sub_category_id', $subCategory->id)
-                        ->first();
+                if ($allSubCategories->isEmpty()) {
+                    $subCategories = new \Illuminate\Pagination\LengthAwarePaginator(
+                        collect(),
+                        0,
+                        pagination_limit(),
+                        1,
+                        ['path' => $request->url()]
+                    );
+                    $subCategories->appends($queryParam);
+                } else {
+                    // Ensure all subcategories have a subscribed_service record
+                    foreach ($allSubCategories as $subCategory) {
+                        $existingService = $this->subscribedService
+                            ->where('provider_id', $id)
+                            ->where('sub_category_id', $subCategory->id)
+                            ->first();
 
-                    if (!$existingService) {
-                        // Create a subscribed_service record with is_subscribed = 0
-                        $this->subscribedService->create([
-                            'provider_id' => $id,
-                            'sub_category_id' => $subCategory->id,
-                            'category_id' => $subCategory->parent_id,
-                            'is_subscribed' => 0
-                        ]);
+                        if (!$existingService) {
+                            $this->subscribedService->create([
+                                'provider_id' => $id,
+                                'sub_category_id' => $subCategory->id,
+                                'category_id' => $subCategory->parent_id,
+                                'is_subscribed' => 0
+                            ]);
+                        }
                     }
-                }
 
-                // Now get all subscribed_services for this provider with subcategory data
-                $subCategories = $this->subscribedService->where('provider_id', $id)
-                    ->whereIn('sub_category_id', $allSubCategories->pluck('id')->toArray())
-                    ->with([
-                        'category',
-                        'sub_category' => function ($query) {
-                            return $query->withCount('services')->with(['services', 'parent']);
-                        },
-                    ])
-                    ->when($status != 'all', function ($query) use ($status) {
-                        return $query->where('is_subscribed', (($status == 'subscribed') ? 1 : 0));
-                    })
-                    ->when(trim((string) $search) !== '', function ($query) use ($search) {
-                        $query->where(function ($q) use ($search) {
-                            foreach (array_filter(explode(' ', $search)) as $key) {
-                                $q->orWhereHas('sub_category', function ($sub) use ($key) {
-                                    $sub->where('name', 'LIKE', '%' . $key . '%');
-                                });
-                            }
-                        });
-                    })
-                    ->latest()
-                    ->paginate(pagination_limit())
-                    ->appends($queryParam);
+                    $subCategories = $this->subscribedService->newQuery()
+                        ->where('subscribed_services.provider_id', $id)
+                        ->whereIn('subscribed_services.sub_category_id', $allSubCategories->pluck('id')->toArray())
+                        ->join('categories as ss_cat_parent', 'ss_cat_parent.id', '=', 'subscribed_services.category_id')
+                        ->join('categories as ss_cat_sub', 'ss_cat_sub.id', '=', 'subscribed_services.sub_category_id')
+                        ->select('subscribed_services.*')
+                        ->with([
+                            'category',
+                            'sub_category' => function ($query) {
+                                return $query->withCount('services')->with(['services', 'parent']);
+                            },
+                        ])
+                        ->when($status != 'all', function ($query) use ($status) {
+                            return $query->where('subscribed_services.is_subscribed', (($status == 'subscribed') ? 1 : 0));
+                        })
+                        ->when(trim((string) $search) !== '', function ($query) use ($search) {
+                            $query->where(function ($q) use ($search) {
+                                foreach (array_filter(explode(' ', $search)) as $key) {
+                                    $q->orWhereHas('sub_category', function ($sub) use ($key) {
+                                        $sub->where('name', 'LIKE', '%' . $key . '%');
+                                    });
+                                }
+                            });
+                        })
+                        ->orderBy('ss_cat_parent.name')
+                        ->orderBy('ss_cat_sub.name')
+                        ->paginate(pagination_limit())
+                        ->appends($queryParam);
+                }
             }
 
             if ($subCategories->total() === 0 && $subscribedServicesEmptyState === null) {
@@ -1084,7 +1153,9 @@ class ProviderController extends Controller
                 'search',
                 'provider',
                 'subscribedServicesEmptyState',
-                'subscribedServicesZoneNames'
+                'subscribedServicesZoneNames',
+                'subscribedFilterCategories',
+                'selectedCategoryIds'
             ));
 
         } //bookings
@@ -2321,9 +2392,8 @@ class ProviderController extends Controller
 
     public function availableProviderList(Request $request): JsonResponse
     {
-        $sortBy = $request->sort_by ?? 'default';
+        $sort_by = $request->input('sort_by', 'default');
         $search = $request->search;
-        $sortBy = $request->sort_by;
         $bookingId = $request->booking_id;
         $booking = $this->booking->where('id', $bookingId)->first();
 
@@ -2352,16 +2422,16 @@ class ProviderController extends Controller
                     }
                 });
             })
-            ->when($sortBy === 'top-rated', function ($query) {
+            ->when($sort_by === 'top-rated', function ($query) {
                 return $query->orderBy('avg_rating', 'desc');
             })
-            ->when($sortBy === 'bookings-completed', function ($query) {
+            ->when($sort_by === 'bookings-completed', function ($query) {
                 $query->withCount(['bookings' => function ($query) {
                     $query->where('booking_status', 'completed');
                 }]);
                 $query->orderBy('bookings_count', 'desc');
             })
-            ->when($sortBy !== 'bookings-completed', function ($query) {
+            ->when($sort_by !== 'bookings-completed', function ($query) {
                 return $query->withCount('bookings');
             })
             ->when(filled($booking->sub_category_id), function ($query) use ($booking) {
@@ -2375,16 +2445,13 @@ class ProviderController extends Controller
             })
             ->where('service_availability', 1)
             ->where('is_active_for_jobs', 1)
-            ->when($sortBy === 'default', function ($q) {
+            ->when($sort_by === 'default', function ($q) {
                 // Deprioritize "warning" providers compared to "active" providers.
                 $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END");
             })
             ->withCount('reviews')
             ->ofApproval(1)
             ->ofStatus(1)
-            ->when($booking->provider_id, function ($query) use ($booking) {
-                $query->whereNot('id', $booking->provider_id);
-            })
             ->get();
 
         $providers = [];
@@ -2400,7 +2467,7 @@ class ProviderController extends Controller
         }, 'detail.service.category', 'detail.service.subCategory', 'detail.variation', 'customer', 'provider', 'service_address', 'serviceman', 'service_address', 'status_histories.user'])->find($bookingId);
 
         return response()->json([
-            'view' => view('providermanagement::admin.partials.details.provider-info-modal-data', compact('providers', 'booking', 'search', 'sortBy'))->render()
+            'view' => view('bookingmodule::admin.booking.partials.details.provider-info-modal-data', compact('providers', 'booking', 'search', 'sort_by'))->render(),
         ]);
     }
 
@@ -2423,7 +2490,7 @@ class ProviderController extends Controller
             return response()->json(['message' => 'Invalid request data'], 400);
         }
 
-        $sortBy = $request->sort_by ?? 'default';
+        $sort_by = $request->input('sort_by', 'default');
         $search = $request->search;
 
         $booking = $this->booking->find($request->booking_id);
@@ -2449,7 +2516,7 @@ class ProviderController extends Controller
             $providers = $this->fetchProviders($request, $booking);
 
             return response()->json([
-                'view' => view('providermanagement::admin.partials.details.provider-info-modal-data', compact('providers', 'booking', 'search', 'sortBy'))->render(),
+                'view' => view('bookingmodule::admin.booking.partials.details.provider-info-modal-data', compact('providers', 'booking', 'search', 'sort_by'))->render(),
             ]);
         }
 
@@ -2473,13 +2540,12 @@ class ProviderController extends Controller
             $providers = $this->fetchProviders($request, $bookingRepeat->booking);
 
             return response()->json([
-                'view' => view('providermanagement::admin.partials.details.provider-info-modal-data', [
+                'view' => view('bookingmodule::admin.booking.partials.details.provider-info-modal-data', [
                     'providers' => $providers,
                     'booking' => $bookingRepeat,
                     'search' => $search,
-                    'sortBy' => $sortBy,
+                    'sort_by' => $sort_by,
                 ])->render(),
-
             ]);
         }
 
@@ -2584,9 +2650,6 @@ class ProviderController extends Controller
             ->ofApproval(1)
             ->ofStatus(1)
             ->when($request->sort_by === 'default', fn ($q) => $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END"))
-            ->when($booking->provider_id, function ($query) use ($booking) {
-                $query->whereNot('id', $booking->provider_id);
-            })
             ->get();
 
         $providers = [];

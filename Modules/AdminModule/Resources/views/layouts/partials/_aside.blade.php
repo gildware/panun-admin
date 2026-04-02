@@ -157,16 +157,25 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
 
-            @can('booking_view')
+            @canany(['booking_view', 'booking_configuration_view'])
                 <li class="nav-category" title="{{translate('booking_management')}}">
                     {{translate('booking_management')}}
                 </li>
-                <li class="has-sub-item {{request()->is('admin/booking/*')?'sub-menu-opened':''}}">
-                    <a href="#" class="{{request()->is('admin/booking/*')?'active-menu':''}}">
+                <li class="has-sub-item {{ request()->is('admin/booking/*') ? 'sub-menu-opened' : '' }}">
+                    <a href="#" class="{{ request()->is('admin/booking/*') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="Bookings">calendar_month</span>
                         <span class="link-title">{{translate('bookings')}}</span>
                     </a>
                     <ul class="nav sub-menu">
+                        @can('booking_configuration_view')
+                            <li>
+                                <a href="{{ route('admin.booking.configuration.index') }}"
+                                   class="{{ request()->is('admin/booking/configuration*') ? 'active-menu' : '' }}">
+                                    <span class="link-title">{{ translate('Booking_Configuration') }}</span>
+                                </a>
+                            </li>
+                        @endcan
+                        @can('booking_view')
                         <li>
                             <a href="{{ route('admin.booking.create') }}"
                                class="{{ request()->is('admin/booking/create') ? 'active-menu' : '' }}">
@@ -202,9 +211,10 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                 </span>
                             </a>
                         </li>
+                        @endcan
                     </ul>
                 </li>
-            @endcan
+            @endcanany
 
             @canany(['report_view', 'analytics_view', 'lead_report_view'])
                 <li class="nav-category" title="{{ translate('Reports & Analytics') }}">

@@ -31,9 +31,18 @@
                                     <option value="pending">{{ translate('Pending') }}</option>
                                 </select>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label">{{ translate('Reopen_reason') }} <span class="text-danger">*</span></label>
+                                <select name="booking_hold_reopen_reason_id" class="form-select" required>
+                                    <option value="">{{ translate('Select') }}</option>
+                                    @foreach($bookingReopenReasons ?? [] as $r)
+                                        <option value="{{ $r->id }}" @selected((string) old('booking_hold_reopen_reason_id') === (string) $r->id)>{{ $r->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <div class="mb-0">
                                 <label class="form-label">{{ translate('Complaint_or_notes') }}</label>
-                                <textarea name="complaint_notes" class="form-control" rows="4" maxlength="5000" placeholder="{{ translate('Describe_the_issue_optional') }}"></textarea>
+                                <textarea name="complaint_notes" class="form-control" rows="4" maxlength="5000" placeholder="{{ translate('Describe_the_issue_optional') }}">{{ old('complaint_notes') }}</textarea>
                             </div>
                         </div>
                         <div class="modal-footer">

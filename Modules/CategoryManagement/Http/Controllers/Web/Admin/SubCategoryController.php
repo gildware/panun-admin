@@ -244,7 +244,7 @@ class SubCategoryController extends Controller
             'parent_id' => 'required|uuid',
             'short_description' => 'required',
             'short_description.0' => 'required',
-            'image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
         ],
             [
                 'name.0.required' => translate('default_name_is_required'),
@@ -257,20 +257,13 @@ class SubCategoryController extends Controller
             return response()->json(response_formatter(CATEGORY_204), 204);
         }
 
-        if (Gate::allows('commission_custom_sub_category_update')) {
-            CommissionEntitySetup::applyFromRequestToModel($request, $category);
-        }
-
-        AdditionalChargeEntityOverrides::applyFromRequestToModel($request, $category);
-
         $category->name = $request->name[array_search('default', $request->lang)];
-        if ($request->has('image')) {
+        if ($request->hasFile('image')) {
             $category->image = file_uploader('category/', APPLICATION_IMAGE_FORMAT, $request->file('image'), $category->image);
         }
         $category->parent_id = $request['parent_id'];
         $category->position = 2;
         $category->description = $request->short_description[array_search('default', $request->lang)];;
-        $this->applyCategoryTaxFieldsFromRequest($request, $category);
         $category->save();
 
         $defaultLanguage = str_replace('_', '-', app()->getLocale());
@@ -330,6 +323,60 @@ class SubCategoryController extends Controller
         return redirect()
             ->route('admin.sub-category.edit', $id)
             ->with('sub_category_updated', translate(CATEGORY_UPDATE_200['message']));
+    }
+
+    public function updateChargesTax(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('category_update');
+        $category = $this->category->ofType('sub')->where('id', $id)->first();
+        if (!$category) {
+            Toastr::error(translate(CATEGORY_204['message']));
+
+            return back();
+        }
+        $this->applyCategoryTaxFieldsFromRequest($request, $category);
+        $category->save();
+
+        return redirect()
+            ->route('admin.sub-category.edit', $id)
+            ->with('sub_category_updated', translate('Entity_charges_saved'));
+    }
+
+    public function updateChargesCommission(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('category_update');
+        if (! Gate::allows('commission_custom_sub_category_update')) {
+            abort(403);
+        }
+        $category = $this->category->ofType('sub')->where('id', $id)->first();
+        if (!$category) {
+            Toastr::error(translate(CATEGORY_204['message']));
+
+            return back();
+        }
+        CommissionEntitySetup::applyFromRequestToModel($request, $category);
+        $category->save();
+
+        return redirect()
+            ->route('admin.sub-category.edit', $id)
+            ->with('sub_category_updated', translate('Entity_charges_saved'));
+    }
+
+    public function updateChargesAdditional(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('category_update');
+        $category = $this->category->ofType('sub')->where('id', $id)->first();
+        if (!$category) {
+            Toastr::error(translate(CATEGORY_204['message']));
+
+            return back();
+        }
+        AdditionalChargeEntityOverrides::applyFromRequestToModel($request, $category);
+        $category->save();
+
+        return redirect()
+            ->route('admin.sub-category.edit', $id)
+            ->with('sub_category_updated', translate('Entity_charges_saved'));
     }
 
     /**

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\BookingModule\Http\Controllers\Web\Admin\BookingConfigurationController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingController;
 use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as ProviderBookingController;
 
@@ -23,8 +24,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('followup/{id}/{followupId}', [BookingController::class, 'updateFollowup'])->name('followup.update');
         Route::get('repeat-details/{id}', [BookingController::class, 'repeatDetails'])->name('repeat_details');
         Route::get('repeat-single-details/{id}', [BookingController::class, 'repeatSingleDetails'])->name('repeat_single_details');
-        Route::get('status-update/{id}', [BookingController::class, 'statusUpdate'])->name('status_update');
-        Route::get('up-coming-booking-cancel/{id}', [BookingController::class, 'upComingBookingCancel'])->name('up_coming_booking_cancel');
+        Route::match(['get', 'post'], 'status-update/{id}', [BookingController::class, 'statusUpdate'])->name('status_update');
+        Route::post('up-coming-booking-cancel/{id}', [BookingController::class, 'upComingBookingCancel'])->name('up_coming_booking_cancel');
+        Route::get('configuration', [BookingConfigurationController::class, 'index'])->middleware(['can:booking_configuration_view'])->name('configuration.index');
+        Route::post('configuration', [BookingConfigurationController::class, 'store'])->middleware(['can:booking_configuration_add'])->name('configuration.store');
+        Route::put('configuration/{id}', [BookingConfigurationController::class, 'update'])->middleware(['can:booking_configuration_update'])->name('configuration.update');
+        Route::delete('configuration/{id}', [BookingConfigurationController::class, 'destroy'])->middleware(['can:booking_configuration_delete'])->name('configuration.destroy');
         Route::get('verification-status-update/{id}', [BookingController::class, 'verificationUpdate'])->name('verification_status_update');
         Route::post('verification-status/{id}', [BookingController::class, 'verificationStatus'])->name('verification-status');
         Route::get('payment-update/{id}', [BookingController::class, 'paymentUpdate'])->name('payment_update');
