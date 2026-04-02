@@ -49,7 +49,7 @@ class PostController extends Controller
 
         $zones = Zone::withoutGlobalScope('translate')->select('id', 'name')->get();
         $categories = Category::select('id', 'parent_id', 'name')->where('position', 1)->get();
-        $customers = User::where('user_type', 'customer')
+        $customers = User::query()->inCustomerDirectory()
             ->orderByDesc('created_at')
             ->select('id', 'first_name', 'last_name', 'phone')
             ->limit(200)

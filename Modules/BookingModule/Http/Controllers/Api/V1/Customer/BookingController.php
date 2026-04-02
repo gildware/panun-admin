@@ -150,7 +150,7 @@ class BookingController extends Controller
         }
 
         $minimumBookingAmount = (float)(business_config('min_booking_amount', 'booking_setup'))?->live_values;
-        $totalBookingAmount = cart_total($customerUserId) + getServiceFee();
+        $totalBookingAmount = cart_total($customerUserId) + getServiceFee($customerUserId);
 
         if (!isset($request['post_id']) && $minimumBookingAmount > 0 && $totalBookingAmount < $minimumBookingAmount) {
             return response()->json(response_formatter(MINIMUM_BOOKING_AMOUNT_200), 200);
@@ -160,15 +160,18 @@ class BookingController extends Controller
             if (!isset($request['post_id'])) {
                 $response = $this->placeBookingRequest(userId: $customerUserId, request: $request, transactionId: 'wallet_payment', newUserInfo: $newUserInfo);
             } else {
-                $postBid = PostBid::with(['post'])
+                $postBid = PostBid::with(['post.service.category', 'post.service.subCategory'])
                     ->where('post_id', $request['post_id'])
                     ->where('provider_id', $request['provider_id'])
                     ->first();
 
+                $bidService = $postBid?->post?->service;
+                $bidTaxPct = effective_service_tax_percentage($bidService);
+
                 $data = [
                     'payment_method' => $request['payment_method'],
                     'zone_id' => $request['zone_id'],
-                    'service_tax' => $postBid?->post?->service?->tax,
+                    'service_tax' => $bidTaxPct,
                     'provider_id' => $postBid->provider_id,
                     'price' => $postBid->offered_price,
                     'service_schedule' => !is_null($request['booking_schedule']) ? $request['booking_schedule'] : $postBid->post->booking_schedule,
@@ -180,7 +183,7 @@ class BookingController extends Controller
                 ];
 
                 $user = User::find($customerUserId);
-                $tax = !is_null($data['service_tax']) ? round((($data['price'] * $data['service_tax']) / 100) * 1, 2) : 0;
+                $tax = round(($postBid->offered_price * $bidTaxPct) / 100, 2);
                 if (isset($user) && $user->wallet_balance < ($postBid->offered_price + $tax)) {
                     return response()->json(response_formatter(INSUFFICIENT_WALLET_BALANCE_400), 400);
                 }
@@ -196,15 +199,17 @@ class BookingController extends Controller
             if (!isset($request['post_id'])) {
                 $response = $this->placeBookingRequest($customerUserId, $request, 'offline-payment', newUserInfo: $newUserInfo, isGuest: !$this->isCustomerLoggedIn);
             } else {
-                $postBid = PostBid::with(['post'])
+                $postBid = PostBid::with(['post.service.category', 'post.service.subCategory'])
                     ->where('post_id', $request['post_id'])
                     ->where('provider_id', $request['provider_id'])
                     ->first();
 
+                $bidTaxPctOffline = effective_service_tax_percentage($postBid?->post?->service);
+
                 $data = [
                     'payment_method' => $request['payment_method'],
                     'zone_id' => $request['zone_id'],
-                    'service_tax' => $postBid?->post?->service?->tax,
+                    'service_tax' => $bidTaxPctOffline,
                     'provider_id' => $postBid->provider_id,
                     'price' => $postBid->offered_price,
                     'service_schedule' => !is_null($request['booking_schedule']) ? $request['booking_schedule'] : $postBid->post->booking_schedule,
@@ -752,6 +757,7 @@ class BookingController extends Controller
             $user->phone = $additional_data['phone'];
             $user->password = bcrypt($additional_data['password']);
             $user->user_type = 'customer';
+            $user->customer_app_access = true;
             $user->is_active = 1;
             $user->save();
 

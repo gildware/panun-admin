@@ -57,7 +57,7 @@ class PaymentResponse
 
         } else {
             //for bidding
-            $post_bid = PostBid::with(['post'])
+            $post_bid = PostBid::with(['post.service.category', 'post.service.subCategory'])
                 ->where('post_id', $request['post_id'])
                 ->where('provider_id', $request['provider_id'])
                 ->first();
@@ -65,7 +65,7 @@ class PaymentResponse
             $data = [
                 'payment_method' => $request['payment_method'],
                 'zone_id' => $request['zone_id'],
-                'service_tax' => $post_bid?->post?->service?->tax,
+                'service_tax' => $post_bid?->post?->service ? effective_service_tax_percentage($post_bid->post->service) : null,
                 'provider_id' => $post_bid?->provider_id,
                 'price' => $post_bid?->offered_price,
                 'service_schedule' => !is_null($request['service_schedule']) ? $request['service_schedule'] : $post_bid->post->booking_schedule,

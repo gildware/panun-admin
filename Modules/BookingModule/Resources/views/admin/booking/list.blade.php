@@ -75,6 +75,27 @@
                         </select>
                     </div>
                 </div>
+                <div class="filter-aside__assignee_select">
+                    <h4 class="mb-2 fw-normal">{{ translate('Select_Assignee') }}</h4>
+                    <div class="mb-30">
+                        <select class="assignee-select theme-input-style w-100" name="assignee_ids[]" multiple="multiple"
+                            id="assignee_selector__select">
+                            <option value="all">{{ translate('Select All') }}</option>
+                            <option value="__unassigned__"
+                                {{ in_array('__unassigned__', $queryParams['assignee_ids'] ?? [], true) ? 'selected' : '' }}>
+                                {{ translate('Unassigned') }}
+                            </option>
+                            @foreach ($assigneeUsers ?? [] as $assigneeUser)
+                                <option value="{{ $assigneeUser->id }}"
+                                    {{ in_array($assigneeUser->id, $queryParams['assignee_ids'] ?? [], true) ? 'selected' : '' }}>
+                                    {{ $assigneeUser->first_name }} {{ $assigneeUser->last_name }}
+                                    ({{ $assigneeUser->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }})
+                                    — {{ $assigneeUser->email ?? $assigneeUser->phone }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="filter-aside__bottom_btns p-20">
                 <div class="d-flex justify-content-center gap-20">
@@ -92,12 +113,16 @@
                 <div class="col-12">
                     <div
                         class="page-title-wrap d-flex flex-wrap justify-content-between align-items-center border-bottom pb-2">
-                        @if(request('booking_status') === 'reopened')
+                        @if(($queryParams['booking_status'] ?? '') === 'reopened')
                             <h2 class="page-title">{{ translate('Reopened_bookings') }}</h2>
-                        @elseif(request('booking_status'))
-                            <h2 class="page-title">{{ ucfirst(request('booking_status')) }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'on_hold')
+                            <h2 class="page-title">{{ translate('On_hold_bookings') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'all')
+                            <h2 class="page-title">{{ translate('Booking_Requests') }}</h2>
+                        @elseif($queryParams['booking_status'] ?? null)
+                            <h2 class="page-title">{{ ucwords(str_replace('_', ' ', $queryParams['booking_status'])) }}</h2>
                         @else
-                            <h2 class="page-title">{{ translate('Booking_Request') }}</h2>
+                            <h2 class="page-title">{{ translate('Booking_Requests') }}</h2>
                         @endif
 
                         <div class="d-flex gap-2 fw-medium">
@@ -105,24 +130,68 @@
                             <span class="title-color">{{ $bookings->total() }}</span>
                         </div>
                     </div>
+                    @php
+                        $bookingListTabStatus = $queryParams['booking_status'] ?? 'all';
+                        if ($bookingListTabStatus === '') {
+                            $bookingListTabStatus = 'all';
+                        }
+                    @endphp
                     <div class="mt-30 mb-30">
-                        <ul class="nav nav--tabs nav--tabs__style2">
+                        <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2">
                             <li class="nav-item">
-                                <a class="nav-link {{ request('service_type') === 'all' || !request('service_type') ? 'active' : '' }}"
-                                   href="{{ url()->current() }}?booking_status={{ $queryParams['booking_status'] }}&service_type=all">
+                                <a class="nav-link {{ $bookingListTabStatus === 'all' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'all'])) }}">
                                     {{ translate('All Booking') }}
+                                    <span class="count">{{ $bookingTabCounts['all'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {{ request('service_type') === 'regular' ? 'active' : '' }}"
-                                   href="{{ url()->current() }}?booking_status={{ $queryParams['booking_status'] }}&service_type=regular">
-                                    {{ translate('Regular Booking') }}
+                                <a class="nav-link {{ $bookingListTabStatus === 'pending' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'pending'])) }}">
+                                    {{ translate('Pending_Booking') }}
+                                    <span class="count">{{ $bookingTabCounts['pending'] }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {{ request('service_type') === 'repeat' ? 'active' : '' }}"
-                                   href="{{ url()->current() }}?booking_status={{ $queryParams['booking_status'] }}&service_type=repeat">
-                                    {{ translate('Repeat Booking') }}
+                                <a class="nav-link {{ $bookingListTabStatus === 'accepted' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'accepted'])) }}">
+                                    {{ translate('Accepted') }}
+                                    <span class="count">{{ $bookingTabCounts['accepted'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'ongoing' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'ongoing'])) }}">
+                                    {{ translate('Ongoing') }}
+                                    <span class="count">{{ $bookingTabCounts['ongoing'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'completed' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'completed'])) }}">
+                                    {{ translate('Completed') }}
+                                    <span class="count">{{ $bookingTabCounts['completed'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'reopened' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'reopened'])) }}">
+                                    {{ translate('Reopened') }}
+                                    <span class="count">{{ $bookingTabCounts['reopened'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'on_hold' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'on_hold'])) }}">
+                                    {{ translate('On_hold') }}
+                                    <span class="count">{{ $bookingTabCounts['on_hold'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'canceled' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'canceled'])) }}">
+                                    {{ translate('Canceled') }}
+                                    <span class="count">{{ $bookingTabCounts['canceled'] }}</span>
                                 </a>
                             </li>
                         </ul>
@@ -148,7 +217,7 @@
                                         class="btn btn--primary">{{ translate('search') }}</button>
                                 </form>
                                 <div class="d-flex flex-wrap align-items-center gap-3">
-                                    @if(request()->booking_status != 'ongoing' && request()->booking_status != 'accepted' && request()->booking_status != 'completed')
+                                    @if(request()->booking_status != 'ongoing' && request()->booking_status != 'on_hold' && request()->booking_status != 'accepted' && request()->booking_status != 'completed')
                                         <div class="">
                                             <select class="custom-select form-select min-w-120" name="provider_assigned" id="providerAssigned">
                                                 <option value="all" {{ request('provider_assigned') == 'all' ? 'selected' : '' }}>{{ translate('All Booking') }}</option>
@@ -565,6 +634,14 @@
                 }
             });
 
+            $('#assignee_selector__select').on('change', function() {
+                var selectedValues = $(this).val();
+                if (selectedValues !== null && selectedValues.includes('all')) {
+                    $(this).find('option').not(':disabled').prop('selected', 'selected');
+                    $(this).find('option[value="all"]').prop('selected', false);
+                }
+            });
+
             $('.category-select').select2({
                 placeholder: "{{ translate('Select Category') }}"
             });
@@ -573,11 +650,14 @@
             });
             $('.zone-select').select2({
                 placeholder: "{{ translate('Select Zone') }}"
-            })
+            });
+            $('.assignee-select').select2({
+                placeholder: "{{ translate('Select_Assignee') }}"
+            });
 
             $('#providerAssigned').change(function() {
                 var bookingStatus = '{{$queryParams['booking_status']}}';
-                var serviceType = '{{$queryParams['service_type']}}';
+                var serviceType = 'all';
 
                 @if(isset($queryParams['search']))
                 var search = '{{ $queryParams['search'] }}';
@@ -638,10 +718,9 @@
             // });
 
             $('#reset-btn').on('click', function() {
-                let bookingStatus = '{{ request()->booking_status }}';
-                let serviceType = '{{ request()->service_type }}';
+                let bookingStatus = '{{ $queryParams['booking_status'] ?? 'all' }}';
 
-                window.location.href = `{{ route('admin.booking.list') }}?booking_status=${bookingStatus}&service_type=${serviceType}`;
+                window.location.href = `{{ route('admin.booking.list') }}?booking_status=${bookingStatus}&service_type=all`;
             });
         });
     </script>

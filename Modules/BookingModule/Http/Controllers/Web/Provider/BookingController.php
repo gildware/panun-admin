@@ -713,51 +713,10 @@ class BookingController extends Controller
             $bookingStatusHistory->booking_status = $request['booking_status'];
             $bookingStatusHistory->booking_repeat_id = $repeatBooking->id;
 
-            if ($request['booking_status'] == 'canceled' && $repeatBooking->extra_fee > 0){
-
-                $repeats = $this->booking->where('id', $repeatBooking->booking_id)->first();
-                $sortedRepeats = $repeats->repeat->sortBy(function ($repeat) {
-                    $parts = explode('-', $repeat->readable_id);
-                    $suffix = end($parts);
-                    return $this->readableIdToNumber($suffix);
-                });
-
-                $repeats['repeats'] = $sortedRepeats->values()->toArray();
-
-                $nextService = collect($repeats['repeats'])
-                    ->where('booking_status', 'ongoing')
-                    ->skip(1)
-                    ->first();
-
-                if (!$nextService) {
-                    $nextService = collect($repeats['repeats'])
-                        ->where('booking_status', 'accepted')
-                        ->skip(1)
-                        ->first();
-                }
-
-                if (!$nextService) {
-                    $nextService = collect($repeats['repeats'])
-                        ->where('booking_status', 'pending')
-                        ->skip(1)
-                        ->first();
-                }
-
-                if (isset($nextService)){
-                    $nextServiceId = $nextService['id'];
-                    $nextServiceFee = $this->bookingRepeat->where('id', $nextServiceId)->first();
-                    $nextServiceFee->extra_fee = $repeatBooking->extra_fee;
-                    $nextServiceFee->total_booking_amount += $repeatBooking->extra_fee;
-                    $nextServiceFee->save();
-
-                    $repeatBooking->total_booking_amount -= $repeatBooking->extra_fee;
-                    $repeatBooking->extra_fee = 0;
-                }
-            }
-
             if ($repeatBooking->isDirty('booking_status')) {
                 DB::transaction(function () use ($bookingStatusHistory, $repeatBooking,) {
                     $repeatBooking->save();
+                    sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
                     $bookingStatusHistory->save();
 
                     $fullBooking = $this->bookingRepeat->where('booking_id', $repeatBooking->booking_id)->get();
@@ -1423,7 +1382,7 @@ class BookingController extends Controller
         }
 
         $service = Service::active()
-            ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+            ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
             ->where('id', $request['service_id'])
             ->first();
 
@@ -1446,7 +1405,7 @@ class BookingController extends Controller
 
         $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
 
-        $tax = round((($variationPrice * $quantity - $applicableDiscount) * $service['tax']) / 100, 2);
+        $tax = round((($variationPrice * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
         $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
         $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;

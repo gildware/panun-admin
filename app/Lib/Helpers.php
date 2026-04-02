@@ -515,13 +515,17 @@ if (!function_exists('getSuperAdminId')) {
 }
 
 if (!function_exists('getServiceFee')) {
-    function getServiceFee()
+    /**
+     * Total configured additional charges for the customer's current cart (ex-tax line basis).
+     */
+    function getServiceFee($customerUserId = null): float
     {
-        $additionalCharge = 0;
-        if ((business_config('booking_additional_charge', 'booking_setup'))?->live_values) {
-            $additionalCharge = (business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values;
+        $uid = $customerUserId ?? auth()->id();
+        if (! $uid) {
+            return 0.0;
         }
-        return $additionalCharge;
+
+        return get_additional_charges_cart_total($uid);
     }
 }
 
@@ -1496,6 +1500,34 @@ if (!function_exists('getProviderSettings')) {
     }
 }
 
+if (!function_exists('provider_accepts_booking_service_location')) {
+    /**
+     * Whether a provider's configured service locations include the booking's (customer vs provider site).
+     * If the provider has no service_location setting (empty / missing), they are not excluded — avoids hiding
+     * everyone when settings were never saved (decoded JSON is []).
+     */
+    function provider_accepts_booking_service_location(string $providerId, ?string $bookingServiceLocation): bool
+    {
+        if ($bookingServiceLocation === null || $bookingServiceLocation === '') {
+            return true;
+        }
+
+        $configured = getProviderSettings(providerId: $providerId, key: 'service_location', type: 'provider_config');
+        if (! is_array($configured) || $configured === []) {
+            return true;
+        }
+
+        $normalizedBooking = (string) $bookingServiceLocation;
+        foreach (array_values($configured) as $value) {
+            if ((string) $value === $normalizedBooking) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 if (!function_exists('checkActiveSMSGatewayCount')) {
     function checkActiveSMSGatewayCount()
     {
@@ -1875,6 +1907,124 @@ if (!function_exists('provider_default_password_plain')) {
     function provider_default_password_plain(?string $contactPersonPhone): string
     {
         return (string) ($contactPersonPhone ?? '');
+    }
+}
+
+if (!function_exists('user_can_use_customer_app')) {
+    /**
+     * Whether this account may use the customer app (book as customer) and customer API with a customer token.
+     */
+    function user_can_use_customer_app(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+        if (in_array($user->user_type, CUSTOMER_USER_TYPES, true)) {
+            return true;
+        }
+
+        return $user->user_type === 'provider-admin' && (bool) $user->customer_app_access;
+    }
+}
+
+if (!function_exists('company_default_tax_percentage')) {
+    function company_default_tax_percentage(): float
+    {
+        $row = business_config('default_tax_percentage', 'business_information');
+        if ($row === null || $row->live_values === null || $row->live_values === '') {
+            return 0.0;
+        }
+
+        return (float) $row->live_values;
+    }
+}
+
+if (!function_exists('company_default_tax_label')) {
+    function company_default_tax_label(): string
+    {
+        $row = business_config('default_tax_label', 'business_information');
+        if ($row === null || $row->live_values === null || $row->live_values === '') {
+            return translate('tax');
+        }
+
+        return (string) $row->live_values;
+    }
+}
+
+if (!function_exists('booking_tax_excluded_bracket_hint')) {
+    /**
+     * Hint for subtotals excluding tax, e.g. "(GST excluded)" using the configured default tax label.
+     */
+    function booking_tax_excluded_bracket_hint(): string
+    {
+        return '(' . company_default_tax_label() . ' ' . translate('excluded') . ')';
+    }
+}
+
+if (!function_exists('effective_service_tax_percentage')) {
+    /**
+     * Resolved tax % for a service: service override → subcategory → category → company default.
+     */
+    function effective_service_tax_percentage($service): float
+    {
+        if (!$service instanceof \Modules\ServiceManagement\Entities\Service) {
+            return company_default_tax_percentage();
+        }
+
+        if ($service->getAttribute('tax') !== null && $service->getAttribute('tax') !== '') {
+            return (float) $service->tax;
+        }
+
+        $sub = $service->relationLoaded('subCategory')
+            ? $service->getRelation('subCategory')
+            : $service->subCategory()->first();
+        if ($sub && $sub->tax_percentage !== null && $sub->tax_percentage !== '') {
+            return (float) $sub->tax_percentage;
+        }
+
+        $cat = $service->relationLoaded('category')
+            ? $service->getRelation('category')
+            : $service->category()->first();
+        if ($cat && $cat->tax_percentage !== null && $cat->tax_percentage !== '') {
+            return (float) $cat->tax_percentage;
+        }
+
+        return company_default_tax_percentage();
+    }
+}
+
+if (!function_exists('effective_service_tax_label')) {
+    function effective_service_tax_label($service): string
+    {
+        if (!$service instanceof \Modules\ServiceManagement\Entities\Service) {
+            return company_default_tax_label();
+        }
+
+        if ($service->getAttribute('tax') !== null && $service->getAttribute('tax') !== '') {
+            $lbl = $service->tax_label;
+
+            return ($lbl !== null && $lbl !== '') ? (string) $lbl : company_default_tax_label();
+        }
+
+        $sub = $service->relationLoaded('subCategory')
+            ? $service->getRelation('subCategory')
+            : $service->subCategory()->first();
+        if ($sub && $sub->tax_percentage !== null && $sub->tax_percentage !== '') {
+            $lbl = $sub->tax_label;
+
+            return ($lbl !== null && $lbl !== '') ? (string) $lbl : company_default_tax_label();
+        }
+
+        $cat = $service->relationLoaded('category')
+            ? $service->getRelation('category')
+            : $service->category()->first();
+        if ($cat && $cat->tax_percentage !== null && $cat->tax_percentage !== '') {
+            $lbl = $cat->tax_label;
+
+            return ($lbl !== null && $lbl !== '') ? (string) $lbl : company_default_tax_label();
+        }
+
+        return company_default_tax_label();
     }
 }
 

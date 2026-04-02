@@ -270,16 +270,59 @@
         status ? audio.play() : audio.pause();
     }
 
-    setInterval(function () {
+    function handleAdminUpdatedDataResponse(response, opts) {
+        opts = opts || {};
+        var skipSound = !!opts.skipSound;
+        let data = response.data;
+        document.getElementById("message_count").innerHTML = data.message;
+
+        var waCountEl = document.getElementById("whatsapp_unread_count");
+        if (waCountEl) {
+            var chats = parseInt(data.whatsapp_unread_chats, 10);
+            if (isNaN(chats)) chats = 0;
+            waCountEl.innerHTML = chats;
+
+            var msgTotal = parseInt(data.whatsapp_unread_messages, 10);
+            if (isNaN(msgTotal)) msgTotal = 0;
+            var waPrevKey = 'admin_whatsapp_unread_messages';
+            var waPrevRaw = sessionStorage.getItem(waPrevKey);
+            if (!skipSound && waPrevRaw !== null && waPrevRaw !== '') {
+                var waPrev = parseInt(waPrevRaw, 10) || 0;
+                if (msgTotal > waPrev && audio) {
+                    audio.play().catch(function () {});
+                }
+            }
+            sessionStorage.setItem(waPrevKey, String(msgTotal));
+        }
+    }
+
+    window.pkAdminRefreshWhatsAppUnread = function (opts) {
         $.get({
             url: '{{ route('admin.get_updated_data') }}',
             dataType: 'json',
             success: function (response) {
-                let data = response.data;
-                document.getElementById("message_count").innerHTML = data.message;
+                handleAdminUpdatedDataResponse(response, opts || {});
             },
         });
-    }, 10000);
+    };
+
+    $(function () {
+        $.get({
+            url: '{{ route('admin.get_updated_data') }}',
+            dataType: 'json',
+            success: function (response) {
+                handleAdminUpdatedDataResponse(response, { skipSound: true });
+            },
+        });
+    });
+
+    setInterval(function () {
+        $.get({
+            url: '{{ route('admin.get_updated_data') }}',
+            dataType: 'json',
+            success: handleAdminUpdatedDataResponse,
+        });
+    }, 1000);
 
 
     $("#search-form__input").on("keyup", function () {

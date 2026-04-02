@@ -407,8 +407,17 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('whatsapp_chat_view', fn () => $this->checkAccess('whatsapp_chat', 'can_view'));
         Gate::define('whatsapp_chat_reply', fn () => $this->checkAccess('whatsapp_chat', 'can_add'));
         Gate::define('whatsapp_chat_assign', fn () => $this->checkAccess('whatsapp_chat', 'can_update'));
+        Gate::define('whatsapp_chat_delete', fn () => $this->checkAccess('whatsapp_chat', 'can_delete'));
         Gate::define('whatsapp_message_template_view', fn () => $this->checkAccess('whatsapp_message_template', 'can_view'));
         Gate::define('whatsapp_message_template_update', fn () => $this->checkAccess('whatsapp_message_template', 'can_update'));
+
+        Gate::define('whatsapp_marketing_template_view', fn () => $this->checkAccess('whatsapp_marketing_template', 'can_view'));
+        Gate::define('whatsapp_marketing_template_update', fn () => $this->checkAccess('whatsapp_marketing_template', 'can_update'));
+        Gate::define('whatsapp_marketing_bulk_view', fn () => $this->checkAccess('whatsapp_marketing_bulk', 'can_view'));
+        Gate::define('whatsapp_marketing_bulk_add', fn () => $this->checkAccess('whatsapp_marketing_bulk', 'can_add'));
+        Gate::define('whatsapp_marketing_campaign_view', fn () => $this->checkAccess('whatsapp_marketing_campaign', 'can_view'));
+        Gate::define('whatsapp_marketing_campaign_update', fn () => $this->checkAccess('whatsapp_marketing_campaign', 'can_update'));
+        Gate::define('whatsapp_marketing_report_view', fn () => $this->checkAccess('whatsapp_marketing_report', 'can_view'));
 
         Gate::define('lead_view', fn () => $this->checkAccess('lead', 'can_view'));
         Gate::define('lead_add', fn () => $this->checkAccess('lead', 'can_add'));

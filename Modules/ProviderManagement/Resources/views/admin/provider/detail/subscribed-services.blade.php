@@ -93,43 +93,72 @@
                                         </form>
                                     </div>
 
-                                    <div class="table-responsive">
-                                        <table id="example" class="table align-center align-middle">
-                                            <thead>
-                                            <tr>
-                                                <th>{{translate('Sub_Category_Name')}}</th>
-                                                <th>{{translate('Services')}}</th>
-                                                <th>{{translate('Subscribe_/_Unsubscribe')}}</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            @foreach($subCategories as $sub_category)
+                                    @if($subCategories->total() > 0)
+                                        <div class="table-responsive">
+                                            <table id="example" class="table align-center align-middle">
+                                                <thead>
                                                 <tr>
-                                                    <td>
-                                                        <div data-bs-toggle="modal"
-                                                             data-bs-target="#showServiceModal">{{Str::limit($sub_category->sub_category?$sub_category->sub_category->name:'', 30)}}</div>
-                                                    </td>
-                                                    <td>{{$sub_category->sub_category?$sub_category->sub_category->services_count:0}}</td>
-                                                    <td>
-                                                        @can('provider_manage_status')
-                                                            <label class="switcher" data-bs-toggle="modal"
-                                                                   data-bs-target="#deactivateAlertModal">
-                                                                <input class="switcher_input route-alert-reload"
-                                                                       data-route="{{route('admin.provider.sub_category.update_subscription',[$sub_category->id])}}"
-                                                                       data-message="{{translate('want_to_update_status')}}"
-                                                                       type="checkbox" {{$sub_category->is_subscribed == 1 ? 'checked' : ''}}>
-                                                                <span class="switcher_control"></span>
-                                                            </label>
-                                                        @endcan
-                                                    </td>
+                                                    <th>{{translate('Category')}}</th>
+                                                    <th>{{translate('Sub_Category_Name')}}</th>
+                                                    <th>{{translate('Services')}}</th>
+                                                    <th>{{translate('Subscribe_/_Unsubscribe')}}</th>
                                                 </tr>
-                                            @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="d-flex justify-content-end">
-                                        {!! $subCategories->links() !!}
-                                    </div>
+                                                </thead>
+                                                <tbody>
+                                                @foreach($subCategories as $sub_category)
+                                                    <tr>
+                                                        <td>{{ Str::limit($sub_category->category?->name ?? ($sub_category->sub_category?->parent?->name ?? ''), 40) }}</td>
+                                                        <td>
+                                                            <div data-bs-toggle="modal"
+                                                                 data-bs-target="#showServiceModal">{{Str::limit($sub_category->sub_category?$sub_category->sub_category->name:'', 30)}}</div>
+                                                        </td>
+                                                        <td>{{$sub_category->sub_category?$sub_category->sub_category->services_count:0}}</td>
+                                                        <td>
+                                                            @can('provider_manage_status')
+                                                                <label class="switcher" data-bs-toggle="modal"
+                                                                       data-bs-target="#deactivateAlertModal">
+                                                                    <input class="switcher_input route-alert-reload"
+                                                                           data-route="{{route('admin.provider.sub_category.update_subscription',[$sub_category->id])}}"
+                                                                           data-message="{{translate('want_to_update_status')}}"
+                                                                           type="checkbox" {{$sub_category->is_subscribed == 1 ? 'checked' : ''}}>
+                                                                    <span class="switcher_control"></span>
+                                                                </label>
+                                                            @endcan
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="d-flex justify-content-end">
+                                            {!! $subCategories->links() !!}
+                                        </div>
+                                    @else
+                                        <div class="text-center py-5 px-4 mx-auto" style="max-width: 40rem;">
+                                            @if($subscribedServicesEmptyState === 'no_zones')
+                                                <p class="title-color fw-semibold mb-2">{{ translate('Provider_subscribed_services_empty_no_zones_title') }}</p>
+                                                <p class="opacity-75 mb-0">{{ translate('Provider_subscribed_services_empty_no_zones_body') }}</p>
+                                            @elseif($subscribedServicesEmptyState === 'zones_unresolved')
+                                                <p class="title-color fw-semibold mb-2">{{ translate('Provider_subscribed_services_empty_zones_unresolved_title') }}</p>
+                                                <p class="opacity-75 mb-0">{{ translate('Provider_subscribed_services_empty_zones_unresolved_body') }}</p>
+                                                @if(!empty($subscribedServicesZoneNames))
+                                                    <p class="opacity-75 mt-3 mb-0"><span class="fw-medium title-color">{{ translate('Zones') }}:</span> {{ implode(', ', $subscribedServicesZoneNames) }}</p>
+                                                @endif
+                                            @elseif($subscribedServicesEmptyState === 'no_categories')
+                                                <p class="title-color fw-semibold mb-2">{{ translate('Provider_subscribed_services_empty_no_categories_title') }}</p>
+                                                <p class="opacity-75 mb-0">
+                                                    {{ translate('Provider_subscribed_services_empty_no_categories_lead') }}
+                                                    <span class="title-color fw-medium">{{ implode(', ', $subscribedServicesZoneNames ?: [translate('the_selected_zones')]) }}</span>.
+                                                    {{ translate('Provider_subscribed_services_empty_no_categories_tail') }}
+                                                </p>
+                                            @elseif($subscribedServicesEmptyState === 'no_results')
+                                                <p class="title-color fw-semibold mb-2">{{ translate('Provider_subscribed_services_empty_no_results_title') }}</p>
+                                                <p class="opacity-75 mb-0">{{ translate('Provider_subscribed_services_empty_no_results_body') }}</p>
+                                            @else
+                                                <p class="opacity-75 mb-0">{{ translate('no_data_found') }}</p>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>

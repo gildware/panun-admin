@@ -27,14 +27,48 @@ class AIProviderManager
             }
         }
 
+        throw new \RuntimeException('No AI provider implementation matches the active setting: ' . $activeAiProvider->ai_name);
     }
+
+    private function rowHasUsableCredentials(AISetting $row): bool
+    {
+        $key = trim((string) ($row->api_key ?? ''));
+        if ($key !== '') {
+            return true;
+        }
+
+        return $row->ai_name === 'Gemini' && trim((string) config('services.gemini.api_key')) !== '';
+    }
+
     public function getActiveAIProvider(): AISetting
     {
-        $provider = Cache::remember('active_ai_provider', 60, function () {
-            return AISetting::where('status', 1)
-                ->whereNotNull('api_key')
-                ->where('api_key', '!=', '')
-                ->first();
+        $provider = Cache::remember('active_ai_provider_v2', 60, function () {
+            $rows = AISetting::where('status', 1)->orderBy('id')->get();
+
+            $found = $rows->first(fn (AISetting $row) => $this->rowHasUsableCredentials($row));
+            if ($found !== null) {
+                return $found;
+            }
+
+            // WhatsApp uses GEMINI_API_KEY from .env; admin AI content generation only read ai_settings.
+            // If the table is empty (never saved Business Settings → AI), bootstrap a Gemini row when env is set.
+            $envGeminiKey = trim((string) config('services.gemini.api_key'));
+            if ($envGeminiKey === '') {
+                return null;
+            }
+
+            $geminiRow = AISetting::where('ai_name', 'Gemini')->first();
+            if ($geminiRow === null) {
+                return AISetting::create([
+                    'ai_name' => 'Gemini',
+                    'api_key' => '',
+                    'organization_id' => null,
+                    'status' => 1,
+                ]);
+            }
+
+            // Row exists but AI toggle is off — do not override admin choice.
+            return null;
         });
 
         if (!$provider) {

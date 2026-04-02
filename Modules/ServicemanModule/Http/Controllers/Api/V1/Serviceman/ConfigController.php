@@ -105,9 +105,11 @@ class ConfigController extends Controller
             'otp_resend_time' => (int)(business_config('otp_resend_time', 'otp_login_setup'))?->live_values ?? null,
             'booking_otp_verification' => (int)(business_config('booking_otp', 'booking_setup'))->live_values ?? null,
             'service_complete_photo_evidence' => (int)(business_config('service_complete_photo_evidence', 'booking_setup'))?->live_values ?? null,
-            'booking_additional_charge' => (int)(business_config('booking_additional_charge', 'booking_setup'))?->live_values ?? null,
-            'additional_charge_label_name' => (string)(business_config('additional_charge_label_name', 'booking_setup'))?->live_values ?? null,
-            'additional_charge_fee_amount' => (int)(business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values ?? null,
+            'additional_charge_types' => \Modules\BusinessSettingsModule\Entities\AdditionalChargeType::query()
+                ->active()
+                ->ordered()
+                ->get(['id', 'name', 'sort_order', 'is_commissionable', 'customizable_at_booking'])
+                ->values(),
             'system_language' => $country,
             'instant_booking' => (int) business_config('instant_booking', 'booking_setup')?->live_values,
             'schedule_booking' => (int) business_config('schedule_booking', 'booking_setup')?->live_values,

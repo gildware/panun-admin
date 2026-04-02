@@ -96,7 +96,7 @@ class CouponController extends Controller
         $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
         $zones = $this->zone->ofStatus(1)->latest()->get();
         $services = $this->service->active()->latest()->get();
-        $customers = $this->customer->ofType(CUSTOMER_USER_TYPES)->ofStatus(1)->get();
+        $customers = $this->customer->inCustomerDirectory()->ofStatus(1)->get();
 
         return view('promotionmanagement::admin.coupons.create', compact('categories', 'zones', 'services', 'customers'));
     }
@@ -227,7 +227,7 @@ class CouponController extends Controller
         $categories = $this->category->ofStatus(1)->ofType('main')->latest()->get();
         $zones = $this->zone->ofStatus(1)->latest()->get();
         $services = $this->service->active()->latest()->get();
-        $customers = $this->customer->ofType(CUSTOMER_USER_TYPES)->ofStatus(1)->get();
+        $customers = $this->customer->inCustomerDirectory()->ofStatus(1)->get();
 
         return view('promotionmanagement::admin.coupons.edit', compact('categories', 'zones', 'services', 'coupon', 'customers', 'discount'));
     }

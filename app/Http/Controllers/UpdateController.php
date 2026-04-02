@@ -417,27 +417,6 @@ class UpdateController extends Controller
             ]);
         }
 
-        if (BusinessSettings::where(['key_name' => 'booking_additional_charge', 'settings_type' => 'booking_setup'])->first() == false) {
-            BusinessSettings::updateOrCreate(['key_name' => 'booking_additional_charge', 'settings_type' => 'booking_setup'], [
-                'live_values' => 0,
-                'test_values' => 0
-            ]);
-        }
-
-        if (BusinessSettings::where(['key_name' => 'additional_charge_label_name', 'settings_type' => 'booking_setup'])->first() == false) {
-            BusinessSettings::updateOrCreate(['key_name' => 'additional_charge_label_name', 'settings_type' => 'booking_setup'], [
-                'live_values' => null,
-                'test_values' => null
-            ]);
-        }
-
-        if (BusinessSettings::where(['key_name' => 'additional_charge_fee_amount', 'settings_type' => 'booking_setup'])->first() == false) {
-            BusinessSettings::updateOrCreate(['key_name' => 'additional_charge_fee_amount', 'settings_type' => 'booking_setup'], [
-                'live_values' => 0,
-                'test_values' => 0
-            ]);
-        }
-
         if (BusinessSettings::where(['key_name' => 'instant_booking', 'settings_type' => 'booking_setup'])->first() == false) {
             BusinessSettings::updateOrCreate(['key_name' => 'instant_booking', 'settings_type' => 'booking_setup'], [
                 'live_values' => 1,

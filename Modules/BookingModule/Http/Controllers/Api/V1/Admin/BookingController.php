@@ -151,7 +151,7 @@ class BookingController extends Controller
     public function status_update(Request $request, string $booking_id): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'booking_status' => 'required|in:all,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
         ]);
 
         if ($validator->fails()) {
@@ -161,6 +161,18 @@ class BookingController extends Controller
         $booking = $this->booking->where('id', $booking_id)->first();
 
         if (isset($booking)) {
+            if (! booking_admin_status_transition_allowed((string) $booking->booking_status, (string) $request['booking_status'])) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Invalid_booking_status_transition'),
+                ]), 422);
+            }
+            if ($request['booking_status'] === 'completed' && ! booking_can_be_completed($booking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Booking cannot be completed until full payment is received.'),
+                ]), 422);
+            }
             $previousParentStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
 

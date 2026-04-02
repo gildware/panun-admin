@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\AdditionalChargeTypeController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\BusinessInformationController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\LandingPageController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\CronJobController;
@@ -33,6 +34,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
         Route::get('get-business-information', [BusinessInformationController::class, 'businessInformationGet'])->name('get-business-information');
         Route::put('set-business-information', [BusinessInformationController::class, 'businessInformationSet'])->name('set-business-information');
+        Route::put('set-company-tax', [BusinessInformationController::class, 'companyTaxSetup'])->name('set-company-tax');
 
         Route::put('set-bidding-system', [BusinessInformationController::class, 'setBiddingSystem'])->name('set-bidding-system');
         Route::put('update-action-status', [BusinessInformationController::class, 'updateActionStatus'])->name('update-action-status');
@@ -43,6 +45,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::put('set-service-setup', [BusinessInformationController::class, 'serviceSetup'])->name('set-service-setup');
         Route::put('set-servicemen', [BusinessInformationController::class, 'servicemen'])->name('set-servicemen');
         Route::put('set-booking-setup', [BusinessInformationController::class, 'bookingSetupSet'])->name('set-booking-setup');
+
+        Route::get('additional-charges/create', [AdditionalChargeTypeController::class, 'create'])->name('additional-charges.create');
+        Route::post('additional-charges', [AdditionalChargeTypeController::class, 'store'])->name('additional-charges.store');
+        Route::get('additional-charges/{id}/edit', [AdditionalChargeTypeController::class, 'edit'])->name('additional-charges.edit');
+        Route::put('additional-charges/{id}', [AdditionalChargeTypeController::class, 'update'])->name('additional-charges.update');
+        Route::delete('additional-charges/{id}', [AdditionalChargeTypeController::class, 'destroy'])->name('additional-charges.destroy');
 
         //Gallery
         Route::get('get-gallery-setup/{storage_path?}', [BusinessInformationController::class, 'gallerySetupGet'])->name('get-gallery-setup');

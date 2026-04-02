@@ -337,11 +337,8 @@ class ProviderController extends Controller
         }
 
         if ($email !== '') {
-            $emailQuery = $this->owner->newQuery()->whereRaw('LOWER(email) = ?', [$email]);
-            if ($excludeUserId) {
-                $emailQuery->where('id', '!=', $excludeUserId);
-            }
-            if ($emailQuery->exists()) {
+            $emailUser = User::findByContactEmail($email);
+            if ($emailUser && (string) $emailUser->id !== (string) ($excludeUserId ?? '') && ! $emailUser->qualifiesForCustomerToProviderUpgrade()) {
                 $fieldErrors['contact_person_email'] = translate('The contact person email has already been taken.');
             }
         }
@@ -357,27 +354,15 @@ class ProviderController extends Controller
      */
     private function ownerContactPhoneTaken(string $phone, ?string $excludeUserId): bool
     {
-        $trim = trim($phone);
-        $digits = preg_replace('/\D+/', '', $trim) ?? '';
-
-        $q = $this->owner->newQuery();
-        if ($excludeUserId) {
-            $q->where('id', '!=', $excludeUserId);
+        $user = User::findByContactPhone($phone);
+        if (! $user) {
+            return false;
+        }
+        if ($excludeUserId && (string) $user->id === (string) $excludeUserId) {
+            return false;
         }
 
-        $q->where(function ($w) use ($trim, $digits) {
-            if ($trim !== '') {
-                $w->where('phone', $trim);
-            }
-            if ($digits !== '' && $digits !== $trim) {
-                $w->orWhere('phone', $digits);
-            }
-            if ($digits !== '' && DB::connection()->getDriverName() === 'mysql') {
-                $w->orWhereRaw('REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?', [$digits]);
-            }
-        });
-
-        return $q->exists();
+        return ! $user->qualifiesForCustomerToProviderUpgrade();
     }
 
     /**
@@ -486,12 +471,12 @@ class ProviderController extends Controller
         $this->mergeLegacyZoneIdIntoZoneIds($request);
 
         try {
-            $request->validate([
+            $validator = Validator::make($request->all(), [
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required|string|max:191',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
-            'contact_person_email' => 'required|email|unique:users,email',
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'contact_person_email' => 'required|email',
 
             // Account email/phone are derived from contact person details by default.
             // Keep them optional to avoid depending on front-end JS.
@@ -538,6 +523,15 @@ class ProviderController extends Controller
             'subscribed_sub_category_ids' => 'nullable|array',
             'subscribed_sub_category_ids.*' => 'uuid',
         ]);
+            $validator->after(function ($v) use ($request) {
+                foreach (User::providerContactRegistrationErrors(
+                    (string) $request->contact_person_phone,
+                    (string) $request->contact_person_email
+                ) as $field => $message) {
+                    $v->errors()->add($field, $message);
+                }
+            });
+            $validator->validate();
         } catch (ValidationException $e) {
             $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
             throw $e;
@@ -675,7 +669,22 @@ class ProviderController extends Controller
         $provider->zone_id = $leafZoneIds[0];
         $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
 
-        $owner = $this->owner;
+        $upgradeOwner = User::resolveCustomerUserForProviderOnboarding(
+            (string) $request->contact_person_phone,
+            (string) $request->contact_person_email
+        );
+        if ($upgradeOwner) {
+            $owner = User::query()->findOrFail($upgradeOwner->id);
+            $owner->customer_app_access = true;
+        } else {
+            $owner = $this->owner;
+            $owner->customer_app_access = false;
+        }
+
+        $nameParts = preg_split('/\s+/u', trim((string) $request->contact_person_name), 2, PREG_SPLIT_NO_EMPTY);
+        $owner->first_name = $nameParts[0] ?? $owner->first_name ?? '';
+        $owner->last_name = $nameParts[1] ?? $owner->last_name ?? '';
+
         $owner->email = $request->contact_person_email;
         $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
@@ -947,6 +956,10 @@ class ProviderController extends Controller
             $status = $request->has('status') ? $request['status'] : 'all';
             $queryParam = ['web_page' => $webPage, 'status' => $status, 'search' => $search];
 
+            $subscribedServicesEmptyState = null;
+            $subscribedServicesZoneNames = [];
+            $eligibleSubCategoryCountForZones = 0;
+
             // Subcategories union across all leaf zones this provider covers.
             // category_zone uses leaf IDs; provider_zone / zone_id may store parent zones — normalize like create/update.
             $provider = $this->provider->with(['owner', 'zones'])->find($id);
@@ -965,7 +978,30 @@ class ProviderController extends Controller
                     ['path' => $request->url()]
                 );
                 $subCategories->appends($queryParam);
+                if ($coverageZoneIds === [] && !$provider->zone_id) {
+                    $subscribedServicesEmptyState = 'no_zones';
+                } else {
+                    $subscribedServicesEmptyState = 'zones_unresolved';
+                    $subscribedServicesZoneNames = $this->zone->withoutGlobalScope('translate')
+                        ->whereIn('id', $coverageZoneIds)
+                        ->orderBy('name')
+                        ->pluck('name')
+                        ->map(fn ($n) => (string) $n)
+                        ->filter()
+                        ->values()
+                        ->all();
+                }
             } else {
+                $eligibleSubCategoryCountForZones = $this->subCategoriesForZonesQuery($leafZoneIds)->count();
+                $subscribedServicesZoneNames = $this->zone->withoutGlobalScope('translate')
+                    ->whereIn('id', $leafZoneIds)
+                    ->orderBy('name')
+                    ->pluck('name')
+                    ->map(fn ($n) => (string) $n)
+                    ->filter()
+                    ->values()
+                    ->all();
+
                 // Get all subcategories available for the provider's zones
                 $subCategoriesQuery = $this->category->withCount('services')
                     ->with(['services'])
@@ -997,7 +1033,7 @@ class ProviderController extends Controller
                         ->where('provider_id', $id)
                         ->where('sub_category_id', $subCategory->id)
                         ->first();
-                    
+
                     if (!$existingService) {
                         // Create a subscribed_service record with is_subscribed = 0
                         $this->subscribedService->create([
@@ -1012,9 +1048,12 @@ class ProviderController extends Controller
                 // Now get all subscribed_services for this provider with subcategory data
                 $subCategories = $this->subscribedService->where('provider_id', $id)
                     ->whereIn('sub_category_id', $allSubCategories->pluck('id')->toArray())
-                    ->with(['sub_category' => function ($query) {
-                        return $query->withCount('services')->with(['services']);
-                    }])
+                    ->with([
+                        'category',
+                        'sub_category' => function ($query) {
+                            return $query->withCount('services')->with(['services', 'parent']);
+                        },
+                    ])
                     ->when($status != 'all', function ($query) use ($status) {
                         return $query->where('is_subscribed', (($status == 'subscribed') ? 1 : 0));
                     })
@@ -1032,7 +1071,21 @@ class ProviderController extends Controller
                     ->appends($queryParam);
             }
 
-            return view('providermanagement::admin.provider.detail.subscribed-services', compact('subCategories', 'webPage', 'status', 'search', 'provider'));
+            if ($subCategories->total() === 0 && $subscribedServicesEmptyState === null) {
+                $subscribedServicesEmptyState = $eligibleSubCategoryCountForZones === 0
+                    ? 'no_categories'
+                    : 'no_results';
+            }
+
+            return view('providermanagement::admin.provider.detail.subscribed-services', compact(
+                'subCategories',
+                'webPage',
+                'status',
+                'search',
+                'provider',
+                'subscribedServicesEmptyState',
+                'subscribedServicesZoneNames'
+            ));
 
         } //bookings
         elseif ($request->web_page == 'bookings') {
@@ -2284,6 +2337,9 @@ class ProviderController extends Controller
             }
         }
 
+        if (! $booking) {
+            return response()->json(['view' => '', 'message' => 'Booking not found'], 404);
+        }
 
         $allProviders = $this->provider
             ->when($request->has('search'), function ($query) use ($request) {
@@ -2308,9 +2364,12 @@ class ProviderController extends Controller
             ->when($sortBy !== 'bookings-completed', function ($query) {
                 return $query->withCount('bookings');
             })
-            ->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
+            ->when(filled($booking->sub_category_id), function ($query) use ($booking) {
+                $query->whereHas('subscribed_services', function ($q) use ($booking) {
+                    $q->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
+                });
             })
+            ->coveringLeafZone($booking->zone_id)
             ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
                 $query->where('is_suspended', 0);
             })
@@ -2321,14 +2380,17 @@ class ProviderController extends Controller
                 $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END");
             })
             ->withCount('reviews')
-            ->ofApproval(1)->ofStatus(1)->get();
+            ->ofApproval(1)
+            ->ofStatus(1)
+            ->when($booking->provider_id, function ($query) use ($booking) {
+                $query->whereNot('id', $booking->provider_id);
+            })
+            ->get();
 
         $providers = [];
 
         foreach ($allProviders as $provider) {
-            $serviceLocation = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config');
-
-            if (in_array($booking->service_location, $serviceLocation)) {
+            if (provider_accepts_booking_service_location($provider->id, $booking->service_location)) {
                 $providers[] = $provider;
             }
         }
@@ -2384,7 +2446,7 @@ class ProviderController extends Controller
             }
 
             $this->sendProviderNotification($providerId, $booking->id, 'booking');
-            $providers = $this->fetchProviders($request, $booking->sub_category_id);
+            $providers = $this->fetchProviders($request, $booking);
 
             return response()->json([
                 'view' => view('providermanagement::admin.partials.details.provider-info-modal-data', compact('providers', 'booking', 'search', 'sortBy'))->render(),
@@ -2408,7 +2470,7 @@ class ProviderController extends Controller
             }
 
             $this->sendProviderNotification($providerId, $bookingRepeat->id, 'repeat');
-            $providers = $this->fetchProviders($request, $bookingRepeat->booking->sub_category_id);
+            $providers = $this->fetchProviders($request, $bookingRepeat->booking);
 
             return response()->json([
                 'view' => view('providermanagement::admin.partials.details.provider-info-modal-data', [
@@ -2491,9 +2553,9 @@ class ProviderController extends Controller
         }
     }
 
-    private function fetchProviders(Request $request, $subCategoryId)
+    private function fetchProviders(Request $request, Booking $booking)
     {
-        return $this->provider
+        $allProviders = $this->provider
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request->search);
                 $query->where(function ($q) use ($keys) {
@@ -2504,19 +2566,37 @@ class ProviderController extends Controller
                     }
                 });
             })
-            ->when($request->sort_by === 'top-rated', fn($q) => $q->orderBy('avg_rating', 'desc'))
+            ->when($request->sort_by === 'top-rated', fn ($q) => $q->orderBy('avg_rating', 'desc'))
             ->when($request->sort_by === 'bookings-completed', function ($q) {
-                $q->withCount(['bookings' => fn($query) => $query->where('booking_status', 'completed')])
+                $q->withCount(['bookings' => fn ($query) => $query->where('booking_status', 'completed')])
                     ->orderBy('bookings_count', 'desc');
             })
-            ->whereHas('subscribed_services', fn($q) => $q->where('sub_category_id', $subCategoryId)->where('is_subscribed', 1))
-            ->when($request->sort_by !== 'bookings-completed', fn($q) => $q->withCount('bookings'))
+            ->when(filled($booking->sub_category_id), function ($query) use ($booking) {
+                $query->whereHas('subscribed_services', fn ($q) => $q->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1));
+            })
+            ->coveringLeafZone($booking->zone_id)
+            ->when(business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values, function ($query) {
+                $query->where('is_suspended', 0);
+            })
+            ->when($request->sort_by !== 'bookings-completed', fn ($q) => $q->withCount('bookings'))
             ->where('service_availability', 1)
             ->where('is_active_for_jobs', 1)
             ->ofApproval(1)
             ->ofStatus(1)
-            ->when($request->sort_by === 'default', fn($q) => $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END"))
+            ->when($request->sort_by === 'default', fn ($q) => $q->orderByRaw("CASE performance_status WHEN 'active' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END"))
+            ->when($booking->provider_id, function ($query) use ($booking) {
+                $query->whereNot('id', $booking->provider_id);
+            })
             ->get();
+
+        $providers = [];
+        foreach ($allProviders as $provider) {
+            if (provider_accepts_booking_service_location($provider->id, $booking->service_location)) {
+                $providers[] = $provider;
+            }
+        }
+
+        return $providers;
     }
 
     public function getProviderInfo($providerId): JsonResponse

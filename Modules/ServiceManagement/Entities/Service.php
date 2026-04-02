@@ -28,6 +28,7 @@ class Service extends Model
 
     protected $casts = [
         'tax' => 'float',
+        'tax_label' => 'string',
         'order_count' => 'float',
         'is_active' => 'integer',
         'rating_count' => 'integer',
@@ -36,6 +37,7 @@ class Service extends Model
         'variation_pricing' => 'array',
         'commission_custom' => 'integer',
         'commission_tier_setup' => 'array',
+        'additional_charge_overrides' => 'array',
     ];
 
     protected $fillable = ['slug'];

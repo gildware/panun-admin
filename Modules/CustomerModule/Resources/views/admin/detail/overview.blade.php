@@ -95,22 +95,42 @@
                             </div>
                         </div>
 
-                        @if($customer->addresses && $customer->addresses->count() > 0)
-                            <div class="information-details-box customer-address">
-                                <h3 class="fw-medium mb-20">{{ translate('Addresses') }}</h3>
-                                @foreach($customer->addresses as $key=>$address)
-                                    <div class="d-flex justify-content-between gap-2 mb-20">
-                                        <div class="media gap-2 gap-xl-3">
-                                            <span class="material-icons fz-30 c1">home</span>
+                        @php
+                            $overviewCanAddAddress = auth()->user()->can('customer_add');
+                            $overviewCanEditAddress = auth()->user()->can('customer_add') || auth()->user()->can('customer_update');
+                        @endphp
+                        <div class="information-details-box customer-address">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-20">
+                                <h3 class="fw-medium mb-0">{{ translate('Addresses') }}</h3>
+                                @if($overviewCanAddAddress)
+                                    <button type="button" class="btn btn--primary btn-sm" id="customer-overview-open-add-address">
+                                        <span class="material-icons fz-18">add</span>
+                                        {{ translate('Add_Address') }}
+                                    </button>
+                                @endif
+                            </div>
+                            @if($customer->addresses && $customer->addresses->count() > 0)
+                                @foreach($customer->addresses as $address)
+                                    <div class="d-flex justify-content-between gap-2 mb-20 align-items-start" data-customer-address-row="{{ $address->id }}">
+                                        <div class="media gap-2 gap-xl-3 flex-grow-1">
+                                            <span class="material-icons fz-30 c1 flex-shrink-0">home</span>
                                             <div class="media-body">
-                                                <h4 class="fw-medium mb-1">{{$address->address_label}}</h4>
-                                                <div class="text-muted">{{ Str::limit($address->address, 100) }}</div>
+                                                <h4 class="fw-medium mb-1" data-role="address-label">{{ $address->address_label }}</h4>
+                                                <div class="text-muted" data-role="address-text">{{ Str::limit($address->address, 200) }}</div>
                                             </div>
                                         </div>
+                                        @if($overviewCanEditAddress)
+                                            <button type="button" class="btn btn-outline-primary btn-sm flex-shrink-0 customer-overview-edit-address"
+                                                    data-address-id="{{ $address->id }}">
+                                                {{ translate('Edit') }}
+                                            </button>
+                                        @endif
                                     </div>
                                 @endforeach
-                            </div>
-                        @endif
+                            @else
+                                <p class="text-muted mb-0">{{ translate('no_data_found') }}</p>
+                            @endif
+                        </div>
 
                     </div>
                 </div>
@@ -118,48 +138,51 @@
         </div>
     </div>
 
-    <div class="modal fade" id="addAddressModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    @if($overviewCanAddAddress || $overviewCanEditAddress)
+    <div class="modal fade" id="customerOverviewAddressModal" tabindex="-1" aria-labelledby="customerOverviewAddressModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header px-4">
-                    <h5 class="modal-title" id="exampleModalLabel">{{translate('Add_Customer_Address')}}</h5>
+                    <h5 class="modal-title" id="customerOverviewAddressModalLabel">{{ translate('Add_Customer_Address') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body pb-0 pt-4 mt-2 px-4">
-                    <div class="form-floating mb-30">
-                        <input type="text" class="form-control" id="street" name="street"
-                               placeholder="{{translate('Street')}}" value="{{old('street')}}" required>
-                        <label>{{translate('Street')}}</label>
-                    </div>
-                    <div class="form-floating mb-30">
-                        <input type="text" class="form-control" id="city" name="city"
-                               placeholder="{{translate('City')}}" value="{{old('city')}}" required>
-                        <label>{{translate('City')}}</label>
-                    </div>
-                    <div class="form-floating mb-30">
-                        <input type="text" class="form-control" id="country" name="country"
-                               placeholder="{{translate('Country')}}" value="{{old('country')}}" required>
-                        <label>{{translate('Country')}}</label>
-                    </div>
-                    <div class="form-floating mb-30">
-                        <input type="text" class="form-control" id="zip_code" name="zip_code"
-                               placeholder="{{translate('Zip_Code')}}" value="{{old('zip_code')}}" required>
-                        <label>{{translate('Zip_Code')}}</label>
-                    </div>
-                    <div class="form-floating mb-30">
-                        <textarea type="text" class="form-control" id="address" name="address"
-                                  placeholder="{{translate('Address')}}" value="{{old('address')}}" required></textarea>
-                        <label>{{translate('Address')}}</label>
-                    </div>
+                <div class="modal-body px-4 pt-3">
+                    <div id="customer-overview-address-alert" class="alert alert-danger d-none" role="alert"></div>
+                    <form id="customer-overview-address-form">
+                        @csrf
+                        <input type="hidden" id="customer-overview-address-edit-id" value="">
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Address') }}</label>
+                            <textarea class="form-control" name="address" rows="2" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Address_Label') }}</label>
+                            <input type="text" class="form-control" name="address_label" placeholder="{{ translate('Home/Office/Others') }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Landmark') }} ({{ translate('Optional') }})</label>
+                            <input type="text" class="form-control" name="landmark">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ translate('lat') }} ({{ translate('Optional') }})</label>
+                                <input type="text" class="form-control" name="lat" placeholder="{{ translate('lat') }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ translate('long') }} ({{ translate('Optional') }})</label>
+                                <input type="text" class="form-control" name="lon" placeholder="{{ translate('long') }}">
+                            </div>
+                        </div>
+                    </form>
                 </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn--secondary"
-                            data-bs-dismiss="modal">{{translate('Close')}}</button>
-                    <button type="button" class="btn btn--primary">{{translate('Save_changes')}}</button>
+                <div class="modal-footer border-0 pt-0 px-4 pb-4">
+                    <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Close') }}</button>
+                    <button type="button" class="btn btn--primary" id="customer-overview-save-address">{{ translate('Save_changes') }}</button>
                 </div>
             </div>
         </div>
     </div>
+    @endif
 @endsection
 
 @push('css_or_js')
@@ -209,14 +232,6 @@
 @endpush
 
 @push('script')
-    @php
-        $bookingOverviewStatuses = ['pending', 'accepted', 'ongoing', 'completed', 'canceled'];
-        $bookingOverviewChartLabels = [];
-        foreach ($bookingOverviewStatuses as $idx => $statusKey) {
-            $bookingOverviewChartLabels[] = translate($statusKey) . ' (' . (int) ($total[$idx] ?? 0) . ')';
-        }
-    @endphp
-
     <script src="{{asset('assets/admin-module/plugins/apex/apexcharts.min.js')}}"></script>
 
     <script>
@@ -282,4 +297,109 @@
         var chart = new ApexCharts(document.querySelector("#apex-pie-chart"), options);
         chart.render();
     </script>
+
+    @if($overviewCanAddAddress || $overviewCanEditAddress)
+    <script>
+        "use strict";
+        (function ($) {
+            const customerId = @json($customer->id);
+            const $modal = $('#customerOverviewAddressModal');
+            const $form = $('#customer-overview-address-form');
+            const $editId = $('#customer-overview-address-edit-id');
+            const $title = $('#customerOverviewAddressModalLabel');
+            const $alert = $('#customer-overview-address-alert');
+
+            function overviewAddrShowError(msg) {
+                if (Array.isArray(msg)) {
+                    $alert.html(msg.map(function (m) { return $('<div/>').text(m).html(); }).join('<br>'));
+                } else {
+                    $alert.text(msg);
+                }
+                $alert.removeClass('d-none');
+            }
+
+            function overviewAddrHideError() {
+                $alert.addClass('d-none').empty();
+            }
+
+            $modal.on('hidden.bs.modal', function () {
+                if ($form[0]) {
+                    $form[0].reset();
+                }
+                $editId.val('');
+                $title.text(@json(translate('Add_Customer_Address')));
+                overviewAddrHideError();
+            });
+
+            $('#customer-overview-open-add-address').on('click', function () {
+                $editId.val('');
+                $title.text(@json(translate('Add_Customer_Address')));
+                if ($form[0]) {
+                    $form[0].reset();
+                }
+                overviewAddrHideError();
+                $modal.modal('show');
+            });
+
+            $(document).on('click', '.customer-overview-edit-address', function () {
+                const addressId = $(this).data('address-id');
+                if (!addressId) {
+                    return;
+                }
+                let showUrl = @json(route('admin.customer.address-quick-show', ['id' => '__CID__', 'addressId' => '__AID__']));
+                showUrl = showUrl.replace('__CID__', encodeURIComponent(customerId)).replace('__AID__', encodeURIComponent(addressId));
+                overviewAddrHideError();
+                $.get(showUrl, function (addr) {
+                    $editId.val(addr.id);
+                    $title.text(@json(translate('Edit_Address')));
+                    $form.find('[name="address"]').val(addr.address || '');
+                    $form.find('[name="address_label"]').val(addr.address_label || '');
+                    $form.find('[name="landmark"]').val(addr.landmark || '');
+                    $form.find('[name="lat"]').val(addr.lat || '');
+                    $form.find('[name="lon"]').val(addr.lon || '');
+                    $modal.modal('show');
+                }).fail(function (xhr) {
+                    overviewAddrShowError(xhr.status === 404 ? @json(translate('not_found')) : @json(translate('Something_went_wrong')));
+                });
+            });
+
+            $('#customer-overview-save-address').on('click', function () {
+                const editVal = $editId.val();
+                let url;
+                let data;
+                if (editVal) {
+                    url = @json(route('admin.customer.address-quick-update', ['id' => '__CID__', 'addressId' => '__AID__']));
+                    url = url.replace('__CID__', encodeURIComponent(customerId)).replace('__AID__', encodeURIComponent(editVal));
+                    data = $form.serialize() + '&_method=PUT';
+                } else {
+                    url = @json(route('admin.customer.address-quick-store', ['id' => '__CID__']));
+                    url = url.replace('__CID__', encodeURIComponent(customerId));
+                    data = $form.serialize();
+                }
+                overviewAddrHideError();
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: data,
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    success: function () {
+                        $modal.modal('hide');
+                        window.location.reload();
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+                            var msgs = [];
+                            Object.values(xhr.responseJSON.errors).forEach(function (errs) {
+                                msgs = msgs.concat(errs);
+                            });
+                            overviewAddrShowError(msgs);
+                        } else {
+                            overviewAddrShowError(@json(translate('Something_went_wrong')));
+                        }
+                    }
+                });
+            });
+        })(jQuery);
+    </script>
+    @endif
 @endpush

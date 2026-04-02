@@ -15,53 +15,13 @@
                              alt="">
                         <h3>{{translate('Update customer service address')}}</h3>
 
-                        <div class="row mt-4">
-                            <div class="col-md-6 col-12">
-                                <div class="mb-30">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="city"
-                                               placeholder="{{translate('city')}} *"
-                                               value="{{$customerAddress?->city}}" required>
-                                        <label>{{translate('city')}} *</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-12">
-                                <div class="mb-30">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="street"
-                                               placeholder="{{translate('street')}} *"
-                                               value="{{$customerAddress?->street}}" required>
-                                        <label>{{translate('street')}} *</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-12">
-                                <div class="mb-30">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="zip_code"
-                                               placeholder="{{translate('zip_code')}} *"
-                                               value="{{$customerAddress?->zip_code}}" required>
-                                        <label>{{translate('zip_code')}} *</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-12">
-                                <div class="mb-30">
-                                    <div class="form-floating">
-                                        <input type="text" class="form-control" name="country"
-                                               placeholder="{{translate('country')}} *"
-                                               value="{{$customerAddress?->country}}" required>
-                                        <label>{{translate('country')}} *</label>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="row mt-4 w-100">
                             <div class="col-12">
                                 <div class="mb-30">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" name="address" id="address"
-                                               placeholder="{{translate('address')}} *"
-                                               value="{{$customerAddress?->address}}" required>
+                                        <textarea class="form-control" name="address" id="address" style="height: 5rem"
+                                                  placeholder="{{translate('address')}} *"
+                                                  required>{{$customerAddress?->address}}</textarea>
                                         <label>{{translate('address')}} *</label>
                                     </div>
                                 </div>
@@ -69,53 +29,32 @@
                             <div class="col-md-6 col-12">
                                 <div class="mb-30">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" name="contact_person_name"
-                                               placeholder="{{translate('contact_person_name')}} *"
-                                               value="{{$customerAddress?->contact_person_name}}" required>
-                                        <label>{{translate('contact_person_name')}} *</label>
+                                        <input type="text" class="form-control" name="address_label"
+                                               placeholder="{{translate('Address_Label')}} *"
+                                               value="{{$customerAddress?->address_label}}" required>
+                                        <label>{{translate('Address_Label')}} *</label>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-6 col-12">
                                 <div class="mb-30">
                                     <div class="form-floating">
-                                        <input type="tel" class="form-control"
-                                               name="contact_person_number"
-                                               id="contact_person_number"
-                                               placeholder="{{translate('contact_person_number')}} *"
-                                               value="{{$customerAddress?->contact_person_number}}" required>
+                                        <input type="text" class="form-control" name="landmark"
+                                               placeholder="{{translate('Landmark')}}"
+                                               value="{{$customerAddress?->landmark}}">
+                                        <label>{{translate('Landmark')}} ({{translate('Optional')}})</label>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-12">
-                                <div class="mb-30">
-                                    <select class="js-select theme-input-style w-100" name="address_label">
-                                        <option selected disabled>{{translate('Select_address_label')}}*</option>
-                                        <option value="home" {{$customerAddress?->address_label == 'home' ? 'selected' : ''}}>{{translate('Home')}}</option>
-                                        <option value="office" {{$customerAddress?->address_label == 'office' ? 'selected' : ''}}>{{translate('Office')}}</option>
-                                        <option value="others" {{$customerAddress?->address_label == 'others' ? 'selected' : ''}}>{{translate('others')}}</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6 col-12">
-                                <div class="mb-30">
-                                    <select class="js-select select-zone theme-input-style w-100" name="zone_id">
-                                        <option value="" disabled>{{translate('Select zone')}}</option>
-                                        @foreach($zones as $zone)
-                                            <option value="{{$zone?->id}}" {{$zone?->id == $customerAddress?->zone_id ? 'selected' : null}}>{{$zone?->name}}</option>
-                                        @endforeach
-                                    </select>
                                 </div>
                             </div>
                             <div class="col-md-6 col-12">
                                 <div class="mb-30">
                                     <div class="form-floating">
                                         <input type="text" class="form-control" name="latitude" id="latitude"
-                                               placeholder="{{translate('lat')}} *"
-                                               value="{{$customerAddress?->lat}}" required readonly
+                                               placeholder="{{translate('lat')}}"
+                                               value="{{$customerAddress?->lat}}"
                                                data-bs-toggle="tooltip" data-bs-placement="top"
                                                title="{{translate('Select from map')}}">
-                                        <label>{{translate('lat')}} *</label>
+                                        <label>{{translate('lat')}} ({{translate('Optional')}})</label>
                                     </div>
                                 </div>
                             </div>
@@ -123,12 +62,22 @@
                                 <div class="mb-30">
                                     <div class="form-floating">
                                         <input type="text" class="form-control" name="longitude" id="longitude"
-                                               placeholder="{{translate('lon')}} *"
-                                               value="{{$customerAddress?->lon}}" required readonly
+                                               placeholder="{{translate('lon')}}"
+                                               value="{{$customerAddress?->lon}}"
                                                data-bs-toggle="tooltip" data-bs-placement="top"
                                                title="{{translate('Select from map')}}">
-                                        <label>{{translate('lon')}} *</label>
+                                        <label>{{translate('lon')}} ({{translate('Optional')}})</label>
                                     </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-30">
+                                    <select class="js-select select-zone theme-input-style w-100" name="zone_id">
+                                        <option value="">{{translate('Select zone')}} ({{translate('Optional')}})</option>
+                                        @foreach($zones as $zone)
+                                            <option value="{{$zone?->id}}" {{$zone?->id == $customerAddress?->zone_id ? 'selected' : null}}>{{$zone?->name}}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
                             </div>
                             <div id="location_map_div" class="location_map_class">

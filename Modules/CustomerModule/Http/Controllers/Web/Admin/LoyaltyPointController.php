@@ -41,7 +41,7 @@ class LoyaltyPointController extends Controller
         ])->validate();
 
         $zones = $this->zone->select('id', 'name')->get();
-        $customers = $this->user->ofType(['customer'])->select('id', 'first_name', 'last_name', 'phone')->get();
+        $customers = $this->user->inCustomerDirectory()->select('id', 'first_name', 'last_name', 'phone')->get();
 
         $queryParams = [];
         $transactionType = $request->has('transaction_type') ? $request->transaction_type : 'all';

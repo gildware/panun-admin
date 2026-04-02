@@ -112,14 +112,15 @@ class BookingController extends Controller
         $this->authorize('booking_view');
         $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), ['all', 'reopened']);
         $request->validate([
-            'booking_status' => 'in:' . implode(',', $allowedBookingStatuses),
+            'booking_status' => 'nullable|in:' . implode(',', $allowedBookingStatuses),
         ]);
 
         $queryParams = $request->only(['zone_ids', 'category_ids', 'sub_category_ids', 'start_date', 'end_date', 'search']);
+        $queryParams['assignee_ids'] = $this->normalizeAdminAssigneeFilterIds((array) $request->input('assignee_ids', []));
         $filterCounter = collect($queryParams)->filter()->count();
-        $bookingStatus = $queryParams['booking_status'] = $request->input('booking_status', 'pending');
+        $bookingStatus = $queryParams['booking_status'] = $request->input('booking_status') ?: 'all';
         $queryParams['booking_type'] = $request->input('booking_type', '');
-        $queryParams['service_type'] = $request->input('service_type', '');
+        $queryParams['service_type'] = 'all';
         $queryParams['provider_assigned'] = $request->input('provider_assigned', '');
 
         if (empty($queryParams['start_date'])) {
@@ -141,11 +142,8 @@ class BookingController extends Controller
                         $query->adminPendingBookings($maxBookingAmount);
                     })->when($bookingStatus == 'accepted', function ($query) use ($maxBookingAmount) {
                         $query->adminAcceptedBookings($maxBookingAmount);
-                    })->ofBookingStatus($request['booking_status']);
+                    })->ofBookingStatus($bookingStatus);
                 }
-            })
-            ->when($request['service_type'] != 'all', function ($query) use ($request) {
-                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
             })
             ->when($request['provider_assigned'] == 'assigned', function ($query) {
                 $query->where(function ($subQuery) {
@@ -164,6 +162,7 @@ class BookingController extends Controller
             ->filterBySubcategoryIds($request['sub_category_ids'])
             ->filterByCategoryIds($request['category_ids'])
             ->filterByDateRange($request['start_date'], $request['end_date'])
+            ->filterByAssigneeIds($queryParams['assignee_ids'])
             ->latest()
             ->paginate(pagination_limit())
             ->appends($queryParams);
@@ -179,6 +178,7 @@ class BookingController extends Controller
                 $booking->repeats = $sortedRepeats->values();
 
                 $nextService = $booking->repeats->firstWhere('booking_status', 'ongoing')
+                    ?? $booking->repeats->firstWhere('booking_status', 'on_hold')
                     ?? $booking->repeats->firstWhere('booking_status', 'accepted')
                     ?? $booking->repeats->firstWhere('booking_status', 'pending');
 
@@ -193,8 +193,57 @@ class BookingController extends Controller
         $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name')->get();
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
+        $assigneeUsers = User::whereIn('user_type', ['super-admin', 'admin-employee'])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')
+            ->get();
 
-        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'queryParams', 'filterCounter'));
+        $bookingTabCounts = $this->adminBookingListStatusTabCounts();
+
+        return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts'));
+    }
+
+    /**
+     * Status tab totals for the admin booking list (unfiltered; matches each tab's base query).
+     */
+    /**
+     * @return list<string>
+     */
+    protected function normalizeAdminAssigneeFilterIds(array $raw): array
+    {
+        $out = [];
+        foreach ($raw as $id) {
+            if ($id === null || $id === '') {
+                continue;
+            }
+            $id = is_string($id) ? trim($id) : $id;
+            if ($id === '__unassigned__' || $id === 'unassigned') {
+                $out[] = '__unassigned__';
+                continue;
+            }
+            if (is_string($id) && Str::isUuid($id)) {
+                $out[] = $id;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    protected function adminBookingListStatusTabCounts(): array
+    {
+        $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
+
+        return [
+            'all' => $this->booking->count(),
+            'pending' => $this->booking->newQuery()->adminPendingBookings($maxBookingAmount)->count(),
+            'accepted' => $this->booking->newQuery()->adminAcceptedBookings($maxBookingAmount)->count(),
+            'ongoing' => $this->booking->newQuery()->where('booking_status', 'ongoing')->count(),
+            'completed' => $this->booking->newQuery()->where('booking_status', 'completed')->count(),
+            'reopened' => $this->booking->newQuery()->reopenedChain()->count(),
+            'on_hold' => $this->booking->newQuery()->where('booking_status', 'on_hold')->count(),
+            'canceled' => $this->booking->newQuery()->whereIn('booking_status', ['canceled', 'refunded'])->count(),
+        ];
     }
 
     /**
@@ -210,7 +259,7 @@ class BookingController extends Controller
             $this->authorize('booking_view');
         } catch (AuthorizationException $e) {
             Toastr::error(translate('Access_denied'));
-            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+            return redirect()->route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
         }
 
         $reopenNewBookingDraft = null;
@@ -266,7 +315,7 @@ class BookingController extends Controller
             $this->authorize('booking_view');
         } catch (AuthorizationException $e) {
             Toastr::error(translate('Access_denied'));
-            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+            return redirect()->route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
         }
 
         $leadModel = Lead::with(['source'])->findOrFail($lead);
@@ -277,7 +326,7 @@ class BookingController extends Controller
         }
 
         // Try to find existing customer by phone; otherwise create one
-        $customer = User::where('user_type', 'customer')
+        $customer = User::query()->inCustomerDirectory()
             ->where('phone', $leadModel->phone_number)
             ->first();
 
@@ -292,6 +341,7 @@ class BookingController extends Controller
             $customer->gender = 'male';
             $customer->password = bcrypt($defaultPassword);
             $customer->user_type = 'customer';
+            $customer->customer_app_access = true;
             $customer->is_active = 1;
             $customer->save();
         }
@@ -349,7 +399,7 @@ class BookingController extends Controller
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
         $providers = $this->provider->with('owner')->get();
         $servicemen = $this->serviceman->with('user')->get();
-        $customers = User::where('user_type', 'customer')
+        $customers = User::query()->inCustomerDirectory()
             ->orderByDesc('created_at')
             ->select('id', 'first_name', 'last_name', 'phone')
             ->limit(100)
@@ -358,7 +408,7 @@ class BookingController extends Controller
         $prefillCustomerId = $request->input('customer_id');
         if ($prefillCustomerId && !$customers->contains(fn ($u) => (string) $u->id === (string) $prefillCustomerId)) {
             $extraCustomer = User::query()
-                ->where('user_type', 'customer')
+                ->inCustomerDirectory()
                 ->where('id', $prefillCustomerId)
                 ->select('id', 'first_name', 'last_name', 'phone')
                 ->first();
@@ -379,10 +429,6 @@ class BookingController extends Controller
 
         $currentAdmin = auth()->user();
 
-        $additionalChargeEnabled = (bool) (business_config('booking_additional_charge', 'booking_setup'))?->live_values;
-        $additionalChargeLabel = (string) (business_config('additional_charge_label_name', 'booking_setup'))?->live_values ?: translate('extra_fee');
-        $additionalChargeDefaultAmount = (float) (business_config('additional_charge_fee_amount', 'booking_setup'))?->live_values ?: 0;
-
         return view($view, compact(
             'zones',
             'zoneTreeOptions',
@@ -393,9 +439,6 @@ class BookingController extends Controller
             'customers',
             'assignees',
             'currentAdmin',
-            'additionalChargeEnabled',
-            'additionalChargeLabel',
-            'additionalChargeDefaultAmount',
             'sources',
             'reopenNewBookingDraft'
         ));
@@ -439,10 +482,11 @@ class BookingController extends Controller
                 ],
                 'assignee_id' => ['nullable', 'exists:users,id'],
                 'service_description' => ['nullable', 'string', 'max:2000'],
-                'extra_fee' => ['nullable', 'numeric', 'min:0'],
                 'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
                 'in_modal' => ['nullable', 'boolean'],
                 'reopen_source_booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
+                'ac_line_amount' => ['nullable', 'array'],
+                'ac_line_amount.*' => ['nullable', 'numeric', 'min:0'],
             ], [
                 'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
             ]);
@@ -451,15 +495,15 @@ class BookingController extends Controller
             if ($data['service_location'] === 'provider') {
                 $data['service_address_id'] = null;
             }
-            $additionalChargeEnabled = (bool) (business_config('booking_additional_charge', 'booking_setup'))?->live_values;
-            if (!$additionalChargeEnabled) {
-                $data['extra_fee'] = 0;
-            } else {
-                $data['extra_fee'] = (float) ($data['extra_fee'] ?? 0);
-            }
         } catch (ValidationException $e) {
             return redirect()->back()->withErrors($e->errors())->withInput();
         }
+
+        $data['ac_line_amount'] = (array) ($data['ac_line_amount'] ?? []);
+        $acOverrides = array_map(
+            static fn ($v) => is_numeric($v) ? (float) $v : 0.0,
+            $data['ac_line_amount']
+        );
 
         // Normalize booking source for display
         $data['booking_source'] = strtolower($data['booking_source']);
@@ -481,9 +525,10 @@ class BookingController extends Controller
 
         $totalBilling = 0;
         $dueBalance = 0;
+        $additionalChargeLines = [];
         if ($variation && $service) {
             $serviceForCalc = Service::active()
-                ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+                ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
                 ->find($data['service_id']);
             if ($serviceForCalc) {
                 $quantity = 1;
@@ -492,10 +537,16 @@ class BookingController extends Controller
                 $campaignDiscount = campaign_discount_calculation($serviceForCalc, $variationPrice * $quantity);
                 $subtotal = round($variationPrice * $quantity, 2);
                 $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-                $tax = round((($variationPrice * $quantity - $applicableDiscount) * $serviceForCalc->tax) / 100, 2);
+                $tax = round((($variationPrice * $quantity - $applicableDiscount) * effective_service_tax_percentage($serviceForCalc)) / 100, 2);
                 $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
                 $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
-                $extraFee = (float) ($data['extra_fee'] ?? 0);
+                $basisExTax = round($subtotal - $basicDiscount - $campaignDiscount, 2);
+                $computed = compute_additional_charges_for_service_basis($basisExTax, $serviceForCalc);
+                $mergedLines = merge_additional_charge_line_amount_overrides($computed['lines'], $acOverrides);
+                $finalAc = finalize_additional_charge_lines($mergedLines);
+                $extraFee = $finalAc['total'];
+                $additionalChargeLines = $finalAc['lines'];
+                $data['extra_fee'] = $extraFee;
                 $totalBilling = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
                 $advance = (float) ($data['advance_paid_amount'] ?? 0);
                 $dueBalance = max(0, $totalBilling - $advance);
@@ -507,7 +558,7 @@ class BookingController extends Controller
             : 'bookingmodule::admin.booking.preview';
 
         return view($view,
-            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance'));
+            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance', 'additionalChargeLines'));
     }
 
     /**
@@ -555,10 +606,11 @@ class BookingController extends Controller
             ],
             'assignee_id' => ['nullable', 'exists:users,id'],
             'service_description' => ['nullable', 'string', 'max:2000'],
-            'extra_fee' => ['nullable', 'numeric', 'min:0'],
             'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
             'in_modal' => ['nullable', 'boolean'],
             'reopen_source_booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
+            'ac_line_amount' => ['nullable', 'array'],
+            'ac_line_amount.*' => ['nullable', 'numeric', 'min:0'],
         ], [
             'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
         ]);
@@ -567,8 +619,11 @@ class BookingController extends Controller
         if ($data['service_location'] === 'provider') {
             $data['service_address_id'] = null;
         }
-        $additionalChargeEnabled = (bool) (business_config('booking_additional_charge', 'booking_setup'))?->live_values;
-        $data['extra_fee'] = $additionalChargeEnabled ? (float) ($data['extra_fee'] ?? 0) : 0;
+
+        $acOverrides = array_map(
+            static fn ($v) => is_numeric($v) ? (float) $v : 0.0,
+            (array) ($data['ac_line_amount'] ?? [])
+        );
 
         // Normalize booking source
         $data['booking_source'] = strtolower($data['booking_source']);
@@ -588,7 +643,7 @@ class BookingController extends Controller
         try {
             // Get service and variation for price calculation
             $service = Service::active()
-                ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+                ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
                 ->find($data['service_id']);
             
             $variation = Variation::firstForBookingZone(
@@ -613,12 +668,16 @@ class BookingController extends Controller
             $subtotal = round($variationPrice * $quantity, 2);
             
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round((($variationPrice * $quantity - $applicableDiscount) * $service->tax) / 100, 2);
+            $tax = round((($variationPrice * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
             
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
-            
-            $extraFee = (float) ($data['extra_fee'] ?? 0);
+
+            $basisExTax = round($subtotal - $basicDiscount - $campaignDiscount, 2);
+            $computed = compute_additional_charges_for_service_basis($basisExTax, $service);
+            $mergedLines = merge_additional_charge_line_amount_overrides($computed['lines'], $acOverrides);
+            $finalAc = finalize_additional_charge_lines($mergedLines);
+            $extraFee = $finalAc['total'];
             $totalCost = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
 
             $advanceAmount = (float) ($data['advance_paid_amount'] ?? 0);
@@ -646,6 +705,7 @@ class BookingController extends Controller
             $booking->service_description = $data['service_description'] ?? null;
             $booking->booking_otp = rand(100000, 999999);
             $booking->extra_fee = $extraFee;
+            $booking->additional_charges_breakdown = count($finalAc['lines']) ? $finalAc['lines'] : null;
             $booking->lead_id = $data['lead_id'] ?? null;
             
             // Set booking totals (total_booking_amount excludes extra_fee; get_booking_total_amount() adds it)
@@ -849,14 +909,14 @@ class BookingController extends Controller
             $this->authorize('booking_view');
         } catch (AuthorizationException $e) {
             Toastr::error(translate('Access_denied'));
-            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+            return redirect()->route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
         }
 
         $booking = $this->booking->find($id);
         
         if (!$booking) {
             Toastr::error(translate('Booking_not_found'));
-            return redirect()->route('admin.booking.list', ['booking_status' => 'pending', 'service_type' => 'all']);
+            return redirect()->route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
         }
 
         return view('bookingmodule::admin.booking.success', compact('booking'));
@@ -983,6 +1043,7 @@ class BookingController extends Controller
                 $booking->repeats = $sortedRepeats->values();
 
                 $nextService = $booking->repeats->firstWhere('booking_status', 'ongoing')
+                    ?? $booking->repeats->firstWhere('booking_status', 'on_hold')
                     ?? $booking->repeats->firstWhere('booking_status', 'accepted')
                     ?? $booking->repeats->firstWhere('booking_status', 'pending');
 
@@ -1135,6 +1196,9 @@ class BookingController extends Controller
             ->where('status', 'scheduled')
             // Include missed follow-ups from previous days up to and including today.
             ->whereDate('date', '<=', $effectiveTo)
+            ->whereHas('booking', function ($bookingQuery) {
+                $bookingQuery->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
+            })
             ->when($dateFrom, function ($q) use ($dateFrom) {
                 $q->whereDate('date', '>=', $dateFrom);
             })
@@ -1179,8 +1243,11 @@ class BookingController extends Controller
     public function details($id, Request $request): Renderable|RedirectResponse
     {
         $this->authorize('booking_view');
+        if ($request->input('web_page') === 'status') {
+            return redirect()->route('admin.booking.details', [$id, 'web_page' => 'history']);
+        }
         $webPage = $request->input('web_page', 'details');
-        if (!in_array($webPage, ['details', 'status', 'followups'], true)) {
+        if (!in_array($webPage, ['details', 'history', 'followups'], true)) {
             $webPage = 'details';
         }
         $request->merge(['web_page' => $webPage]);
@@ -1258,9 +1325,7 @@ class BookingController extends Controller
             $providers = [];
 
             foreach ($allProviders as $provider) {
-                $serviceLocation = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config');
-
-                if (in_array($booking->service_location, $serviceLocation)) {
+                if (provider_accepts_booking_service_location($provider->id, $booking->service_location)) {
                     $providers[] = $provider;
                 }
             }
@@ -1300,74 +1365,33 @@ class BookingController extends Controller
             $remainingDueForAddPayment = round(max(0, get_booking_total_amount($booking) - $totalPaidFromPartials), 2);
             $maxRefundAmount = $booking->booking_status === 'canceled' ? get_booking_total_paid($booking) : 0;
 
+            $additionalChargesDisplayRows = enrich_booking_additional_charges_breakdown_for_display($booking);
+
             try {
-                return view('bookingmodule::admin.booking.details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'currentlyAssignProvider', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount'));
+                return view('bookingmodule::admin.booking.details', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'currentlyAssignProvider', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows'));
             } catch (Throwable $e) {
                 Log::error('Booking details view failed: ' . $e->getMessage(), ['exception' => $e, 'booking_id' => $id]);
                 Toastr::error(translate('Unable to load booking details. Please try again.'));
                 return redirect()->route('admin.booking.list');
             }
-        } elseif ($webPage === 'status') {
-            $booking = $this->booking->with(['detail.service', 'customer', 'provider', 'service_address', 'serviceman.user', 'service_address', 'status_histories.user', 'followups', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
+        } elseif ($webPage === 'history') {
+            $booking = $this->booking->with([
+                'change_logs.changedBy',
+                'customer',
+                'provider',
+                'service_address',
+                'reopenEvents.actor',
+                'originatedFromBooking',
+                'spawnedFollowupBookings',
+                'reopenedByUser',
+                'reopenCaseResolvedByUser',
+            ])->find($id);
 
-            $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
-
-            $servicemen = $this->serviceman->with(['user'])
-                ->where('provider_id', $booking?->provider_id)
-                ->whereHas('user', function ($query) {
-                    $query->ofStatus(1);
-                })
-                ->latest()
-                ->get();
-            $category = $booking?->detail?->first()?->service?->category;
-            $subCategory = $booking?->detail?->first()?->service?->subCategory;
-            $services = Service::select('id', 'name')->where('category_id', $category->id)->where('sub_category_id', $subCategory->id)->get();
-            $customerAddress = $this->userAddress->find($booking['service_address_id']);
-            $zones = Zone::ofStatus(1)->withoutGlobalScope('translate')->get();
-
-            $allProviders = $this->provider
-                ->when($request->has('search'), function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    return $query->where(function ($query) use ($keys) {
-                        foreach ($keys as $key) {
-                            $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_email', 'LIKE', '%' . $key . '%')
-                                ->orWhere('company_name', 'LIKE', '%' . $key . '%');
-                        }
-                    });
-                })
-                ->when(isset($booking->sub_category_id), function ($query) use ($request, $booking) {
-                    $query->whereHas('subscribed_services', function ($query) use ($request, $booking) {
-                        $query->where('sub_category_id', $booking->sub_category_id)->where('is_subscribed', 1);
-                    });
-                })
-                ->coveringLeafZone($booking->zone_id)
-                ->withCount('bookings', 'reviews')
-                ->ofApproval(1)->ofStatus(1)
-                ->whereNot('id', $booking->provider_id)
-                ->get();
-
-            $providers = [];
-
-            foreach ($allProviders as $provider) {
-                $serviceLocation = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config');
-
-                if (in_array($booking->service_location, $serviceLocation)) {
-                    $providers[] = $provider;
-                }
+            if (!$booking) {
+                return redirect()->route('admin.booking.list')->withErrors(['message' => translate('Booking not found')]);
             }
 
-            $currentlyAssignProvider = $booking->provider_id
-                ? $this->provider->withCount('bookings', 'reviews')->find($booking->provider_id)
-                : null;
-
-            $sort_by = 'default';
-            $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
-            $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
-            $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
-            $customerName = booking_display_customer_name($booking, $customerAddress);
-            $customerPhone = booking_display_customer_phone($booking, $customerAddress);
-            return view('bookingmodule::admin.booking.status', compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by', 'currentlyAssignProvider', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone'));
+            return view('bookingmodule::admin.booking.history', compact('booking', 'webPage'));
         } elseif ($webPage === 'followups') {
             $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
             $webPage = 'followups';
@@ -1769,10 +1793,13 @@ class BookingController extends Controller
             $booking['repeats'] = $sortedRepeats->values()->toArray();
 
             $nextService = collect($booking['repeats'])->firstWhere('booking_status', 'ongoing');
-            if (!$nextService) {
+            if (! $nextService) {
+                $nextService = collect($booking['repeats'])->firstWhere('booking_status', 'on_hold');
+            }
+            if (! $nextService) {
                 $nextService = collect($booking['repeats'])->firstWhere('booking_status', 'accepted');
             }
-            if (!$nextService) {
+            if (! $nextService) {
                 $nextService = collect($booking['repeats'])->firstWhere('booking_status', 'pending');
             }
 
@@ -1850,8 +1877,11 @@ class BookingController extends Controller
     public function repeatSingleDetails($id, Request $request): Renderable|RedirectResponse
     {
         $this->authorize('booking_view');
+        if ($request->input('web_page') === 'status') {
+            return redirect()->route('admin.booking.repeat_single_details', [$id, 'web_page' => 'history']);
+        }
         Validator::make($request->all(), [
-            'web_page' => 'required|in:details,status',
+            'web_page' => 'required|in:details,history',
         ]);
         $webPage = $request->has('web_page') ? $request['web_page'] : 'business_setup';
 
@@ -1928,9 +1958,15 @@ class BookingController extends Controller
         if ($request->web_page == 'details') {
             return view('bookingmodule::admin.booking.rebooking-ongoing', compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by'));
 
-        }elseif ($request->web_page == 'status') {
-            return view('bookingmodule::admin.booking.repeat-status', compact('booking', 'webPage', 'servicemen', 'customerAddress', 'category', 'subCategory', 'services', 'providers', 'zones', 'sort_by'));
+        } elseif ($request->web_page == 'history') {
+            $mainBooking = $this->booking->with(['change_logs.changedBy'])->find($booking->booking_id);
+            $changeLogs = $mainBooking?->change_logs ?? collect();
+
+            return view('bookingmodule::admin.booking.repeat-history', compact('booking', 'webPage', 'changeLogs'));
         }
+
+        Toastr::success(translate(ACCESS_DENIED['message']));
+        return back();
     }
 
     /**
@@ -1953,13 +1989,34 @@ class BookingController extends Controller
 
         try {
             if ($booking) {
-                if($booking->booking_status == 'ongoing' && $request['booking_status'] == 'canceled'){
-                    return response()->json(BOOKING_ALREADY_ONGOING, 200);
+                if (! booking_admin_status_transition_allowed((string) $booking->booking_status, $validated['booking_status'])) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Invalid_booking_status_transition'),
+                    ]), 422);
+                }
+                if ($validated['booking_status'] === 'completed' && ! booking_can_be_completed($booking)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Booking cannot be completed until full payment is received.'),
+                    ]), 422);
                 }
                 return $this->updateBookingStatus($booking, $validated['booking_status'], $request);
             }
 
             if ($repeatBooking) {
+                if (! booking_admin_status_transition_allowed((string) $repeatBooking->booking_status, $validated['booking_status'])) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Invalid_booking_status_transition'),
+                    ]), 422);
+                }
+                if ($validated['booking_status'] === 'completed' && ! booking_can_be_completed($repeatBooking)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Booking cannot be completed until full payment is received.'),
+                    ]), 422);
+                }
                 return $this->updateRepeatBookingStatus($repeatBooking, $validated['booking_status'], $request);
             }
         } catch (\RuntimeException $e) {
@@ -1980,7 +2037,7 @@ class BookingController extends Controller
             $previousParentStatus = (string) $booking->getOriginal('booking_status');
             DB::transaction(function () use ($booking, $status, $request) {
                 if ($booking->repeat) {
-                    foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing']) as $repeat) {
+                    foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold']) as $repeat) {
                         $repeat->update([
                             'provider_id' => $request->provider_id,
                             'booking_status' => $status,
@@ -2027,62 +2084,23 @@ class BookingController extends Controller
         $previousRepeatStatus = (string) $repeatBooking->booking_status;
         $repeatBooking->booking_status = $status;
 
-        if ($status == 'canceled' && $repeatBooking->extra_fee > 0){
-
-            $booking = $this->booking->where('id', $repeatBooking->booking_id)->first();
-            $sortedRepeats = $booking->repeat->sortBy(function ($repeat) {
-                $parts = explode('-', $repeat->readable_id);
-                $suffix = end($parts);
-                return $this->readableIdToNumber($suffix);
-            });
-
-            $booking['repeats'] = $sortedRepeats->values()->toArray();
-
-            $nextService = collect($booking['repeats'])
-                ->where('booking_status', 'ongoing')
-                ->skip(1)
-                ->first();
-
-            if (!$nextService) {
-                $nextService = collect($booking['repeats'])
-                    ->where('booking_status', 'accepted')
-                    ->skip(1)
-                    ->first();
-            }
-
-            if (!$nextService) {
-                $nextService = collect($booking['repeats'])
-                    ->where('booking_status', 'pending')
-                    ->skip(1)
-                    ->first();
-            }
-
-            if (isset($nextService)) {
-                $nextServiceId = $nextService['id'];
-                $nextServiceFee = $this->bookingRepeat->where('id', $nextServiceId)->first();
-                $nextServiceFee->extra_fee = $repeatBooking->extra_fee;
-                $nextServiceFee->total_booking_amount += $repeatBooking->extra_fee;
-                $nextServiceFee->save();
-            }
-
-            $repeatBooking->total_booking_amount -= $repeatBooking->extra_fee;
-            $repeatBooking->extra_fee = 0;
-        }
-
         if ($repeatBooking->isDirty('booking_status')) {
             DB::transaction(function () use ($repeatBooking, $status, $request) {
 
                 $repeatBooking->save();
+                sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
                 $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id);
 
                 $relatedRepeats = $this->bookingRepeat->where('booking_id', $repeatBooking->booking_id)->get();
-                if ($relatedRepeats->every(fn($repeat) => !in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing']))) {
+                if ($relatedRepeats->every(fn ($repeat) => ! in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing', 'on_hold'], true))) {
                     $repeatBooking->booking->update(['booking_status' => 'completed', 'is_paid' => 1]);
                 }
 
-                    if (in_array($repeatBooking->booking_status, ['ongoing', 'completed', 'canceled'])) {
-                        if ($repeatBooking->booking->booking_status != 'ongoing' && $repeatBooking->booking->booking_status != 'completed' && $repeatBooking->booking->booking_status != 'canceled') {
-                            $repeatBooking->booking->booking_status = 'ongoing';
+                    $repeatSt = (string) $repeatBooking->booking_status;
+                    if (in_array($repeatSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
+                        $parentSt = (string) $repeatBooking->booking->booking_status;
+                        if (! in_array($parentSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
+                            $repeatBooking->booking->booking_status = $repeatSt === 'on_hold' ? 'on_hold' : 'ongoing';
                             $repeatBooking->booking->save();
                         }
                     }
@@ -2142,6 +2160,11 @@ class BookingController extends Controller
 
         $repeatBooking = $this->bookingRepeat->where('id', $bookingId)->first();
         if (isset($repeatBooking)){
+            if (! booking_admin_status_transition_allowed((string) $repeatBooking->booking_status, (string) $request['booking_status'])) {
+                Toastr::error(translate('Invalid_booking_status_transition'));
+
+                return back();
+            }
             $previousRepeatStatus = (string) $repeatBooking->booking_status;
             $repeatBooking->booking_status = $request['booking_status'];
 
@@ -2763,6 +2786,73 @@ class BookingController extends Controller
     }
 
     /**
+     * Update per-booking amounts for additional charge types marked customizable (rules still drive non-customizable lines).
+     */
+    public function updateBookingAdditionalCharges(string $id, Request $request): RedirectResponse
+    {
+        $this->authorize('booking_edit');
+
+        $booking = $this->booking->with(['detail.service.category', 'detail.service.subCategory'])->findOrFail($id);
+
+        if (in_array($booking->booking_status, ['completed', 'canceled', 'refunded'], true)) {
+            Toastr::error(translate('Access_denied'));
+
+            return redirect()->back();
+        }
+
+        $request->validate([
+            'ac_line_amount' => ['nullable', 'array'],
+            'ac_line_amount.*' => ['nullable'],
+        ]);
+
+        $computed = compute_additional_charges_for_booking_details($booking);
+        $allowed = collect($computed['lines'])->filter(fn ($l) => ! empty($l['customizable']))->keyBy('id');
+        $requestAmountsRaw = (array) $request->input('ac_line_amount', []);
+        $requestAmounts = [];
+        foreach ($requestAmountsRaw as $reqKey => $reqVal) {
+            $requestAmounts[(string) $reqKey] = $reqVal;
+        }
+        $storedById = collect($booking->additional_charges_breakdown ?? [])->keyBy(fn ($l) => (string) ($l['id'] ?? ''));
+        $computedById = collect($computed['lines'])->keyBy(fn ($l) => (string) ($l['id'] ?? ''));
+
+        $normalizeAcAmount = static function (mixed $value): float {
+            if (is_array($value)) {
+                $value = $value === [] ? null : reset($value);
+            }
+            if ($value === null || $value === '' || ! is_numeric($value)) {
+                return 0.0;
+            }
+
+            return max(0.0, round((float) $value, 2));
+        };
+
+        $filtered = [];
+        foreach ($allowed as $chargeTypeId => $_line) {
+            $typeKey = (string) $chargeTypeId;
+            if (array_key_exists($typeKey, $requestAmounts)) {
+                $filtered[$typeKey] = $normalizeAcAmount($requestAmounts[$typeKey]);
+
+                continue;
+            }
+            $stored = $storedById->get($typeKey);
+            if ($stored !== null && array_key_exists('amount', $stored)) {
+                $filtered[$typeKey] = $normalizeAcAmount($stored['amount']);
+
+                continue;
+            }
+            $cl = $computedById->get($typeKey);
+            $filtered[$typeKey] = $normalizeAcAmount($cl['amount'] ?? 0);
+        }
+
+        $merged = merge_additional_charge_line_amount_overrides($computed['lines'], $filtered);
+        apply_booking_additional_charges_snapshot($booking, $merged);
+
+        Toastr::success(translate(DEFAULT_UPDATE_200['message']));
+
+        return redirect()->back();
+    }
+
+    /**
      * Display a listing of the resource.
      * @param $service_address_id
      * @param Request $request
@@ -2773,32 +2863,28 @@ class BookingController extends Controller
     {
         $this->authorize('booking_edit');
 
-        Validator::make($request->all(), [
-            'city' => 'required',
-            'street' => 'required',
-            'zip_code' => 'required',
-            'country' => 'required',
-            'address' => 'required',
-            'contact_person_name' => 'required',
-            'contact_person_number' => 'required',
-            'address_label' => 'required',
-            'zone_id' => 'required|uuid',
-            'latitude' => 'required',
-            'longitude' => 'required',
-        ]);
+        $validated = Validator::make($request->all(), [
+            'address' => 'required|string',
+            'address_label' => 'required|string|max:191',
+            'landmark' => 'nullable|string|max:500',
+            'latitude' => 'nullable|string|max:191',
+            'longitude' => 'nullable|string|max:191',
+            'zone_id' => 'nullable|uuid',
+        ])->validate();
 
-        $userAddress = $this->userAddress->find($service_address_id);
-        $userAddress->city = $request['city'];
-        $userAddress->street = $request['street'];
-        $userAddress->zip_code = $request['zip_code'];
-        $userAddress->country = $request['country'];
-        $userAddress->address = $request['address'];
-        $userAddress->contact_person_name = $request['contact_person_name'];
-        $userAddress->contact_person_number = $request['contact_person_number'];
-        $userAddress->address_label = $request['address_label'];
-        $userAddress->zone_id = $request['zone_id'];
-        $userAddress->lat = $request['latitude'];
-        $userAddress->lon = $request['longitude'];
+        $userAddress = $this->userAddress->findOrFail($service_address_id);
+        $userAddress->address = $validated['address'];
+        $userAddress->address_label = $validated['address_label'];
+        $userAddress->landmark = $validated['landmark'] ?? null;
+        $userAddress->lat = $validated['latitude'] ?? null;
+        $userAddress->lon = $validated['longitude'] ?? null;
+        $userAddress->city = null;
+        $userAddress->street = null;
+        $userAddress->zip_code = null;
+        $userAddress->country = null;
+        if (!empty($validated['zone_id'])) {
+            $userAddress->zone_id = $validated['zone_id'];
+        }
         $userAddress->save();
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
@@ -2819,10 +2905,11 @@ class BookingController extends Controller
         $this->authorize('booking_view');
         $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), ['all', 'reopened']);
         $request->validate([
-            'booking_status' => 'in:' . implode(',', $allowedBookingStatuses),
+            'booking_status' => 'nullable|in:' . implode(',', $allowedBookingStatuses),
         ]);
 
-        $bookingStatus = $request->input('booking_status', 'pending');
+        $bookingStatus = $request->input('booking_status') ?: 'all';
+        $assigneeIds = $this->normalizeAdminAssigneeFilterIds((array) $request->input('assignee_ids', []));
 
         $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
         $items = $this->booking
@@ -2836,11 +2923,8 @@ class BookingController extends Controller
                         $query->adminPendingBookings($maxBookingAmount);
                     })->when($bookingStatus == 'accepted', function ($query) use ($maxBookingAmount) {
                         $query->adminAcceptedBookings($maxBookingAmount);
-                    })->ofBookingStatus($request['booking_status']);
+                    })->ofBookingStatus($bookingStatus);
                 }
-            })
-            ->when($request['service_type'] != 'all', function ($query) use ($request) {
-                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
             })
             ->when($request['provider_assigned'] == 'assigned', function ($query) {
                 $query->where(function ($subQuery) {
@@ -2862,6 +2946,7 @@ class BookingController extends Controller
             ->filterBySubcategoryIds($request['sub_category_ids'])
             ->filterByCategoryIds($request['category_ids'])
             ->filterByDateRange($request['start_date'], $request['end_date'])
+            ->filterByAssigneeIds($assigneeIds)
             ->latest()->get();
 
         return (new FastExcel($items))->download(time() . '-file.xlsx');
@@ -3116,7 +3201,7 @@ class BookingController extends Controller
         }
 
         $service = Service::active()
-            ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+            ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
             ->where('id', $request['service_id'])
             ->first();
 
@@ -3139,7 +3224,7 @@ class BookingController extends Controller
 
         $applicable_discount = ($campaign_discount >= $basic_discount) ? $campaign_discount : $basic_discount;
 
-        $tax = round((($variation_price * $quantity - $applicable_discount) * $service['tax']) / 100, 2);
+        $tax = round((($variation_price * $quantity - $applicable_discount) * effective_service_tax_percentage($service)) / 100, 2);
 
         $basic_discount = $basic_discount > $campaign_discount ? $basic_discount : 0;
         $campaign_discount = $campaign_discount >= $basic_discount ? $campaign_discount : 0;
@@ -3175,7 +3260,6 @@ class BookingController extends Controller
             'service_id' => 'required|uuid',
             'variant_key' => 'required',
             'quantity' => 'nullable|numeric',
-            'extra_fee' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -3183,9 +3267,8 @@ class BookingController extends Controller
         }
 
         $quantity = (float) ($request->input('quantity', 1));
-        $extraFee = (float) ($request->input('extra_fee', 0));
         $service = Service::active()
-            ->with(['category.category_discount', 'category.campaign_discount', 'service_discount'])
+            ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
             ->where('id', $request['service_id'])
             ->first();
 
@@ -3204,9 +3287,12 @@ class BookingController extends Controller
         $campaignDiscount = campaign_discount_calculation($service, $variationPrice * $quantity);
         $subtotal = round($variationPrice * $quantity, 2);
         $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-        $tax = round((($variationPrice * $quantity - $applicableDiscount) * $service->tax) / 100, 2);
+        $tax = round((($variationPrice * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
         $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
         $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
+        $basisExTax = round($subtotal - $basicDiscount - $campaignDiscount, 2);
+        $computed = compute_additional_charges_for_service_basis($basisExTax, $service);
+        $extraFee = $computed['total'];
         $totalCost = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
 
         $data = [
@@ -3214,6 +3300,7 @@ class BookingController extends Controller
             'total_discount_amount' => round($basicDiscount + $campaignDiscount, 2),
             'tax_amount' => $tax,
             'extra_fee' => $extraFee,
+            'additional_charges_lines' => $computed['lines'],
             'total_cost' => $totalCost,
         ];
 
@@ -3862,7 +3949,10 @@ class BookingController extends Controller
         });
 
         if ($request->wantsJson()) {
-            return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
+            $payload = response_formatter(DEFAULT_UPDATE_200, null);
+            $payload['message'] = translate('Payment added successfully.');
+
+            return response()->json($payload, 200);
         }
         Toastr::success(translate('Payment added successfully.'));
         return back();
@@ -4125,11 +4215,12 @@ class BookingController extends Controller
             $updatedAddress = array_merge($existingAddress, [
                 "lat" => $request->latitude ?? $existingAddress['lat'] ?? null,
                 "lon" => $request->longitude ?? $existingAddress['lon'] ?? null,
-                "city" => $request->city ?? $existingAddress['city'] ?? null,
-                "street" => $request->street ?? $existingAddress['street'] ?? "",
-                "zip_code" => $request->zip_code ?? $existingAddress['zip_code'] ?? "",
-                "country" => $request->country ?? $existingAddress['country'] ?? null,
+                "city" => null,
+                "street" => "",
+                "zip_code" => "",
+                "country" => null,
                 "address" => $request->address ?? $existingAddress['address'] ?? null,
+                "landmark" => $request->landmark ?? $existingAddress['landmark'] ?? null,
                 "updated_at" => now()->toISOString(),
                 "address_type" => $request->address_type ?? $existingAddress['address_type'] ?? "others",
                 "contact_person_name" => $request->contact_person_name ?? $existingAddress['contact_person_name'] ?? null,
@@ -4174,6 +4265,7 @@ class BookingController extends Controller
                 $sortedModelRepeats = $sortedRepeats->values();
 
                 $nextService = $sortedModelRepeats->firstWhere('booking_status', 'ongoing')
+                    ?? $sortedModelRepeats->firstWhere('booking_status', 'on_hold')
                     ?? $sortedModelRepeats->firstWhere('booking_status', 'accepted')
                     ?? $sortedModelRepeats->firstWhere('booking_status', 'pending');
 
@@ -4222,11 +4314,12 @@ class BookingController extends Controller
             $updatedAddress = array_merge($existingAddress, [
                 "lat" => $request->latitude ?? $existingAddress['lat'] ?? null,
                 "lon" => $request->longitude ?? $existingAddress['lon'] ?? null,
-                "city" => $request->city ?? $existingAddress['city'] ?? null,
-                "street" => $request->street ?? $existingAddress['street'] ?? "",
-                "zip_code" => $request->zip_code ?? $existingAddress['zip_code'] ?? "",
-                "country" => $request->country ?? $existingAddress['country'] ?? null,
+                "city" => null,
+                "street" => "",
+                "zip_code" => "",
+                "country" => null,
                 "address" => $request->address ?? $existingAddress['address'] ?? null,
+                "landmark" => $request->landmark ?? $existingAddress['landmark'] ?? null,
                 "updated_at" => now()->toISOString(),
                 "address_type" => $request->address_type ?? $existingAddress['address_type'] ?? "others",
                 "contact_person_name" => $request->contact_person_name ?? $existingAddress['contact_person_name'] ?? null,

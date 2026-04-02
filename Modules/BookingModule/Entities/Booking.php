@@ -30,6 +30,12 @@ class Booking extends Model
 {
     use HasFactory, HasUuid, BookingTrait, BookingScopes;
 
+    /**
+     * Used for admin "pending till today" follow-up lists: only active jobs, not completed / canceled / refunded.
+     * Reopen workflows use these same statuses while work is open.
+     */
+    public const STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS = ['pending', 'accepted', 'ongoing', 'on_hold'];
+
     protected $casts = [
         'readable_id' => 'string',
         'is_paid' => 'integer',
@@ -46,6 +52,7 @@ class Booking extends Model
         'additional_campaign_discount_amount' => 'float',
         'evidence_photos' => 'array',
         'extra_fee' => 'float',
+        'additional_charges_breakdown' => 'array',
         'total_referral_discount_amount' => 'float',
         'provider_payment_confirmed_at' => 'datetime',
         'admin_provider_feedback_skipped_at' => 'datetime',
@@ -201,6 +208,11 @@ class Booking extends Model
     public function followups(): HasMany
     {
         return $this->hasMany(BookingFollowup::class)->orderByDesc('date')->orderByDesc('created_at');
+    }
+
+    public function change_logs(): HasMany
+    {
+        return $this->hasMany(BookingChangeLog::class)->orderByDesc('created_at');
     }
 
     public function originatedFromBooking(): BelongsTo

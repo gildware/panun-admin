@@ -45,7 +45,7 @@ trait BookingTrait
     public function placeBookingRequest($userId, $request, $transactionId, $newUserInfo = null, int $isGuest = 0): array
     {
         $oldUserId = $userId;
-        $cartData = Cart::where(['customer_id' => $userId])->get();
+        $cartData = Cart::with(['service.category', 'service.subCategory'])->where(['customer_id' => $userId])->get();
 
         if ($cartData->count() == 0) {
             return ['flag' => 'failed', 'message' => 'no data found'];
@@ -95,11 +95,8 @@ trait BookingTrait
                 $referralDiscount += $this->referralEarningCalculationForFirstBooking($userId, $totalBookingAmount - $cartData->sum('tax_amount'), $zoneId);
                 $totalBookingAmount -= $referralDiscount;
 
-                $bookingAdditionalChargeStatus = business_config('booking_additional_charge', 'booking_setup')->live_values ?? 0;
-                $extraFee = 0;
-                if ($bookingAdditionalChargeStatus) {
-                    $extraFee = business_config('additional_charge_fee_amount', 'booking_setup')->live_values ?? 0;
-                }
+                $chargeRes = compute_additional_charges_for_cart_items($cartData);
+                $extraFee = $chargeRes['total'];
                 $totalBookingAmount += $extraFee;
 
                 $booking->customer_id = $userId;
@@ -122,6 +119,7 @@ trait BookingTrait
                 $booking->booking_otp = rand(100000, 999999);
                 $booking->is_guest = $isGuest;
                 $booking->extra_fee = $extraFee;
+                $booking->additional_charges_breakdown = count($chargeRes['lines']) ? $chargeRes['lines'] : null;
                 $booking->total_referral_discount_amount = $referralDiscount;
                 $booking->service_address_location = json_encode(UserAddress::find($request['service_address_id'])) ?? null;
                 $booking->service_location = $request['service_location'];
@@ -238,7 +236,8 @@ trait BookingTrait
 
                 $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
                 if ($booking->payment_method == 'cash_after_service') {
-                    if ($maximumBookingAmount > 0 && $booking->total_booking_amount < $maximumBookingAmount) {
+                    $bookingGrandForCap = get_booking_total_amount(Booking::query()->find($booking->id));
+                    if ($maximumBookingAmount > 0 && $bookingGrandForCap < $maximumBookingAmount) {
                         if (isset($booking->provider_id) && $booking->booking_status != 'pending') {
                             $provider = Provider::with('owner')->whereId($booking->provider_id)->first();
                             $fcmToken = $provider?->owner->fcm_token ?? null;
@@ -365,7 +364,7 @@ trait BookingTrait
     public function placeRepeatBookingRequest($userId, $request, $transactionId, $newUserInfo = null, int $isGuest = 0): array
     {
         $oldUserId = $userId;
-        $cartData = Cart::where(['customer_id' => $userId])->get();
+        $cartData = Cart::with(['service.category', 'service.subCategory'])->where(['customer_id' => $userId])->get();
 
         if ($cartData->count() == 0) {
             return ['flag' => 'failed', 'message' => 'no data found'];
@@ -405,12 +404,6 @@ trait BookingTrait
                 $zoneId = config('zone_id') == null ? $request['zone_id'] : config('zone_id');
                 $referralDiscount += $this->referralEarningCalculationForFirstBooking($userId, $totalBookingAmount - $cartData->sum('tax_amount'), $zoneId);
                 $totalBookingAmount -= $referralDiscount;
-
-                $bookingAdditionalChargeStatus = business_config('booking_additional_charge', 'booking_setup')->live_values ?? 0;
-                $extraFee = 0;
-                if ($bookingAdditionalChargeStatus) {
-                    $extraFee = (int) business_config('additional_charge_fee_amount', 'booking_setup')->live_values ?? 0;
-                }
 
                 $repeatBookingSchedule = json_decode($request['dates'], true);
                 $totalDate = count($repeatBookingSchedule);
@@ -452,7 +445,8 @@ trait BookingTrait
                 $booking->total_discount_amount = $cartData->sum('discount_amount') * $totalDate;
                 $booking->total_campaign_discount_amount = $cartData->sum('campaign_discount') * $totalDate;
                 $booking->total_coupon_discount_amount = $totalDiscount;
-                $booking->extra_fee = $extraFee;
+                $booking->extra_fee = 0;
+                $booking->additional_charges_breakdown = null;
                 $booking->total_referral_discount_amount = $referralDiscount;
                 $booking->coupon_code = $cartData->first()->coupon_code;
                 $booking->service_address_id = $request['service_address_id'] ?? '';
@@ -501,7 +495,7 @@ trait BookingTrait
                         $repeatBooking->total_coupon_discount_amount = 0;
                         $repeatBooking->coupon_code = null;
                     }
-                    $repeatBooking->extra_fee = $index < 1 ? $extraFee : 0;
+                    $repeatBooking->extra_fee = 0;
                     $repeatBooking->total_referral_discount_amount = $index < 1 ? $referralDiscount : 0;
                     $repeatBooking->booking_otp = rand(100000, 999999);
                     $repeatBooking->readable_id = $booking->readable_id . '-' . $suffix;
@@ -560,6 +554,8 @@ trait BookingTrait
                     }
                 }
 
+                sync_repeat_series_additional_charges((string) $booking->id);
+
                 //firebaseTopic
                 $bookingNotification = (int) (business_config('booking_notification', 'business_information'))?->live_values;
                 $bookingNotificationType = (business_config('booking_notification_type', 'business_information'))?->live_values;
@@ -594,7 +590,8 @@ trait BookingTrait
 
                 $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
                 if ($booking->payment_method == 'cash_after_service') {
-                    if ($maximumBookingAmount > 0 && $booking->total_booking_amount < $maximumBookingAmount) {
+                    $bookingGrandForCap = get_booking_total_amount(Booking::query()->find($booking->id));
+                    if ($maximumBookingAmount > 0 && $bookingGrandForCap < $maximumBookingAmount) {
                         if (isset($booking->provider_id) && $booking->booking_status != 'pending') {
                             $provider = Provider::with('owner')->whereId($booking->provider_id)->first();
                             $fcmToken = $provider?->owner->fcm_token ?? null;
@@ -699,29 +696,33 @@ trait BookingTrait
                 $transactionId = 'wallet-payment';
             }
 
-            $totalBookingAmount = $data['price'];
+            $grossPrice = max(0.0, (float) ($data['price'] ?? 0));
 
             $referralDiscount = 0;
             $zoneId = $data['zone_id'];
-            $referralDiscount += $this->referralEarningCalculationForFirstBooking($customerUserId, $totalBookingAmount, $zoneId);
-            $totalBookingAmount -= $referralDiscount;
+            $referralDiscount += $this->referralEarningCalculationForFirstBooking($customerUserId, $grossPrice, $zoneId);
+            $netExTax = max(0.0, round($grossPrice - $referralDiscount, 2));
 
-            $tax = !is_null($data['service_tax']) ? round((($data['price'] * $data['service_tax']) / 100) * 1, 2) : 0; //
+            $serviceForTax = !empty($data['service_id'])
+                ? Service::with(['category', 'subCategory'])->find($data['service_id'])
+                : null;
+            $taxPct = effective_service_tax_percentage($serviceForTax);
+            $tax = round(($netExTax * $taxPct) / 100, 2);
 
-            $totalBookingAmount += $tax;
+            $totalBookingAmount = $netExTax + $tax;
+
+            $bidService = Service::with(['category', 'subCategory'])->find($data['service_id']);
+            $basisExTax = $netExTax;
+            $chargeRes = compute_additional_charges_for_service_basis($basisExTax, $bidService);
+            $extraFee = $chargeRes['total'];
+
+            $totalBookingAmount += $extraFee;
+
             $isPartials = $data['is_partial'] ? 1 : 0;
             $customerWalletBalance = User::find($customerUserId)?->wallet_balance;
             if ($isPartials && ($customerWalletBalance <= 0 || $customerWalletBalance >= $totalBookingAmount)) {
                 return ['flag' => 'failed', 'message' => 'Invalid data'];
             }
-
-            $bookingAdditionalChargeStatus = business_config('booking_additional_charge', 'booking_setup')->live_values ?? 0;
-            $extraFee = 0;
-            if ($bookingAdditionalChargeStatus) {
-                $extraFee = business_config('additional_charge_fee_amount', 'booking_setup')->live_values ?? 0;
-            }
-
-            $totalBookingAmount += $extraFee;
 
             $booking->customer_id = $customerUserId;
             $booking->provider_id = $data['provider_id'];
@@ -742,6 +743,7 @@ trait BookingTrait
             $booking->booking_otp = rand(100000, 999999);
             $booking->is_guest = 0;
             $booking->extra_fee = $extraFee;
+            $booking->additional_charges_breakdown = count($chargeRes['lines']) ? $chargeRes['lines'] : null;
             $booking->total_referral_discount_amount = $referralDiscount;
             $booking->save();
 
@@ -772,7 +774,7 @@ trait BookingTrait
             $detail->service_name = Service::find($data['service_id'])->name ?? 'service-not-found';
             $detail->variant_key = null;
             $detail->quantity = 1;
-            $detail->service_cost = $data['price'];
+            $detail->service_cost = $grossPrice;
             $detail->discount_amount = 0;
             $detail->campaign_discount_amount = 0;
             $detail->overall_coupon_discount_amount = 0;
@@ -783,7 +785,7 @@ trait BookingTrait
             $bookingDetailsAmount = new BookingDetailsAmount();
             $bookingDetailsAmount->booking_details_id = $detail->id;
             $bookingDetailsAmount->booking_id = $booking->id;
-            $bookingDetailsAmount->service_unit_cost = $data['price'];
+            $bookingDetailsAmount->service_unit_cost = $grossPrice;
             $bookingDetailsAmount->service_quantity = 1;
             $bookingDetailsAmount->service_tax = $tax;
             $bookingDetailsAmount->discount_by_admin = 0;
@@ -822,7 +824,8 @@ trait BookingTrait
             $provider = Provider::with('owner')->whereId($booking->provider_id)->first();
             $languageKey = $provider->owner?->current_language_key;
             $maxBookingAmount = (business_config('max_booking_amount', 'booking_setup'))->live_values;
-           if ($booking->payment_method != 'cash_after_service' || ($booking->payment_method == 'cash_after_service' && $booking->total_booking_amount < $maxBookingAmount)){
+            $bidGrandForCap = get_booking_total_amount(Booking::query()->find($booking->id));
+            if ($booking->payment_method != 'cash_after_service' || ($booking->payment_method == 'cash_after_service' && $bidGrandForCap < $maxBookingAmount)) {
                if (!is_null($provider?->owner?->fcm_token) && $provider?->is_suspended == 0) {
                    $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
                    $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
@@ -865,7 +868,7 @@ trait BookingTrait
     protected function addNewBookingService($request): void
     {
         DB::transaction(function () use ($request) {
-            $service = Service::with('variations')->find($request['service_id']);
+            $service = Service::with(['variations', 'category', 'subCategory'])->find($request['service_id']);
             $variation = Variation::firstForBookingZone(
                 (string) $request['service_id'],
                 (string) $request['variant_key'],
@@ -887,7 +890,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $quantity, 2);
 
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($variation->price * $quantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -991,6 +994,7 @@ trait BookingTrait
                 }
             }
 
+            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
 
@@ -1020,7 +1024,7 @@ trait BookingTrait
             $booking->additional_campaign_discount_amount -= $oldCampaignDiscount;
             $booking->save();
 
-            $service = Service::with('variations')->find($newServiceId);
+            $service = Service::with(['variations', 'category', 'subCategory'])->find($newServiceId);
             $variation = Variation::firstForBookingZone(
                 (string) $newServiceId,
                 (string) $newVariantKey,
@@ -1038,7 +1042,7 @@ trait BookingTrait
             $campaignDiscount = campaign_discount_calculation($service, $variation->price * $newQuantity);
             $subtotal = round($variation->price * $newQuantity, 2);
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($variation->price * $newQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $newQuantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
             $newTotal = round($subtotal - $basicDiscount - $campaignDiscount + $tax, 2);
@@ -1081,6 +1085,8 @@ trait BookingTrait
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
             $bookingDetailsAmount->save();
+
+            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($detail->booking_id));
         });
     }
 
@@ -1090,7 +1096,7 @@ trait BookingTrait
 
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingDetail::whereHas('booking', fn($query) => $query->where('id', $request['booking_id']))->where('variant_key', $request['variant_key'])->first();
-            $service = Service::with('variations')->find($request['service_id']);
+            $service = Service::with(['variations', 'category', 'subCategory'])->find($request['service_id']);
             $variation = Variation::firstForBookingZone(
                 (string) $request['service_id'],
                 (string) $request['variant_key'],
@@ -1114,7 +1120,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $toAddQuantity, 2);
 
             $applicableDiscount = max($campaignDiscount, $basicDiscount);
-            $tax = round(((($variation->price * $toAddQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $toAddQuantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -1140,7 +1146,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $newQuantity, 2);
 
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($variation->price * $newQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $newQuantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -1222,6 +1228,8 @@ trait BookingTrait
                     }
                 }
             }
+
+            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
     protected function increase_service_quantity_from_booking_repeat($request): void
@@ -1229,7 +1237,7 @@ trait BookingTrait
         if (!$request->has('booking_repeat_id', 'service_id', 'variant_key', 'zone_id')) return;
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingRepeatDetails::whereHas('repeat', fn($query) => $query->where('id', $request['booking_repeat_id']))->where('variant_key', $request['variant_key'])->first();
-            $service = Service::with('variations')->find($request['service_id']);
+            $service = Service::with(['variations', 'category', 'subCategory'])->find($request['service_id']);
             $variation = Variation::firstForBookingZone(
                 (string) $request['service_id'],
                 (string) $request['variant_key'],
@@ -1253,7 +1261,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $toAddQuantity, 2);
 
             $applicableDiscount = max($campaignDiscount, $basicDiscount);
-            $tax = round(((($variation->price * $toAddQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $toAddQuantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -1279,7 +1287,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $newQuantity, 2);
 
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($variation->price * $newQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $newQuantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -1361,6 +1369,9 @@ trait BookingTrait
                     }
                 }
             }
+
+            $repeatRow = BookingRepeat::query()->findOrFail($request['booking_repeat_id']);
+            sync_repeat_series_additional_charges((string) $repeatRow->booking_id);
         });
     }
 
@@ -1370,7 +1381,7 @@ trait BookingTrait
 
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingDetail::whereHas('booking', fn($query) => $query->where('id', $request['booking_id']))->where('variant_key', $request['variant_key'])->first();
-            $service = Service::with('variations')->find($request['service_id']);
+            $service = Service::with(['variations', 'category', 'subCategory'])->find($request['service_id']);
             $variation = Variation::firstForBookingZone(
                 (string) $request['service_id'],
                 (string) $request['variant_key'],
@@ -1391,7 +1402,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $quantity, 2);
 
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($variation->price * $quantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -1477,6 +1488,8 @@ trait BookingTrait
                     }
                 }
             }
+
+            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
 
@@ -1486,7 +1499,7 @@ trait BookingTrait
 
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingDetail::whereHas('booking', fn($query) => $query->where('id', $request['booking_id']))->where('variant_key', $request['variant_key'])->first();
-            $service = Service::with('variations')->find($request['service_id']);
+            $service = Service::with(['variations', 'category', 'subCategory'])->find($request['service_id']);
             $variation = Variation::firstForBookingZone(
                 (string) $request['service_id'],
                 (string) $request['variant_key'],
@@ -1510,7 +1523,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $quantity_to_remove, 2);
 
             $applicableDiscount = max($campaignDiscount, $basicDiscount);
-            $tax = round(((($variation->price * $quantity_to_remove - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $quantity_to_remove - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -1541,7 +1554,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $newQuantity, 2);
 
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($variation->price * $newQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $newQuantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
@@ -1627,6 +1640,8 @@ trait BookingTrait
                     }
                 }
             }
+
+            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
     protected function decrease_service_quantity_from_booking_repeat($request): void
@@ -1635,7 +1650,7 @@ trait BookingTrait
 
         DB::transaction(function () use ($request) {
             $bookingDetails = BookingRepeatDetails::whereHas('repeat', fn($query) => $query->where('id', $request['booking_repeat_id']))->where('variant_key', $request['variant_key'])->first();
-            $service = Service::with('variations')->find($request['service_id']);
+            $service = Service::with(['variations', 'category', 'subCategory'])->find($request['service_id']);
             $variation = Variation::firstForBookingZone(
                 (string) $request['service_id'],
                 (string) $request['variant_key'],
@@ -1659,7 +1674,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $quantity_to_remove, 2);
 
             $applicableDiscount = max($campaignDiscount, $basicDiscount);
-            $tax = round(((($variation->price * $quantity_to_remove - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $quantity_to_remove - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
             $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
@@ -1690,7 +1705,7 @@ trait BookingTrait
             $subtotal = round($variation->price * $newQuantity, 2);
 
             $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round(((($variation->price * $newQuantity - $applicableDiscount) * $service['tax']) / 100), 2);
+            $tax = round((($variation->price * $newQuantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
 
 
             $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
@@ -1776,6 +1791,9 @@ trait BookingTrait
                     }
                 }
             }
+
+            $repeatRowDec = BookingRepeat::query()->findOrFail($request['booking_repeat_id']);
+            sync_repeat_series_additional_charges((string) $repeatRowDec->booking_id);
         });
     }
 
@@ -1791,6 +1809,8 @@ trait BookingTrait
             $totalTaxAmount = 0;
             $totalBookingAmount = 0;
 
+            $booking->loadMissing(['detail.service']);
+
             foreach ($booking->detail as $detail) {
                 $totalCouponAmountRemoved += $detail['overall_coupon_discount_amount'];
 
@@ -1800,8 +1820,9 @@ trait BookingTrait
                 $quantity = $detail['quantity'];
 
                 $applicableDiscount = max($campaignDiscount, $basicDiscount);
-                $taxPercentage = $service['tax'];
-                $tax = round(((($serviceCost * $quantity - $applicableDiscount) * $taxPercentage) / 100), 2);
+                $detailService = $detail->service;
+                $taxPercentage = $detailService ? effective_service_tax_percentage($detailService) : company_default_tax_percentage();
+                $tax = round((($serviceCost * $quantity - $applicableDiscount) * $taxPercentage) / 100, 2);
 
                 $detail->tax_amount = $tax;
                 $detail->total_cost = round(($serviceCost * $quantity) - $applicableDiscount + $tax, 2);
@@ -1825,6 +1846,10 @@ trait BookingTrait
             $booking->additional_charge += $totalCouponAmountRemoved;
             $booking->removed_coupon_amount += $totalCouponAmountRemoved;
             $booking->save();
+
+            if (! (int) ($booking->is_repeated ?? 0)) {
+                recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($booking->id));
+            }
         });
     }
 

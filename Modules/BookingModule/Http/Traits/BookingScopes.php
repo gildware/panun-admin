@@ -117,6 +117,34 @@ trait BookingScopes
         });
     }
 
+    /**
+     * @param  array<int, string>|null  $assigneeIds  UUIDs and/or '__unassigned__' for bookings with no assignee
+     */
+    public function scopeFilterByAssigneeIds($query, ?array $assigneeIds): mixed
+    {
+        $assigneeIds = array_values(array_unique(array_filter(
+            is_array($assigneeIds) ? $assigneeIds : [],
+            fn ($v) => $v !== null && $v !== ''
+        )));
+
+        if ($assigneeIds === []) {
+            return $query;
+        }
+
+        $includeUnassigned = in_array('__unassigned__', $assigneeIds, true);
+        $userIds = array_values(array_filter($assigneeIds, fn ($v) => $v !== '__unassigned__'));
+
+        return $query->where(function ($sub) use ($includeUnassigned, $userIds) {
+            if ($includeUnassigned && $userIds !== []) {
+                $sub->whereNull('assignee_id')->orWhereIn('assignee_id', $userIds);
+            } elseif ($includeUnassigned) {
+                $sub->whereNull('assignee_id');
+            } else {
+                $sub->whereIn('assignee_id', $userIds);
+            }
+        });
+    }
+
     public function scopeFilterByDateRange($query, $fromDate, $toDate): mixed
     {
         return $query->when($fromDate && $toDate, function ($query) use ($fromDate, $toDate) {

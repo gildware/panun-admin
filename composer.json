@@ -59,6 +59,8 @@
         "files": [
             "app/Lib/Helpers.php",
             "app/Lib/BookingPaymentHelpers.php",
+            "app/Lib/BookingStatusTransitions.php",
+            "app/Lib/AdditionalChargeHelpers.php",
             "app/Lib/Constant.php",
             "app/Lib/Response.php",
             "app/Lib/QueryInterface.php",

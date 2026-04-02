@@ -423,7 +423,7 @@
                         <div class="card recent-activities">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5>{{translate('recent_bookings')}}</h5>
-                                <a href="{{route('admin.booking.list', ['booking_status'=>'pending', 'service_type' => 'all'])}}"
+                                <a href="{{route('admin.booking.list', ['booking_status'=>'all', 'service_type' => 'all'])}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body">
@@ -495,7 +495,7 @@
                         <div class="card recent-activities">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5>{{translate('recent_bookings')}}</h5>
-                                <a href="{{route('admin.booking.list', ['booking_status'=>'pending', 'service_type' => 'all'])}}"
+                                <a href="{{route('admin.booking.list', ['booking_status'=>'all', 'service_type' => 'all'])}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body">
