@@ -1,3 +1,191 @@
+.zone-list-table tr.zone-list-expandable {
+    cursor: pointer;
+}
+
+.zone-list-table tr.zone-list-nested-row {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Whole expanded subtree (no root row): very light wash */
+.zone-list-table tbody tr.zone-list-tree-row.zone-branch-subtree.zone-list-nested-row {
+    background-color: rgba(20, 85, 201, 0.035);
+}
+
+/* Nested “mini boxes”: one per contiguous block of direct children of an open row */
+.zone-list-table tbody tr.zone-branch-nest td {
+    border-color: rgba(20, 85, 201, 0.12);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1 td:first-child {
+    border-left: 1px solid rgba(20, 85, 201, 0.4);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1 td:last-child {
+    border-right: 1px solid rgba(20, 85, 201, 0.4);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1.zone-branch-nest-first td {
+    border-top: 1px solid rgba(20, 85, 201, 0.4);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1.zone-branch-nest-last td {
+    border-bottom: 1px solid rgba(20, 85, 201, 0.4);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1.zone-branch-nest-first td:first-child {
+    border-top-left-radius: 5px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1.zone-branch-nest-first td:last-child {
+    border-top-right-radius: 5px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1.zone-branch-nest-last td:first-child {
+    border-bottom-left-radius: 5px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1.zone-branch-nest-last td:last-child {
+    border-bottom-right-radius: 5px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l1 {
+    background-color: rgba(20, 85, 201, 0.05);
+}
+
+/* Deeper levels: smaller radius + softer border */
+.zone-list-table tbody tr.zone-branch-nest--l2 td:first-child,
+.zone-list-table tbody tr.zone-branch-nest--l3 td:first-child,
+.zone-list-table tbody tr.zone-branch-nest--l4 td:first-child {
+    border-left: 1px solid rgba(20, 85, 201, 0.3);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2 td:last-child,
+.zone-list-table tbody tr.zone-branch-nest--l3 td:last-child,
+.zone-list-table tbody tr.zone-branch-nest--l4 td:last-child {
+    border-right: 1px solid rgba(20, 85, 201, 0.3);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2.zone-branch-nest-first td,
+.zone-list-table tbody tr.zone-branch-nest--l3.zone-branch-nest-first td,
+.zone-list-table tbody tr.zone-branch-nest--l4.zone-branch-nest-first td {
+    border-top: 1px solid rgba(20, 85, 201, 0.3);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2.zone-branch-nest-last td,
+.zone-list-table tbody tr.zone-branch-nest--l3.zone-branch-nest-last td,
+.zone-list-table tbody tr.zone-branch-nest--l4.zone-branch-nest-last td {
+    border-bottom: 1px solid rgba(20, 85, 201, 0.3);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2.zone-branch-nest-first td:first-child {
+    border-top-left-radius: 4px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2.zone-branch-nest-first td:last-child {
+    border-top-right-radius: 4px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2.zone-branch-nest-last td:first-child {
+    border-bottom-left-radius: 4px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2.zone-branch-nest-last td:last-child {
+    border-bottom-right-radius: 4px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l3.zone-branch-nest-first td:first-child,
+.zone-list-table tbody tr.zone-branch-nest--l4.zone-branch-nest-first td:first-child {
+    border-top-left-radius: 3px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l3.zone-branch-nest-first td:last-child,
+.zone-list-table tbody tr.zone-branch-nest--l4.zone-branch-nest-first td:last-child {
+    border-top-right-radius: 3px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l3.zone-branch-nest-last td:first-child,
+.zone-list-table tbody tr.zone-branch-nest--l4.zone-branch-nest-last td:first-child {
+    border-bottom-left-radius: 3px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l3.zone-branch-nest-last td:last-child,
+.zone-list-table tbody tr.zone-branch-nest--l4.zone-branch-nest-last td:last-child {
+    border-bottom-right-radius: 3px;
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l2 {
+    background-color: rgba(20, 85, 201, 0.042);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l3 {
+    background-color: rgba(20, 85, 201, 0.034);
+}
+
+.zone-list-table tbody tr.zone-branch-nest--l4 {
+    background-color: rgba(20, 85, 201, 0.028);
+}
+
+.zone-list-tree-glyph {
+    display: inline-block;
+    margin-right: 0.35rem;
+    font-family: ui-monospace, monospace;
+    user-select: none;
+}
+
+.zone-list-table .zone-toggle-children {
+    border-radius: 999px;
+    font-weight: 500;
+    gap: 0.25rem;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.zone-list-table .zone-toggle-children--view {
+    background-color: var(--bs-success, #198754);
+    border-color: var(--bs-success, #198754);
+    color: #fff;
+}
+
+.zone-list-table .zone-toggle-children--view:hover,
+.zone-list-table .zone-toggle-children--view:focus-visible {
+    background-color: #157347;
+    border-color: #146c43;
+    color: #fff;
+}
+
+.zone-list-table .zone-toggle-children--hide {
+    background-color: var(--bs-danger, #dc3545);
+    border-color: var(--bs-danger, #dc3545);
+    color: #fff;
+}
+
+.zone-list-table .zone-toggle-children--hide:hover,
+.zone-list-table .zone-toggle-children--hide:focus-visible {
+    background-color: #bb2d3b;
+    border-color: #b02a37;
+    color: #fff;
+}
+
+[data-bs-theme=dark] .zone-list-table .zone-toggle-children--view:hover,
+[data-bs-theme=dark] .zone-list-table .zone-toggle-children--view:focus-visible {
+    background-color: #1aa362;
+    border-color: #1aa362;
+}
+
+[data-bs-theme=dark] .zone-list-table .zone-toggle-children--hide:hover,
+[data-bs-theme=dark] .zone-list-table .zone-toggle-children--hide:focus-visible {
+    background-color: #e35d6a;
+    border-color: #e35d6a;
+}
+
+.zone-list-table .zone-toggle-children .zone-toggle-children__icon {
+    font-size: 1.125rem;
+    line-height: 1;
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
+}
+
 .coordinates{
     display: none;
 }

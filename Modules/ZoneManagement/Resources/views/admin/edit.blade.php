@@ -13,8 +13,12 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="page-title-wrap mb-3">
-                        <h2 class="page-title">{{translate('zone_update')}}</h2>
+                    <div class="page-title-wrap mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <h2 class="page-title mb-0">{{translate('zone_update')}}</h2>
+                        <a href="{{ route('admin.zone.create') }}" class="btn btn--secondary d-inline-flex align-items-center gap-2">
+                            <span class="material-icons fs-5 lh-1">arrow_back</span>
+                            {{ translate('Back_to_Zone_List') }}
+                        </a>
                     </div>
 
                     <div class="card zone-setup-instructions mb-30">
@@ -56,9 +60,11 @@
                                         </div>
                                     </div>
                                     <div class="col-lg-7">
-                                        @php($language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
-                                        @php($default_lang = str_replace('_', '-', app()->getLocale()))
-                                        @php($zoneLanguageTabs = $language ? collect($language->live_values ?? []) : collect())
+                                        @php
+                                            $language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name', 'system_language')->first();
+                                            $default_lang = str_replace('_', '-', app()->getLocale());
+                                            $zoneLanguageTabs = $language ? collect($language->live_values ?? []) : collect();
+                                        @endphp
                                         @if($language)
                                             <ul class="nav nav--tabs border-color-primary mb-4">
                                                 <li class="nav-item">
@@ -85,7 +91,9 @@
                                             </div>
                                             <input type="hidden" name="lang[]" value="default">
                                             @foreach ($zoneLanguageTabs as $lang)
-                                                @php($translatedZoneName = collect($zone->translations ?? [])->first(fn ($t) => ($t->locale ?? '') === ($lang['code'] ?? '') && ($t->key ?? '') === 'zone_name')?->value ?? '')
+                                                @php
+                                                    $translatedZoneName = collect($zone->translations ?? [])->first(fn ($t) => ($t->locale ?? '') === ($lang['code'] ?? '') && ($t->key ?? '') === 'zone_name')?->value ?? '';
+                                                @endphp
                                                 <div class="form-floating form-floating__icon mb-30 d-none lang-form"
                                                      id="{{$lang['code']}}-form">
                                                     <input type="text" name="name[]" class="form-control"
@@ -123,6 +131,16 @@
                                                 </select>
                                             </div>
                                         @endif
+
+                                        <div class="form-group mb-30">
+                                            <label class="input-label d-block mb-2" for="zone-description">{{ translate('Zone_description') }}</label>
+                                            <span class="input-label-secondary d-block mb-2 fs-12">{{ translate('Zone_description_hint') }}</span>
+                                            <textarea name="description"
+                                                      id="zone-description"
+                                                      class="form-control theme-input-style"
+                                                      rows="5"
+                                                      placeholder="{{ translate('Zone_description_placeholder') }}">{{ old('description', $zone->description) }}</textarea>
+                                        </div>
 
                                         <div class="form-group mb-3 coordinates">
                                             <label class="input-label"

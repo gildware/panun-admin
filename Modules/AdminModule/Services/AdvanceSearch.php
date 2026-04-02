@@ -532,7 +532,9 @@ class AdvanceSearch
     {
         $result = $type == 'admin' ? $this->adminMenuWithRoutes() : $this->providerMenuWithRoutes();
         if ($type === 'admin') {
-            $result = collect($result)->concat($this->buildAdminAddonMenuSearchItems());
+            $result = collect($result)
+                ->concat($this->buildAdminAddonMenuSearchItems())
+                ->concat($this->buildAdminSettingsSubmenuSearchItems());
         }
 
         $translatedMenus = $this->getTranslatedMenus($result, $searchKeyword);
@@ -713,6 +715,57 @@ class AdvanceSearch
         return collect($out);
     }
 
+    /**
+     * Tab-level business / system settings and other sidebar destinations missing from static JSON keywords.
+     */
+    private function buildAdminSettingsSubmenuSearchItems(): \Illuminate\Support\Collection
+    {
+        $biz = 'admin/business-settings/get-business-information';
+        $login = 'admin/business-settings/login/setup';
+        $customerSettings = 'admin/customer/settings';
+
+        $rows = [
+            [$biz . '?web_page=business_setup', 'Business_info', 'business info, business information, logo, maintenance, currency, timezone, business setup, company details'],
+            [$biz . '?web_page=company_tax', 'default_company_tax_info', 'company tax, tax, vat, gst, default tax, business settings'],
+            [$biz . '?web_page=payment', 'Payment', 'payment, digital payment, cash, payment methods, business settings'],
+            [$biz . '?web_page=bookings', 'bookings', 'booking settings, booking rules, schedule, business settings'],
+            [$biz . '?web_page=additional_charges', 'Additional_charges', 'additional charges, extra fees, surcharges, service charges, fees, business settings'],
+            [$biz . '?web_page=providers', 'providers', 'provider settings, provider commission, business settings'],
+            [$biz . '?web_page=customers', 'customers', 'customer settings, customer wallet settings, loyalty from business settings, business settings'],
+            [$biz . '?web_page=servicemen', 'servicemen', 'serviceman, servicemen settings, business settings'],
+            [$biz . '?web_page=promotional_setup', 'Promotions', 'promotions, promotional, referral, business settings'],
+            [$biz . '?web_page=business_plan', 'Business_Plan', 'business plan, subscription plan, package settings, business settings'],
+            [$login . '?web_page=customer_login', 'General Login Setup', 'login setup, general login, customer login, otp, social login tab, authentication'],
+            [$login . '?web_page=admin_provider_login', 'Rules_&_Restrictions', 'rules and restrictions, admin login, provider login, rules restrictions'],
+            [$customerSettings . '?web_page=wallet', 'customer_wallet', 'customer wallet, wallet settings, wallet bonus, customer settings'],
+            [$customerSettings . '?web_page=loyalty_point', 'loyalty_point', 'loyalty point, loyalty points, rewards, customer settings'],
+            [$customerSettings . '?web_page=referral_earning', 'referral_earning', 'referral, referral earning, invite, customer settings'],
+            ['admin/configuration/offline-payment/list?web_page=payment_config&type=offline_payment', 'Offline_Payment', 'offline payment, bank transfer, cash payment, manual payment, payment methods'],
+            ['admin/chat/index?user_type=customer', 'Chat', 'chat, messaging, conversation, customer chat, support chat, inbox'],
+            ['admin/chat/index?user_type=provider_admin', 'Chat', 'chat, messaging, provider admin chat, provider chat, inbox'],
+            ['admin/chat/index?user_type=provider_serviceman', 'Chat', 'chat, messaging, serviceman chat, provider serviceman, inbox'],
+        ];
+
+        $out = [];
+        foreach ($rows as [$uri, $titleKey, $keywords]) {
+            $path = parse_url($uri, PHP_URL_PATH) ?: $uri;
+            $out[] = [
+                'page_title' => $titleKey,
+                'page_title_value' => $titleKey,
+                'key' => base64_encode($uri . '_settings_submenu'),
+                'uri' => $uri,
+                'uri_count' => count(array_filter(explode('/', $path))),
+                'full_route' => url($uri),
+                'type' => 'menu',
+                'priority' => 1,
+                'sorting' => '',
+                'keywords' => $keywords . ', settings, configuration',
+            ];
+        }
+
+        return collect($out);
+    }
+
     private function formatMenuItem($item): array
     {
         return [
@@ -770,10 +823,63 @@ class AdvanceSearch
             return response()->json(['error' => 'Invalid JSON in routes.json'], 500);
         }
 
-        $matchedRoutes = $this->findMatchedRoutes($langData, strtolower($keyword));
+        $kw = strtolower(trim((string) $keyword));
+        $matchedRoutes = $this->findMatchedRoutes($langData, $kw);
+        $tokenKeys = $this->findRouteKeysByTokenMatch($routesData, $kw, $skipRouts);
+        $matchedRoutes = array_values(array_unique(array_merge($matchedRoutes, $tokenKeys)));
         $finalMatchedRoutes = $this->buildFinalRoutes($routesData, $matchedRoutes, $skipRouts, $keyword);
 
         return $finalMatchedRoutes;
+    }
+
+    /**
+     * Match page routes by URI / title tokens (e.g. web_page=company_tax) without false positives like "min" → "admin".
+     */
+    private function findRouteKeysByTokenMatch(array $routesData, string $keyword, array $skipRouts): array
+    {
+        $keyword = strtolower(trim($keyword));
+        if ($keyword === '' || strlen($keyword) < 3) {
+            return [];
+        }
+
+        $keys = [];
+        foreach ($routesData as $route) {
+            $uri = (string) ($route['uri'] ?? '');
+            if ($uri === '' || in_array($uri, $skipRouts, true)) {
+                continue;
+            }
+            $title = str_replace('_', ' ', (string) ($route['page_title_value'] ?? $route['page_title'] ?? ''));
+            $blob = strtolower($uri . ' ' . $title);
+            if ($this->routeSearchKeywordMatchesBlob($keyword, $blob)) {
+                $keys[] = $route['key'] ?? '';
+            }
+        }
+
+        return array_values(array_filter(array_unique($keys)));
+    }
+
+    private function routeSearchKeywordMatchesBlob(string $keyword, string $blob): bool
+    {
+        if ($keyword === '') {
+            return false;
+        }
+        if (str_contains($keyword, ' ')) {
+            return str_contains($blob, $keyword);
+        }
+        $tokens = preg_split('/[\s\/\?&=_\-.]+/', $blob, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        foreach ($tokens as $token) {
+            if ($token === $keyword) {
+                return true;
+            }
+            if (strlen($keyword) >= 4 && str_contains($token, $keyword)) {
+                return true;
+            }
+            if (strlen($keyword) === 3 && str_starts_with($token, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function getLanguagePaths($type): array

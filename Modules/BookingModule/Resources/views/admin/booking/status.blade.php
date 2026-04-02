@@ -1005,7 +1005,7 @@
         }
 
 
-        $('.reassign-provider').on('click', function() {
+        $(document).on('click', '.reassign-provider', function() {
             let newProviderId = $(this).data('provider-reassign');
             pendingReassignProviderId = newProviderId;
             pendingPostFeedbackAction = 'reassign';

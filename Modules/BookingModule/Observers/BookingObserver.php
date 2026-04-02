@@ -28,10 +28,11 @@ class BookingObserver
         BookingAuditLogger::logBookingUpdatedFromDiff($booking, $before, $booking->getChanges());
     }
 
-    public function deleted(Booking $booking): void
+    public function deleting(Booking $booking): void
     {
         $oid = spl_object_id($booking);
         unset(self::$originals[$oid]);
+        // Must run before the row is removed: booking_change_logs.booking_id FK references bookings.id.
         BookingAuditLogger::logBookingDeleted($booking);
     }
 }

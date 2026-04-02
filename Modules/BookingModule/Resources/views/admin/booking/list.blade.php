@@ -270,6 +270,14 @@
                                             <th>{{ translate('Provider_Info') }}</th>
                                             <th>{{ translate('Total_Amount') }}</th>
                                             <th>{{ translate('Payment_Status') }}</th>
+                                            @php $bookingListReasonTab = $queryParams['booking_status'] ?? ''; @endphp
+                                            @if($bookingListReasonTab === 'canceled')
+                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
+                                            @elseif($bookingListReasonTab === 'on_hold')
+                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
+                                            @elseif($bookingListReasonTab === 'reopened')
+                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
+                                            @endif
                                             <th>{{ translate('Action') }}</th>
                                         </tr>
                                     </thead>
@@ -488,6 +496,49 @@
                                                         {{ $booking->is_paid ? translate('paid') : translate('unpaid') }}
                                                     </span>
                                                 </td>
+                                                @if($bookingListReasonTab === 'canceled')
+                                                    @php $__lc = $booking->latestParentCancellationStatusHistory; @endphp
+                                                    <td class="small text-break">
+                                                        @if($__lc && ($__lc->cancellationReason || filled($__lc->status_change_remarks)))
+                                                            @if($__lc->cancellationReason)
+                                                                <div class="fw-semibold">{{ $__lc->cancellationReason->name }}</div>
+                                                            @endif
+                                                            @if(filled($__lc->status_change_remarks))
+                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__lc->status_change_remarks), 200) }}</div>
+                                                            @endif
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                @elseif($bookingListReasonTab === 'on_hold')
+                                                    @php $__lh = $booking->latestParentHoldStatusHistory; @endphp
+                                                    <td class="small text-break">
+                                                        @if($__lh && ($__lh->holdReopenReason || filled($__lh->status_change_remarks)))
+                                                            @if($__lh->holdReopenReason)
+                                                                <div class="fw-semibold">{{ $__lh->holdReopenReason->name }}</div>
+                                                            @endif
+                                                            @if(filled($__lh->status_change_remarks))
+                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__lh->status_change_remarks), 200) }}</div>
+                                                            @endif
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                @elseif($bookingListReasonTab === 'reopened')
+                                                    @php $__rev = $booking->reopenFromCompletedDisplayEvent(); @endphp
+                                                    <td class="small text-break">
+                                                        @if($__rev && ($__rev->holdReopenReason || filled($__rev->complaint_notes)))
+                                                            @if($__rev->holdReopenReason)
+                                                                <div class="fw-semibold">{{ $__rev->holdReopenReason->name }}</div>
+                                                            @endif
+                                                            @if(filled($__rev->complaint_notes))
+                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__rev->complaint_notes), 200) }}</div>
+                                                            @endif
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                @endif
                                                 <td>
                                                     <div class="table-actions d-flex gap-2">
                                                         @if($booking->is_repeated)

@@ -548,6 +548,7 @@
                 @else
                     <div class="alert alert-info mb-0 mx-1">{{ translate('no_data_found') }}</div>
                 @endif
+                <div id="provider-create-zone-error" class="alert alert-danger py-2 px-3 mb-0 mt-3 d-none" role="alert"></div>
             </div>
         </div>
     </div>

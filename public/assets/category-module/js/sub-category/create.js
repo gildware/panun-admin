@@ -1,5 +1,9 @@
 "use strict"
 $(document).ready(function () {
+    var $panel = $('#sub-category-add-form-panel');
+    if ($panel.length && $panel.hasClass('d-none')) {
+        return;
+    }
     $('.js-select').select2();
 });
 

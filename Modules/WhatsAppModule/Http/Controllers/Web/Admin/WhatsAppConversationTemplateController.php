@@ -37,7 +37,7 @@ class WhatsAppConversationTemplateController extends Controller
 
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.booking-templates.edit');
+        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'quick_replies']);
     }
 
     public function update(Request $request, WhatsAppConversationTemplate $template): RedirectResponse
@@ -63,7 +63,7 @@ class WhatsAppConversationTemplateController extends Controller
 
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.booking-templates.edit');
+        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'quick_replies']);
     }
 
     public function destroy(WhatsAppConversationTemplate $template): RedirectResponse
@@ -74,7 +74,7 @@ class WhatsAppConversationTemplateController extends Controller
 
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.booking-templates.edit');
+        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'quick_replies']);
     }
 
     public function toggleActive(WhatsAppConversationTemplate $template): RedirectResponse
@@ -84,13 +84,13 @@ class WhatsAppConversationTemplateController extends Controller
         if (! Schema::hasColumn('whatsapp_conversation_templates', 'is_active')) {
             Toastr::warning(translate('WhatsApp_conversation_templates_is_active_migration'));
 
-            return redirect()->route('admin.whatsapp.booking-templates.edit');
+            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'quick_replies']);
         }
 
         $template->update(['is_active' => ! (bool) $template->is_active]);
 
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.booking-templates.edit');
+        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'quick_replies']);
     }
 }

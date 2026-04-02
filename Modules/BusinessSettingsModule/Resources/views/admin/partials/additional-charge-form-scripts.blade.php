@@ -93,6 +93,11 @@
             var $block = $(this).closest('.ac-entity-type-block');
             $block.find('.ac-custom-fields').toggleClass('d-none', !on);
             $block.find('.ac-custom-fields input, .ac-custom-fields select').prop('disabled', !on);
+            if (on) {
+                $block.find('.js-ac-block').each(function () {
+                    syncAcModeBlock($(this));
+                });
+            }
         });
     });
 </script>

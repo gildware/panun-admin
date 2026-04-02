@@ -10,6 +10,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('create', [CategoryController::class, 'create'])->name('create');
         Route::post('store', [CategoryController::class, 'store'])->name('store');
         Route::get('edit/{id}', [CategoryController::class, 'edit'])->name('edit');
+        Route::put('update/{id}/charges-tax', [CategoryController::class, 'updateChargesTax'])->name('update.charges.tax');
+        Route::put('update/{id}/charges-commission', [CategoryController::class, 'updateChargesCommission'])->name('update.charges.commission');
+        Route::put('update/{id}/charges-additional', [CategoryController::class, 'updateChargesAdditional'])->name('update.charges.additional');
         Route::put('update/{id}', [CategoryController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [CategoryController::class, 'statusUpdate'])->name('status-update');
         Route::any('featured-update/{id}', [CategoryController::class, 'featuredUpdate'])->name('featured-update');
@@ -25,6 +28,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('create', [SubCategoryController::class, 'create'])->name('create');
         Route::post('store', [SubCategoryController::class, 'store'])->name('store');
         Route::get('edit/{id}', [SubCategoryController::class, 'edit'])->name('edit');
+        Route::put('update/{id}/charges-tax', [SubCategoryController::class, 'updateChargesTax'])->name('update.charges.tax');
+        Route::put('update/{id}/charges-commission', [SubCategoryController::class, 'updateChargesCommission'])->name('update.charges.commission');
+        Route::put('update/{id}/charges-additional', [SubCategoryController::class, 'updateChargesAdditional'])->name('update.charges.additional');
         Route::put('update/{id}', [SubCategoryController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [SubCategoryController::class, 'statusUpdate'])->name('status-update');
         Route::delete('delete/{id}', [SubCategoryController::class, 'destroy'])->name('delete');

@@ -14,6 +14,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('store', [AdminServiceController::class, 'store'])->name('store');
         Route::any('detail/{id}', [AdminServiceController::class, 'show'])->name('detail');
         Route::get('edit/{id}', [AdminServiceController::class, 'edit'])->name('edit');
+        Route::put('update/{id}/charges-tax', [AdminServiceController::class, 'updateChargesTax'])->name('update.charges.tax');
+        Route::put('update/{id}/charges-commission', [AdminServiceController::class, 'updateChargesCommission'])->name('update.charges.commission');
+        Route::put('update/{id}/charges-additional', [AdminServiceController::class, 'updateChargesAdditional'])->name('update.charges.additional');
         Route::put('update/{id}', [AdminServiceController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [AdminServiceController::class, 'statusUpdate'])->name('status-update');
         Route::delete('delete/{id}', [AdminServiceController::class, 'destroy'])->name('delete');

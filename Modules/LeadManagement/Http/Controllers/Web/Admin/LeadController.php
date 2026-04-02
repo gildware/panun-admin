@@ -3,6 +3,7 @@
 namespace Modules\LeadManagement\Http\Controllers\Web\Admin;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ class LeadController extends Controller
             $tab = 'all';
         }
 
-        $search = $request->get('search', '');
+        $search = (string) ($request->input('search') ?? '');
         $sourceIds = array_filter((array) $request->input('source_id', []));
         $adSourceIds = array_filter((array) $request->input('ad_source_id', []));
         $handledByInput = array_values(array_filter(array_map('strval', (array) $request->input('handled_by', []))));
@@ -84,141 +85,54 @@ class LeadController extends Controller
             $with[] = 'customerLeadTags';
         }
 
-        $query = Lead::with($with)
-            ->ofType($tab === 'all' ? null : $tab)
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone_number', 'like', "%{$search}%")
-                        ->orWhereRaw('CAST(id AS CHAR) LIKE ?', ['%' . $search . '%']);
-                });
-            })
-            ->when($sourceIds !== [], function ($q) use ($sourceIds) {
-                $q->whereIn('source_id', $sourceIds);
-            })
-            ->when($adSourceIds !== [], function ($q) use ($adSourceIds) {
-                $q->whereIn('ad_source_id', $adSourceIds);
-            })
-            ->when($filterHandledUnassigned || $handledByFilterIds !== [], function ($q) use ($filterHandledUnassigned, $handledByFilterIds) {
-                if ($filterHandledUnassigned && $handledByFilterIds === []) {
-                    $q->where(function ($sub) {
-                        $sub->whereNull('handled_by')
-                            ->orWhere('handled_by', '')
-                            ->orWhere('handled_by', Lead::HANDLED_BY_AI);
-                    });
-                } elseif (!$filterHandledUnassigned && $handledByFilterIds !== []) {
-                    $q->whereIn('handled_by', $handledByFilterIds);
-                } elseif ($filterHandledUnassigned && $handledByFilterIds !== []) {
-                    $q->where(function ($sub) use ($handledByFilterIds) {
-                        $sub->where(function ($u) {
-                            $u->whereNull('handled_by')
-                                ->orWhere('handled_by', '')
-                                ->orWhere('handled_by', Lead::HANDLED_BY_AI);
-                        })->orWhereIn('handled_by', $handledByFilterIds);
-                    });
-                }
-            })
-            ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
-                $q->whereBetween('date_time_of_lead_received', [
-                    $dateFrom . ' 00:00:00',
-                    $dateTo . ' 23:59:59',
-                ]);
-            })
-            ->latest('date_time_of_lead_received');
+        $query = $this->adminLeadListFilteredBaseQuery(
+            $tab,
+            $search,
+            $sourceIds,
+            $adSourceIds,
+            $filterHandledUnassigned,
+            $handledByFilterIds,
+            $dateFrom,
+            $dateTo,
+            $hasProviderFilters,
+            $hasCustomerFilters,
+            $filterStatusIds,
+            $filterDistrictIds,
+            $filterZoneIds,
+            $filterCategoryIds,
+            $filterCustomerStatusIds,
+            $filterCustomerZoneIds,
+            $filterCustomerCategoryIds,
+            $filterCustomerSubCategoryIds,
+            $estimatedDateFrom,
+            $estimatedDateTo
+        );
+        $this->applyLeadOpenClosedFilterToQuery($query, $leadStatusFilter);
 
-        if ($hasProviderFilters) {
-            $providerLeadIds = Lead::ofType('provider')->pluck('id')->all();
-            if ($providerLeadIds !== []) {
-                $histories = LeadTypeHistory::whereIn('lead_id', $providerLeadIds)
-                    ->where('type', 'provider')
-                    ->orderByDesc('created_at')
-                    ->get();
-                $latestByLead = $histories->groupBy('lead_id')->map(fn ($group) => $group->first());
-                $matchingLeadIds = $latestByLead->filter(function ($h) use ($filterStatusIds, $filterDistrictIds, $filterZoneIds, $filterCategoryIds) {
-                    $d = is_array($h->data) ? $h->data : [];
-                    if ($filterStatusIds !== [] && !in_array($d['provider_lead_status_id'] ?? null, $filterStatusIds)) {
-                        return false;
-                    }
-                    if ($filterDistrictIds !== [] && !in_array($d['district_id'] ?? null, $filterDistrictIds)) {
-                        return false;
-                    }
-                    if ($filterZoneIds !== []) {
-                        $leadZones = $this->providerLeadZoneIdsFromData($d);
-                        if ($leadZones === [] || empty(array_intersect($filterZoneIds, $leadZones))) {
-                            return false;
-                        }
-                    }
-                    if ($filterCategoryIds !== [] && !in_array($d['provider_service_category'] ?? null, $filterCategoryIds)) {
-                        return false;
-                    }
-                    return true;
-                })->keys()->all();
-                $query->whereIn('id', $matchingLeadIds);
-            }
-        }
+        $leadTabCounts = $this->adminLeadListTabCountsFiltered(
+            $leadStatusFilter,
+            $search,
+            $sourceIds,
+            $adSourceIds,
+            $filterHandledUnassigned,
+            $handledByFilterIds,
+            $dateFrom,
+            $dateTo,
+            $hasProviderFilters,
+            $hasCustomerFilters,
+            $filterStatusIds,
+            $filterDistrictIds,
+            $filterZoneIds,
+            $filterCategoryIds,
+            $filterCustomerStatusIds,
+            $filterCustomerZoneIds,
+            $filterCustomerCategoryIds,
+            $filterCustomerSubCategoryIds,
+            $estimatedDateFrom,
+            $estimatedDateTo
+        );
 
-        if ($hasCustomerFilters) {
-            $customerLeadIds = Lead::ofType('customer')->pluck('id')->all();
-            if ($customerLeadIds !== []) {
-                $histories = LeadTypeHistory::whereIn('lead_id', $customerLeadIds)
-                    ->where('type', 'customer')
-                    ->orderByDesc('created_at')
-                    ->get();
-                $latestByLead = $histories->groupBy('lead_id')->map(fn ($group) => $group->first());
-                $matchingLeadIds = $latestByLead->filter(function ($h) use ($filterCustomerStatusIds, $filterCustomerZoneIds, $filterCustomerCategoryIds, $filterCustomerSubCategoryIds, $estimatedDateFrom, $estimatedDateTo) {
-                    $d = is_array($h->data) ? $h->data : [];
-                    if ($filterCustomerStatusIds !== [] && !in_array($d['customer_lead_status_id'] ?? null, $filterCustomerStatusIds)) {
-                        return false;
-                    }
-                    if ($filterCustomerZoneIds !== [] && !in_array($d['zone_id'] ?? null, $filterCustomerZoneIds)) {
-                        return false;
-                    }
-                    if ($filterCustomerCategoryIds !== [] && !in_array($d['service_category'] ?? null, $filterCustomerCategoryIds)) {
-                        return false;
-                    }
-                    if ($filterCustomerSubCategoryIds !== [] && !in_array($d['service_subcategory'] ?? null, $filterCustomerSubCategoryIds)) {
-                        return false;
-                    }
-                    if ($estimatedDateFrom && $estimatedDateTo) {
-                        $estAt = $d['estimated_service_at'] ?? null;
-                        if (!$estAt) {
-                            return false;
-                        }
-                        try {
-                            $est = \Carbon\Carbon::parse($estAt);
-                            $from = \Carbon\Carbon::parse($estimatedDateFrom)->startOfDay();
-                            $to = \Carbon\Carbon::parse($estimatedDateTo)->endOfDay();
-                            if ($est->lt($from) || $est->gt($to)) {
-                                return false;
-                            }
-                        } catch (\Throwable $e) {
-                            return false;
-                        }
-                    }
-                    return true;
-                })->keys()->all();
-                $query->whereIn('id', $matchingLeadIds);
-            }
-        }
-
-        if ($leadStatusFilter !== 'all') {
-            $candidateLeads = (clone $query)->get(['id', 'lead_type']);
-            $candidateStatusMeta = $this->buildLeadStatusMeta($candidateLeads);
-            $targetOpenFlag = $leadStatusFilter === 'open';
-            $matchingLeadIds = $candidateLeads
-                ->filter(function ($lead) use ($candidateStatusMeta, $targetOpenFlag) {
-                    $meta = $candidateStatusMeta[$lead->id] ?? null;
-                    return (bool) ($meta['is_open'] ?? false) === $targetOpenFlag;
-                })
-                ->pluck('id')
-                ->all();
-
-            if ($matchingLeadIds === []) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->whereIn('id', $matchingLeadIds);
-            }
-        }
+        $query->with($with)->latest('date_time_of_lead_received');
 
         $queryParams = [
             'tab' => $tab,
@@ -527,12 +441,14 @@ class LeadController extends Controller
                 'html' => $html,
                 'total' => $leads->total(),
                 'filters_applied_count' => $filtersAppliedCount,
+                'lead_tab_counts' => $leadTabCounts,
             ]);
         }
 
         return view('leadmanagement::admin.leads.index', compact(
             'leads',
             'tab',
+            'leadTabCounts',
             'handledByNames',
             'providerLeadData',
             'customerLeadData',
@@ -565,6 +481,238 @@ class LeadController extends Controller
             'dateFrom',
             'dateTo'
         ));
+    }
+
+    /**
+     * Base list query for admin leads: global filters plus provider/customer sub-filters when the corresponding flags are true.
+     *
+     * @param  string  $scopeTab  Tab whose rows are included ('all' = every lead_type).
+     */
+    protected function adminLeadListFilteredBaseQuery(
+        string $scopeTab,
+        string $search,
+        array $sourceIds,
+        array $adSourceIds,
+        bool $filterHandledUnassigned,
+        array $handledByFilterIds,
+        ?string $dateFrom,
+        ?string $dateTo,
+        bool $hasProviderFilters,
+        bool $hasCustomerFilters,
+        array $filterStatusIds,
+        array $filterDistrictIds,
+        array $filterZoneIds,
+        array $filterCategoryIds,
+        array $filterCustomerStatusIds,
+        array $filterCustomerZoneIds,
+        array $filterCustomerCategoryIds,
+        array $filterCustomerSubCategoryIds,
+        ?string $estimatedDateFrom,
+        ?string $estimatedDateTo
+    ): Builder {
+        $query = Lead::query()
+            ->ofType($scopeTab === 'all' ? null : $scopeTab)
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone_number', 'like', "%{$search}%")
+                        ->orWhereRaw('CAST(id AS CHAR) LIKE ?', ['%' . $search . '%']);
+                });
+            })
+            ->when($sourceIds !== [], function ($q) use ($sourceIds) {
+                $q->whereIn('source_id', $sourceIds);
+            })
+            ->when($adSourceIds !== [], function ($q) use ($adSourceIds) {
+                $q->whereIn('ad_source_id', $adSourceIds);
+            })
+            ->when($filterHandledUnassigned || $handledByFilterIds !== [], function ($q) use ($filterHandledUnassigned, $handledByFilterIds) {
+                if ($filterHandledUnassigned && $handledByFilterIds === []) {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('handled_by')
+                            ->orWhere('handled_by', '')
+                            ->orWhere('handled_by', Lead::HANDLED_BY_AI);
+                    });
+                } elseif (!$filterHandledUnassigned && $handledByFilterIds !== []) {
+                    $q->whereIn('handled_by', $handledByFilterIds);
+                } elseif ($filterHandledUnassigned && $handledByFilterIds !== []) {
+                    $q->where(function ($sub) use ($handledByFilterIds) {
+                        $sub->where(function ($u) {
+                            $u->whereNull('handled_by')
+                                ->orWhere('handled_by', '')
+                                ->orWhere('handled_by', Lead::HANDLED_BY_AI);
+                        })->orWhereIn('handled_by', $handledByFilterIds);
+                    });
+                }
+            })
+            ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
+                $q->whereBetween('date_time_of_lead_received', [
+                    $dateFrom . ' 00:00:00',
+                    $dateTo . ' 23:59:59',
+                ]);
+            });
+
+        if ($hasProviderFilters && $scopeTab === 'provider') {
+            $providerLeadIds = Lead::ofType('provider')->pluck('id')->all();
+            if ($providerLeadIds !== []) {
+                $histories = LeadTypeHistory::whereIn('lead_id', $providerLeadIds)
+                    ->where('type', 'provider')
+                    ->orderByDesc('created_at')
+                    ->get();
+                $latestByLead = $histories->groupBy('lead_id')->map(fn ($group) => $group->first());
+                $matchingLeadIds = $latestByLead->filter(function ($h) use ($filterStatusIds, $filterDistrictIds, $filterZoneIds, $filterCategoryIds) {
+                    $d = is_array($h->data) ? $h->data : [];
+                    if ($filterStatusIds !== [] && !in_array($d['provider_lead_status_id'] ?? null, $filterStatusIds)) {
+                        return false;
+                    }
+                    if ($filterDistrictIds !== [] && !in_array($d['district_id'] ?? null, $filterDistrictIds)) {
+                        return false;
+                    }
+                    if ($filterZoneIds !== []) {
+                        $leadZones = $this->providerLeadZoneIdsFromData($d);
+                        if ($leadZones === [] || empty(array_intersect($filterZoneIds, $leadZones))) {
+                            return false;
+                        }
+                    }
+                    if ($filterCategoryIds !== [] && !in_array($d['provider_service_category'] ?? null, $filterCategoryIds)) {
+                        return false;
+                    }
+
+                    return true;
+                })->keys()->all();
+                $query->whereIn('id', $matchingLeadIds);
+            }
+        }
+
+        if ($hasCustomerFilters && $scopeTab === 'customer') {
+            $customerLeadIds = Lead::ofType('customer')->pluck('id')->all();
+            if ($customerLeadIds !== []) {
+                $histories = LeadTypeHistory::whereIn('lead_id', $customerLeadIds)
+                    ->where('type', 'customer')
+                    ->orderByDesc('created_at')
+                    ->get();
+                $latestByLead = $histories->groupBy('lead_id')->map(fn ($group) => $group->first());
+                $matchingLeadIds = $latestByLead->filter(function ($h) use ($filterCustomerStatusIds, $filterCustomerZoneIds, $filterCustomerCategoryIds, $filterCustomerSubCategoryIds, $estimatedDateFrom, $estimatedDateTo) {
+                    $d = is_array($h->data) ? $h->data : [];
+                    if ($filterCustomerStatusIds !== [] && !in_array($d['customer_lead_status_id'] ?? null, $filterCustomerStatusIds)) {
+                        return false;
+                    }
+                    if ($filterCustomerZoneIds !== [] && !in_array($d['zone_id'] ?? null, $filterCustomerZoneIds)) {
+                        return false;
+                    }
+                    if ($filterCustomerCategoryIds !== [] && !in_array($d['service_category'] ?? null, $filterCustomerCategoryIds)) {
+                        return false;
+                    }
+                    if ($filterCustomerSubCategoryIds !== [] && !in_array($d['service_subcategory'] ?? null, $filterCustomerSubCategoryIds)) {
+                        return false;
+                    }
+                    if ($estimatedDateFrom && $estimatedDateTo) {
+                        $estAt = $d['estimated_service_at'] ?? null;
+                        if (!$estAt) {
+                            return false;
+                        }
+                        try {
+                            $est = \Carbon\Carbon::parse($estAt);
+                            $from = \Carbon\Carbon::parse($estimatedDateFrom)->startOfDay();
+                            $to = \Carbon\Carbon::parse($estimatedDateTo)->endOfDay();
+                            if ($est->lt($from) || $est->gt($to)) {
+                                return false;
+                            }
+                        } catch (\Throwable $e) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })->keys()->all();
+                $query->whereIn('id', $matchingLeadIds);
+            }
+        }
+
+        return $query;
+    }
+
+    protected function applyLeadOpenClosedFilterToQuery(Builder $query, string $leadStatusFilter): void
+    {
+        if ($leadStatusFilter === 'all') {
+            return;
+        }
+
+        $candidateLeads = (clone $query)->get(['id', 'lead_type']);
+        $candidateStatusMeta = $this->buildLeadStatusMeta($candidateLeads);
+        $targetOpenFlag = $leadStatusFilter === 'open';
+        $matchingLeadIds = $candidateLeads
+            ->filter(function ($lead) use ($candidateStatusMeta, $targetOpenFlag) {
+                $meta = $candidateStatusMeta[$lead->id] ?? null;
+
+                return (bool) ($meta['is_open'] ?? false) === $targetOpenFlag;
+            })
+            ->pluck('id')
+            ->all();
+
+        if ($matchingLeadIds === []) {
+            $query->whereRaw('1 = 0');
+        } else {
+            $query->whereIn('id', $matchingLeadIds);
+        }
+    }
+
+    /**
+     * Per-tab totals with the same filters as the list (including open/closed).
+     *
+     * @return array<string, int>
+     */
+    protected function adminLeadListTabCountsFiltered(
+        string $leadStatusFilter,
+        string $search,
+        array $sourceIds,
+        array $adSourceIds,
+        bool $filterHandledUnassigned,
+        array $handledByFilterIds,
+        ?string $dateFrom,
+        ?string $dateTo,
+        bool $hasProviderFilters,
+        bool $hasCustomerFilters,
+        array $filterStatusIds,
+        array $filterDistrictIds,
+        array $filterZoneIds,
+        array $filterCategoryIds,
+        array $filterCustomerStatusIds,
+        array $filterCustomerZoneIds,
+        array $filterCustomerCategoryIds,
+        array $filterCustomerSubCategoryIds,
+        ?string $estimatedDateFrom,
+        ?string $estimatedDateTo
+    ): array {
+        $tabs = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
+        $out = [];
+        foreach ($tabs as $scopeTab) {
+            $q = $this->adminLeadListFilteredBaseQuery(
+                $scopeTab,
+                $search,
+                $sourceIds,
+                $adSourceIds,
+                $filterHandledUnassigned,
+                $handledByFilterIds,
+                $dateFrom,
+                $dateTo,
+                $hasProviderFilters,
+                $hasCustomerFilters,
+                $filterStatusIds,
+                $filterDistrictIds,
+                $filterZoneIds,
+                $filterCategoryIds,
+                $filterCustomerStatusIds,
+                $filterCustomerZoneIds,
+                $filterCustomerCategoryIds,
+                $filterCustomerSubCategoryIds,
+                $estimatedDateFrom,
+                $estimatedDateTo
+            );
+            $this->applyLeadOpenClosedFilterToQuery($q, $leadStatusFilter);
+            $out[$scopeTab] = $q->count();
+        }
+
+        return $out;
     }
 
     public function create(): View

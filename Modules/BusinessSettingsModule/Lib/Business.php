@@ -665,9 +665,10 @@ if (!function_exists('commission_calc_line_preview')) {
      * Preview admin commission and provider remainder for one booking line (service or spare subtotal).
      *
      * @param  array{mode: string, fixed_amount: float, tiers: list<array<string, mixed>>}  $group
+     * @param  bool  $additiveFixedFee  When true, fixed (and tier-fixed) amounts are not capped by the line total — use for additional charges that sit on top of the service amount, not commission split from the line.
      * @return array{admin_commission: float, provider_earning: float, rule_short: string, band_note: string}
      */
-    function commission_calc_line_preview(float $lineAmount, array $group): array
+    function commission_calc_line_preview(float $lineAmount, array $group, bool $additiveFixedFee = false): array
     {
         $lineAmount = max(0.0, $lineAmount);
         $empty = [
@@ -678,8 +679,9 @@ if (!function_exists('commission_calc_line_preview')) {
         ];
 
         if (($group['mode'] ?? '') === 'fixed') {
-            $admin = min((float) ($group['fixed_amount'] ?? 0), $lineAmount);
-            $provider = max(0.0, $lineAmount - $admin);
+            $fixed = (float) ($group['fixed_amount'] ?? 0);
+            $admin = $additiveFixedFee ? $fixed : min($fixed, $lineAmount);
+            $provider = $additiveFixedFee ? round($lineAmount, 2) : max(0.0, $lineAmount - $admin);
 
             return [
                 'admin_commission' => round($admin, 2),
@@ -734,10 +736,12 @@ if (!function_exists('commission_calc_line_preview')) {
         if ($matched['amount_type'] === 'percentage') {
             $admin = $lineAmount * ($matched['amount'] / 100.0);
         } else {
-            $admin = min($matched['amount'], $lineAmount);
+            $admin = $additiveFixedFee ? (float) $matched['amount'] : min($matched['amount'], $lineAmount);
         }
 
-        $provider = max(0.0, $lineAmount - $admin);
+        $provider = $additiveFixedFee && $matched['amount_type'] === 'fixed'
+            ? round($lineAmount, 2)
+            : max(0.0, $lineAmount - $admin);
 
         $band = number_format($matched['from'], 2).' – ';
         $band .= $matched['to'] === null ? translate('preview_unlimited_upper') : number_format((float) $matched['to'], 2);

@@ -335,27 +335,53 @@
                                                                     {{ translate('download_invoice') }}
                                                                 </a>
                                                             </li>
-                                                            <li><button type="button"
-                                                                   data-id="cancel-{{$upComing['id']}}"
-                                                                   data-message="{{translate('want_to_cancel_this_booking')}}?"
-                                                                   class="dropdown-item d-flex align-items-center gap-1 {{ env('APP_ENV') != 'demo' ? 'form-alert' : 'demo_check' }}">
-                                                                    <span class="material-icons">
-                                                                        cancel
-                                                                    </span>
+                                                            <li>
+                                                                <button type="button"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#upcomingCancelModal-{{ $upComing['id'] }}"
+                                                                        class="dropdown-item d-flex align-items-center gap-1 {{ env('APP_ENV') != 'demo' ? '' : 'demo_check' }}">
+                                                                    <span class="material-icons">cancel</span>
                                                                     {{ translate('cancel') }}
                                                                 </button>
-                                                                <form
-                                                                    action="{{route('admin.booking.up_coming_booking_cancel',[$upComing['id']])}}"
-                                                                    method="post" id="cancel-{{$upComing['id']}}"
-                                                                    class="hidden">
-                                                                    @csrf
-                                                                    @method('GET')
-                                                                    <input type="hidden" name="booking_status" value="canceled">
-                                                                </form>
                                                             </li>
                                                         </ul>
                                                     </div>
                                                 </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="modal fade" id="upcomingCancelModal-{{ $upComing['id'] }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content">
+                                                <form method="post" action="{{ route('admin.booking.up_coming_booking_cancel', [$upComing['id']]) }}">
+                                                    @csrf
+                                                    <input type="hidden" name="booking_status" value="canceled">
+                                                    <div class="modal-header border-0">
+                                                        <h5 class="modal-title">{{ translate('Cancel_Booking') }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                                    </div>
+                                                    <div class="modal-body pt-0">
+                                                        <p class="small text-muted mb-3">{{ translate('want_to_cancel_this_booking') }}?</p>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">{{ translate('Cancellation_reason') }} <span class="text-danger">*</span></label>
+                                                            <select name="booking_cancellation_reason_id" class="form-select" required>
+                                                                <option value="">{{ translate('Select') }}</option>
+                                                                @foreach($bookingCancellationReasons ?? [] as $r)
+                                                                    <option value="{{ $r->id }}">{{ $r->name }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-0">
+                                                            <label class="form-label">{{ translate('Status_change_remarks') }}</label>
+                                                            <textarea name="status_change_remarks" class="form-control" rows="2" maxlength="2000"></textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer border-0">
+                                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                                        <button type="submit" class="btn btn--danger">{{ translate('Confirm') }}</button>
+                                                    </div>
+                                                </form>
                                             </div>
                                         </div>
                                     </div>
@@ -394,7 +420,7 @@
                             <div class="mt-3">
                                 @can('booking_can_manage_status')
                                     <div class="mt-3">
-                                        <select class="js-select without-search" id="booking_status">
+                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}">
                                             @if ($booking->booking_status != 'pending')
                                                 @if ($booking->booking_status == 'accepted')
                                                     <option value="0" disabled
@@ -598,6 +624,8 @@
     </div>
 
     @include('bookingmodule::admin.booking.partials.details._service-address-modal')
+
+    @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
 
     <div class="modal fade" id="providerModal" tabindex="-1" aria-labelledby="providerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -862,7 +890,7 @@
             payment_status_change(paymentStatus)
         })
 
-        $('.reassign-provider').on('click', function() {
+        $(document).on('click', '.reassign-provider', function() {
             let newProviderId = $(this).data('provider-reassign');
             pendingReassignProviderId = newProviderId;
             pendingPostFeedbackAction = 'reassign';
@@ -889,14 +917,25 @@
         @endif
 
         $("#booking_status").change(function() {
-            var booking_status = $("#booking_status option:selected").val();
-            if (parseInt(booking_status) !== 0) {
-                var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' +
-                    booking_status;
-                if(booking_status === 'canceled'){
+            var $sel = $("#booking_status");
+            var booking_status = $sel.val();
+            var previous_status = $sel.data('current');
+            if (booking_status && booking_status !== '0' && parseInt(booking_status, 10) !== 0) {
+                if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(booking_status, previous_status)) {
+                    $sel.val(previous_status);
+                    if ($sel.next('.select2-container').length) {
+                        $sel.next('.select2-container').find('.select2-selection__rendered').text($sel.find('option:selected').text());
+                    }
+                    if (typeof bookingAdminOpenStatusReasonModal === 'function') {
+                        bookingAdminOpenStatusReasonModal(booking_status, previous_status);
+                    }
+                    return;
+                }
+                var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
+                if (booking_status === 'canceled') {
                     update_booking_details(route, '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}', 'booking_status',
                         booking_status, '{{ translate('Are you sure you want to cancel the entire booking?') }}');
-                }else{
+                } else {
                     update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status',
                         booking_status);
                 }
@@ -946,14 +985,16 @@
                 reverseButtons: true
             }).then((result) => {
                 if (result.value) {
-                    $.get({
-                        url: route,
+                    var revertStatus = componentId === 'booking_status' ? $('#booking_status').data('current') : undefined;
+                    var ajaxOpts = {
                         dataType: 'json',
-                        data: {},
                         beforeSend: function() {
                             toastr.info('{{ translate('Processing request...') }}');
                         },
                         success: function(data) {
+                            if (componentId === 'booking_status') {
+                                $('#booking_status').data('current', updatedValue);
+                            }
                             update_component(componentId, updatedValue);
                             toastr.success(data.message, {
                                 CloseButton: true,
@@ -974,8 +1015,34 @@
                                 location.reload();
                             }
                         },
+                        error: function(xhr) {
+                            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '{{ translate('Something went wrong. Please try again.') }}';
+                            if (componentId === 'booking_status' && revertStatus !== undefined) {
+                                $('#booking_status').val(revertStatus);
+                                $('#booking_status').data('current', revertStatus);
+                                if ($('#booking_status').next('.select2-container').length) {
+                                    $('#booking_status').next('.select2-container').find('.select2-selection__rendered').text($('#booking_status option:selected').text());
+                                }
+                            }
+                            toastr.error(msg, { CloseButton: true, ProgressBar: true });
+                        },
                         complete: function() {},
-                    });
+                    };
+                    if (componentId === 'booking_status') {
+                        ajaxOpts.url = '{{ route('admin.booking.status_update', [$booking->id]) }}';
+                        ajaxOpts.method = 'POST';
+                        ajaxOpts.data = {
+                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            booking_status: updatedValue
+                        };
+                        ajaxOpts.headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
+                        $.ajax(ajaxOpts);
+                    } else {
+                        ajaxOpts.url = route;
+                        ajaxOpts.method = 'GET';
+                        ajaxOpts.data = {};
+                        $.ajax(ajaxOpts);
+                    }
                 }
             })
         }

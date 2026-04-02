@@ -11,6 +11,18 @@
                         <h2 class="page-title mb-1">{{ translate('Lead_Configuration') }}</h2>
                     </div>
 
+                    <div class="card card-body mb-3 py-3">
+                        <label for="leadConfigSearchInput" class="form-label mb-1">{{ translate('Search here') }}</label>
+                        <input type="search"
+                               id="leadConfigSearchInput"
+                               class="form-control"
+                               placeholder="{{ translate('Search here') }}…"
+                               autocomplete="off"
+                               aria-describedby="leadConfigSearchHints">
+                        <div id="leadConfigTabNavHits" class="d-flex flex-wrap gap-2 mt-2 d-none" role="group" aria-label="{{ translate('Pages') }}"></div>
+                        <div id="leadConfigSearchHints" class="small text-muted mt-2 d-none"></div>
+                    </div>
+
                     <ul class="nav nav--tabs mb-3" id="leadConfigTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <a class="nav-link active"
@@ -75,7 +87,12 @@
                     </ul>
 
                     <div class="tab-content" id="leadConfigTabsContent">
-                        <div class="tab-pane fade show active" id="general-tab-pane" role="tabpanel" aria-labelledby="general-tab" tabindex="0">
+                        <div class="tab-pane fade show active"
+                             id="general-tab-pane"
+                             role="tabpanel"
+                             aria-labelledby="general-tab"
+                             tabindex="0"
+                             data-lead-config-tab-label="{{ __('General') }}">
                             <div class="row g-3">
                                 <div class="col-lg-6">
                                     @include('leadmanagement::admin.configuration.partials._card', [
@@ -108,7 +125,12 @@
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="customer-tab-pane" role="tabpanel" aria-labelledby="customer-tab" tabindex="0">
+                        <div class="tab-pane fade"
+                             id="customer-tab-pane"
+                             role="tabpanel"
+                             aria-labelledby="customer-tab"
+                             tabindex="0"
+                             data-lead-config-tab-label="{{ __('Customer Related') }}">
                             <div class="row g-3">
                                 <div class="col-lg-6">
                                     @include('leadmanagement::admin.configuration.partials._card', [
@@ -134,7 +156,12 @@
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="provider-tab-pane" role="tabpanel" aria-labelledby="provider-tab" tabindex="0">
+                        <div class="tab-pane fade"
+                             id="provider-tab-pane"
+                             role="tabpanel"
+                             aria-labelledby="provider-tab"
+                             tabindex="0"
+                             data-lead-config-tab-label="{{ __('Provider Related') }}">
                             <div class="row g-3">
                                 <div class="col-lg-6">
                                     @include('leadmanagement::admin.configuration.partials._card', [
@@ -160,7 +187,12 @@
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="future-customer-tab-pane" role="tabpanel" aria-labelledby="future-customer-tab" tabindex="0">
+                        <div class="tab-pane fade"
+                             id="future-customer-tab-pane"
+                             role="tabpanel"
+                             aria-labelledby="future-customer-tab"
+                             tabindex="0"
+                             data-lead-config-tab-label="{{ __('Future Customer Related') }}">
                             <div class="row g-3">
                                 <div class="col-lg-6">
                                     @include('leadmanagement::admin.configuration.partials._card', [
@@ -172,7 +204,12 @@
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="invalid-tab-pane" role="tabpanel" aria-labelledby="invalid-tab" tabindex="0">
+                        <div class="tab-pane fade"
+                             id="invalid-tab-pane"
+                             role="tabpanel"
+                             aria-labelledby="invalid-tab"
+                             tabindex="0"
+                             data-lead-config-tab-label="{{ __('Invalid Related') }}">
                             <div class="row g-3">
                                 <div class="col-lg-6">
                                     @include('leadmanagement::admin.configuration.partials._card', [
@@ -194,10 +231,124 @@
         (function () {
             const storageKey = 'lead_config_active_tab';
 
+            function debounce(fn, ms) {
+                let t;
+                return function () {
+                    const args = arguments;
+                    const ctx = this;
+                    clearTimeout(t);
+                    t = setTimeout(function () {
+                        fn.apply(ctx, args);
+                    }, ms);
+                };
+            }
+
+            function leadConfigRowText(tr) {
+                return (tr.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            }
+
+            function applyLeadConfigSearch(needle) {
+                const hints = document.getElementById('leadConfigSearchHints');
+                const tabNavHits = document.getElementById('leadConfigTabNavHits');
+                const panes = document.querySelectorAll('#leadConfigTabsContent .tab-pane[data-lead-config-tab-label]');
+                const tabCounts = [];
+                needle = String(needle || '').trim().toLowerCase();
+
+                const labelHitTriggers = [];
+                if (needle.length >= 2) {
+                    document.querySelectorAll('#leadConfigTabs a[data-bs-toggle="tab"]').forEach(function (a) {
+                        const text = (a.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                        if (text.indexOf(needle) !== -1) {
+                            labelHitTriggers.push(a);
+                        }
+                    });
+                }
+                if (tabNavHits) {
+                    tabNavHits.innerHTML = '';
+                    if (labelHitTriggers.length) {
+                        tabNavHits.classList.remove('d-none');
+                        const openLabel = {{ json_encode(translate('Open')) }};
+                        labelHitTriggers.forEach(function (a) {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'btn btn-sm btn-outline-primary';
+                            const title = (a.textContent || '').replace(/\s+/g, ' ').trim();
+                            btn.textContent = openLabel + ': ' + title;
+                            btn.addEventListener('click', function () {
+                                try {
+                                    bootstrap.Tab.getOrCreateInstance(a).show();
+                                    a.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                } catch (e) {}
+                            });
+                            tabNavHits.appendChild(btn);
+                        });
+                    } else {
+                        tabNavHits.classList.add('d-none');
+                    }
+                }
+
+                panes.forEach(function (pane) {
+                    const label = pane.getAttribute('data-lead-config-tab-label') || '';
+                    let paneMatches = 0;
+                    pane.querySelectorAll('.card').forEach(function (card) {
+                        const tbody = card.querySelector('table tbody');
+                        if (!tbody) {
+                            return;
+                        }
+                        let anyVisible = false;
+                        tbody.querySelectorAll('tr').forEach(function (tr) {
+                            if (!needle) {
+                                tr.classList.remove('d-none');
+                                anyVisible = true;
+                                paneMatches++;
+                                return;
+                            }
+                            const match = leadConfigRowText(tr).indexOf(needle) !== -1;
+                            tr.classList.toggle('d-none', !match);
+                            if (match) {
+                                anyVisible = true;
+                                paneMatches++;
+                            }
+                        });
+                        card.classList.toggle('d-none', !anyVisible);
+                    });
+                    if (needle && paneMatches > 0) {
+                        tabCounts.push({ label: label, count: paneMatches });
+                    }
+                });
+
+                if (hints) {
+                    if (!needle) {
+                        hints.classList.add('d-none');
+                        hints.innerHTML = '';
+                        return;
+                    }
+                    if (!tabCounts.length && !labelHitTriggers.length) {
+                        hints.textContent = {{ json_encode(translate('No results')) }};
+                        hints.classList.remove('d-none');
+                        return;
+                    }
+                    if (!tabCounts.length) {
+                        hints.classList.add('d-none');
+                        hints.innerHTML = '';
+                    } else {
+                        hints.classList.remove('d-none');
+                        hints.innerHTML = tabCounts
+                            .map(function (x) {
+                                return x.label + ' (' + x.count + ')';
+                            })
+                            .join(' · ');
+                    }
+                }
+            }
+
             document.addEventListener('DOMContentLoaded', function () {
                 const tabTriggers = document.querySelectorAll('#leadConfigTabs [data-bs-toggle="tab"]');
+                const searchInput = document.getElementById('leadConfigSearchInput');
+                const runSearch = debounce(function () {
+                    applyLeadConfigSearch(searchInput ? searchInput.value : '');
+                }, 200);
 
-                // Save active tab on change
                 tabTriggers.forEach(function (triggerEl) {
                     triggerEl.addEventListener('shown.bs.tab', function (event) {
                         const target = event.target.getAttribute('data-bs-target');
@@ -207,7 +358,6 @@
                     });
                 });
 
-                // Restore last active tab
                 const savedTarget = localStorage.getItem(storageKey);
                 if (savedTarget) {
                     const savedTrigger = document.querySelector('#leadConfigTabs [data-bs-target="' + savedTarget + '"]');
@@ -215,6 +365,15 @@
                         const tab = new bootstrap.Tab(savedTrigger);
                         tab.show();
                     }
+                }
+
+                if (searchInput) {
+                    searchInput.addEventListener('input', runSearch);
+                    searchInput.addEventListener('search', function () {
+                        if (!searchInput.value) {
+                            applyLeadConfigSearch('');
+                        }
+                    });
                 }
             });
         })();

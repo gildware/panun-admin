@@ -47,6 +47,16 @@ trait AdminMenuWithRoutes
                 "sorting" => 3,
             ],
             [
+                'route_name' => 'Booking_Configuration',
+                'uri' => 'admin/booking/configuration',
+                'full_route' => url('admin/booking/configuration'),
+                'page_title' => 'Booking_Configuration',
+                'keywords' => 'Booking configuration, cancellation reasons, hold, reopen',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 4,
+            ],
+            [
                 'route_name' => 'Add_New_Booking',
                 'uri' => 'admin/booking/create',
                 'full_route' => url('admin/booking/create'),

@@ -21,6 +21,7 @@ class BookingReopenEvent extends Model
         'complaint_notes',
         'child_booking_id',
         'target_status',
+        'booking_hold_reopen_reason_id',
     ];
 
     protected $casts = [
@@ -41,5 +42,10 @@ class BookingReopenEvent extends Model
     public function childBooking(): BelongsTo
     {
         return $this->belongsTo(Booking::class, 'child_booking_id');
+    }
+
+    public function holdReopenReason(): BelongsTo
+    {
+        return $this->belongsTo(BookingHoldReopenReason::class, 'booking_hold_reopen_reason_id');
     }
 }

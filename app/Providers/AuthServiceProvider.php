@@ -35,6 +35,11 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('booking_export', fn () => $this->checkAccess('booking', 'can_export'));
         Gate::define('booking_can_manage_status', fn () => $this->checkAccess('booking', 'can_manage_status'));
         Gate::define('booking_can_approve_or_deny', fn () => $this->checkAccess('booking', 'can_approve_or_deny'));
+        Gate::define('booking_configuration_view', fn () => $this->checkAccess('booking_configuration', 'can_view'));
+        Gate::define('booking_configuration_add', fn () => $this->checkAccess('booking_configuration', 'can_add'));
+        Gate::define('booking_configuration_update', fn () => $this->checkAccess('booking_configuration', 'can_update'));
+        Gate::define('booking_configuration_delete', fn () => $this->checkAccess('booking_configuration', 'can_delete'));
+        Gate::define('booking_configuration_export', fn () => $this->checkAccess('booking_configuration', 'can_export'));
 
         Gate::define('addon_view', fn () => $this->checkAccess('addon', 'can_view'));
         Gate::define('addon_add', fn () => $this->checkAccess('addon', 'can_add'));

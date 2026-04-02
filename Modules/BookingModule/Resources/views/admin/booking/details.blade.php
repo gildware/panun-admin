@@ -707,6 +707,10 @@
                 $__overviewMaxBa = $maxBookingAmount ?? (business_config('max_booking_amount', 'booking_setup')->live_values ?? 0);
                 $__overviewStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && (float) $booking->total_booking_amount >= (float) $__overviewMaxBa;
                 $__overviewSt = $booking->booking_status ?? '';
+                $__cancelHist = $booking->latestParentCancellationStatusHistory;
+                $__holdHist = $booking->latestParentHoldStatusHistory;
+                $__reopenEv = $booking->reopenFromCompletedDisplayEvent();
+                $__respLabels = ['customer' => translate('Customer'), 'provider' => translate('Provider'), 'staff' => translate('Staff'), 'no_one' => translate('No_one')];
                 $__overviewShowReopenInCard = (int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'completed';
                 $__overviewBadge = 'info';
                 if ($__overviewSt === 'ongoing') {
@@ -826,6 +830,49 @@
                                     @endif
                                 </div>
                             </div>
+                            @if(in_array($__overviewSt, ['canceled', 'cancelled', 'refunded'], true) && $__cancelHist && ($__cancelHist->cancellationReason || filled($__cancelHist->status_change_remarks)))
+                                <div class="fz-12 border-top pt-2 mt-2 flex-shrink-0">
+                                    <div class="title-color fw-semibold text-uppercase fz-11 mb-1">{{ translate('Booking_cancellation_reasons') }}</div>
+                                    @if($__cancelHist->cancellationReason)
+                                        <div class="fw-semibold text-break">{{ $__cancelHist->cancellationReason->name }}</div>
+                                        @if($__cancelHist->cancellationReason->description)
+                                            <div class="text-muted small text-break mt-1">{{ $__cancelHist->cancellationReason->description }}</div>
+                                        @endif
+                                        <div class="small mt-1"><span class="title-color">{{ translate('Responsible') }}:</span> {{ $__respLabels[$__cancelHist->cancellationReason->responsible] ?? $__cancelHist->cancellationReason->responsible }}</div>
+                                    @endif
+                                    @if(filled($__cancelHist->status_change_remarks))
+                                        <div class="small mt-2 pt-2 border-top border-light"><span class="title-color fw-semibold">{{ translate('Status_change_remarks') }}:</span><br><span class="text-break">{!! nl2br(e($__cancelHist->status_change_remarks)) !!}</span></div>
+                                    @endif
+                                </div>
+                            @elseif(in_array($__overviewSt, ['on_hold', 'ongoing'], true) && $__holdHist && ($__holdHist->holdReopenReason || filled($__holdHist->status_change_remarks)))
+                                <div class="fz-12 border-top pt-2 mt-2 flex-shrink-0">
+                                    <div class="title-color fw-semibold text-uppercase fz-11 mb-1">{{ $__overviewSt === 'on_hold' ? translate('Booking_hold_reasons') : translate('Last_on_hold_reason') }}</div>
+                                    @if($__holdHist->holdReopenReason)
+                                        <div class="fw-semibold text-break">{{ $__holdHist->holdReopenReason->name }}</div>
+                                        @if($__holdHist->holdReopenReason->description)
+                                            <div class="text-muted small text-break mt-1">{{ $__holdHist->holdReopenReason->description }}</div>
+                                        @endif
+                                        <div class="small mt-1"><span class="title-color">{{ translate('Responsible') }}:</span> {{ $__respLabels[$__holdHist->holdReopenReason->responsible] ?? $__holdHist->holdReopenReason->responsible }}</div>
+                                    @endif
+                                    @if(filled($__holdHist->status_change_remarks))
+                                        <div class="small mt-2 pt-2 border-top border-light"><span class="title-color fw-semibold">{{ translate('Status_change_remarks') }}:</span><br><span class="text-break">{!! nl2br(e($__holdHist->status_change_remarks)) !!}</span></div>
+                                    @endif
+                                </div>
+                            @elseif($__reopenEv && ($__reopenEv->holdReopenReason || filled($__reopenEv->complaint_notes)))
+                                <div class="fz-12 border-top pt-2 mt-2 flex-shrink-0">
+                                    <div class="title-color fw-semibold text-uppercase fz-11 mb-1">{{ translate('Booking_reopen_from_completed_reasons') }}</div>
+                                    @if($__reopenEv->holdReopenReason)
+                                        <div class="fw-semibold text-break">{{ $__reopenEv->holdReopenReason->name }}</div>
+                                        @if($__reopenEv->holdReopenReason->description)
+                                            <div class="text-muted small text-break mt-1">{{ $__reopenEv->holdReopenReason->description }}</div>
+                                        @endif
+                                        <div class="small mt-1"><span class="title-color">{{ translate('Responsible') }}:</span> {{ $__respLabels[$__reopenEv->holdReopenReason->responsible] ?? $__reopenEv->holdReopenReason->responsible }}</div>
+                                    @endif
+                                    @if(filled($__reopenEv->complaint_notes))
+                                        <div class="small mt-2 pt-2 border-top border-light"><span class="title-color fw-semibold">{{ translate('Complaint_or_notes') }}:</span><br><span class="text-break">{!! nl2br(e($__reopenEv->complaint_notes)) !!}</span></div>
+                                    @endif
+                                </div>
+                            @endif
                             @can('booking_can_manage_status')
                                 @if(!$bookingNotEditable)
                                     <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
@@ -1749,7 +1796,7 @@
                 </div>
             </div>
             <div class="row gy-3 align-items-start">
-                <div class="col-lg-5 col-xl-4 d-flex flex-column gap-3 align-items-stretch">
+                <div class="col-lg-8 col-xl-7 d-flex flex-column gap-3 align-items-stretch">
                     @can('booking_can_manage_status')
                         @if(!$bookingNotEditable)
                             <div class="d-none" aria-hidden="true">
@@ -1786,11 +1833,11 @@
                                 @if($booking->booking_status == 'canceled' && isset($maxRefundAmount) && $maxRefundAmount > 0)
                                     <div class="card mb-3">
                                         <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center gap-10 form-control h-45">
-                                        <span class="title-color">{{ translate('Refund') }}</span>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="text-muted">{{ translate('Max_refund') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
-                                            <button type="button" class="btn btn--danger btn-sm" data-bs-toggle="modal" data-bs-target="#refundModal-{{ $booking->id }}">{{ translate('Refund customer') }}</button>
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 form-control py-2 px-3 w-100">
+                                        <span class="title-color flex-shrink-0">{{ translate('Refund') }}</span>
+                                        <div class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto min-w-0">
+                                            <span class="text-muted text-break">{{ translate('Max_refund') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
+                                            <button type="button" class="btn btn--danger btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#refundModal-{{ $booking->id }}">{{ translate('Refund customer') }}</button>
                                         </div>
                                     </div>
                                     <div class="modal fade" id="refundModal-{{ $booking->id }}" tabindex="-1">
@@ -1917,6 +1964,8 @@
 
 
     @include('bookingmodule::admin.booking.partials.details._service-modal')
+
+    @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
 
     <div class="modal fade" id="providerModal" tabindex="-1" aria-labelledby="providerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -2187,7 +2236,7 @@
             });
         });
 
-        $('.reassign-provider').on('click', function() {
+        $(document).on('click', '.reassign-provider', function() {
             let newProviderId = $(this).data('provider-reassign');
             pendingReassignProviderId = newProviderId;
             pendingPostFeedbackAction = 'reassign';
@@ -2282,6 +2331,16 @@
                     }
                     return;
                 }
+                if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(booking_status, previous_status)) {
+                    $select.val(previous_status);
+                    if ($select.next(".select2-container").length) {
+                        $select.next(".select2-container").find(".select2-selection__rendered").text($select.find("option:selected").text());
+                    }
+                    if (typeof bookingAdminOpenStatusReasonModal === 'function') {
+                        bookingAdminOpenStatusReasonModal(booking_status, previous_status);
+                    }
+                    return;
+                }
                 var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
                 var message = booking_status === 'canceled'
                     ? '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}'
@@ -2363,9 +2422,11 @@
         }
 
         $(".change-booking-status").on('click', function() {
-            var booking_status = 'canceled';
-            var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
-            update_booking_details(route, '{{ translate('want_to_cancel_booking_status') }}', 'booking_status', booking_status);
+            var $select = $('#booking_status');
+            var previous_status = $select.length ? $select.data('current') : '{{ $booking->booking_status }}';
+            if (typeof bookingAdminOpenStatusReasonModal === 'function') {
+                bookingAdminOpenStatusReasonModal('canceled', previous_status);
+            }
         });
 
         $("#serviceman_assign").change(function() {
@@ -2581,10 +2642,8 @@
             Swal.fire(swalOpts).then((result) => {
                 var confirmed = result.value === true || result.isConfirmed === true;
                 if (confirmed) {
-                    $.get({
-                        url: route,
+                    var ajaxOpts = {
                         dataType: 'json',
-                        data: {},
                         beforeSend: function() {},
                         success: function(data) {
                             if (componentId === 'booking_status') {
@@ -2611,6 +2670,15 @@
                         },
                         error: function(xhr) {
                             var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '{{ translate('Something went wrong. Please try again.') }}';
+                            if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+                                var errs = xhr.responseJSON.errors;
+                                if (typeof errs === 'object' && !Array.isArray(errs)) {
+                                    var first = Object.values(errs)[0];
+                                    if (Array.isArray(first) && first[0]) {
+                                        msg = first[0];
+                                    }
+                                }
+                            }
                             if (componentId === 'booking_status' && revertValue !== undefined) {
                                 $("#booking_status").val(revertValue).trigger('change');
                                 $("#booking_status").data('current', revertValue);
@@ -2621,7 +2689,22 @@
                             toastr.error(msg, { CloseButton: true, ProgressBar: true });
                         },
                         complete: function() {},
-                    });
+                    };
+                    if (componentId === 'booking_status') {
+                        ajaxOpts.url = '{{ route('admin.booking.status_update', [$booking->id]) }}';
+                        ajaxOpts.method = 'POST';
+                        ajaxOpts.data = {
+                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            booking_status: updatedValue
+                        };
+                        ajaxOpts.headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' };
+                        $.ajax(ajaxOpts);
+                    } else {
+                        ajaxOpts.url = route;
+                        ajaxOpts.method = 'GET';
+                        ajaxOpts.data = {};
+                        $.ajax(ajaxOpts);
+                    }
                 }
             })
         }

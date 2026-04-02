@@ -325,6 +325,95 @@ class WhatsAppCloudService
     }
 
     /**
+     * Use Cloud API POST /{phone-number-id}/contacts to see if Meta recognises the number as a WhatsApp user.
+     * Does not deliver a message to the customer (unlike {@see probeRecipientAcceptsWhatsApp}).
+     *
+     * @param  array<string, mixed>|null  $graphContext
+     * @return bool True when the first contact returns status "valid"
+     */
+    public function checkRecipientRegisteredViaContacts(string $normalizedDigits, ?string &$error = null, ?array &$graphContext = null): bool
+    {
+        $graphContext = null;
+        $error = null;
+
+        $token = (string) config('services.whatsapp_cloud.token');
+        $phoneId = (string) config('services.whatsapp_cloud.phone_id');
+        if (!$token || !$phoneId) {
+            $error = 'missing_config';
+
+            return false;
+        }
+
+        $version = (string) config('services.whatsapp_cloud.version', 'v19.0');
+        $contactsUrl = "https://graph.facebook.com/{$version}/{$phoneId}/contacts";
+
+        try {
+            $response = Http::withToken($token)
+                ->acceptJson()
+                ->timeout(25)
+                ->post($contactsUrl, [
+                    'blocking' => 'wait',
+                    'contacts' => [$normalizedDigits],
+                    'force_check' => true,
+                ]);
+
+            $respPayload = $response->json();
+            $graphContext = [
+                'http_status' => $response->status(),
+                'graph_response' => is_array($respPayload) ? $respPayload : ['raw' => $response->body()],
+            ];
+
+            if (!$response->successful()) {
+                if (is_array($respPayload) && $this->graphErrorIndicatesRecipientNotOnWhatsApp($respPayload)) {
+                    $error = 'not_on_whatsapp';
+                } else {
+                    $error = 'graph_rejected';
+                }
+
+                return false;
+            }
+
+            $contacts = $respPayload['contacts'] ?? null;
+            if (!is_array($contacts) || $contacts === []) {
+                $error = 'invalid_response';
+
+                return false;
+            }
+
+            $first = $contacts[0];
+            if (!is_array($first)) {
+                $error = 'invalid_response';
+
+                return false;
+            }
+
+            $status = strtolower((string) ($first['status'] ?? ''));
+            if ($status === 'valid') {
+                return true;
+            }
+
+            if ($status === 'invalid') {
+                $error = 'not_on_whatsapp';
+
+                return false;
+            }
+
+            $error = 'unknown_contact_status';
+
+            return false;
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp checkRecipientRegisteredViaContacts failed.', [
+                'phone' => $normalizedDigits,
+                'error' => $e->getMessage(),
+            ]);
+            $error = 'exception';
+            $graphContext = ['exception' => $e->getMessage()];
+
+            return false;
+        }
+    }
+
+    /**
      * POST a minimal text via Cloud API to confirm Meta accepts the recipient (implies they can receive WhatsApp from this WABA).
      * $normalizedDigits must be the output of normalizeRecipientPhone().
      *
