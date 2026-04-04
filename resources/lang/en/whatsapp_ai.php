@@ -39,7 +39,7 @@ return [
     'edit_access_policies' => 'Allowed & forbidden behaviour (sent to the model)',
     'access_policies_hint' => 'Be specific: language, tone, pricing rules, handoff phrases, booking steps, etc. Empty fields mean only the built-in base prompt applies for that section.',
     'gemini_tools' => 'Gemini function tools',
-    'tools_intro' => 'Turn tools off to stop the model from calling them (the server still enforces scope if a call slips through). Override descriptions to steer when each tool should be used.',
+    'tools_intro' => 'Turn tools off to stop the model from calling them (the server still enforces scope if a call slips through). Override descriptions to steer when each tool should be used. FAQs and troubleshooting copy for search_support_knowledge live in config/whatsapp_ai_support.php.',
     'tool_enabled' => 'On',
     'tool_description_override' => 'Description for the model',
     'tool_default_desc' => 'Default (from code)',

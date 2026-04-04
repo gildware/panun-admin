@@ -206,6 +206,7 @@
                                                     <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">
                                                         {{ $booking->readable_id }}</a>
                                                 @endif
+                                                @include('bookingmodule::admin.booking.partials._booking-settlement-list-badge', ['booking' => $booking])
                                             </td>
                                             <td>
                                                 @if($booking->assignee)

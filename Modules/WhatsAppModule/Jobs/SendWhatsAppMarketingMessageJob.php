@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Modules\WhatsAppModule\Entities\WhatsAppMarketingCampaign;
 use Modules\WhatsAppModule\Entities\WhatsAppMarketingMessage;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
+use Modules\WhatsAppModule\Services\WhatsAppMessagePersistenceService;
 
 class SendWhatsAppMarketingMessageJob implements ShouldQueue
 {
@@ -19,7 +20,7 @@ class SendWhatsAppMarketingMessageJob implements ShouldQueue
 
     public function __construct(public int $messageId) {}
 
-    public function handle(WhatsAppCloudService $cloud): void
+    public function handle(WhatsAppCloudService $cloud, WhatsAppMessagePersistenceService $messagePersistence): void
     {
         $message = null;
 
@@ -69,6 +70,27 @@ class SendWhatsAppMarketingMessageJob implements ShouldQueue
                     'failure_reason' => null,
                 ]);
             });
+
+            $preview = '[' . translate('Marketing') . '] ' . ($template->name ?? 'template');
+            if ($bodyStrings !== []) {
+                $preview .= "\n" . implode(' | ', $bodyStrings);
+            }
+            try {
+                $messagePersistence->persistOutboundAutomation(
+                    $message->phone_e164,
+                    $preview,
+                    $waId,
+                    'Marketing',
+                    null,
+                    'TEXT',
+                    null
+                );
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp marketing outbound persist failed', [
+                    'marketing_message_id' => $message->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
         } else {
             $detail = $error ?? 'send_failed';
             Log::warning('WhatsApp marketing send failed', [

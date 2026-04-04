@@ -39,6 +39,7 @@ use Throwable;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Services\BookingReopenService;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CategoryManagement\Entities\Category;
@@ -284,6 +285,55 @@ class BookingController extends Controller
         $bookingTabCounts = $this->adminBookingListStatusTabCounts();
 
         return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts'));
+    }
+
+    /**
+     * Bookings that use a non-standard financial settlement (single bookings only), filterable by scenario tab.
+     */
+    public function specialScenarioBookings(Request $request): Renderable
+    {
+        $this->authorize('booking_view');
+        $tabs = BookingFinancialSettlementService::specialScenarioListTabOutcomes();
+        $scenario = $request->query('scenario', 'all');
+        if ($scenario === 'cancel_after_visit') {
+            $scenario = 'cancelled_after_visit';
+        }
+        if (! array_key_exists($scenario, $tabs)) {
+            $scenario = 'all';
+        }
+        $outcomeFilter = $tabs[$scenario];
+
+        $queryParams = $request->only(['search']);
+        $queryParams['scenario'] = $scenario;
+
+        $bookings = $this->booking
+            ->with(['customer', 'provider.owner', 'assignee', 'extra_services', 'service_address'])
+            ->where('is_repeated', 0)
+            ->whereNotNull('settlement_outcome')
+            ->where('settlement_outcome', '!=', '')
+            ->when($outcomeFilter !== null, fn ($q) => $q->where('settlement_outcome', $outcomeFilter))
+            ->search($request->input('search'), ['readable_id'])
+            ->latest()
+            ->paginate(pagination_limit())
+            ->appends($queryParams);
+
+        $scenarioCounts = [];
+        $baseCountQuery = $this->booking->query()
+            ->where('is_repeated', 0)
+            ->whereNotNull('settlement_outcome')
+            ->where('settlement_outcome', '!=', '');
+        foreach ($tabs as $tabKey => $out) {
+            $scenarioCounts[$tabKey] = $out === null
+                ? (clone $baseCountQuery)->count()
+                : (clone $baseCountQuery)->where('settlement_outcome', $out)->count();
+        }
+
+        return view('bookingmodule::admin.booking.special-scenario-list', compact(
+            'bookings',
+            'queryParams',
+            'scenario',
+            'scenarioCounts'
+        ));
     }
 
     /**
@@ -1409,7 +1459,42 @@ class BookingController extends Controller
 
             $category = $booking?->detail?->first()?->service?->category;
             $subCategory = $booking?->detail?->first()?->service?->subCategory;
-            $services = Service::select('id', 'name')->where('category_id', $category?->id)->where('sub_category_id', $subCategory?->id)->get();
+
+            $subscribedSubCategoryIds = SubscribedService::query()
+                ->where('provider_id', $booking->provider_id)
+                ->where('is_subscribed', 1)
+                ->pluck('sub_category_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds([(string) $booking->zone_id]);
+            $bookingEditCategories = $this->category
+                ->withoutGlobalScope('translate')
+                ->where('position', 1)
+                ->where('is_active', 1)
+                ->whereIn('id', SubscribedService::query()
+                    ->where('provider_id', $booking->provider_id)
+                    ->where('is_subscribed', 1)
+                    ->distinct()
+                    ->pluck('category_id'))
+                ->when($leafZoneIds !== [], function ($q) use ($leafZoneIds) {
+                    $q->whereHas('zones', function ($query) use ($leafZoneIds) {
+                        $query->whereIn('zones.id', $leafZoneIds);
+                    });
+                })
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+
+            $services = $subscribedSubCategoryIds->isEmpty()
+                ? collect()
+                : Service::query()
+                    ->select('id', 'name', 'category_id', 'sub_category_id')
+                    ->whereIn('sub_category_id', $subscribedSubCategoryIds)
+                    ->where('is_active', 1)
+                    ->orderBy('name')
+                    ->get();
 
             $customerAddress = $this->userAddress->find($booking['service_address_id']);
             $zones = Zone::ofStatus(1)->withoutGlobalScope('translate')->get();
@@ -1478,13 +1563,21 @@ class BookingController extends Controller
 
             $totalPaidFromPartials = (float) $booking->booking_partial_payments->sum('paid_amount');
             $remainingDueForAddPayment = round(max(0, get_booking_total_amount($booking) - $totalPaidFromPartials), 2);
-            $maxRefundAmount = $booking->booking_status === 'canceled' ? get_booking_total_paid($booking) : 0;
+            $maxRefundAmount = (float) (get_booking_refund_display_totals($booking)['refundable_remaining'] ?? 0);
+            if ($this->bookingSuppressesAdminCustomerRefundCard($booking)) {
+                $maxRefundAmount = 0;
+            }
 
             $additionalChargesDisplayRows = enrich_booking_additional_charges_breakdown_for_display($booking);
 
+            $financialSettlementService = app(BookingFinancialSettlementService::class);
+            $financialSettlementOutcomes = BookingFinancialSettlementService::outcomeOptions();
+            $defaultVisitFeeCompanyPercent = $financialSettlementService->defaultVisitCompanyPercent();
+            $bfsDefaultCustomAdminCommission = $financialSettlementService->defaultTierAdminCommissionForBooking($booking);
+
             try {
                 return view('bookingmodule::admin.booking.details', array_merge(
-                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows'),
+                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission'),
                     $this->bookingConfigurationReasonVariables()
                 ));
             } catch (Throwable $e) {
@@ -2147,6 +2240,13 @@ class BookingController extends Controller
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Booking cannot be completed until full payment is received.'),
+                    ]), 422);
+                }
+                if ($to === 'completed'
+                    && (string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                     ]), 422);
                 }
                 [$cId, $hId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $current, $to);
@@ -3385,7 +3485,13 @@ class BookingController extends Controller
             (string) $request['zone_id']
         );
 
-        return response()->json(response_formatter(DEFAULT_200, $variations, null), 200);
+        $service = Service::query()->find($request['service_id']);
+        $payload = response_formatter(DEFAULT_200, $variations, null);
+        $payload['service_tax_percent'] = $service
+            ? effective_service_tax_percentage($service)
+            : company_default_tax_percentage();
+
+        return response()->json($payload, 200);
     }
 
     /**
@@ -3399,6 +3505,7 @@ class BookingController extends Controller
             'service_id' => 'required|uuid',
             'variant_key' => 'required',
             'quantity' => 'required|numeric',
+            'booking_id' => 'nullable|uuid',
         ]);
 
         if ($validator->fails()) {
@@ -3434,21 +3541,43 @@ class BookingController extends Controller
         $basic_discount = $basic_discount > $campaign_discount ? $basic_discount : 0;
         $campaign_discount = $campaign_discount >= $basic_discount ? $campaign_discount : 0;
 
+        $lineDiscountTotal = $basic_discount + $campaign_discount;
+        $totalCost = round($subtotal - $basic_discount - $campaign_discount + $tax, 2);
+
         $data = collect([
             'service_id' => $service->id,
             'service_name' => $service->name,
             'variant_key' => $variation->variant_key,
             'quantity' => $request['quantity'],
             'service_cost' => $variation_price,
-            'total_discount_amount' => $basic_discount + $campaign_discount,
+            'total_discount_amount' => $lineDiscountTotal,
+            'tax_percent' => effective_service_tax_percentage($service),
             'coupon_code' => null,
             'tax_amount' => round($tax, 2),
-            'total_cost' => round($subtotal - $basic_discount - $campaign_discount + $tax, 2),
-            'zone_id' => $request['zone_id']
+            'total_cost' => $totalCost,
+            'zone_id' => $request['zone_id'],
         ]);
 
+        $booking = $request->filled('booking_id')
+            ? $this->booking->find($request['booking_id'])
+            : null;
+        $services = collect();
+        if ($booking && $booking->provider_id) {
+            $subIds = SubscribedService::query()
+                ->where('provider_id', $booking->provider_id)
+                ->where('is_subscribed', 1)
+                ->pluck('sub_category_id');
+            $services = Service::query()
+                ->select('id', 'name', 'category_id', 'sub_category_id')
+                ->whereIn('sub_category_id', $subIds)
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->get();
+        }
+        $rowKey = 'new-' . Str::uuid()->toString();
+
         return response()->json([
-            'view' => view('bookingmodule::admin.booking.partials.details.table-row', compact('data'))->render()
+            'view' => view('bookingmodule::admin.booking.partials.details.table-row', compact('data', 'booking', 'services', 'rowKey'))->render(),
         ]);
     }
 
@@ -3572,6 +3701,7 @@ class BookingController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'category_id' => 'required|uuid',
+            'provider_id' => 'nullable|uuid',
         ]);
 
         if ($validator->fails()) {
@@ -3586,6 +3716,15 @@ class BookingController extends Controller
             ->select('id', 'name')
             ->orderBy('name')
             ->get();
+
+        if ($request->filled('provider_id')) {
+            $allowedSubIds = SubscribedService::query()
+                ->where('provider_id', $request['provider_id'])
+                ->where('is_subscribed', 1)
+                ->pluck('sub_category_id')
+                ->all();
+            $subCategories = $subCategories->whereIn('id', $allowedSubIds)->values();
+        }
 
         return response()->json(response_formatter(DEFAULT_200, $subCategories), 200);
     }
@@ -3685,7 +3824,31 @@ class BookingController extends Controller
             'booking_id' => 'required|uuid',
             'booking_detail_ids' => 'nullable|array',
             'booking_detail_ids.*' => 'nullable|string',
+            'line_unit_prices' => 'nullable|array',
+            'line_unit_prices.*' => 'nullable|numeric|min:0',
+            'line_discount_amounts' => 'nullable|array',
+            'line_discount_amounts.*' => 'nullable|numeric|min:0',
         ])->validate();
+
+        $bookingForSubCheck = $this->booking->find($request['booking_id']);
+        if ($bookingForSubCheck && $bookingForSubCheck->provider_id) {
+            foreach ($request['service_ids'] as $service_id) {
+                $service = Service::query()->find($service_id);
+                if (!$service) {
+                    throw ValidationException::withMessages(['service_ids' => [translate('Invalid service')]]);
+                }
+                $isSubscribed = SubscribedService::query()
+                    ->where('provider_id', $bookingForSubCheck->provider_id)
+                    ->where('sub_category_id', $service->sub_category_id)
+                    ->where('is_subscribed', 1)
+                    ->exists();
+                if (!$isSubscribed) {
+                    throw ValidationException::withMessages([
+                        'service_ids' => [translate('Provider is not subscribed to this category')],
+                    ]);
+                }
+            }
+        }
 
         $bookingDetailIds = $request->input('booking_detail_ids', []);
         $zoneId = $request['zone_id'];
@@ -3793,6 +3956,15 @@ class BookingController extends Controller
                     $this->decrease_service_quantity_from_booking($request);
                 }
             }
+        }
+
+        DB::transaction(function () use ($request) {
+            $this->syncAdminBookingLinePricingFromAdminForm($request);
+        });
+
+        $bookingAfter = $this->booking->find($request['booking_id']);
+        if ($bookingAfter && !(int) ($bookingAfter->is_repeated ?? 0)) {
+            recalculate_and_apply_booking_additional_charges($bookingAfter);
         }
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
@@ -4104,7 +4276,30 @@ class BookingController extends Controller
 
         $bookingTotal = get_booking_total_amount($booking);
         $totalPaid = get_booking_total_paid($booking);
-        $dueAmount = round(max(0, $bookingTotal - $totalPaid), 2);
+
+        $useBfsVisitRetainedCap = $request->boolean('bfs_decided_charges_cap') || $request->boolean('bfs_visit_retained_cap');
+        if ($useBfsVisitRetainedCap) {
+            $request->validate([
+                'visit_charges_paid' => 'required|numeric|min:0',
+                'closing_amount_paid' => 'nullable|numeric|min:0',
+                'bfs_settlement_outcome' => 'nullable|string|in:' . BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT . ',' . BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL,
+            ]);
+            $capConfig = ['visit_charges_paid' => (float) $request->input('visit_charges_paid')];
+            if ($request->filled('closing_amount_paid')) {
+                $capConfig['closing_amount_paid'] = (float) $request->input('closing_amount_paid');
+            }
+            $settlementService = app(BookingFinancialSettlementService::class);
+            $bookingForCap = $booking;
+            if ($request->filled('bfs_settlement_outcome')) {
+                $bookingForCap = $booking->replicate();
+                $bookingForCap->id = $booking->id;
+                $bookingForCap->settlement_outcome = (string) $request->input('bfs_settlement_outcome');
+            }
+            $retainedCap = $settlementService->resolveRetainedVisitAmount($bookingForCap, $capConfig);
+            $dueAmount = round(max(0.0, $retainedCap - $totalPaid), 2);
+        } else {
+            $dueAmount = round(max(0, $bookingTotal - $totalPaid), 2);
+        }
 
         $amount = (float) $request->amount;
         if ($amount > $dueAmount) {
@@ -4172,6 +4367,466 @@ class BookingController extends Controller
     }
 
     /**
+     * After “Cancel After Visit Decided Charges,” the admin “Refund customer” card is hidden and the refund action is blocked;
+     * settlement already defined what stays with the business vs the customer.
+     */
+    protected function bookingSuppressesAdminCustomerRefundCard(Booking $booking): bool
+    {
+        return (bool) ($booking->after_visit_cancel ?? false)
+            || (string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+    }
+
+    private function financialSettlementValidOutcomes(): array
+    {
+        return [
+            BookingFinancialSettlementService::OUTCOME_STANDARD,
+            BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT,
+            BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION,
+            BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS,
+            BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, float>
+     */
+    private function financialSettlementConfigFromValidated(array $validated): array
+    {
+        $config = [];
+        foreach ([
+            'visit_fee_company_percent',
+            'visit_fee_provider_percent',
+            'visit_company_amount',
+            'visit_provider_amount',
+            'visit_charges_paid',
+            'closing_amount_paid',
+            'closing_company_share',
+            'closing_provider_share',
+            'retained_visit_amount',
+            'custom_admin_commission',
+            'scaled_customer_paid_amount',
+            'scaled_loss_company_amount',
+            'scaled_loss_provider_amount',
+        ] as $key) {
+            if (! array_key_exists($key, $validated)) {
+                continue;
+            }
+            $v = $validated[$key];
+            if ($v === null || $v === '') {
+                continue;
+            }
+            $config[$key] = (float) $v;
+        }
+
+        return $config;
+    }
+
+    /**
+     * @param  array<string, float>  $config
+     */
+    /**
+     * Financial settlement configuration and save-and-complete / save-and-cancel are only allowed while the booking is ongoing.
+     */
+    private function financialSettlementJsonErrorUnlessOngoing(Booking $booking): ?JsonResponse
+    {
+        if ((string) ($booking->booking_status ?? '') !== 'ongoing') {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Bfs_financial_settlement_only_while_ongoing'),
+            ]), 422);
+        }
+
+        return null;
+    }
+
+    private function assertFinancialSettlementScaledLossSplitValid(Booking $booking, string $outcome, array $config): void
+    {
+        if ($outcome !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            return;
+        }
+        $booking->loadMissing('booking_partial_payments');
+        $msg = app(BookingFinancialSettlementService::class)->validateScaledLossSplit($booking, $config);
+        if ($msg !== null) {
+            throw ValidationException::withMessages([
+                'scaled_loss_company_amount' => [$msg],
+                'scaled_loss_provider_amount' => [$msg],
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function financialSettlementPreviewValidationRules(): array
+    {
+        return [
+            'settlement_outcome' => 'required|string|in:' . implode(',', $this->financialSettlementValidOutcomes()),
+            'visit_fee_company_percent' => 'nullable|numeric|min:0|max:100',
+            'visit_fee_provider_percent' => 'nullable|numeric|min:0|max:100',
+            'visit_company_amount' => 'nullable|numeric|min:0',
+            'visit_provider_amount' => 'nullable|numeric|min:0',
+            'visit_charges_paid' => 'nullable|numeric|min:0',
+            'closing_amount_paid' => 'nullable|numeric|min:0',
+            'closing_company_share' => 'nullable|numeric|min:0',
+            'closing_provider_share' => 'nullable|numeric|min:0',
+            'custom_admin_commission' => 'nullable|numeric|min:0',
+            'retained_visit_amount' => 'nullable|numeric|min:0',
+            'scaled_customer_paid_amount' => 'nullable|numeric|min:0',
+            'scaled_loss_company_amount' => 'nullable|numeric|min:0',
+            'scaled_loss_provider_amount' => 'nullable|numeric|min:0',
+        ];
+    }
+
+    /**
+     * Preview payout / commission for the selected settlement scenario (does not save).
+     */
+    public function financialSettlementPreview(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $booking = $this->booking->find($id);
+        if (! $booking) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
+        if ((int) ($booking->is_repeated ?? 0) === 1) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Financial_settlement_applies_to_single_bookings_only'),
+            ]), 422);
+        }
+        if ($r = $this->financialSettlementJsonErrorUnlessOngoing($booking)) {
+            return $r;
+        }
+
+        $validated = $request->validate($this->financialSettlementPreviewValidationRules());
+
+        $config = $this->financialSettlementConfigFromValidated($validated);
+
+        $outcome = $validated['settlement_outcome'];
+        $bookingForScaled = $this->booking->with('booking_partial_payments')->findOrFail($id);
+        $this->assertFinancialSettlementScaledLossSplitValid($bookingForScaled, $outcome, $config);
+
+        $forPreview = Booking::query()->findOrFail($id);
+        $forPreview->settlement_outcome = $outcome === BookingFinancialSettlementService::OUTCOME_STANDARD ? null : $outcome;
+        $forPreview->settlement_config = $config === [] ? null : $config;
+
+        $service = app(BookingFinancialSettlementService::class);
+
+        return response()->json([
+            'preview' => $service->buildPreview($forPreview),
+        ], 200);
+    }
+
+    /**
+     * Save settlement scenario for this booking (admin configures before complete / cancel).
+     */
+    public function financialSettlementSave(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $booking = $this->booking->find($id);
+        if (! $booking) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
+        if ((int) ($booking->is_repeated ?? 0) === 1) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Financial_settlement_applies_to_single_bookings_only'),
+            ]), 422);
+        }
+        if ($r = $this->financialSettlementJsonErrorUnlessOngoing($booking)) {
+            return $r;
+        }
+
+        $validated = $request->validate(array_merge($this->financialSettlementPreviewValidationRules(), [
+            'settlement_remarks' => 'nullable|string|max:2000',
+        ]));
+
+        $outcome = $validated['settlement_outcome'];
+        if ($outcome === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Bfs_use_save_and_cancel_for_after_visit'),
+            ]), 422);
+        }
+        if ($outcome === BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Bfs_use_save_and_complete_for_visit_only'),
+            ]), 422);
+        }
+        if ($outcome === BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION
+            && ! isset($validated['custom_admin_commission'])) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Custom_company_commission_amount_is_required'),
+            ]), 422);
+        }
+
+        $config = $this->financialSettlementConfigFromValidated($validated);
+
+        $booking->loadMissing('booking_partial_payments');
+        $this->assertFinancialSettlementScaledLossSplitValid($booking, $outcome, $config);
+
+        $service = app(BookingFinancialSettlementService::class);
+        $service->saveSettlement(
+            $booking,
+            $outcome,
+            $config,
+            $validated['settlement_remarks'] ?? null
+        );
+
+        $payload = response_formatter(DEFAULT_UPDATE_200, null);
+        $payload['message'] = translate('Financial_settlement_saved');
+        $payload['snapshot'] = $booking->fresh()->settlement_snapshot;
+
+        return response()->json($payload, 200);
+    }
+
+    /**
+     * Apply “Cancel after visit” settlement and cancel the booking in one step (single booking only).
+     */
+    public function financialSettlementSaveAndCancel(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $booking = $this->booking->find($id);
+        if (! $booking) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
+        if ((int) ($booking->is_repeated ?? 0) === 1) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Financial_settlement_applies_to_single_bookings_only'),
+            ]), 422);
+        }
+        if ($r = $this->financialSettlementJsonErrorUnlessOngoing($booking)) {
+            return $r;
+        }
+
+        $validated = $request->validate(array_merge($this->financialSettlementPreviewValidationRules(), [
+            'settlement_outcome' => 'required|string|in:' . BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL,
+            'booking_cancellation_reason_id' => [
+                'required',
+                Rule::exists('booking_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
+            ],
+        ]));
+
+        $config = $this->financialSettlementConfigFromValidated($validated);
+        $previousStatus = (string) $booking->booking_status;
+        $service = app(BookingFinancialSettlementService::class);
+
+        $bookingForDue = $this->booking->with('booking_partial_payments')->findOrFail($booking->id);
+        $bookingForDue->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+        $bookingForDue->settlement_config = $config === [] ? null : $config;
+        $amountStillDue = round((float) ($service->buildPreview($bookingForDue)['amount_to_collect_from_customer'] ?? 0), 2);
+        if ($amountStillDue > 0) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Bfs_collect_payment_before_cancel'),
+            ]), 422);
+        }
+
+        DB::transaction(function () use ($booking, $config, $validated, $request, $service) {
+            $booking->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+            $booking->settlement_config = $config === [] ? null : $config;
+            $booking->settlement_remarks = null;
+            $booking->allow_complete_without_full_payment = false;
+            $booking->after_visit_cancel = true;
+            $booking->settlement_snapshot = $service->buildPreview($booking);
+            $booking->booking_status = 'canceled';
+            $booking->save();
+
+            $this->logBookingStatusHistory(
+                null,
+                'canceled',
+                (string) $request->user()->id,
+                $booking->id,
+                (int) $validated['booking_cancellation_reason_id'],
+                null,
+                null
+            );
+        });
+
+        if ((int) ($booking->is_repeated ?? 0) === 0) {
+            try {
+                $fresh = $this->booking
+                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                    ->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingStatusChange($fresh, $previousStatus);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking status (after visit cancel) failed', [
+                    'booking_id' => $booking->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $payload = response_formatter(DEFAULT_UPDATE_200, null);
+        $payload['message'] = translate('Bfs_save_and_cancel_success');
+        $payload['snapshot'] = $booking->fresh()->settlement_snapshot;
+
+        return response()->json($payload, 200);
+    }
+
+    /**
+     * Apply financial settlement and mark the booking completed in one step: visit-only decided charges, or loss-making (scaled) partial pay (single booking only).
+     */
+    public function financialSettlementSaveAndComplete(Request $request, string $id): JsonResponse
+    {
+        $this->authorize('booking_can_manage_status');
+        $booking = $this->booking->find($id);
+        if (! $booking) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
+        if ((int) ($booking->is_repeated ?? 0) === 1) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Financial_settlement_applies_to_single_bookings_only'),
+            ]), 422);
+        }
+        if ($r = $this->financialSettlementJsonErrorUnlessOngoing($booking)) {
+            return $r;
+        }
+
+        $validated = $request->validate(array_merge($this->financialSettlementPreviewValidationRules(), [
+            'settlement_outcome' => 'required|string|in:' . BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT . ',' . BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS,
+            'settlement_remarks' => 'nullable|string|max:2000',
+        ]));
+
+        $config = $this->financialSettlementConfigFromValidated($validated);
+        $previousStatus = (string) $booking->booking_status;
+        $service = app(BookingFinancialSettlementService::class);
+        $outcome = $validated['settlement_outcome'];
+
+        $remarks = isset($validated['settlement_remarks']) && is_string($validated['settlement_remarks'])
+            ? trim($validated['settlement_remarks']) : null;
+        if ($remarks === '') {
+            $remarks = null;
+        }
+
+        $successMessage = translate('Bfs_save_and_complete_success');
+
+        if ($outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            $booking->loadMissing('booking_partial_payments');
+            $this->assertFinancialSettlementScaledLossSplitValid($booking, $outcome, $config);
+
+            $bookingForComplete = $this->booking->with('booking_partial_payments')->findOrFail($booking->id);
+            $bookingForComplete->settlement_outcome = $outcome;
+            $bookingForComplete->settlement_config = $config === [] ? null : $config;
+
+            if (! booking_can_be_completed($bookingForComplete)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Booking cannot be completed until full payment is received.'),
+                ]), 422);
+            }
+
+            try {
+                DB::transaction(function () use ($booking, $config, $remarks, $request, $service) {
+                    $booking->booking_status = 'completed';
+                    $service->saveSettlement(
+                        $booking,
+                        BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS,
+                        $config,
+                        $remarks
+                    );
+
+                    $this->logBookingStatusHistory(
+                        null,
+                        'completed',
+                        (string) $request->user()->id,
+                        $booking->id,
+                        null,
+                        null,
+                        null
+                    );
+                });
+            } catch (\RuntimeException $e) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => $e->getMessage(),
+                ]), 422);
+            }
+
+            $successMessage = translate('Bfs_save_and_complete_loss_making_success');
+        } else {
+            $bookingForDue = $this->booking->with('booking_partial_payments')->findOrFail($booking->id);
+            $bookingForDue->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+            $bookingForDue->settlement_config = $config === [] ? null : $config;
+            $amountStillDue = round((float) ($service->buildPreview($bookingForDue)['amount_to_collect_from_customer'] ?? 0), 2);
+            if ($amountStillDue > 0) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Bfs_collect_payment_before_complete'),
+                ]), 422);
+            }
+
+            if (! booking_can_be_completed($bookingForDue)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Booking cannot be completed until full payment is received.'),
+                ]), 422);
+            }
+
+            try {
+                DB::transaction(function () use ($booking, $config, $validated, $request, $service) {
+                    $booking->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+                    $booking->settlement_config = $config === [] ? null : $config;
+                    $booking->settlement_remarks = isset($validated['settlement_remarks']) && is_string($validated['settlement_remarks'])
+                        ? trim($validated['settlement_remarks']) : null;
+                    if ($booking->settlement_remarks === '') {
+                        $booking->settlement_remarks = null;
+                    }
+                    $booking->allow_complete_without_full_payment = false;
+                    $booking->settlement_snapshot = $service->buildPreview($booking);
+                    $booking->booking_status = 'completed';
+                    $booking->save();
+
+                    $this->logBookingStatusHistory(
+                        null,
+                        'completed',
+                        (string) $request->user()->id,
+                        $booking->id,
+                        null,
+                        null,
+                        null
+                    );
+                });
+            } catch (\RuntimeException $e) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => $e->getMessage(),
+                ]), 422);
+            }
+        }
+
+        if ((int) ($booking->is_repeated ?? 0) === 0) {
+            try {
+                $fresh = $this->booking
+                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                    ->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingStatusChange($fresh, $previousStatus);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking status (financial settlement complete) failed', [
+                    'booking_id' => $booking->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $payload = response_formatter(DEFAULT_UPDATE_200, null);
+        $payload['message'] = $successMessage;
+        $payload['snapshot'] = $booking->fresh()->settlement_snapshot;
+
+        return response()->json($payload, 200);
+    }
+
+    /**
      * Admin: refund customer for a canceled booking. Max refund = amount paid by customer.
      * Records an OUT transaction (refund) and sets booking status to refunded.
      */
@@ -4200,16 +4855,7 @@ class BookingController extends Controller
             return back();
         }
 
-        if ($booking->booking_status === 'refunded') {
-            $message = translate('This booking has already been refunded.');
-            if ($request->wantsJson()) {
-                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
-            }
-            Toastr::error($message);
-            return back();
-        }
-
-        if ($booking->booking_status !== 'canceled') {
+        if (! in_array((string) $booking->booking_status, ['canceled', 'cancelled', 'refunded'], true)) {
             $message = translate('Refund is only available for canceled bookings.');
             if ($request->wantsJson()) {
                 return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
@@ -4218,10 +4864,38 @@ class BookingController extends Controller
             return back();
         }
 
-        $maxRefund = get_booking_total_paid($booking);
-        $amount = (float) $request->amount;
-        if ($amount > $maxRefund) {
-            $message = translate('Refund amount cannot exceed amount paid by customer. Max') . ': ' . with_currency_symbol($maxRefund);
+        if ($this->bookingSuppressesAdminCustomerRefundCard($booking)) {
+            $message = translate('Bfs_refund_not_available_after_visit_cancel');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+            return back();
+        }
+
+        $refundTotals = get_booking_refund_display_totals($booking);
+        $remainingRefundable = round((float) ($refundTotals['refundable_remaining'] ?? 0), 2);
+        if ($remainingRefundable <= 0) {
+            $message = translate('This booking has already been fully refunded.');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+            return back();
+        }
+
+        $amount = round((float) $request->amount, 2);
+        if ($amount > $remainingRefundable) {
+            $message = translate('Refund amount cannot exceed amount paid by customer. Max') . ': ' . with_currency_symbol($remainingRefundable);
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
+            }
+            Toastr::error($message);
+            return back();
+        }
+
+        if ($amount < 0.01) {
+            $message = translate('Refund amount must be greater than zero.');
             if ($request->wantsJson()) {
                 return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$message]]), 400);
             }
@@ -4232,29 +4906,41 @@ class BookingController extends Controller
         $transactionId = $request->transaction_id;
         $date = $request->date ? \Carbon\Carbon::parse($request->date)->toDateString() : now()->toDateString();
 
-        $alreadyOnLedger = booking_ledger_refund_out_total((string) $booking->id);
-        $ledgerAmountToRecord = max(0, round($amount - $alreadyOnLedger, 2));
+        $ledgerAmountToRecord = $amount;
 
-        DB::transaction(function () use ($booking, $amount, $transactionId, $date, $ledgerAmountToRecord) {
-            if ($ledgerAmountToRecord > 0) {
-                ledger_record_out([
-                    'amount' => $ledgerAmountToRecord,
-                    'transaction_id' => $transactionId,
-                    'booking_id' => $booking->id,
-                    'reason' => LedgerTransaction::REASON_REFUND,
-                    'date' => $date,
-                ]);
+        $fullyRefundedAfter = false;
+        DB::transaction(function () use ($booking, $ledgerAmountToRecord, $transactionId, $date, &$fullyRefundedAfter) {
+            ledger_record_out([
+                'amount' => $ledgerAmountToRecord,
+                'transaction_id' => $transactionId,
+                'booking_id' => $booking->id,
+                'reason' => LedgerTransaction::REASON_REFUND,
+                'date' => $date,
+            ]);
+
+            $booking->refresh();
+            $afterTotals = get_booking_refund_display_totals($booking);
+            $fullyRefundedAfter = round((float) ($afterTotals['refundable_remaining'] ?? 0), 2) <= 0;
+
+            if ($fullyRefundedAfter) {
+                if ((string) $booking->booking_status !== 'refunded') {
+                    $booking->booking_status = 'refunded';
+                    $booking->save();
+                    $this->logBookingStatusHistory(null, 'refunded', request()->user()->id, $booking->id);
+                }
+            } else {
+                $booking->booking_status = 'canceled';
+                $booking->save();
             }
-
-            $booking->booking_status = 'refunded';
-            $booking->save();
-            $this->logBookingStatusHistory(null, 'refunded', request()->user()->id, $booking->id);
         });
 
         if ($request->wantsJson()) {
             return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
         }
-        Toastr::success(translate('Refund recorded successfully. Booking status updated to Refunded.'));
+        $successMessage = $fullyRefundedAfter
+            ? translate('Refund recorded successfully. Booking status updated to Refunded.')
+            : translate('Refund recorded successfully. You can record another refund until the balance is zero.');
+        Toastr::success($successMessage);
         return back();
     }
 

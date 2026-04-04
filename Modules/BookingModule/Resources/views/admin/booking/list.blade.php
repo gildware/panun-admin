@@ -319,6 +319,7 @@
                                                             <span class="badge bg-success ms-1">{{ translate('Resolved') }}</span>
                                                         @endif
                                                     @endif
+                                                    @include('bookingmodule::admin.booking.partials._booking-settlement-list-badge', ['booking' => $booking])
                                                 </td>
                                                 @if(request('booking_status') === 'reopened')
                                                     <td>

@@ -3,6 +3,7 @@
 namespace Modules\WhatsAppModule\Services;
 
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -149,7 +150,8 @@ class BookingWhatsAppNotificationService
     }
 
     public function __construct(
-        protected WhatsAppCloudService $cloud
+        protected WhatsAppCloudService $cloud,
+        protected WhatsAppMessagePersistenceService $messagePersistence
     ) {}
 
     public function sendBookingConfirmation(?Booking $booking): void
@@ -179,21 +181,23 @@ class BookingWhatsAppNotificationService
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
             if ($customerTpl !== '' && $customerPhone) {
                 $body = $this->interpolate($customerTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($customerPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp booking confirm (customer) failed', ['booking_id' => $booking->id, 'error' => $err]);
-                }
+                $this->sendTextAndRecord(
+                    $customerPhone,
+                    $body,
+                    'booking confirm (customer)',
+                    ['booking_id' => $booking->id]
+                );
             }
 
             $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
             if ($providerTpl !== '' && $providerPhone) {
                 $body = $this->interpolate($providerTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($providerPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp booking confirm (provider) failed', ['booking_id' => $booking->id, 'error' => $err]);
-                }
+                $this->sendTextAndRecord(
+                    $providerPhone,
+                    $body,
+                    'booking confirm (provider)',
+                    ['booking_id' => $booking->id]
+                );
             }
         } finally {
             $lock->release();
@@ -742,21 +746,23 @@ class BookingWhatsAppNotificationService
         $customerPhone = $this->normalizePhone($customerPhoneRaw, $config);
         if ($customerTpl !== '' && $customerPhone) {
             $body = $this->interpolate($customerTpl, $vars);
-            $err = null;
-            $this->cloud->sendText($customerPhone, $body, $err);
-            if ($err) {
-                Log::warning('WhatsApp booking ' . $logContext . ' (customer) failed', ['id' => $entityId, 'error' => $err]);
-            }
+            $this->sendTextAndRecord(
+                $customerPhone,
+                $body,
+                'booking ' . $logContext . ' (customer)',
+                ['id' => $entityId]
+            );
         }
 
         $providerPhone = $this->resolveProviderPhone($provider, $config);
         if ($providerTpl !== '' && $providerPhone) {
             $body = $this->interpolate($providerTpl, $vars);
-            $err = null;
-            $this->cloud->sendText($providerPhone, $body, $err);
-            if ($err) {
-                Log::warning('WhatsApp booking ' . $logContext . ' (provider) failed', ['id' => $entityId, 'error' => $err]);
-            }
+            $this->sendTextAndRecord(
+                $providerPhone,
+                $body,
+                'booking ' . $logContext . ' (provider)',
+                ['id' => $entityId]
+            );
         }
     }
 
@@ -872,33 +878,36 @@ class BookingWhatsAppNotificationService
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
             if ($customerTpl !== '' && $customerPhone) {
                 $body = $this->interpolate($customerTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($customerPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp provider change (customer) failed', ['booking_id' => $booking->id, 'error' => $err]);
-                }
+                $this->sendTextAndRecord(
+                    $customerPhone,
+                    $body,
+                    'provider change (customer)',
+                    ['booking_id' => $booking->id]
+                );
             }
 
             if ($previousProvider && $oldTpl !== '') {
                 $oldPhone = $this->resolveProviderPhone($previousProvider, $config);
                 if ($oldPhone) {
                     $body = $this->interpolate($oldTpl, $vars);
-                    $err = null;
-                    $this->cloud->sendText($oldPhone, $body, $err);
-                    if ($err) {
-                        Log::warning('WhatsApp provider change (previous provider) failed', ['booking_id' => $booking->id, 'error' => $err]);
-                    }
+                    $this->sendTextAndRecord(
+                        $oldPhone,
+                        $body,
+                        'provider change (previous provider)',
+                        ['booking_id' => $booking->id]
+                    );
                 }
             }
 
             $newProviderPhone = $this->resolveProviderPhone($booking->provider, $config);
             if ($newTpl !== '' && $newProviderPhone) {
                 $body = $this->interpolate($newTpl, $vars);
-                $err = null;
-                $this->cloud->sendText($newProviderPhone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp provider change (new provider) failed', ['booking_id' => $booking->id, 'error' => $err]);
-                }
+                $this->sendTextAndRecord(
+                    $newProviderPhone,
+                    $body,
+                    'provider change (new provider)',
+                    ['booking_id' => $booking->id]
+                );
             }
         } finally {
             $lock->release();
@@ -961,6 +970,71 @@ class BookingWhatsAppNotificationService
         }
 
         return $merged;
+    }
+
+    protected function triggerAdminId(): ?int
+    {
+        $u = Auth::user();
+
+        return $u ? (int) $u->getAuthIdentifier() : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $logCtx
+     */
+    protected function sendTextAndRecord(string $phone, string $body, string $logLabel, array $logCtx): void
+    {
+        $err = null;
+        $waId = $this->cloud->sendText($phone, $body, $err);
+        if ($err) {
+            Log::warning('WhatsApp ' . $logLabel . ' failed', array_merge($logCtx, ['error' => $err]));
+
+            return;
+        }
+        if (!$waId) {
+            return;
+        }
+        $this->tryPersistBookingOutbound($phone, $body, $waId, 'TEXT', null);
+    }
+
+    protected function tryPersistBookingOutbound(
+        string $phone,
+        string $body,
+        string $waId,
+        string $messageType = 'TEXT',
+        ?string $mediaPath = null
+    ): void {
+        try {
+            $this->messagePersistence->persistOutboundAutomation(
+                $phone,
+                $body,
+                $waId,
+                'Booking',
+                $this->triggerAdminId(),
+                $messageType,
+                $mediaPath
+            );
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp booking outbound persist failed', [
+                'phone' => $phone,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function archiveInvoiceCopyForConversation(string $relativePath): ?string
+    {
+        if ($relativePath === '' || !Storage::disk('public')->exists($relativePath)) {
+            return null;
+        }
+        $dir = 'whatsapp-conversation-media/booking-invoices';
+        Storage::disk('public')->makeDirectory($dir);
+        $dest = $dir . '/' . str_replace('.', '', uniqid('inv_', true)) . '.pdf';
+        if (!Storage::disk('public')->copy($relativePath, $dest)) {
+            return null;
+        }
+
+        return $dest;
     }
 
     /**
@@ -1140,26 +1214,42 @@ class BookingWhatsAppNotificationService
             $relativePath = $this->writeBookingInvoiceToPublicDisk($booking, $repeat);
         }
 
-        $err = null;
         if ($relativePath) {
             $caption = $this->truncateWhatsAppCaption($body);
-            $this->cloud->sendOutbound($phone, $caption, $relativePath, $err);
+            $err = null;
+            $waId = $this->cloud->sendOutbound($phone, $caption, $relativePath, $err);
+            $archivedPath = null;
+            if ($waId) {
+                $archivedPath = $this->archiveInvoiceCopyForConversation($relativePath);
+            }
             Storage::disk('public')->delete($relativePath);
             $invoiceParent = dirname($relativePath);
             if (str_starts_with(basename($invoiceParent), 'wa_')) {
                 Storage::disk('public')->deleteDirectory($invoiceParent);
             }
-            if ($err) {
-                Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') document send failed, retrying text', [
-                    'entity_id' => $entityId,
-                    'error' => $err,
-                ]);
-                $err = null;
-                $this->cloud->sendText($phone, $body, $err);
-                if ($err) {
-                    Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') text fallback failed', ['entity_id' => $entityId, 'error' => $err]);
-                }
+            if ($waId) {
+                $persistType = $archivedPath ? 'DOCUMENT' : 'TEXT';
+                $this->tryPersistBookingOutbound(
+                    $phone,
+                    $body,
+                    $waId,
+                    $persistType,
+                    $archivedPath
+                );
+
+                return;
             }
+
+            Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') document send failed, retrying text', [
+                'entity_id' => $entityId,
+                'error' => $err,
+            ]);
+            $this->sendTextAndRecord(
+                $phone,
+                $body,
+                $logContext . ' (' . $party . ') text fallback',
+                ['entity_id' => $entityId]
+            );
 
             return;
         }
@@ -1168,10 +1258,12 @@ class BookingWhatsAppNotificationService
             Log::warning('WhatsApp ' . $logContext . ' (' . $party . '): invoice PDF not generated, sending text only', ['entity_id' => $entityId]);
         }
 
-        $this->cloud->sendText($phone, $body, $err);
-        if ($err) {
-            Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') failed', ['entity_id' => $entityId, 'error' => $err]);
-        }
+        $this->sendTextAndRecord(
+            $phone,
+            $body,
+            $logContext . ' (' . $party . ')',
+            ['entity_id' => $entityId]
+        );
     }
 
     protected function writeBookingInvoiceToPublicDisk(Booking $booking, ?BookingRepeat $repeat): ?string

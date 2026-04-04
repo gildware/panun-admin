@@ -15,7 +15,7 @@
             @php($created = session('provider_created'))
             @if(is_array($created) && !empty($created['id']))
                 <div class="modal fade" id="providerCreatedSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-                    <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
                         <div class="modal-content">
                             <div class="modal-header border-0 pb-0">
                                 <h5 class="modal-title">{{ translate('Provider_created_successfully') }}</h5>
@@ -23,12 +23,15 @@
                             </div>
                             <div class="modal-body pt-0">
                                 <p class="mb-4 text-muted">{{ translate('The_provider_has_been_added_you_can_manage_subscriptions_anytime') }}</p>
-                                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
-                                    <a href="{{ route('admin.provider.create') }}" class="btn btn--secondary order-2 order-sm-1">
-                                        {{ translate('Create_another_provider') }}
+                                <div class="d-flex flex-row flex-nowrap gap-2 w-100">
+                                    <a href="{{ route('admin.provider.create') }}" class="btn btn--secondary text-center flex-fill">
+                                        {{ translate('Add_other_provider') }}
                                     </a>
-                                    <a href="{{ route('admin.provider.details', [$created['id'], 'web_page' => 'overview']) }}" class="btn btn--primary order-1 order-sm-2">
-                                        {{ translate('View_provider_details') }}
+                                    <a href="{{ route('admin.provider.details', [$created['id'], 'web_page' => 'overview']) }}" class="btn btn--primary text-center flex-fill">
+                                        {{ translate('View_provider') }}
+                                    </a>
+                                    <a href="{{ route('admin.provider.list', ['status' => 'all']) }}" class="btn btn--secondary text-center flex-fill">
+                                        {{ translate('Go_to_providers_list') }}
                                     </a>
                                 </div>
                             </div>
@@ -40,6 +43,17 @@
             <div id="provider-create-wizard-config" class="d-none"
                  data-subcategories-url="{{ route('admin.provider.create.subcategories-for-zone') }}"
                  data-csrf-token="{{ csrf_token() }}"></div>
+
+            @if ($errors->any())
+                <div class="alert alert-danger mb-3" role="alert" id="provider-create-server-validation-alert">
+                    <p class="fw-semibold mb-2">{{ translate('Please_review_the_following_issues') }}</p>
+                    <ul class="mb-0 ps-3">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
             <form action="{{route('admin.provider.store')}}" method="POST" enctype="multipart/form-data" id="create-provider-form" novalidate>
                 @csrf
@@ -62,6 +76,16 @@
                                 </div>
                             </div>
                             @include('providermanagement::admin.provider.partials.provider-add-edit-form', ['mode' => 'add', 'zones' => $zones, 'zoneTree' => $zoneTree, 'provider' => null])
+
+                            <div id="provider-create-form-validation-alert" class="d-none mt-3" role="region" aria-live="polite">
+                                <div class="alert alert-danger d-flex align-items-start mb-0" role="alert">
+                                    <div class="media gap-2 flex-grow-1">
+                                        <img src="{{ asset('assets/admin-module/img/WarningOctagon.svg') }}" class="svg mt-1" alt="">
+                                        <div class="media-body" id="provider-create-form-validation-alert-body"></div>
+                                    </div>
+                                    <button type="button" class="btn-close shadow-none provider-create-form-validation-alert-close" aria-label="{{ translate('close') }}"></button>
+                                </div>
+                            </div>
 
                             @if(false)
                             <fieldset disabled class="d-none">
@@ -583,7 +607,6 @@
     <script src="{{asset('assets/provider-module')}}/js//tags-input.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/js/spartan-multi-image-picker.js"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-steps/jquery.steps.min.js"></script>
-    <script src="{{asset('assets/provider-module')}}/plugins/jquery-validation/jquery.validate.min.js"></script>
 
     <script src="https://maps.googleapis.com/maps/api/js?key={{business_config('google_map', 'third_party')?->live_values['map_api_key_client']}}&libraries=places&v=3.45.8"></script>
 
@@ -652,212 +675,84 @@
                 new bootstrap.Modal(successModalEl).show();
             }
 
-            let formWizard = $("#create-provider-form");
+            var formWizard = $("#create-provider-form");
 
-            function isProviderCompanyType() {
-                return formWizard.find('.provider-add-edit-form-root input[name="provider_type"]:checked').val() === 'company';
+            function providerCreateGetIntlInstance(telEl) {
+                if (!telEl || !window.intlTelInputGlobals || typeof window.intlTelInputGlobals.getInstance !== "function") {
+                    return null;
+                }
+                return window.intlTelInputGlobals.getInstance(telEl);
             }
 
-            function providerUploadHasFile(inputName) {
-                var $inp = formWizard.find('[name="' + inputName + '"]');
-                var inp = $inp[0];
-                if (!inp) {
-                    return false;
-                }
-                if (inp.files && inp.files.length) {
-                    return true;
-                }
-                var wrap = inp.closest('.provider-upload-wrapper');
-                if (!wrap) {
-                    return false;
-                }
-                var removeField = wrap.getAttribute('data-remove-field') || '';
-                var hidden = removeField ? wrap.querySelector('input[type="hidden"][name="' + removeField + '"]') : null;
-                if (hidden && hidden.value === '1') {
-                    return false;
-                }
-                var img = wrap.querySelector('img[data-placeholder-src]');
-                if (!img || !img.dataset.placeholderSrc) {
-                    return false;
-                }
-                return String(img.src || '') !== String(img.dataset.placeholderSrc || '');
-            }
+            var providerCreateIntlSyncDepth = 0;
 
-            function clearProviderCreateBasicSummary() {
-                var $s = $("#provider-create-basic-step-summary");
-                if ($s.length) {
-                    $s.addClass("d-none").empty();
-                }
-            }
-
-            function showProviderCreateBasicSummary(messages) {
-                var $s = $("#provider-create-basic-step-summary");
-                if (!$s.length) {
+            function providerCreateSyncAllIntlPhones(formEl) {
+                if (providerCreateIntlSyncDepth > 0) {
                     return;
                 }
-                var seen = {};
-                var list = [];
-                messages.forEach(function (m) {
-                    var t = (m || "").trim();
-                    if (t && !seen[t]) {
-                        seen[t] = true;
-                        list.push(t);
-                    }
-                });
-                if (!list.length) {
-                    $s.addClass("d-none").empty();
-                    return;
-                }
-                var esc = function (s) {
-                    return String(s)
-                        .replace(/&/g, "&amp;")
-                        .replace(/</g, "&lt;")
-                        .replace(/>/g, "&gt;")
-                        .replace(/"/g, "&quot;");
-                };
-                var html = '<p class="mb-2 fw-semibold">' + esc("{{ addslashes(translate('Please_review_the_following_issues')) }}") + '</p><ul class="mb-0 ps-3">';
-                list.forEach(function (msg) {
-                    html += "<li>" + esc(msg) + "</li>";
-                });
-                html += "</ul>";
-                $s.removeClass("d-none").html(html);
-            }
-
-            $.validator.addMethod("providerZoneLeafPick", function () {
-                var form = document.getElementById("create-provider-form");
-                if (!form) {
-                    return true;
-                }
-                return form.querySelectorAll("input.provider-zone-leaf-cb:checked").length > 0;
-            }, "{{ addslashes(translate('Select_Zone')) }}");
-
-            formWizard.validate({
-                errorElement: "div",
-                errorClass: "provider-jqv-error",
-                ignore: function (index, element) {
-                    var $el = $(element);
-                    if ($el.is(":disabled")) {
-                        return true;
-                    }
-                    if ($el.is('input[type="file"]')) {
-                        return false;
-                    }
-                    if ($el.hasClass("provider-zone-leaf-cb")) {
-                        return false;
-                    }
-                    if ($el.is(":hidden")) {
-                        return true;
-                    }
-                    return false;
-                },
-                errorPlacement: function (error, element) {
-                    error.addClass("invalid-feedback d-block text-danger small mt-1");
-                    if (element.hasClass("provider-zone-leaf-cb")) {
-                        var $ze = $("#provider-create-zone-error");
-                        if ($ze.length) {
-                            $ze.removeClass("d-none").html(error.html());
-                        } else {
-                            element.closest(".form-check").after(error);
-                        }
+                providerCreateIntlSyncDepth++;
+                try {
+                    var form = formEl || document.getElementById("create-provider-form");
+                    if (!form) {
                         return;
                     }
-                    if (element.attr("type") === "radio" && element.attr("name") === "provider_type") {
-                        element.closest(".d-flex.flex-wrap.gap-3").append(error);
-                        return;
-                    }
-                    element.parents('.form-floating, .form-error-wrap').first().after(error);
-                },
-                highlight: function (element, errorClass, validClass) {
-                    $(element).addClass("is-invalid");
-                },
-                unhighlight: function (element, errorClass, validClass) {
-                    $(element).removeClass("is-invalid");
-                },
-                rules: {
-                    provider_type: { required: true },
-                    contact_person_name: { required: true, maxlength: 191 },
-                    contact_person_phone: {
-                        required: true,
-                        minlength: 8,
-                        pattern: /^([0-9\s\-\+\(\)]*)$/
-                    },
-                    contact_person_email: { required: true, email: true },
-                    company_address: { required: true },
-                    identity_type: { required: true },
-                    identity_number: { required: true },
-                    latitude: { required: true },
-                    longitude: { required: true },
-                    company_name: {
-                        required: function () {
-                            return isProviderCompanyType();
-                        },
-                        maxlength: 191
-                    },
-                    company_phone: {
-                        required: function () {
-                            return isProviderCompanyType();
-                        },
-                        minlength: 8,
-                        pattern: /^([0-9\s\-\+\(\)]*)$/
-                    },
-                    company_email: {
-                        required: function () {
-                            return isProviderCompanyType();
-                        },
-                        email: true
-                    },
-                    company_identity_type: {
-                        required: function () {
-                            return isProviderCompanyType();
+                    form.querySelectorAll('input[type="tel"][data-intl-initialized]').forEach(function (tel) {
+                        try {
+                            tel.dispatchEvent(new Event("input", { bubbles: false }));
+                        } catch (e) {}
+                        var iti = providerCreateGetIntlInstance(tel);
+                        var hid = null;
+                        if (tel.id) {
+                            hid = form.querySelector('input[type="hidden"][name="' + tel.id + '"]');
                         }
-                    },
-                    company_identity_number: {
-                        required: function () {
-                            return isProviderCompanyType();
+                        if (!hid && tel.parentNode) {
+                            tel.parentNode.querySelectorAll('input[type="hidden"]').forEach(function (h) {
+                                var n = h.name || "";
+                                if (!n || n === "country_code" || /_country_code$/.test(n)) {
+                                    return;
+                                }
+                                if (!hid) {
+                                    hid = h;
+                                }
+                            });
                         }
-                    },
-                    logo: {
-                        required: function () {
-                            if (!isProviderCompanyType()) {
-                                return false;
+                        if (!hid) {
+                            return;
+                        }
+                        var num = "";
+                        if (iti && typeof iti.getNumber === "function") {
+                            try {
+                                num = String(iti.getNumber() || "").trim();
+                            } catch (e2) {}
+                        }
+                        if (!num && iti && typeof iti.getSelectedCountryData === "function") {
+                            var cdata = iti.getSelectedCountryData();
+                            var dial = cdata && cdata.dialCode != null ? String(cdata.dialCode).replace(/\D/g, "") : "";
+                            var raw = String(tel.value || "").replace(/\D/g, "");
+                            if (dial && raw) {
+                                if (raw.indexOf(dial) === 0) {
+                                    num = "+" + raw;
+                                } else {
+                                    num = "+" + dial + raw;
+                                }
                             }
-                            return !providerUploadHasFile("logo");
                         }
-                    },
-                    contact_person_photo: {
-                        required: function () {
-                            return !providerUploadHasFile("contact_person_photo");
+                        if (!num) {
+                            var fb = String(tel.value || "").replace(/\D/g, "");
+                            if (fb.length >= 8) {
+                                num = "+" + fb;
+                            }
                         }
-                    }
-                },
-                messages: {
-                    contact_person_phone: {
-                        pattern: "{{ addslashes(translate('The phone format is invalid.')) }}"
-                    },
-                    company_phone: {
-                        pattern: "{{ addslashes(translate('The phone format is invalid.')) }}"
-                    }
+                        if (String(hid.value || "") !== String(num || "")) {
+                            hid.value = num;
+                        }
+                    });
+                } finally {
+                    providerCreateIntlSyncDepth--;
                 }
-            });
+            }
 
-            formWizard.find("input.provider-zone-leaf-cb").first().each(function () {
-                $(this).rules("add", { providerZoneLeafPick: true });
-            });
-
-            $(document).on("change", "#create-provider-form input.provider-zone-leaf-cb", function () {
-                $("#provider-create-zone-error").addClass("d-none").empty();
-            });
-
-            document.querySelectorAll('input[type="tel"]').forEach(function(input) {
-                const itiInstance = window.intlTelInputGlobals.getInstance(input);
-                const nextInput = input.nextElementSibling;
-                if (nextInput && nextInput.tagName.toLowerCase() === 'input') {
-                    const nameAttr = nextInput.getAttribute('name');
-                    input.setAttribute('name', nameAttr);
-                }
-                if (itiInstance) itiInstance.destroy();
-                input.removeAttribute('data-intl-initialized');
-            });
+            window.refreshProviderCreateStep0ValidationSummary = function () {};
 
             formWizard.steps({
                 headerTag: "h3",
@@ -872,8 +767,17 @@
                 },
                 onInit: function () {
                     var $actions = formWizard.find("ul.actions");
-                    if ($actions.length && !document.getElementById("provider-create-basic-step-summary")) {
-                        $('<div id="provider-create-basic-step-summary" class="alert alert-danger mt-3 d-none" role="alert"></div>').insertAfter($actions);
+                    if ($actions.length && !document.getElementById("provider-create-form-validation-alert")) {
+                        var alertHtml =
+                            '<div id="provider-create-form-validation-alert" class="d-none mt-3">' +
+                            '<div class="alert alert-danger d-flex align-items-start mb-0" role="alert">' +
+                            '<div class="media gap-2 flex-grow-1">' +
+                            '<img src="{{ asset("assets/admin-module/img/WarningOctagon.svg") }}" class="svg mt-1" alt="">' +
+                            '<div class="media-body" id="provider-create-form-validation-alert-body"></div>' +
+                            "</div>" +
+                            '<button type="button" class="btn-close shadow-none provider-create-form-validation-alert-close" aria-label="{{ addslashes(translate('Close')) }}"></button>' +
+                            "</div></div>";
+                        $(alertHtml).insertAfter($actions);
                     }
                     if ($actions.length && !document.getElementById("provider-create-reset-btn")) {
                         var resetUrl = "{{ route('admin.provider.create', ['reset' => 1]) }}";
@@ -897,136 +801,29 @@
                 },
                 onStepChanging: function (event, currentIndex, newIndex) {
                     if (newIndex < currentIndex) {
-                        clearProviderCreateBasicSummary();
+                        $("#provider-create-form-validation-alert").addClass("d-none");
                         return true;
                     }
-
-                    formWizard.validate().settings.ignore = function (index, element) {
-                        var $el = $(element);
-                        if ($el.is(":disabled")) {
-                            return true;
-                        }
-                        if ($el.is('input[type="file"]')) {
-                            return false;
-                        }
-                        if ($el.hasClass("provider-zone-leaf-cb")) {
-                            return false;
-                        }
-                        if ($el.is(":hidden")) {
-                            return true;
-                        }
-                        return false;
-                    };
-                    const providerType = $(".provider-add-edit-form-root").find("input[name='provider_type']:checked").val();
-                    let identityDocsOk = true;
-
-                    $('.identity-docs-error-msg').remove();
-                    const existingContactPreviews = $('#multi_image_picker img').length + $('#multi_image_picker a').length;
-                    const contactImageCount = $('#multi_image_picker .spartan_image_input[type="file"]').filter(function () {
-                        return this.files && this.files.length > 0;
-                    }).length || 0;
-                    const identityDraftCount = parseInt($('#multi_image_picker').attr('data-identity-draft-count') || '0', 10) || 0;
-
-                    if (contactImageCount < 1 && existingContactPreviews < 1 && identityDraftCount < 1) {
-                        $('#multi_image_picker')
-                            .closest('.upload-file')
-                            .after('<div class="identity-docs-error-msg error text-danger mt-2 fs-12">{{ addslashes(translate('Please upload at least one contact identity image')) }}</div>');
-                        identityDocsOk = false;
-                    }
-
-                    $('.company-identity-docs-error-msg').remove();
-                    if (providerType === 'company') {
-                        const existingCompanyPreviews = $('#company_multi_image_picker img').length + $('#company_multi_image_picker a').length;
-                        const companyImageCount = $('#company_multi_image_picker .spartan_image_input[type="file"]').filter(function () {
-                            return this.files && this.files.length > 0;
-                        }).length || 0;
-                        const companyDraftCount = parseInt($('#company_multi_image_picker').attr('data-company-identity-draft-count') || '0', 10) || 0;
-
-                        if (companyImageCount < 1 && existingCompanyPreviews < 1 && companyDraftCount < 1) {
-                            $('#company_multi_image_picker')
-                                .closest('.upload-file')
-                                .after('<div class="company-identity-docs-error-msg error text-danger mt-2 fs-12">{{ addslashes(translate('Please upload at least one company identity image')) }}</div>');
-                            identityDocsOk = false;
-                        }
-                    }
-
-                    if (!identityDocsOk) {
-                        var idMsgs = [];
-                        $(".identity-docs-error-msg, .company-identity-docs-error-msg").each(function () {
-                            var t = ($(this).text() || "").trim();
-                            if (t) {
-                                idMsgs.push(t);
-                            }
-                        });
-                        showProviderCreateBasicSummary(idMsgs);
-                        var $firstIdErr = $(".identity-docs-error-msg, .company-identity-docs-error-msg").first();
-                        if ($firstIdErr.length && $firstIdErr[0].scrollIntoView) {
-                            $firstIdErr[0].scrollIntoView({ behavior: "smooth", block: "nearest" });
-                        }
-                        return false;
-                    }
-
-                    var validator = formWizard.data("validator");
-                    if (!validator) {
-                        return formWizard.valid();
-                    }
-                    var $currentSection = formWizard.find("section").eq(currentIndex);
-                    var stepValid = true;
-                    $currentSection.find(":input").each(function () {
-                        if (!this.name) {
-                            return;
-                        }
-                        if ($(this).is(":button") || $(this).attr("type") === "submit") {
-                            return;
-                        }
-                        if ($(this).is(":disabled")) {
-                            return;
-                        }
-                        if (validator.settings.ignore && typeof validator.settings.ignore === "function") {
-                            if (validator.settings.ignore(0, this)) {
-                                return;
-                            }
-                        }
-                        if (!validator.element(this)) {
-                            stepValid = false;
-                        }
-                    });
-                    if (currentIndex === 0 && newIndex === 1) {
-                        if (!stepValid) {
-                            var msgs = [];
-                            if (validator.errorList && validator.errorList.length) {
-                                validator.errorList.forEach(function (e) {
-                                    if (e && e.message) {
-                                        msgs.push(e.message);
-                                    }
-                                });
-                            }
-                            if (!msgs.length) {
-                                msgs.push("{{ addslashes(translate('Please_complete_all_required_fields_before_proceeding')) }}");
-                            }
-                            showProviderCreateBasicSummary(msgs);
-                            validator.focusInvalid();
-                            return false;
-                        }
-                        clearProviderCreateBasicSummary();
-                        if (typeof window.checkOwnerContactUniqueSync === "function") {
-                            if (!window.checkOwnerContactUniqueSync()) {
-                                showProviderCreateBasicSummary(["{{ addslashes(translate('Please_fix_contact_details_errors')) }}"]);
-                                return false;
-                            }
-                        }
-                        clearProviderCreateBasicSummary();
-                    }
-                    if (stepValid && currentIndex === 0 && newIndex === 1 && typeof window.loadProviderCreateSubscribedServices === "function") {
+                    if (currentIndex === 0 && newIndex === 1 && typeof window.loadProviderCreateSubscribedServices === "function") {
                         window.loadProviderCreateSubscribedServices();
                     }
-                    return stepValid;
+                    return true;
                 },
                 onFinished: function () {
-                    formWizard.submit();
+                    var el = document.getElementById("create-provider-form");
+                    if (!el || typeof el.submit !== "function") {
+                        return;
+                    }
+                    providerCreateSyncAllIntlPhones(el);
+                    el.submit();
                 }
             });
+
+            $(document).on("click", ".provider-create-form-validation-alert-close", function () {
+                $("#provider-create-form-validation-alert").addClass("d-none");
+            });
         });
+
     </script>
 
     <script>
@@ -1089,6 +886,10 @@
             $('#account_email').val($('[name="contact_person_email"]').val());
             $('#account_phone').val($('[name="contact_person_phone"]').val());
 
+            $('[name="contact_person_email"], [name="company_email"]').on("blur", function () {
+                $(this).val($.trim($(this).val()));
+            });
+
             $('[name="contact_person_email"]').on("change keyup paste", function () {
                 $('#account_email').val($(this).val());
             });
@@ -1146,10 +947,16 @@
                         CloseButton: true,
                         ProgressBar: true
                     });
+                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                        window.refreshProviderCreateStep0ValidationSummary();
+                    }
                 },
                 onAddRow: function (index) {
                     setAcceptForAllInputs();
                     $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                        window.refreshProviderCreateStep0ValidationSummary();
+                    }
                 },
                 // Identity validation is handled by the wizard (images OR PDFs).
                 onExtensionErr: function (index, file) {
@@ -1178,9 +985,17 @@
                         width: '100%',
                     },
 
+                    onRenderedPreview: function () {
+                        if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                            window.refreshProviderCreateStep0ValidationSummary();
+                        }
+                    },
                     onAddRow: function (index) {
                         setAcceptForAllInputs();
                         $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                        if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                            window.refreshProviderCreateStep0ValidationSummary();
+                        }
                     },
                     onExtensionErr: function (index, file) {
                         toastr.error('{{ translate("Please only input png|jpg|jpeg|gif|webp type file") }}', {
@@ -1277,6 +1092,11 @@
                             syncInputFiles(inputEl, state);
                             renderPreview(uploaderEl, state);
                             $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                            if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                setTimeout(function () {
+                                    window.refreshProviderCreateStep0ValidationSummary();
+                                }, 0);
+                            }
                         });
 
                         item.appendChild(removeBtn);
@@ -1308,6 +1128,11 @@
                         attachmentState.set(inputEl, []);
                         syncInputFiles(inputEl, []);
                         renderPreview(uploaderEl, []);
+                        if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                            setTimeout(function () {
+                                window.refreshProviderCreateStep0ValidationSummary();
+                            }, 0);
+                        }
                         return;
                     }
 
@@ -1326,6 +1151,11 @@
                     syncInputFiles(inputEl, merged);
                     renderPreview(uploaderEl, merged);
                     $('.identity-docs-error-msg, .company-identity-docs-error-msg').remove();
+                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                        setTimeout(function () {
+                            window.refreshProviderCreateStep0ValidationSummary();
+                        }, 0);
+                    }
                 }, true);
             })();
 
@@ -1348,16 +1178,21 @@
 
             $(document).ready(function () {
                 function initAutocomplete() {
-                    var myLatLng = {
-
-                        lat: 23.811842872190343,
-                        lng: 90.356331
-                    };
+                    var defaultLat = 34.0573181;
+                    var defaultLng = 74.806267;
+                    var latEl = document.getElementById("latitude");
+                    var lngEl = document.getElementById("longitude");
+                    var lat = latEl && latEl.value !== "" ? parseFloat(latEl.value) : NaN;
+                    var lng = lngEl && lngEl.value !== "" ? parseFloat(lngEl.value) : NaN;
+                    if (!Number.isFinite(lat)) {
+                        lat = defaultLat;
+                    }
+                    if (!Number.isFinite(lng)) {
+                        lng = defaultLng;
+                    }
+                    var myLatLng = { lat: lat, lng: lng };
                     const map = new google.maps.Map(document.getElementById("location_map_canvas"), {
-                        center: {
-                            lat: 23.811842872190343,
-                            lng: 90.356331
-                        },
+                        center: myLatLng,
                         zoom: 13,
                         mapTypeId: "roadmap",
                     });
@@ -1378,7 +1213,24 @@
 
                         document.getElementById('latitude').value = coordinates['lat'];
                         document.getElementById('longitude').value = coordinates['lng'];
-
+                        if (typeof jQuery !== "undefined") {
+                            jQuery("#latitude, #longitude").trigger("change");
+                            var $pf = jQuery("#create-provider-form");
+                            var vMap = $pf.data("validator");
+                            if (vMap) {
+                                var latEl = document.getElementById("latitude");
+                                var lngEl = document.getElementById("longitude");
+                                if (latEl) {
+                                    vMap.element(latEl);
+                                }
+                                if (lngEl) {
+                                    vMap.element(lngEl);
+                                }
+                            }
+                            if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                window.refreshProviderCreateStep0ValidationSummary();
+                            }
+                        }
 
                         geocoder.geocode({
                             'latLng': latlng
@@ -1386,6 +1238,17 @@
                             if (status == google.maps.GeocoderStatus.OK) {
                                 if (results[1]) {
                                     document.getElementById('address').value = results[1].formatted_address;
+                                    if (typeof jQuery !== "undefined") {
+                                        var $pf3 = jQuery("#create-provider-form");
+                                        var vMap3 = $pf3.data("validator");
+                                        var addrEl = document.getElementById("address");
+                                        if (vMap3 && addrEl) {
+                                            vMap3.element(addrEl);
+                                        }
+                                        if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                            window.refreshProviderCreateStep0ValidationSummary();
+                                        }
+                                    }
                                 }
                             }
                         });
@@ -1422,6 +1285,24 @@
                             google.maps.event.addListener(mrkr, "click", function (event) {
                                 document.getElementById('latitude').value = this.position.lat();
                                 document.getElementById('longitude').value = this.position.lng();
+                                if (typeof jQuery !== "undefined") {
+                                    jQuery("#latitude, #longitude").trigger("change");
+                                    var $pf2 = jQuery("#create-provider-form");
+                                    var vMap2 = $pf2.data("validator");
+                                    if (vMap2) {
+                                        var latEl2 = document.getElementById("latitude");
+                                        var lngEl2 = document.getElementById("longitude");
+                                        if (latEl2) {
+                                            vMap2.element(latEl2);
+                                        }
+                                        if (lngEl2) {
+                                            vMap2.element(lngEl2);
+                                        }
+                                    }
+                                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                        window.refreshProviderCreateStep0ValidationSummary();
+                                    }
+                                }
                             });
 
                             markers.push(mrkr);

@@ -18,7 +18,8 @@ class WhatsAppAiToolExecutor
     public function __construct(
         protected WhatsAppPublicCatalogService $catalog,
         protected WhatsAppSupportWorkHours $workHours,
-        protected WhatsAppLeadLifecycleService $leadLifecycle
+        protected WhatsAppLeadLifecycleService $leadLifecycle,
+        protected WhatsAppAiSupportKnowledgeService $supportKnowledge
     ) {}
 
     /**
@@ -29,6 +30,7 @@ class WhatsAppAiToolExecutor
     {
         return match ($name) {
             'get_public_business_info' => $this->getPublicBusinessInfo(),
+            'search_support_knowledge' => $this->searchSupportKnowledge($args),
             'list_my_booking_summaries' => $this->listMyBookingSummaries($phone, $args),
             'get_my_booking_details' => $this->getMyBookingDetails($phone, $args),
             'upsert_my_draft_booking' => $this->upsertMyDraftBooking($phone, $args),
@@ -52,6 +54,16 @@ class WhatsAppAiToolExecutor
                 'parameters' => [
                     'type' => 'object',
                     'properties' => new \stdClass,
+                ],
+            ],
+            [
+                'name' => 'search_support_knowledge',
+                'description' => 'Search curated FAQs, safety/troubleshooting hints, and onboarding tips (config-driven). Use before booking when the user has a problem, confusion, or "how does this work" questions. Pass the user\'s concern in their words.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'query' => ['type' => 'string', 'description' => 'Short phrase or keywords from the customer message (may be empty to list general tips only)'],
+                    ],
                 ],
             ],
             [
@@ -82,12 +94,13 @@ class WhatsAppAiToolExecutor
                     'type' => 'object',
                     'properties' => [
                         'booking_id' => ['type' => 'string', 'description' => 'Existing draft id if continuing'],
-                        'name' => ['type' => 'string'],
+                        'name' => ['type' => 'string', 'description' => 'Contact person name for the booking only — not the type of work (e.g. mistary/mistry/plastering belongs in `service`, not here).'],
                         'service' => ['type' => 'string'],
                         'address' => ['type' => 'string'],
                         'district' => ['type' => 'string'],
                         'alternate_phone' => ['type' => 'string'],
-                        'preferred_datetime_text' => ['type' => 'string', 'description' => 'What the customer said for date/time'],
+                        'location_hint' => ['type' => 'string', 'description' => 'Landmark, floor, gate, pin on map text — helps staff find the customer'],
+                        'preferred_datetime_text' => ['type' => 'string', 'description' => 'ISO-8601 or clear datetime the customer agreed to (e.g. 2026-04-05 17:00)'],
                     ],
                 ],
             ],
@@ -144,6 +157,15 @@ class WhatsAppAiToolExecutor
 
     /**
      * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function searchSupportKnowledge(array $args): array
+    {
+        return $this->supportKnowledge->search((string) ($args['query'] ?? ''));
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
      */
     private function listMyBookingSummaries(string $phone, array $args): array
     {
@@ -190,6 +212,8 @@ class WhatsAppAiToolExecutor
                 'service' => $b->service,
                 'address' => $b->address,
                 'district' => $b->district,
+                'alternate_phone' => $b->alt_phone,
+                'location_hint' => $b->location_hint,
                 'preferred_at' => $b->prefered_datetime?->format('c'),
                 'status' => $b->status,
             ],
@@ -220,7 +244,16 @@ class WhatsAppAiToolExecutor
         }
 
         $booking->phone = $phone;
-        if (isset($args['name'])) {
+
+        $nameRejectedAsService = false;
+        if (isset($args['name']) && $args['name'] !== null && trim((string) $args['name']) !== '') {
+            $nameCandidate = trim((string) $args['name']);
+            if (WhatsAppAiBookingNameHeuristics::looksLikeServiceNotPersonName($nameCandidate)) {
+                $nameRejectedAsService = true;
+            } else {
+                $booking->name = Str::limit($nameCandidate, 255, '');
+            }
+        } elseif (isset($args['name'])) {
             $booking->name = $args['name'] === null ? null : Str::limit((string) $args['name'], 255, '');
         }
         if (isset($args['service'])) {
@@ -234,6 +267,9 @@ class WhatsAppAiToolExecutor
         }
         if (isset($args['alternate_phone'])) {
             $booking->alt_phone = $args['alternate_phone'] === null ? null : Str::limit((string) $args['alternate_phone'], 50, '');
+        }
+        if (isset($args['location_hint'])) {
+            $booking->location_hint = $args['location_hint'] === null ? null : Str::limit((string) $args['location_hint'], 500, '');
         }
         if (!empty($args['preferred_datetime_text'])) {
             try {
@@ -254,7 +290,7 @@ class WhatsAppAiToolExecutor
         $conv->current_step = null;
         $conv->save();
 
-        if (!empty($args['name'])) {
+        if (!empty($args['name']) && ! $nameRejectedAsService) {
             $u = WhatsAppUser::firstOrNew(['phone' => $phone]);
             if (empty($u->name)) {
                 $u->name = Str::limit((string) $args['name'], 255, '');
@@ -263,7 +299,13 @@ class WhatsAppAiToolExecutor
             }
         }
 
-        return ['ok' => true, 'booking_id' => $booking->booking_id, 'status' => $booking->status];
+        $out = ['ok' => true, 'booking_id' => $booking->booking_id, 'status' => $booking->status];
+        if ($nameRejectedAsService) {
+            $out['name_rejected_likely_service'] = true;
+            $out['assistant_hint'] = 'The customer probably repeated the work type (e.g. mistary/plastering) instead of a person name. Save that text in `service` (or align with get_public_business_info), and politely ask again for their real name — the name we should use for the booking / to address them.';
+        }
+
+        return $out;
     }
 
     /**
@@ -282,6 +324,16 @@ class WhatsAppAiToolExecutor
 
         if (!$booking) {
             return ['ok' => false, 'error' => 'no_draft_booking'];
+        }
+
+        $missing = $this->bookingDraftMissingFields($booking);
+        if ($missing !== []) {
+            return [
+                'ok' => false,
+                'error' => 'incomplete_draft',
+                'missing_fields' => $missing,
+                'message' => 'Ask the customer for missing items, call upsert_my_draft_booking, then submit again.',
+            ];
         }
 
         $booking->status = WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN;
@@ -364,6 +416,25 @@ class WhatsAppAiToolExecutor
             return ['ok' => false, 'error' => 'no_draft_lead'];
         }
 
+        $missing = [];
+        if (trim((string) $lead->name) === '') {
+            $missing[] = 'name';
+        }
+        if (trim((string) $lead->service) === '') {
+            $missing[] = 'services';
+        }
+        if (trim((string) $lead->address) === '') {
+            $missing[] = 'address';
+        }
+        if ($missing !== []) {
+            return [
+                'ok' => false,
+                'error' => 'incomplete_draft',
+                'missing_fields' => $missing,
+                'message' => 'Collect missing provider details, call upsert_my_draft_provider_lead, then submit again.',
+            ];
+        }
+
         $lead->status = ProviderLead::STATUS_TENTATIVE_PENDING_HUMAN;
         $lead->save();
 
@@ -398,5 +469,30 @@ class WhatsAppAiToolExecutor
             'public_support_phone' => $displayPhone,
             'topic' => isset($args['topic']) ? (string) $args['topic'] : '',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function bookingDraftMissingFields(WhatsAppBooking $booking): array
+    {
+        $missing = [];
+        if (trim((string) $booking->name) === '') {
+            $missing[] = 'name';
+        }
+        if (trim((string) $booking->service) === '') {
+            $missing[] = 'service';
+        }
+        if (trim((string) $booking->address) === '') {
+            $missing[] = 'address';
+        }
+        if (trim((string) $booking->district) === '') {
+            $missing[] = 'district';
+        }
+        if ($booking->prefered_datetime === null) {
+            $missing[] = 'preferred_datetime_text';
+        }
+
+        return $missing;
     }
 }
