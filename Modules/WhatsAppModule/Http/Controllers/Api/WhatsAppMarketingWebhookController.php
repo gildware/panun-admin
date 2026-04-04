@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Modules\WhatsAppModule\Entities\WhatsAppMarketingMessage;
+use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Jobs\ProcessWhatsAppAiSupportJob;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Modules\WhatsAppModule\Services\WhatsAppGraphInboundHandler;
@@ -97,6 +98,7 @@ class WhatsAppMarketingWebhookController extends Controller
                 if (is_array($statuses)) {
                     foreach ($statuses as $st) {
                         $this->applyStatus($st);
+                        $this->applyConversationMessageStatus($st);
                     }
                 }
 
@@ -172,6 +174,71 @@ class WhatsAppMarketingWebhookController extends Controller
                 'status' => WhatsAppMarketingMessage::STATUS_READ,
                 'read_at' => $at,
             ]);
+        }
+    }
+
+    /**
+     * Delivery / read receipts for agent and automation messages stored in whatsapp_messages.
+     *
+     * @param  array<string, mixed>  $st
+     */
+    private function applyConversationMessageStatus(array $st): void
+    {
+        $waId = $st['id'] ?? null;
+        if (!is_string($waId) || $waId === '') {
+            return;
+        }
+
+        $status = strtolower((string) ($st['status'] ?? ''));
+        $ts = isset($st['timestamp']) ? (int) $st['timestamp'] : null;
+        $at = $ts ? \Carbon\Carbon::createFromTimestampUTC($ts) : now();
+
+        $conv = WhatsAppMessage::query()
+            ->where('wa_message_id', $waId)
+            ->whereRaw("UPPER(COALESCE(direction, '')) = 'OUT'")
+            ->first();
+        if (!$conv) {
+            return;
+        }
+
+        $errors = $st['errors'] ?? [];
+        $failureText = '';
+        if (is_array($errors) && $errors !== []) {
+            $failureText = json_encode($errors, JSON_UNESCAPED_UNICODE) ?: 'error';
+        }
+
+        if ($status === 'failed') {
+            $conv->status = 'failed';
+            $conv->status_detail = mb_substr($failureText !== '' ? $failureText : 'delivery_failed', 0, 6000);
+            $conv->status_updated_at = $at;
+            $conv->save();
+
+            return;
+        }
+
+        if ($status === 'sent') {
+            $conv->status = 'sent';
+            $conv->status_detail = null;
+            $conv->status_updated_at = $at;
+            $conv->save();
+
+            return;
+        }
+
+        if ($status === 'delivered') {
+            $conv->status = 'delivered';
+            $conv->status_detail = null;
+            $conv->status_updated_at = $at;
+            $conv->save();
+
+            return;
+        }
+
+        if ($status === 'read') {
+            $conv->status = 'read';
+            $conv->status_detail = null;
+            $conv->status_updated_at = $at;
+            $conv->save();
         }
     }
 

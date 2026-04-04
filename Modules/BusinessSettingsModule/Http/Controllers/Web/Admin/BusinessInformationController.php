@@ -935,7 +935,7 @@ class BusinessInformationController extends Controller
             $bearer = $data['bearer'];
 
             $validator = Validator::make($data, [
-                'bearer' => 'required|in:admin,provider,both',
+                'bearer' => 'required|in:admin,provider,both,none',
                 'admin_percentage' => $bearer === 'both' ? 'required|integer|min:1|max:99' : 'nullable',
                 'provider_percentage' => $bearer === 'both' ? 'required|integer|min:1|max:99' : 'nullable',
             ]);
@@ -953,6 +953,9 @@ class BusinessInformationController extends Controller
             } elseif ($bearer === 'provider') {
                 $validated['admin_percentage'] = 0;
                 $validated['provider_percentage'] = 100;
+            } elseif ($bearer === 'none') {
+                $validated['admin_percentage'] = 0;
+                $validated['provider_percentage'] = 0;
             }
 
             $this->businessSetting->updateOrCreate(

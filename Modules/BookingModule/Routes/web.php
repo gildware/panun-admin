@@ -8,7 +8,7 @@ use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as Pro
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
-        Route::get('create', [BookingController::class, 'create'])->name('create');
+        Route::match(['get', 'post'], 'create', [BookingController::class, 'create'])->name('create');
         Route::get('create/from-lead/{lead}', [BookingController::class, 'createFromLead'])->name('create-from-lead');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
@@ -74,6 +74,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
             Route::get('ajax-get-service-info', [BookingController::class, 'ajaxGetServiceInfo'])->name('ajax-get-service-info');
             Route::get('ajax-get-variation', [BookingController::class, 'ajaxGetVariant'])->name('ajax-get-variant');
             Route::get('ajax-get-billing-summary', [BookingController::class, 'ajaxGetBillingSummary'])->name('ajax-get-billing-summary');
+            Route::post('ajax-create-booking-cart-summary', [BookingController::class, 'ajaxCreateBookingCartSummary'])->name('ajax-create-booking-cart-summary');
             Route::get('ajax-get-categories', [BookingController::class, 'ajaxGetCategories'])->name('ajax-get-categories');
             Route::get('ajax-get-subcategories', [BookingController::class, 'ajaxGetSubcategories'])->name('ajax-get-subcategories');
             Route::get('ajax-get-services', [BookingController::class, 'ajaxGetServices'])->name('ajax-get-services');

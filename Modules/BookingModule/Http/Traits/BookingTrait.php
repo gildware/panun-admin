@@ -2,6 +2,7 @@
 
 namespace Modules\BookingModule\Http\Traits;
 
+use App\Lib\DiscountCostBearer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -168,12 +169,19 @@ trait BookingTrait
                     $bookingDetailsAmount->service_unit_cost = $datum['service_cost'];
                     $bookingDetailsAmount->service_quantity = $datum['quantity'];
                     $bookingDetailsAmount->service_tax = $datum['tax_amount'];
-                    $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($datum['discount_amount'])['admin'];
-                    $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($datum['discount_amount'])['provider'];
-                    $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($datum['campaign_discount'])['admin'];
-                    $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($datum['campaign_discount'])['provider'];
+                    $lineBearer = DiscountCostBearer::normalize($datum['discount_cost_bearer'] ?? null);
+                    $lineSplits = DiscountCostBearer::splitBasicAndCampaign(
+                        (float) $datum['discount_amount'],
+                        (float) $datum['campaign_discount'],
+                        $lineBearer
+                    );
+                    $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+                    $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+                    $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+                    $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
                     $bookingDetailsAmount->coupon_discount_by_admin = $this->calculate_coupon_cost($datum['coupon_discount'])['admin'];
                     $bookingDetailsAmount->coupon_discount_by_provider = $this->calculate_coupon_cost($datum['coupon_discount'])['provider'];
+                    $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
                     $bookingDetailsAmount->save();
                 }
 
@@ -540,10 +548,16 @@ trait BookingTrait
                         $bookingDetailsAmount->service_unit_cost = $datum['service_cost'];
                         $bookingDetailsAmount->service_quantity = $datum['quantity'];
                         $bookingDetailsAmount->service_tax = $datum['tax_amount'];
-                        $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($datum['discount_amount'])['admin'];
-                        $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($datum['discount_amount'])['provider'];
-                        $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($datum['campaign_discount'])['admin'];
-                        $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($datum['campaign_discount'])['provider'];
+                        $lineBearer = DiscountCostBearer::normalize($datum['discount_cost_bearer'] ?? null);
+                        $lineSplits = DiscountCostBearer::splitBasicAndCampaign(
+                            (float) $datum['discount_amount'],
+                            (float) $datum['campaign_discount'],
+                            $lineBearer
+                        );
+                        $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+                        $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+                        $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+                        $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
                         if ($index <= $maxCouponUsagePerUser && $coupon) {
                             $bookingDetailsAmount->coupon_discount_by_admin = $this->calculate_coupon_cost($datum['coupon_discount'])['admin'];
                             $bookingDetailsAmount->coupon_discount_by_provider = $this->calculate_coupon_cost($datum['coupon_discount'])['provider'];
@@ -551,6 +565,7 @@ trait BookingTrait
                             $bookingDetailsAmount->coupon_discount_by_admin = 0;
                             $bookingDetailsAmount->coupon_discount_by_provider = 0;
                         }
+                        $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
                         $bookingDetailsAmount->save();
                     }
                 }
@@ -796,6 +811,7 @@ trait BookingTrait
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
             $bookingDetailsAmount->admin_commission = 0;
+            $bookingDetailsAmount->discount_cost_bearer = DiscountCostBearer::NONE;
             $bookingDetailsAmount->save();
 
             $schedule = new BookingScheduleHistory();
@@ -932,10 +948,13 @@ trait BookingTrait
             $bookingDetailsAmount->service_unit_cost += $detail['service_cost'];
             $bookingDetailsAmount->service_quantity += $quantity;
             $bookingDetailsAmount->service_tax += $detail['tax_amount'];
-            $bookingDetailsAmount->discount_by_admin += $this->calculate_discount_cost($detail['discount_amount'])['admin'];
-            $bookingDetailsAmount->discount_by_provider += $this->calculate_discount_cost($detail['discount_amount'])['provider'];
-            $bookingDetailsAmount->campaign_discount_by_admin += $this->calculate_campaign_cost($detail['campaign_discount_amount'])['admin'];
-            $bookingDetailsAmount->campaign_discount_by_provider += $this->calculate_campaign_cost($detail['campaign_discount_amount'])['provider'];
+            $lineBearer = DiscountCostBearer::normalize($bookingDetailsAmount->discount_cost_bearer ?? null);
+            $incSplits = DiscountCostBearer::splitBasicAndCampaign($basicDiscount, $campaignDiscount, $lineBearer);
+            $bookingDetailsAmount->discount_by_admin += $incSplits['discount_by_admin'];
+            $bookingDetailsAmount->discount_by_provider += $incSplits['discount_by_provider'];
+            $bookingDetailsAmount->campaign_discount_by_admin += $incSplits['campaign_discount_by_admin'];
+            $bookingDetailsAmount->campaign_discount_by_provider += $incSplits['campaign_discount_by_provider'];
+            $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
             $bookingDetailsAmount->coupon_discount_by_admin += $this->calculate_coupon_cost($detail['overall_coupon_discount_amount'])['admin'];
             $bookingDetailsAmount->coupon_discount_by_provider += $this->calculate_coupon_cost($detail['overall_coupon_discount_amount'])['provider'];
             $bookingDetailsAmount->save();
@@ -1079,10 +1098,13 @@ trait BookingTrait
             $bookingDetailsAmount->service_unit_cost = $variation->price;
             $bookingDetailsAmount->service_quantity = $newQuantity;
             $bookingDetailsAmount->service_tax = $tax;
-            $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($basicDiscount)['admin'];
-            $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($basicDiscount)['provider'];
-            $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($campaignDiscount)['admin'];
-            $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($campaignDiscount)['provider'];
+            $lineBearer = DiscountCostBearer::normalize($bookingDetailsAmount->discount_cost_bearer ?? null);
+            $lineSplits = DiscountCostBearer::splitBasicAndCampaign($basicDiscount, $campaignDiscount, $lineBearer);
+            $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+            $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+            $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+            $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
+            $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
             $bookingDetailsAmount->save();
@@ -1109,6 +1131,7 @@ trait BookingTrait
         $variantKeys = $request->input('variant_keys', []);
         $unitPrices = $request->input('line_unit_prices', []);
         $discounts = $request->input('line_discount_amounts', []);
+        $discountBearers = $request->input('line_discount_cost_bearers', []);
 
         if (!is_array($serviceIds) || $serviceIds === []) {
             return;
@@ -1183,11 +1206,13 @@ trait BookingTrait
             $bookingDetailsAmount->service_unit_cost = $unit;
             $bookingDetailsAmount->service_quantity = $qty;
             $bookingDetailsAmount->service_tax = $tax;
-            $discSplit = $this->calculate_discount_cost((float) $detail->discount_amount);
-            $bookingDetailsAmount->discount_by_admin = $discSplit['admin'] ?? 0;
-            $bookingDetailsAmount->discount_by_provider = $discSplit['provider'] ?? 0;
+            $lineBearer = DiscountCostBearer::normalize($discountBearers[$i] ?? null);
+            $discSplit = DiscountCostBearer::splitLineDiscount((float) $detail->discount_amount, $lineBearer);
+            $bookingDetailsAmount->discount_by_admin = $discSplit['admin'];
+            $bookingDetailsAmount->discount_by_provider = $discSplit['provider'];
             $bookingDetailsAmount->campaign_discount_by_admin = 0;
             $bookingDetailsAmount->campaign_discount_by_provider = 0;
+            $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
             $couponAmt = (float) ($detail->overall_coupon_discount_amount ?? 0);
             $couponSplit = $this->calculate_coupon_cost($couponAmt);
             $bookingDetailsAmount->coupon_discount_by_admin = $couponSplit['admin'] ?? 0;
@@ -1284,10 +1309,17 @@ trait BookingTrait
             $bookingDetailsAmount->service_tax = $tax;
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
-            $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($bookingDetails->discount_amount)['admin'];
-            $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($bookingDetails->discount_amount)['provider'];
-            $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['admin'];
-            $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['provider'];
+            $lineBearer = DiscountCostBearer::normalize($bookingDetailsAmount->discount_cost_bearer ?? null);
+            $lineSplits = DiscountCostBearer::splitBasicAndCampaign(
+                (float) $bookingDetails->discount_amount,
+                (float) $bookingDetails->campaign_discount_amount,
+                $lineBearer
+            );
+            $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+            $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+            $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+            $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
+            $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
             $bookingDetailsAmount->save();
 
             $serviceQty = isNotificationActive(null, 'booking', 'notification', 'user');
@@ -1425,10 +1457,17 @@ trait BookingTrait
             $bookingDetailsAmount->service_tax = $tax;
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
-            $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($bookingDetails->discount_amount)['admin'];
-            $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($bookingDetails->discount_amount)['provider'];
-            $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['admin'];
-            $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['provider'];
+            $lineBearer = DiscountCostBearer::normalize($bookingDetailsAmount->discount_cost_bearer ?? null);
+            $lineSplits = DiscountCostBearer::splitBasicAndCampaign(
+                (float) $bookingDetails->discount_amount,
+                (float) $bookingDetails->campaign_discount_amount,
+                $lineBearer
+            );
+            $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+            $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+            $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+            $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
+            $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
             $bookingDetailsAmount->save();
 
             $serviceQty = isNotificationActive(null, 'booking', 'notification', 'user');
@@ -1692,10 +1731,17 @@ trait BookingTrait
             $bookingDetailsAmount->service_tax = $tax;
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
-            $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($bookingDetails->discount_amount)['admin'];
-            $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($bookingDetails->discount_amount)['provider'];
-            $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['admin'];
-            $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['provider'];
+            $lineBearer = DiscountCostBearer::normalize($bookingDetailsAmount->discount_cost_bearer ?? null);
+            $lineSplits = DiscountCostBearer::splitBasicAndCampaign(
+                (float) $bookingDetails->discount_amount,
+                (float) $bookingDetails->campaign_discount_amount,
+                $lineBearer
+            );
+            $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+            $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+            $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+            $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
+            $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
             $bookingDetailsAmount->save();
 
             if ($refundAmount > 0) {
@@ -1843,10 +1889,17 @@ trait BookingTrait
             $bookingDetailsAmount->service_tax = $tax;
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
-            $bookingDetailsAmount->discount_by_admin = $this->calculate_discount_cost($bookingDetails->discount_amount)['admin'];
-            $bookingDetailsAmount->discount_by_provider = $this->calculate_discount_cost($bookingDetails->discount_amount)['provider'];
-            $bookingDetailsAmount->campaign_discount_by_admin = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['admin'];
-            $bookingDetailsAmount->campaign_discount_by_provider = $this->calculate_campaign_cost($bookingDetails->campaign_discount_amount)['provider'];
+            $lineBearer = DiscountCostBearer::normalize($bookingDetailsAmount->discount_cost_bearer ?? null);
+            $lineSplits = DiscountCostBearer::splitBasicAndCampaign(
+                (float) $bookingDetails->discount_amount,
+                (float) $bookingDetails->campaign_discount_amount,
+                $lineBearer
+            );
+            $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+            $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+            $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+            $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
+            $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
             $bookingDetailsAmount->save();
 
             if ($refundAmount > 0) {
@@ -1977,27 +2030,9 @@ trait BookingTrait
      * @param float $discount_amount
      * @return array
      */
-    private function calculate_discount_cost(float $discount_amount): array
+    private function calculate_discount_cost(float $discount_amount, string $bearer = DiscountCostBearer::NONE): array
     {
-        $data = BusinessSettings::where('settings_type', 'promotional_setup')->where('key_name', 'discount_cost_bearer')->first();
-        if (!isset($data)) return [];
-        $data = $data->live_values;
-
-        if ($data['admin_percentage'] == 0) {
-            $adminPercentage = 0;
-        } else {
-            $adminPercentage = ($discount_amount * $data['admin_percentage']) / 100;
-        }
-
-        if ($data['provider_percentage'] == 0) {
-            $providerPercentage = 0;
-        } else {
-            $providerPercentage = ($discount_amount * $data['provider_percentage']) / 100;
-        }
-        return [
-            'admin' => $adminPercentage,
-            'provider' => $providerPercentage
-        ];
+        return DiscountCostBearer::splitLineDiscount($discount_amount, $bearer);
     }
 
     /**
@@ -2034,26 +2069,7 @@ trait BookingTrait
      */
     private function calculate_coupon_cost(float $couponAmount): array
     {
-        $data = BusinessSettings::where('settings_type', 'promotional_setup')->where('key_name', 'coupon_cost_bearer')->first();
-        if (!isset($data)) return [];
-        $data = $data->live_values;
-
-        if ($data['admin_percentage'] == 0) {
-            $adminPercentage = 0;
-        } else {
-            $adminPercentage = ($couponAmount * $data['admin_percentage']) / 100;
-        }
-
-        if ($data['provider_percentage'] == 0) {
-            $providerPercentage = 0;
-        } else {
-            $providerPercentage = ($couponAmount * $data['provider_percentage']) / 100;
-        }
-
-        return [
-            'admin' => $adminPercentage,
-            'provider' => $providerPercentage
-        ];
+        return DiscountCostBearer::splitFromBusinessSettingKey($couponAmount, 'coupon_cost_bearer');
     }
 
     /**

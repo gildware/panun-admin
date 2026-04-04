@@ -13,22 +13,6 @@
 
         <div class="card">
             <div class="card-body">
-                <form action="{{ route('admin.booking.store') }}" method="POST" id="confirm-booking-form">
-                    @csrf
-                    
-                    {{-- Hidden fields with all data --}}
-                    @foreach($data as $key => $value)
-                        @if($key === 'ac_line_amount' || is_array($value))
-                            @continue
-                        @endif
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endforeach
-                    @if(!empty($data['ac_line_amount']) && is_array($data['ac_line_amount']))
-                        @foreach($data['ac_line_amount'] as $acTypeId => $acAmt)
-                            <input type="hidden" name="ac_line_amount[{{ $acTypeId }}]" value="{{ $acAmt }}">
-                        @endforeach
-                    @endif
-
                     {{-- 0. Booking Source --}}
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Booking_Source') }}</h4>
@@ -141,6 +125,72 @@
                         @endif
                     </div>
 
+                    @if(!empty($createCartPreviewLines) && count($createCartPreviewLines) > 0)
+                    <div class="mb-4 border rounded-3 p-3">
+                        <h4 class="mb-3">{{ translate('Booking_Summary') }}</h4>
+                        <div class="table-responsive border rounded">
+                            <table class="table text-nowrap align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">{{ translate('Service') }}</th>
+                                    <th>{{ translate('Price') }}</th>
+                                    <th>{{ translate('Qty') }}</th>
+                                    <th>{{ translate('Discount') }}</th>
+                                    @if(!empty($createCartHasTax))
+                                    <th>{{ company_default_tax_label() }}</th>
+                                    @endif
+                                    <th class="text-end pe-3">{{ translate('Total') }}</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @foreach($createCartPreviewLines as $ln)
+                                    <tr>
+                                        <td class="ps-3 text-wrap">
+                                            <div class="fw-semibold">{{ $ln['service_name'] ?? '' }}</div>
+                                            <div class="small text-muted">{{ $ln['variant_label'] ?? '' }}</div>
+                                        </td>
+                                        <td>{{ with_currency_symbol($ln['service_cost_unit'] ?? 0) }}</td>
+                                        <td>{{ $ln['quantity'] ?? 1 }}</td>
+                                        <td>{{ with_currency_symbol(($ln['basic_discount'] ?? 0) + ($ln['campaign_discount'] ?? 0)) }}</td>
+                                        @if(!empty($createCartHasTax))
+                                        <td>{{ with_currency_symbol($ln['tax_amount'] ?? 0) }}</td>
+                                        @endif
+                                        <td class="text-end pe-3">{{ with_currency_symbol($ln['line_total_before_ac'] ?? 0) }}</td>
+                                    </tr>
+                                @endforeach
+                                @foreach($createCartPreviewExtras ?? [] as $ex)
+                                    <tr class="table-light">
+                                        <td class="ps-3 text-wrap">
+                                            <div class="fw-semibold">{{ $ex['title'] ?? '' }}</div>
+                                            @if(!empty($ex['details']))
+                                                <div class="small text-muted">{{ \Illuminate\Support\Str::limit($ex['details'], 80) }}</div>
+                                            @endif
+                                            <span class="badge bg-secondary">{{ ($ex['type'] ?? '') === 'spare_part' ? translate('Spare_Part') : translate('Service') }}</span>
+                                        </td>
+                                        <td>{{ with_currency_symbol($ex['price'] ?? 0) }}</td>
+                                        <td>{{ $ex['quantity'] ?? 1 }}</td>
+                                        <td>{{ with_currency_symbol($ex['discount'] ?? 0) }}</td>
+                                        @if(!empty($createCartHasTax))
+                                        <td>—</td>
+                                        @endif
+                                        <td class="text-end pe-3">{{ with_currency_symbol($ex['total'] ?? 0) }}</td>
+                                    </tr>
+                                @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @if(isset($additionalChargeLines) && is_array($additionalChargeLines) && count($additionalChargeLines))
+                            <p class="small text-muted mb-0 mt-2">
+                                @foreach($additionalChargeLines as $acRow)
+                                    @if((float)($acRow['amount'] ?? 0) > 0)
+                                        <span class="me-3">{{ $acRow['name'] ?? translate('Additional_charges') }}: {{ with_currency_symbol($acRow['amount']) }}</span>
+                                    @endif
+                                @endforeach
+                            </p>
+                        @endif
+                    </div>
+                    @endif
+
                     {{-- 6. Payment Information --}}
                     <div class="mb-4 border rounded-3 p-3">
                         <h4 class="mb-3">{{ translate('Payment_information') }}</h4>
@@ -162,32 +212,30 @@
                         @if(isset($dueBalance) && $dueBalance > 0)
                             <p><strong>{{ translate('Due_Balance') }}:</strong> {{ with_currency_symbol($dueBalance) }}</p>
                         @endif
+                        @if(!empty($commissionPreview))
+                            <p class="mb-1"><strong>{{ translate('Company_commission') }}:</strong> {{ with_currency_symbol($commissionPreview['company_commission'] ?? 0) }}</p>
+                            <p class="mb-1"><strong>{{ translate('Provider_commission') }}:</strong> {{ with_currency_symbol($commissionPreview['provider_commission'] ?? 0) }}</p>
+                        @endif
                         <p class="text-muted mb-0"><small>{{ translate('Final_payment_will_be_collected_upon_service_completion') }}</small></p>
                     </div>
 
-                    {{-- Action Buttons --}}
-                    <div class="d-flex justify-content-end gap-2">
-                        <form action="{{ route('admin.booking.create') }}" method="GET" style="display: inline;">
-                            @foreach($data as $key => $value)
-                                @if($key === 'ac_line_amount' || is_array($value))
-                                    @continue
-                                @endif
-                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                            @endforeach
-                            @if(!empty($data['ac_line_amount']) && is_array($data['ac_line_amount']))
-                                @foreach($data['ac_line_amount'] as $acTypeId => $acAmt)
-                                    <input type="hidden" name="ac_line_amount[{{ $acTypeId }}]" value="{{ $acAmt }}">
-                                @endforeach
-                            @endif
+                    {{-- Action buttons: sibling forms only (nested forms are invalid HTML and can submit the wrong action). --}}
+                    <div class="d-flex justify-content-end gap-2 mt-1">
+                        <form action="{{ route('admin.booking.create') }}" method="POST" class="d-inline">
+                            @csrf
+                            @include('bookingmodule::admin.booking.partials._preview-booking-hidden-fields', ['data' => $data])
                             <button type="submit" class="btn btn-secondary">
                                 {{ translate('Edit_Details') }}
                             </button>
                         </form>
-                        <button type="submit" form="confirm-booking-form" class="btn btn-primary">
-                            {{ translate('Confirm_&_Create_Booking') }}
-                        </button>
+                        <form action="{{ route('admin.booking.store') }}" method="POST" id="confirm-booking-form" class="d-inline">
+                            @csrf
+                            @include('bookingmodule::admin.booking.partials._preview-booking-hidden-fields', ['data' => $data])
+                            <button type="submit" class="btn btn-primary">
+                                {{ translate('Confirm_&_Create_Booking') }}
+                            </button>
+                        </form>
                     </div>
-                </form>
             </div>
         </div>
     </div>

@@ -74,7 +74,11 @@ if (! function_exists('compute_additional_charges_for_cart_items')) {
         foreach ($cartItems as $item) {
             $service = null;
             if (is_object($item) && isset($item->service_id)) {
-                if ($item->relationLoaded('service') && $item->service) {
+                // Admin create-booking cart uses stdClass rows with ->service attached; booking details use Eloquent models.
+                if (isset($item->service) && $item->service instanceof Service) {
+                    $service = $item->service;
+                    $service->loadMissing(['category', 'subCategory']);
+                } elseif (method_exists($item, 'relationLoaded') && $item->relationLoaded('service') && $item->service) {
                     $service = $item->service;
                     $service->loadMissing(['category', 'subCategory']);
                 } else {

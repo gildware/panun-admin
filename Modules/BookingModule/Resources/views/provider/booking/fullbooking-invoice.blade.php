@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <title>{{translate('invoice')}}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="{{asset('assets/js/bootstrap.min.js')}}"></script>
     <script src="{{asset('assets/js/jquery.min.js')}}"></script>
     <style>
@@ -11,7 +14,7 @@
             background-color: #F9FCFF;
             font-size: 10px !important;
             line-height: 1.6;
-            font-family: "Inter", sans-serif;
+            font-family: "Noto Sans", "DejaVu Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
         }
 
         a {
@@ -180,6 +183,12 @@
         <div>
             <table>
                 <tbody>
+                @php($invoice_business_name = business_config('business_name','business_information'))
+                <tr>
+                    <td colspan="2" class="text-center" style="padding-bottom: 12px; padding-top: 0;">
+                        <div class="fw-700" style="font-size: 17px;">{{ $invoice_business_name->live_values ?? '' }}</div>
+                    </td>
+                </tr>
                 <tr>
                     <td>
                         <h3 class="text-uppercase fw-700">{{translate("invoice")}}</h3>

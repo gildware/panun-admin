@@ -30,6 +30,8 @@ class BookingDetailsAmount extends Model
         'campaign_discount_by_admin' => 'float',
         'campaign_discount_by_provider' => 'float',
 
+        'discount_cost_bearer' => 'string',
+
         'admin_commission' => 'float',
         'provider_earning' => 'float',
     ];
@@ -48,7 +50,14 @@ class BookingDetailsAmount extends Model
 
         'campaign_discount_by_admin',
         'campaign_discount_by_provider',
+
+        'discount_cost_bearer',
     ];
+
+    public function bookingDetail(): BelongsTo
+    {
+        return $this->belongsTo(BookingDetail::class, 'booking_details_id', 'id');
+    }
 
     public function booking(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {

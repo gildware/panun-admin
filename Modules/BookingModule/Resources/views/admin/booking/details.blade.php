@@ -2964,7 +2964,7 @@
             });
         });
 
-        $(document).on('input change', '#service-edit-tbody .row-unit-price, #service-edit-tbody .row-qty, #service-edit-tbody .row-discount', function() {
+        $(document).on('input change', '#service-edit-tbody .row-unit-price, #service-edit-tbody .row-qty, #service-edit-tbody .row-discount, #service-edit-tbody .row-discount-bearer', function() {
             bookingEditRecalcRowTotal($(this).closest('tr'));
         });
 
