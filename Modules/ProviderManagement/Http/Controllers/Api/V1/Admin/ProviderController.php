@@ -193,13 +193,16 @@ class ProviderController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (! $request->filled('contact_person_email')) {
+            $request->merge(['contact_person_email' => null]);
+        }
 
         $validator = Validator::make($request->all(), [
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required',
             'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
-            'contact_person_email' => 'required|email',
+            'contact_person_email' => 'nullable|email|max:191',
 
             'account_first_name' => 'required',
             'account_last_name' => 'required',

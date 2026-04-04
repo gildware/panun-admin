@@ -1,6 +1,11 @@
 <?php
 $max_booking_amount = (business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0;
 $all_bookings_menu_count = \Modules\BookingModule\Entities\Booking::count();
+$special_scenarios_menu_count = \Modules\BookingModule\Entities\Booking::query()
+    ->where('is_repeated', 0)
+    ->whereNotNull('settlement_outcome')
+    ->where('settlement_outcome', '!=', '')
+    ->count();
 $pending_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(2)->count();
 $denied_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(0)->count();
 $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/', defaultPath: 'assets/placeholder.png');
@@ -205,9 +210,17 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </li>
                         <li>
                             <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
-                               class="{{ request()->is('admin/booking/list') && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') ? 'active-menu' : '' }}">
+                               class="{{ request()->is('admin/booking/list') && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Booking_Requests') }}
                                     <span class="count">{{ $all_bookings_menu_count }}</span>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.booking.list.special_scenarios', ['scenario' => 'all']) }}"
+                               class="{{ request()->is('admin/booking/list/special-scenarios') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Special_scenario_bookings') }}
+                                    <span class="count">{{ $special_scenarios_menu_count }}</span>
                                 </span>
                             </a>
                         </li>

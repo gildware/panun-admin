@@ -2,6 +2,7 @@
 
 namespace Modules\BookingModule\Http\Traits;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1090,6 +1091,122 @@ trait BookingTrait
         });
     }
 
+    /**
+     * After structural line updates, apply admin-entered unit price, discount, and quantity;
+     * then align booking header totals with detail rows.
+     */
+    protected function syncAdminBookingLinePricingFromAdminForm(Request $request): void
+    {
+        $bookingId = $request['booking_id'];
+        $booking = Booking::query()->find($bookingId);
+        if (!$booking) {
+            return;
+        }
+
+        $ids = $request->input('booking_detail_ids', []);
+        $qtys = $request->input('qty', []);
+        $serviceIds = $request->input('service_ids', []);
+        $variantKeys = $request->input('variant_keys', []);
+        $unitPrices = $request->input('line_unit_prices', []);
+        $discounts = $request->input('line_discount_amounts', []);
+
+        if (!is_array($serviceIds) || $serviceIds === []) {
+            return;
+        }
+
+        $count = count($serviceIds);
+        for ($i = 0; $i < $count; $i++) {
+            $detailId = $ids[$i] ?? null;
+            $sid = $serviceIds[$i] ?? null;
+            $vk = $variantKeys[$i] ?? null;
+            if (!$sid || $vk === null || $vk === '') {
+                continue;
+            }
+
+            $detail = null;
+            if (!empty($detailId)) {
+                $detail = BookingDetail::query()->where('booking_id', $bookingId)->where('id', $detailId)->first();
+            }
+            if (!$detail) {
+                $detail = BookingDetail::query()
+                    ->where('booking_id', $bookingId)
+                    ->where('service_id', $sid)
+                    ->where('variant_key', $vk)
+                    ->first();
+            }
+            if (!$detail) {
+                continue;
+            }
+
+            if ((string) $detail->service_id !== (string) $sid || (string) $detail->variant_key !== (string) $vk) {
+                continue;
+            }
+
+            $service = Service::with(['category', 'subCategory'])->find($sid);
+            if (!$service) {
+                continue;
+            }
+
+            $qty = isset($qtys[$i]) ? max(1, (int) $qtys[$i]) : (int) $detail->quantity;
+
+            $unit = array_key_exists($i, $unitPrices) && $unitPrices[$i] !== '' && $unitPrices[$i] !== null
+                ? round((float) $unitPrices[$i], 3)
+                : (float) $detail->service_cost;
+
+            $discountTotal = array_key_exists($i, $discounts) && $discounts[$i] !== '' && $discounts[$i] !== null
+                ? max(0.0, round((float) $discounts[$i], 3))
+                : (float) $detail->discount_amount + (float) ($detail->campaign_discount_amount ?? 0);
+
+            $detail->discount_amount = $discountTotal;
+            $detail->campaign_discount_amount = 0;
+            $detail->service_cost = $unit;
+            $detail->quantity = $qty;
+
+            $subtotal = round($unit * $qty, 2);
+            $maxDisc = min($discountTotal, $subtotal);
+            $taxable = max(0.0, round($subtotal - $maxDisc, 2));
+            $taxPct = effective_service_tax_percentage($service);
+            $tax = round($taxable * $taxPct / 100, 2);
+            $detail->tax_amount = $tax;
+            $detail->total_cost = round($taxable + $tax, 2);
+            $detail->save();
+
+            $bookingDetailsAmount = BookingDetailsAmount::query()
+                ->where('booking_id', $bookingId)
+                ->where('booking_details_id', $detail->id)
+                ->first();
+            if (!$bookingDetailsAmount) {
+                $bookingDetailsAmount = new BookingDetailsAmount();
+            }
+            $bookingDetailsAmount->booking_details_id = $detail->id;
+            $bookingDetailsAmount->booking_id = $bookingId;
+            $bookingDetailsAmount->service_unit_cost = $unit;
+            $bookingDetailsAmount->service_quantity = $qty;
+            $bookingDetailsAmount->service_tax = $tax;
+            $discSplit = $this->calculate_discount_cost((float) $detail->discount_amount);
+            $bookingDetailsAmount->discount_by_admin = $discSplit['admin'] ?? 0;
+            $bookingDetailsAmount->discount_by_provider = $discSplit['provider'] ?? 0;
+            $bookingDetailsAmount->campaign_discount_by_admin = 0;
+            $bookingDetailsAmount->campaign_discount_by_provider = 0;
+            $couponAmt = (float) ($detail->overall_coupon_discount_amount ?? 0);
+            $couponSplit = $this->calculate_coupon_cost($couponAmt);
+            $bookingDetailsAmount->coupon_discount_by_admin = $couponSplit['admin'] ?? 0;
+            $bookingDetailsAmount->coupon_discount_by_provider = $couponSplit['provider'] ?? 0;
+            $bookingDetailsAmount->save();
+        }
+
+        $details = BookingDetail::query()->where('booking_id', $bookingId)->get();
+        $booking->total_tax_amount = round((float) $details->sum(fn ($d) => (float) $d->tax_amount), 2);
+        $booking->total_discount_amount = round((float) $details->sum(fn ($d) => (float) $d->discount_amount), 2);
+        $booking->total_campaign_discount_amount = round((float) $details->sum(fn ($d) => (float) ($d->campaign_discount_amount ?? 0)), 2);
+        $booking->total_booking_amount = round((float) $details->sum(fn ($d) => (float) $d->total_cost), 2);
+        $booking->additional_charge = $booking->total_booking_amount;
+        $booking->additional_tax_amount = $booking->total_tax_amount;
+        $booking->additional_discount_amount = $booking->total_discount_amount;
+        $booking->additional_campaign_discount_amount = $booking->total_campaign_discount_amount;
+        $booking->save();
+    }
+
     protected function increase_service_quantity_from_booking($request): void
     {
         if (!$request->has('booking_id', 'service_id', 'variant_key', 'zone_id')) return;
@@ -1949,24 +2066,8 @@ trait BookingTrait
     {
         $commissionDetails = $this->calculateCommissionDetails($booking, $providerId);
 
-        $adminCommission = $commissionDetails['adminCommission'];
-        $adminCommissionWithoutCost = $commissionDetails['adminCommissionWithoutCost'];
-
-        // Provider earning = grand total - commission (discounts already reflected in adminCommissionWithoutCost).
-        $grandTotal = get_booking_total_amount($booking);
-        $bookingAmountWithoutCommission = $grandTotal - $adminCommissionWithoutCost;
-
-        if (isset($booking->booking_id)) {
-            $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->first();
-        } else {
-            $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_id', $booking->id)->first();
-        }
-
-        if ($bookingAmountDetailAmount) {
-            $bookingAmountDetailAmount->admin_commission = $adminCommission;
-            $bookingAmountDetailAmount->provider_earning = $bookingAmountWithoutCommission;
-            $bookingAmountDetailAmount->save();
-        }
+        app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)
+            ->syncDetailsAmounts($booking, $commissionDetails);
     }
 
 
@@ -1986,6 +2087,15 @@ trait BookingTrait
                 'adminCommission' => 0,
                 'adminCommissionWithoutCost' => 0,
             ];
+        }
+
+        $mainBooking = isset($booking->booking_id)
+            ? (\Modules\BookingModule\Entities\Booking::query()->find($booking->booking_id))
+            : $booking;
+        $outcome = $mainBooking ? trim((string) ($mainBooking->settlement_outcome ?? '')) : '';
+        if ($outcome !== '' && $outcome !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_STANDARD) {
+            return app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)
+                ->calculateAdminCommissionDetails($booking, $providerId);
         }
 
         // Company tiers unless provider has custom % (see calculate_commission_for_booking).

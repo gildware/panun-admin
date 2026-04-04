@@ -18,6 +18,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Rap2hpoutre\FastExcel\FastExcel;
 
 class BookingController extends Controller
@@ -171,6 +172,13 @@ class BookingController extends Controller
                 return response()->json(response_formatter([
                     'response_code' => 'default_400',
                     'message' => translate('Booking cannot be completed until full payment is received.'),
+                ]), 422);
+            }
+            if ($request['booking_status'] === 'completed'
+                && (string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                 ]), 422);
             }
             $previousParentStatus = (string) $booking->booking_status;

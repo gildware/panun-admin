@@ -2321,6 +2321,15 @@ if (!function_exists('refundTransactionForCanceledBooking')) {
             }
         }
 
+        if ((string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+            $svc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
+            $main = $svc->mainBookingFor($booking);
+            $config = is_array($main->settlement_config) ? $main->settlement_config : [];
+            $retained = $svc->resolveRetainedVisitAmount($main, $config);
+            $paid = $svc->totalPaidForMainBooking($main);
+            $refund_amount = booking_cap_refund_for_visit_retained((float) $refund_amount, $paid, $retained);
+        }
+
         if ($refund_amount == 0) return;
 
         $alreadyOnLedger = booking_ledger_refund_out_total((string) $booking->id);

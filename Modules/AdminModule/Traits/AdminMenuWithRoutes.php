@@ -47,6 +47,16 @@ trait AdminMenuWithRoutes
                 "sorting" => 3,
             ],
             [
+                'route_name' => 'Special_scenario_bookings',
+                'uri' => 'admin/booking/list/special-scenarios?scenario=all',
+                'full_route' => url('admin/booking/list/special-scenarios?scenario=all'),
+                'page_title' => 'Special_scenario_bookings',
+                'keywords' => 'Bookings, special settlement, loss making',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 3.5,
+            ],
+            [
                 'route_name' => 'Booking_Configuration',
                 'uri' => 'admin/booking/configuration',
                 'full_route' => url('admin/booking/configuration'),

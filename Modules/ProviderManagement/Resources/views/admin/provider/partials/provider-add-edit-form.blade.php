@@ -70,8 +70,10 @@
     }
     $companyAddress = old('company_address', $provider?->company_address ?? '');
 
-    $latitude = old('latitude', $provider?->coordinates['latitude'] ?? null);
-    $longitude = old('longitude', $provider?->coordinates['longitude'] ?? null);
+    $defaultAddProviderMapLat = 34.0573181;
+    $defaultAddProviderMapLng = 74.806267;
+    $latitude = old('latitude', $provider?->coordinates['latitude'] ?? (! $isEdit ? $defaultAddProviderMapLat : null));
+    $longitude = old('longitude', $provider?->coordinates['longitude'] ?? (! $isEdit ? $defaultAddProviderMapLng : null));
 
     $zoneTree = $zoneTree ?? [];
 
@@ -195,8 +197,7 @@
                             name="company_name"
                             value="{{ $companyName }}"
                             placeholder="{{ translate('Company_/_Individual_Name') }}"
-                            maxlength="191"
-                            {{ $providerType === 'company' ? 'required' : '' }}>
+                            maxlength="191">
                         <label>{{ translate('Company_/_Individual_Name') }}</label>
                         <span class="material-icons">store</span>
                     </div>
@@ -212,7 +213,6 @@
                             id="company_phone"
                             value="{{ $companyPhone }}"
                             placeholder="{{ translate('Phone') }}"
-                            {{ $providerType === 'company' ? 'required' : '' }}
                             pattern="^([0-9\s\-\+\(\)]*)$"
                             minlength="8">
                     </div>
@@ -221,13 +221,14 @@
                 <div class="mb-30">
                     <div class="form-floating form-floating__icon">
                         <input
-                            type="email"
+                            type="text"
                             class="form-control"
                             id="company_email"
                             name="company_email"
                             value="{{ $companyEmail }}"
                             placeholder="{{ translate('Email') }}"
-                            {{ $providerType === 'company' ? 'required' : '' }}>
+                            autocomplete="email"
+                            inputmode="email">
                         <label>{{ translate('Email') }}</label>
                         <span class="material-icons">mail</span>
                     </div>
@@ -246,7 +247,7 @@
 
                 <div class="mb-30">
                     <div class="form-error-wrap">
-                        <select class="select-identity theme-input-style w-100" name="company_identity_type" {{ $providerType === 'company' ? 'required' : '' }}>
+                        <select class="select-identity theme-input-style w-100" name="company_identity_type">
                             <option selected disabled>{{ translate('Select_Identity_Type') }}</option>
                             <option value="trade_license" {{ $companyIdentityType === 'trade_license' ? 'selected' : '' }}>
                                 {{ translate('Trade_License') }}
@@ -265,8 +266,7 @@
                             class="form-control"
                             name="company_identity_number"
                             value="{{ $companyIdentityNumber }}"
-                            placeholder="{{ translate('Identity_Number') }}"
-                            {{ $providerType === 'company' ? 'required' : '' }}>
+                            placeholder="{{ translate('Identity_Number') }}">
                         <label>{{ translate('Identity_Number') }}</label>
                         <span class="material-icons">badge</span>
                     </div>
@@ -399,13 +399,13 @@
                         <div class="mb-30">
                             <div class="form-floating form-floating__icon">
                                 <input
-                                    type="email"
+                                    type="text"
                                     class="form-control"
                                     name="contact_person_email"
                                     id="contact_person_email"
                                     value="{{ $contactEmail }}"
                                     placeholder="{{ translate('Email') }}"
-                                    autocomplete="off"
+                                    autocomplete="email"
                                     autocapitalize="off"
                                     spellcheck="false"
                                     data-lpignore="true"
@@ -413,8 +413,7 @@
                                     @if($mode === 'add')
                                         readonly
                                         onfocus="this.removeAttribute('readonly')"
-                                    @endif
-                                    required>
+                                    @endif>
                                 <label>{{ translate('Email') }}</label>
                                 <span class="material-symbols-outlined">mail</span>
                             </div>
@@ -1011,6 +1010,19 @@
                     const rm = wrapper.querySelector(".provider-upload-remove-btn");
                     if (rm) rm.classList.add("d-none");
                 }
+
+                if (input && typeof window.jQuery !== "undefined") {
+                    const $form = window.jQuery(input).closest("form");
+                    const validator = $form.length ? $form.data("validator") : null;
+                    if (validator && input.name) {
+                        validator.element(input);
+                    }
+                }
+                if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                    setTimeout(function () {
+                        window.refreshProviderCreateStep0ValidationSummary();
+                    }, 0);
+                }
             });
 
             document.addEventListener("change", function (e) {
@@ -1026,6 +1038,19 @@
                 if (wrapper.dataset.hideRemoveUntilUpload === "1" && input.files && input.files.length > 0) {
                     const rm = wrapper.querySelector(".provider-upload-remove-btn");
                     if (rm) rm.classList.remove("d-none");
+                }
+
+                if (typeof window.jQuery !== "undefined") {
+                    const $form = window.jQuery(input).closest("form");
+                    const validator = $form.length ? $form.data("validator") : null;
+                    if (validator && input.name) {
+                        validator.element(input);
+                    }
+                }
+                if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                    setTimeout(function () {
+                        window.refreshProviderCreateStep0ValidationSummary();
+                    }, 0);
                 }
             });
 
@@ -1351,6 +1376,7 @@
                 });
             }
 
+            @if($isEdit)
             function getProviderContactUniqueConfig() {
                 const el = document.getElementById("provider-contact-unique-config");
                 if (!el) {
@@ -1373,10 +1399,24 @@
                         el.classList.remove("is-invalid");
                     }
                 });
+                const formU = document.getElementById("create-provider-form");
+                if (formU) {
+                    const telVis = formU.querySelector("#contact_person_phone");
+                    if (telVis) {
+                        telVis.classList.remove("is-invalid");
+                    }
+                }
             }
 
             function attachProviderContactUniqueError(inputName, message) {
-                const inp = document.querySelector('[name="' + inputName + '"]');
+                const formEl = document.getElementById("create-provider-form");
+                let inp = formEl ? formEl.querySelector('[name="' + inputName + '"]') : document.querySelector('[name="' + inputName + '"]');
+                if (inputName === "contact_person_phone" && formEl) {
+                    const tel = formEl.querySelector("#contact_person_phone");
+                    if (tel && tel.matches && tel.matches('input[type="tel"]')) {
+                        inp = tel;
+                    }
+                }
                 if (!inp || !message) {
                     return;
                 }
@@ -1399,6 +1439,14 @@
                 const cfg = getProviderContactUniqueConfig();
                 if (!cfg || !cfg.url || typeof jQuery === "undefined") {
                     return true;
+                }
+                const formSync = document.getElementById("create-provider-form");
+                if (formSync) {
+                    formSync.querySelectorAll('input[type="tel"][data-intl-initialized]').forEach(function (tel) {
+                        try {
+                            tel.dispatchEvent(new Event("input", { bubbles: false }));
+                        } catch (e) {}
+                    });
                 }
                 const phoneEl = document.querySelector('[name="contact_person_phone"]');
                 const emailEl = document.querySelector('[name="contact_person_email"]');
@@ -1460,6 +1508,14 @@
                 function run() {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(function () {
+                        const formEl = document.getElementById("create-provider-form");
+                        if (formEl) {
+                            formEl.querySelectorAll('input[type="tel"][data-intl-initialized]').forEach(function (tel) {
+                                try {
+                                    tel.dispatchEvent(new Event("input", { bubbles: false }));
+                                } catch (e) {}
+                            });
+                        }
                         const pv = ((document.querySelector('[name="contact_person_phone"]') || {}).value || "").trim();
                         const ev = ((document.querySelector('[name="contact_person_email"]') || {}).value || "").trim();
                         if (!pv && !ev) {
@@ -1489,6 +1545,11 @@
                                 }
                                 clearProviderContactUniqueErrors();
                                 if (res && res.valid) {
+                                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                        setTimeout(function () {
+                                            window.refreshProviderCreateStep0ValidationSummary();
+                                        }, 0);
+                                    }
                                     return;
                                 }
                                 if (res && res.field_errors) {
@@ -1498,6 +1559,11 @@
                                             attachProviderContactUniqueError(field, text);
                                         }
                                     });
+                                }
+                                if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                    setTimeout(function () {
+                                        window.refreshProviderCreateStep0ValidationSummary();
+                                    }, 0);
                                 }
                             },
                             error: function (xhr, textStatus) {
@@ -1515,6 +1581,11 @@
                                             attachProviderContactUniqueError(field, text);
                                         }
                                     });
+                                    if (typeof window.refreshProviderCreateStep0ValidationSummary === "function") {
+                                        setTimeout(function () {
+                                            window.refreshProviderCreateStep0ValidationSummary();
+                                        }, 0);
+                                    }
                                     return;
                                 }
                             },
@@ -1522,27 +1593,75 @@
                     }, 450);
                 }
 
+                function isContactPersonIntlTel(el) {
+                    return el
+                        && el.matches
+                        && el.matches('input[type="tel"][data-intl-initialized]')
+                        && el.parentElement
+                        && el.parentElement.querySelector('input[type="hidden"][name="contact_person_phone"]');
+                }
+
                 document.addEventListener("input", function (e) {
                     const el = e.target;
-                    if (!el || !el.name) {
+                    if (!el) {
                         return;
                     }
-                    if (el.name === "contact_person_phone" || el.name === "contact_person_email") {
+                    if (el.name === "contact_person_email" || el.name === "contact_person_phone") {
+                        clearProviderContactUniqueErrors();
+                        run();
+                        return;
+                    }
+                    if (isContactPersonIntlTel(el)) {
                         clearProviderContactUniqueErrors();
                         run();
                     }
                 });
                 document.addEventListener("change", function (e) {
                     const el = e.target;
-                    if (!el || !el.name) {
+                    if (!el) {
                         return;
                     }
-                    if (el.name === "contact_person_phone" || el.name === "contact_person_email") {
+                    if (el.name === "contact_person_email" || el.name === "contact_person_phone") {
+                        clearProviderContactUniqueErrors();
+                        run();
+                        return;
+                    }
+                    if (isContactPersonIntlTel(el)) {
                         clearProviderContactUniqueErrors();
                         run();
                     }
                 });
+                document.addEventListener("countrychange", function (e) {
+                    const el = e.target;
+                    if (isContactPersonIntlTel(el)) {
+                        clearProviderContactUniqueErrors();
+                        run();
+                    }
+                });
+                (function attachCountryChangeOnForm() {
+                    const f = document.getElementById("create-provider-form");
+                    if (!f) {
+                        return;
+                    }
+                    f.addEventListener(
+                        "countrychange",
+                        function (e) {
+                            const el = e.target;
+                            if (isContactPersonIntlTel(el)) {
+                                clearProviderContactUniqueErrors();
+                                run();
+                            }
+                        },
+                        true
+                    );
+                })();
             })();
+
+            @else
+            window.checkOwnerContactUniqueSync = function () {
+                return true;
+            };
+            @endif
 
             window.getAdminProviderFormZoneIds = function () {
                 var form = document.getElementById("create-provider-form");
@@ -1560,6 +1679,7 @@
                 return [];
             };
 
+            @if($isEdit)
             var providerFormEl = document.getElementById("create-provider-form");
             if (providerFormEl) {
                 providerFormEl.addEventListener("submit", function (e) {
@@ -1581,6 +1701,7 @@
                     }
                 });
             }
+            @endif
         })();
     </script>
 @endpush

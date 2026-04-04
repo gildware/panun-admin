@@ -59,6 +59,10 @@ class Booking extends Model
         'admin_customer_feedback_skipped_at' => 'datetime',
         'last_reopen_event_at' => 'datetime',
         'reopen_resolved_at' => 'datetime',
+        'settlement_config' => 'array',
+        'settlement_snapshot' => 'array',
+        'allow_complete_without_full_payment' => 'boolean',
+        'after_visit_cancel' => 'boolean',
     ];
 
     protected $fillable = [
@@ -107,9 +111,29 @@ class Booking extends Model
         'reopen_resolved_at',
         'reopen_resolved_by',
         'reopen_resolve_remarks',
+        'settlement_outcome',
+        'settlement_config',
+        'settlement_snapshot',
+        'allow_complete_without_full_payment',
+        'settlement_remarks',
+        'after_visit_cancel',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
+
+    /**
+     * Completed jobs plus single-booking “after visit” cancellations that keep visit/closing settlement (revenue / earnings).
+     */
+    public function scopeForRevenueReporting($query): void
+    {
+        $query->where(function ($q) {
+            $q->where('booking_status', 'completed')
+                ->orWhere(function ($q2) {
+                    $q2->where('booking_status', 'canceled')
+                        ->where('after_visit_cancel', true);
+                });
+        });
+    }
 
 
     public function service_address(): BelongsTo
@@ -464,11 +488,14 @@ class Booking extends Model
 
 
         self::updating(function ($model) {
-            // Prevent completion unless full payment received
+            // Prevent completion unless full payment received (use $model so in-flight settlement_outcome / settlement_config apply — DB row is not updated yet).
             if ($model->isDirty('booking_status') && $model->booking_status === 'completed') {
-                $b = Booking::with('booking_partial_payments')->find($model->id);
-                if ($b && !booking_can_be_completed($b)) {
+                $model->loadMissing('booking_partial_payments');
+                if (! booking_can_be_completed($model)) {
                     throw new \RuntimeException(translate('Booking cannot be completed until full payment is received.'));
+                }
+                if ((string) ($model->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+                    throw new \RuntimeException(translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'));
                 }
             }
 
@@ -640,6 +667,15 @@ class Booking extends Model
                         'key' => 'booking_cancel',
                         'settings_type' => 'serviceman_notification'
                     ];
+                }
+
+                $model->loadMissing('booking_partial_payments');
+                if ((int) ($model->is_repeated ?? 0) === 0
+                    && (string) ($model->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+                    && $model->provider_id) {
+                    $details = $model->calculateCommissionDetails($model, $model->provider_id);
+                    app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)
+                        ->syncDetailsAmounts($model, $details);
                 }
 
                 if ($model?->customer) {

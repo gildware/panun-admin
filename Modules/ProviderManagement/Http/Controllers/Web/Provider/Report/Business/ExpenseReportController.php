@@ -123,7 +123,7 @@ class ExpenseReportController extends Controller
             ->where(function ($q) use ($request) {
                 $q->whereHas('booking', function ($query) use ($request) {
                     self::filterQuery($query, $request)
-                        ->ofBookingStatus('completed')
+                        ->forRevenueReporting()
                         ->when($request->has('search'), function ($query) use ($request) {
                             $keys = explode(' ', $request['search']);
                             $query->where(function ($query) use ($keys) {
@@ -147,7 +147,7 @@ class ExpenseReportController extends Controller
         //** Chart & Card Data **
         $amounts = $this->booking_details_amount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })
             ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
                 $query->select(
@@ -316,7 +316,7 @@ class ExpenseReportController extends Controller
             ->with(['booking'])
             ->whereHas('booking', function ($query) use ($request) {
                 self::filterQuery($query, $request)
-                    ->ofBookingStatus('completed')
+                    ->forRevenueReporting()
                     ->when($request->has('search'), function ($query) use ($request) {
                         $keys = explode(' ', $request['search']);
                         return $query->where(function ($query) use ($keys) {

@@ -1858,12 +1858,9 @@
                                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                                 }).then(function(r) { return r.text(); })
                                   .then(function(html) {
-                                    var tmp = document.createElement('div');
-                                    tmp.innerHTML = html;
-                                    var newList = tmp.querySelector('.whatsapp-active-list-container');
+                                    var newList = waParseConversationsIndexHtml(html);
                                     if (newList) {
-                                        listContainer.innerHTML = newList.innerHTML;
-                                        bindActiveChatListClicks(listContainer);
+                                        waApplyActiveChatListHtml(listContainer, newList);
                                     }
                                   });
                             } catch (e) {}
@@ -1883,6 +1880,51 @@
                     panel.innerHTML = '<p class="text-danger text-center py-4">Failed to load messages</p>';
                 }
             });
+    }
+
+    function waParseConversationsIndexHtml(html) {
+        try {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            return doc.querySelector('.whatsapp-active-list-container');
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function waActiveListScrollParent(listContainer) {
+        if (!listContainer) return null;
+        var items = listContainer.querySelector('#wa-active-chat-items');
+        var n = items ? items.parentElement : null;
+        while (n && listContainer.contains(n)) {
+            if (n.scrollHeight > n.clientHeight + 1) {
+                return n;
+            }
+            n = n.parentElement;
+        }
+        return listContainer.querySelector('.card-body.overflow-auto') || listContainer.querySelector('.card-body');
+    }
+
+    /** Refresh list items without replacing the scrollable .card-body (avoids scroll jump). Fallback: full replace + restore scroll. */
+    function waApplyActiveChatListHtml(listContainer, newListFragment) {
+        if (!listContainer || !newListFragment) return;
+        var curItems = listContainer.querySelector('#wa-active-chat-items');
+        var nextItems = newListFragment.querySelector('#wa-active-chat-items');
+        if (curItems && nextItems) {
+            curItems.innerHTML = nextItems.innerHTML;
+            bindActiveChatListClicks(listContainer);
+            return;
+        }
+        var scrollEl = waActiveListScrollParent(listContainer);
+        var prevTop = scrollEl ? scrollEl.scrollTop : 0;
+        listContainer.innerHTML = newListFragment.innerHTML;
+        bindActiveChatListClicks(listContainer);
+        var nextScroll = waActiveListScrollParent(listContainer);
+        if (nextScroll) {
+            nextScroll.scrollTop = prevTop;
+            requestAnimationFrame(function () {
+                nextScroll.scrollTop = prevTop;
+            });
+        }
     }
 
     function startPolling() {
@@ -1908,13 +1950,9 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 }).then(function(r) { return r.text(); })
                   .then(function(html) {
-                    // Extract just the left list markup using a temporary DOM
-                    var tmp = document.createElement('div');
-                    tmp.innerHTML = html;
-                    var newList = tmp.querySelector('.whatsapp-active-list-container');
+                    var newList = waParseConversationsIndexHtml(html);
                     if (newList) {
-                        listContainer.innerHTML = newList.innerHTML;
-                        bindActiveChatListClicks(listContainer);
+                        waApplyActiveChatListHtml(listContainer, newList);
                     }
                   })
                   .catch(function() {});

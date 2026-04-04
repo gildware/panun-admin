@@ -13,6 +13,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
         Route::get('success/{id}', [BookingController::class, 'success'])->name('success');
+        Route::any('list/special-scenarios', [BookingController::class, 'specialScenarioBookings'])->name('list.special_scenarios');
         Route::any('list', [BookingController::class, 'index'])->name('list');
         Route::any('list/verification', [BookingController::class, 'bookingVerificationList'])->name('list.verification');
         Route::any('list/verification/download', [BookingController::class, 'downloadBookingVerificationList'])->name('list.verification.download');
@@ -25,6 +26,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('repeat-details/{id}', [BookingController::class, 'repeatDetails'])->name('repeat_details');
         Route::get('repeat-single-details/{id}', [BookingController::class, 'repeatSingleDetails'])->name('repeat_single_details');
         Route::match(['get', 'post'], 'status-update/{id}', [BookingController::class, 'statusUpdate'])->name('status_update');
+        Route::post('financial-settlement/preview/{id}', [BookingController::class, 'financialSettlementPreview'])->name('financial_settlement.preview');
+        Route::post('financial-settlement/save/{id}', [BookingController::class, 'financialSettlementSave'])->name('financial_settlement.save');
+        Route::post('financial-settlement/save-and-cancel/{id}', [BookingController::class, 'financialSettlementSaveAndCancel'])->name('financial_settlement.save_and_cancel');
+        Route::post('financial-settlement/save-and-complete/{id}', [BookingController::class, 'financialSettlementSaveAndComplete'])->name('financial_settlement.save_and_complete');
         Route::post('up-coming-booking-cancel/{id}', [BookingController::class, 'upComingBookingCancel'])->name('up_coming_booking_cancel');
         Route::get('configuration', [BookingConfigurationController::class, 'index'])->middleware(['can:booking_configuration_view'])->name('configuration.index');
         Route::post('configuration', [BookingConfigurationController::class, 'store'])->middleware(['can:booking_configuration_add'])->name('configuration.store');

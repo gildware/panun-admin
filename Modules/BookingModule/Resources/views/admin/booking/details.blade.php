@@ -226,6 +226,13 @@
                         }}">
                             {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}
                         </span>
+                        @if($booking->booking_status === 'completed'
+                            && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
+                            <span class="badge bg-secondary">{{ translate('Bfs_badge_loss_making_booking') }}</span>
+                        @endif
+                        @if(!empty($booking->after_visit_cancel))
+                            <span class="badge bg-dark">{{ translate('Bfs_badge_after_visit_cancel') }}</span>
+                        @endif
                         @if($booking->isOpenReopenTicket())
                             <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
                         @elseif($booking->isReopenedTagged())
@@ -1214,7 +1221,11 @@
                                             <span>{{ with_currency_symbol($revenueSettlement['amount_received_by_provider']) }}</span>
                                         </div>
                                     </div>
-                                    @if($revenueSettlement['pay_to_provider'] > 0)
+                                    @if(!empty($revenueSettlement['net_revenue_zeroed_after_refund']))
+                                        <div class="alert alert-secondary mb-0 py-2 px-2 fz-12">
+                                            {{ translate('Net_settlement_zero_after_full_refund_hint') }}
+                                        </div>
+                                    @elseif($revenueSettlement['pay_to_provider'] > 0)
                                         <div class="alert alert-info mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center">
                                             <span>{{ translate('Pay_to_provider') }}:</span>
                                             <strong>{{ with_currency_symbol($revenueSettlement['pay_to_provider']) }}</strong>
@@ -1760,14 +1771,10 @@
                                                     @endif
                                                 @endif
 
+                                                @include('bookingmodule::admin.booking.partials._refund-amount-summary-rows', ['booking' => $booking, 'variant' => 'details'])
+
                                                 @php
-                                                // Match Payment Details Due_Balance (incl. legacy additional_charge for non–cash-after-service when applicable).
-                                                $dueAmount = $paymentFullyCovered
-                                                    ? 0.0
-                                                    : round(max(0, (float) $bookingTotalForPayment - (float) $totalPaidFromPartials), 2);
-                                                if ($dueAmount > 0 && in_array($booking->booking_status, ['pending', 'accepted', 'ongoing'], true) && $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) > 0) {
-                                                    $dueAmount = round($dueAmount + (float) $booking->additional_charge, 2);
-                                                }
+                                                $dueAmount = get_booking_invoice_due_amount($booking);
                                                 @endphp
 
                                                 @if ($dueAmount > 0)
@@ -1797,6 +1804,96 @@
             </div>
             <div class="row gy-3 align-items-start">
                 <div class="col-lg-8 col-xl-7 d-flex flex-column gap-3 align-items-stretch">
+                    @can('booking_can_manage_status')
+                        @if((int)($booking->is_repeated ?? 0) === 0)
+                            @php
+                                $bfsDetailsOngoing = ($booking->booking_status ?? '') === 'ongoing';
+                                $bfsDetailsShowSettlementCard = $bfsDetailsOngoing;
+                            @endphp
+                            @if($bfsDetailsShowSettlementCard)
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <h5 class="card-title mb-1">{{ translate('Special_financial_settlement') }}</h5>
+                                            <p class="text-muted small mb-0">{{ translate('Financial_settlement_card_hint') }}</p>
+                                        </div>
+                                        @if($bfsDetailsOngoing && ! $bookingNotEditable)
+                                            <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#bookingFinancialSettlementModal">
+                                                {{ translate('Configure') }}
+                                            </button>
+                                        @endif
+                                    </div>
+                                    @if(!empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot))
+                                        @php
+                                            $__bfsOutcome = (string) ($booking->settlement_outcome ?? '');
+                                            $__bfsDecidedCharges = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+                                                || $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+                                            $__bfsSnap = $booking->settlement_snapshot ?? [];
+                                            $__bfsScaledOutcome = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                                            $__bfsScaledLossRows = null;
+                                            if ($__bfsScaledOutcome) {
+                                                $__bfsLossSvc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
+                                                $__bfsGt = get_booking_total_amount($booking);
+                                                $__bfsPd = $__bfsLossSvc->totalPaidForMainBooking($booking);
+                                                $__bfsScaledLossRows = $__bfsLossSvc->resolveScaledLossBreakdown(
+                                                    $booking,
+                                                    is_array($booking->settlement_config) ? $booking->settlement_config : [],
+                                                    $__bfsGt,
+                                                    $__bfsPd
+                                                );
+                                            }
+                                        @endphp
+                                        <hr class="my-3">
+                                        <dl class="row small mb-0">
+                                            <dt class="col-sm-5">{{ translate('Scenario') }}</dt>
+                                            <dd class="col-sm-7">
+                                                @if($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL)
+                                                    {{ translate('Bfs_label_cancel_keep_visit') }}
+                                                @elseif($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT)
+                                                    {{ translate('Bfs_label_complete_visit_only') }}
+                                                @elseif($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
+                                                    {{ translate('Bfs_label_scaled_partial_or_bad_debt') }}
+                                                @else
+                                                    <span class="text-capitalize">{{ str_replace('_', ' ', (string)($booking->settlement_outcome ?? translate('Standard_settlement'))) }}</span>
+                                                @endif
+                                            </dd>
+                                            @if($__bfsDecidedCharges)
+                                                <dt class="col-sm-5">{{ translate('Bfs_preview_visiting_charges') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['visit_charges_paid'] ?? 0) }}</dd>
+                                                <dt class="col-sm-5">{{ translate('Bfs_preview_closing_amount') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['closing_amount_paid'] ?? 0) }}</dd>
+                                            @endif
+                                            @if($__bfsScaledLossRows !== null)
+                                                @php [$__sx, $__sloss, $__sy, $__sz] = $__bfsScaledLossRows; @endphp
+                                                <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_total_booking') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol(get_booking_total_amount($booking)) }}</dd>
+                                                <dt class="col-sm-5">{{ translate('Bfs_scaled_amount_paid_by_customer') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($__sx) }}</dd>
+                                                <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_loss_amount') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($__sloss) }}</dd>
+                                                <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_company_share') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($__sy) }}</dd>
+                                                <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_provider_share') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($__sz) }}</dd>
+                                            @endif
+                                            <dt class="col-sm-5">{{ translate('Company_commission') }}</dt>
+                                            <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['company_commission_after_promos'] ?? 0) }}</dd>
+                                            <dt class="col-sm-5">{{ translate('Provider_earning') }}</dt>
+                                            <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['provider_earning'] ?? 0) }}</dd>
+                                            @if(!empty($booking->settlement_remarks))
+                                                <dt class="col-sm-5">{{ translate('Notes') }}</dt>
+                                                <dd class="col-sm-7">{{ $booking->settlement_remarks }}</dd>
+                                            @endif
+                                        </dl>
+                                    @elseif($bfsDetailsOngoing && ! $bookingNotEditable)
+                                        <p class="small text-muted mb-0 mt-2">{{ translate('Financial_settlement_not_configured') }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
+                        @endif
+                    @endcan
                     @can('booking_can_manage_status')
                         @if(!$bookingNotEditable)
                             <div class="d-none" aria-hidden="true">
@@ -1830,13 +1927,13 @@
                     @endcan
 
                     @can('booking_can_manage_status')
-                                @if($booking->booking_status == 'canceled' && isset($maxRefundAmount) && $maxRefundAmount > 0)
+                                @if(in_array($booking->booking_status, ['canceled', 'cancelled', 'refunded'], true) && isset($maxRefundAmount) && $maxRefundAmount > 0)
                                     <div class="card mb-3">
                                         <div class="card-body">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 form-control py-2 px-3 w-100">
                                         <span class="title-color flex-shrink-0">{{ translate('Refund') }}</span>
                                         <div class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto min-w-0">
-                                            <span class="text-muted text-break">{{ translate('Max_refund') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
+                                            <span class="text-muted text-break">{{ translate('Remaining_refundable') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
                                             <button type="button" class="btn btn--danger btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#refundModal-{{ $booking->id }}">{{ translate('Refund customer') }}</button>
                                         </div>
                                     </div>
@@ -1862,7 +1959,7 @@
                                                             <label class="form-label">{{ translate('Date') }}</label>
                                                             <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}">
                                                         </div>
-                                                        <p class="small text-muted">{{ translate('This will be recorded as an out transaction and booking status will be set to Refunded.') }}</p>
+                                                        <p class="small text-muted">{{ translate('Refund_modal_ledger_hint') }}</p>
                                                     </div>
                                                     <div class="modal-footer">
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
@@ -1966,6 +2063,18 @@
     @include('bookingmodule::admin.booking.partials.details._service-modal')
 
     @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
+    @can('booking_can_manage_status')
+        @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'ongoing' && ! $bookingNotEditable)
+            @include('bookingmodule::admin.booking.partials._financial-settlement-modal', [
+                'booking' => $booking,
+                'financialSettlementOutcomes' => $financialSettlementOutcomes ?? [],
+                'defaultVisitFeeCompanyPercent' => $defaultVisitFeeCompanyPercent ?? 20,
+                'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
+                'bookingCancellationReasons' => $bookingCancellationReasons ?? collect(),
+                'bfsAllowCollectPayment' => ! in_array((string) $booking->booking_status, ['canceled', 'refunded'], true) && ! $bookingNotEditable,
+            ])
+        @endif
+    @endcan
 
     <div class="modal fade" id="providerModal" tabindex="-1" aria-labelledby="providerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -2528,7 +2637,15 @@
             var $errBox = $form.find('.add-payment-modal-errors');
             $errBox.addClass('d-none').empty();
 
-            var dueAmount = parseFloat($form.data('due-amount')) || 0;
+            if ($form.hasClass('bfs-add-payment-form')) {
+                $('#bfs-cap-visit-charges').val($('#bfs-visit-charges-paid').val() || '0');
+                $('#bfs-cap-closing').val($('#bfs-closing-amount').val() || '');
+                if (typeof bfsSelectedOutcome === 'function') {
+                    $('#bfs-cap-settlement-outcome').val(bfsSelectedOutcome());
+                }
+            }
+
+            var dueAmount = parseFloat($form.attr('data-due-amount')) || 0;
             var amount = parseFloat($form.find('.add-payment-amount').val()) || 0;
             if (dueAmount > 0 && amount > dueAmount) {
                 $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Amount cannot exceed the due amount. Due amount') }}: ' + dueAmount.toFixed(2) + '</li></ul>');
@@ -2556,6 +2673,27 @@
                     'Accept': 'application/json',
                 },
             }).done(function(res) {
+                if ($form.hasClass('bfs-add-payment-form')) {
+                    $btn.prop('disabled', false);
+                    $form.find('.add-payment-amount').val('');
+                    $form.find('.add-payment-transaction-id').val('');
+                    var $dateIn = $form.find('input[name="date"]');
+                    if ($dateIn.length) {
+                        $dateIn.val($form.attr('data-default-date') || new Date().toISOString().slice(0, 10));
+                    }
+                    $form.find('input[name="received_by"][value="provider"]').prop('checked', true);
+                    $form.find('input[name="received_by"][value="company"]').prop('checked', false);
+                    if (typeof toggleAddPaymentTransactionField === 'function') {
+                        toggleAddPaymentTransactionField($form);
+                    }
+                    if (res && res.message && typeof toastr !== 'undefined') {
+                        toastr.success(res.message);
+                    }
+                    if (typeof window.bfsRunPreviewAfterEmbeddedPayment === 'function') {
+                        window.bfsRunPreviewAfterEmbeddedPayment();
+                    }
+                    return;
+                }
                 var modalEl = $modal[0];
                 if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                     var inst = bootstrap.Modal.getInstance(modalEl);
@@ -2738,18 +2876,127 @@
     </script>
 
     <script>
+        const serviceUpdateModalSelector = "#serviceUpdateModal--{{ $booking['id'] }}";
+        window.bookingEditCurrencyDecimals = parseInt('{{ (int) (business_config('currency_decimal_point', 'business_information')->live_values ?? 2) }}', 10) || 2;
+        window.bookingEditDefaultTaxPercent = parseFloat(@json((float) company_default_tax_percentage())) || 0;
+
+        function bookingEditRecalcRowTotal($row) {
+            if (!$row || !$row.length) {
+                return;
+            }
+            const dec = window.bookingEditCurrencyDecimals ?? 2;
+            let taxPct = parseFloat($row.attr('data-tax-percent'));
+            if (isNaN(taxPct)) {
+                taxPct = window.bookingEditDefaultTaxPercent ?? 0;
+            }
+            const unitRaw = String($row.find('.row-unit-price').val() ?? '').replace(',', '.');
+            const unit = parseFloat(unitRaw);
+            const unitNum = isNaN(unit) ? 0 : unit;
+            let qty = parseInt($row.find('.row-qty').val(), 10);
+            if (isNaN(qty) || qty < 1) {
+                qty = 1;
+            }
+            const discRaw = String($row.find('.row-discount').val() ?? '').replace(',', '.');
+            const disc = parseFloat(discRaw);
+            const discNum = isNaN(disc) ? 0 : Math.max(0, disc);
+            const subtotal = Math.round(unitNum * qty * 100) / 100;
+            const maxDisc = Math.min(discNum, subtotal);
+            const taxable = Math.round(Math.max(0, subtotal - maxDisc) * 100) / 100;
+            const tax = Math.round(taxable * taxPct / 100 * 100) / 100;
+            const total = Math.round((taxable + tax) * 100) / 100;
+            $row.find('.row-total-cost').first().text(total.toFixed(dec));
+        }
+
+        function bookingEditSelect2ModalParent() {
+            return $(serviceUpdateModalSelector);
+        }
+
+        function bookingEditDestroySelect2($select) {
+            if ($select.data('select2')) {
+                $select.select2('destroy');
+            }
+        }
+
+        function bookingEditInitSelect2($select) {
+            $select.select2({ dropdownParent: bookingEditSelect2ModalParent() });
+        }
+
+        function bookingEditLoadSubcategories(categoryId, selectedSubId) {
+            const $modal = $(serviceUpdateModalSelector);
+            const providerId = $modal.data('booking-provider-id');
+            if (!categoryId) {
+                return;
+            }
+            let url = '{{ route('admin.booking.service.ajax-get-subcategories') }}?category_id=' + encodeURIComponent(categoryId);
+            if (providerId) {
+                url += '&provider_id=' + encodeURIComponent(providerId);
+            }
+            $.get(url, function(response) {
+                let o = '<option value="" disabled>{{ translate('Select_Sub_Category') }}</option>';
+                (response.content || []).forEach(function(sc) {
+                    const sel = selectedSubId && String(sc.id) === String(selectedSubId) ? ' selected' : '';
+                    o += '<option value="' + sc.id + '"' + sel + '>' + sc.name + '</option>';
+                });
+                const $sub = $('#sub_category_selector__select');
+                bookingEditDestroySelect2($sub);
+                $sub.html(o);
+                bookingEditInitSelect2($sub);
+            }).fail(function() {
+                toastr.error('{{ translate('Failed to load') }}');
+            });
+        }
+
         $(document).ready(function() {
-            $('#category_selector__select').select2({
-                dropdownParent: "#serviceUpdateModal--{{ $booking['id'] }}"
+            bookingEditInitSelect2($('#category_selector__select'));
+            bookingEditInitSelect2($('#sub_category_selector__select'));
+            bookingEditInitSelect2($('#service_selector__select'));
+            bookingEditInitSelect2($('#service_variation_selector__select'));
+        });
+
+        $(serviceUpdateModalSelector).on('shown.bs.modal', function() {
+            const catId = $('#category_selector__select').val();
+            const selectedSub = @json($subCategory?->id);
+            if (catId) {
+                bookingEditLoadSubcategories(catId, selectedSub);
+            }
+            $('#service-edit-tbody tr').each(function() {
+                bookingEditRecalcRowTotal($(this));
             });
-            $('#sub_category_selector__select').select2({
-                dropdownParent: "#serviceUpdateModal--{{ $booking['id'] }}"
-            });
-            $('#service_selector__select').select2({
-                dropdownParent: "#serviceUpdateModal--{{ $booking['id'] }}"
-            });
-            $('#service_variation_selector__select').select2({
-                dropdownParent: "#serviceUpdateModal--{{ $booking['id'] }}"
+        });
+
+        $(document).on('input change', '#service-edit-tbody .row-unit-price, #service-edit-tbody .row-qty, #service-edit-tbody .row-discount', function() {
+            bookingEditRecalcRowTotal($(this).closest('tr'));
+        });
+
+        $('#category_selector__select').on('change', function() {
+            const catId = $(this).val();
+            bookingEditLoadSubcategories(catId, null);
+            const $svc = $('#service_selector__select');
+            bookingEditDestroySelect2($svc);
+            $svc.html('<option value="" selected disabled>{{ translate('Select Service') }}</option>');
+            bookingEditInitSelect2($svc);
+            $('#service_variation_selector__select').html(
+                '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+        });
+
+        $('#sub_category_selector__select').on('change', function() {
+            const subId = $(this).val();
+            if (!subId) {
+                return;
+            }
+            $.get('{{ route('admin.booking.service.ajax-get-services') }}', { sub_category_id: subId }, function(response) {
+                let o = '<option value="" selected disabled>{{ translate('Select Service') }}</option>';
+                (response.content || []).forEach(function(s) {
+                    o += '<option value="' + s.id + '">' + s.name + '</option>';
+                });
+                const $svc = $('#service_selector__select');
+                bookingEditDestroySelect2($svc);
+                $svc.html(o);
+                bookingEditInitSelect2($svc);
+                $('#service_variation_selector__select').html(
+                    '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>');
+            }).fail(function() {
+                toastr.error('{{ translate('Failed to load') }}');
             });
         });
 
@@ -2800,11 +3047,15 @@
                 url: route,
                 dataType: 'json',
                 success: function(response) {
+                    if (typeof response.service_tax_percent !== 'undefined' && response.service_tax_percent !== null) {
+                        $row.attr('data-tax-percent', response.service_tax_percent);
+                    }
                     let options = '<option value="" selected disabled>{{ translate('Select Service Variant') }}</option>';
                     (response.content || []).forEach(function(item) {
                         options += '<option value="' + item.variant_key + '">' + (item.variant || item.variant_key) + '</option>';
                     });
                     $variantSelect.html(options);
+                    bookingEditRecalcRowTotal($row);
                 },
                 error: function() {
                     toastr.error('{{ translate('Failed to load') }}');
@@ -2846,31 +3097,22 @@
                 return;
             }
 
-            let variant_key_array = [];
-            $('input[name="variant_keys[]"]').each(function() {
-                variant_key_array.push($(this).val());
+            let $matchRow = null;
+            $('#service-edit-tbody tr').each(function() {
+                const $tr = $(this);
+                const sid = $tr.find('select[name="service_ids[]"], input[name="service_ids[]"]').first().val();
+                const vk = $tr.find('select[name="variant_keys[]"], input[name="variant_keys[]"]').first().val();
+                if (String(sid) === String(service_id) && String(vk) === String(variant_key)) {
+                    $matchRow = $tr;
+                    return false;
+                }
             });
 
-            if (variant_key_array.includes(variant_key)) {
-                const decimal_point = parseInt(
-                    '{{ business_config('currency_decimal_point', 'business_information')->live_values ?? 2 }}'
-                );
-
-                const old_qty = parseInt($(`#qty-${variant_key}`).val());
-                const updated_qty = old_qty + quantity;
-
-                const old_total_cost = parseFloat($(`#total-cost-${variant_key}`).text());
-                const updated_total_cost = ((old_total_cost * updated_qty) / old_qty).toFixed(decimal_point);
-
-                const old_discount_amount = parseFloat($(`#discount-amount-${variant_key}`).text());
-                const updated_discount_amount = ((old_discount_amount * updated_qty) / old_qty).toFixed(
-                    decimal_point);
-
-
-                $(`#qty-${variant_key}`).val(updated_qty);
-                $(`#total-cost-${variant_key}`).text(updated_total_cost);
-                $(`#discount-amount-${variant_key}`).text(updated_discount_amount);
-
+            if ($matchRow && $matchRow.length) {
+                const $q = $matchRow.find('.row-qty');
+                const oldQty = parseInt($q.val(), 10) || 1;
+                $q.val(oldQty + quantity);
+                bookingEditRecalcRowTotal($matchRow);
                 toastr.success('{{ translate('Added successfully') }}', {
                     CloseButton: true,
                     ProgressBar: true
@@ -2878,8 +3120,8 @@
                 return;
             }
 
-            let query_string = 'service_id=' + service_id + '&variant_key=' + variant_key + '&quantity=' +
-                quantity + '&zone_id=' + zone_id;
+            let query_string = 'service_id=' + encodeURIComponent(service_id) + '&variant_key=' + encodeURIComponent(variant_key) + '&quantity=' +
+                quantity + '&zone_id=' + encodeURIComponent(zone_id) + '&booking_id=' + encodeURIComponent('{{ $booking->id }}');
             $.ajax({
                 type: 'GET',
                 url: "{{ route('admin.booking.service.ajax-get-service-info') }}" + '?' + query_string,
@@ -2891,6 +3133,8 @@
                 },
                 success: function(response) {
                     $("#service-edit-tbody").append(response.view);
+                    const $last = $('#service-edit-tbody tr').last();
+                    bookingEditRecalcRowTotal($last);
                     toastr.success('{{ translate('Added successfully') }}', {
                         CloseButton: true,
                         ProgressBar: true

@@ -8,6 +8,7 @@ use Illuminate\Support\ServiceProvider;
 use Modules\BookingModule\Entities\Booking;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
+use Modules\WhatsAppModule\Services\WhatsAppMessagePersistenceService;
 
 class WhatsAppModuleServiceProvider extends ServiceProvider
 {
@@ -57,7 +58,10 @@ class WhatsAppModuleServiceProvider extends ServiceProvider
     {
         $this->app->singleton(WhatsAppCloudService::class, fn () => new WhatsAppCloudService);
         $this->app->singleton(BookingWhatsAppNotificationService::class, function ($app) {
-            return new BookingWhatsAppNotificationService($app->make(WhatsAppCloudService::class));
+            return new BookingWhatsAppNotificationService(
+                $app->make(WhatsAppCloudService::class),
+                $app->make(WhatsAppMessagePersistenceService::class)
+            );
         });
 
         $this->app->register(RouteServiceProvider::class);

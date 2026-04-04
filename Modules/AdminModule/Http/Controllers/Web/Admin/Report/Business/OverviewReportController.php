@@ -110,7 +110,7 @@ class OverviewReportController extends Controller
 
         $amounts = $this->bookingDetailsAmount
             ->whereHas('booking', function ($query) use ($request) {
-                $query->ofBookingStatus('completed')
+                $query->forRevenueReporting()
                     ->when($request->has('zone_ids'), function ($query) use($request) {
                         $query->whereIn('zone_id', $request['zone_ids']);
                     })
@@ -408,7 +408,7 @@ class OverviewReportController extends Controller
 
         $amounts = $this->bookingDetailsAmount
             ->whereHas('booking', function ($query) use ($request) {
-                $query->ofBookingStatus('completed')
+                $query->forRevenueReporting()
                     ->when($request->has('zone_ids'), function ($query) use($request) {
                         $query->whereIn('zone_id', $request['zone_ids']);
                     })

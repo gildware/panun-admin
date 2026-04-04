@@ -110,7 +110,7 @@ class TransactionReportController extends Controller
         $adminAccount = Account::where('user_id', Auth::user()->id)->first();
         $commission_earning = BookingDetailsAmount::where(function ($query) {
             $query->whereHas('booking', function ($subQuery) {
-                $subQuery->ofBookingStatus('completed');
+                $subQuery->forRevenueReporting();
             })->orWhereHas('repeat', function ($subQuery) {
                 $subQuery->ofBookingStatus('completed');
             });

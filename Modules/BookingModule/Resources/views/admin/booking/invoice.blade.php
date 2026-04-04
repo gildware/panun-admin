@@ -434,6 +434,8 @@ h1, h2,h3,h4, h5, h6 {
                             @endif
                         @endif
 
+                        @include('bookingmodule::admin.booking.partials._refund-amount-summary-rows', ['booking' => $booking, 'variant' => 'invoice'])
+
                         @if($invDueAmount > 0)
                             <tr>
                                 <td colspan="3"></td>

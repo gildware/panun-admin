@@ -400,6 +400,8 @@
                                 @endif
                             @endif
 
+                            @include('bookingmodule::admin.booking.partials._refund-amount-summary-rows', ['booking' => $booking, 'variant' => 'invoice'])
+
                             @if($invDueAmountP > 0)
                             <tr>
                                 <td colspan="3"></td>

@@ -120,7 +120,7 @@ class ExpenseReportController extends Controller
             ->where(function ($query) use ($request) {
                 $query->whereHas('booking', function ($subQuery) use ($request) {
                     self::filterQuery($subQuery, $request)
-                        ->ofBookingStatus('completed')
+                        ->forRevenueReporting()
                         ->when($request->has('search'), function ($subQuery) use ($request) {
                             $keys = explode(' ', $request['search']);
                             return $subQuery->where(function ($subQuery) use ($keys) {
@@ -142,7 +142,7 @@ class ExpenseReportController extends Controller
 
         $amounts = $this->bookingDetailsAmount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })
             ->when(isset($group_by_deterministic), function ($query) use ($group_by_deterministic) {
                 $query->select(
@@ -401,7 +401,7 @@ class ExpenseReportController extends Controller
             ->with(['booking'])
             ->whereHas('booking', function ($query) use ($request) {
                 self::filterQuery($query, $request)
-                    ->ofBookingStatus('completed')
+                    ->forRevenueReporting()
                     ->when($request->has('search'), function ($query) use ($request) {
                         $keys = explode(' ', $request['search']);
                         return $query->where(function ($query) use ($keys) {

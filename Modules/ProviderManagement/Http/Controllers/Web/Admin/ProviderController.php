@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
@@ -212,7 +213,7 @@ class ProviderController extends Controller
             ->with(['owner', 'subscribed_services.category'])
             ->ofApproval(1)
             ->withCount(['bookings as completed_bookings_count' => function ($query) {
-                $query->ofBookingStatus('completed');
+                $query->forRevenueReporting();
             }])
             ->having('completed_bookings_count', '>', 0)
             ->orderByDesc('completed_bookings_count')
@@ -464,6 +465,10 @@ class ProviderController extends Controller
             $request->merge(['plan_type' => 'commission_based']);
         }
 
+        if (! $request->filled('contact_person_email')) {
+            $request->merge(['contact_person_email' => null]);
+        }
+
         $formKey = 'create';
         $this->attachProviderFormDraftToRequest($request, $formKey);
 
@@ -488,7 +493,7 @@ class ProviderController extends Controller
 
             'contact_person_name' => 'required|string|max:191',
             'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
-            'contact_person_email' => 'required|email',
+            'contact_person_email' => 'nullable|email|max:191',
 
             // Account email/phone are derived from contact person details by default.
             // Keep them optional to avoid depending on front-end JS.
@@ -905,7 +910,13 @@ class ProviderController extends Controller
 
             $providerBookingIds = DB::table('bookings')->where('provider_id', $id)->pluck('id')->toArray();
             $bookingIdsWithRepeats = DB::table('booking_repeats')->whereNotNull('booking_id')->distinct()->pluck('booking_id')->toArray();
-            $oneTimeQuery = DB::table('bookings')->where('provider_id', $id)->where('booking_status', 'completed');
+            $oneTimeQuery = DB::table('bookings')->where('provider_id', $id)->where(function ($q) {
+                $q->where('booking_status', 'completed')
+                    ->orWhere(function ($q2) {
+                        $q2->where('booking_status', 'canceled')
+                            ->where('after_visit_cancel', 1);
+                    });
+            });
             if (!empty($bookingIdsWithRepeats)) {
                 $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
             }
@@ -914,7 +925,7 @@ class ProviderController extends Controller
             $totalRevenueFromBookings = 0.0;
             $oneTimeBookingsForRevenue = Booking::whereIn('id', $completedOneTimeBookingIds)->with('extra_services')->get();
             foreach ($oneTimeBookingsForRevenue as $b) {
-                $totalRevenueFromBookings += get_booking_total_amount($b);
+                $totalRevenueFromBookings += get_booking_revenue_reporting_amount($b);
             }
 
             $totalRevenueFromRepeats = 0.0;
@@ -1632,6 +1643,10 @@ class ProviderController extends Controller
 
         $provider = $this->provider->with(['owner', 'zones'])->find($id);
 
+        if (! $request->filled('contact_person_email')) {
+            $request->merge(['contact_person_email' => null]);
+        }
+
         $this->mergeLegacyZoneIdIntoZoneIds($request);
 
         $allowedImageMimes = implode(',', array_column(IMAGEEXTENSION, 'key'));
@@ -1642,7 +1657,12 @@ class ProviderController extends Controller
 
             'contact_person_name' => 'required|string|max:191',
             'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $provider->user_id,
-            'contact_person_email' => 'required|email|unique:users,email,' . $provider->user_id,
+            'contact_person_email' => [
+                'nullable',
+                'email',
+                'max:191',
+                Rule::unique('users', 'email')->ignore($provider->user_id),
+            ],
 
             'password' => !is_null($request->password) ? 'string|min:8' : '',
             'confirm_password' => !is_null($request->password) ? 'required|same:password' : '',
