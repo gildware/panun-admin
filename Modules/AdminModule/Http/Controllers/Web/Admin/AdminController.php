@@ -79,7 +79,7 @@ class AdminController extends Controller
     public function dashboard(Request $request, Transaction $transaction): View|Factory|Application
     {
         $baseQuery = BookingDetailsAmount::whereHas('booking', function ($query) use ($request) {
-            $query->ofBookingStatus('completed');
+            $query->forRevenueReporting();
         })->orWhereHas('repeat', function ($subQuery) {
             $subQuery->ofBookingStatus('completed');
         });
@@ -90,10 +90,10 @@ class AdminController extends Controller
 
         $our_earning = $admin_commission - $discount_by_admin - $coupon_discount_by_admin - $campaign_discount_by_admin;
 
-        $total_revenue = (float) $this->booking->ofBookingStatus('completed')->get()->sum(fn ($b) => get_booking_total_amount($b))
+        $total_revenue = (float) $this->booking->forRevenueReporting()->get()->sum(fn ($b) => get_booking_revenue_reporting_amount($b))
             + (float) BookingRepeat::ofBookingStatus('completed')->get()->sum(fn ($r) => get_booking_total_amount($r));
 
-        $spare_parts_total = (float) $this->booking->ofBookingStatus('completed')->get()->sum(fn ($b) => get_booking_spare_parts_amount($b))
+        $spare_parts_total = (float) $this->booking->forRevenueReporting()->get()->sum(fn ($b) => get_booking_revenue_reporting_spare_parts_amount($b))
             + (float) BookingRepeat::ofBookingStatus('completed')->get()->sum(fn ($r) => get_booking_spare_parts_amount($r));
         $service_charges_total = round($total_revenue - $spare_parts_total, 2);
         $spare_parts_total = round($spare_parts_total, 2);
@@ -145,7 +145,7 @@ class AdminController extends Controller
             ->with(['owner', 'subscribed_services.category'])
             ->ofApproval(1)
             ->withCount(['bookings as completed_bookings_count' => function ($query) {
-                $query->ofBookingStatus('completed');
+                $query->forRevenueReporting();
             }])
             ->having('completed_bookings_count', '>', 0)
             ->orderByDesc('completed_bookings_count')
@@ -156,7 +156,7 @@ class AdminController extends Controller
         $top_customers = $this->user
             ->where(['user_type' => 'customer'])
             ->withCount(['bookings as completed_bookings_count' => function ($query) {
-                $query->ofBookingStatus('completed');
+                $query->forRevenueReporting();
             }])
             ->having('completed_bookings_count', '>', 0)
             ->orderByDesc('completed_bookings_count')
@@ -218,7 +218,7 @@ class AdminController extends Controller
             ->whereYear('created_at', '=', $year)
             ->where(function ($q) {
                 $q->whereHas('booking', function ($query) {
-                    $query->ofBookingStatus('completed');
+                    $query->forRevenueReporting();
                 })->orWhereHas('repeat', function ($subQuery) {
                     $subQuery->ofBookingStatus('completed');
                 });
@@ -268,6 +268,8 @@ class AdminController extends Controller
             ->groupBy('month')
             ->get()
             ->keyBy('month');
+
+        $bookingRevenueByMonth = $this->mergeAfterVisitCancelRevenueByMonthForDashboard($bookingRevenueByMonth, (int) $year);
 
         $repeatRevenueByMonth = DB::table('booking_repeats as br')
             ->leftJoinSub($extraServicesSub, 'es', function ($join) {
@@ -321,7 +323,7 @@ class AdminController extends Controller
             ->whereYear('created_at', '=', $year)
             ->where(function ($q) {
                 $q->whereHas('booking', function ($query) {
-                    $query->ofBookingStatus('completed');
+                    $query->forRevenueReporting();
                 })->orWhereHas('repeat', function ($subQuery) {
                     $subQuery->ofBookingStatus('completed');
                 });
@@ -369,6 +371,8 @@ class AdminController extends Controller
             ->groupBy('month')
             ->get()
             ->keyBy('month');
+
+        $bookingRevenueByMonth = $this->mergeAfterVisitCancelRevenueByMonthForDashboard($bookingRevenueByMonth, (int) $year);
 
         $repeatRevenueByMonth = DB::table('booking_repeats as br')
             ->leftJoinSub($extraServicesSub, 'es', function ($join) {
@@ -689,5 +693,33 @@ class AdminController extends Controller
         acknowledgeAdminSetupGuideWelcome(auth()->id());
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Add retained visit+closing amounts from after-visit cancels into per-month booking revenue (chart + tiles).
+     *
+     * @param  \Illuminate\Support\Collection<int|string, object>  $bookingRevenueByMonth
+     * @return \Illuminate\Support\Collection<int|string, object>
+     */
+    private function mergeAfterVisitCancelRevenueByMonthForDashboard($bookingRevenueByMonth, int $year)
+    {
+        $rows = $this->booking->newQuery()
+            ->where('booking_status', 'canceled')
+            ->where('after_visit_cancel', true)
+            ->whereYear('created_at', $year)
+            ->get();
+
+        foreach ($rows as $b) {
+            $month = (int) Carbon::parse($b->created_at)->format('n');
+            $add = get_booking_revenue_reporting_amount($b);
+            $row = $bookingRevenueByMonth->get($month) ?? $bookingRevenueByMonth->get((string) $month);
+            if ($row !== null) {
+                $row->total_revenue = round((float) ($row->total_revenue ?? 0) + $add, 2);
+            } else {
+                $bookingRevenueByMonth->put($month, (object) ['month' => $month, 'total_revenue' => $add]);
+            }
+        }
+
+        return $bookingRevenueByMonth;
     }
 }

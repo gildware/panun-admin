@@ -18,7 +18,7 @@ class WhatsAppPublicCatalogService
         $services = $this->safeActiveServiceNames();
         $zones = $this->safeActiveZoneNames();
 
-        return [
+        $out = [
             'company' => $this->scalarBusinessValue('company_name', 'business_information')
                 ?? $this->scalarBusinessValue('business_name', 'business_information'),
             'phone' => config('whatsappmodule.support_phone_display')
@@ -32,6 +32,27 @@ class WhatsAppPublicCatalogService
             'zone_names_sample' => array_slice($zones, 0, 30),
             'disclaimer' => 'Final pricing depends on the job after inspection. Do not invent amounts not listed here.',
         ];
+
+        $extras = config('whatsapp_ai_support.extra_public_business_config', []);
+        if (is_array($extras)) {
+            foreach ($extras as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $k = trim((string) ($row['key'] ?? ''));
+                $type = trim((string) ($row['settings_type'] ?? ''));
+                $sk = trim((string) ($row['snapshot_key'] ?? ''));
+                if ($k === '' || $type === '' || $sk === '') {
+                    continue;
+                }
+                $val = $this->scalarBusinessValue($k, $type);
+                if ($val !== null && $val !== '') {
+                    $out[$sk] = $val;
+                }
+            }
+        }
+
+        return $out;
     }
 
     private function scalarBusinessValue(string $key, string $type): ?string

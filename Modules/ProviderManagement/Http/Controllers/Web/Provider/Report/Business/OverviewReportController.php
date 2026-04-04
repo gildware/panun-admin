@@ -118,7 +118,7 @@ class OverviewReportController extends Controller
 
         $amounts = $this->booking_details_amount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })->orWhereHas('repeat', function ($subQuery) {
                 $subQuery->ofBookingStatus('completed');
             })
@@ -287,7 +287,7 @@ class OverviewReportController extends Controller
 
         $amounts = $this->booking_details_amount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })
             ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
                 $query->select(

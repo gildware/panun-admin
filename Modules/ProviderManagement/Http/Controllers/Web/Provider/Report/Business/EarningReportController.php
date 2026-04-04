@@ -120,7 +120,7 @@ class EarningReportController extends Controller
         // Data for chart
         $amounts = $this->booking_details_amount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })->orWhereHas('repeat', function ($subQuery) {
                 $subQuery->ofBookingStatus('completed');
             })
@@ -234,7 +234,7 @@ class EarningReportController extends Controller
 
         //Data for booking list
         $bookings = self::filterQuery($this->booking, $request)
-            ->ofBookingStatus('completed')
+            ->forRevenueReporting()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -265,7 +265,7 @@ class EarningReportController extends Controller
 
         //Data for booking list
         $bookings = self::filterQuery($this->booking, $request)
-            ->ofBookingStatus('completed')
+            ->forRevenueReporting()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {

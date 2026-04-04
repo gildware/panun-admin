@@ -4,7 +4,6 @@ namespace Modules\WhatsAppModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Modules\LeadManagement\Entities\Lead;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
@@ -100,5 +99,50 @@ class WhatsAppMessagePersistenceService
     {
         $message->wa_message_id = $waMessageId;
         $message->save();
+    }
+
+    /**
+     * Store outbound rows for booking automation, marketing, etc. so admin conversations show the same thread.
+     * When $actingAdminUserId is set (e.g. logged-in admin triggered the booking action), assigns the thread to that admin.
+     */
+    public function persistOutboundAutomation(
+        string $normalizedPhone,
+        string $body,
+        ?string $waMessageId,
+        string $sentByLabel,
+        ?int $actingAdminUserId = null,
+        string $messageType = 'TEXT',
+        ?string $mediaPath = null
+    ): WhatsAppMessage {
+        $this->crmBootstrap->bootstrapInboundThread($normalizedPhone);
+
+        $msg = new WhatsAppMessage();
+        $msg->fill([
+            'phone' => $normalizedPhone,
+            'message_text' => $body,
+            'direction' => 'OUT',
+            'message_type' => $messageType,
+            'wa_message_id' => $waMessageId,
+            'sent_by_id' => $actingAdminUserId,
+            'sent_by' => $actingAdminUserId === null ? $sentByLabel : null,
+        ]);
+        if ($mediaPath !== null && $mediaPath !== '') {
+            $msg->media_path = $mediaPath;
+        }
+        $msg->created_at = Carbon::now(
+            (string) config('whatsappmodule.message_timezone', config('app.timezone'))
+        );
+        $msg->save();
+
+        if ($actingAdminUserId !== null) {
+            $waUser = WhatsAppUser::firstOrNew(['phone' => $normalizedPhone]);
+            $waUser->handled_by = (string) $actingAdminUserId;
+            $waUser->save();
+        }
+
+        Cache::forget('whatsapp_active_chats_list');
+        Cache::forget('whatsapp_chat_full_v2_' . md5($normalizedPhone));
+
+        return $msg;
     }
 }

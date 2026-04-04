@@ -16,7 +16,8 @@ class WhatsAppAiSupportOrchestrator
         protected WhatsAppMessagePersistenceService $messagePersistence,
         protected WhatsAppSupportWorkHours $workHours,
         protected WhatsAppPublicCatalogService $catalog,
-        protected WhatsAppAiSettingsService $aiSettings
+        protected WhatsAppAiSettingsService $aiSettings,
+        protected WhatsAppAiSessionContextService $sessionContext
     ) {}
 
     public function handleInboundMessageId(int $messageId, WhatsAppAiExecutionRecorder $recorder): void
@@ -131,6 +132,10 @@ class WhatsAppAiSupportOrchestrator
         ]);
 
         $system = $this->aiSettings->resolvedSystemPrompt();
+        $ctx = $this->sessionContext->runtimeAppendixForPhone($phone);
+        if ($ctx !== '') {
+            $system .= "\n\n".$ctx;
+        }
         $tools = $this->aiSettings->mergedToolDeclarations();
         if ($tools === []) {
             Log::info('WhatsApp AI: no tools exposed to Gemini (admin disabled all, or invalid config)');
@@ -316,8 +321,103 @@ class WhatsAppAiSupportOrchestrator
         $t = trim($text);
         $t = preg_replace('/^```[a-z]*\s*/i', '', $t) ?? $t;
         $t = preg_replace('/\s*```$/', '', $t) ?? $t;
+        $t = $this->stripLeadingModelReasoning($t);
 
         return mb_substr(trim($t), 0, 3800);
+    }
+
+    /**
+     * Gemini sometimes prepends English "thinking" before the real reply; customers must not see it.
+     */
+    private function stripLeadingModelReasoning(string $text): string
+    {
+        $t = trim($text);
+        if ($t === '') {
+            return $t;
+        }
+
+        $lines = preg_split('/\r\n|\r|\n/', $t) ?: [];
+        while ($lines !== []) {
+            $raw = (string) $lines[0];
+            if (trim($raw) === '') {
+                array_shift($lines);
+
+                continue;
+            }
+            if ($this->lineLooksLikeModelReasoning($raw)) {
+                array_shift($lines);
+
+                continue;
+            }
+
+            break;
+        }
+        $t = trim(implode("\n", $lines));
+
+        if (preg_match('/^The user\b/is', $t)) {
+            $t = $this->stripLeadingReasoningSentences($t);
+        }
+
+        return trim($t);
+    }
+
+    private function lineLooksLikeModelReasoning(string $line): bool
+    {
+        $s = trim($line);
+        if ($s === '') {
+            return false;
+        }
+        if (preg_match('/^The user\b/i', $s)) {
+            return true;
+        }
+        if (preg_match('/^Okay,\s*the user\b/i', $s)) {
+            return true;
+        }
+        if (preg_match('/^I need to (gather|confirm|create|complete|submit|match|find|ask|check|verify|ensure|validate|clarify|get more)\b/i', $s)) {
+            return true;
+        }
+        if (preg_match("/^I'll start by\b/i", $s)) {
+            return true;
+        }
+
+        return (bool) preg_match('/^I will (gather|confirm|ask|check|verify|need to)\b/i', $s);
+    }
+
+    private function stripLeadingReasoningSentences(string $text): string
+    {
+        $parts = preg_split('/(?<=[.!?])\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+        if ($parts === false || $parts === []) {
+            return $text;
+        }
+        $kept = [];
+        foreach ($parts as $p) {
+            if ($kept === [] && $this->sentenceLooksLikeModelReasoning($p)) {
+                continue;
+            }
+            $kept[] = $p;
+        }
+        $out = trim(implode(' ', $kept));
+
+        return $out !== '' ? $out : $text;
+    }
+
+    private function sentenceLooksLikeModelReasoning(string $sentence): bool
+    {
+        $s = trim($sentence);
+        if (preg_match('/^The user\b/i', $s)) {
+            return true;
+        }
+        if (preg_match('/^Okay,\s*the user\b/i', $s)) {
+            return true;
+        }
+        if (preg_match('/^I need to (gather|confirm|create|complete|submit|match|find|ask|check|verify|ensure|validate|clarify|get more)\b/i', $s)) {
+            return true;
+        }
+        if (preg_match("/^I'll start by\b/i", $s)) {
+            return true;
+        }
+
+        return (bool) preg_match('/^I will (gather|confirm|ask|check|verify)\b/i', $s);
     }
 
     private function fallbackCustomerMessage(): string
@@ -337,9 +437,17 @@ class WhatsAppAiSupportOrchestrator
             'call me', 'phone call', 'speak to someone', 'real person',
             'insan', 'aadmi', 'bande se baat', 'bande se', 'call karo',
         ];
+        $extra = config('whatsapp_ai_support.human_handoff_extra_phrases', []);
+        if (is_array($extra)) {
+            foreach ($extra as $phrase) {
+                if (is_string($phrase) && trim($phrase) !== '') {
+                    $needles[] = mb_strtolower(trim($phrase));
+                }
+            }
+        }
 
         foreach ($needles as $n) {
-            if (str_contains($t, $n)) {
+            if ($n !== '' && str_contains($t, $n)) {
                 return true;
             }
         }

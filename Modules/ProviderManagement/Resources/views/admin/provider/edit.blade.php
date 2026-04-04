@@ -540,30 +540,127 @@
             }
 
             let formWizard = $("#create-provider-form");
+            function providerEditIsJqvIgnoredHiddenField(el) {
+                if (!el || el.nodeType !== 1) {
+                    return true;
+                }
+                var $e = $(el);
+                if (!$e.is(":hidden")) {
+                    return false;
+                }
+                var n = el.name || "";
+                if (n === "contact_person_phone" || n === "company_phone") {
+                    return false;
+                }
+                if (n === "contact_person_photo" || n === "logo") {
+                    return false;
+                }
+                if ($e.hasClass("provider-zone-leaf-cb")) {
+                    return false;
+                }
+                return true;
+            }
 
-            formWizard.validate({
-                errorPlacement: function (error, element) {
-                    element.parents('.form-floating, .form-error-wrap').after(error);
-                },
-                rules: {
-                    provider_type: {
-                        required: true
-                    },
-                    confirm_password: {
-                        equalTo: "#pass"
-                    }
+            function providerEditJqvIgnoreFilter() {
+                var el = this;
+                if (!el || el.nodeType !== 1 || !el.name) {
+                    return true;
+                }
+                return providerEditIsJqvIgnoredHiddenField(el);
+            }
+
+            function providerEditShouldSkipJqvElement(el) {
+                if (!el || !el.name) {
+                    return true;
+                }
+                return providerEditIsJqvIgnoredHiddenField(el);
+            }
+
+            function isProviderCompanyTypeEdit() {
+                return formWizard.find('.provider-add-edit-form-root input[name="provider_type"]:checked').val() === "company";
+            }
+
+            function providerEditPhoneHiddenMirror(telInput) {
+                if (!telInput) {
+                    return null;
+                }
+                var $t = $(telInput);
+                var $h = $t.parent().find('input[type="hidden"][name="contact_person_phone"], input[type="hidden"][name="company_phone"]').first();
+                if ($h.length) {
+                    return $h[0];
+                }
+                $h = $t.closest(".form-floting-fix, .form-floating, .form-error-wrap").find('input[type="hidden"][name="contact_person_phone"], input[type="hidden"][name="company_phone"]').first();
+                return $h.length ? $h[0] : null;
+            }
+
+            function providerEditSyncIntlPhoneValidation(telEl) {
+                var validator = formWizard.data("validator");
+                if (!validator || !telEl) {
+                    return;
+                }
+                var hid = providerEditPhoneHiddenMirror(telEl);
+                if (!hid) {
+                    return;
+                }
+                formWizard.validate().settings.ignore = providerEditJqvIgnoreFilter;
+                function run() {
+                    validator.element(hid);
+                }
+                setTimeout(run, 0);
+                setTimeout(run, 50);
+            }
+
+            formWizard.on("input change blur", "select, textarea", function () {
+                var validator = formWizard.data("validator");
+                if (!validator || $(this).is(":disabled") || !this.name) {
+                    return;
+                }
+                validator.element(this);
+            });
+
+            formWizard.on("input change blur", "input:not([type=\"button\"]):not([type=\"submit\"]):not([type=\"checkbox\"]):not([type=\"radio\"])", function () {
+                var validator = formWizard.data("validator");
+                if (!validator || $(this).is(":disabled")) {
+                    return;
+                }
+                var el = this;
+                if ($(el).is("input[type=\"tel\"]")) {
+                    providerEditSyncIntlPhoneValidation(el);
+                    return;
+                }
+                if (el.name) {
+                    validator.element(el);
                 }
             });
 
-            document.querySelectorAll('input[type="tel"]').forEach(function(input) {
-                const itiInstance = window.intlTelInputGlobals.getInstance(input);
-                const nextInput = input.nextElementSibling;
-                if (nextInput && nextInput.tagName.toLowerCase() === 'input') {
-                    const nameAttr = nextInput.getAttribute('name');
-                    input.setAttribute('name', nameAttr);
+            $(document).on("countrychange", "#create-provider-form input[type=\"tel\"]", function () {
+                providerEditSyncIntlPhoneValidation(this);
+            });
+
+            formWizard.on("change", "input[type=\"checkbox\"], input[type=\"radio\"]", function () {
+                var validator = formWizard.data("validator");
+                if (!validator || $(this).is(":disabled") || !this.name) {
+                    return;
                 }
-                if (itiInstance) itiInstance.destroy();
-                input.removeAttribute('data-intl-initialized');
+                validator.element(this);
+                if (this.name === "provider_type") {
+                    formWizard.find('[name="company_name"],[name="company_email"],[name="company_identity_type"],[name="company_identity_number"],[name="logo"],[name="contact_person_photo"]').each(function () {
+                        if (!$(this).is(":disabled") && this.name) {
+                            validator.element(this);
+                        }
+                    });
+                    formWizard.find('input[type="hidden"][name="company_phone"], input[type="hidden"][name="contact_person_phone"]').each(function () {
+                        if (!$(this).is(":disabled")) {
+                            validator.element(this);
+                        }
+                    });
+                }
+                if ($(this).hasClass("provider-zone-leaf-cb")) {
+                    var firstLeaf = formWizard.find("input.provider-zone-leaf-cb").first()[0];
+                    if (firstLeaf) {
+                        validator.element(firstLeaf);
+                    }
+                }
             });
 
             formWizard.steps({
@@ -586,7 +683,7 @@
                         return true;
                     }
 
-                    formWizard.validate().settings.ignore = ":disabled,:hidden";
+                    formWizard.validate().settings.ignore = providerEditJqvIgnoreFilter;
                     const $formRoot = $(".provider-add-edit-form-root");
                     const providerType = $formRoot.find("input[name='provider_type']:checked").val();
                     let identityDocsOk = true;
@@ -635,7 +732,7 @@
                     if (!validator) {
                         return formWizard.valid();
                     }
-                    var $currentSection = formWizard.find("> section").eq(currentIndex);
+                    var $currentSection = formWizard.find("section").eq(currentIndex);
                     var stepValid = true;
                     $currentSection.find(":input").each(function () {
                         if (!this.name) {
@@ -647,6 +744,11 @@
                         if ($(this).is(":disabled")) {
                             return;
                         }
+                        if ($(this).is('input[type="file"]')) {
+                            // Spartan uploads may be :hidden; still validate.
+                        } else if (providerEditShouldSkipJqvElement(this)) {
+                            return;
+                        }
                         if (!validator.element(this)) {
                             stepValid = false;
                         }
@@ -654,7 +756,64 @@
                     return stepValid;
                 },
                 onFinished: function (event, currentIndex) {
-                    formWizard.submit();
+                    var el = document.getElementById("create-provider-form");
+                    if (el && typeof el.submit === "function") {
+                        el.submit();
+                    }
+                }
+            });
+
+            formWizard.validate({
+                ignore: providerEditJqvIgnoreFilter,
+                errorPlacement: function (error, element) {
+                    if (element.is('input[type="hidden"]')) {
+                        var hn = element.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            var $tel = element.parent().find('input[type="tel"]').first();
+                            if ($tel.length) {
+                                $tel.closest(".form-floting-fix, .form-floating, .form-error-wrap").first().after(error);
+                                return;
+                            }
+                        }
+                    }
+                    element.parents('.form-floating, .form-error-wrap').after(error);
+                },
+                highlight: function (element) {
+                    var $el = $(element);
+                    $el.addClass("is-invalid");
+                    if ($el.is('input[type="hidden"]')) {
+                        var hn = $el.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            $el.parent().find('input[type="tel"]').addClass("is-invalid");
+                        }
+                    }
+                },
+                unhighlight: function (element) {
+                    var $el = $(element);
+                    $el.removeClass("is-invalid");
+                    if ($el.is('input[type="hidden"]')) {
+                        var hn = $el.attr("name") || "";
+                        if (hn === "contact_person_phone" || hn === "company_phone") {
+                            $el.parent().find('input[type="tel"]').removeClass("is-invalid");
+                        }
+                    }
+                },
+                rules: {
+                    provider_type: {
+                        required: true
+                    },
+                    confirm_password: {
+                        equalTo: "#pass"
+                    },
+                    contact_person_email: {
+                        email: true
+                    },
+                    company_email: {
+                        required: function () {
+                            return isProviderCompanyTypeEdit();
+                        },
+                        email: true
+                    }
                 }
             });
         });
@@ -710,6 +869,10 @@
 
             toggleProviderTypeFields();
             $("input[name='provider_type']").on("change", toggleProviderTypeFields);
+
+            $('[name="contact_person_email"], [name="company_email"]').on("blur", function () {
+                $(this).val($.trim($(this).val()));
+            });
 
             // Account info defaults to contact person details.
             $('[name="contact_person_email"]').on("change keyup paste", function () {
@@ -996,7 +1159,9 @@
 
                         document.getElementById('latitude').value = coordinates['lat'];
                         document.getElementById('longitude').value = coordinates['lng'];
-
+                        if (typeof jQuery !== "undefined") {
+                            jQuery("#latitude, #longitude").trigger("change");
+                        }
 
                         geocoder.geocode({
                             'latLng': latlng
@@ -1040,6 +1205,9 @@
                             google.maps.event.addListener(mrkr, "click", function (event) {
                                 document.getElementById('latitude').value = this.position.lat();
                                 document.getElementById('longitude').value = this.position.lng();
+                                if (typeof jQuery !== "undefined") {
+                                    jQuery("#latitude, #longitude").trigger("change");
+                                }
                             });
 
                             markers.push(mrkr);

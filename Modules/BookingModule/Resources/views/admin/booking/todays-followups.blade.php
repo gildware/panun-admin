@@ -108,6 +108,7 @@
                                                     <td>
                                                         @if($followup->booking)
                                                             <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}" class="text-primary text-decoration-none">{{ $followup->booking->readable_id }}</a>
+                                                            @include('bookingmodule::admin.booking.partials._booking-settlement-list-badge', ['booking' => $followup->booking])
                                                         @else
                                                             —
                                                         @endif

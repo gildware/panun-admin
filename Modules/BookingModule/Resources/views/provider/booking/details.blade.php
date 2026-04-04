@@ -301,12 +301,10 @@
                                                 @endif
                                             @endif
 
+                                            @include('bookingmodule::admin.booking.partials._refund-amount-summary-rows', ['booking' => $booking, 'variant' => 'details'])
+
                                             @php
-                                                $__providerBookingTotal = round(get_booking_total_amount($booking), 2);
-                                                $__providerPaid = (float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount');
-                                                $dueAmount = ($booking->is_paid || round($__providerPaid, 2) >= $__providerBookingTotal)
-                                                    ? 0.0
-                                                    : round(max(0, $__providerBookingTotal - $__providerPaid), 2);
+                                                $dueAmount = get_booking_invoice_due_amount($booking);
                                             @endphp
 
                                             @if($dueAmount > 0)

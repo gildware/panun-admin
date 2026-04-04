@@ -1,0 +1,665 @@
+<?php
+
+namespace Modules\BookingModule\Services;
+
+use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingDetailsAmount;
+use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BookingModule\Entities\SubscriptionBookingType;
+
+class BookingFinancialSettlementService
+{
+    public const OUTCOME_STANDARD = 'standard';
+
+    public const OUTCOME_VISIT_FEE_SPLIT = 'visit_fee_split';
+
+    public const OUTCOME_CUSTOM_COMMISSION = 'custom_commission';
+
+    public const OUTCOME_SCALED_TO_PAYMENTS = 'scaled_to_payments';
+
+    public const OUTCOME_VISIT_RETAINED_CANCEL = 'visit_retained_cancel';
+
+    /**
+     * Visit + optional closing “decided charges” model (cancel-after-visit vs complete-visit-only).
+     */
+    public static function outcomeUsesDecidedVisitCharges(?string $outcome): bool
+    {
+        $o = trim((string) ($outcome ?? ''));
+
+        return $o === self::OUTCOME_VISIT_RETAINED_CANCEL || $o === self::OUTCOME_VISIT_FEE_SPLIT;
+    }
+
+    /**
+     * Order matches admin UI: standard, then the five business scenarios.
+     */
+    public static function outcomeOptions(): array
+    {
+        return [
+            self::OUTCOME_STANDARD => translate('Bfs_label_standard'),
+            self::OUTCOME_VISIT_RETAINED_CANCEL => translate('Bfs_label_cancel_keep_visit'),
+            self::OUTCOME_VISIT_FEE_SPLIT => translate('Bfs_label_complete_visit_only'),
+            self::OUTCOME_CUSTOM_COMMISSION => translate('Bfs_label_custom_commission'),
+            self::OUTCOME_SCALED_TO_PAYMENTS => translate('Bfs_label_scaled_partial_or_bad_debt'),
+        ];
+    }
+
+    /**
+     * Admin “Special Scenario Bookings” tabs: query key => settlement_outcome (null = all non-empty special outcomes).
+     *
+     * @return array<string, string|null>
+     */
+    public static function specialScenarioListTabOutcomes(): array
+    {
+        return [
+            'all' => null,
+            'loss_making' => self::OUTCOME_SCALED_TO_PAYMENTS,
+            'cancelled_after_visit' => self::OUTCOME_VISIT_RETAINED_CANCEL,
+            'little_or_no_service' => self::OUTCOME_VISIT_FEE_SPLIT,
+            'custom_commission' => self::OUTCOME_CUSTOM_COMMISSION,
+        ];
+    }
+
+    public function defaultVisitCompanyPercent(): float
+    {
+        $cfg = (float) config('booking_financial.default_visit_fee_company_percent', 10);
+
+        return max(0.0, min(100.0, $cfg));
+    }
+
+    /**
+     * Gross company commission from standard tier rules (before admin promo deductions).
+     * Used to prefill “custom commission for this booking only” so admins start from the default then override.
+     */
+    public function defaultTierAdminCommissionForBooking(Booking $booking): float
+    {
+        if (SubscriptionBookingType::where('booking_id', $booking->id)->where('type', 'subscription')->exists()) {
+            return 0.0;
+        }
+
+        $base = calculate_commission_for_booking($booking, $booking->provider_id);
+
+        return round((float) ($base['commission'] ?? 0), 2);
+    }
+
+    /**
+     * Parent booking for repeat rows (settlement is stored on parent only).
+     */
+    public function mainBookingFor(Booking|BookingRepeat $booking): Booking
+    {
+        if ($booking instanceof BookingRepeat) {
+            return $booking->booking ?? Booking::query()->findOrFail($booking->booking_id);
+        }
+
+        return $booking;
+    }
+
+    public function usesNonStandardSettlement(Booking|BookingRepeat $booking): bool
+    {
+        $main = $this->mainBookingFor($booking);
+        $o = trim((string) ($main->settlement_outcome ?? ''));
+
+        return $o !== '' && $o !== self::OUTCOME_STANDARD;
+    }
+
+    /**
+     * @return array{adminCommission: float, adminCommissionWithoutCost: float}
+     */
+    public function calculateAdminCommissionDetails($booking, int|string|null $providerId = null): array
+    {
+        $main = $this->mainBookingFor($booking);
+        $outcome = trim((string) ($main->settlement_outcome ?? ''));
+        if ($outcome === '') {
+            $outcome = self::OUTCOME_STANDARD;
+        }
+        $config = is_array($main->settlement_config) ? $main->settlement_config : [];
+
+        if (isset($booking->booking_id)) {
+            $bookingId = $booking->booking_id;
+            $bookingDetailsAmounts = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->get();
+        } else {
+            $bookingId = $booking->id;
+            $bookingDetailsAmounts = BookingDetailsAmount::where('booking_id', $booking->id)->get();
+        }
+
+        $subscriptionType = SubscriptionBookingType::where('booking_id', $bookingId)->where('type', 'subscription')->first();
+        if ($subscriptionType) {
+            return [
+                'adminCommission' => 0.0,
+                'adminCommissionWithoutCost' => 0.0,
+            ];
+        }
+
+        $promotionalCostByAdmin = 0.0;
+        foreach ($bookingDetailsAmounts as $bookingDetailsAmount) {
+            $promotionalCostByAdmin += (float) ($bookingDetailsAmount['discount_by_admin'] ?? 0)
+                + (float) ($bookingDetailsAmount['coupon_discount_by_admin'] ?? 0)
+                + (float) ($bookingDetailsAmount['campaign_discount_by_admin'] ?? 0);
+        }
+
+        if ($outcome === self::OUTCOME_STANDARD) {
+            $baseResult = calculate_commission_for_booking($booking, $providerId);
+            $adminFull = (float) $baseResult['commission'];
+            $adminCommissionWithoutCost = max(0.0, $adminFull - $promotionalCostByAdmin);
+
+            return [
+                'adminCommission' => $adminFull,
+                'adminCommissionWithoutCost' => $adminCommissionWithoutCost,
+            ];
+        }
+
+        if (self::outcomeUsesDecidedVisitCharges($outcome)) {
+            $visitPaid = $this->resolveVisitChargesPaid($main, $config);
+            $closingPaid = $this->resolveClosingAmountPaid($main, $config);
+            $visitSplit = $this->resolveVisitLineCompanyProviderShares($booking, $visitPaid, $config, $providerId);
+            $adminVisit = $visitSplit[0];
+
+            $adminClosing = 0.0;
+            if ($closingPaid > 0) {
+                [$coClosing] = $this->resolveClosingCompanyProviderShares($booking, $closingPaid, $config, $providerId);
+                $adminClosing = $coClosing;
+            }
+
+            $adminCommission = round($adminVisit + $adminClosing, 2);
+            $adminCommissionWithoutCost = max(0.0, $adminCommission - $promotionalCostByAdmin);
+
+            return [
+                'adminCommission' => $adminCommission,
+                'adminCommissionWithoutCost' => $adminCommissionWithoutCost,
+            ];
+        }
+
+        if ($outcome === self::OUTCOME_CUSTOM_COMMISSION) {
+            $adminCommission = round((float) ($config['custom_admin_commission'] ?? 0), 2);
+            $adminCommission = max(0.0, $adminCommission);
+            $adminCommissionWithoutCost = max(0.0, $adminCommission - $promotionalCostByAdmin);
+
+            return [
+                'adminCommission' => $adminCommission,
+                'adminCommissionWithoutCost' => $adminCommissionWithoutCost,
+            ];
+        }
+
+        $baseResult = calculate_commission_for_booking($booking, $providerId);
+        $adminFull = (float) $baseResult['commission'];
+
+        if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS) {
+            $grandTotal = get_booking_total_amount($booking);
+            $paid = $this->totalPaidForMainBooking($main);
+            $ratio = ($grandTotal > 0) ? min(1.0, $paid / $grandTotal) : 0.0;
+            $adminFull = round($adminFull * $ratio, 2);
+        }
+
+        $adminCommissionWithoutCost = max(0.0, $adminFull - $promotionalCostByAdmin);
+
+        return [
+            'adminCommission' => $adminFull,
+            'adminCommissionWithoutCost' => $adminCommissionWithoutCost,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function buildPreview(Booking $booking): array
+    {
+        $outcome = trim((string) ($booking->settlement_outcome ?? ''));
+        if ($outcome === '') {
+            $outcome = self::OUTCOME_STANDARD;
+        }
+        $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+
+        $grandTotal = get_booking_total_amount($booking);
+        $paid = $this->totalPaidForMainBooking($booking);
+        $visitFee = round((float) ($booking->extra_fee ?? 0), 2);
+        $pct = $this->resolveVisitCompanyPercent($booking, $config);
+
+        $details = $this->calculateAdminCommissionDetails($booking, $booking->provider_id);
+
+        $retained = 0.0;
+        $visitPaidResolved = 0.0;
+        $closingPaidResolved = 0.0;
+        $visitProviderPct = $this->resolveVisitProviderPercent($booking, $config);
+        $adminFromVisit = 0.0;
+        $providerFromVisit = 0.0;
+        $adminFromClosing = 0.0;
+        $providerFromClosing = 0.0;
+
+        if (self::outcomeUsesDecidedVisitCharges($outcome)) {
+            $retained = $this->resolveRetainedVisitAmount($booking, $config);
+            $visitPaidResolved = $this->resolveVisitChargesPaid($booking, $config);
+            $closingPaidResolved = $this->resolveClosingAmountPaid($booking, $config);
+            [$adminFromVisit, $providerFromVisit] = $this->resolveVisitLineCompanyProviderShares(
+                $booking,
+                $visitPaidResolved,
+                $config,
+                $booking->provider_id
+            );
+
+            if ($closingPaidResolved > 0) {
+                [$adminFromClosing, $providerFromClosing] = $this->resolveClosingCompanyProviderShares(
+                    $booking,
+                    $closingPaidResolved,
+                    $config,
+                    $booking->provider_id
+                );
+            }
+        }
+
+        $refundHint = 0.0;
+        if (self::outcomeUsesDecidedVisitCharges($outcome)) {
+            $refundHint = round(max(0.0, $paid - $retained), 2);
+        }
+
+        $booking->loadMissing('booking_partial_payments');
+        $receivedSettlement = get_booking_received_and_settlement($booking);
+        $dueFromCustomer = get_booking_invoice_due_amount($booking);
+        $previewBookingTotal = round($grandTotal, 2);
+
+        if (self::outcomeUsesDecidedVisitCharges($outcome)) {
+            $previewBookingTotal = round($retained, 2);
+            $dueFromCustomer = max(0.0, round($retained - $paid, 2));
+        }
+
+        $scaledLossBlock = [];
+        if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS) {
+            [$sx, $sLoss, $sy, $sz] = $this->resolveScaledLossBreakdown($booking, $config, $grandTotal, $paid);
+            $scaledLossBlock = [
+                'scaled_loss_mode' => true,
+                'scaled_total_booking_amount' => round($grandTotal, 2),
+                'scaled_customer_paid_amount' => $sx,
+                'scaled_loss_amount' => $sLoss,
+                'scaled_loss_company_share' => $sy,
+                'scaled_loss_provider_share' => $sz,
+            ];
+        }
+
+        return array_merge([
+            'outcome' => $outcome,
+            'decided_visit_charges_mode' => self::outcomeUsesDecidedVisitCharges($outcome),
+            'booking_total' => $previewBookingTotal,
+            'visit_extra_fee' => $visitFee,
+            'collected_from_customer' => round($paid, 2),
+            'amount_received_by_company' => (float) $receivedSettlement['amount_received_by_company'],
+            'amount_received_by_provider' => (float) $receivedSettlement['amount_received_by_provider'],
+            'company_share' => (float) $receivedSettlement['company_share'],
+            'provider_share' => (float) $receivedSettlement['provider_share'],
+            'amount_to_collect_from_customer' => round(max(0.0, $dueFromCustomer), 2),
+            'refund_to_customer' => $refundHint,
+            'retained_on_cancel' => round($retained, 2),
+            'allow_complete_without_full_payment' => ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS),
+            'visit_fee_company_percent' => $pct,
+            'visit_charges_paid' => round($visitPaidResolved, 2),
+            'closing_amount_paid' => round($closingPaidResolved, 2),
+            'visit_fee_provider_percent' => $visitProviderPct,
+            'company_amount_from_visit' => round($adminFromVisit, 2),
+            'provider_amount_from_visit' => round($providerFromVisit, 2),
+            'company_amount_from_closing' => round($adminFromClosing, 2),
+            'provider_amount_from_closing' => round($providerFromClosing, 2),
+            'total_company_earning_applied' => self::outcomeUsesDecidedVisitCharges($outcome)
+                ? round($adminFromVisit + $adminFromClosing, 2)
+                : 0.0,
+            'total_provider_earning_applied' => self::outcomeUsesDecidedVisitCharges($outcome)
+                ? round($providerFromVisit + $providerFromClosing, 2)
+                : 0.0,
+            // Legacy keys (booking details card, exports)
+            'grand_total' => self::outcomeUsesDecidedVisitCharges($outcome) ? $previewBookingTotal : round($grandTotal, 2),
+            'total_paid' => round($paid, 2),
+            'visit_fee' => $visitFee,
+            'suggested_customer_refund' => $refundHint,
+            'company_commission' => round((float) $details['adminCommission'], 2),
+            'company_commission_after_promos' => (float) $receivedSettlement['company_share'],
+            'provider_earning' => (float) $receivedSettlement['provider_share'],
+            'custom_admin_commission' => (float) ($config['custom_admin_commission'] ?? 0),
+        ], $scaledLossBlock);
+    }
+
+    public function providerEarningBasisAmount(Booking $booking, float $grandTotal, float $paid): float
+    {
+        $outcome = trim((string) ($booking->settlement_outcome ?? ''));
+        if ($outcome === '') {
+            $outcome = self::OUTCOME_STANDARD;
+        }
+        $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+
+        if (self::outcomeUsesDecidedVisitCharges($outcome)) {
+            return max(0.0, $this->resolveRetainedVisitAmount($booking, $config));
+        }
+
+        if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS) {
+            return min($grandTotal, $paid);
+        }
+
+        return $grandTotal;
+    }
+
+    /**
+     * Loss-making (scaled) scenario: declared customer paid amount and optional loss split (company / provider).
+     *
+     * @return array{0: float, 1: float, 2: float, 3: float}  [customer_paid_capped, loss_total, loss_company, loss_provider]
+     */
+    public function resolveScaledLossBreakdown(Booking $booking, array $config, float $grandTotal, float $actualPaid): array
+    {
+        $grandTotal = max(0.0, round($grandTotal, 2));
+        $x = isset($config['scaled_customer_paid_amount']) && is_numeric($config['scaled_customer_paid_amount'])
+            ? round((float) $config['scaled_customer_paid_amount'], 2)
+            : round($actualPaid, 2);
+        $x = max(0.0, min($x, $grandTotal));
+        $lossTotal = round(max(0.0, $grandTotal - $x), 2);
+        $y = isset($config['scaled_loss_company_amount']) && is_numeric($config['scaled_loss_company_amount'])
+            ? round(max(0.0, (float) $config['scaled_loss_company_amount']), 2)
+            : 0.0;
+        $z = isset($config['scaled_loss_provider_amount']) && is_numeric($config['scaled_loss_provider_amount'])
+            ? round(max(0.0, (float) $config['scaled_loss_provider_amount']), 2)
+            : 0.0;
+
+        return [$x, $lossTotal, $y, $z];
+    }
+
+    /**
+     * Scaled / loss-making: company + provider loss shares must equal total loss (booking total − amount paid by customer).
+     */
+    public function validateScaledLossSplit(Booking $booking, array $config): ?string
+    {
+        $grand = round(max(0.0, get_booking_total_amount($booking)), 2);
+        $actualPaid = $this->totalPaidForMainBooking($booking);
+        [, $lossTotal, $y, $z] = $this->resolveScaledLossBreakdown($booking, $config, $grand, $actualPaid);
+        $sum = round($y + $z, 2);
+        $lossR = round($lossTotal, 2);
+        if (abs($sum - $lossR) > 0.02) {
+            return translate('Bfs_scaled_loss_split_must_equal_total_loss');
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{adminCommission: float, adminCommissionWithoutCost: float}  $commissionDetails
+     */
+    public function syncDetailsAmounts(Booking|BookingRepeat $booking, array $commissionDetails): void
+    {
+        $adminCommission = (float) $commissionDetails['adminCommission'];
+        $adminCommissionWithoutCost = (float) $commissionDetails['adminCommissionWithoutCost'];
+
+        $main = $this->mainBookingFor($booking);
+        $grandTotal = get_booking_total_amount($booking);
+        $paid = $this->totalPaidForMainBooking($main);
+        $providerBasis = $this->providerEarningBasisAmount($main, $grandTotal, $paid);
+        $providerEarning = round(max(0.0, $providerBasis - $adminCommissionWithoutCost), 2);
+
+        if (isset($booking->booking_id)) {
+            $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->first();
+        } else {
+            $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_id', $booking->id)->first();
+        }
+
+        if ($bookingAmountDetailAmount) {
+            $bookingAmountDetailAmount->admin_commission = $adminCommission;
+            $bookingAmountDetailAmount->provider_earning = $providerEarning;
+            $bookingAmountDetailAmount->save();
+        }
+    }
+
+    public function totalPaidForMainBooking(Booking $booking): float
+    {
+        $booking->loadMissing('booking_partial_payments');
+        $partials = $booking->booking_partial_payments;
+        if ($partials->isNotEmpty()) {
+            return round((float) $partials->sum('paid_amount'), 2);
+        }
+
+        if ((int) ($booking->is_paid ?? 0) === 1) {
+            return round((float) get_booking_total_amount($booking), 2);
+        }
+
+        return 0.0;
+    }
+
+    public function resolveVisitCompanyPercent(Booking $main, array $config): float
+    {
+        if (isset($config['visit_fee_company_percent']) && is_numeric($config['visit_fee_company_percent'])) {
+            return max(0.0, min(100.0, (float) $config['visit_fee_company_percent']));
+        }
+
+        return $this->defaultVisitCompanyPercent();
+    }
+
+    /**
+     * Cancel-after-visit: visit + closing cannot exceed the original booking total (refund / retain math).
+     * Job completed — visit or call-out mainly: admin-defined visit + closing is the new bill (not clipped to cart total).
+     */
+    private function decidedChargesCapToOriginalBookingTotal(Booking $main): bool
+    {
+        $o = trim((string) ($main->settlement_outcome ?? ''));
+
+        return $o !== self::OUTCOME_VISIT_FEE_SPLIT;
+    }
+
+    public function resolveVisitChargesPaid(Booking $main, array $config): float
+    {
+        $grand = round(max(0.0, get_booking_total_amount($main)), 2);
+        $visitDefault = max(0.0, round((float) ($main->extra_fee ?? 0), 2));
+        $capToGrand = $this->decidedChargesCapToOriginalBookingTotal($main);
+
+        if (isset($config['visit_charges_paid']) && is_numeric($config['visit_charges_paid'])) {
+            $v = round((float) $config['visit_charges_paid'], 2);
+
+            return $capToGrand ? max(0.0, min($v, $grand)) : max(0.0, $v);
+        }
+
+        $hasExplicitClosing = isset($config['closing_amount_paid']) && is_numeric($config['closing_amount_paid']);
+
+        if (isset($config['retained_visit_amount']) && is_numeric($config['retained_visit_amount']) && ! $hasExplicitClosing) {
+            $v = round((float) $config['retained_visit_amount'], 2);
+
+            return $capToGrand ? max(0.0, min($v, $grand)) : max(0.0, $v);
+        }
+
+        return max(0.0, $capToGrand ? min($visitDefault, $grand) : $visitDefault);
+    }
+
+    public function resolveClosingAmountPaid(Booking $main, array $config): float
+    {
+        $grand = round(max(0.0, get_booking_total_amount($main)), 2);
+        $capToGrand = $this->decidedChargesCapToOriginalBookingTotal($main);
+
+        if (! isset($config['closing_amount_paid']) || ! is_numeric($config['closing_amount_paid'])) {
+            return 0.0;
+        }
+        $c = round((float) $config['closing_amount_paid'], 2);
+
+        return $capToGrand ? max(0.0, min($c, $grand)) : max(0.0, $c);
+    }
+
+    /**
+     * Total decided amount (visit + optional closing). For cancel-after-visit, capped to original booking total.
+     */
+    public function resolveRetainedVisitAmount(Booking $main, array $config): float
+    {
+        $grand = round(max(0.0, get_booking_total_amount($main)), 2);
+        $visit = $this->resolveVisitChargesPaid($main, $config);
+        $closing = $this->resolveClosingAmountPaid($main, $config);
+        $total = round($visit + $closing, 2);
+        $capToGrand = $this->decidedChargesCapToOriginalBookingTotal($main);
+
+        if (! $capToGrand) {
+            return max(0.0, $total);
+        }
+
+        return max(0.0, min($total, $grand));
+    }
+
+    public function resolveVisitProviderPercent(Booking $main, array $config): float
+    {
+        if (isset($config['visit_fee_provider_percent']) && is_numeric($config['visit_fee_provider_percent'])) {
+            return max(0.0, min(100.0, (float) $config['visit_fee_provider_percent']));
+        }
+
+        $co = $this->resolveVisitCompanyPercent($main, $config);
+
+        return max(0.0, min(100.0, 100.0 - $co));
+    }
+
+    /**
+     * Company vs provider split on the visiting-charges line: default from visit_fee_company_percent;
+     * optional monetary overrides visit_company_amount / visit_provider_amount (same pattern as closing).
+     *
+     * @return array{0: float, 1: float}  [company_amount, provider_amount] on the visit line
+     */
+    public function resolveVisitLineCompanyProviderShares($booking, float $visitPaid, array $config, int|string|null $providerId): array
+    {
+        $visitPaid = max(0.0, round($visitPaid, 2));
+        if ($visitPaid <= 0) {
+            return [0.0, 0.0];
+        }
+
+        $main = $this->mainBookingFor($booking);
+
+        $hasCo = array_key_exists('visit_company_amount', $config) && is_numeric($config['visit_company_amount']);
+        $hasPr = array_key_exists('visit_provider_amount', $config) && is_numeric($config['visit_provider_amount']);
+
+        if (! $hasCo && ! $hasPr) {
+            $coPct = $this->resolveVisitCompanyPercent($main, $config);
+            $adminVisit = round($visitPaid * ($coPct / 100.0), 2);
+            $providerVisit = round(max(0.0, $visitPaid - $adminVisit), 2);
+
+            return [$adminVisit, $providerVisit];
+        }
+
+        $coPct = $this->resolveVisitCompanyPercent($main, $config);
+        $defaultCo = round($visitPaid * ($coPct / 100.0), 2);
+        $defaultPr = round(max(0.0, $visitPaid - $defaultCo), 2);
+
+        $co = $hasCo ? round((float) $config['visit_company_amount'], 2) : null;
+        $pr = $hasPr ? round((float) $config['visit_provider_amount'], 2) : null;
+
+        $co = $co !== null ? max(0.0, min($visitPaid, $co)) : null;
+        $pr = $pr !== null ? max(0.0, min($visitPaid, $pr)) : null;
+
+        if ($co === null && $pr === null) {
+            return [$defaultCo, $defaultPr];
+        }
+
+        if ($pr === null) {
+            $co = (float) $co;
+
+            return [round(min($co, $visitPaid), 2), round(max(0.0, $visitPaid - $co), 2)];
+        }
+
+        if ($co === null) {
+            $pr = (float) $pr;
+
+            return [round(max(0.0, $visitPaid - $pr), 2), round(min($pr, $visitPaid), 2)];
+        }
+
+        $co = (float) $co;
+        $pr = (float) $pr;
+        $sum = $co + $pr;
+        $eps = 0.01;
+        if ($sum > $visitPaid + $eps) {
+            $scale = $visitPaid / max($sum, 1e-9);
+            $co = round($co * $scale, 2);
+            $pr = round($visitPaid - $co, 2);
+        } elseif ($sum < $visitPaid - $eps) {
+            $pr = round($visitPaid - $co, 2);
+        }
+
+        return [
+            round($co, 2),
+            round($pr, 2),
+        ];
+    }
+
+    /**
+     * Company vs provider split on the closing amount: commission tiers when overrides are absent;
+     * optional monetary overrides in settlement_config (closing_company_share, closing_provider_share).
+     *
+     * @return array{0: float, 1: float}  [company_amount, provider_amount] on the closing line
+     */
+    public function resolveClosingCompanyProviderShares($booking, float $closingPaid, array $config, int|string|null $providerId): array
+    {
+        $closingPaid = max(0.0, round($closingPaid, 2));
+        if ($closingPaid <= 0) {
+            return [0.0, 0.0];
+        }
+
+        $setup = resolve_commission_tier_setup_for_booking($booking, $providerId);
+        $serviceGroup = [
+            'mode' => $setup['service']['mode'] ?? 'tiered',
+            'fixed_amount' => (float) ($setup['service']['fixed_amount'] ?? 0),
+            'tiers' => is_array($setup['service']['tiers'] ?? null) ? $setup['service']['tiers'] : [],
+        ];
+        $line = commission_calc_line_preview($closingPaid, $serviceGroup);
+        $tierCo = round((float) $line['admin_commission'], 2);
+        $tierPr = round((float) $line['provider_earning'], 2);
+
+        $hasCo = array_key_exists('closing_company_share', $config) && is_numeric($config['closing_company_share']);
+        $hasPr = array_key_exists('closing_provider_share', $config) && is_numeric($config['closing_provider_share']);
+
+        if (! $hasCo && ! $hasPr) {
+            return [$tierCo, $tierPr];
+        }
+
+        $co = $hasCo ? round((float) $config['closing_company_share'], 2) : null;
+        $pr = $hasPr ? round((float) $config['closing_provider_share'], 2) : null;
+
+        $co = $co !== null ? max(0.0, min($closingPaid, $co)) : null;
+        $pr = $pr !== null ? max(0.0, min($closingPaid, $pr)) : null;
+
+        if ($co === null && $pr === null) {
+            return [$tierCo, $tierPr];
+        }
+
+        if ($pr === null) {
+            $co = (float) $co;
+
+            return [round(min($co, $closingPaid), 2), round(max(0.0, $closingPaid - $co), 2)];
+        }
+
+        if ($co === null) {
+            $pr = (float) $pr;
+
+            return [round(max(0.0, $closingPaid - $pr), 2), round(min($pr, $closingPaid), 2)];
+        }
+
+        $co = (float) $co;
+        $pr = (float) $pr;
+        $sum = $co + $pr;
+        $eps = 0.01;
+        if ($sum > $closingPaid + $eps) {
+            $scale = $closingPaid / max($sum, 1e-9);
+            $co = round($co * $scale, 2);
+            $pr = round($closingPaid - $co, 2);
+        } elseif ($sum < $closingPaid - $eps) {
+            $pr = round($closingPaid - $co, 2);
+        }
+
+        return [
+            round(max(0.0, min($co, $closingPaid)), 2),
+            round(max(0.0, min($pr, $closingPaid)), 2),
+        ];
+    }
+
+    /**
+     * Persist config + snapshot on parent booking.
+     * Loss-making (scaled) bookings always allow marking complete without full payment.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function saveSettlement(Booking $booking, string $outcome, array $config, ?string $remarks): void
+    {
+        $booking->settlement_outcome = $outcome === self::OUTCOME_STANDARD ? null : $outcome;
+        $booking->settlement_config = $outcome === self::OUTCOME_STANDARD ? null : $config;
+        $booking->settlement_remarks = $remarks;
+        $booking->allow_complete_without_full_payment = ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS);
+
+        if ($outcome === self::OUTCOME_STANDARD) {
+            $booking->settlement_snapshot = null;
+            $booking->allow_complete_without_full_payment = false;
+            $booking->after_visit_cancel = false;
+        } else {
+            $booking->settlement_snapshot = $this->buildPreview($booking);
+        }
+
+        $booking->save();
+    }
+}

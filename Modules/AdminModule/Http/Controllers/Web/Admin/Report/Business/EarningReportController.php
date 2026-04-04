@@ -125,7 +125,7 @@ class EarningReportController extends Controller
 
         $amounts = $this->bookingDetailsAmount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })->orWhereHas('repeat', function ($subQuery) {
                 $subQuery->ofBookingStatus('completed');
             })
@@ -358,7 +358,7 @@ class EarningReportController extends Controller
 
         $bookings = self::filterQuery($this->booking, $request)
             ->with(['details_amounts'])
-            ->ofBookingStatus('completed')
+            ->forRevenueReporting()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -572,7 +572,7 @@ class EarningReportController extends Controller
 
         $query = $this->bookingDetailsAmount->where('admin_commission', '!=' , 0)
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             });
 
         $commissionEarning = $query->get();
@@ -733,7 +733,7 @@ class EarningReportController extends Controller
 
         $bookings = self::filterQuery($this->booking, $request)
             ->with(['details_amounts'])
-            ->ofBookingStatus('completed')
+            ->forRevenueReporting()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {

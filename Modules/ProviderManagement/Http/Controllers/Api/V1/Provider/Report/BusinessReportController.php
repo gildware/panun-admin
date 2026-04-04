@@ -132,7 +132,7 @@ class BusinessReportController extends Controller
 
         $amounts = $this->booking_details_amount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })->orWhereHas('repeat', function ($subQuery) {
                 $subQuery->ofBookingStatus('completed');
             })
@@ -349,7 +349,7 @@ class BusinessReportController extends Controller
         // Data for chart
         $amounts = $this->booking_details_amount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })->orWhereHas('repeat', function ($subQuery) {
                 $subQuery->ofBookingStatus('completed');
             })
@@ -464,7 +464,7 @@ class BusinessReportController extends Controller
         //Data for booking list
         $bookings = self::filterQuery($this->booking, $request)
             ->with('booking_details_amounts')
-            ->ofBookingStatus('completed')
+            ->forRevenueReporting()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
                 return $query->where(function ($query) use ($keys) {
@@ -570,7 +570,7 @@ class BusinessReportController extends Controller
             ->with(['booking'])
             ->whereHas('booking', function ($query) use ($request) {
                 self::filterQuery($query, $request)
-                    ->ofBookingStatus('completed')
+                    ->forRevenueReporting()
                     ->when($request->has('search'), function ($query) use ($request) {
                         $keys = explode(' ', $request['search']);
                         return $query->where(function ($query) use ($keys) {
@@ -588,7 +588,7 @@ class BusinessReportController extends Controller
         //** Chart & Card Data **
         $amounts = $this->booking_details_amount
             ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->ofBookingStatus('completed');
+                self::filterQuery($query, $request)->forRevenueReporting();
             })
             ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
                 $query->select(

@@ -135,7 +135,7 @@
 
     @if ($errors->any())
         @foreach($errors->all() as $error)
-        toastr.error('{{$error}}', Error, {
+        toastr.error(@json($error), @json(translate('error')), {
             CloseButton: true,
             ProgressBar: true
         });
@@ -316,13 +316,21 @@
         });
     });
 
-    setInterval(function () {
-        $.get({
-            url: '{{ route('admin.get_updated_data') }}',
-            dataType: 'json',
-            success: handleAdminUpdatedDataResponse,
-        });
-    }, 1000);
+    (function () {
+        var adminHeaderPollMs = 1000;
+        try {
+            if (/\/admin\/whatsapp\/conversations/i.test(window.location.pathname || '')) {
+                adminHeaderPollMs = 15000;
+            }
+        } catch (e) {}
+        setInterval(function () {
+            $.get({
+                url: '{{ route('admin.get_updated_data') }}',
+                dataType: 'json',
+                success: handleAdminUpdatedDataResponse,
+            });
+        }, adminHeaderPollMs);
+    })();
 
 
     $("#search-form__input").on("keyup", function () {

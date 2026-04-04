@@ -962,7 +962,7 @@
                 service_address_id: @json(old('service_address_id', request('service_address_id'))) || getUrlParameter('service_address_id'),
                 service_location: @json(old('service_location', request('service_location'))) || getUrlParameter('service_location') || 'customer',
                 service_schedule: @json(old('service_schedule', request('service_schedule'))) || getUrlParameter('service_schedule'),
-                advance_paid_amount: @json(old('advance_paid_amount', request('advance_paid_amount'))) || getUrlParameter('advance_paid_amount'),
+                advance_paid_amount: @json(old('advance_paid_amount', request('advance_paid_amount', 100))) || getUrlParameter('advance_paid_amount'),
                 assignee_id: @json(old('assignee_id', request('assignee_id'))) || getUrlParameter('assignee_id')
             };
 
@@ -1036,10 +1036,8 @@
             function updateDueBalance() {
                 var advance = parseFloat($('#advance-paid-amount').val()) || 0;
                 if (currentBillingTotal != null && currentBillingTotal >= 0) {
-                    if (advance > currentBillingTotal) {
-                        $('#advance-paid-amount').val(currentBillingTotal.toFixed(2));
-                        advance = currentBillingTotal;
-                    }
+                    // Do not mutate advance paid when billing total changes; default stays as entered (e.g. 100).
+                    // Submit-time validation still enforces advance <= total.
                     var due = Math.max(0, currentBillingTotal - advance);
                     $('#due-balance-amount').text(formatPrice(due));
                     $('#due-balance-row').toggle(due >= 0 && currentBillingTotal > 0).show();
