@@ -731,6 +731,7 @@
     var strReply = {!! json_encode(translate('Reply')) !!};
     var strReact = {!! json_encode(translate('WhatsApp_react')) !!};
     var strGoToReplied = {!! json_encode(translate('WhatsApp_go_to_replied_message')) !!};
+    var strOutNotSent = {!! json_encode(translate('WhatsApp_out_not_sent_to_user')) !!};
     var strCopy = {!! json_encode(translate('WhatsApp_copy')) !!};
     var strForward = {!! json_encode(translate('WhatsApp_forward')) !!};
     var strCopied = {!! json_encode(translate('WhatsApp_copied')) !!};
@@ -1565,6 +1566,10 @@
                     if (isOut && status === 'failed' && statusDetail) {
                         var safeDetail = statusDetail.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                         html += '<div class="fz-11 mt-1 opacity-90 text-break" style="max-width:100%">' + safeDetail + '</div>';
+                    }
+                    if (isOut && waMid === '' && status !== 'failed') {
+                        var safeNotSent = String(strOutNotSent || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        html += '<div class="fz-11 mt-1 opacity-90">' + safeNotSent + '</div>';
                     }
                     if (isDocument && mediaUrl) {
                         var docName = (body || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;');

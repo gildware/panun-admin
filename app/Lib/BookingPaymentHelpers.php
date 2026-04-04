@@ -1,10 +1,15 @@
 <?php
 
+use App\Lib\DiscountCostBearer;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingDetail;
+use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
+use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 
 if (!function_exists('get_booking_total_amount')) {
@@ -156,11 +161,34 @@ if (!function_exists('get_booking_non_commissionable_additional_charges_total'))
     }
 }
 
+if (!function_exists('booking_line_row_commission_uplift_when_no_bearer')) {
+    /**
+     * @deprecated Commission tiers use payable line totals; uplift is no longer applied for discount_cost_bearer "none".
+     *
+     * @param  BookingDetail|BookingRepeatDetails  $lineRow
+     */
+    function booking_line_row_commission_uplift_when_no_bearer(object $lineRow): float
+    {
+        return 0.0;
+    }
+}
+
+if (!function_exists('get_booking_commission_basis_uplift_for_none_bearer')) {
+    /**
+     * @deprecated Retained for call compatibility; always zero. See get_booking_commissionable_amount().
+     */
+    function get_booking_commission_basis_uplift_for_none_bearer($booking): float
+    {
+        return 0.0;
+    }
+}
+
 if (!function_exists('get_booking_commissionable_amount')) {
     /**
      * Service-side total for commission: grand total (incl. non–spare extras & fees) minus spare-parts extras.
      * Additional charge lines marked not commissionable are excluded from this basis.
      * Admin commission on this portion uses Business Model “Service charges” rules.
+     * Uses payable amounts after line discounts (including discount_cost_bearer "none"); no pre-discount uplift.
      */
     function get_booking_commissionable_amount($booking): float
     {
@@ -210,6 +238,48 @@ if (!function_exists('calculate_commission_for_booking')) {
             'spare_parts_amount' => $spareLineAmount,
             'commission' => $commission,
             'provider_earning' => $providerEarning,
+        ];
+    }
+}
+
+if (!function_exists('calculate_commission_for_admin_booking_create_preview')) {
+    /**
+     * Admin add-booking preview: mirrors calculate_commission_for_booking using cart-derived amounts
+     * (no persisted booking, extra_services, or details rows).
+     *
+     * @param  array{service: array, spare_parts: array}  $tierSetup
+     * @return array{company_commission: float, provider_commission: float}
+     */
+    function calculate_commission_for_admin_booking_create_preview(
+        float $grandTotal,
+        float $sparePartsAmount,
+        float $nonCommissionableAdditionalChargesAmount,
+        array $tierSetup
+    ): array {
+        $commissionableServiceAmount = round(max(0.0, $grandTotal - $sparePartsAmount - $nonCommissionableAdditionalChargesAmount), 2);
+
+        $serviceGroup = [
+            'mode' => $tierSetup['service']['mode'] ?? 'tiered',
+            'fixed_amount' => (float) ($tierSetup['service']['fixed_amount'] ?? 0),
+            'tiers' => is_array($tierSetup['service']['tiers'] ?? null) ? $tierSetup['service']['tiers'] : [],
+        ];
+        $spareGroup = [
+            'mode' => $tierSetup['spare_parts']['mode'] ?? 'tiered',
+            'fixed_amount' => (float) ($tierSetup['spare_parts']['fixed_amount'] ?? 0),
+            'tiers' => is_array($tierSetup['spare_parts']['tiers'] ?? null) ? $tierSetup['spare_parts']['tiers'] : [],
+        ];
+
+        $adminOnService = (float) (commission_calc_line_preview($commissionableServiceAmount, $serviceGroup)['admin_commission'] ?? 0);
+        $adminOnSpare = $sparePartsAmount > 0.0001
+            ? (float) (commission_calc_line_preview($sparePartsAmount, $spareGroup)['admin_commission'] ?? 0)
+            : 0.0;
+
+        $companyCommission = round($adminOnService + $adminOnSpare, 2);
+        $providerCommission = round(max(0.0, $grandTotal - $companyCommission), 2);
+
+        return [
+            'company_commission' => $companyCommission,
+            'provider_commission' => $providerCommission,
         ];
     }
 }

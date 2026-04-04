@@ -1903,6 +1903,7 @@
                                         <div class="mb-20">
                                             <h5 class="mb-2 fz-16">{{ translate('Normal Discount') }}</h5>
                                             <p class="fz-12">{{ translate('Set who bearers the cost of regular discounts Admin, Provider, or Both.') }}</p>
+                                            <p class="fz-12 text-muted mb-0">{{ translate('Promotional_setup_bearer_none_note') }}</p>
                                         </div>
 
                                         <?php ($DiscountCostData = $dataValues->where('key_name', 'discount_cost_bearer')->first()->live_values ?? null); ?>
@@ -1911,7 +1912,7 @@
                                             <h6 class="fw-normal mb-xxl-3 mb-2 text-dark fz-14">{{ translate('Discount Cost Bearer') }}</h6>
                                             <div class="bg-white cus-shadow rounded p-10">
                                                 <div class="row g-1">
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="admin-select__discount"
                                                                    name="discount[bearer]"
@@ -1919,7 +1920,7 @@
                                                             <label class="form-check-label text-dark fw-normal" for="admin-select__discount">{{ translate('Admin') }}</label>
                                                         </div>
                                                     </div>
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="provider-select__discount"
                                                                    name="discount[bearer]"
@@ -1927,7 +1928,7 @@
                                                             <label class="form-check-label text-dark fw-normal" for="provider-select__discount">{{ translate('Provider') }}</label>
                                                         </div>
                                                     </div>
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio"  id="both-select__discount"
                                                                    name="discount[bearer]"
@@ -1935,11 +1936,19 @@
                                                             <label class="form-check-label text-dark fw-normal" for="both-select__discount">{{ translate('Both') }}</label>
                                                         </div>
                                                     </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <div class="form-check mb-0 form--check">
+                                                            <input class="form-check-input" type="radio" id="none-select__discount"
+                                                                   name="discount[bearer]"
+                                                                   value="none" {{isset($DiscountCostData) && ($DiscountCostData['bearer'] ?? '') == 'none' ? 'checked' : ''}}>
+                                                            <label class="form-check-label text-dark fw-normal" for="none-select__discount">{{ translate('Discount_bearer_none_short') }}</label>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="card2 rounded p-20 mb-20 {{isset($DiscountCostData) && ($DiscountCostData['bearer'] != 'admin' && $DiscountCostData['bearer'] != 'provider') ? '' : 'd-none'}}" id="bearer-section__discount">
+                                        <div class="card2 rounded p-20 mb-20 {{isset($DiscountCostData) && ($DiscountCostData['bearer'] ?? '') == 'both' ? '' : 'd-none'}}" id="bearer-section__discount">
                                             <div class="row g-3">
                                                 <div class="col-lg-6 col-md-6 message-textarea">
                                                     <div class="mb-1 text-dark d-flex align-items-center gap-1">
@@ -1995,7 +2004,7 @@
                                             <h6 class="fw-normal mb-xxl-3 mb-2 text-dark fz-14">{{ translate('Discount Cost Bearer') }}</h6>
                                             <div class="bg-white cus-shadow rounded p-10">
                                                 <div class="row g-1">
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="admin-select__campaign"
                                                                    name="campaign[bearer]"
@@ -2003,7 +2012,7 @@
                                                             <label class="form-check-label text-dark fw-normal" for="admin-select__campaign">{{ translate('Admin') }}</label>
                                                         </div>
                                                     </div>
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="provider-select__campaign"
                                                                    name="campaign[bearer]"
@@ -2011,7 +2020,7 @@
                                                             <label class="form-check-label text-dark fw-normal" for="provider-select__campaign">{{ translate('Provider') }}</label>
                                                         </div>
                                                     </div>
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="both-select__campaign"
                                                                    name="campaign[bearer]"
@@ -2019,11 +2028,19 @@
                                                             <label class="form-check-label text-dark fw-normal" for="both-select__campaign">{{ translate('Both') }}</label>
                                                         </div>
                                                     </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <div class="form-check mb-0 form--check">
+                                                            <input class="form-check-input" type="radio" id="none-select__campaign"
+                                                                   name="campaign[bearer]"
+                                                                   value="none" {{isset($campaignCostData) && ($campaignCostData['bearer'] ?? '') == 'none' ? 'checked' : ''}}>
+                                                            <label class="form-check-label text-dark fw-normal" for="none-select__campaign">{{ translate('Discount_bearer_none_short') }}</label>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="card2 rounded p-20 mb-20 {{isset($campaignCostData) && ($campaignCostData['bearer'] != 'admin' && $campaignCostData['bearer'] != 'provider') ? '' : 'd-none'}}" id="bearer-section__campaign">
+                                        <div class="card2 rounded p-20 mb-20 {{isset($campaignCostData) && ($campaignCostData['bearer'] ?? '') == 'both' ? '' : 'd-none'}}" id="bearer-section__campaign">
                                             <div class="row g-3">
                                                 <div class="col-lg-6 col-md-6 message-textarea">
                                                     <div class="mb-1 text-dark d-flex align-items-center gap-1">
@@ -2079,7 +2096,7 @@
                                             <h6 class="fw-normal mb-xxl-3 mb-2 text-dark fz-14">{{ translate('Discount Cost Bearer') }}</h6>
                                             <div class="bg-white cus-shadow rounded p-10">
                                                 <div class="row g-1">
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="admin-select__coupon"
                                                                    name="coupon[bearer]"
@@ -2087,7 +2104,7 @@
                                                             <label class="form-check-label text-dark fw-normal" for="admin-select__coupon">{{ translate('Admin') }}</label>
                                                         </div>
                                                     </div>
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="provider-select__coupon"
                                                                    name="coupon[bearer]"
@@ -2095,7 +2112,7 @@
                                                             <label class="form-check-label text-dark fw-normal" for="provider-select__coupon">{{ translate('Provider') }}</label>
                                                         </div>
                                                     </div>
-                                                    <div class="col-sm-6 col-lg-4">
+                                                    <div class="col-6 col-md-3">
                                                         <div class="form-check mb-0 form--check">
                                                             <input class="form-check-input" type="radio" id="both-select__coupon"
                                                                    name="coupon[bearer]"
@@ -2103,10 +2120,18 @@
                                                             <label class="form-check-label text-dark fw-normal" for="both-select__coupon">{{ translate('Both') }}</label>
                                                         </div>
                                                     </div>
+                                                    <div class="col-6 col-md-3">
+                                                        <div class="form-check mb-0 form--check">
+                                                            <input class="form-check-input" type="radio" id="none-select__coupon"
+                                                                   name="coupon[bearer]"
+                                                                   value="none" {{isset($couponDiscountData) && ($couponDiscountData['bearer'] ?? '') == 'none' ? 'checked' : ''}}>
+                                                            <label class="form-check-label text-dark fw-normal" for="none-select__coupon">{{ translate('Discount_bearer_none_short') }}</label>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="card2 rounded p-20 mb-20 {{isset($couponDiscountData) && ($couponDiscountData['bearer'] != 'admin' && $couponDiscountData['bearer'] != 'provider') ? '' : 'd-none'}}" id="bearer-section__coupon">
+                                        <div class="card2 rounded p-20 mb-20 {{isset($couponDiscountData) && ($couponDiscountData['bearer'] ?? '') == 'both' ? '' : 'd-none'}}" id="bearer-section__coupon">
                                             <div class="row g-3">
                                                 <div class="col-lg-6 col-md-6 message-textarea">
                                                     <div class="mb-1 text-dark d-flex align-items-center gap-1">
@@ -3069,7 +3094,7 @@
                 coupon: !$("#bearer-section__coupon").hasClass('d-none')
             };
 
-            $("#admin-select__discount, #provider-select__discount").on('click', function (e) {
+            $("#admin-select__discount, #provider-select__discount, #none-select__discount").on('click', function (e) {
                 $("#bearer-section__discount").addClass('d-none');
             })
 
@@ -3089,7 +3114,7 @@
                 }
             });
 
-            $("#admin-select__campaign, #provider-select__campaign").on('click', function (e) {
+            $("#admin-select__campaign, #provider-select__campaign, #none-select__campaign").on('click', function (e) {
                 $("#bearer-section__campaign").addClass('d-none');
             })
 
@@ -3109,7 +3134,7 @@
                 }
             });
 
-            $("#admin-select__coupon, #provider-select__coupon").on('click', function (e) {
+            $("#admin-select__coupon, #provider-select__coupon, #none-select__coupon").on('click', function (e) {
                 $("#bearer-section__coupon").addClass('d-none');
             })
 

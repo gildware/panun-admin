@@ -2,6 +2,7 @@
 
 namespace Modules\BookingModule\Http\Controllers\Web\Admin;
 
+use App\Lib\DiscountCostBearer;
 use Box\Spout\Common\Exception\InvalidArgumentException;
 use Box\Spout\Common\Exception\IOException;
 use Box\Spout\Common\Exception\UnsupportedTypeException;
@@ -577,6 +578,291 @@ class BookingController extends Controller
     }
 
     /**
+     * @return list<array{service_id: string, variant_key: string, quantity: int}>
+     */
+    protected function parseBookingCreateCartLinesFromRequest(Request $request): array
+    {
+        $lines = [];
+        $raw = $request->input('booking_create_cart_json');
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $item) {
+                    if (! is_array($item)) {
+                        continue;
+                    }
+                    $sid = $item['service_id'] ?? null;
+                    $vk = $item['variant_key'] ?? null;
+                    $qty = isset($item['quantity']) ? (int) $item['quantity'] : 1;
+                    if ($sid && $vk && $qty >= 1) {
+                        $lineOut = [
+                            'service_id' => (string) $sid,
+                            'variant_key' => (string) $vk,
+                            'quantity' => max(1, $qty),
+                            'line_discount' => max(0.0, (float) ($item['line_discount'] ?? 0)),
+                        ];
+                        if (isset($item['unit_price']) && is_numeric($item['unit_price']) && (float) $item['unit_price'] > 0) {
+                            $lineOut['unit_price'] = round((float) $item['unit_price'], 4);
+                        }
+                        $lineOut['line_discount_cost_bearer'] = DiscountCostBearer::normalize($item['line_discount_cost_bearer'] ?? null);
+                        $lines[] = $lineOut;
+                    }
+                }
+            }
+        }
+        if ($lines === [] && $request->filled('service_id') && $request->filled('variant_key')) {
+            $qty = (int) $request->input('service_quantity', 1);
+            $lines[] = [
+                'service_id' => (string) $request->input('service_id'),
+                'variant_key' => (string) $request->input('variant_key'),
+                'quantity' => max(1, $qty),
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @return list<array{title: string, details: ?string, type: string, quantity: int, price: float, discount: float}>
+     */
+    protected function parseBookingCreateExtraServicesFromRequest(Request $request): array
+    {
+        $out = [];
+        $raw = $request->input('booking_create_extra_services_json');
+        if (! is_string($raw) || $raw === '') {
+            return $out;
+        }
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            return $out;
+        }
+        foreach ($decoded as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $title = trim((string) ($row['title'] ?? ''));
+            if ($title === '') {
+                continue;
+            }
+            $type = $row['type'] ?? BookingExtraService::TYPE_SERVICE;
+            $type = $type === BookingExtraService::TYPE_SPARE_PART ? BookingExtraService::TYPE_SPARE_PART : BookingExtraService::TYPE_SERVICE;
+            $qty = max(1, (int) ($row['quantity'] ?? 1));
+            $price = max(0.0, (float) ($row['price'] ?? 0));
+            $discount = max(0.0, (float) ($row['discount'] ?? 0));
+            $details = isset($row['details']) ? (string) $row['details'] : null;
+            if ($details !== null && mb_strlen($details) > 2000) {
+                $details = mb_substr($details, 0, 2000);
+            }
+            if (mb_strlen($title) > 255) {
+                $title = mb_substr($title, 0, 255);
+            }
+            $out[] = [
+                'title' => $title,
+                'details' => $details,
+                'type' => $type,
+                'quantity' => $qty,
+                'price' => $price,
+                'discount' => $discount,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array{service_id: string, variant_key: string, quantity: int}>  $lines
+     * @param  array<string, float>  $acOverrides
+     * @param  list<array{title: string, details: ?string, type: string, quantity: int, price: float, discount: float}>  $extrasInput
+     * @return array{
+     *   lines: list<array<string, mixed>>,
+     *   sum_line_totals: float,
+     *   sum_tax: float,
+     *   sum_basic_discount: float,
+     *   sum_campaign_discount: float,
+     *   extra_fee: float,
+     *   additional_charge_lines: list<array<string, mixed>>,
+     *   extras: list<array<string, mixed>>,
+     *   extras_total: float,
+     *   grand_total: float
+     * }
+     */
+    protected function buildAdminCreateBookingCartPricing(
+        string $zoneId,
+        string $providerId,
+        array $lines,
+        array $acOverrides,
+        array $extrasInput
+    ): array {
+        if ($lines === []) {
+            throw ValidationException::withMessages([
+                'service_id' => [translate('Select_Service')],
+            ]);
+        }
+
+        $lineCalcs = [];
+        $cartObjects = [];
+
+        foreach ($lines as $line) {
+            $serviceId = $line['service_id'];
+            $variantKey = $line['variant_key'];
+            $quantity = max(1, (int) $line['quantity']);
+
+            $service = Service::active()
+                ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
+                ->where('id', $serviceId)
+                ->first();
+
+            $variation = Variation::firstForBookingZone(
+                $serviceId,
+                $variantKey,
+                $zoneId
+            );
+
+            if (! $service || ! $variation) {
+                throw ValidationException::withMessages([
+                    'booking_create_cart_json' => [translate('Invalid service')],
+                ]);
+            }
+
+            $isSubscribed = SubscribedService::query()
+                ->where('provider_id', $providerId)
+                ->where('sub_category_id', $service->sub_category_id)
+                ->where('is_subscribed', 1)
+                ->exists();
+
+            if (! $isSubscribed) {
+                throw ValidationException::withMessages([
+                    'booking_create_cart_json' => [translate('Provider is not subscribed to this category')],
+                ]);
+            }
+
+            $catalogUnit = (float) ($variation->price ?? 0);
+            $customUnit = isset($line['unit_price']) && is_numeric($line['unit_price']) && (float) $line['unit_price'] > 0
+                ? round((float) $line['unit_price'], 4)
+                : null;
+            $unitPrice = $customUnit ?? $catalogUnit;
+            $manualLineDiscount = max(0.0, (float) ($line['line_discount'] ?? 0));
+            $useManualPricing = ($manualLineDiscount > 0.0001)
+                || ($customUnit !== null && abs($customUnit - $catalogUnit) > 0.0001);
+
+            if ($unitPrice <= 0) {
+                throw ValidationException::withMessages([
+                    'booking_create_cart_json' => [translate('Invalid service')],
+                ]);
+            }
+
+            if ($useManualPricing) {
+                $subtotal = round($unitPrice * $quantity, 2);
+                $manualDiscApplied = min($manualLineDiscount, $subtotal);
+                $basisAfterDisc = round($subtotal - $manualDiscApplied, 2);
+                $taxPct = effective_service_tax_percentage($service);
+                $tax = round(($basisAfterDisc * $taxPct) / 100, 2);
+                $basicDiscount = $manualDiscApplied;
+                $campaignDiscount = 0.0;
+                $lineTotalBeforeAc = round($basisAfterDisc + $tax, 2);
+            } else {
+                $variationPrice = $catalogUnit;
+                $basicDiscount = basic_discount_calculation($service, $variationPrice * $quantity);
+                $campaignDiscount = campaign_discount_calculation($service, $variationPrice * $quantity);
+                $subtotal = round($variationPrice * $quantity, 2);
+                $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
+                $tax = round((($variationPrice * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
+                $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
+                $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
+                $lineTotalBeforeAc = round($subtotal - $basicDiscount - $campaignDiscount + $tax, 2);
+            }
+
+            $lineCalcs[] = [
+                'service' => $service,
+                'variation' => $variation,
+                'service_id' => $service->id,
+                'variant_key' => $variantKey,
+                'quantity' => $quantity,
+                'service_name' => $service->name ?? '',
+                'variant_label' => $variation->variant ?? $variation->variant_key,
+                'service_cost_unit' => round($unitPrice, 4),
+                'basic_discount' => $basicDiscount,
+                'campaign_discount' => $campaignDiscount,
+                'tax_amount' => $tax,
+                'line_total_before_ac' => $lineTotalBeforeAc,
+                'input_unit_price' => ($customUnit !== null && abs($customUnit - $catalogUnit) > 0.0001) ? $customUnit : null,
+                'input_line_discount' => $manualLineDiscount,
+                'line_discount_cost_bearer' => DiscountCostBearer::normalize($line['line_discount_cost_bearer'] ?? null),
+            ];
+
+            $o = new \stdClass();
+            $o->service_id = $service->id;
+            $o->total_cost = $lineTotalBeforeAc;
+            $o->tax_amount = $tax;
+            $o->service = $service;
+            $cartObjects[] = $o;
+        }
+
+        $acComputed = compute_additional_charges_for_cart_items(collect($cartObjects));
+        $mergedLines = merge_additional_charge_line_amount_overrides($acComputed['lines'], $acOverrides);
+        $finalAc = finalize_additional_charge_lines($mergedLines);
+        $extraFee = $finalAc['total'];
+
+        $sumLineTotals = round(array_sum(array_column($lineCalcs, 'line_total_before_ac')), 2);
+        $sumTax = round(array_sum(array_column($lineCalcs, 'tax_amount')), 2);
+        $sumBasic = round(array_sum(array_column($lineCalcs, 'basic_discount')), 2);
+        $sumCampaign = round(array_sum(array_column($lineCalcs, 'campaign_discount')), 2);
+
+        $extrasNormalized = [];
+        $extrasTotal = 0.0;
+        foreach ($extrasInput as $ex) {
+            $total = max(0, round(($ex['quantity'] * $ex['price']) - $ex['discount'], 2));
+            $extrasNormalized[] = array_merge($ex, ['total' => $total]);
+            $extrasTotal = round($extrasTotal + $total, 2);
+        }
+
+        $grandTotal = round($sumLineTotals + $extraFee + $extrasTotal, 2);
+
+        return [
+            'lines' => $lineCalcs,
+            'sum_line_totals' => $sumLineTotals,
+            'sum_tax' => $sumTax,
+            'sum_basic_discount' => $sumBasic,
+            'sum_campaign_discount' => $sumCampaign,
+            'extra_fee' => $extraFee,
+            'additional_charge_lines' => $finalAc['lines'],
+            'extras' => $extrasNormalized,
+            'extras_total' => $extrasTotal,
+            'grand_total' => $grandTotal,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $cartPricing  Output of buildAdminCreateBookingCartPricing()
+     * @return array{company_commission: float, provider_commission: float}
+     */
+    protected function computeAdminCreateBookingCommissionPreview(array $cartPricing, string $providerId, Service $firstLineService): array
+    {
+        $grandTotal = round((float) ($cartPricing['grand_total'] ?? 0), 2);
+        $sparePartsTotal = 0.0;
+        foreach ($cartPricing['extras'] ?? [] as $ex) {
+            if (($ex['type'] ?? '') === BookingExtraService::TYPE_SPARE_PART) {
+                $sparePartsTotal = round($sparePartsTotal + (float) ($ex['total'] ?? 0), 2);
+            }
+        }
+        $nonCommAc = 0.0;
+        foreach ($cartPricing['additional_charge_lines'] ?? [] as $row) {
+            $commissionable = $row['commissionable'] ?? true;
+            if ($commissionable === false || $commissionable === 0 || $commissionable === '0') {
+                $nonCommAc = round($nonCommAc + (float) ($row['amount'] ?? 0), 2);
+            }
+        }
+        $tierSetup = resolve_commission_tier_setup_for_create_preview($providerId, $firstLineService);
+
+        return calculate_commission_for_admin_booking_create_preview(
+            $grandTotal,
+            $sparePartsTotal,
+            $nonCommAc,
+            $tierSetup
+        );
+    }
+
+    /**
      * Preview booking before final submission
      *
      * @param Request $request
@@ -619,6 +905,9 @@ class BookingController extends Controller
                 'reopen_source_booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
                 'ac_line_amount' => ['nullable', 'array'],
                 'ac_line_amount.*' => ['nullable', 'numeric', 'min:0'],
+                'booking_create_cart_json' => ['nullable', 'string'],
+                'booking_create_extra_services_json' => ['nullable', 'string'],
+                'service_quantity' => ['nullable', 'integer', 'min:1'],
             ], [
                 'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
             ]);
@@ -637,60 +926,100 @@ class BookingController extends Controller
             $data['ac_line_amount']
         );
 
-        // Normalize booking source for display
-        $data['booking_source'] = strtolower($data['booking_source']);
+        // Keep original booking_source casing for round-trip to create (select options match Source names).
 
         // Load related data for preview
         $customer = User::find($data['customer_id']);
         $provider = $this->provider->with('owner')->find($data['provider_id']);
         $zone = $this->zone->find($data['zone_id']);
-        $category = $this->category->find($data['category_id']);
-        $subCategory = $this->category->find($data['sub_category_id']);
-        $service = Service::find($data['service_id']);
         $address = $data['service_address_id'] ? $this->userAddress->find($data['service_address_id']) : null;
         $assignee = $data['assignee_id'] ? User::find($data['assignee_id']) : null;
-        $variation = Variation::firstForBookingZone(
-            (string) $data['service_id'],
-            (string) $data['variant_key'],
-            (string) $data['zone_id']
-        );
 
-        $totalBilling = 0;
-        $dueBalance = 0;
-        $additionalChargeLines = [];
-        if ($variation && $service) {
-            $serviceForCalc = Service::active()
-                ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
-                ->find($data['service_id']);
-            if ($serviceForCalc) {
-                $quantity = 1;
-                $variationPrice = $variation->price ?? 0;
-                $basicDiscount = basic_discount_calculation($serviceForCalc, $variationPrice * $quantity);
-                $campaignDiscount = campaign_discount_calculation($serviceForCalc, $variationPrice * $quantity);
-                $subtotal = round($variationPrice * $quantity, 2);
-                $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-                $tax = round((($variationPrice * $quantity - $applicableDiscount) * effective_service_tax_percentage($serviceForCalc)) / 100, 2);
-                $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
-                $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
-                $basisExTax = round($subtotal - $basicDiscount - $campaignDiscount, 2);
-                $computed = compute_additional_charges_for_service_basis($basisExTax, $serviceForCalc);
-                $mergedLines = merge_additional_charge_line_amount_overrides($computed['lines'], $acOverrides);
-                $finalAc = finalize_additional_charge_lines($mergedLines);
-                $extraFee = $finalAc['total'];
-                $additionalChargeLines = $finalAc['lines'];
-                $data['extra_fee'] = $extraFee;
-                $totalBilling = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
-                $advance = (float) ($data['advance_paid_amount'] ?? 0);
-                $dueBalance = max(0, $totalBilling - $advance);
-            }
+        $cartLines = $this->parseBookingCreateCartLinesFromRequest($request);
+        $extrasParsed = $this->parseBookingCreateExtraServicesFromRequest($request);
+
+        try {
+            $cartPricing = $this->buildAdminCreateBookingCartPricing(
+                (string) $data['zone_id'],
+                (string) $data['provider_id'],
+                $cartLines,
+                $acOverrides,
+                $extrasParsed
+            );
+        } catch (ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
         }
+
+        $firstLine = $cartPricing['lines'][0];
+        /** @var Service $firstService */
+        $firstService = $firstLine['service'];
+        $category = $this->category->find($firstService->category_id);
+        $subCategory = $this->category->find($firstService->sub_category_id);
+        $service = $firstService;
+        $variation = $firstLine['variation'];
+
+        $data['category_id'] = (string) $firstService->category_id;
+        $data['sub_category_id'] = (string) $firstService->sub_category_id;
+        $data['service_id'] = (string) $firstLine['service_id'];
+        $data['variant_key'] = (string) $firstLine['variant_key'];
+
+        $data['booking_create_cart_json'] = json_encode(array_map(static function ($l) {
+            $var = $l['variation'] ?? null;
+            $cat = round((float) ($var->price ?? 0), 4);
+            $svc = $l['service'] ?? null;
+            $row = [
+                'service_id' => $l['service_id'],
+                'variant_key' => $l['variant_key'],
+                'quantity' => $l['quantity'],
+                'service_name' => $l['service_name'] ?? '',
+                'variant_label' => $l['variant_label'] ?? '',
+            ];
+            if ($svc && ! empty($svc->category_id)) {
+                $row['category_id'] = (string) $svc->category_id;
+            }
+            if ($svc && ! empty($svc->sub_category_id)) {
+                $row['sub_category_id'] = (string) $svc->sub_category_id;
+            }
+            if ($cat > 0) {
+                $row['catalog_unit_price'] = $cat;
+            }
+            if (! empty($l['input_unit_price'])) {
+                $row['unit_price'] = $l['input_unit_price'];
+            }
+            if (($l['input_line_discount'] ?? 0) > 0.0001) {
+                $row['line_discount'] = $l['input_line_discount'];
+            }
+            $row['line_discount_cost_bearer'] = DiscountCostBearer::normalize($l['line_discount_cost_bearer'] ?? null);
+
+            return $row;
+        }, $cartPricing['lines']));
+
+        $data['booking_create_extra_services_json'] = $cartPricing['extras'] === []
+            ? ''
+            : json_encode($cartPricing['extras']);
+
+        $data['extra_fee'] = $cartPricing['extra_fee'];
+        $totalBilling = $cartPricing['grand_total'];
+        $additionalChargeLines = $cartPricing['additional_charge_lines'];
+        $advance = (float) ($data['advance_paid_amount'] ?? 0);
+        $dueBalance = max(0, $totalBilling - $advance);
+
+        $createCartPreviewLines = $cartPricing['lines'];
+        $createCartPreviewExtras = $cartPricing['extras'];
+        $createCartHasTax = $cartPricing['sum_tax'] > 0.0001;
+
+        $commissionPreview = $this->computeAdminCreateBookingCommissionPreview(
+            $cartPricing,
+            (string) $data['provider_id'],
+            $firstService
+        );
 
         $view = !empty($data['lead_id'])
             ? 'bookingmodule::admin.booking.preview-from-lead'
             : 'bookingmodule::admin.booking.preview';
 
         return view($view,
-            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance', 'additionalChargeLines'));
+            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance', 'additionalChargeLines', 'createCartPreviewLines', 'createCartPreviewExtras', 'createCartHasTax', 'commissionPreview'));
     }
 
     /**
@@ -743,6 +1072,9 @@ class BookingController extends Controller
             'reopen_source_booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
             'ac_line_amount' => ['nullable', 'array'],
             'ac_line_amount.*' => ['nullable', 'numeric', 'min:0'],
+            'booking_create_cart_json' => ['nullable', 'string'],
+            'booking_create_extra_services_json' => ['nullable', 'string'],
+            'service_quantity' => ['nullable', 'integer', 'min:1'],
         ], [
             'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
         ]);
@@ -759,6 +1091,25 @@ class BookingController extends Controller
 
         // Normalize booking source
         $data['booking_source'] = strtolower($data['booking_source']);
+
+        $cartLines = $this->parseBookingCreateCartLinesFromRequest($request);
+        $extrasParsed = $this->parseBookingCreateExtraServicesFromRequest($request);
+        $cartPricing = $this->buildAdminCreateBookingCartPricing(
+            (string) $data['zone_id'],
+            (string) $data['provider_id'],
+            $cartLines,
+            $acOverrides,
+            $extrasParsed
+        );
+
+        /** @var Service $firstService */
+        $firstService = $cartPricing['lines'][0]['service'];
+        $data['category_id'] = (string) $firstService->category_id;
+        $data['sub_category_id'] = (string) $firstService->sub_category_id;
+        $data['service_id'] = (string) $cartPricing['lines'][0]['service_id'];
+        $data['variant_key'] = (string) $cartPricing['lines'][0]['variant_key'];
+
+        $totalCost = $cartPricing['grand_total'];
 
         $reopenSourceId = $data['reopen_source_booking_id'] ?? null;
         $reopenDraft = $reopenSourceId ? session('reopen_new_booking_draft') : null;
@@ -788,51 +1139,15 @@ class BookingController extends Controller
         DB::beginTransaction();
 
         try {
-            // Get service and variation for price calculation
-            $service = Service::active()
-                ->with(['category.category_discount', 'category.campaign_discount', 'subCategory', 'service_discount'])
-                ->find($data['service_id']);
-            
-            $variation = Variation::firstForBookingZone(
-                (string) $data['service_id'],
-                (string) $data['variant_key'],
-                (string) $data['zone_id']
-            );
-
-            if (!$service || !$variation) {
-                throw new \Exception('Service or variation not found');
-            }
-
-            // Calculate pricing
-            $quantity = 1; // Default quantity for admin-created bookings
-            $variationPrice = $variation->price ?? 0;
-            
-            if ($variationPrice <= 0) {
-                throw new \Exception('Variation price must be greater than 0');
-            }
-            $basicDiscount = basic_discount_calculation($service, $variationPrice * $quantity);
-            $campaignDiscount = campaign_discount_calculation($service, $variationPrice * $quantity);
-            $subtotal = round($variationPrice * $quantity, 2);
-            
-            $applicableDiscount = ($campaignDiscount >= $basicDiscount) ? $campaignDiscount : $basicDiscount;
-            $tax = round((($variationPrice * $quantity - $applicableDiscount) * effective_service_tax_percentage($service)) / 100, 2);
-            
-            $basicDiscount = $basicDiscount > $campaignDiscount ? $basicDiscount : 0;
-            $campaignDiscount = $campaignDiscount >= $basicDiscount ? $campaignDiscount : 0;
-
-            $basisExTax = round($subtotal - $basicDiscount - $campaignDiscount, 2);
-            $computed = compute_additional_charges_for_service_basis($basisExTax, $service);
-            $mergedLines = merge_additional_charge_line_amount_overrides($computed['lines'], $acOverrides);
-            $finalAc = finalize_additional_charge_lines($mergedLines);
-            $extraFee = $finalAc['total'];
-            $totalCost = round($subtotal - $basicDiscount - $campaignDiscount + $tax + $extraFee, 2);
-
             $advanceAmount = (float) ($data['advance_paid_amount'] ?? 0);
             if ($advanceAmount > $totalCost) {
                 throw ValidationException::withMessages([
                     'advance_paid_amount' => [translate('Advance_amount_cannot_exceed_total_billing_amount')],
                 ]);
             }
+
+            $extraFee = $cartPricing['extra_fee'];
+            $finalAcLines = $cartPricing['additional_charge_lines'];
 
             // Create booking
             $booking = new Booking();
@@ -852,16 +1167,16 @@ class BookingController extends Controller
             $booking->service_description = $data['service_description'] ?? null;
             $booking->booking_otp = rand(100000, 999999);
             $booking->extra_fee = $extraFee;
-            $booking->additional_charges_breakdown = count($finalAc['lines']) ? $finalAc['lines'] : null;
+            $booking->additional_charges_breakdown = count($finalAcLines) ? $finalAcLines : null;
             $booking->lead_id = $data['lead_id'] ?? null;
-            
-            // Set booking totals (total_booking_amount excludes extra_fee; get_booking_total_amount() adds it)
-            $booking->total_booking_amount = $totalCost - $extraFee;
-            $booking->total_tax_amount = $tax;
-            $booking->total_discount_amount = $basicDiscount;
-            $booking->total_campaign_discount_amount = $campaignDiscount;
+
+            // total_booking_amount = service line totals only; extra services persist separately; get_booking_total_amount adds extra_fee + extras
+            $booking->total_booking_amount = round($cartPricing['sum_line_totals'], 2);
+            $booking->total_tax_amount = $cartPricing['sum_tax'];
+            $booking->total_discount_amount = $cartPricing['sum_basic_discount'];
+            $booking->total_campaign_discount_amount = $cartPricing['sum_campaign_discount'];
             $booking->total_coupon_discount_amount = 0;
-            
+
             $booking->save();
 
             // Record advance payment as an offline partial payment if provided (always received by company)
@@ -890,38 +1205,62 @@ class BookingController extends Controller
                 ]);
             }
 
-            // Create booking detail
-            $detail = new BookingDetail();
-            $detail->booking_id = $booking->id;
-            $detail->service_id = $data['service_id'];
-            $detail->service_name = $service->name ?? 'service-not-found';
-            $detail->variant_key = $data['variant_key'];
-            $detail->quantity = $quantity;
-            $detail->service_cost = $variationPrice;
-            $detail->discount_amount = $basicDiscount;
-            $detail->campaign_discount_amount = $campaignDiscount;
-            $detail->overall_coupon_discount_amount = 0;
-            $detail->tax_amount = $tax;
-            $detail->total_cost = $totalCost; // includes extra_fee in total
-            $detail->save();
+            foreach ($cartPricing['lines'] as $calc) {
+                /** @var Service $svc */
+                $svc = $calc['service'];
+                $quantity = (int) $calc['quantity'];
+                $unitPrice = (float) $calc['service_cost_unit'];
+                $basicDiscount = (float) $calc['basic_discount'];
+                $campaignDiscount = (float) $calc['campaign_discount'];
+                $tax = (float) $calc['tax_amount'];
+                $lineTotalBeforeAc = (float) $calc['line_total_before_ac'];
 
-            // Create booking details amount
-            // For admin-created bookings, discount splits default to 0
-            // These can be adjusted later if needed
-            $bookingDetailsAmount = new BookingDetailsAmount();
-            $bookingDetailsAmount->booking_details_id = $detail->id;
-            $bookingDetailsAmount->booking_id = $booking->id;
-            $bookingDetailsAmount->service_unit_cost = $variationPrice;
-            $bookingDetailsAmount->service_quantity = $quantity;
-            $bookingDetailsAmount->service_tax = $tax;
-            $bookingDetailsAmount->discount_by_admin = 0;
-            $bookingDetailsAmount->discount_by_provider = 0;
-            $bookingDetailsAmount->campaign_discount_by_admin = 0;
-            $bookingDetailsAmount->campaign_discount_by_provider = 0;
-            $bookingDetailsAmount->coupon_discount_by_admin = 0;
-            $bookingDetailsAmount->coupon_discount_by_provider = 0;
-            $bookingDetailsAmount->admin_commission = 0; // Will be calculated later if needed
-            $bookingDetailsAmount->save();
+                $detail = new BookingDetail();
+                $detail->booking_id = $booking->id;
+                $detail->service_id = $svc->id;
+                $detail->service_name = $svc->name ?? 'service-not-found';
+                $detail->variant_key = (string) $calc['variant_key'];
+                $detail->quantity = $quantity;
+                $detail->service_cost = $unitPrice;
+                $detail->discount_amount = $basicDiscount;
+                $detail->campaign_discount_amount = $campaignDiscount;
+                $detail->overall_coupon_discount_amount = 0;
+                $detail->tax_amount = $tax;
+                $detail->total_cost = $lineTotalBeforeAc;
+                $detail->save();
+
+                $bookingDetailsAmount = new BookingDetailsAmount();
+                $bookingDetailsAmount->booking_details_id = $detail->id;
+                $bookingDetailsAmount->booking_id = $booking->id;
+                $bookingDetailsAmount->service_unit_cost = $unitPrice;
+                $bookingDetailsAmount->service_quantity = $quantity;
+                $bookingDetailsAmount->service_tax = $tax;
+                $lineBearer = DiscountCostBearer::normalize($calc['line_discount_cost_bearer'] ?? null);
+                $lineSplits = DiscountCostBearer::splitBasicAndCampaign($basicDiscount, $campaignDiscount, $lineBearer);
+                $bookingDetailsAmount->discount_by_admin = $lineSplits['discount_by_admin'];
+                $bookingDetailsAmount->discount_by_provider = $lineSplits['discount_by_provider'];
+                $bookingDetailsAmount->campaign_discount_by_admin = $lineSplits['campaign_discount_by_admin'];
+                $bookingDetailsAmount->campaign_discount_by_provider = $lineSplits['campaign_discount_by_provider'];
+                $bookingDetailsAmount->coupon_discount_by_admin = 0;
+                $bookingDetailsAmount->coupon_discount_by_provider = 0;
+                $bookingDetailsAmount->discount_cost_bearer = $lineBearer;
+                $bookingDetailsAmount->admin_commission = 0;
+                $bookingDetailsAmount->save();
+            }
+
+            foreach ($cartPricing['extras'] as $ex) {
+                $row = new BookingExtraService([
+                    'booking_id' => $booking->id,
+                    'title' => $ex['title'],
+                    'details' => $ex['details'],
+                    'type' => $ex['type'],
+                    'quantity' => $ex['quantity'],
+                    'price' => $ex['price'],
+                    'discount' => $ex['discount'],
+                    'total' => $ex['total'],
+                ]);
+                $row->save();
+            }
 
             // Create schedule history
             $schedule = new BookingScheduleHistory();
@@ -3556,6 +3895,7 @@ class BookingController extends Controller
             'tax_amount' => round($tax, 2),
             'total_cost' => $totalCost,
             'zone_id' => $request['zone_id'],
+            'discount_cost_bearer' => DiscountCostBearer::NONE,
         ]);
 
         $booking = $request->filled('booking_id')
@@ -3650,6 +3990,161 @@ class BookingController extends Controller
     }
 
     /**
+     * Multi-line cart + optional extra services for admin create booking (totals match store/preview).
+     */
+    public function ajaxCreateBookingCartSummary(Request $request): JsonResponse
+    {
+        try {
+            $this->authorize('booking_view');
+        } catch (AuthorizationException $e) {
+            return response()->json(response_formatter(DEFAULT_403, null), 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'zone_id' => 'required|uuid',
+            'provider_id' => 'required|uuid',
+            'lines' => 'required|array|min:1',
+            'lines.*.service_id' => 'required|uuid',
+            'lines.*.variant_key' => 'required|string',
+            'lines.*.quantity' => 'nullable|integer|min:1',
+            'lines.*.unit_price' => 'nullable|numeric|min:0',
+            'lines.*.line_discount' => 'nullable|numeric|min:0',
+            'lines.*.line_discount_cost_bearer' => 'nullable|string|in:both,admin,provider,none',
+            'extras' => 'nullable|array',
+            'extras.*.title' => 'nullable|string|max:255',
+            'extras.*.type' => 'nullable|in:service,spare_part',
+            'extras.*.quantity' => 'nullable|integer|min:1',
+            'extras.*.price' => 'nullable|numeric|min:0',
+            'extras.*.discount' => 'nullable|numeric|min:0',
+            'extras.*.details' => 'nullable|string|max:2000',
+            'ac_line_amount' => ['nullable', 'array'],
+            'ac_line_amount.*' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 200);
+        }
+
+        $linesIn = [];
+        foreach ((array) $request->input('lines', []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $lineIn = [
+                'service_id' => (string) ($row['service_id'] ?? ''),
+                'variant_key' => (string) ($row['variant_key'] ?? ''),
+                'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
+                'line_discount' => max(0.0, (float) ($row['line_discount'] ?? 0)),
+                'line_discount_cost_bearer' => DiscountCostBearer::normalize($row['line_discount_cost_bearer'] ?? null),
+            ];
+            if (isset($row['unit_price']) && is_numeric($row['unit_price']) && (float) $row['unit_price'] > 0) {
+                $lineIn['unit_price'] = round((float) $row['unit_price'], 4);
+            }
+            $linesIn[] = $lineIn;
+        }
+
+        $extrasIn = [];
+        foreach ((array) $request->input('extras', []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $title = trim((string) ($row['title'] ?? ''));
+            if ($title === '') {
+                continue;
+            }
+            $type = ($row['type'] ?? '') === BookingExtraService::TYPE_SPARE_PART
+                ? BookingExtraService::TYPE_SPARE_PART
+                : BookingExtraService::TYPE_SERVICE;
+            $extrasIn[] = [
+                'title' => mb_substr($title, 0, 255),
+                'details' => isset($row['details']) ? mb_substr((string) $row['details'], 0, 2000) : null,
+                'type' => $type,
+                'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
+                'price' => max(0.0, (float) ($row['price'] ?? 0)),
+                'discount' => max(0.0, (float) ($row['discount'] ?? 0)),
+            ];
+        }
+
+        $acOverrides = array_map(
+            static fn ($v) => is_numeric($v) ? (float) $v : 0.0,
+            (array) $request->input('ac_line_amount', [])
+        );
+
+        try {
+            $cart = $this->buildAdminCreateBookingCartPricing(
+                (string) $request->input('zone_id'),
+                (string) $request->input('provider_id'),
+                $linesIn,
+                $acOverrides,
+                $extrasIn
+            );
+        } catch (ValidationException $e) {
+            $msg = collect($e->errors())->flatten()->first() ?? translate('Something_went_wrong');
+
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => $msg]]), 200);
+        }
+
+        $linePayload = [];
+        foreach ($cart['lines'] as $l) {
+            /** @var Variation|null $varEntity */
+            $varEntity = $l['variation'] ?? null;
+            $linePayload[] = [
+                'service_id' => $l['service_id'],
+                'variant_key' => $l['variant_key'],
+                'quantity' => $l['quantity'],
+                'service_name' => $l['service_name'],
+                'variant_label' => $l['variant_label'],
+                'unit_price' => $l['service_cost_unit'],
+                'catalog_unit_price' => round((float) ($varEntity->price ?? 0), 4),
+                'discount_total' => round((float) $l['basic_discount'] + (float) $l['campaign_discount'], 2),
+                'tax_amount' => $l['tax_amount'],
+                'line_total' => $l['line_total_before_ac'],
+            ];
+        }
+
+        $extrasServiceTotal = 0.0;
+        $extrasSpareTotal = 0.0;
+        $extrasDiscountSum = 0.0;
+        foreach ($cart['extras'] as $ex) {
+            $t = (float) ($ex['total'] ?? 0);
+            if (($ex['type'] ?? '') === BookingExtraService::TYPE_SPARE_PART) {
+                $extrasSpareTotal = round($extrasSpareTotal + $t, 2);
+            } else {
+                $extrasServiceTotal = round($extrasServiceTotal + $t, 2);
+            }
+            $extrasDiscountSum = round($extrasDiscountSum + (float) ($ex['discount'] ?? 0), 2);
+        }
+
+        $mainLineDiscount = round((float) $cart['sum_basic_discount'] + (float) $cart['sum_campaign_discount'], 2);
+        $totalDiscountAmount = round($mainLineDiscount + $extrasDiscountSum, 2);
+        $totalServiceCharges = round((float) $cart['sum_line_totals'] + $extrasServiceTotal, 2);
+
+        /** @var Service $commissionContextService */
+        $commissionContextService = $cart['lines'][0]['service'];
+        $commissionPreview = $this->computeAdminCreateBookingCommissionPreview(
+            $cart,
+            (string) $request->input('provider_id'),
+            $commissionContextService
+        );
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'lines' => $linePayload,
+            'extras' => $cart['extras'],
+            'sum_line_totals' => $cart['sum_line_totals'],
+            'extra_fee' => $cart['extra_fee'],
+            'additional_charges_lines' => $cart['additional_charge_lines'],
+            'extras_total' => $cart['extras_total'],
+            'grand_total' => $cart['grand_total'],
+            'total_service_charges' => $totalServiceCharges,
+            'total_spare_part_charges' => $extrasSpareTotal,
+            'total_discount_amount' => $totalDiscountAmount,
+            'sum_tax' => $cart['sum_tax'],
+            'company_commission' => $commissionPreview['company_commission'],
+            'provider_commission' => $commissionPreview['provider_commission'],
+        ], null), 200);
+    }
+
+    /**
      * Get categories by zone
      * @param Request $request
      * @return JsonResponse
@@ -3661,9 +4156,10 @@ class BookingController extends Controller
             $zoneIds = [(string) $request->input('zone_id')];
         }
 
-        $validator = Validator::make(['zone_ids' => $zoneIds], [
+        $validator = Validator::make(array_merge(['zone_ids' => $zoneIds], $request->only('provider_id')), [
             'zone_ids' => 'required|array|min:1',
             'zone_ids.*' => 'uuid',
+            'provider_id' => 'nullable|uuid',
         ]);
 
         if ($validator->fails()) {
@@ -3688,6 +4184,28 @@ class BookingController extends Controller
             ->get()
             ->unique('id')
             ->values();
+
+        if ($request->filled('provider_id')) {
+            $allowedSubIds = SubscribedService::query()
+                ->where('provider_id', $request->input('provider_id'))
+                ->where('is_subscribed', 1)
+                ->pluck('sub_category_id')
+                ->all();
+            if ($allowedSubIds === []) {
+                $categories = collect();
+            } else {
+                $parentIds = Category::query()
+                    ->whereIn('id', $allowedSubIds)
+                    ->where('position', 2)
+                    ->where('is_active', 1)
+                    ->pluck('parent_id')
+                    ->unique()
+                    ->filter()
+                    ->values()
+                    ->all();
+                $categories = $categories->whereIn('id', $parentIds)->values();
+            }
+        }
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
     }
@@ -3761,18 +4279,46 @@ class BookingController extends Controller
     public function ajaxGetProviders(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'sub_category_id' => 'required|uuid',
+            'sub_category_id' => 'nullable|uuid',
+            'category_id' => 'nullable|uuid',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        // Get subscribed provider IDs for this subcategory
-        $subscribedProviderIds = SubscribedService::where('sub_category_id', $request['sub_category_id'])
-            ->where('is_subscribed', 1)
-            ->pluck('provider_id')
-            ->toArray();
+        $subCategoryId = $request->input('sub_category_id');
+        $categoryId = $request->input('category_id');
+
+        if (! $subCategoryId && ! $categoryId) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'message' => translate('This_field_required'),
+            ]]), 400);
+        }
+
+        if ($subCategoryId) {
+            $subscribedProviderIds = SubscribedService::query()
+                ->where('sub_category_id', $subCategoryId)
+                ->where('is_subscribed', 1)
+                ->pluck('provider_id')
+                ->unique()
+                ->toArray();
+        } else {
+            $subCategoryIdsUnderParent = Category::query()
+                ->where('parent_id', $categoryId)
+                ->where('is_active', 1)
+                ->pluck('id')
+                ->all();
+
+            $subscribedProviderIds = $subCategoryIdsUnderParent === []
+                ? []
+                : SubscribedService::query()
+                    ->whereIn('sub_category_id', $subCategoryIdsUnderParent)
+                    ->where('is_subscribed', 1)
+                    ->pluck('provider_id')
+                    ->unique()
+                    ->toArray();
+        }
 
         // Get only subscribed providers with contact person info
         $providers = $this->provider
@@ -3828,6 +4374,8 @@ class BookingController extends Controller
             'line_unit_prices.*' => 'nullable|numeric|min:0',
             'line_discount_amounts' => 'nullable|array',
             'line_discount_amounts.*' => 'nullable|numeric|min:0',
+            'line_discount_cost_bearers' => 'nullable|array',
+            'line_discount_cost_bearers.*' => 'nullable|string|in:both,admin,provider,none',
         ])->validate();
 
         $bookingForSubCheck = $this->booking->find($request['booking_id']);
@@ -4135,6 +4683,7 @@ class BookingController extends Controller
                             $targetAmount->discount_by_provider = $sourceAmount->discount_by_provider;
                             $targetAmount->campaign_discount_by_admin = $sourceAmount->campaign_discount_by_admin;
                             $targetAmount->campaign_discount_by_provider = $sourceAmount->campaign_discount_by_provider;
+                            $targetAmount->discount_cost_bearer = DiscountCostBearer::normalize($sourceAmount->discount_cost_bearer ?? null);
                             $targetAmount->save();
                         }
                     }

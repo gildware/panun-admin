@@ -999,6 +999,61 @@ if (!function_exists('resolve_commission_tier_setup_for_booking')) {
     }
 }
 
+if (!function_exists('resolve_commission_tier_setup_for_create_preview')) {
+    /**
+     * Tier setup for admin “create booking” preview before a booking/detail row exists.
+     * Same resolution order as resolve_commission_tier_setup_for_booking when the first cart line’s service is known.
+     *
+     * @return array{service: array, spare_parts: array}
+     */
+    function resolve_commission_tier_setup_for_create_preview(string $providerId, ?\Modules\ServiceManagement\Entities\Service $firstLineService = null): array
+    {
+        $stub = new \stdClass();
+        $stub->provider_id = $providerId;
+        if ($firstLineService) {
+            $stub->category_id = $firstLineService->category_id;
+            $stub->sub_category_id = $firstLineService->sub_category_id;
+        }
+
+        $fromProvider = commission_tier_setup_from_provider_custom_only($stub, $providerId);
+        if ($fromProvider !== null) {
+            return $fromProvider;
+        }
+
+        if ($firstLineService) {
+            $firstLineService->loadMissing(['subCategory', 'category']);
+            if (entity_commission_custom_applies($firstLineService)) {
+                return normalize_stored_commission_tier_setup_array($firstLineService->commission_tier_setup);
+            }
+            $sub = $firstLineService->subCategory;
+            if (entity_commission_custom_applies($sub)) {
+                return normalize_stored_commission_tier_setup_array($sub->commission_tier_setup);
+            }
+            $cat = $firstLineService->category;
+            if (entity_commission_custom_applies($cat)) {
+                return normalize_stored_commission_tier_setup_array($cat->commission_tier_setup);
+            }
+        } else {
+            $subCategoryId = $stub->sub_category_id ?? null;
+            $categoryId = $stub->category_id ?? null;
+            if ($subCategoryId) {
+                $sub = \Modules\CategoryManagement\Entities\Category::query()->find($subCategoryId);
+                if (entity_commission_custom_applies($sub)) {
+                    return normalize_stored_commission_tier_setup_array($sub->commission_tier_setup);
+                }
+            }
+            if ($categoryId) {
+                $cat = \Modules\CategoryManagement\Entities\Category::query()->find($categoryId);
+                if (entity_commission_custom_applies($cat)) {
+                    return normalize_stored_commission_tier_setup_array($cat->commission_tier_setup);
+                }
+            }
+        }
+
+        return commission_tier_setup();
+    }
+}
+
 if (!function_exists('commission_tier_setup_for_provider_booking')) {
     /**
      * @deprecated Use resolve_commission_tier_setup_for_booking()

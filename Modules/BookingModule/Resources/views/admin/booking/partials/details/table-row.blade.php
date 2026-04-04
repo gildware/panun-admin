@@ -5,6 +5,10 @@
     $selectedServiceId = $data['service_id'] ?? '';
     $selectedVariant = $data['variant_key'] ?? '';
     $taxPct = $data['tax_percent'] ?? company_default_tax_percentage();
+    $discBearer = strtolower((string) ($data['discount_cost_bearer'] ?? 'none'));
+    if (! in_array($discBearer, ['admin', 'provider', 'none', 'both'], true)) {
+        $discBearer = 'none';
+    }
 @endphp
 <tr id="service-row--{{ $rowId }}" data-detail-id="" data-tax-percent="{{ $taxPct }}">
     <td class="text-wrap ps-lg-3">
@@ -37,6 +41,14 @@
     <td>
         <input type="number" step="0.001" min="0" name="line_discount_amounts[]" class="form-control form-control-sm row-discount"
                value="{{ $data['total_discount_amount'] }}">
+    </td>
+    <td>
+        <select name="line_discount_cost_bearers[]" class="form-control form-control-sm row-discount-bearer">
+            <option value="none" @selected($discBearer === 'none')>{{ translate('Discount_bearer_none') }}</option>
+            <option value="admin" @selected($discBearer === 'admin')>{{ translate('Discount_bearer_admin') }}</option>
+            <option value="provider" @selected($discBearer === 'provider')>{{ translate('Discount_bearer_provider') }}</option>
+            <option value="both" @selected($discBearer === 'both')>{{ translate('Discount_bearer_both') }}</option>
+        </select>
     </td>
     <td class="row-total-cost">{{ $data['total_cost'] }}</td>
     <td>
