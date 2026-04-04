@@ -97,6 +97,7 @@
                                 <th>{{translate('Unit_Price') . ' (' . currency_symbol() . ')'}}</th>
                                 <th>{{translate('Qty') }}</th>
                                 <th>{{translate('Discount') . ' (' . currency_symbol() . ')'}}</th>
+                                <th>{{ translate('Discount_cost_bearer') }}</th>
                                 <th>{{translate('Total') . ' (' . currency_symbol() . ')'}}</th>
                                 <th class="text-center">{{translate('Action')}}</th>
                             </tr>
@@ -164,6 +165,26 @@
                                     <td>
                                         <input type="number" step="0.001" min="0" name="line_discount_amounts[]" class="form-control form-control-sm row-discount"
                                                value="{{ $lineDisc }}">
+                                    </td>
+                                    @php
+                                        $bearerForRow = 'none';
+                                        $ba = \Modules\BookingModule\Entities\BookingDetailsAmount::query()
+                                            ->where('booking_id', $booking->id)
+                                            ->where('booking_details_id', $detail->id)
+                                            ->whereNull('booking_repeat_id')
+                                            ->value('discount_cost_bearer');
+                                        $bv = strtolower((string) $ba);
+                                        if (in_array($bv, ['admin', 'provider', 'none', 'both'], true)) {
+                                            $bearerForRow = $bv;
+                                        }
+                                    @endphp
+                                    <td>
+                                        <select name="line_discount_cost_bearers[]" class="form-control form-control-sm row-discount-bearer">
+                                            <option value="none" @selected($bearerForRow === 'none')>{{ translate('Discount_bearer_none') }}</option>
+                                            <option value="admin" @selected($bearerForRow === 'admin')>{{ translate('Discount_bearer_admin') }}</option>
+                                            <option value="provider" @selected($bearerForRow === 'provider')>{{ translate('Discount_bearer_provider') }}</option>
+                                            <option value="both" @selected($bearerForRow === 'both')>{{ translate('Discount_bearer_both') }}</option>
+                                        </select>
                                     </td>
                                     <td class="row-total-cost">{{ $detail->total_cost }}</td>
                                     <td>

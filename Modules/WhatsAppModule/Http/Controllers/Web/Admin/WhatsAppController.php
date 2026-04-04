@@ -610,7 +610,12 @@ class WhatsAppController extends Controller
                 $sentToWhatsApp = $waId !== null;
                 if ($waId !== null) {
                     $message->wa_message_id = $waId;
+                    $message->status = 'sent';
+                    $message->status_detail = null;
+                    $message->status_updated_at = now();
                     $message->save();
+                } else {
+                    $this->markWhatsAppMessageSendFailed($message, $whatsAppError, $whatsappGraph);
                 }
             } else {
                 // One WhatsAppMessage per attachment; caption only on the first media message
@@ -637,7 +642,12 @@ class WhatsAppController extends Controller
                     $sentToWhatsApp = $sentToWhatsApp || $waId !== null;
                     if ($waId !== null) {
                         $message->wa_message_id = $waId;
+                        $message->status = 'sent';
+                        $message->status_detail = null;
+                        $message->status_updated_at = now();
                         $message->save();
+                    } else {
+                        $this->markWhatsAppMessageSendFailed($message, $whatsAppError, $whatsappGraph);
                     }
                 }
             }
@@ -745,6 +755,30 @@ class WhatsAppController extends Controller
             'reactions' => $target->reactions ?? [],
             'whatsapp_graph' => $graph,
         ]);
+    }
+
+    /**
+     * Graph did not return a message id — keep row for audit but mark so UI is not mistaken for delivered.
+     *
+     * @param  array<string, mixed>|null  $graphContext
+     */
+    private function markWhatsAppMessageSendFailed(WhatsAppMessage $message, ?string $error, ?array $graphContext): void
+    {
+        $parts = [];
+        if ($error !== null && $error !== '') {
+            $parts[] = $error;
+        }
+        if ($graphContext !== null && $graphContext !== []) {
+            $encoded = json_encode($graphContext, JSON_UNESCAPED_UNICODE);
+            if ($encoded !== false) {
+                $parts[] = $encoded;
+            }
+        }
+        $detail = $parts !== [] ? implode(' ', $parts) : 'send_failed';
+        $message->status = 'failed';
+        $message->status_detail = mb_substr($detail, 0, 6000);
+        $message->status_updated_at = now();
+        $message->save();
     }
 
     /**

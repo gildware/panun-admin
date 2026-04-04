@@ -350,6 +350,9 @@
                                                 · {{ ucfirst($st) }}
                                             @endif
                                         </div>
+                                        @if($isOut && $waMid === '' && $st !== 'failed')
+                                            <div class="fz-11 mt-1 opacity-90">{{ translate('WhatsApp_out_not_sent_to_user') }}</div>
+                                        @endif
                                         @if(!empty($replyPrev))
                                             @php
                                                 $qSnippet = 'wa-reply-quote-snippet fz-11 mb-2 mt-1 px-2 py-1 rounded-1 text-start' . ($isOut ? ' wa-reply-quote-snippet--out-hover' : '');
