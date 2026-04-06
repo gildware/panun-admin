@@ -378,7 +378,7 @@
 
                                                 <div class="mb-30">
                                                     <label class="form-label">{{ translate('Lead_Type') }} *</label>
-                                                    <select class="form-select js-select" name="lead_type" required>
+                                                    <select class="form-select js-select" name="lead_type" id="lead-modal-create-type-select" required>
                                                         @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
                                                             <option value="{{ $value }}" {{ $value === \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN ? 'selected' : '' }}>
                                                                 {{ translate($label) }}
@@ -423,16 +423,48 @@
                                                     </select>
                                                 </div>
 
-                                                <div class="mb-30">
+                                                <div class="mb-30" id="lead-modal-create-followup-wrap">
                                                     <label class="form-label">{{ translate('Next_Follow_up_Date') }}</label>
-                                                    <input type="datetime-local" class="form-control" name="next_followup_at"
+                                                    <input type="datetime-local" class="form-control" name="next_followup_at" id="lead-modal-create-next-followup-input"
                                                            value="{{ now()->addDay()->format('Y-m-d\TH:i') }}">
                                                 </div>
                                             </div>
                                             <div class="col-12">
-                                                <div class="mb-30">
+                                                <div class="mb-30 d-none" id="lead-modal-create-invalid-fields">
+                                                    <div class="mb-30">
+                                                        <label class="form-label">{{ translate('Reason') }}</label>
+                                                        <select name="invalid_reason_id" class="form-select js-select" id="lead-modal-create-invalid-reason">
+                                                            <option value="">{{ translate('Select_Reason') }}</option>
+                                                            @foreach($invalidReasons as $reason)
+                                                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-0">
+                                                        <label class="form-label">{{ translate('Remarks') }}</label>
+                                                        <textarea name="invalid_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mb-30 d-none" id="lead-modal-create-future-fields">
+                                                    <div class="mb-30">
+                                                        <label class="form-label">{{ translate('Reason') }}</label>
+                                                        <select name="future_customer_reason_id" class="form-select js-select" id="lead-modal-create-future-reason">
+                                                            <option value="">{{ translate('Select_Reason') }}</option>
+                                                            @foreach($futureCustomerReasons as $reason)
+                                                                <option value="{{ $reason->id }}">{{ $reason->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-0">
+                                                        <label class="form-label">{{ translate('Remarks') }}</label>
+                                                        <textarea name="future_customer_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mb-30" id="lead-modal-create-general-remarks-wrap">
                                                     <label class="form-label">{{ translate('Remarks') }}</label>
-                                                    <textarea class="form-control" name="remarks" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
+                                                    <textarea class="form-control" name="remarks" id="lead-modal-create-remarks" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -534,6 +566,40 @@
             window.closeLeadDetailModal = function () {
                 $('#leadDetailModal').modal('hide');
             };
+
+            const TYPE_INVALID_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
+            const TYPE_FUTURE_MODAL = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';
+
+            function leadModalCreateApplyTypeUi() {
+                const $typeSelect = $('#lead-modal-create-type-select');
+                if (!$typeSelect.length) {
+                    return;
+                }
+                const t = $typeSelect.val();
+                const isInvalid = t === TYPE_INVALID_MODAL;
+                const isFuture = t === TYPE_FUTURE_MODAL;
+
+                $('#lead-modal-create-followup-wrap').toggleClass('d-none', isInvalid || isFuture);
+                $('#lead-modal-create-invalid-fields').toggleClass('d-none', !isInvalid);
+                $('#lead-modal-create-future-fields').toggleClass('d-none', !isFuture);
+                $('#lead-modal-create-general-remarks-wrap').toggleClass('d-none', isInvalid || isFuture);
+
+                $('#lead-modal-create-next-followup-input').prop('disabled', isInvalid || isFuture);
+                $('#lead-modal-create-remarks').prop('disabled', isInvalid || isFuture);
+
+                const $invalidReason = $('#lead-modal-create-invalid-reason');
+                const $futureReason = $('#lead-modal-create-future-reason');
+                if ($invalidReason.length) {
+                    $invalidReason.prop('required', isInvalid);
+                }
+                if ($futureReason.length) {
+                    $futureReason.prop('required', isFuture);
+                }
+            }
+
+            $(document).on('change select2:select', '#lead-modal-create-type-select', leadModalCreateApplyTypeUi);
+            $('#leadCreateModal').on('shown.bs.modal', leadModalCreateApplyTypeUi);
+            leadModalCreateApplyTypeUi();
 
             $(function () {
                 $('.js-select-multi').select2({ width: '100%', placeholder: '{{ translate('All') }}' });

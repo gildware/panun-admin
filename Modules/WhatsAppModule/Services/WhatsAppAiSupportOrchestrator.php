@@ -4,11 +4,29 @@ namespace Modules\WhatsAppModule\Services;
 
 use Illuminate\Support\Facades\Log;
 use Modules\WhatsAppModule\Entities\WhatsAppAiExecution;
+use Modules\WhatsAppModule\Entities\WhatsAppConversation;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
 class WhatsAppAiSupportOrchestrator
 {
+    /** Tools that mean the assistant understood / acted — reset unclear-streak counter for this chat. */
+    private const PRODUCTIVE_TOOL_NAMES = [
+        'get_public_business_info',
+        'match_zone_from_address',
+        'search_support_knowledge',
+        'list_my_booking_summaries',
+        'list_my_system_bookings',
+        'get_my_booking_details',
+        'get_booking_status_by_reference',
+        'upsert_my_draft_booking',
+        'submit_my_booking_for_human_confirmation',
+        'upsert_my_draft_provider_lead',
+        'submit_my_provider_lead_for_human_confirmation',
+        'request_human_support_handoff',
+        'get_booking_issue_escalation_reply',
+    ];
+
     public function __construct(
         protected WhatsAppGeminiSupportClient $gemini,
         protected WhatsAppAiToolExecutor $toolExecutor,
@@ -17,12 +35,13 @@ class WhatsAppAiSupportOrchestrator
         protected WhatsAppSupportWorkHours $workHours,
         protected WhatsAppPublicCatalogService $catalog,
         protected WhatsAppAiSettingsService $aiSettings,
-        protected WhatsAppAiSessionContextService $sessionContext
+        protected WhatsAppAiSessionContextService $sessionContext,
+        protected WhatsAppAiRuntimeResolver $aiRuntime,
     ) {}
 
     public function handleInboundMessageId(int $messageId, WhatsAppAiExecutionRecorder $recorder): void
     {
-        if (!config('whatsappmodule.ai_support_enabled')) {
+        if (!$this->aiRuntime->aiSupportEnabled()) {
             $recorder->step('orchestrator.guard', 'AI support disabled in config', 'skip', []);
             $recorder->finish('skipped_ai_disabled', ['status' => WhatsAppAiExecution::STATUS_SKIPPED]);
 
@@ -144,6 +163,8 @@ class WhatsAppAiSupportOrchestrator
         $iter = 0;
         $finalText = '';
         $replyKind = 'gemini';
+        $hadProductiveToolThisRun = false;
+        $hadReportUnclearThisRun = false;
         while ($iter < 8) {
             $iter++;
             $recorder->step('gemini.loop', 'Model turn ' . $iter, 'info', ['iteration' => $iter]);
@@ -206,7 +227,16 @@ class WhatsAppAiSupportOrchestrator
             $contents[] = ['role' => 'model', 'parts' => $modelParts];
 
             $userParts = [];
+            $toolFinalizeUnclear = false;
+            $toolFinalizeExact = null;
             foreach ($calls as $c) {
+                $toolName = (string) ($c['name'] ?? '');
+                if ($toolName === 'report_unclear_user_intent') {
+                    $hadReportUnclearThisRun = true;
+                }
+                if (in_array($toolName, self::PRODUCTIVE_TOOL_NAMES, true)) {
+                    $hadProductiveToolThisRun = true;
+                }
                 $recorder->step('tool.call', 'Tool: ' . $c['name'], 'info', [
                     'args' => $this->truncateForLog($c['args'] ?? []),
                 ]);
@@ -214,6 +244,17 @@ class WhatsAppAiSupportOrchestrator
                 $recorder->step('tool.result', 'Tool result: ' . $c['name'], 'ok', [
                     'result' => $this->truncateForLog($result),
                 ]);
+                if (is_array($result)) {
+                    if (!empty($result['orchestrator_finalize']['send_unclear_handoff_message'])) {
+                        $toolFinalizeUnclear = true;
+                    }
+                    if (!empty($result['orchestrator_finalize']['send_exact_customer_text'])) {
+                        $t = trim((string) $result['orchestrator_finalize']['send_exact_customer_text']);
+                        if ($t !== '') {
+                            $toolFinalizeExact = $t;
+                        }
+                    }
+                }
                 $userParts[] = [
                     'functionResponse' => [
                         'name' => $c['name'],
@@ -222,11 +263,41 @@ class WhatsAppAiSupportOrchestrator
                 ];
             }
             $contents[] = ['role' => 'user', 'parts' => $userParts];
+
+            $exitLoopAfterTools = false;
+            if ($toolFinalizeUnclear) {
+                $finalText = $this->buildUnclearLimitHandoffCustomerMessage($text);
+                $replyKind = 'unclear_handoff';
+                $exitLoopAfterTools = true;
+                $recorder->step('orchestrator.unclear', 'Unclear limit — handoff message prepared', 'ok', []);
+            } elseif ($toolFinalizeExact !== null) {
+                $finalText = $this->sanitizeCustomerReply($toolFinalizeExact);
+                if ($finalText === '') {
+                    $finalText = $this->fallbackCustomerMessage();
+                    $replyKind = 'fallback';
+                } else {
+                    $replyKind = 'tool_canned';
+                }
+                $exitLoopAfterTools = true;
+                $recorder->step('orchestrator.tool_finalize', 'Canned customer message from tool', 'ok', []);
+            }
+
+            if ($exitLoopAfterTools) {
+                break;
+            }
+        }
+
+        if ($hadProductiveToolThisRun && !$hadReportUnclearThisRun) {
+            $this->resetConversationUnclearAttempts($phone);
         }
 
         if ($finalText === '') {
             $finalText = $this->fallbackCustomerMessage();
             $replyKind = 'fallback';
+        }
+
+        if ($replyKind === 'unclear_handoff') {
+            $this->resetConversationUnclearAttempts($phone);
         }
 
         $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $finalText, 'AI');
@@ -242,7 +313,12 @@ class WhatsAppAiSupportOrchestrator
             $this->messagePersistence->attachWaMessageId($out, $waId);
         }
 
-        $outcome = $replyKind === 'fallback' ? 'gemini_fallback' : 'gemini_reply';
+        $outcome = match ($replyKind) {
+            'fallback' => 'gemini_fallback',
+            'unclear_handoff' => 'unclear_handoff',
+            'tool_canned' => 'tool_canned_reply',
+            default => 'gemini_reply',
+        };
         $recorder->finish($outcome, ['outbound_id' => $out->id]);
     }
 
@@ -321,9 +397,25 @@ class WhatsAppAiSupportOrchestrator
         $t = trim($text);
         $t = preg_replace('/^```[a-z]*\s*/i', '', $t) ?? $t;
         $t = preg_replace('/\s*```$/', '', $t) ?? $t;
+        $t = $this->stripCustomerUnsafePlaceholders($t);
         $t = $this->stripLeadingModelReasoning($t);
 
         return mb_substr(trim($t), 0, 3800);
+    }
+
+    /**
+     * Remove template leaks and meta (e.g. "[insert ...]", tool names) from customer-visible text.
+     */
+    private function stripCustomerUnsafePlaceholders(string $text): string
+    {
+        $t = $text;
+        $t = preg_replace('/\[[^\]\n]{0,400}?\binsert\b[^\]\n]{0,400}?\]/iu', '', $t) ?? $t;
+        $t = preg_replace('/\[[^\]\n]{0,120}?(?:otherwise skip|if available)[^\]\n]{0,320}?\]/iu', '', $t) ?? $t;
+        $t = preg_replace('/\bget_public_business_info\b/iu', '', $t) ?? $t;
+        $t = preg_replace('/<thinking>[\s\S]*?<\/thinking>/iu', '', $t) ?? $t;
+        $t = preg_replace("/\n{3,}/", "\n\n", $t) ?? $t;
+
+        return trim($t);
     }
 
     /**
@@ -422,7 +514,7 @@ class WhatsAppAiSupportOrchestrator
 
     private function fallbackCustomerMessage(): string
     {
-        $phone = (string) config('whatsappmodule.support_phone_display');
+        $phone = $this->aiSettings->resolvedMessagePlaceholders()['phone'];
 
         return $phone !== ''
             ? "Thanks for reaching out. We're having a brief technical issue. Please try again in a moment, or call us at {$phone}."
@@ -457,7 +549,7 @@ class WhatsAppAiSupportOrchestrator
 
     private function shouldSendGreetingButtonsOnly(string $phone, string $text): bool
     {
-        if (!config('whatsappmodule.ai_greeting_buttons')) {
+        if (!$this->aiRuntime->greetingButtons()) {
             return false;
         }
 
@@ -481,8 +573,7 @@ class WhatsAppAiSupportOrchestrator
 
     private function sendWelcomeWithButtons(string $phone, WhatsAppAiExecutionRecorder $recorder): int
     {
-        $snap = $this->catalog->buildPublicSnapshot();
-        $brand = (string) ($snap['company'] ?? WhatsAppAiPromptBuilder::resolveBrandName());
+        $brand = $this->aiSettings->resolvedMessagePlaceholders()['brand'];
         $body = "Hello! Welcome to {$brand} 👋\n\nHow can we help you today?";
 
         $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $body . "\n[Quick actions]", 'AI');
@@ -510,23 +601,7 @@ class WhatsAppAiSupportOrchestrator
 
         $inHours = $this->workHours->isWithinSupportHours();
         $schedule = $this->workHours->humanReadableSchedule();
-        $displayPhone = (string) config('whatsappmodule.support_phone_display');
-
-        if ($inHours) {
-            $msg = "We're connecting you with our team.\n\n"
-                . "Someone will pick up this chat during support hours ({$schedule}).\n";
-            if ($displayPhone !== '') {
-                $msg .= "\nYou can also call: {$displayPhone}";
-            }
-        } else {
-            $msg = "Our live team is currently outside support hours.\n\n"
-                . "We're available {$schedule}.\n";
-            if ($displayPhone !== '') {
-                $msg .= "\nLeave your message here or call {$displayPhone} and we'll get back to you.";
-            } else {
-                $msg .= "\nLeave your message here and we'll reply when we're back.";
-            }
-        }
+        $msg = $this->aiSettings->handoffMessageForCustomer($inHours);
 
         $recorder->step('handoff.context', 'Support hours check', 'ok', [
             'in_hours' => $inHours,
@@ -545,5 +620,70 @@ class WhatsAppAiSupportOrchestrator
         }
 
         return (int) $out->id;
+    }
+
+    private function resetConversationUnclearAttempts(string $phone): void
+    {
+        if ($phone === '') {
+            return;
+        }
+        try {
+            $conv = WhatsAppConversation::query()->where('phone', $phone)->first();
+            if ($conv && (int) ($conv->ai_unclear_attempts ?? 0) !== 0) {
+                $conv->ai_unclear_attempts = 0;
+                $conv->save();
+            }
+        } catch (\Throwable $e) {
+            Log::debug('WhatsApp AI: reset ai_unclear_attempts skipped', ['message' => $e->getMessage()]);
+        }
+    }
+
+    private function buildUnclearLimitHandoffCustomerMessage(string $lastCustomerText): string
+    {
+        $lastCustomerText = trim($lastCustomerText);
+        $inHours = $this->workHours->isWithinSupportHours();
+        $p = $this->aiSettings->resolvedMessagePlaceholders();
+        $schedule = $p['schedule'];
+        $displayPhone = $p['phone'];
+        $callBit = $displayPhone !== '' ? " Please call our support team at {$displayPhone}." : ' Please call our support team.';
+
+        $style = $this->inferCustomerLanguageStyle($lastCustomerText);
+
+        if ($style === 'hinglish') {
+            if ($inHours) {
+                $msg = "Sorry, main ab bhi properly samajh nahi pa raha what you need from this message.{$callBit} We're in working hours right now ({$schedule}) — they'll help you quickly. Thanks!";
+            } else {
+                $msg = "Sorry, main ab bhi properly samajh nahi pa raha what you need.{$callBit} Team abhi working hours ke bahar hai — we're available {$schedule}. You can still message here or try calling. Thanks!";
+            }
+
+            return $this->sanitizeCustomerReply($msg);
+        }
+
+        if ($inHours) {
+            $msg = "I'm sorry — I'm not able to understand what you need from this message.{$callBit} We're in our support hours now ({$schedule}), so someone can take it from here. Thanks!";
+        } else {
+            $msg = "I'm sorry — I'm not able to understand what you need from this message.{$callBit} We're currently outside support hours; we're available {$schedule}. Please leave your message here or try calling — we'll follow up. Thanks!";
+        }
+
+        return $this->sanitizeCustomerReply($msg);
+    }
+
+    /**
+     * Rough style for closing copy only (English vs Hinglish Roman).
+     */
+    private function inferCustomerLanguageStyle(string $text): string
+    {
+        $t = mb_strtolower(trim($text));
+        if ($t === '') {
+            return 'english';
+        }
+        if (preg_match('/\p{Devanagari}/u', $text)) {
+            return 'hinglish';
+        }
+        if (preg_match('/\b(kya|kyun|kyu|nahi|nahin|haan|hai|ho|hoon|aap|mujhe|mera|meri|hum|ko|se|par|bas|thik|theek|chahiye|chahie|batao|bata|samajh|matlab|kuch|yeh|ye|wala|wali|kar|karo|karna|abhi|phir|toh|mat|please|thanks)\b/u', $t)) {
+            return 'hinglish';
+        }
+
+        return 'english';
     }
 }

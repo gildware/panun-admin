@@ -3,6 +3,9 @@
 namespace Modules\WhatsAppModule\Services;
 
 use Illuminate\Support\Facades\Log;
+use Modules\CategoryManagement\Entities\Category;
+use Modules\ServiceManagement\Entities\Service;
+use Modules\ServiceManagement\Entities\Variation;
 use Modules\ZoneManagement\Entities\Zone;
 
 /**
@@ -10,6 +13,10 @@ use Modules\ZoneManagement\Entities\Zone;
  */
 class WhatsAppPublicCatalogService
 {
+    public function __construct(
+        protected WhatsAppAiRuntimeResolver $runtimeResolver
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -17,11 +24,12 @@ class WhatsAppPublicCatalogService
     {
         $services = $this->safeActiveServiceNames();
         $zones = $this->safeActiveZoneNames();
+        $zonesWithIds = $this->safeActiveZonesWithIds();
 
         $out = [
             'company' => $this->scalarBusinessValue('company_name', 'business_information')
                 ?? $this->scalarBusinessValue('business_name', 'business_information'),
-            'phone' => config('whatsappmodule.support_phone_display')
+            'phone' => $this->runtimeResolver->supportPhoneDisplay()
                 ?: $this->scalarBusinessValue('phone', 'business_information'),
             'email' => $this->scalarBusinessValue('email', 'business_information'),
             'address' => $this->scalarBusinessValue('address', 'business_information'),
@@ -30,7 +38,11 @@ class WhatsAppPublicCatalogService
             'service_area_note' => $this->scalarBusinessValue('service_area', 'business_information'),
             'service_names_sample' => array_slice($services, 0, 40),
             'zone_names_sample' => array_slice($zones, 0, 30),
+            'zones_for_ai' => $zonesWithIds,
+            'zones_for_address_matching' => $this->zonesDetailForAddressMatching(),
             'disclaimer' => 'Final pricing depends on the job after inspection. Do not invent amounts not listed here.',
+            'service_hints' => $this->buildServiceHintsForAi(),
+            'zone_from_address_hint' => 'Use full address only — never ask the customer for region or district. After you have address text, call match_zone_from_address (or rely on upsert_my_draft_booking which auto-matches when confident). Zone descriptions list local areas; only set zone when match is high.',
         ];
 
         $extras = config('whatsapp_ai_support.extra_public_business_config', []);
@@ -106,6 +118,85 @@ class WhatsAppPublicCatalogService
     /**
      * @return list<string>
      */
+    /**
+     * Compact category / service UUID hints so the model can prefill admin booking when the customer picks a known service.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildServiceHintsForAi(): array
+    {
+        try {
+            if (!class_exists(Category::class) || !class_exists(Service::class)) {
+                return [];
+            }
+
+            $categories = Category::query()
+                ->where('position', 1)
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->limit(22)
+                ->get(['id', 'name'])
+                ->map(fn ($c) => ['id' => (string) $c->id, 'name' => (string) $c->name])
+                ->values()
+                ->all();
+
+            $subcategories = Category::query()
+                ->where('position', 2)
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->limit(40)
+                ->get(['id', 'name', 'parent_id'])
+                ->map(fn ($c) => [
+                    'id' => (string) $c->id,
+                    'name' => (string) $c->name,
+                    'parent_category_id' => (string) $c->parent_id,
+                ])
+                ->values()
+                ->all();
+
+            $services = Service::query()
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->limit(28)
+                ->get(['id', 'name', 'category_id', 'sub_category_id', 'variation_pricing']);
+
+            $servicesOut = [];
+            foreach ($services as $s) {
+                $vk = null;
+                $vp = (array) ($s->variation_pricing ?? []);
+                $keys = array_keys($vp);
+                sort($keys);
+                if ($keys !== []) {
+                    $vk = (string) $keys[0];
+                }
+                if ($vk === null || $vk === '') {
+                    $vk = Variation::query()->where('service_id', $s->id)->orderBy('variant_key')->value('variant_key');
+                }
+                if ($vk === null || $vk === '') {
+                    continue;
+                }
+                $servicesOut[] = [
+                    'service_id' => (string) $s->id,
+                    'name' => (string) $s->name,
+                    'category_id' => (string) $s->category_id,
+                    'sub_category_id' => (string) $s->sub_category_id,
+                    'variant_key' => (string) $vk,
+                ];
+            }
+
+            return [
+                'categories' => $categories,
+                'subcategories' => $subcategories,
+                'services_sample' => $servicesOut,
+                'hint' => 'When the customer clearly matches a listed service, pass service_id, variant_key, category_id, sub_category_id, and zone_id (if known) into upsert_my_draft_booking so staff see prefilled admin data.',
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('WhatsAppPublicCatalogService: service_hints', ['error' => $e->getMessage()]);
+
+            return [];
+        }
+    }
+
     private function safeActiveZoneNames(): array
     {
         try {
@@ -120,6 +211,61 @@ class WhatsAppPublicCatalogService
                 ->all();
         } catch (\Throwable $e) {
             Log::warning('WhatsAppPublicCatalogService: zones', ['error' => $e->getMessage()]);
+
+            return [];
+        }
+    }
+
+    /**
+     * @return list<array{id: string, name: string}>
+     */
+    private function safeActiveZonesWithIds(): array
+    {
+        try {
+            return Zone::query()
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->limit(35)
+                ->get(['id', 'name'])
+                ->map(fn ($z) => ['id' => (string) $z->id, 'name' => (string) $z->name])
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            Log::warning('WhatsAppPublicCatalogService: zones_with_ids', ['error' => $e->getMessage()]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Full zone list with descriptions (area lists) for AI address → zone matching.
+     *
+     * @return list<array{id: string, name: string, description: string}>
+     */
+    private function zonesDetailForAddressMatching(): array
+    {
+        try {
+            return Zone::query()
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->limit(50)
+                ->get(['id', 'name', 'description'])
+                ->map(function ($z) {
+                    $desc = (string) ($z->description ?? '');
+                    if ($desc !== '' && mb_strlen($desc) > 2000) {
+                        $desc = mb_substr($desc, 0, 2000).'…';
+                    }
+
+                    return [
+                        'id' => (string) $z->id,
+                        'name' => (string) $z->name,
+                        'description' => $desc,
+                    ];
+                })
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            Log::warning('WhatsAppPublicCatalogService: zones_for_address_matching', ['error' => $e->getMessage()]);
 
             return [];
         }

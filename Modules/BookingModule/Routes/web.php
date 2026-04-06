@@ -10,6 +10,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::match(['get', 'post'], 'create', [BookingController::class, 'create'])->name('create');
         Route::get('create/from-lead/{lead}', [BookingController::class, 'createFromLead'])->name('create-from-lead');
+        Route::get('create/from-whatsapp-booking/{booking_id}', [BookingController::class, 'createFromWhatsAppBooking'])->name('create-from-whatsapp-booking');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
         Route::get('success/{id}', [BookingController::class, 'success'])->name('success');

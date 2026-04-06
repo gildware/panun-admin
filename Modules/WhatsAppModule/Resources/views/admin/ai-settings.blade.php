@@ -46,6 +46,9 @@
             border-radius: 0.25rem;
             margin-top: 0.35rem;
         }
+        .wa-ai-guide-table th { font-size: 0.8125rem; }
+        .wa-ai-guide-table td { font-size: 0.8125rem; vertical-align: top; }
+        .wa-ai-tab-hint { border-left: 3px solid var(--bs-info, #0dcaf0); }
     </style>
 @endpush
 
@@ -56,18 +59,19 @@
                 <div>
                     <h2 class="page-title mb-1">{{ __('whatsapp_ai.page_title') }}</h2>
                     <p class="text-muted mb-0 fs-12">{{ __('whatsapp_ai.intro') }}</p>
-                    <p class="text-muted mb-0 fs-12 mt-1">{{ __('whatsapp_ai.intro_control') }}</p>
+                    <p class="text-muted mb-0 fs-12 mt-2">{{ __('whatsapp_ai.intro_control') }}</p>
                 </div>
             </div>
 
             @php
                 $waAiTabs = [
-                    ['id' => 'status', 'label' => __('whatsapp_ai.status')],
-                    ['id' => 'flow', 'label' => __('whatsapp_ai.visual_flow')],
-                    ['id' => 'access', 'label' => __('whatsapp_ai.access')],
-                    ['id' => 'tools', 'label' => __('whatsapp_ai.tools')],
                     ['id' => 'prompt', 'label' => __('whatsapp_ai.prompts')],
                     ['id' => 'executions', 'label' => __('whatsapp_ai.executions')],
+                    ['id' => 'tools', 'label' => __('whatsapp_ai.tools')],
+                    ['id' => 'customer_messages', 'label' => __('whatsapp_ai.customer_messages')],
+                    ['id' => 'access', 'label' => __('whatsapp_ai.access')],
+                    ['id' => 'status', 'label' => __('whatsapp_ai.status')],
+                    ['id' => 'flow', 'label' => __('whatsapp_ai.visual_flow')],
                 ];
             @endphp
 
@@ -84,11 +88,150 @@
                 </ul>
             </div>
 
+            @php
+                $waAiTabHints = [
+                    'prompt' => __('whatsapp_ai.tab_hint_prompt'),
+                    'executions' => __('whatsapp_ai.tab_hint_executions'),
+                    'tools' => __('whatsapp_ai.tab_hint_tools'),
+                    'customer_messages' => __('whatsapp_ai.tab_hint_customer_messages'),
+                    'access' => __('whatsapp_ai.tab_hint_access'),
+                    'status' => __('whatsapp_ai.tab_hint_status'),
+                    'flow' => __('whatsapp_ai.tab_hint_flow'),
+                ];
+            @endphp
+
+            <div class="accordion border shadow-sm mb-4 rounded overflow-hidden" id="waAiGuideAccordion">
+                <div class="accordion-item border-0 border-bottom">
+                    <h2 class="accordion-header" id="waAiGuideH1">
+                        <button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#waAiGuideC1" aria-expanded="true" aria-controls="waAiGuideC1">
+                            {{ __('whatsapp_ai.guide_accordion_how') }}
+                        </button>
+                    </h2>
+                    <div id="waAiGuideC1" class="accordion-collapse collapse show" aria-labelledby="waAiGuideH1" data-bs-parent="#waAiGuideAccordion">
+                        <div class="accordion-body pt-0">
+                            {!! __('whatsapp_ai.guide_how_body') !!}
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item border-0 border-bottom">
+                    <h2 class="accordion-header" id="waAiGuideH2">
+                        <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#waAiGuideC2" aria-expanded="false" aria-controls="waAiGuideC2">
+                            {{ __('whatsapp_ai.guide_accordion_storage') }}
+                        </button>
+                    </h2>
+                    <div id="waAiGuideC2" class="accordion-collapse collapse" aria-labelledby="waAiGuideH2" data-bs-parent="#waAiGuideAccordion">
+                        <div class="accordion-body pt-0">
+                            <p class="small text-muted mb-3">{{ __('whatsapp_ai.guide_storage_intro') }}</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered wa-ai-guide-table mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>{{ __('whatsapp_ai.guide_storage_th_area') }}</th>
+                                            <th>{{ __('whatsapp_ai.guide_storage_th_where') }}</th>
+                                            <th>{{ __('whatsapp_ai.guide_storage_th_you_edit') }}</th>
+                                            <th>{{ __('whatsapp_ai.guide_storage_th_effect') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_prompts') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_prompts_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_prompts_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_prompts_effect') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_access') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_access_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_access_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_access_effect') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_tools') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_tools_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_tools_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_tools_effect') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_customer') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_customer_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_customer_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_customer_effect') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_flow') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_flow_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_flow_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_flow_effect') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_ops') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_ops_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_ops_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_ops_effect') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_key') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_key_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_key_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_key_effect') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_faq') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_faq_where') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_faq_edit') }}</td>
+                                            <td>{{ __('whatsapp_ai.guide_storage_row_faq_effect') }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item border-0 border-bottom">
+                    <h2 class="accordion-header" id="waAiGuideH3">
+                        <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#waAiGuideC3" aria-expanded="false" aria-controls="waAiGuideC3">
+                            {{ __('whatsapp_ai.guide_accordion_features') }}
+                        </button>
+                    </h2>
+                    <div id="waAiGuideC3" class="accordion-collapse collapse" aria-labelledby="waAiGuideH3" data-bs-parent="#waAiGuideAccordion">
+                        <div class="accordion-body pt-0">
+                            <p class="small text-muted mb-2">{{ __('whatsapp_ai.guide_features_intro') }}</p>
+                            <ul class="small mb-0 ps-3">
+                                <li>{{ __('whatsapp_ai.guide_feature_business') }}</li>
+                                <li>{{ __('whatsapp_ai.guide_feature_zone') }}</li>
+                                <li>{{ __('whatsapp_ai.guide_feature_faq') }}</li>
+                                <li>{{ __('whatsapp_ai.guide_feature_bookings') }}</li>
+                                <li>{{ __('whatsapp_ai.guide_feature_leads') }}</li>
+                                <li>{{ __('whatsapp_ai.guide_feature_handoff') }}</li>
+                                <li>{{ __('whatsapp_ai.guide_feature_escalation') }}</li>
+                                <li>{{ __('whatsapp_ai.guide_feature_unclear') }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item border-0">
+                    <h2 class="accordion-header" id="waAiGuideH4">
+                        <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#waAiGuideC4" aria-expanded="false" aria-controls="waAiGuideC4">
+                            {{ __('whatsapp_ai.guide_accordion_access') }}
+                        </button>
+                    </h2>
+                    <div id="waAiGuideC4" class="accordion-collapse collapse" aria-labelledby="waAiGuideH4" data-bs-parent="#waAiGuideAccordion">
+                        <div class="accordion-body pt-0">
+                            {!! __('whatsapp_ai.guide_access_intro') !!}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wa-ai-tab-hint alert alert-light mb-4 py-3 small text-body-secondary">
+                {{ $waAiTabHints[$tab] ?? '' }}
+            </div>
+
             @if($tab === 'status')
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-body border-bottom py-3">
-                        <strong>{{ __('whatsapp_ai.runtime') }}</strong>
-                        <span class="text-muted small fw-normal">(.env / config)</span>
+                        <strong>{{ __('whatsapp_ai.status_readout_title') }}</strong>
+                        <div class="text-muted small fw-normal mt-1">{{ __('whatsapp_ai.status_readout_help') }}</div>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -102,6 +245,7 @@
                                             @else
                                                 <span class="badge bg-secondary">{{ __('whatsapp_ai.no') }}</span>
                                             @endif
+                                            <span class="badge {{ ($runtime['ai_support_enabled_src'] ?? 'env') === 'db' ? 'bg-primary' : 'bg-secondary' }} ms-1">{{ ($runtime['ai_support_enabled_src'] ?? 'env') === 'db' ? __('whatsapp_ai.source_db') : __('whatsapp_ai.source_env') }}</span>
                                             <span class="text-muted small ms-2">WHATSAPP_AI_SUPPORT_ENABLED</span>
                                         </td>
                                     </tr>
@@ -113,34 +257,125 @@
                                             @else
                                                 <span class="badge bg-warning text-dark">{{ __('whatsapp_ai.missing') }}</span>
                                             @endif
+                                            <span class="badge bg-secondary ms-1">{{ __('whatsapp_ai.source_env') }}</span>
                                             <span class="text-muted small ms-2">GEMINI_API_KEY</span>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th>{{ __('whatsapp_ai.model') }}</th>
-                                        <td><code class="user-select-all">{{ $runtime['gemini_model'] }}</code> <span class="text-muted small">WHATSAPP_GEMINI_MODEL</span></td>
+                                        <td>
+                                            <code class="user-select-all">{{ $runtime['gemini_model'] }}</code>
+                                            <span class="badge {{ ($runtime['gemini_model_src'] ?? 'env') === 'db' ? 'bg-primary' : 'bg-secondary' }} ms-1">{{ ($runtime['gemini_model_src'] ?? 'env') === 'db' ? __('whatsapp_ai.source_db') : __('whatsapp_ai.source_env') }}</span>
+                                            <span class="text-muted small ms-2">WHATSAPP_GEMINI_MODEL</span>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>{{ __('whatsapp_ai.greeting_buttons') }}</th>
-                                        <td>{{ $runtime['greeting_buttons'] ? __('whatsapp_ai.yes') : __('whatsapp_ai.no') }} <span class="text-muted small">WHATSAPP_AI_GREETING_BUTTONS</span></td>
+                                        <td>
+                                            {{ $runtime['greeting_buttons'] ? __('whatsapp_ai.yes') : __('whatsapp_ai.no') }}
+                                            <span class="badge {{ ($runtime['greeting_buttons_src'] ?? 'env') === 'db' ? 'bg-primary' : 'bg-secondary' }} ms-1">{{ ($runtime['greeting_buttons_src'] ?? 'env') === 'db' ? __('whatsapp_ai.source_db') : __('whatsapp_ai.source_env') }}</span>
+                                            <span class="text-muted small ms-2">WHATSAPP_AI_GREETING_BUTTONS</span>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>{{ __('whatsapp_ai.support_hours') }}</th>
-                                        <td>{{ $runtime['support_hours'] }}</td>
+                                        <td>
+                                            {{ $runtime['support_hours'] }}
+                                            <span class="badge {{ ($runtime['support_hours_src'] ?? 'env') === 'db' ? 'bg-primary' : 'bg-secondary' }} ms-1">{{ ($runtime['support_hours_src'] ?? 'env') === 'db' ? __('whatsapp_ai.source_db') : __('whatsapp_ai.source_env') }}</span>
+                                            <span class="text-muted small ms-2">WHATSAPP_SUPPORT_HOURS_* / WHATSAPP_SUPPORT_TIMEZONE</span>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>{{ __('whatsapp_ai.public_phone') }}</th>
-                                        <td>{{ $runtime['support_phone_display'] !== '' ? $runtime['support_phone_display'] : '—' }} <span class="text-muted small">WHATSAPP_SUPPORT_PHONE_DISPLAY</span></td>
+                                        <td>
+                                            {{ $runtime['support_phone_display'] !== '' ? $runtime['support_phone_display'] : '—' }}
+                                            <span class="badge {{ ($runtime['support_phone_display_src'] ?? 'env') === 'db' ? 'bg-primary' : 'bg-secondary' }} ms-1">{{ ($runtime['support_phone_display_src'] ?? 'env') === 'db' ? __('whatsapp_ai.source_db') : __('whatsapp_ai.source_env') }}</span>
+                                            <span class="text-muted small ms-2">WHATSAPP_SUPPORT_PHONE_DISPLAY</span>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th>{{ __('whatsapp_ai.queue') }}</th>
-                                        <td><code>{{ $runtime['queue_connection'] }}</code></td>
+                                        <td>
+                                            <code>{{ $runtime['queue_connection'] }}</code>
+                                            <span class="badge {{ ($runtime['queue_src'] ?? 'env') === 'db' ? 'bg-primary' : 'bg-secondary' }} ms-1">{{ ($runtime['queue_src'] ?? 'env') === 'db' ? __('whatsapp_ai.source_db') : __('whatsapp_ai.source_env') }}</span>
+                                            <span class="text-muted small ms-2">WHATSAPP_AI_DISPATCH_SYNC / QUEUE_CONNECTION</span>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
+                @can('whatsapp_chat_assign')
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-header bg-body border-bottom py-3">
+                            <strong>{{ __('whatsapp_ai.ops_form_title') }}</strong>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">{{ __('whatsapp_ai.ops_form_help') }}</p>
+                            <form action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="row g-3">
+                                @csrf
+                                <input type="hidden" name="return_tab" value="status">
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ __('whatsapp_ai.ai_support_enabled') }}</label>
+                                    <select name="db_ai_support_enabled" class="form-select">
+                                        @php $v = old('db_ai_support_enabled', $settings->db_ai_support_enabled === null ? '' : ((int) (bool) $settings->db_ai_support_enabled)); @endphp
+                                        <option value="" @selected($v === '' || $v === null)>{{ __('whatsapp_ai.inherit_env') }}</option>
+                                        <option value="1" @selected((string) $v === '1')>{{ __('whatsapp_ai.yes') }}</option>
+                                        <option value="0" @selected((string) $v === '0')>{{ __('whatsapp_ai.no') }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ __('whatsapp_ai.greeting_buttons') }}</label>
+                                    <select name="db_greeting_buttons" class="form-select">
+                                        @php $vg = old('db_greeting_buttons', $settings->db_greeting_buttons === null ? '' : ((int) (bool) $settings->db_greeting_buttons)); @endphp
+                                        <option value="" @selected($vg === '' || $vg === null)>{{ __('whatsapp_ai.inherit_env') }}</option>
+                                        <option value="1" @selected((string) $vg === '1')>{{ __('whatsapp_ai.yes') }}</option>
+                                        <option value="0" @selected((string) $vg === '0')>{{ __('whatsapp_ai.no') }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ __('whatsapp_ai.model') }}</label>
+                                    <input type="text" name="db_gemini_model" class="form-control" value="{{ old('db_gemini_model', $settings->db_gemini_model) }}" placeholder="{{ __('whatsapp_ai.inherit_env') }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">{{ __('whatsapp_ai.support_hours_start') }}</label>
+                                    <input type="text" name="db_support_hours_start" class="form-control" value="{{ old('db_support_hours_start', $settings->db_support_hours_start) }}" placeholder="09:00">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">{{ __('whatsapp_ai.support_hours_end') }}</label>
+                                    <input type="text" name="db_support_hours_end" class="form-control" value="{{ old('db_support_hours_end', $settings->db_support_hours_end) }}" placeholder="18:00">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ __('whatsapp_ai.support_timezone') }}</label>
+                                    <input type="text" name="db_support_timezone" class="form-control" value="{{ old('db_support_timezone', $settings->db_support_timezone) }}" placeholder="Asia/Kolkata">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ __('whatsapp_ai.public_phone') }}</label>
+                                    <input type="text" name="db_support_phone_display" class="form-control" value="{{ old('db_support_phone_display', $settings->db_support_phone_display) }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ __('whatsapp_ai.dispatch_mode') }}</label>
+                                    <select name="db_ai_dispatch_sync" class="form-select">
+                                        @php $vd = old('db_ai_dispatch_sync', $settings->db_ai_dispatch_sync === null ? '' : ((int) (bool) $settings->db_ai_dispatch_sync)); @endphp
+                                        <option value="" @selected($vd === '' || $vd === null)>{{ __('whatsapp_ai.inherit_env') }}</option>
+                                        <option value="1" @selected((string) $vd === '1')>{{ __('whatsapp_ai.dispatch_sync_inline') }}</option>
+                                        <option value="0" @selected((string) $vd === '0')>{{ __('whatsapp_ai.dispatch_queued') }}</option>
+                                    </select>
+                                    <div class="form-text">{{ __('whatsapp_ai.dispatch_mode_help') }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ __('whatsapp_ai.queue_connection_label') }}</label>
+                                    <input type="text" name="db_queue_connection" class="form-control" value="{{ old('db_queue_connection', $settings->db_queue_connection) }}" placeholder="{{ __('whatsapp_ai.queue_connection_placeholder') }}">
+                                    <div class="form-text">{{ __('whatsapp_ai.queue_connection_help') }}</div>
+                                </div>
+                                <div class="col-12">
+                                    <button type="submit" name="save_operational" value="1" class="btn btn-primary">{{ __('whatsapp_ai.save_operational') }}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                @endcan
             @endif
 
             @if($tab === 'flow')
@@ -176,6 +411,9 @@
             @endif
 
             @if($tab === 'access')
+                <div class="alert alert-secondary border-0 small mb-3">
+                    {{ __('whatsapp_ai.access_tab_summary') }}
+                </div>
                 <p class="text-muted small mb-3">{{ __('whatsapp_ai.access_intro') }}</p>
                 <div class="row g-3 mb-3">
                     <div class="col-lg-6">
@@ -379,6 +617,148 @@
                         </div>
                         <div class="card-footer bg-body border-top">
                             <button type="submit" name="save_prompt" value="1" class="btn btn--primary">{{ __('whatsapp_ai.save') }}</button>
+                        </div>
+                    </form>
+                @else
+                    <p class="text-muted">{{ __('whatsapp_ai.assign_permission_edit') }}</p>
+                @endcan
+            @endif
+
+            @if($tab === 'customer_messages')
+                <p class="text-muted small mb-3">{{ __('whatsapp_ai.customer_messages_intro') }}</p>
+                @php
+                    $phDisp = static fn (?string $v) => ($v !== null && trim($v) !== '') ? $v : '—';
+                @endphp
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-body border-bottom py-3">
+                        <strong>{{ __('whatsapp_ai.placeholders_reference_title') }}</strong>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-3">{{ __('whatsapp_ai.placeholders_reference_intro') }}</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-nowrap">{{ __('whatsapp_ai.ph_token') }}</th>
+                                        <th>{{ __('whatsapp_ai.ph_meaning') }}</th>
+                                        <th>{{ __('whatsapp_ai.ph_effective_value') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="small">
+                                    <tr><td><code>{schedule}</code></td><td>{{ __('whatsapp_ai.placeholder_schedule') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['schedule'] ?? '') }}</td></tr>
+                                    <tr><td><code>{phone}</code></td><td>{{ __('whatsapp_ai.placeholder_phone') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['phone'] ?? '') }}</td></tr>
+                                    <tr><td><code>{brand}</code></td><td>{{ __('whatsapp_ai.placeholder_brand') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['brand'] ?? '') }}</td></tr>
+                                    <tr><td><code>{email}</code></td><td>{{ __('whatsapp_ai.placeholder_email') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['email'] ?? '') }}</td></tr>
+                                    <tr><td><code>{website}</code></td><td>{{ __('whatsapp_ai.placeholder_website') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['website'] ?? '') }}</td></tr>
+                                    <tr><td><code>{address}</code></td><td>{{ __('whatsapp_ai.placeholder_address') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['address'] ?? '') }}</td></tr>
+                                    <tr><td><code>{tagline}</code></td><td>{{ __('whatsapp_ai.placeholder_tagline') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['tagline'] ?? '') }}</td></tr>
+                                    <tr><td><code>{custom_1}</code></td><td>{{ __('whatsapp_ai.placeholder_custom_1') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['custom_1'] ?? '') }}</td></tr>
+                                    <tr><td><code>{custom_2}</code></td><td>{{ __('whatsapp_ai.placeholder_custom_2') }}</td><td class="text-break">{{ $phDisp($placeholderResolved['custom_2'] ?? '') }}</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="small text-muted mt-3 mb-0">{{ __('whatsapp_ai.placeholders_ai_hint') }}</p>
+                    </div>
+                </div>
+                @can('whatsapp_chat_assign')
+                    <form action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="card border-0 shadow-sm mb-3">
+                        @csrf
+                        <input type="hidden" name="return_tab" value="customer_messages">
+                        <div class="card-header bg-body border-bottom py-3">
+                            <strong>{{ __('whatsapp_ai.placeholder_overrides_title') }}</strong>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">{{ __('whatsapp_ai.placeholder_overrides_intro') }}</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_schedule">{{ __('whatsapp_ai.field_placeholder_schedule') }}</label>
+                                    <textarea id="placeholder_schedule" name="placeholder_schedule" class="form-control font-monospace" rows="3" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">{{ old('placeholder_schedule', $settings->placeholder_schedule) }}</textarea>
+                                    @error('placeholder_schedule')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_phone">{{ __('whatsapp_ai.field_placeholder_phone') }}</label>
+                                    <input type="text" id="placeholder_phone" name="placeholder_phone" class="form-control" value="{{ old('placeholder_phone', $settings->placeholder_phone) }}" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">
+                                    @error('placeholder_phone')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_brand">{{ __('whatsapp_ai.field_placeholder_brand') }}</label>
+                                    <input type="text" id="placeholder_brand" name="placeholder_brand" class="form-control" value="{{ old('placeholder_brand', $settings->placeholder_brand) }}" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">
+                                    @error('placeholder_brand')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_email">{{ __('whatsapp_ai.field_placeholder_email') }}</label>
+                                    <input type="text" id="placeholder_email" name="placeholder_email" class="form-control" value="{{ old('placeholder_email', $settings->placeholder_email) }}" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">
+                                    @error('placeholder_email')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_website">{{ __('whatsapp_ai.field_placeholder_website') }}</label>
+                                    <input type="text" id="placeholder_website" name="placeholder_website" class="form-control" value="{{ old('placeholder_website', $settings->placeholder_website) }}" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">
+                                    @error('placeholder_website')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_address">{{ __('whatsapp_ai.field_placeholder_address') }}</label>
+                                    <textarea id="placeholder_address" name="placeholder_address" class="form-control font-monospace" rows="2" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">{{ old('placeholder_address', $settings->placeholder_address) }}</textarea>
+                                    @error('placeholder_address')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label" for="placeholder_tagline">{{ __('whatsapp_ai.field_placeholder_tagline') }}</label>
+                                    <input type="text" id="placeholder_tagline" name="placeholder_tagline" class="form-control" value="{{ old('placeholder_tagline', $settings->placeholder_tagline) }}" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">
+                                    @error('placeholder_tagline')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_custom_1">{{ __('whatsapp_ai.field_placeholder_custom_1') }}</label>
+                                    <textarea id="placeholder_custom_1" name="placeholder_custom_1" class="form-control font-monospace" rows="2" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">{{ old('placeholder_custom_1', $settings->placeholder_custom_1) }}</textarea>
+                                    @error('placeholder_custom_1')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="placeholder_custom_2">{{ __('whatsapp_ai.field_placeholder_custom_2') }}</label>
+                                    <textarea id="placeholder_custom_2" name="placeholder_custom_2" class="form-control font-monospace" rows="2" placeholder="{{ __('whatsapp_ai.leave_empty_auto') }}">{{ old('placeholder_custom_2', $settings->placeholder_custom_2) }}</textarea>
+                                    @error('placeholder_custom_2')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-header bg-body border-bottom border-top py-3">
+                            <strong>{{ __('whatsapp_ai.customer_messages_edit') }}</strong>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">{{ __('whatsapp_ai.templates_placeholder_hint') }}</p>
+                            <div class="mb-4">
+                                <label class="form-label" for="handoff_message_in_hours">{{ __('whatsapp_ai.handoff_in_hours_label') }}</label>
+                                <textarea id="handoff_message_in_hours" name="handoff_message_in_hours" class="form-control font-monospace" rows="8">{{ old('handoff_message_in_hours', $settings->handoff_message_in_hours) }}</textarea>
+                                @error('handoff_message_in_hours')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+                                <details class="mt-2 small text-muted">
+                                    <summary>{{ __('whatsapp_ai.builtin_default_preview') }}</summary>
+                                    <pre class="wa-ai-pre mt-2 mb-0" style="max-height:200px;">{{ $customerMessageDefaults['handoff_in'] }}</pre>
+                                </details>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label" for="handoff_message_out_hours">{{ __('whatsapp_ai.handoff_out_hours_label') }}</label>
+                                <textarea id="handoff_message_out_hours" name="handoff_message_out_hours" class="form-control font-monospace" rows="8">{{ old('handoff_message_out_hours', $settings->handoff_message_out_hours) }}</textarea>
+                                @error('handoff_message_out_hours')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+                                <details class="mt-2 small text-muted">
+                                    <summary>{{ __('whatsapp_ai.builtin_default_preview') }}</summary>
+                                    <pre class="wa-ai-pre mt-2 mb-0" style="max-height:200px;">{{ $customerMessageDefaults['handoff_out'] }}</pre>
+                                </details>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label" for="booking_provider_escalation_message">{{ __('whatsapp_ai.booking_escalation_label') }}</label>
+                                <textarea id="booking_provider_escalation_message" name="booking_provider_escalation_message" class="form-control font-monospace" rows="10">{{ old('booking_provider_escalation_message', $settings->booking_provider_escalation_message) }}</textarea>
+                                @error('booking_provider_escalation_message')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+                                <div class="form-text">{{ __('whatsapp_ai.booking_escalation_hint') }}</div>
+                                <details class="mt-2 small text-muted">
+                                    <summary>{{ __('whatsapp_ai.builtin_default_preview') }}</summary>
+                                    <pre class="wa-ai-pre mt-2 mb-0" style="max-height:240px;">{{ $customerMessageDefaults['booking_escalation'] }}</pre>
+                                </details>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-body border-top">
+                            <button type="submit" name="save_customer_messages" value="1" class="btn btn--primary">{{ __('whatsapp_ai.save') }}</button>
                         </div>
                     </form>
                 @else

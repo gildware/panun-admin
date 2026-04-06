@@ -87,6 +87,18 @@
                     @if(!empty($reopenNewBookingDraft['source_booking_id']))
                         <input type="hidden" name="reopen_source_booking_id" value="{{ $reopenNewBookingDraft['source_booking_id'] }}">
                     @endif
+                    @if(old('whatsapp_reserved_readable_id', request('whatsapp_reserved_readable_id')))
+                        <input type="hidden" name="whatsapp_reserved_readable_id"
+                               value="{{ old('whatsapp_reserved_readable_id', request('whatsapp_reserved_readable_id')) }}">
+                    @endif
+
+                    @if(old('whatsapp_reserved_readable_id', request('whatsapp_reserved_readable_id')))
+                        <div class="alert alert-info mb-4" role="alert">
+                            {{ translate('WhatsApp_booking_prefill_banner') }}
+                            <strong>#{{ old('whatsapp_reserved_readable_id', request('whatsapp_reserved_readable_id')) }}</strong>.
+                            {{ translate('WhatsApp_booking_prefill_banner_hint') }}
+                        </div>
+                    @endif
 
                     {{-- 1. Customer (70%) + Source and Assignee (30%) --}}
                     <div class="row g-3 mb-4 align-items-stretch booking-create-top-row">

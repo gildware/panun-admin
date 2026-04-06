@@ -203,7 +203,7 @@ class ProviderController extends Controller
     }
 
     /**
-     * Show top providers by number of completed bookings.
+     * Show top providers by performance score (highest first), among those with at least one revenue-reporting completed booking.
      */
     public function topProviders(Request $request): Renderable
     {
@@ -216,9 +216,28 @@ class ProviderController extends Controller
                 $query->forRevenueReporting();
             }])
             ->having('completed_bookings_count', '>', 0)
-            ->orderByDesc('completed_bookings_count')
-            ->take(20)
             ->get();
+
+        $performanceService = app(ProviderPerformanceService::class);
+        $metrics = $performanceService->getAggregatedProviderPerformanceMetrics($providers->pluck('id')->all());
+
+        $providers = $providers
+            ->sort(function ($a, $b) use ($metrics) {
+                $sa = (int) ($metrics->get($a->id)->performance_score ?? 0);
+                $sb = (int) ($metrics->get($b->id)->performance_score ?? 0);
+                if ($sa !== $sb) {
+                    return $sb <=> $sa;
+                }
+
+                return ($b->completed_bookings_count ?? 0) <=> ($a->completed_bookings_count ?? 0);
+            })
+            ->values()
+            ->take(20)
+            ->map(function ($provider) use ($metrics) {
+                $provider->performance_score = (int) ($metrics->get($provider->id)->performance_score ?? 0);
+
+                return $provider;
+            });
 
         return view('providermanagement::admin.provider.top_providers', compact('providers'));
     }

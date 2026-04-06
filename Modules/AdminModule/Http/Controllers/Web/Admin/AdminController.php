@@ -34,6 +34,8 @@ use Modules\TransactionModule\Entities\Account;
 use Illuminate\Contracts\Foundation\Application;
 use Modules\ChattingModule\Entities\ChannelList;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Services\CustomerPerformanceService;
+use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\AdminModule\Entities\RouteSearchHistory;
@@ -141,28 +143,9 @@ class AdminController extends Controller
             ->get();
         $data[] = ['bookings' => $bookings];
 
-        $top_providers = $this->provider
-            ->with(['owner', 'subscribed_services.category'])
-            ->ofApproval(1)
-            ->withCount(['bookings as completed_bookings_count' => function ($query) {
-                $query->forRevenueReporting();
-            }])
-            ->having('completed_bookings_count', '>', 0)
-            ->orderByDesc('completed_bookings_count')
-            ->take(5)
-            ->get();
-        $data[] = ['top_providers' => $top_providers];
+        $data[] = ['top_providers' => $this->topProvidersByPerformanceScore(5)];
 
-        $top_customers = $this->user
-            ->where(['user_type' => 'customer'])
-            ->withCount(['bookings as completed_bookings_count' => function ($query) {
-                $query->forRevenueReporting();
-            }])
-            ->having('completed_bookings_count', '>', 0)
-            ->orderByDesc('completed_bookings_count')
-            ->take(5)
-            ->get();
-        $data[] = ['top_customers' => $top_customers];
+        $data[] = ['top_customers' => $this->topCustomersByPerformanceScore(5)];
 
         $todaysPendingFollowupsBase = BookingFollowup::query()
             ->where('status', 'scheduled')
@@ -721,5 +704,88 @@ class AdminController extends Controller
         }
 
         return $bookingRevenueByMonth;
+    }
+
+    /**
+     * Approved providers with at least one revenue-reporting completed booking, ordered by performance score (highest first).
+     *
+     * @return \Illuminate\Support\Collection<int, Provider>
+     */
+    private function topProvidersByPerformanceScore(int $limit)
+    {
+        $providers = $this->provider
+            ->with(['owner', 'subscribed_services.category'])
+            ->ofApproval(1)
+            ->withCount(['bookings as completed_bookings_count' => function ($query) {
+                $query->forRevenueReporting();
+            }])
+            ->having('completed_bookings_count', '>', 0)
+            ->get();
+
+        if ($providers->isEmpty()) {
+            return collect();
+        }
+
+        $metrics = app(ProviderPerformanceService::class)->getAggregatedProviderPerformanceMetrics(
+            $providers->pluck('id')->all()
+        );
+
+        return $providers
+            ->sort(function ($a, $b) use ($metrics) {
+                $sa = (int) ($metrics->get($a->id)->performance_score ?? 0);
+                $sb = (int) ($metrics->get($b->id)->performance_score ?? 0);
+                if ($sa !== $sb) {
+                    return $sb <=> $sa;
+                }
+
+                return ($b->completed_bookings_count ?? 0) <=> ($a->completed_bookings_count ?? 0);
+            })
+            ->values()
+            ->take($limit)
+            ->map(function ($provider) use ($metrics) {
+                $provider->performance_score = (int) ($metrics->get($provider->id)->performance_score ?? 0);
+
+                return $provider;
+            });
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    private function topCustomersByPerformanceScore(int $limit)
+    {
+        $customers = $this->user
+            ->inCustomerDirectory()
+            ->withCount(['bookings as completed_bookings_count' => function ($query) {
+                $query->ofBookingStatus('completed');
+            }])
+            ->having('completed_bookings_count', '>', 0)
+            ->get();
+
+        if ($customers->isEmpty()) {
+            return collect();
+        }
+
+        $metrics = app(CustomerPerformanceService::class)->getAggregatedCustomerPerformanceMetrics(
+            $customers->pluck('id')->all()
+        );
+
+        return $customers
+            ->sort(function ($a, $b) use ($metrics) {
+                $sa = (int) ($metrics->get($a->id)->performance_score ?? 0);
+                $sb = (int) ($metrics->get($b->id)->performance_score ?? 0);
+                if ($sa !== $sb) {
+                    return $sb <=> $sa;
+                }
+
+                return ($b->completed_bookings_count ?? 0) <=> ($a->completed_bookings_count ?? 0);
+            })
+            ->values()
+            ->take($limit)
+            ->map(function ($customer) use ($metrics) {
+                $customer->performance_score = (int) ($metrics->get($customer->id)->performance_score ?? 0);
+
+                return $customer;
+            });
     }
 }

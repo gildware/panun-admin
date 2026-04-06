@@ -31,6 +31,7 @@ use Modules\UserManagement\Entities\User;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\BookingModule\Entities\Booking;
+use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
@@ -445,6 +446,9 @@ class LeadController extends Controller
             ]);
         }
 
+        $invalidReasons = LeadInvalidReason::where('is_active', true)->orderBy('name')->get();
+        $futureCustomerReasons = LeadFutureCustomerReason::where('is_active', true)->orderBy('name')->get();
+
         return view('leadmanagement::admin.leads.index', compact(
             'leads',
             'tab',
@@ -479,7 +483,9 @@ class LeadController extends Controller
             'estimatedDateFrom',
             'estimatedDateTo',
             'dateFrom',
-            'dateTo'
+            'dateTo',
+            'invalidReasons',
+            'futureCustomerReasons'
         ));
     }
 
@@ -715,6 +721,34 @@ class LeadController extends Controller
         return $out;
     }
 
+    public function createFromWhatsAppProvider(string $lead_id): RedirectResponse
+    {
+        $lead = ProviderLead::query()->where('lead_id', $lead_id)->first();
+        if (!$lead) {
+            toastr()->error(translate('Not_found'));
+
+            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'leads']);
+        }
+
+        $remarks = 'WhatsApp provider lead ref: ' . $lead_id . "\n";
+        if (trim((string) ($lead->address ?? '')) !== '') {
+            $remarks .= 'Address: ' . trim((string) $lead->address) . "\n";
+        }
+        if (trim((string) ($lead->service ?? '')) !== '') {
+            $remarks .= 'Services offered: ' . trim((string) $lead->service) . "\n";
+        }
+
+        $waSource = Source::query()->active()->whereRaw('LOWER(name) LIKE ?', ['%whatsapp%'])->first();
+
+        return redirect()->route('admin.lead.create')->withInput([
+            'name' => $lead->name,
+            'phone_number' => $lead->phone,
+            'lead_type' => Lead::TYPE_PROVIDER,
+            'remarks' => trim($remarks),
+            'source_id' => $waSource?->id,
+        ]);
+    }
+
     public function create(): View
     {
         $sources = Source::active()->orderBy('name')->get();
@@ -725,8 +759,10 @@ class LeadController extends Controller
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name', 'email']);
         $currentEmployeeId = Auth::id();
+        $invalidReasons = LeadInvalidReason::where('is_active', true)->orderBy('name')->get();
+        $futureCustomerReasons = LeadFutureCustomerReason::where('is_active', true)->orderBy('name')->get();
 
-        return view('leadmanagement::admin.leads.create', compact('sources', 'adSources', 'employees', 'currentEmployeeId'));
+        return view('leadmanagement::admin.leads.create', compact('sources', 'adSources', 'employees', 'currentEmployeeId', 'invalidReasons', 'futureCustomerReasons'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -741,7 +777,37 @@ class LeadController extends Controller
             'handled_by' => 'nullable|string|max:64',
             'remarks' => 'nullable|string|max:1000',
             'next_followup_at' => 'nullable|date',
+            'invalid_reason_id' => 'nullable|required_if:lead_type,invalid|exists:lead_invalid_reasons,id',
+            'invalid_remarks' => 'nullable|string|max:1000',
+            'future_customer_reason_id' => 'nullable|required_if:lead_type,future_customer|exists:lead_future_customer_reasons,id',
+            'future_customer_remarks' => 'nullable|string|max:1000',
         ]);
+
+        $invalidHistoryData = null;
+        if ($validated['lead_type'] === Lead::TYPE_INVALID) {
+            $invalidHistoryData = [
+                'invalid_reason_id' => $validated['invalid_reason_id'],
+                'invalid_remarks' => $validated['invalid_remarks'] ?? null,
+            ];
+            unset($validated['invalid_reason_id'], $validated['invalid_remarks']);
+        } else {
+            unset($validated['invalid_reason_id'], $validated['invalid_remarks']);
+        }
+
+        $futureCustomerHistoryData = null;
+        if ($validated['lead_type'] === Lead::TYPE_FUTURE_CUSTOMER) {
+            $futureCustomerHistoryData = [
+                'future_customer_reason_id' => $validated['future_customer_reason_id'],
+                'future_customer_remarks' => $validated['future_customer_remarks'] ?? null,
+            ];
+            unset($validated['future_customer_reason_id'], $validated['future_customer_remarks']);
+        } else {
+            unset($validated['future_customer_reason_id'], $validated['future_customer_remarks']);
+        }
+
+        if (in_array($validated['lead_type'], [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+            $validated['next_followup_at'] = null;
+        }
 
         $name = isset($validated['name']) ? trim((string) $validated['name']) : '';
         $validated['name'] = $name !== '' ? $name : null;
@@ -765,6 +831,20 @@ class LeadController extends Controller
                 'data' => [
                     'provider_lead_status_id' => ProviderLeadStatus::defaultPendingStatusId(),
                 ],
+                'created_by' => Auth::id(),
+            ]);
+        } elseif ($lead->lead_type === Lead::TYPE_INVALID && $invalidHistoryData !== null) {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_INVALID,
+                'data' => $invalidHistoryData,
+                'created_by' => Auth::id(),
+            ]);
+        } elseif ($lead->lead_type === Lead::TYPE_FUTURE_CUSTOMER && $futureCustomerHistoryData !== null) {
+            LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => Lead::TYPE_FUTURE_CUSTOMER,
+                'data' => $futureCustomerHistoryData,
                 'created_by' => Auth::id(),
             ]);
         }

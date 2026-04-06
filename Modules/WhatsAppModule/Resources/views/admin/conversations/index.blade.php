@@ -768,6 +768,24 @@
             year: 'numeric'
         });
     }
+    function waEscapeHtmlThenNl2br(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>');
+    }
+    /** File name for document links — do not use caption HTML here (caption uses &lt;br&gt; otherwise). */
+    function waBasenameFromMediaUrl(url) {
+        if (!url) return 'Document';
+        try {
+            var path = String(url).split('?')[0];
+            var name = path.split('/').pop() || '';
+            name = decodeURIComponent(name);
+            if (name && name.length <= 180) return name;
+        } catch (e) { /* ignore */ }
+        return 'Document';
+    }
     var canWaThreadActions = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply'));
     var canWaHandoff = @json(auth()->check() && auth()->user()->can('whatsapp_chat_assign'));
 
@@ -1485,7 +1503,8 @@
                     if (m.created_at) {
                         time = waFormatChatMessageTime(m.created_at);
                     }
-                    var body = (m.message_text || m.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                    var rawMsg = String(m.message_text || m.body || '');
+                    var body = waEscapeHtmlThenNl2br(rawMsg);
                     var mediaUrl = m.media_url || '';
                     var msgType = (m.message_type || '').toUpperCase();
                     var isDocument = msgType === 'DOCUMENT';
@@ -1520,7 +1539,7 @@
                     var safeWaMidAttr = waMid.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                     var canReply = canWaThreadActions && waMid !== '';
                     var canReact = canReply && !isOut;
-                    var plainForCopy = String(m.message_text || m.body || '');
+                    var plainForCopy = rawMsg;
                     var copyB64 = waB64EncodeUtf8(plainForCopy);
                     var hasCopyText = plainForCopy.trim() !== '';
                     var previewPlain = plainForCopy.replace(/\s+/g, ' ').trim();
@@ -1572,7 +1591,10 @@
                         html += '<div class="fz-11 mt-1 opacity-90">' + safeNotSent + '</div>';
                     }
                     if (isDocument && mediaUrl) {
-                        var docName = (body || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        var docName = String(waBasenameFromMediaUrl(mediaUrl))
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
                         html += '<div class="mt-1 d-flex align-items-center gap-2"><a href="' + mediaUrl.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" class="text-decoration-none d-flex align-items-center gap-2">';
                         html += '<span class="opacity-90">📄</span><span class="text-break">' + docName + '</span></a></div>';
                     } else if (isVideo && mediaUrl) {
@@ -1603,7 +1625,7 @@
                     } else if (isImage && mediaUrl) {
                         html += '<div class="mt-1"><img src="' + mediaUrl.replace(/"/g, '&quot;') + '" alt="" style="max-width:100%; max-height:280px; object-fit:contain; border-radius:6px;" /></div>';
                     }
-                    if (body && !(isDocument && mediaUrl)) {
+                    if (body) {
                         html += '<div class="mt-1">' + body + '</div>';
                     }
                     html += waFormatReactionsStrip(isOut, m.reactions || {});
@@ -2630,7 +2652,7 @@
         // Optimistic UI: show message immediately with \"Sending…\" status.
         var panel = document.getElementById('whatsapp-chat-messages');
         var time = waFormatChatMessageDateTimeNow();
-        var safeBody = body.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br>');
+        var safeBody = body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
         var tempId = 'wa-temp-' + Date.now();
         var statusSpan = null;
         // Optimistic block(s) for attachments + text
@@ -2768,6 +2790,9 @@
                                 <th>{{ translate('Service') }}</th>
                                 <th>{{ translate('Status') }}</th>
                                 <th>{{ translate('Created') }}</th>
+                                @can('lead_add')
+                                    <th class="text-end">{{ translate('Action') }}</th>
+                                @endcan
                             </tr>
                             </thead>
                             <tbody>
@@ -2781,11 +2806,21 @@
                                     <td>{{ $lead->service ?? '—' }}</td>
                                     <td>{{ $lead->status ?? '—' }}</td>
                                     <td>{{ $lead->created_at?->format('M j, H:i') ?? '—' }}</td>
+                                    @can('lead_add')
+                                        <td class="text-end text-wrap">
+                                            @if(!empty($lead->lead_id))
+                                                <a href="{{ route('admin.lead.create-from-whatsapp-provider', ['lead_id' => $lead->lead_id]) }}"
+                                                   class="btn btn-sm btn--primary">{{ translate('WhatsApp_prefill_provider_lead') }}</a>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                    @endcan
                                 </tr>
                                 @endforeach
                             <?php } else { ?>
                                 <tr>
-                                    <td colspan="6" class="text-center py-5 text-muted">{{ translate('No provider leads') }}</td>
+                                    <td colspan="{{ auth()->user()->can('lead_add') ? 7 : 6 }}" class="text-center py-5 text-muted">{{ translate('No provider leads') }}</td>
                                 </tr>
                             <?php } ?>
                             </tbody>
@@ -2813,6 +2848,9 @@
                                 <th>{{ translate('Service') }}</th>
                                 <th>{{ translate('Status') }}</th>
                                 <th>{{ translate('Created') }}</th>
+                                @can('booking_view')
+                                    <th class="text-end">{{ translate('Action') }}</th>
+                                @endcan
                             </tr>
                             </thead>
                             <tbody>
@@ -2825,11 +2863,23 @@
                                     <td>{{ $booking->service ?? '—' }}</td>
                                     <td>{{ $booking->status ?? '—' }}</td>
                                     <td>{{ $booking->created_at?->format('M j, H:i') ?? '—' }}</td>
+                                    @can('booking_view')
+                                        <td class="text-end text-wrap">
+                                            @if(!empty($booking->booking_id))
+                                                <a href="{{ route('admin.booking.create-from-whatsapp-booking', ['booking_id' => $booking->booking_id]) }}"
+                                                   class="btn btn-sm btn--primary">{{ translate('WhatsApp_create_booking_from_chat') }}</a>
+                                            @endif
+                                            @if(!empty($booking->system_booking_id))
+                                                <a href="{{ route('admin.booking.details', ['id' => $booking->system_booking_id]) }}"
+                                                   class="btn btn-sm btn-outline-secondary ms-1">{{ translate('WhatsApp_open_system_booking') }}</a>
+                                            @endif
+                                        </td>
+                                    @endcan
                                 </tr>
                                 @endforeach
                             <?php } else { ?>
                                 <tr>
-                                    <td colspan="6" class="text-center py-5 text-muted">{{ translate('No bookings') }}</td>
+                                    <td colspan="{{ auth()->user()->can('booking_view') ? 7 : 6 }}" class="text-center py-5 text-muted">{{ translate('No bookings') }}</td>
                                 </tr>
                             <?php } ?>
                             </tbody>

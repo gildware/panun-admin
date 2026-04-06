@@ -129,12 +129,24 @@ class Zone extends Model
         return $this->morphMany(Translation::class, 'translationable');
     }
 
-    public function getNameAttribute($value){
-        if (count($this->translations) > 0) {
-            foreach ($this->translations as $translation) {
-                if ($translation['key'] == 'zone_name') {
-                    return $translation['value'];
-                }
+    public function getNameAttribute($value)
+    {
+        $translations = $this->translations;
+        if ($translations->isEmpty()) {
+            return $value;
+        }
+
+        $normalize = static fn (?string $locale): string => str_replace('_', '-', strtolower((string) $locale));
+        $want = $normalize(app()->getLocale());
+
+        foreach ($translations as $translation) {
+            $key = $translation->key ?? $translation['key'] ?? null;
+            if ($key !== 'zone_name') {
+                continue;
+            }
+            $tLocale = $translation->locale ?? $translation['locale'] ?? '';
+            if ($normalize($tLocale) === $want) {
+                return $translation->value ?? $translation['value'];
             }
         }
 

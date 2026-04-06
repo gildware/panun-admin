@@ -6,11 +6,15 @@ use Carbon\Carbon;
 
 class WhatsAppSupportWorkHours
 {
+    public function __construct(
+        protected WhatsAppAiRuntimeResolver $runtime
+    ) {}
+
     public function isWithinSupportHours(): bool
     {
-        $tz = (string) config('whatsappmodule.support_timezone', 'Asia/Kolkata');
-        $start = (string) config('whatsappmodule.support_work_hours_start', '09:00');
-        $end = (string) config('whatsappmodule.support_work_hours_end', '18:00');
+        $tz = $this->runtime->supportTimezone();
+        $start = $this->runtime->supportWorkHoursStart();
+        $end = $this->runtime->supportWorkHoursEnd();
 
         try {
             $now = Carbon::now($tz);
@@ -27,9 +31,9 @@ class WhatsAppSupportWorkHours
 
     public function humanReadableSchedule(): string
     {
-        $start = (string) config('whatsappmodule.support_work_hours_start', '09:00');
-        $end = (string) config('whatsappmodule.support_work_hours_end', '18:00');
-        $tz = (string) config('whatsappmodule.support_timezone', 'Asia/Kolkata');
+        $start = $this->runtime->supportWorkHoursStart();
+        $end = $this->runtime->supportWorkHoursEnd();
+        $tz = $this->runtime->supportTimezone();
 
         return "{$start} – {$end} ({$tz})";
     }
