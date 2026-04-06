@@ -140,7 +140,7 @@ class CustomerController extends Controller
     }
 
     /**
-     * Show top customers by number of completed bookings.
+     * Show top customers by performance score (highest first), among those with at least one completed booking.
      */
     public function topCustomers(Request $request): View|Factory|Application
     {
@@ -152,9 +152,28 @@ class CustomerController extends Controller
                 $query->ofBookingStatus('completed');
             }])
             ->having('completed_bookings_count', '>', 0)
-            ->orderByDesc('completed_bookings_count')
-            ->take(20)
             ->get();
+
+        $performanceService = app(CustomerPerformanceService::class);
+        $metrics = $performanceService->getAggregatedCustomerPerformanceMetrics($customers->pluck('id')->all());
+
+        $customers = $customers
+            ->sort(function ($a, $b) use ($metrics) {
+                $sa = (int) ($metrics->get($a->id)->performance_score ?? 0);
+                $sb = (int) ($metrics->get($b->id)->performance_score ?? 0);
+                if ($sa !== $sb) {
+                    return $sb <=> $sa;
+                }
+
+                return ($b->completed_bookings_count ?? 0) <=> ($a->completed_bookings_count ?? 0);
+            })
+            ->values()
+            ->take(20)
+            ->map(function ($customer) use ($metrics) {
+                $customer->performance_score = (int) ($metrics->get($customer->id)->performance_score ?? 0);
+
+                return $customer;
+            });
 
         return view('customermodule::admin.top_customers', compact('customers'));
     }

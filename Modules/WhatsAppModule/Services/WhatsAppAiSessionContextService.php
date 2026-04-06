@@ -12,6 +12,10 @@ use Modules\WhatsAppModule\Entities\WhatsAppUser;
  */
 class WhatsAppAiSessionContextService
 {
+    public function __construct(
+        protected WhatsAppAiRuntimeResolver $runtimeResolver
+    ) {}
+
     public function runtimeAppendixForPhone(string $phone): string
     {
         if ($phone === '') {
@@ -42,6 +46,12 @@ class WhatsAppAiSessionContextService
             $lines[] = 'Conversation flags: active_module='.($conv->active_module ?: 'none')
                 .', current_step='.($conv->current_step ?: 'none');
 
+            $unclear = (int) ($conv->ai_unclear_attempts ?? 0);
+            if ($unclear > 0) {
+                $maxU = (int) config('whatsappmodule.ai_unclear_max_clarify_rounds', 2);
+                $lines[] = 'Unclear-intent rounds already used for this chat: '.$unclear.' of '.$maxU.' (then human handoff). If the latest message is still ambiguous, call report_unclear_user_intent — do not stall without it.';
+            }
+
             $bid = trim((string) ($conv->active_booking_id ?? ''));
             if ($bid !== '') {
                 $b = WhatsAppBooking::query()->where('booking_id', $bid)->where('phone', $phone)->first();
@@ -52,7 +62,7 @@ class WhatsAppAiSessionContextService
                         .'; address: '.$this->dash($b->address)
                         .'; district: '.$this->dash($b->district)
                         .'; alt_phone: '.$this->dash($b->alt_phone)
-                        .'; preferred_at: '.($b->prefered_datetime ? $b->prefered_datetime->timezone(config('whatsappmodule.support_timezone', 'Asia/Kolkata'))->format('d M Y, h:i A') : '—')
+                        .'; preferred_at: '.($b->prefered_datetime ? $b->prefered_datetime->timezone($this->runtimeResolver->supportTimezone())->format('d M Y, h:i A') : '—')
                         .'; location_hint: '.$this->dash($b->location_hint);
                 }
             }

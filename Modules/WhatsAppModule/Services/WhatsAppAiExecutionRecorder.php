@@ -21,6 +21,8 @@ final class WhatsAppAiExecutionRecorder
     {
         $msg = WhatsAppMessage::query()->find($inboundMessageId);
 
+        $runtime = app(WhatsAppAiRuntimeResolver::class);
+
         $execution = WhatsAppAiExecution::query()->create([
             'trigger_whatsapp_message_id' => $inboundMessageId,
             'phone' => $msg?->phone ?? '',
@@ -28,8 +30,8 @@ final class WhatsAppAiExecutionRecorder
             'steps' => [],
             'meta' => [
                 'queue_default' => config('queue.default'),
-                'ai_dispatch_sync' => (bool) config('whatsappmodule.ai_dispatch_sync', true),
-                'gemini_model' => config('whatsappmodule.gemini_model'),
+                'ai_dispatch_sync' => $runtime->aiDispatchUsesSync(),
+                'gemini_model' => $runtime->geminiModel(),
             ],
             'started_at' => now(),
         ]);
@@ -107,6 +109,8 @@ final class WhatsAppAiExecutionRecorder
             'greeting_buttons' => 'Welcome + quick-reply buttons sent',
             'gemini_reply' => 'Gemini reply sent to customer',
             'gemini_fallback' => 'Fallback message sent (Gemini unavailable)',
+            'unclear_handoff' => 'Unclear intent limit — handoff message sent; human support flagged',
+            'tool_canned_reply' => 'Configured template message sent (handoff or escalation)',
             'no_context' => 'Skipped — no usable chat context',
             'skipped_not_latest' => 'Skipped — newer inbound message exists',
             'skipped_handled_by' => 'Skipped — chat not assigned to AI',

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Booking in the WhatsApp PostgreSQL database.
- * Columns: id, booking_id, phone, name, alt_phone, address, service, prefered_datetime, status, created_at, updated_at, location_hint
+ * Columns: id, booking_id, phone, name, alt_phone, address, service, service_description, district, prefered_datetime, status, location_hint, admin_prefill_json, system_booking_id, created_at, updated_at
  */
 class WhatsAppBooking extends Model
 {
@@ -31,14 +31,18 @@ class WhatsAppBooking extends Model
         'address',
         'district',
         'service',
+        'service_description',
         'prefered_datetime',
         'status',
         'location_hint',
+        'admin_prefill_json',
+        'system_booking_id',
     ];
 
     protected $casts = [
         'prefered_datetime' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'admin_prefill_json' => 'array',
     ];
 }

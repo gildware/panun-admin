@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Conversation state (AI handled) in the WhatsApp PostgreSQL database.
- * Columns: phone, active_module, current_step, after_hours, active_booking_id, active_lead_id, conversation_id
+ * Columns: phone, active_module, current_step, after_hours, active_booking_id, active_lead_id, ai_unclear_attempts, timestamps
  */
 class WhatsAppConversation extends Model
 {
@@ -23,10 +23,12 @@ class WhatsAppConversation extends Model
         'after_hours',
         'active_booking_id',
         'active_lead_id',
+        'ai_unclear_attempts',
     ];
 
     protected $casts = [
         'after_hours' => 'boolean',
+        'ai_unclear_attempts' => 'integer',
     ];
 
     /**

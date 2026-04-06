@@ -177,13 +177,13 @@ class WhatsAppController extends Controller
                 $ttl = config('whatsappmodule.cache_ttl', 60);
                 if ($page === 1 && $ttl > 0) {
                     $leads = Cache::remember($cacheKey, $ttl, function () {
-                        return ProviderLead::select(['lead_id', 'phone', 'name', 'service', 'status', 'created_at'])
+                        return ProviderLead::select(['lead_id', 'phone', 'name', 'address', 'service', 'status', 'created_at'])
                             ->orderByDesc('created_at')
                             ->simplePaginate(20);
                     });
                     $leads->withPath($request->url())->appends($request->query());
                 } else {
-                    $leads = ProviderLead::select(['lead_id', 'phone', 'name', 'service', 'status', 'created_at'])
+                    $leads = ProviderLead::select(['lead_id', 'phone', 'name', 'address', 'service', 'status', 'created_at'])
                         ->orderByDesc('created_at')
                         ->simplePaginate(20)->withQueryString();
                 }
@@ -199,17 +199,17 @@ class WhatsAppController extends Controller
         if ($tab === 'bookings') {
             try {
                 $page = (int) $request->get('page', 1);
-                $cacheKey = 'whatsapp_bookings_page1';
+                $cacheKey = 'whatsapp_bookings_page1_v2';
                 $ttl = config('whatsappmodule.cache_ttl', 60);
                 if ($page === 1 && $ttl > 0) {
                     $bookings = Cache::remember($cacheKey, $ttl, function () {
-                        return WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'created_at'])
+                        return WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'system_booking_id', 'created_at'])
                             ->orderByDesc('created_at')
                             ->simplePaginate(20);
                     });
                     $bookings->withPath($request->url())->appends($request->query());
                 } else {
-                    $bookings = WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'created_at'])
+                    $bookings = WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'system_booking_id', 'created_at'])
                         ->orderByDesc('created_at')
                         ->simplePaginate(20)->withQueryString();
                 }

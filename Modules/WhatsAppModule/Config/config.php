@@ -35,4 +35,12 @@ return [
 
     // When true, AI reply runs in the webhook request (no queue worker). Set false if you use redis/database queue + workers.
     'ai_dispatch_sync' => filter_var(env('WHATSAPP_AI_DISPATCH_SYNC', true), FILTER_VALIDATE_BOOL),
+
+    /** Max polite "please clarify" rounds before auto handoff (report_unclear_user_intent tool). Handoff on the next unclear after this many clarifications. */
+    'ai_unclear_max_clarify_rounds' => max(1, min(5, (int) env('WHATSAPP_AI_UNCLEAR_MAX_CLARIFY_ROUNDS', 2))),
+
+    /** Minimum match score to auto-apply zone from address (WhatsAppZoneAddressMatcher). */
+    'ai_zone_match_min_score_high' => (float) env('WHATSAPP_AI_ZONE_MATCH_MIN_SCORE_HIGH', 10),
+    /** If second-best score ≥ top × this ratio, treat as ambiguous (no auto zone). */
+    'ai_zone_match_ambiguity_ratio' => (float) env('WHATSAPP_AI_ZONE_MATCH_AMBIGUITY_RATIO', 0.88),
 ];

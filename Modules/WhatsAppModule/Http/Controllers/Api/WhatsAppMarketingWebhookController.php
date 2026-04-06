@@ -10,12 +10,14 @@ use Modules\WhatsAppModule\Entities\WhatsAppMarketingMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Jobs\ProcessWhatsAppAiSupportJob;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
+use Modules\WhatsAppModule\Services\WhatsAppAiRuntimeResolver;
 use Modules\WhatsAppModule\Services\WhatsAppGraphInboundHandler;
 
 class WhatsAppMarketingWebhookController extends Controller
 {
     public function __construct(
-        protected WhatsAppGraphInboundHandler $graphInboundHandler
+        protected WhatsAppGraphInboundHandler $graphInboundHandler,
+        protected WhatsAppAiRuntimeResolver $aiRuntimeResolver,
     ) {}
 
     public function verify(Request $request): Response
@@ -293,7 +295,7 @@ class WhatsAppMarketingWebhookController extends Controller
                 return;
             }
 
-            if (!config('whatsappmodule.ai_support_enabled')) {
+            if (!$this->aiRuntimeResolver->aiSupportEnabled()) {
                 return;
             }
 
@@ -301,10 +303,14 @@ class WhatsAppMarketingWebhookController extends Controller
                 return;
             }
 
-            if (config('whatsappmodule.ai_dispatch_sync', true)) {
+            if ($this->aiRuntimeResolver->aiDispatchUsesSync()) {
                 ProcessWhatsAppAiSupportJob::dispatchSync($saved->id);
             } else {
-                ProcessWhatsAppAiSupportJob::dispatch($saved->id);
+                $pending = ProcessWhatsAppAiSupportJob::dispatch($saved->id);
+                $conn = $this->aiRuntimeResolver->queueConnectionForDispatch();
+                if ($conn !== null && $conn !== '') {
+                    $pending->onConnection($conn);
+                }
             }
         } catch (\Throwable $e) {
             Log::warning('WhatsApp conversation inbound failed', ['error' => $e->getMessage()]);

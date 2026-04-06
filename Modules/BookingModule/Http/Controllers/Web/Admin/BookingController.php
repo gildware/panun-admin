@@ -41,6 +41,7 @@ use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
+use Modules\BookingModule\Services\BookingReadableIdAllocator;
 use Modules\BookingModule\Services\BookingReopenService;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CategoryManagement\Entities\Category;
@@ -58,6 +59,8 @@ use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\Source;
+use Modules\WhatsAppModule\Entities\WhatsAppBooking;
+use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -517,6 +520,127 @@ class BookingController extends Controller
     }
 
     /**
+     * Prefill Add New Booking from a WhatsApp-sourced booking row (same readable_id when reserved).
+     */
+    public function createFromWhatsAppBooking(Request $request, string $booking_id): Factory|View|Application|RedirectResponse
+    {
+        try {
+            $this->authorize('booking_view');
+        } catch (AuthorizationException $e) {
+            Toastr::error(translate('Access_denied'));
+
+            return redirect()->route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
+        }
+
+        $wa = WhatsAppBooking::query()->where('booking_id', $booking_id)->first();
+        if (!$wa) {
+            Toastr::error(translate('Not_found'));
+
+            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+        }
+
+        $customer = User::findByContactPhone((string) $wa->phone);
+        if (!$customer || $customer->user_type !== 'customer') {
+            $defaultPassword = config('app.default_customer_password', '12345678');
+            $customer = new User();
+            $name = trim((string) ($wa->name ?? ''));
+            $customer->first_name = $name !== '' ? $name : 'Customer';
+            $customer->last_name = '';
+            $customer->phone = (string) $wa->phone;
+            $customer->email = null;
+            $customer->profile_image = 'default.png';
+            $customer->gender = 'male';
+            $customer->password = bcrypt($defaultPassword);
+            $customer->user_type = 'customer';
+            $customer->customer_app_access = true;
+            $customer->is_active = 1;
+            $customer->save();
+        }
+
+        $serviceAddressId = null;
+        $addrText = trim((string) ($wa->address ?? ''));
+        if ($addrText !== '') {
+            $existingAddr = $this->userAddress->newQuery()
+                ->where('user_id', $customer->id)
+                ->where('address', $addrText)
+                ->first();
+            if ($existingAddr) {
+                $serviceAddressId = $existingAddr->id;
+            } else {
+                $ua = new UserAddress();
+                $ua->user_id = $customer->id;
+                $ua->address = $addrText;
+                $district = trim((string) ($wa->district ?? ''));
+                if ($district !== '') {
+                    $ua->city = Str::limit($district, 191, '');
+                }
+                $ua->save();
+                $serviceAddressId = $ua->id;
+            }
+        }
+
+        $zone = null;
+        $district = trim((string) ($wa->district ?? ''));
+        if ($district !== '') {
+            $zone = $this->zone->newQuery()
+                ->whereRaw('LOWER(name) = ?', [Str::lower($district)])
+                ->first();
+        }
+
+        $waSource = Source::query()->active()->whereRaw('LOWER(name) = ?', ['whatsapp'])->first();
+        $bookingSourceLabel = $waSource?->name ?? 'whatsapp';
+
+        $desc = trim((string) ($wa->service_description ?? ''));
+        if ($desc === '' && trim((string) ($wa->service ?? '')) !== '') {
+            $desc = trim((string) $wa->service);
+        }
+
+        $prefill = [
+            'customer_id' => $customer->id,
+            'service_description' => $desc !== '' ? $desc : null,
+            'booking_source' => $bookingSourceLabel,
+            'whatsapp_reserved_readable_id' => BookingReadableIdAllocator::isAppReadableIdFormat((string) $wa->booking_id)
+                ? (string) $wa->booking_id
+                : null,
+        ];
+
+        if ($serviceAddressId) {
+            $prefill['service_address_id'] = $serviceAddressId;
+            $prefill['service_location'] = 'customer';
+        }
+
+        if ($zone) {
+            $prefill['zone_id'] = (string) $zone->id;
+        }
+
+        $j = $wa->admin_prefill_json;
+        if (is_array($j)) {
+            foreach (['zone_id', 'category_id', 'sub_category_id', 'service_id', 'variant_key'] as $k) {
+                if (!empty($j[$k])) {
+                    $prefill[$k] = (string) $j[$k];
+                }
+            }
+        }
+
+        if ($wa->prefered_datetime) {
+            try {
+                $prefill['service_schedule'] = $wa->prefered_datetime->format('Y-m-d\TH:i');
+            } catch (Throwable) {
+                $prefill['service_schedule'] = $wa->prefered_datetime->toDateTimeString();
+            }
+        }
+
+        $prefill = array_filter(
+            $prefill,
+            static fn ($v) => $v !== null && $v !== ''
+        );
+
+        $request->merge(array_merge($prefill, $request->query(), $request->old()));
+
+        return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create', null);
+    }
+
+    /**
      * Build data and view for booking create form (used by both standard create and create-from-lead flows).
      *
      * @param Request $request
@@ -908,9 +1032,12 @@ class BookingController extends Controller
                 'booking_create_cart_json' => ['nullable', 'string'],
                 'booking_create_extra_services_json' => ['nullable', 'string'],
                 'service_quantity' => ['nullable', 'integer', 'min:1'],
+                'whatsapp_reserved_readable_id' => ['nullable', 'string', 'max:32'],
             ], [
                 'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
             ]);
+
+            $this->assertValidWhatsappReservedReadableId($data);
             
             // If service location is provider, clear service_address_id
             if ($data['service_location'] === 'provider') {
@@ -1075,9 +1202,12 @@ class BookingController extends Controller
             'booking_create_cart_json' => ['nullable', 'string'],
             'booking_create_extra_services_json' => ['nullable', 'string'],
             'service_quantity' => ['nullable', 'integer', 'min:1'],
+            'whatsapp_reserved_readable_id' => ['nullable', 'string', 'max:32'],
         ], [
             'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
         ]);
+
+        $this->assertValidWhatsappReservedReadableId($data);
         
         // If service location is provider, clear service_address_id
         if ($data['service_location'] === 'provider') {
@@ -1176,6 +1306,11 @@ class BookingController extends Controller
             $booking->total_discount_amount = $cartPricing['sum_basic_discount'];
             $booking->total_campaign_discount_amount = $cartPricing['sum_campaign_discount'];
             $booking->total_coupon_discount_amount = 0;
+
+            $reservedRid = trim((string) ($data['whatsapp_reserved_readable_id'] ?? ''));
+            if ($reservedRid !== '') {
+                $booking->readable_id = $reservedRid;
+            }
 
             $booking->save();
 
@@ -1298,6 +1433,11 @@ class BookingController extends Controller
                 'booking_id' => $booking->id,
                 'readable_id' => $booking->readable_id,
             ]);
+
+            $this->syncWhatsAppBookingRowAfterAdminCreate(
+                trim((string) ($data['whatsapp_reserved_readable_id'] ?? '')),
+                (string) $booking->id
+            );
 
             try {
                 $fresh = Booking::query()
@@ -5898,6 +6038,64 @@ class BookingController extends Controller
 
         return (new FastExcel($bookings))->download(time() . '-file.xlsx');
 
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function assertValidWhatsappReservedReadableId(array $data): void
+    {
+        $reserved = trim((string) ($data['whatsapp_reserved_readable_id'] ?? ''));
+        if ($reserved === '') {
+            return;
+        }
+        if (!BookingReadableIdAllocator::isAppReadableIdFormat($reserved)) {
+            throw ValidationException::withMessages([
+                'whatsapp_reserved_readable_id' => [translate('Invalid_data')],
+            ]);
+        }
+        if (Booking::query()->where('readable_id', $reserved)->exists()) {
+            throw ValidationException::withMessages([
+                'whatsapp_reserved_readable_id' => [translate('This_value_is_already_taken')],
+            ]);
+        }
+        $wa = WhatsAppBooking::query()->where('booking_id', $reserved)->first();
+        if (!$wa) {
+            return;
+        }
+        $cust = User::query()->find($data['customer_id'] ?? null);
+        if (!$cust) {
+            return;
+        }
+        $cloud = app(WhatsAppCloudService::class);
+        $w = $cloud->normalizeRecipientPhone((string) $wa->phone);
+        $c = $cloud->normalizeRecipientPhone((string) ($cust->phone ?? ''));
+        if ($w && $c && $w !== $c) {
+            throw ValidationException::withMessages([
+                'whatsapp_reserved_readable_id' => [translate('Invalid_data')],
+            ]);
+        }
+    }
+
+    private function syncWhatsAppBookingRowAfterAdminCreate(?string $reservedReadableId, string $systemBookingUuid): void
+    {
+        $reservedReadableId = trim((string) ($reservedReadableId ?? ''));
+        if ($reservedReadableId === '' || !BookingReadableIdAllocator::isAppReadableIdFormat($reservedReadableId)) {
+            return;
+        }
+        try {
+            $wa = WhatsAppBooking::query()->where('booking_id', $reservedReadableId)->first();
+            if ($wa) {
+                $wa->system_booking_id = $systemBookingUuid;
+                $wa->status = WhatsAppBooking::STATUS_HUMAN_CONFIRMED;
+                $wa->save();
+            }
+        } catch (Throwable $e) {
+            Log::warning('WhatsApp booking row link after admin create failed', [
+                'readable_id' => $reservedReadableId,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
 }

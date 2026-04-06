@@ -18,6 +18,7 @@
                                 <th style="width: 80px;">{{translate('Sl')}}</th>
                                         <th>{{translate('Provider')}}</th>
                                         <th style="width: 220px;">{{translate('Category')}}</th>
+                                        <th style="min-width: 168px; width: 168px;" class="text-end text-nowrap">{{translate('Performance_Score')}}</th>
                                         <th style="width: 140px;" class="text-end">{{translate('Bookings')}}</th>
                             </tr>
                             </thead>
@@ -54,13 +55,16 @@
                                                 )
                                                 <span>{{ $categoryNames[0] ?? '—' }}</span>
                                             </td>
+                                    <td class="text-end text-nowrap">
+                                        <span class="fw-medium">{{ (int) ($provider->performance_score ?? 0) }}</span>
+                                    </td>
                                     <td class="text-end">
                                         <span class="fw-medium">{{ $provider->completed_bookings_count }}</span>
                                     </td>
                                 </tr>
                             @empty
                                         <tr>
-                                            <td colspan="4" class="text-center opacity-75">
+                                            <td colspan="5" class="text-center opacity-75">
                                         {{ translate('No Record Found') }}
                                     </td>
                                 </tr>
@@ -69,7 +73,7 @@
                         </table>
                     </div>
                     <div class="fs-12 opacity-75 mt-3">
-                        Showing top 20 providers with at least 1 completed booking.
+                        Showing top 20 providers by performance score (highest first), among those with at least 1 completed booking counted for revenue.
                     </div>
                 </div>
             </div>
