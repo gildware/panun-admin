@@ -54,7 +54,7 @@
 
                                         <div class="mb-30">
                                             <label class="form-label">{{ translate('Lead_Type') }} *</label>
-                                            <select class="form-select js-select" name="lead_type" required>
+                                            <select class="form-select js-select" name="lead_type" id="lead-create-type-select" required>
                                                 @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
                                                     <option value="{{ $value }}" {{ old('lead_type', 'unknown') == $value ? 'selected' : '' }}>
                                                         {{ translate($label) }}
@@ -114,9 +114,10 @@
                                             @enderror
                                         </div>
 
-                                        <div class="mb-30">
+                                        <div class="mb-30" id="lead-create-followup-wrap">
                                             <label class="form-label">{{ translate('Next_Follow_up_Date') }}</label>
                                             <input type="datetime-local" class="form-control" name="next_followup_at"
+                                                   id="lead-create-next-followup-input"
                                                    value="{{ old('next_followup_at', now()->addDay()->format('Y-m-d\TH:i')) }}">
                                             @error('next_followup_at')
                                                 <div class="text-danger small mt-1">{{ $message }}</div>
@@ -125,9 +126,57 @@
                                     </div>
 
                                     <div class="col-12">
-                                        <div class="mb-30">
+                                        <div class="mb-30 d-none" id="lead-create-invalid-fields">
+                                            <div class="mb-30">
+                                                <label class="form-label">{{ translate('Reason') }}</label>
+                                                <select name="invalid_reason_id" class="form-select js-select" id="lead-create-invalid-reason">
+                                                    <option value="">{{ translate('Select_Reason') }}</option>
+                                                    @foreach($invalidReasons as $reason)
+                                                        <option value="{{ $reason->id }}" {{ (string) old('invalid_reason_id') === (string) $reason->id ? 'selected' : '' }}>
+                                                            {{ $reason->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('invalid_reason_id')
+                                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                            <div class="mb-0">
+                                                <label class="form-label">{{ translate('Remarks') }}</label>
+                                                <textarea name="invalid_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('invalid_remarks') }}</textarea>
+                                                @error('invalid_remarks')
+                                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-30 d-none" id="lead-create-future-fields">
+                                            <div class="mb-30">
+                                                <label class="form-label">{{ translate('Reason') }}</label>
+                                                <select name="future_customer_reason_id" class="form-select js-select" id="lead-create-future-reason">
+                                                    <option value="">{{ translate('Select_Reason') }}</option>
+                                                    @foreach($futureCustomerReasons as $reason)
+                                                        <option value="{{ $reason->id }}" {{ (string) old('future_customer_reason_id') === (string) $reason->id ? 'selected' : '' }}>
+                                                            {{ $reason->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('future_customer_reason_id')
+                                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                            <div class="mb-0">
+                                                <label class="form-label">{{ translate('Remarks') }}</label>
+                                                <textarea name="future_customer_remarks" class="form-control" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('future_customer_remarks') }}</textarea>
+                                                @error('future_customer_remarks')
+                                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-30" id="lead-create-general-remarks-wrap">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
-                                            <textarea class="form-control" name="remarks" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('remarks') }}</textarea>
+                                            <textarea class="form-control" name="remarks" id="lead-create-remarks" rows="3" placeholder="{{ translate('Remarks') }}">{{ old('remarks') }}</textarea>
                                             @error('remarks')
                                                 <div class="text-danger small mt-1">{{ $message }}</div>
                                             @enderror
@@ -183,6 +232,42 @@
                     escapeMarkup: function (m) { return m; }
                 });
             }
+
+            const TYPE_INVALID = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_INVALID }}';
+            const TYPE_FUTURE = '{{ \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER }}';
+            const $typeSelect = $('#lead-create-type-select');
+            const $followWrap = $('#lead-create-followup-wrap');
+            const $followInput = $('#lead-create-next-followup-input');
+            const $invalidBlock = $('#lead-create-invalid-fields');
+            const $futureBlock = $('#lead-create-future-fields');
+            const $generalRemarksWrap = $('#lead-create-general-remarks-wrap');
+            const $generalRemarks = $('#lead-create-remarks');
+            const $invalidReason = $('#lead-create-invalid-reason');
+            const $futureReason = $('#lead-create-future-reason');
+
+            function leadCreateApplyTypeUi() {
+                const t = $typeSelect.val();
+                const isInvalid = t === TYPE_INVALID;
+                const isFuture = t === TYPE_FUTURE;
+
+                $followWrap.toggleClass('d-none', isInvalid || isFuture);
+                $invalidBlock.toggleClass('d-none', !isInvalid);
+                $futureBlock.toggleClass('d-none', !isFuture);
+                $generalRemarksWrap.toggleClass('d-none', isInvalid || isFuture);
+
+                $followInput.prop('disabled', isInvalid || isFuture);
+                $generalRemarks.prop('disabled', isInvalid || isFuture);
+
+                if ($invalidReason.length) {
+                    $invalidReason.prop('required', isInvalid);
+                }
+                if ($futureReason.length) {
+                    $futureReason.prop('required', isFuture);
+                }
+            }
+
+            $typeSelect.on('change select2:select', leadCreateApplyTypeUi);
+            leadCreateApplyTypeUi();
         });
     </script>
 @endpush

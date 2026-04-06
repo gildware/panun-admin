@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsAppGeminiSupportClient
 {
+    public function __construct(
+        protected WhatsAppAiRuntimeResolver $runtimeResolver
+    ) {}
+
     /** @var list<string> */
     private const DEPRECATED_20_MODELS = [
         'gemini-2.0-flash',
@@ -57,7 +61,7 @@ class WhatsAppGeminiSupportClient
     private function modelCandidates(): array
     {
         $primary = $this->normalizeGeminiModelId(
-            (string) config('whatsappmodule.gemini_model', 'gemini-2.5-flash')
+            $this->runtimeResolver->geminiModel()
         );
 
         $ordered = [];

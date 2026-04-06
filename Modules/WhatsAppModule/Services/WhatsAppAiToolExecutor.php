@@ -4,7 +4,10 @@ namespace Modules\WhatsAppModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Services\BookingReadableIdAllocator;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
@@ -19,7 +22,9 @@ class WhatsAppAiToolExecutor
         protected WhatsAppPublicCatalogService $catalog,
         protected WhatsAppSupportWorkHours $workHours,
         protected WhatsAppLeadLifecycleService $leadLifecycle,
-        protected WhatsAppAiSupportKnowledgeService $supportKnowledge
+        protected WhatsAppAiSupportKnowledgeService $supportKnowledge,
+        protected WhatsAppZoneAddressMatcher $zoneAddressMatcher,
+        protected WhatsAppAiSettingsService $aiSettings
     ) {}
 
     /**
@@ -30,14 +35,19 @@ class WhatsAppAiToolExecutor
     {
         return match ($name) {
             'get_public_business_info' => $this->getPublicBusinessInfo(),
+            'match_zone_from_address' => $this->matchZoneFromAddress($args),
             'search_support_knowledge' => $this->searchSupportKnowledge($args),
+            'report_unclear_user_intent' => $this->reportUnclearUserIntent($phone, $args),
             'list_my_booking_summaries' => $this->listMyBookingSummaries($phone, $args),
             'get_my_booking_details' => $this->getMyBookingDetails($phone, $args),
+            'get_booking_status_by_reference' => $this->getBookingStatusByReference($phone, $args),
+            'list_my_system_bookings' => $this->listMySystemBookings($phone, $args),
             'upsert_my_draft_booking' => $this->upsertMyDraftBooking($phone, $args),
             'submit_my_booking_for_human_confirmation' => $this->submitMyBookingForHuman($phone, $args),
             'upsert_my_draft_provider_lead' => $this->upsertMyDraftProviderLead($phone, $args),
             'submit_my_provider_lead_for_human_confirmation' => $this->submitMyProviderLeadForHuman($phone, $args),
             'request_human_support_handoff' => $this->requestHumanHandoff($phone, $args),
+            'get_booking_issue_escalation_reply' => $this->getBookingIssueEscalationReply(),
             default => ['ok' => false, 'error' => 'unknown_tool'],
         };
     }
@@ -50,10 +60,21 @@ class WhatsAppAiToolExecutor
         return [
             [
                 'name' => 'get_public_business_info',
-                'description' => 'Returns public company info, sample service names, zones, and any configured visiting-charge notes. Use for FAQs. Never invent prices.',
+                'description' => 'Returns public company info, services, zones with IDs, zones_for_address_matching (name + description/area lists), visiting-charge notes, and customer_message_placeholders (exact strings for {schedule}, {phone}, {brand}, etc. in canned messages). Use for FAQs. Never invent prices.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => new \stdClass,
+                ],
+            ],
+            [
+                'name' => 'match_zone_from_address',
+                'description' => 'Server-side match of customer free-text address to one active zone using zone name + zone description (areas covered). Returns high confidence only when one zone clearly wins — otherwise low/none (leave zone empty; never ask the customer to pick a region).',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'address' => ['type' => 'string', 'description' => 'Full address as the customer gave it'],
+                    ],
+                    'required' => ['address'],
                 ],
             ],
             [
@@ -67,8 +88,18 @@ class WhatsAppAiToolExecutor
                 ],
             ],
             [
+                'name' => 'report_unclear_user_intent',
+                'description' => 'Call when you genuinely cannot understand what the customer wants after reading their last message(s). Do NOT use for normal small talk or clear requests. The server counts attempts: you will be told to ask ONE polite clarifying question (same language as the customer) up to a limit; after that the chat is handed to human support during working hours. Never call this together with booking or handoff tools in the same turn unless the message is truly ambiguous.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brief_reason' => ['type' => 'string', 'description' => 'Very short internal note why it is unclear (e.g. random characters, mixed topics, empty intent)'],
+                    ],
+                ],
+            ],
+            [
                 'name' => 'list_my_booking_summaries',
-                'description' => 'Lists this customer\'s own WhatsApp booking requests (reference ids and status only).',
+                'description' => 'Lists WhatsApp booking *requests* saved for this number (reference id + status). For completed jobs in our main system, use list_my_system_bookings when the number matches a customer profile.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -78,13 +109,34 @@ class WhatsAppAiToolExecutor
             ],
             [
                 'name' => 'get_my_booking_details',
-                'description' => 'Returns one booking row for this phone only (by public booking reference).',
+                'description' => 'Returns one WhatsApp booking request row for this phone only (by its reference id).',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
                         'booking_id' => ['type' => 'string'],
                     ],
                     'required' => ['booking_id'],
+                ],
+            ],
+            [
+                'name' => 'get_booking_status_by_reference',
+                'description' => 'Use when the customer asks for booking status and has given a booking id (e.g. PK07MAR26001). Looks up **first** in WhatsApp booking *requests* for this number; if not found, looks up a **system** booking by readable id for this number\'s customer profile. If they ask status without an id, ask once for the booking id before calling this.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'booking_reference' => ['type' => 'string', 'description' => 'The id the customer quoted (with or without #, any common spacing)'],
+                    ],
+                    'required' => ['booking_reference'],
+                ],
+            ],
+            [
+                'name' => 'list_my_system_bookings',
+                'description' => 'Lists confirmed bookings in the main system for this WhatsApp number when it matches a customer profile (readable id, status, schedule, assigned provider name, bill total summary). Use after the customer asks about past jobs or invoices.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'limit' => ['type' => 'integer', 'description' => 'Max rows, default 8'],
+                    ],
                 ],
             ],
             [
@@ -96,11 +148,17 @@ class WhatsAppAiToolExecutor
                         'booking_id' => ['type' => 'string', 'description' => 'Existing draft id if continuing'],
                         'name' => ['type' => 'string', 'description' => 'Contact person name for the booking only — not the type of work (e.g. mistary/mistry/plastering belongs in `service`, not here).'],
                         'service' => ['type' => 'string'],
-                        'address' => ['type' => 'string'],
-                        'district' => ['type' => 'string'],
+                        'service_description' => ['type' => 'string', 'description' => 'Extra job details for staff (symptoms, model, photos described in text) — maps to admin booking "service info"'],
+                        'address' => ['type' => 'string', 'description' => 'Full service address from the customer — always collect this; never ask separately for district/region.'],
+                        'district' => ['type' => 'string', 'description' => 'Internal only: auto-filled from zone match when confident — do not ask the customer. Leave unset unless copying from match_zone_from_address high-confidence result.'],
                         'alternate_phone' => ['type' => 'string'],
                         'location_hint' => ['type' => 'string', 'description' => 'Landmark, floor, gate, pin on map text — helps staff find the customer'],
                         'preferred_datetime_text' => ['type' => 'string', 'description' => 'ISO-8601 or clear datetime the customer agreed to (e.g. 2026-04-05 17:00)'],
+                        'zone_id' => ['type' => 'string', 'description' => 'Optional zone UUID from match_zone_from_address (high confidence) or service_hints — never ask the customer to choose a zone'],
+                        'category_id' => ['type' => 'string', 'description' => 'Optional category UUID from service_hints when known'],
+                        'sub_category_id' => ['type' => 'string', 'description' => 'Optional subcategory UUID from service_hints when known'],
+                        'service_id' => ['type' => 'string', 'description' => 'Optional service UUID from service_hints when known'],
+                        'variant_key' => ['type' => 'string', 'description' => 'Optional variant key from service_hints when known'],
                     ],
                 ],
             ],
@@ -139,7 +197,7 @@ class WhatsAppAiToolExecutor
             ],
             [
                 'name' => 'request_human_support_handoff',
-                'description' => 'Use when the customer wants a human. Returns whether we are inside configured support hours.',
+                'description' => 'Use when the customer wants a human agent. The server sends the full customer message (support hours and public phone from your configured templates). Do not write your own hours, phone number, or bracket placeholders.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -147,12 +205,37 @@ class WhatsAppAiToolExecutor
                     ],
                 ],
             ],
+            [
+                'name' => 'get_booking_issue_escalation_reply',
+                'description' => 'Use when the customer says a provider is not answering / not picking up / unreachable for a confirmed or active booking. Returns the exact WhatsApp text to send from admin-configured copy (merged with real schedule and phone). Do not paraphrase or add placeholder instructions.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => new \stdClass,
+                ],
+            ],
         ];
     }
 
     private function getPublicBusinessInfo(): array
     {
-        return ['ok' => true, 'data' => $this->catalog->buildPublicSnapshot()];
+        $data = $this->catalog->buildPublicSnapshot();
+        $data['customer_message_placeholders'] = $this->aiSettings->resolvedMessagePlaceholders();
+
+        return ['ok' => true, 'data' => $data];
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function matchZoneFromAddress(array $args): array
+    {
+        $addr = trim((string) ($args['address'] ?? ''));
+        if ($addr === '') {
+            return ['ok' => false, 'error' => 'missing_address'];
+        }
+
+        return ['ok' => true, 'match' => $this->zoneAddressMatcher->match($addr)];
     }
 
     /**
@@ -162,6 +245,53 @@ class WhatsAppAiToolExecutor
     private function searchSupportKnowledge(array $args): array
     {
         return $this->supportKnowledge->search((string) ($args['query'] ?? ''));
+    }
+
+    /**
+     * Tracks unclear messages; after max clarify rounds, signals orchestrator to send handoff text.
+     *
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function reportUnclearUserIntent(string $phone, array $args): array
+    {
+        $maxClarify = (int) config('whatsappmodule.ai_unclear_max_clarify_rounds', 2);
+        if ($maxClarify < 1) {
+            $maxClarify = 1;
+        }
+
+        $conv = WhatsAppConversation::firstOrNew(['phone' => $phone]);
+        $n = (int) ($conv->ai_unclear_attempts ?? 0);
+        $n++;
+        $conv->ai_unclear_attempts = $n;
+        $conv->save();
+
+        $brief = trim((string) ($args['brief_reason'] ?? ''));
+
+        if ($n <= $maxClarify) {
+            return [
+                'ok' => true,
+                'action' => 'clarify',
+                'attempt' => $n,
+                'max_clarify_rounds' => $maxClarify,
+                'brief_reason_echo' => $brief,
+                'assistant_instruction' => 'Reply with exactly ONE short, polite message in the same language style as the customer\'s last message (English or Hinglish). Ask what they need — booking, existing job, provider signup, or something else. Use Please / Thanks in English spelling. Do not call this tool again until the customer sends their next message.',
+            ];
+        }
+
+        WhatsAppUser::markHumanSupportRequested($phone);
+
+        return [
+            'ok' => true,
+            'action' => 'unclear_handoff',
+            'attempt' => $n,
+            'max_clarify_rounds' => $maxClarify,
+            'brief_reason_echo' => $brief,
+            'assistant_instruction' => 'Do not send any further questions. The system will send the closing message to the customer.',
+            'orchestrator_finalize' => [
+                'send_unclear_handoff_message' => true,
+            ],
+        ];
     }
 
     /**
@@ -210,6 +340,7 @@ class WhatsAppAiToolExecutor
                 'booking_id' => $b->booking_id,
                 'name' => $b->name,
                 'service' => $b->service,
+                'service_description' => $b->service_description,
                 'address' => $b->address,
                 'district' => $b->district,
                 'alternate_phone' => $b->alt_phone,
@@ -217,6 +348,158 @@ class WhatsAppAiToolExecutor
                 'preferred_at' => $b->prefered_datetime?->format('c'),
                 'status' => $b->status,
             ],
+        ];
+    }
+
+    /**
+     * Status lookup: WhatsApp booking request (this phone) first, then main Booking by readable_id.
+     *
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function getBookingStatusByReference(string $phone, array $args): array
+    {
+        $ref = $this->normalizeBookingReference((string) ($args['booking_reference'] ?? ''));
+        if ($ref === '') {
+            return ['ok' => false, 'error' => 'missing_booking_reference'];
+        }
+
+        $wa = WhatsAppBooking::query()
+            ->where('phone', $phone)
+            ->whereRaw('LOWER(TRIM(booking_id)) = LOWER(?)', [$ref])
+            ->first();
+
+        if ($wa) {
+            $linked = trim((string) ($wa->system_booking_id ?? ''));
+
+            return [
+                'ok' => true,
+                'lookup_source' => 'whatsapp_booking_request',
+                'booking_reference' => $wa->booking_id,
+                'status_code' => $wa->status,
+                'status_meaning' => $this->whatsappBookingStatusMeaning((string) ($wa->status ?? '')),
+                'service' => $wa->service,
+                'preferred_at' => $wa->prefered_datetime?->format('c'),
+                'linked_system_booking_id' => $linked !== '' ? $linked : null,
+                'assistant_instruction' => $linked !== ''
+                    ? 'Explain this is their WhatsApp request; status above. A system booking is linked — you may mention the team can see it in the main system.'
+                    : 'Explain this is their WhatsApp booking request and what the status means; if still with team for confirmation, say so clearly.',
+            ];
+        }
+
+        $customer = User::findByContactPhone($phone);
+        if (!$customer || $customer->user_type !== 'customer') {
+            return [
+                'ok' => false,
+                'error' => 'not_found',
+                'message' => 'No request with this id on WhatsApp for this number, and no customer profile is linked to check system bookings.',
+                'assistant_instruction' => 'Say the id was not found for this number. Suggest they double-check the id or that they may have used another phone when booking.',
+            ];
+        }
+
+        $sys = Booking::query()
+            ->where('customer_id', $customer->id)
+            ->whereRaw('LOWER(TRIM(readable_id)) = LOWER(?)', [$ref])
+            ->with(['provider'])
+            ->first();
+
+        if (!$sys) {
+            return [
+                'ok' => false,
+                'error' => 'not_found',
+                'message' => 'Not found in WhatsApp requests or in system bookings for this number.',
+                'assistant_instruction' => 'Politely say we could not find this booking id for their number. Ask them to confirm the id from their message or call support if needed.',
+            ];
+        }
+
+        $providerLabel = trim((string) ($sys->provider?->company_name ?? ''));
+        if ($providerLabel === '') {
+            $providerLabel = trim((string) ($sys->provider?->contact_person_name ?? ''));
+        }
+
+        return [
+            'ok' => true,
+            'lookup_source' => 'system_booking',
+            'booking_reference' => $sys->readable_id,
+            'status_code' => $sys->booking_status,
+            'service_schedule' => $sys->service_schedule?->format('c'),
+            'provider_name' => $providerLabel !== '' ? $providerLabel : null,
+            'payment_method' => $sys->payment_method,
+            'is_paid' => (bool) $sys->is_paid,
+            'total_service_amount' => $sys->total_booking_amount,
+            'extra_fee' => $sys->extra_fee,
+            'assistant_instruction' => 'Summarize status and next steps in the customer\'s language. Do not share internal commission or staff-only fields.',
+        ];
+    }
+
+    private function normalizeBookingReference(string $raw): string
+    {
+        $s = trim($raw);
+        $s = ltrim($s, '#');
+        $s = preg_replace('/\s+/', '', $s) ?? $s;
+
+        return trim($s);
+    }
+
+    private function whatsappBookingStatusMeaning(string $status): string
+    {
+        return match (strtoupper(trim($status))) {
+            WhatsAppBooking::STATUS_DRAFT => 'Draft — details still being collected or not yet submitted.',
+            WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN => 'Submitted — waiting for our team to confirm.',
+            WhatsAppBooking::STATUS_HUMAN_CONFIRMED => 'Handled by team (confirmed or converted in system as applicable).',
+            WhatsAppBooking::STATUS_CANCELLED => 'Cancelled.',
+            default => 'Status: '.$status,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function listMySystemBookings(string $phone, array $args): array
+    {
+        $limit = min(20, max(1, (int) ($args['limit'] ?? 8)));
+
+        $customer = User::findByContactPhone($phone);
+        if (!$customer) {
+            return [
+                'ok' => true,
+                'customer_linked' => false,
+                'bookings' => [],
+                'hint' => 'No customer account matches this WhatsApp number yet — use list_my_booking_summaries for requests saved here.',
+            ];
+        }
+
+        $rows = Booking::query()
+            ->where('customer_id', $customer->id)
+            ->with(['provider'])
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        $bookings = $rows->map(function (Booking $b) {
+            $providerLabel = trim((string) ($b->provider?->company_name ?? ''));
+            if ($providerLabel === '') {
+                $providerLabel = trim((string) ($b->provider?->contact_person_name ?? ''));
+            }
+
+            return [
+                'readable_id' => $b->readable_id,
+                'status' => $b->booking_status,
+                'service_schedule' => $b->service_schedule?->format('c'),
+                'provider_name' => $providerLabel !== '' ? $providerLabel : null,
+                'total_service_amount' => $b->total_booking_amount,
+                'extra_fee' => $b->extra_fee,
+                'payment_method' => $b->payment_method,
+                'is_paid' => (bool) $b->is_paid,
+                'invoice_note' => 'Detailed invoice PDF is shared by our team on request or via booking updates — share booking id when you speak to them.',
+            ];
+        })->values()->all();
+
+        return [
+            'ok' => true,
+            'customer_linked' => true,
+            'bookings' => $bookings,
         ];
     }
 
@@ -235,7 +518,11 @@ class WhatsAppAiToolExecutor
                 return ['ok' => false, 'error' => 'booking_not_editable'];
             }
         } else {
-            $bookingId = 'PK-' . strtoupper(bin2hex(random_bytes(4)));
+            try {
+                $bookingId = BookingReadableIdAllocator::allocateNext();
+            } catch (\Throwable) {
+                $bookingId = 'PK-' . strtoupper(bin2hex(random_bytes(4)));
+            }
         }
 
         $booking = WhatsAppBooking::firstOrNew(['booking_id' => $bookingId]);
@@ -259,6 +546,9 @@ class WhatsAppAiToolExecutor
         if (isset($args['service'])) {
             $booking->service = $args['service'] === null ? null : Str::limit((string) $args['service'], 255, '');
         }
+        if (isset($args['service_description'])) {
+            $booking->service_description = $args['service_description'] === null ? null : Str::limit((string) $args['service_description'], 2000, '');
+        }
         if (isset($args['address'])) {
             $booking->address = $args['address'] === null ? null : (string) $args['address'];
         }
@@ -278,6 +568,37 @@ class WhatsAppAiToolExecutor
                 // keep previous / null
             }
         }
+
+        $prefill = is_array($booking->admin_prefill_json) ? $booking->admin_prefill_json : [];
+        foreach (['zone_id', 'category_id', 'sub_category_id', 'service_id', 'variant_key'] as $pk) {
+            if (!array_key_exists($pk, $args)) {
+                continue;
+            }
+            $v = $args[$pk];
+            if ($v === null || trim((string) $v) === '') {
+                unset($prefill[$pk]);
+                continue;
+            }
+            $prefill[$pk] = Str::limit(trim((string) $v), 191, '');
+        }
+
+        $districtExplicit = array_key_exists('district', $args) && $args['district'] !== null && trim((string) $args['district']) !== '';
+        $zoneIdExplicit = array_key_exists('zone_id', $args) && $args['zone_id'] !== null && trim((string) $args['zone_id']) !== '';
+        $addressNow = trim((string) ($booking->address ?? ''));
+        if (!$districtExplicit && !$zoneIdExplicit && $addressNow !== '') {
+            $zm = $this->zoneAddressMatcher->match($addressNow);
+            if (($zm['confidence'] ?? '') === 'high' && !empty($zm['zone_id'])) {
+                $dLabel = trim((string) ($zm['district_for_booking_row'] ?? $zm['zone_name'] ?? ''));
+                if ($dLabel !== '') {
+                    $booking->district = Str::limit($dLabel, 191, '');
+                }
+                if (empty($prefill['zone_id'])) {
+                    $prefill['zone_id'] = Str::limit((string) $zm['zone_id'], 191, '');
+                }
+            }
+        }
+
+        $booking->admin_prefill_json = $prefill !== [] ? $prefill : null;
 
         $booking->status = WhatsAppBooking::STATUS_DRAFT;
         $booking->save();
@@ -459,15 +780,35 @@ class WhatsAppAiToolExecutor
         WhatsAppUser::markHumanSupportRequested($phone);
 
         $inHours = $this->workHours->isWithinSupportHours();
-        $schedule = $this->workHours->humanReadableSchedule();
-        $displayPhone = (string) config('whatsappmodule.support_phone_display');
+        $p = $this->aiSettings->resolvedMessagePlaceholders();
+        $customerText = $this->aiSettings->handoffMessageForCustomer($inHours);
 
         return [
             'ok' => true,
             'within_support_hours' => $inHours,
-            'schedule' => $schedule,
-            'public_support_phone' => $displayPhone,
+            'schedule' => $p['schedule'],
+            'public_support_phone' => $p['phone'],
             'topic' => isset($args['topic']) ? (string) $args['topic'] : '',
+            'assistant_instruction' => 'The customer-visible message is sent by the server. Do not send another reply about hours or phone in this turn.',
+            'orchestrator_finalize' => [
+                'send_exact_customer_text' => $customerText,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getBookingIssueEscalationReply(): array
+    {
+        $customerText = $this->aiSettings->bookingProviderEscalationMessageForCustomer();
+
+        return [
+            'ok' => true,
+            'assistant_instruction' => 'The customer-visible message is sent by the server. Do not add any other text this turn.',
+            'orchestrator_finalize' => [
+                'send_exact_customer_text' => $customerText,
+            ],
         ];
     }
 
@@ -485,9 +826,6 @@ class WhatsAppAiToolExecutor
         }
         if (trim((string) $booking->address) === '') {
             $missing[] = 'address';
-        }
-        if (trim((string) $booking->district) === '') {
-            $missing[] = 'district';
         }
         if ($booking->prefered_datetime === null) {
             $missing[] = 'preferred_datetime_text';

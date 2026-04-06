@@ -88,6 +88,14 @@ return [
                 'Unusual noise, smell, or ice — stop using and book a visit.',
             ],
         ],
+        'ac broken' => [
+            'title' => 'AC not working or acting strange',
+            'steps' => [
+                'Confirm power to the indoor unit and that the remote has batteries and is on cool mode.',
+                'If there is burning smell, smoke, or water near electrics — turn off and stop using; safety first.',
+                'If it still fails after basic checks, we can book a technician — say if you want quick troubleshooting first or go straight to a visit.',
+            ],
+        ],
         'geyser' => [
             'title' => 'Geyser / water heater issues',
             'steps' => [

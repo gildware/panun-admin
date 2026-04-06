@@ -586,6 +586,15 @@
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body">
+                                <div class="table-responsive">
+                                    <div class="min-w-0" style="min-width: 500px;">
+                                @if(count($data[3]['top_providers'] ?? []) >= 1)
+                                    <div class="d-flex align-items-end gap-3 pb-2 mb-2 border-bottom text-secondary fw-semibold fs-12">
+                                        <div class="flex-grow-1 min-w-0" style="max-width: 200px;">{{ translate('Provider') }}</div>
+                                        <div class="flex-shrink-0 text-end text-nowrap" style="min-width: 168px; width: 168px;">{{ translate('Performance_Score') }}</div>
+                                        <div class="flex-shrink-0 text-end" style="min-width: 96px; width: 96px;">{{ translate('Bookings') }}</div>
+                                    </div>
+                                @endif
                                 <ul class="common-list">
                                     @if(count($data[3]['top_providers'] ?? []) < 1)
                                         <div class="d-flex align-items-center justify-content-center h-100 w-100">
@@ -595,35 +604,38 @@
                                     @foreach($data[3]['top_providers'] ?? [] as $provider)
                                         <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer provider-redirect"
                                             data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
-                                            <div class="media gap-3 flex-grow-1">
-                                                <div class="avatar avatar-lg">
+                                            @php(
+                                                $widgetCategoryNames = $provider->subscribed_services
+                                                    ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()->all()
+                                                    : []
+                                            )
+                                            <div class="media gap-3 flex-grow-1 min-w-0" style="max-width: 200px;">
+                                                <div class="avatar avatar-lg flex-shrink-0">
                                                     <img class="avatar-img rounded-circle"
                                                          src="{{ $provider->logo_full_path }}"
                                                          alt="{{ translate('logo') }}">
                                                 </div>
-                                                <div class="media-body">
-                                                    <h5 class="mb-0 text-break">{{ $provider->company_name ?? '—' }}</h5>
-                                                    <p class="m-0 fs-12 opacity-75 text-break">
+                                                <div class="media-body min-w-0">
+                                                    <h5 class="mb-0 text-truncate">{{ $provider->company_name ?? '—' }}</h5>
+                                                    <p class="m-0 fs-12 opacity-75 text-truncate">
                                                         {{ $provider->company_address ?? '—' }}
                                                     </p>
+                                                    <p class="m-0 fs-12 opacity-75 text-truncate">{{ $widgetCategoryNames[0] ?? '—' }}</p>
                                                 </div>
                                             </div>
 
-                                            <div class="flex-shrink-0" style="width: 120px;">
-                                                @php(
-                                                    $categoryNames = $provider->subscribed_services
-                                                        ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()->all()
-                                                        : []
-                                                )
-                                                <p class="m-0 fs-12 opacity-75">{{ $categoryNames[0] ?? '—' }}</p>
+                                            <div class="text-end flex-shrink-0 text-nowrap" style="min-width: 168px; width: 168px;">
+                                                <p class="m-0 fs-12 fw-medium">{{ (int) ($provider->performance_score ?? 0) }}</p>
                                             </div>
 
-                                            <div class="text-end" style="min-width: 90px;">
-                                                <p class="m-0 fs-12 opacity-75">{{ $provider->completed_bookings_count ?? 0 }} {{translate('bookings')}}</p>
+                                            <div class="text-end flex-shrink-0" style="min-width: 96px; width: 96px;">
+                                                <p class="m-0 fs-12 fw-medium">{{ $provider->completed_bookings_count ?? 0 }}</p>
                                             </div>
                                         </li>
                                     @endforeach
                                 </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -636,6 +648,15 @@
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body">
+                                <div class="table-responsive">
+                                    <div class="min-w-0" style="min-width: 360px;">
+                                @if(count($data[4]['top_customers'] ?? []) >= 1)
+                                    <div class="d-flex align-items-end gap-3 pb-2 mb-2 border-bottom text-secondary fw-semibold fs-12">
+                                        <div class="flex-grow-1 min-w-0">{{ translate('Customer') }}</div>
+                                        <div class="flex-shrink-0 text-end text-nowrap" style="min-width: 168px; width: 168px;">{{ translate('Performance_Score') }}</div>
+                                        <div class="flex-shrink-0 text-end" style="min-width: 96px; width: 96px;">{{ translate('Bookings') }}</div>
+                                    </div>
+                                @endif
                                 <ul class="common-list">
                                     @if(count($data[4]['top_customers'] ?? []) < 1)
                                         <div class="d-flex align-items-center justify-content-center h-100 w-100">
@@ -645,7 +666,7 @@
                                     @foreach($data[4]['top_customers'] ?? [] as $customer)
                                         <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer customer-redirect"
                                             data-route="{{route('admin.customer.detail',[$customer->id,'web_page'=>'overview'])}}">
-                                            <div class="media gap-3 flex-grow-1">
+                                            <div class="media gap-3 flex-grow-1 min-w-0">
                                                 <div class="avatar avatar-lg">
                                                     <img class="avatar-img rounded-circle"
                                                          src="{{ $customer->profile_image_full_path }}"
@@ -658,12 +679,18 @@
                                                 </div>
                                             </div>
 
-                                            <div class="text-end" style="min-width: 90px;">
-                                                <p class="m-0 fs-12 opacity-75">{{ $customer->completed_bookings_count ?? 0 }} {{translate('bookings')}}</p>
+                                            <div class="text-end flex-shrink-0 text-nowrap" style="min-width: 168px; width: 168px;">
+                                                <p class="m-0 fs-12 fw-medium">{{ (int) ($customer->performance_score ?? 0) }}</p>
+                                            </div>
+
+                                            <div class="text-end flex-shrink-0" style="min-width: 96px; width: 96px;">
+                                                <p class="m-0 fs-12 fw-medium">{{ $customer->completed_bookings_count ?? 0 }}</p>
                                             </div>
                                         </li>
                                     @endforeach
                                 </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

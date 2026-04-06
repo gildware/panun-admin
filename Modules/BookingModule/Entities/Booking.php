@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Mail;
 use Modules\BidModule\Entities\Post;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\BookingModule\Http\Traits\BookingScopes;
+use Modules\BookingModule\Services\BookingReadableIdAllocator;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BusinessSettingsModule\Emails\CashInHandOverflowMail;
 use Modules\BusinessSettingsModule\Emails\SubscriptionToCommissionMail;
@@ -405,38 +406,11 @@ class Booking extends Model
         parent::boot();
 
         self::creating(function ($model) {
-            // Format: PK-DD-MON-YY-NNN e.g. PK07MAR26001 (first booking of 7 March 2026)
+            // Format: PKDDMONYYNNN e.g. PK07MAR26001 (first booking of 7 March 2026)
             if (!empty($model->readable_id)) {
                 return;
             }
-            try {
-                $today = Carbon::today();
-                $dateKey = $today->format('Y-m-d');
-                $row = DB::table('booking_readable_id_daily')->where('booking_date', $dateKey)->lockForUpdate()->first();
-                if (!$row) {
-                    DB::table('booking_readable_id_daily')->insert(['booking_date' => $dateKey, 'next_value' => 1]);
-                    $seq = 1;
-                    DB::table('booking_readable_id_daily')->where('booking_date', $dateKey)->update(['next_value' => 2]);
-                } else {
-                    $seq = (int) $row->next_value;
-                    DB::table('booking_readable_id_daily')->where('booking_date', $dateKey)->update(['next_value' => $seq + 1]);
-                }
-                $dd = $today->format('d');
-                $mon = strtoupper($today->format('M'));
-                $yy = $today->format('y');
-                $nnn = str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
-                $model->readable_id = 'PK' . $dd . $mon . $yy . $nnn;
-            } catch (\Throwable $e) {
-                // Fallback: use daily sequence from bookings count for today
-                $today = Carbon::today();
-                $count = (int) DB::table('bookings')->whereDate('created_at', $today)->count();
-                $seq = $count + 1;
-                $dd = $today->format('d');
-                $mon = strtoupper($today->format('M'));
-                $yy = $today->format('y');
-                $nnn = str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
-                $model->readable_id = 'PK' . $dd . $mon . $yy . $nnn;
-            }
+            $model->readable_id = BookingReadableIdAllocator::allocateNext();
         });
 
         self::created(function ($model) {

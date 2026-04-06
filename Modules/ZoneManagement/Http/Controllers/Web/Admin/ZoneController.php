@@ -466,33 +466,27 @@ class ZoneController extends Controller
 
             $defaultLang = str_replace('_', '-', app()->getLocale());
 
-            foreach ($request->lang as $index => $key) {
-                if ($defaultLang == $key && !($request->name[$index])) {
-                    if ($key != 'default') {
-                        Translation::updateOrInsert(
-                            [
-                                'translationable_type' => 'Modules\ZoneManagement\Entities\Zone',
-                                'translationable_id' => $zone->id,
-                                'locale' => $key,
-                                'key' => 'zone_name'
-                            ],
-                            ['value' => $zone->name]
-                        );
-                    }
-                } else {
+            $canonicalName = $request->name[array_search('default', $request->lang)];
 
-                    if ($request->name[$index] && $key != 'default') {
-                        Translation::updateOrInsert(
-                            [
-                                'translationable_type' => 'Modules\ZoneManagement\Entities\Zone',
-                                'translationable_id' => $zone->id,
-                                'locale' => $key,
-                                'key' => 'zone_name'
-                            ],
-                            ['value' => $request->name[$index]]
-                        );
-                    }
+            foreach ($request->lang as $index => $key) {
+                if ($key === 'default') {
+                    continue;
                 }
+                $valueForLocale = ($key === $defaultLang)
+                    ? $canonicalName
+                    : trim((string) ($request->name[$index] ?? ''));
+                if ($valueForLocale === '') {
+                    continue;
+                }
+                Translation::updateOrInsert(
+                    [
+                        'translationable_type' => 'Modules\ZoneManagement\Entities\Zone',
+                        'translationable_id' => $zone->id,
+                        'locale' => $key,
+                        'key' => 'zone_name',
+                    ],
+                    ['value' => $valueForLocale]
+                );
             }
 
         });
@@ -675,36 +669,28 @@ class ZoneController extends Controller
         $zone->save();
 
         $defaultLang = str_replace('_', '-', app()->getLocale());
+        $canonicalName = $request->name[array_search('default', $request->lang)];
 
         foreach ($request->lang as $index => $key) {
-            if ($defaultLang == $key && !($request->name[$index])) {
-                if ($key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ZoneManagement\Entities\Zone',
-                            'translationable_id' => $zone->id,
-                            'locale' => $key,
-                            'key' => 'zone_name'
-                        ],
-                        ['value' => $zone->name]
-                    );
-                }
-            } else {
-
-                if ($request->name[$index] && $key != 'default') {
-                    Translation::updateOrInsert(
-                        [
-                            'translationable_type' => 'Modules\ZoneManagement\Entities\Zone',
-                            'translationable_id' => $zone->id,
-                            'locale' => $key,
-                            'key' => 'zone_name'
-                        ],
-                        ['value' => $request->name[$index]]
-                    );
-                }
+            if ($key === 'default') {
+                continue;
             }
+            $valueForLocale = ($key === $defaultLang)
+                ? $canonicalName
+                : trim((string) ($request->name[$index] ?? ''));
+            if ($valueForLocale === '') {
+                continue;
+            }
+            Translation::updateOrInsert(
+                [
+                    'translationable_type' => 'Modules\ZoneManagement\Entities\Zone',
+                    'translationable_id' => $zone->id,
+                    'locale' => $key,
+                    'key' => 'zone_name',
+                ],
+                ['value' => $valueForLocale]
+            );
         }
-
 
         Toastr::success(translate(ZONE_UPDATE_200['message']));
         return redirect()->route('admin.zone.create');
