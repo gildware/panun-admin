@@ -56,6 +56,44 @@ class WhatsAppGeminiSupportClient
     }
 
     /**
+     * Single user turn, no tools — for template localization and similar short tasks.
+     */
+    public function generatePlainText(
+        string $systemText,
+        string $userText,
+        ?WhatsAppAiExecutionRecorder $recorder = null
+    ): ?string {
+        $t0 = microtime(true);
+        $turn = $this->generateTurnInternal(
+            $systemText,
+            [['role' => 'user', 'parts' => [['text' => $userText]]]],
+            []
+        );
+        $ms = (int) round((microtime(true) - $t0) * 1000);
+
+        if ($recorder !== null) {
+            $detail = [
+                'ms' => $ms,
+                'turn_type' => $turn['type'],
+                'reason' => $turn['type'] === 'blocked' ? ($turn['reason'] ?? null) : null,
+            ];
+            if ($turn['type'] === 'text') {
+                $detail['text_preview'] = mb_substr((string) ($turn['text'] ?? ''), 0, 240);
+            }
+            $stepStatus = $turn['type'] === 'blocked' ? 'fail' : 'ok';
+            $recorder->step('gemini.localize_plain', 'Gemini plain text (localization)', $stepStatus, $detail);
+        }
+
+        if ($turn['type'] !== 'text') {
+            return null;
+        }
+
+        $out = trim((string) ($turn['text'] ?? ''));
+
+        return $out === '' ? null : $out;
+    }
+
+    /**
      * @return list<string>
      */
     private function modelCandidates(): array

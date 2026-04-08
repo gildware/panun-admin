@@ -237,7 +237,7 @@ h1, h2,h3,h4, h5, h6 {
                             <td>
                                 <div>
                                     <div class="fs-9">{{translate('Payment')}}</div>
-                                    <div class="mt-1">{{ str_replace(['_', '-'], ' ', $booking->payment_method) }}</div>
+                                    <div class="mt-1">{{ format_booking_payment_method_for_admin_display($booking) }}</div>
                                 </div>
                                 <div class="mt-3">
                                     <div class="fs-9">{{translate('Reference ID')}}</div>
@@ -334,6 +334,7 @@ h1, h2,h3,h4, h5, h6 {
                             $invBookingHasTax = (float) ($booking->total_tax_amount ?? 0) > 0;
                             $invAcDisplayRows = enrich_booking_additional_charges_breakdown_for_display($booking);
                             $invGrandTotal = round(get_booking_total_amount($booking), 2);
+                            $invDisplayServiceDiscount = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking), 2);
                             $invSettlement = get_booking_received_and_settlement($booking);
                             $invDueAmount = get_booking_invoice_due_amount($booking);
                             $invPaidProvider = round((float) ($invSettlement['amount_received_by_provider'] ?? 0), 2);
@@ -346,11 +347,11 @@ h1, h2,h3,h4, h5, h6 {
                             <td class="text-capitalize">{{ translate('service_amount') }}@if($invBookingHasTax) <span class="fs-9">{{ booking_tax_excluded_bracket_hint() }}</span>@endif</td>
                             <td class="text-right">{{ with_currency_symbol($invServiceAmountExclVat) }}</td>
                         </tr>
-                        @if((float)($booking->total_discount_amount ?? 0) > 0)
+                        @if($invDisplayServiceDiscount > 0)
                         <tr>
                             <td colspan="3"></td>
                             <td class="text-capitalize">{{ translate('service_discount') }}</td>
-                            <td class="text-right">{{ with_currency_symbol($booking->total_discount_amount) }}</td>
+                            <td class="text-right">{{ with_currency_symbol($invDisplayServiceDiscount) }}</td>
                         </tr>
                         @endif
                         @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)

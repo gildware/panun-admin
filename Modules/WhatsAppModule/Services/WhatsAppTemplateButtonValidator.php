@@ -98,6 +98,25 @@ class WhatsAppTemplateButtonValidator
     }
 
     /**
+     * Same validation as {@see buildButtonsComponent}, returns only the Meta button payloads (no BUTTONS wrapper).
+     *
+     * @return array{error: ?string, buttons: array<int, array<string, mixed>>}
+     */
+    public static function metaButtonsFromRows(array $rows): array
+    {
+        $built = self::buildButtonsComponent($rows);
+        if ($built['error'] !== null) {
+            return ['error' => $built['error'], 'buttons' => []];
+        }
+        $comp = $built['component'];
+        if ($comp === null) {
+            return ['error' => null, 'buttons' => []];
+        }
+
+        return ['error' => null, 'buttons' => $comp['buttons'] ?? []];
+    }
+
+    /**
      * HTTPS URL; optional single {{1}} placeholder only at end of URL (Meta URL button rule).
      */
     public static function isValidTemplateButtonUrl(string $url): bool

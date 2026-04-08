@@ -47,7 +47,6 @@ class WhatsAppAiToolExecutor
             'upsert_my_draft_provider_lead' => $this->upsertMyDraftProviderLead($phone, $args),
             'submit_my_provider_lead_for_human_confirmation' => $this->submitMyProviderLeadForHuman($phone, $args),
             'request_human_support_handoff' => $this->requestHumanHandoff($phone, $args),
-            'get_booking_issue_escalation_reply' => $this->getBookingIssueEscalationReply(),
             default => ['ok' => false, 'error' => 'unknown_tool'],
         };
     }
@@ -89,11 +88,11 @@ class WhatsAppAiToolExecutor
             ],
             [
                 'name' => 'report_unclear_user_intent',
-                'description' => 'Call when you genuinely cannot understand what the customer wants after reading their last message(s). Do NOT use for normal small talk or clear requests. The server counts attempts: you will be told to ask ONE polite clarifying question (same language as the customer) up to a limit; after that the chat is handed to human support during working hours. Never call this together with booking or handoff tools in the same turn unless the message is truly ambiguous.',
+                'description' => 'Use ONLY when the last customer message is genuinely unintelligible (random characters, no discernible intent). Do NOT use for normal questions, “I don’t know” situations, missing data you can explain in text, or requests you could handle with tools. Do NOT use because you lack an answer — reply politely in text instead (apologize, suggest contacting support, ask if anything else you can help with). The server may ask you for ONE short clarifying question (Roman English/Hinglish) up to a limit; after that it sends a short closing message.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
-                        'brief_reason' => ['type' => 'string', 'description' => 'Very short internal note why it is unclear (e.g. random characters, mixed topics, empty intent)'],
+                        'brief_reason' => ['type' => 'string', 'description' => 'Very short internal note (e.g. random characters, no topic)'],
                     ],
                 ],
             ],
@@ -146,7 +145,7 @@ class WhatsAppAiToolExecutor
                     'type' => 'object',
                     'properties' => [
                         'booking_id' => ['type' => 'string', 'description' => 'Existing draft id if continuing'],
-                        'name' => ['type' => 'string', 'description' => 'Contact person name for the booking only — not the type of work (e.g. mistary/mistry/plastering belongs in `service`, not here).'],
+                        'name' => ['type' => 'string', 'description' => 'Contact person for the booking — not job type (e.g. plastering belongs in `service`). If session context has `saved_name`, pass that value and do **not** ask the customer to confirm. Pass a new value only when the customer explicitly asks to change or correct their name.'],
                         'service' => ['type' => 'string'],
                         'service_description' => ['type' => 'string', 'description' => 'Extra job details for staff (symptoms, model, photos described in text) — maps to admin booking "service info"'],
                         'address' => ['type' => 'string', 'description' => 'Full service address from the customer — always collect this; never ask separately for district/region.'],
@@ -164,7 +163,7 @@ class WhatsAppAiToolExecutor
             ],
             [
                 'name' => 'submit_my_booking_for_human_confirmation',
-                'description' => 'Marks the active draft booking as submitted for human review. Do not claim the booking is fully confirmed.',
+                'description' => 'Marks the active draft booking as submitted for human review. The response includes **booking_id** — your next customer message MUST quote that exact id (see assistant_instruction). Do not claim the job is fully confirmed until staff confirms.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -197,20 +196,12 @@ class WhatsAppAiToolExecutor
             ],
             [
                 'name' => 'request_human_support_handoff',
-                'description' => 'Use when the customer wants a human agent. The server sends the full customer message (support hours and public phone from your configured templates). Do not write your own hours, phone number, or bracket placeholders.',
+                'description' => 'Use ONLY when the customer clearly asks to speak to a human, agent, representative, or real person. Do NOT use when you do not understand them, lack information, or cannot answer — reply in normal text first (sorry, suggest support contact, ask if anything else you can help with). The server sends the full handoff message (hours + phone from templates). Do not add another paragraph with hours or phone.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
                         'topic' => ['type' => 'string'],
                     ],
-                ],
-            ],
-            [
-                'name' => 'get_booking_issue_escalation_reply',
-                'description' => 'Use when the customer says a provider is not answering / not picking up / unreachable for a confirmed or active booking. Returns the exact WhatsApp text to send from admin-configured copy (merged with real schedule and phone). Do not paraphrase or add placeholder instructions.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => new \stdClass,
                 ],
             ],
         ];
@@ -275,7 +266,7 @@ class WhatsAppAiToolExecutor
                 'attempt' => $n,
                 'max_clarify_rounds' => $maxClarify,
                 'brief_reason_echo' => $brief,
-                'assistant_instruction' => 'Reply with exactly ONE short, polite message in the same language style as the customer\'s last message (English or Hinglish). Ask what they need — booking, existing job, provider signup, or something else. Use Please / Thanks in English spelling. Do not call this tool again until the customer sends their next message.',
+                'assistant_instruction' => 'Reply with exactly ONE short, polite message in English or Roman Hinglish only (no Devanagari script). Ask one clarifying question — what they need (booking, job status, provider signup, etc.). Use Please / Thanks in English spelling. Do not call request_human_support_handoff. Do not call this tool again until the customer sends their next message.',
             ];
         }
 
@@ -287,7 +278,7 @@ class WhatsAppAiToolExecutor
             'attempt' => $n,
             'max_clarify_rounds' => $maxClarify,
             'brief_reason_echo' => $brief,
-            'assistant_instruction' => 'Do not send any further questions. The system will send the closing message to the customer.',
+            'assistant_instruction' => 'Do not send any further questions or call request_human_support_handoff. The system will send a short closing message (apologize, suggest support contact, ask if anything else you can help with).',
             'orchestrator_finalize' => [
                 'send_unclear_handoff_message' => true,
             ],
@@ -312,7 +303,7 @@ class WhatsAppAiToolExecutor
                 'booking_id' => $b->booking_id,
                 'service' => $b->service,
                 'status' => $b->status,
-                'preferred_at' => $b->prefered_datetime?->format('c'),
+                'preferred_at' => $this->toIso8601($b->prefered_datetime),
             ];
         })->values()->all();
 
@@ -345,7 +336,7 @@ class WhatsAppAiToolExecutor
                 'district' => $b->district,
                 'alternate_phone' => $b->alt_phone,
                 'location_hint' => $b->location_hint,
-                'preferred_at' => $b->prefered_datetime?->format('c'),
+                'preferred_at' => $this->toIso8601($b->prefered_datetime),
                 'status' => $b->status,
             ],
         ];
@@ -379,7 +370,7 @@ class WhatsAppAiToolExecutor
                 'status_code' => $wa->status,
                 'status_meaning' => $this->whatsappBookingStatusMeaning((string) ($wa->status ?? '')),
                 'service' => $wa->service,
-                'preferred_at' => $wa->prefered_datetime?->format('c'),
+                'preferred_at' => $this->toIso8601($wa->prefered_datetime),
                 'linked_system_booking_id' => $linked !== '' ? $linked : null,
                 'assistant_instruction' => $linked !== ''
                     ? 'Explain this is their WhatsApp request; status above. A system booking is linked — you may mention the team can see it in the main system.'
@@ -422,7 +413,7 @@ class WhatsAppAiToolExecutor
             'lookup_source' => 'system_booking',
             'booking_reference' => $sys->readable_id,
             'status_code' => $sys->booking_status,
-            'service_schedule' => $sys->service_schedule?->format('c'),
+            'service_schedule' => $this->toIso8601($sys->service_schedule),
             'provider_name' => $providerLabel !== '' ? $providerLabel : null,
             'payment_method' => $sys->payment_method,
             'is_paid' => (bool) $sys->is_paid,
@@ -486,7 +477,7 @@ class WhatsAppAiToolExecutor
             return [
                 'readable_id' => $b->readable_id,
                 'status' => $b->booking_status,
-                'service_schedule' => $b->service_schedule?->format('c'),
+                'service_schedule' => $this->toIso8601($b->service_schedule),
                 'provider_name' => $providerLabel !== '' ? $providerLabel : null,
                 'total_service_amount' => $b->total_booking_amount,
                 'extra_fee' => $b->extra_fee,
@@ -515,7 +506,13 @@ class WhatsAppAiToolExecutor
                 return ['ok' => false, 'error' => 'invalid_booking_id'];
             }
             if ($existing->status !== null && $existing->status !== '' && $existing->status !== WhatsAppBooking::STATUS_DRAFT) {
-                return ['ok' => false, 'error' => 'booking_not_editable'];
+                return [
+                    'ok' => false,
+                    'error' => 'booking_not_editable',
+                    'booking_id' => $existing->booking_id,
+                    'current_status' => $existing->status,
+                    'assistant_instruction' => 'This WhatsApp booking request is no longer in draft (already submitted or processed). You cannot change date/time/address via tools. Tell the customer to call or WhatsApp our support team using get_public_business_info for the number and hours — staff will reschedule or update the request. Do not promise you can edit it yourself.',
+                ];
             }
         } else {
             try {
@@ -543,6 +540,14 @@ class WhatsAppAiToolExecutor
         } elseif (isset($args['name'])) {
             $booking->name = $args['name'] === null ? null : Str::limit((string) $args['name'], 255, '');
         }
+
+        if (trim((string) ($booking->name ?? '')) === '' && (!array_key_exists('name', $args) || $args['name'] !== null)) {
+            $profile = WhatsAppUser::query()->where('phone', $phone)->first();
+            if ($profile && trim((string) $profile->name) !== '') {
+                $booking->name = Str::limit(trim((string) $profile->name), 255, '');
+            }
+        }
+
         if (isset($args['service'])) {
             $booking->service = $args['service'] === null ? null : Str::limit((string) $args['service'], 255, '');
         }
@@ -611,13 +616,12 @@ class WhatsAppAiToolExecutor
         $conv->current_step = null;
         $conv->save();
 
-        if (!empty($args['name']) && ! $nameRejectedAsService) {
+        $finalName = trim((string) ($booking->name ?? ''));
+        if ($finalName !== '' && ! WhatsAppAiBookingNameHeuristics::looksLikeServiceNotPersonName($finalName)) {
             $u = WhatsAppUser::firstOrNew(['phone' => $phone]);
-            if (empty($u->name)) {
-                $u->name = Str::limit((string) $args['name'], 255, '');
-                $u->handled_by = $u->handled_by ?: 'AI';
-                $u->save();
-            }
+            $u->name = Str::limit($finalName, 255, '');
+            $u->handled_by = $u->handled_by ?: 'AI';
+            $u->save();
         }
 
         $out = ['ok' => true, 'booking_id' => $booking->booking_id, 'status' => $booking->status];
@@ -665,11 +669,14 @@ class WhatsAppAiToolExecutor
         $conv->active_booking_id = $booking->booking_id;
         $conv->save();
 
+        $bid = (string) $booking->booking_id;
+
         return [
             'ok' => true,
-            'booking_id' => $booking->booking_id,
+            'booking_id' => $bid,
             'status' => $booking->status,
-            'message' => 'Tell the customer our team will confirm this request; it is not final until staff confirms.',
+            'message' => 'Your reply MUST include this exact booking request id so the customer can save it: '.$bid.'. Also say our team will review and confirm; the request is not final until staff confirms.',
+            'assistant_instruction' => 'In your next customer-visible message you MUST include the booking request id exactly as returned in booking_id ('.$bid.'). Use WhatsApp bold for the label, e.g. a line like: *Booking request ID:* '.$bid.' — then briefly repeat that staff will confirm and it is pending until then.',
         ];
     }
 
@@ -782,6 +789,13 @@ class WhatsAppAiToolExecutor
         $inHours = $this->workHours->isWithinSupportHours();
         $p = $this->aiSettings->resolvedMessagePlaceholders();
         $customerText = $this->aiSettings->handoffMessageForCustomer($inHours);
+        $meta = $this->aiSettings->metaButtonsForContext($inHours ? 'handoff_in' : 'handoff_out');
+        $finalize = [
+            'send_exact_customer_text' => $customerText,
+        ];
+        if ($meta !== []) {
+            $finalize['session_meta_buttons'] = $meta;
+        }
 
         return [
             'ok' => true,
@@ -790,25 +804,7 @@ class WhatsAppAiToolExecutor
             'public_support_phone' => $p['phone'],
             'topic' => isset($args['topic']) ? (string) $args['topic'] : '',
             'assistant_instruction' => 'The customer-visible message is sent by the server. Do not send another reply about hours or phone in this turn.',
-            'orchestrator_finalize' => [
-                'send_exact_customer_text' => $customerText,
-            ],
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function getBookingIssueEscalationReply(): array
-    {
-        $customerText = $this->aiSettings->bookingProviderEscalationMessageForCustomer();
-
-        return [
-            'ok' => true,
-            'assistant_instruction' => 'The customer-visible message is sent by the server. Do not add any other text this turn.',
-            'orchestrator_finalize' => [
-                'send_exact_customer_text' => $customerText,
-            ],
+            'orchestrator_finalize' => $finalize,
         ];
     }
 
@@ -832,5 +828,25 @@ class WhatsAppAiToolExecutor
         }
 
         return $missing;
+    }
+
+    /**
+     * ISO-8601 for tool payloads. `Booking::service_schedule` is a string column (no datetime cast).
+     *
+     * @param  \DateTimeInterface|string|null  $value
+     */
+    private function toIso8601(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->format('c');
+        }
+        try {
+            return Carbon::parse((string) $value)->format('c');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

@@ -85,6 +85,53 @@ if (!function_exists('get_booking_invoice_due_amount')) {
     }
 }
 
+if (!function_exists('get_booking_payable_total_for_partial_dues')) {
+    /**
+     * Total customer payment obligation used for installment rows: "due after this payment" and {@see BookingPartialPayment::due_amount}.
+     * Aligns with invoice grand total (or retained visit amount when that settlement mode applies), without legacy additional_charge bumps.
+     */
+    function get_booking_payable_total_for_partial_dues($booking): float
+    {
+        if ($booking instanceof Booking
+            && BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges((string) ($booking->settlement_outcome ?? ''))) {
+            $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+
+            return round((float) app(BookingFinancialSettlementService::class)->resolveRetainedVisitAmount($booking, $config), 2);
+        }
+
+        return round(get_booking_total_amount($booking), 2);
+    }
+}
+
+if (!function_exists('format_booking_payment_method_for_admin_display')) {
+    /**
+     * Single line for admin/provider UIs: e.g. "Offline payment — QR Code UPI" when customer chose an offline method.
+     */
+    function format_booking_payment_method_for_admin_display($booking): string
+    {
+        if (($booking->payment_method ?? '') === 'prepaid') {
+            return translate('Prepaid_payment');
+        }
+        $pm = (string) ($booking->payment_method ?? '');
+        if ($pm === 'offline_payment') {
+            if (! $booking->relationLoaded('booking_offline_payments')) {
+                $booking->loadMissing('booking_offline_payments');
+            }
+            $mn = trim((string) ($booking->booking_offline_payments?->first()?->method_name ?? ''));
+            if ($mn !== '') {
+                $generic = translate('ledger_pm_offline_payment');
+                if ($generic === 'ledger_pm_offline_payment') {
+                    $generic = translate('offline_payment');
+                }
+
+                return $generic . ' — ' . $mn;
+            }
+        }
+
+        return str_replace(['_', '-'], ' ', $pm);
+    }
+}
+
 if (!function_exists('get_booking_spare_parts_amount')) {
     /**
      * Sum of spare-parts extra-service lines for this booking (commissioned separately from service rules).
@@ -95,6 +142,30 @@ if (!function_exists('get_booking_spare_parts_amount')) {
         return (float) BookingExtraService::where('booking_id', $bookingId)
             ->where('type', BookingExtraService::TYPE_SPARE_PART)
             ->sum('total');
+    }
+}
+
+if (!function_exists('get_booking_extra_service_line_discount_total')) {
+    /**
+     * Sum of manual discounts on admin "Extra Service" lines (booking_extra_services.discount, type service only).
+     * Booking.total_discount_amount only aggregates catalog booking detail lines; spare-part discounts stay inside the Spare Parts total.
+     */
+    function get_booking_extra_service_line_discount_total($booking): float
+    {
+        $bookingId = null;
+        if ($booking instanceof BookingRepeat) {
+            $bookingId = $booking->booking_id ?? null;
+        } elseif ($booking instanceof Booking) {
+            $bookingId = $booking->id ?? null;
+        }
+        if (!$bookingId) {
+            return 0.0;
+        }
+
+        return round((float) BookingExtraService::query()
+            ->where('booking_id', $bookingId)
+            ->where('type', BookingExtraService::TYPE_SERVICE)
+            ->sum('discount'), 2);
     }
 }
 

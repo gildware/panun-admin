@@ -59,13 +59,40 @@ final class WhatsAppAiRuntimeResolver
         return (string) config('whatsappmodule.support_work_hours_end', '18:00');
     }
 
-    public function supportTimezone(): string
+    /**
+     * ISO weekdays when live support is available: 1 = Monday … 7 = Sunday.
+     *
+     * @return list<int>
+     */
+    public function supportWorkDays(): array
     {
-        $v = $this->row()->db_support_timezone;
-        if (is_string($v) && trim($v) !== '') {
-            return trim($v);
+        $raw = $this->row()->db_support_days;
+        if (is_array($raw) && $raw !== []) {
+            $days = array_values(array_unique(array_map('intval', $raw)));
+            sort($days);
+            $days = array_values(array_filter($days, static fn (int $d): bool => $d >= 1 && $d <= 7));
+            if ($days !== []) {
+                return $days;
+            }
         }
 
+        $cfg = config('whatsappmodule.support_work_days');
+        if (is_array($cfg) && $cfg !== []) {
+            $days = array_values(array_unique(array_map('intval', $cfg)));
+            sort($days);
+            $days = array_values(array_filter($days, static fn (int $d): bool => $d >= 1 && $d <= 7));
+
+            return $days !== [] ? $days : [1, 2, 3, 4, 5];
+        }
+
+        return [1, 2, 3, 4, 5];
+    }
+
+    /**
+     * Customer-facing support times are always interpreted in India Standard Time (IST).
+     */
+    public function supportTimezone(): string
+    {
         return (string) config('whatsappmodule.support_timezone', 'Asia/Kolkata');
     }
 
@@ -133,7 +160,7 @@ final class WhatsAppAiRuntimeResolver
             'support_hours_src' => (
                 (is_string($row->db_support_hours_start) && trim($row->db_support_hours_start) !== '')
                 || (is_string($row->db_support_hours_end) && trim($row->db_support_hours_end) !== '')
-                || (is_string($row->db_support_timezone) && trim($row->db_support_timezone) !== '')
+                || (is_array($row->db_support_days) && $row->db_support_days !== [])
             ) ? 'db' : 'env',
             'support_phone_display' => $this->supportPhoneDisplay(),
             'support_phone_display_src' => (is_string($row->db_support_phone_display) && trim($row->db_support_phone_display) !== '') ? 'db' : 'env',
@@ -142,6 +169,14 @@ final class WhatsAppAiRuntimeResolver
                 $row->db_ai_dispatch_sync !== null
                 || (is_string($row->db_queue_connection) && trim($row->db_queue_connection) !== '')
             ) ? 'db' : 'env',
+            /** Laravel default queue driver name (sync = inline, database = DB table + worker). */
+            'queue_default_driver' => (string) config('queue.default', 'sync'),
+            /**
+             * AI set to queued but app default queue is sync — jobs still run inside the request.
+             * Set QUEUE_CONNECTION=database and run a worker.
+             */
+            'queue_async_but_driver_is_sync' => ! $this->aiDispatchUsesSync()
+                && (string) config('queue.default', 'sync') === 'sync',
         ];
     }
 }

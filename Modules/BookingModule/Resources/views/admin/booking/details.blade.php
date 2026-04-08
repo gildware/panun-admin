@@ -161,6 +161,81 @@
                 background-color: rgba(108, 117, 125, 0.14);
             }
         }
+
+        /* Booking Summary breakdown: color bands — bill lines (in) vs reductions vs total vs payments vs due */
+        .booking-summary-breakdown tbody tr td {
+            vertical-align: middle;
+            border-bottom-color: rgba(0, 0, 0, 0.06);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--charge td:first-child {
+            border-left: 3px solid #0d6efd;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--charge td {
+            background-color: rgba(13, 110, 253, 0.07);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--subtotal td:first-child {
+            border-left: 3px solid #084298;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--subtotal td {
+            background-color: rgba(8, 66, 152, 0.1);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--discount td:first-child {
+            border-left: 3px solid #c2255c;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--discount td {
+            background-color: rgba(194, 37, 92, 0.08);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--tax td:first-child {
+            border-left: 3px solid #6f42c1;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--tax td {
+            background-color: rgba(111, 66, 193, 0.08);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--grand td:first-child {
+            border-left: 3px solid #052c65;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--grand td {
+            background-color: rgba(5, 44, 101, 0.12);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--payment-in td:first-child {
+            border-left: 3px solid #198754;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--payment-in td {
+            background-color: rgba(25, 135, 84, 0.09);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--due td:first-child {
+            border-left: 3px solid #e36402;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--due td {
+            background-color: rgba(227, 100, 2, 0.1);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--refund-out td:first-child {
+            border-left: 3px solid #b02a37;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--refund-out td {
+            background-color: rgba(176, 42, 55, 0.08);
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--refund-info td:first-child {
+            border-left: 3px solid #495057;
+        }
+        .booking-summary-breakdown tbody tr.booking-summary-row--refund-info td {
+            background-color: rgba(73, 80, 87, 0.07);
+        }
+        .booking-summary-legend .booking-summary-legend-swatch {
+            display: inline-block;
+            width: 0.65rem;
+            height: 0.65rem;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .booking-summary-legend-swatch--charge { background: #0d6efd; }
+        .booking-summary-legend-swatch--subtotal { background: #084298; }
+        .booking-summary-legend-swatch--discount { background: #c2255c; }
+        .booking-summary-legend-swatch--tax { background: #6f42c1; }
+        .booking-summary-legend-swatch--grand { background: #052c65; }
+        .booking-summary-legend-swatch--payment { background: #198754; }
+        .booking-summary-legend-swatch--due { background: #e36402; }
+        .booking-summary-legend-swatch--refund { background: #b02a37; }
     </style>
 @endpush
 
@@ -180,12 +255,6 @@
             : (($paymentFullyCovered && (bool) $booking->is_paid) ? $bookingTotalForPayment : 0);
         $showAsAmountPaidLabel = $booking->booking_status == 'completed' || $paymentFullyCovered;
         $advanceOffline = ($booking->booking_partial_payments ?? collect())->where('paid_with', 'offline')->first();
-        $subTotal = 0;
-        $extraServicesTotal = 0;
-        $extraServicesServiceTotal = 0;
-        $extraServicesSpareTotal = 0;
-        $serviceAmountExclVat = 0;
-        $grandTotalCalculated = (float)($booking->total_tax_amount ?? 0) + (float)($booking->extra_fee ?? 0);
         $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
         $bookingNotEditable = in_array($booking->booking_status ?? '', ['completed', 'canceled', 'refunded']);
         $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
@@ -1131,19 +1200,14 @@
                                         <span class="material-icons title-color fz-16">payments</span>
                                         {{ translate('Payment_Details') }}
                                     </h6>
+                                    <button type="button" class="btn btn-link btn-sm p-0 lh-1 text-decoration-none text-nowrap fz-12" data-bs-toggle="modal" data-bs-target="#bookingPaymentHistoryModal-{{ $booking->id }}">
+                                        {{ translate('view_all') }}
+                                    </button>
                                 </div>
                                 <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
                                     <div class="d-flex justify-content-between align-items-center gap-2 mb-0">
                                         <span class="title-color flex-shrink-0">{{ translate('Payment_Status') }}</span>
                                         <span class="badge badge-{{ $adminPaymentStatusBadgeClass }} mb-0 fz-12 flex-shrink-0" id="payment_status__span">{{ $adminPaymentStatusLabel }}</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
-                                        <span class="title-color flex-shrink-0">{{ translate('Payment_Method') }}</span>
-                                        <span class="c1 fw-semibold text-end text-break text-capitalize min-w-0">{{ str_replace(['_', '-'], ' ', $booking->payment_method) }}
-                                            @if ($booking->payment_method == 'offline_payment' && $booking?->booking_offline_payments?->first()?->method_name)
-                                                ({{ $booking?->booking_offline_payments?->first()?->method_name }})
-                                            @endif
-                                        </span>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                         <span class="title-color flex-shrink-0">{{ translate('Total_Amount') }}</span>
@@ -1192,6 +1256,75 @@
                                         </div>
                                     @endif
                                 @endcan
+                            </div>
+                        </div>
+                        <div class="modal fade" id="bookingPaymentHistoryModal-{{ $booking->id }}" tabindex="-1" aria-labelledby="bookingPaymentHistoryModalLabel-{{ $booking->id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="bookingPaymentHistoryModalLabel-{{ $booking->id }}">{{ translate('Installment_payments') }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        @php
+                                            $installmentPaymentsOrdered = $booking->booking_partial_payments
+                                                ->sortBy([
+                                                    ['created_at', 'asc'],
+                                                    ['id', 'asc'],
+                                                ])
+                                                ->values();
+                                            $installmentPayableCap = get_booking_payable_total_for_partial_dues($booking);
+                                            $installmentRunningPaid = 0.0;
+                                        @endphp
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered align-middle fz-12 mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th class="text-nowrap">#</th>
+                                                        <th class="text-nowrap">{{ translate('Date_time_added') }}</th>
+                                                        <th class="text-nowrap">{{ translate('Received by') }}</th>
+                                                        <th class="text-nowrap">{{ translate('Amount') }}</th>
+                                                        <th class="text-nowrap">{{ translate('Payment_Method') }}</th>
+                                                        <th class="text-nowrap">{{ translate('transaction_id') }}</th>
+                                                        <th class="text-nowrap">{{ translate('Due_after_this_payment') }}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse($installmentPaymentsOrdered as $idx => $pp)
+                                                        @php
+                                                            $installmentRunningPaid += (float) $pp->paid_amount;
+                                                            $dueAfterThisInstallment = round(max(0, $installmentPayableCap - $installmentRunningPaid), 2);
+                                                        @endphp
+                                                        <tr>
+                                                            <td>{{ $idx + 1 }}</td>
+                                                            <td class="text-nowrap">{{ $pp->created_at ? $pp->created_at->format('d M Y, H:i:s') : '—' }}</td>
+                                                            <td>
+                                                                @if(($pp->received_by ?? '') === 'company')
+                                                                    {{ translate('Company') }}
+                                                                @elseif(($pp->received_by ?? '') === 'provider')
+                                                                    {{ translate('Provider') }}
+                                                                @else
+                                                                    {{ $pp->received_by ? ucfirst((string) $pp->received_by) : '—' }}
+                                                                @endif
+                                                            </td>
+                                                            <td class="text-end fw-medium">{{ with_currency_symbol($pp->paid_amount) }}</td>
+                                                            <td class="text-break">{{ $pp->paymentMethodLabelForAdmin($booking) }}</td>
+                                                            <td class="text-break">{{ $pp->transaction_id ?: '—' }}</td>
+                                                            <td class="text-end">{{ with_currency_symbol($dueAfterThisInstallment) }}</td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                            <td colspan="7" class="text-center text-muted py-3">{{ translate('No data available') }}</td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Close') }}</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="card border-primary mb-0 w-100 d-flex flex-column overflow-hidden booking-overview-mid-card--revenue">
@@ -1249,7 +1382,7 @@
                             <div class="modal fade" id="addPaymentModal-{{ $booking->id }}" tabindex="-1">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
-                                        <form method="post" action="{{ route('admin.booking.add-payment', $booking->id) }}" class="add-payment-form" data-due-amount="{{ $remainingDueForAddPayment }}">
+                                        <form method="post" action="{{ route('admin.booking.add-payment', $booking->id) }}" class="add-payment-form" data-due-amount="{{ $remainingDueForAddPayment }}" novalidate>
                                             @csrf
                                             <div class="modal-header">
                                                 <h5 class="modal-title">{{ translate('Add payment') }}</h5>
@@ -1274,9 +1407,20 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="mb-3 add-payment-txn-wrap d-none">
-                                                    <label class="form-label">{{ translate('Transaction ID') }} <span class="text-danger">*</span> <span class="text-muted small">({{ translate('if received by company') }})</span></label>
-                                                    <input type="text" name="transaction_id" class="form-control add-payment-transaction-id" maxlength="100" placeholder="{{ translate('Gateway or manual reference') }}">
+                                                <div class="mb-3 add-payment-company-inflow-wrap d-none">
+                                                    <div class="row g-2">
+                                                        @include('bookingmodule::admin.booking.partials._admin-company-inflow-payment-method', [
+                                                            'instanceId' => 'addpay-' . $booking->id,
+                                                            'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
+                                                            'advancePmDisabled' => false,
+                                                            'advancePmSelected' => '',
+                                                        ])
+                                                    </div>
+                                                    <div class="mb-0 mt-2">
+                                                        <label class="form-label">{{ translate('Reference_Note') }} <span class="text-muted small">({{ translate('Optional') }})</span></label>
+                                                        <textarea name="company_inflow_note" class="form-control" rows="2" maxlength="2000" placeholder="{{ translate('Optional_note') }}"></textarea>
+                                                        <small class="text-muted d-block mt-1 fz-11">{{ translate('Reference_note_can_fill_transaction_field') }}</small>
+                                                    </div>
                                                 </div>
                                                 <div class="mb-3">
                                                     <label class="form-label">{{ translate('Date') }}</label>
@@ -1489,6 +1633,17 @@
                                     @endcan
                                 @endif
                             </div>
+                            <p class="booking-summary-legend fz-11 text-muted mb-2 d-flex flex-wrap align-items-center gap-3 gap-y-1">
+                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--charge" aria-hidden="true"></span>{{ translate('service_amount') }}, {{ translate('Extra_Services') }}, {{ translate('Spare_Parts') }}, {{ translate('Additional_charges') }}</span>
+                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--subtotal" aria-hidden="true"></span>{{ translate('total') }}</span>
+                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--discount" aria-hidden="true"></span>{{ translate('service_discount') }}, {{ translate('coupon_discount') }}</span>
+                                @if($bookingHasTax)
+                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--tax" aria-hidden="true"></span>{{ company_default_tax_label() }}</span>
+                                @endif
+                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--grand" aria-hidden="true"></span>{{ translate('Grand_Total') }}</span>
+                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--payment" aria-hidden="true"></span>{{ translate('Total_paid') }}</span>
+                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--due" aria-hidden="true"></span>{{ translate('Due_Amount') }}</span>
+                            </p>
 
                             <div class="table-responsive border-bottom">
                                 <table class="table text-nowrap align-middle mb-0">
@@ -1510,6 +1665,9 @@
                                             $extraServicesTotal = 0;
                                             $extraServicesServiceTotal = 0;
                                             $extraServicesSpareTotal = 0;
+                                            $extraGrossService = 0.0;
+                                            $extraGrossSpare = 0.0;
+                                            $extraSpareDiscountSum = 0.0;
                                         @endphp
                                         @foreach ($bookingDetail as $detail)
                                             @php
@@ -1597,11 +1755,15 @@
                                                 <td class="text--end">{{ with_currency_symbol($extra->total) }}</td>
                                             </tr>
                                             @php
+                                                $extraLineGross = (float) $extra->price * (int) $extra->quantity;
                                                 $extraServicesTotal += $extra->total;
                                                 if ($extra->type === \Modules\BookingModule\Entities\BookingExtraService::TYPE_SPARE_PART) {
                                                     $extraServicesSpareTotal += $extra->total;
+                                                    $extraGrossSpare += $extraLineGross;
+                                                    $extraSpareDiscountSum += (float) ($extra->discount ?? 0);
                                                 } else {
                                                     $extraServicesServiceTotal += $extra->total;
+                                                    $extraGrossService += $extraLineGross;
                                                 }
                                             @endphp
                                         @endforeach
@@ -1619,65 +1781,38 @@
                             @endif
                             @endcan
                             @php
-                                $serviceAmountExclVat = $subTotal + $extraServicesServiceTotal;
-                                // Canonical payable total (matches Payment Details / get_booking_total_amount); do not rebuild from gross subtotal + tax or discounts drift from stored lines.
+                                // Canonical payable total (matches Payment Details / get_booking_total_amount).
                                 $grandTotalCalculated = round(get_booking_total_amount($booking), 2);
                                 $acDisplayRows = $additionalChargesDisplayRows ?? enrich_booking_additional_charges_breakdown_for_display($booking);
+                                $displayBookingServiceDiscount = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking) + $extraSpareDiscountSum, 2);
+                                $catalogGrossSubtotal = round((float) $subTotal, 2);
+                                $additionalChargesTotal = round((float) ($booking->extra_fee ?? 0), 2);
+                                $summaryGrossTotal = round($catalogGrossSubtotal + $extraGrossService + $extraGrossSpare + $additionalChargesTotal, 2);
+                                $couponDiscountAmount = round((float) ($booking->total_coupon_discount_amount ?? 0), 2);
+                                $campaignDiscountAmount = round((float) ($booking->total_campaign_discount_amount ?? 0), 2);
+                                $referralDiscountAmount = round((float) ($booking->total_referral_discount_amount ?? 0), 2);
                             @endphp
                             <div class="row justify-content-end mt-3">
                                 <div class="col-sm-10 col-md-6 col-xl-5">
                                     <div class="table-responsive">
-                                        <table class="table-md title-color align-right w-100">
+                                        <table class="table table-md title-color align-right w-100 booking-summary-breakdown">
                                             <tbody>
-                                                <tr>
+                                                <tr class="booking-summary-row--charge">
                                                     <td class="text-capitalize">{{ translate('service_amount') }}@if($bookingHasTax) <small
                                                             class="fz-12">{{ booking_tax_excluded_bracket_hint() }}</small>@endif</td>
-                                                    <td class="text--end pe--4">{{ with_currency_symbol($serviceAmountExclVat) }}
-                                                    </td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol($catalogGrossSubtotal) }}</td>
                                                 </tr>
-                                                @if((float)($booking->total_discount_amount ?? 0) > 0)
-                                                <tr>
-                                                    <td class="text-capitalize">{{ translate('service_discount') }}</td>
-                                                    <td class="text--end pe--4">
-                                                        {{ with_currency_symbol($booking->total_discount_amount) }}</td>
+                                                @if($extraGrossService > 0)
+                                                <tr class="booking-summary-row--charge">
+                                                    <td class="text-capitalize">{{ translate('Extra_Services') }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol(round($extraGrossService, 2)) }}</td>
                                                 </tr>
                                                 @endif
-                                                @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)
-                                                <tr>
-                                                    <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
-                                                    <td class="text--end pe--4">
-                                                        {{ with_currency_symbol($booking->total_coupon_discount_amount) }}
-                                                    </td>
+                                                @if($extraGrossSpare > 0)
+                                                <tr class="booking-summary-row--charge">
+                                                    <td class="text-capitalize">{{ translate('Spare_Parts') }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol(round($extraGrossSpare, 2)) }}</td>
                                                 </tr>
-                                                @endif
-                                                @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)
-                                                <tr>
-                                                    <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
-                                                    <td class="text--end pe--4">
-                                                        {{ with_currency_symbol($booking->total_campaign_discount_amount) }}
-                                                    </td>
-                                                </tr>
-                                                @endif
-                                                @if($booking->total_referral_discount_amount > 0)
-                                                    <tr>
-                                                        <td class="text-capitalize">{{ translate('Referral Discount') }}</td>
-                                                        <td class="text--end pe--4">
-                                                            {{ with_currency_symbol($booking->total_referral_discount_amount) }}
-                                                        </td>
-                                                    </tr>
-                                                @endif
-                                                @if($bookingHasTax)
-                                                <tr>
-                                                    <td>{{ company_default_tax_label() }}</td>
-                                                    <td class="text--end pe--4">
-                                                        {{ with_currency_symbol($booking->total_tax_amount) }}</td>
-                                                </tr>
-                                                @endif
-                                                @if ($extraServicesSpareTotal > 0)
-                                                    <tr>
-                                                        <td class="text-capitalize">{{ translate('Spare_Parts') }}</td>
-                                                        <td class="text--end pe--4">{{ with_currency_symbol($extraServicesSpareTotal) }}</td>
-                                                    </tr>
                                                 @endif
                                                 @if ($booking->extra_fee > 0)
                                                     @if(count($acDisplayRows))
@@ -1688,7 +1823,7 @@
                                                                 $acLineAmountInput = number_format($acLineAmount, 2, '.', '');
                                                                 $acLineCustomizable = ! empty($acRow['customizable']);
                                                             @endphp
-                                                            <tr>
+                                                            <tr class="booking-summary-row--charge">
                                                                 <td class="text-capitalize">
                                                                     {{ $acRow['name'] ?? translate('Additional_charges') }}
                                                                 </td>
@@ -1725,20 +1860,47 @@
                                                             @endif
                                                         @endforeach
                                                     @else
-                                                        <tr>
+                                                        <tr class="booking-summary-row--charge">
                                                             <td class="text-capitalize">{{ translate('Additional_charges') }}</td>
                                                             <td class="text--end pe--4">{{ with_currency_symbol($booking->extra_fee) }}</td>
                                                         </tr>
                                                     @endif
                                                 @endif
-                                                @if($extraServicesServiceTotal > 0)
-                                                    <tr>
-                                                        <td class="text-capitalize">{{ translate('Extra_Services') }}</td>
-                                                        <td class="text--end pe--4">{{ with_currency_symbol($extraServicesServiceTotal) }}</td>
-                                                    </tr>
+                                                <tr class="border-top booking-summary-row--subtotal">
+                                                    <td class="text-capitalize fw-semibold">{{ translate('total') }}</td>
+                                                    <td class="text--end pe--4 fw-semibold">{{ with_currency_symbol($summaryGrossTotal) }}</td>
+                                                </tr>
+                                                @if($displayBookingServiceDiscount > 0)
+                                                <tr class="booking-summary-row--discount">
+                                                    <td class="text-capitalize">{{ translate('service_discount') }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol($displayBookingServiceDiscount) }}</td>
+                                                </tr>
                                                 @endif
-
-                                                <tr>
+                                                @if($couponDiscountAmount > 0)
+                                                <tr class="booking-summary-row--discount">
+                                                    <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol($couponDiscountAmount) }}</td>
+                                                </tr>
+                                                @endif
+                                                @if($campaignDiscountAmount > 0)
+                                                <tr class="booking-summary-row--discount">
+                                                    <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol($campaignDiscountAmount) }}</td>
+                                                </tr>
+                                                @endif
+                                                @if($referralDiscountAmount > 0)
+                                                <tr class="booking-summary-row--discount">
+                                                    <td class="text-capitalize">{{ translate('Referral Discount') }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol($referralDiscountAmount) }}</td>
+                                                </tr>
+                                                @endif
+                                                @if($bookingHasTax)
+                                                <tr class="booking-summary-row--tax">
+                                                    <td>{{ company_default_tax_label() }}</td>
+                                                    <td class="text--end pe--4">{{ with_currency_symbol($booking->total_tax_amount) }}</td>
+                                                </tr>
+                                                @endif
+                                                <tr class="booking-summary-row--grand">
                                                     <td><strong>{{ translate('Grand_Total') }}</strong></td>
                                                     <td class="text--end pe--4">
                                                         <strong>{{ with_currency_symbol($grandTotalCalculated) }}</strong>
@@ -1752,33 +1914,33 @@
                                                         $__sumPaidTotal = round((float) ($revenueSettlement['total_paid'] ?? 0), 2);
                                                     @endphp
                                                     @if ($__sumPaidProvider > 0)
-                                                        <tr>
+                                                        <tr class="booking-summary-row--payment-in">
                                                             <td>{{ translate('Paid_to_service_provider') }}</td>
                                                             <td class="text--end pe--4">{{ with_currency_symbol($__sumPaidProvider) }}</td>
                                                         </tr>
                                                     @endif
                                                     @if ($__sumPaidCompany > 0)
-                                                        <tr>
+                                                        <tr class="booking-summary-row--payment-in">
                                                             <td>{{ translate('Paid_to_company') }}</td>
                                                             <td class="text--end pe--4">{{ with_currency_symbol($__sumPaidCompany) }}</td>
                                                         </tr>
                                                     @endif
                                                     @if ($__sumPaidTotal > 0)
-                                                        <tr>
+                                                        <tr class="booking-summary-row--payment-in">
                                                             <td><strong>{{ translate('Total_paid') }}</strong></td>
                                                             <td class="text--end pe--4"><strong>{{ with_currency_symbol($__sumPaidTotal) }}</strong></td>
                                                         </tr>
                                                     @endif
                                                 @endif
 
-                                                @include('bookingmodule::admin.booking.partials._refund-amount-summary-rows', ['booking' => $booking, 'variant' => 'details'])
+                                                @include('bookingmodule::admin.booking.partials._refund-amount-summary-rows', ['booking' => $booking, 'variant' => 'details', 'summaryRowClass' => 'booking-summary-row--refund-info'])
 
                                                 @php
                                                 $dueAmount = get_booking_invoice_due_amount($booking);
                                                 @endphp
 
                                                 @if ($dueAmount > 0)
-                                                    <tr>
+                                                    <tr class="booking-summary-row--due">
                                                         <td>{{ translate('Due_Amount') }}</td>
                                                         <td class="text--end pe--4">
                                                             {{ with_currency_symbol($dueAmount) }}</td>
@@ -1786,7 +1948,7 @@
                                                 @endif
 
                                                 @if ($booking->payment_method != 'cash_after_service' && $booking->additional_charge < 0)
-                                                    <tr>
+                                                    <tr class="booking-summary-row--refund-out">
                                                         <td>{{ translate('Refund') }}</td>
                                                         <td class="text--end pe--4">
                                                             {{ with_currency_symbol(abs($booking->additional_charge)) }}
@@ -1952,8 +2114,12 @@
                                                             <input type="number" step="0.01" min="0.01" max="{{ $maxRefundAmount }}" name="amount" class="form-control refund-amount" required placeholder="{{ translate('Max') }} {{ with_currency_symbol($maxRefundAmount) }}">
                                                         </div>
                                                         <div class="mb-3">
-                                                            <label class="form-label">{{ translate('Refunded by (Transaction ID)') }} <span class="text-danger">*</span></label>
+                                                            <label class="form-label">{{ translate('Transaction_ID') }} <span class="text-danger">*</span></label>
                                                             <input type="text" name="transaction_id" class="form-control" maxlength="100" required placeholder="{{ translate('Gateway or manual reference') }}">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">{{ translate('Reference_Note') }} <span class="text-muted small">({{ translate('Optional') }})</span></label>
+                                                            <textarea name="reference_note" class="form-control" rows="2" maxlength="2000" placeholder="{{ translate('Optional_note') }}"></textarea>
                                                         </div>
                                                         <div class="mb-3">
                                                             <label class="form-label">{{ translate('Date') }}</label>
@@ -2072,6 +2238,7 @@
                 'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
                 'bookingCancellationReasons' => $bookingCancellationReasons ?? collect(),
                 'bfsAllowCollectPayment' => ! in_array((string) $booking->booking_status, ['canceled', 'refunded'], true) && ! $bookingNotEditable,
+                'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
             ])
         @endif
     @endcan
@@ -2125,6 +2292,176 @@
 @push('script')
     <script>
         "use strict";
+
+        var pkAdminAdvanceMethodConfig = @json(\Modules\BookingModule\Services\AdminCompanyInflowPaymentService::fieldConfigMapFromGroups($advancePaymentMethodGroups ?? []));
+
+        function pkApmDynInitialVal(f, $form, useInitial) {
+            if (!useInitial) {
+                return '';
+            }
+            if (f.input_name === 'advance_transaction_id') {
+                var $el = $form.find('input[name="advance_transaction_id"]');
+                return $el.length ? String($el.val() || '') : '';
+            }
+            var m = String(f.input_name || '').match(/^advance_method_fields\[([^\]]+)\]$/);
+            if (m) {
+                var $el2 = $form.find('[name="advance_method_fields[' + m[1] + ']"]');
+                return $el2.length ? String($el2.val() || '') : '';
+            }
+            return '';
+        }
+
+        function pkApmRenderDynamic($scope, selectedKey, $form, opts) {
+            opts = opts || {};
+            var useInitial = !!opts.useInitial;
+            var $box = $scope.find('.pk-apm-dynamic-fields');
+            $box.empty();
+            if (!selectedKey || !pkAdminAdvanceMethodConfig[selectedKey]) {
+                return;
+            }
+            var cfg = pkAdminAdvanceMethodConfig[selectedKey];
+            var fields = cfg.fields || [];
+            fields.forEach(function (f) {
+                var fid = 'pkdyn-' + String(f.name || '').replace(/[^a-zA-Z0-9_-]/g, '_') + '-' + String($scope.data('pk-apm-instance') || 'x');
+                var val = pkApmDynInitialVal(f, $form, useInitial);
+                var $col = $('<div class="col-md-6"></div>');
+                var $grp = $('<div class="mb-0"></div>');
+                var req = !!f.required;
+                var $label = $('<label class="form-label" for="' + fid + '"></label>');
+                $label.text(f.label || '');
+                if (req) {
+                    $label.append(' <span class="text-danger">*</span>');
+                }
+                var $input = $('<input type="text" class="form-control" autocomplete="off">')
+                    .attr('id', fid)
+                    .attr('name', f.input_name || '')
+                    .attr('placeholder', f.placeholder || '')
+                    .val(val);
+                if (req) {
+                    $input.attr('required', 'required');
+                }
+                $grp.append($label).append($input);
+                $col.append($grp);
+                $box.append($col);
+            });
+        }
+
+        function pkApmTier2Visibility($scope) {
+            var t1 = $scope.find('.pk-apm-tier1:checked').val();
+            $scope.find('.pk-apm-tier2-digital-wrap').toggleClass('d-none', t1 !== 'digital');
+            $scope.find('.pk-apm-tier2-offline-wrap').toggleClass('d-none', t1 !== 'offline');
+        }
+
+        function pkApmUpdateHidden($scope) {
+            var t1 = $scope.find('.pk-apm-tier1:checked').val();
+            var $h = $scope.find('.pk-apm-hidden');
+            var v = '';
+            if (t1 === 'cas') {
+                v = 'cash_after_service';
+            } else if (t1 === 'digital') {
+                v = ($scope.find('.pk-apm-tier2-digital:checked').val() || '').trim();
+            } else if (t1 === 'offline') {
+                v = ($scope.find('.pk-apm-tier2-offline:checked').val() || '').trim();
+            }
+            $h.val(v);
+        }
+
+        function pkApmSync($scope, $form, opts) {
+            opts = opts || {};
+            var hydrate = !!opts.hydrateFromInitial;
+            pkApmUpdateHidden($scope);
+            var v = ($scope.find('.pk-apm-hidden').val() || '').trim();
+            pkApmRenderDynamic($scope, v, $form, { useInitial: hydrate });
+        }
+
+        function pkApmInitScope($scope, $form) {
+            $scope.find('.pk-apm-tier1').off('change.pkApm').on('change.pkApm', function (e, payload) {
+                var hydrate = payload && payload.hydrateFromInitial;
+                if (!hydrate) {
+                    $scope.find('.pk-apm-tier2-digital').prop('checked', false);
+                    $scope.find('.pk-apm-tier2-offline').prop('checked', false);
+                }
+                var t1 = $scope.find('.pk-apm-tier1:checked').val();
+                pkApmTier2Visibility($scope);
+                if (!hydrate && t1 === 'digital' && $scope.find('.pk-apm-tier2-digital').length === 1) {
+                    $scope.find('.pk-apm-tier2-digital').first().prop('checked', true);
+                }
+                if (!hydrate && t1 === 'offline' && $scope.find('.pk-apm-tier2-offline').length === 1) {
+                    $scope.find('.pk-apm-tier2-offline').first().prop('checked', true);
+                }
+                pkApmSync($scope, $form, { hydrateFromInitial: !!hydrate });
+            });
+            $scope.find('.pk-apm-tier2-digital, .pk-apm-tier2-offline').off('change.pkApm').on('change.pkApm', function (e, payload) {
+                pkApmSync($scope, $form, { hydrateFromInitial: !!(payload && payload.hydrateFromInitial) });
+            });
+        }
+
+        function pkApmBindForm($form) {
+            $form.find('.pk-apm-scope').each(function () {
+                var $scope = $(this);
+                pkApmInitScope($scope, $form);
+                pkApmTier2Visibility($scope);
+                pkApmSync($scope, $form, {});
+            });
+        }
+
+        /** Escape double quotes for jQuery attribute selectors [name="..."] */
+        function pkApmEscapeSelectorAttr(s) {
+            return String(s || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        }
+
+        /**
+         * Copy Reference note into empty transaction / offline required fields (matches server validateAdvanceFollowUp).
+         */
+        function pkApmBackfillCompanyInflowNoteIntoAdvanceFields($form) {
+            var note = ($form.find('textarea[name="company_inflow_note"]').val() || '').trim();
+            if (!note) {
+                return;
+            }
+            var $cw = $form.find('.add-payment-company-inflow-wrap');
+            var hv = ($cw.find('.pk-apm-hidden').first().val() || '').trim();
+            if (!hv || !pkAdminAdvanceMethodConfig[hv]) {
+                return;
+            }
+            var $tidInDyn = $cw.find('.pk-apm-dynamic-fields').find('input[name="advance_transaction_id"]');
+            if ($tidInDyn.length && !($tidInDyn.val() || '').trim()) {
+                $tidInDyn.val(note);
+            }
+            if (hv.indexOf('offline:') !== 0) {
+                return;
+            }
+            var cfg = pkAdminAdvanceMethodConfig[hv];
+            var fields = cfg.fields || [];
+            var requiredFields = [];
+            for (var i = 0; i < fields.length; i++) {
+                if (fields[i].required && fields[i].input_name) {
+                    requiredFields.push(fields[i]);
+                }
+            }
+            var txnLike = function (name) {
+                return /transaction|trx|utr|reference|ref_no|ref_id|payment_id|receipt|voucher|txn|utr_no|upi/i.test(String(name || ''));
+            };
+            var filled = false;
+            for (var j = 0; j < requiredFields.length; j++) {
+                var f = requiredFields[j];
+                if (!txnLike(f.name)) {
+                    continue;
+                }
+                var $inp = $cw.find('.pk-apm-dynamic-fields').find('[name="' + pkApmEscapeSelectorAttr(f.input_name) + '"]');
+                if ($inp.length && !($inp.val() || '').trim()) {
+                    $inp.val(note);
+                    filled = true;
+                    break;
+                }
+            }
+            if (!filled && requiredFields.length === 1) {
+                var f1 = requiredFields[0];
+                var $in1 = $cw.find('.pk-apm-dynamic-fields').find('[name="' + pkApmEscapeSelectorAttr(f1.input_name) + '"]');
+                if ($in1.length && !($in1.val() || '').trim()) {
+                    $in1.val(note);
+                }
+            }
+        }
 
         $(document).on('click', '.wa-open-admin-chat', function (e) {
             e.preventDefault();
@@ -2602,14 +2939,18 @@
 
         function toggleAddPaymentTransactionField($form) {
             var receivedBy = $form.find('input[name="received_by"]:checked').val();
-            var $wrap = $form.find('.add-payment-txn-wrap');
-            var $txn = $form.find('.add-payment-transaction-id');
+            var $cw = $form.find('.add-payment-company-inflow-wrap');
             if (receivedBy === 'company') {
-                $wrap.removeClass('d-none');
-                $txn.prop('required', true);
+                $cw.removeClass('d-none');
+                $cw.find('input, textarea, select').prop('disabled', false);
+                pkApmBindForm($form);
+                var $sc = $cw.find('.pk-apm-scope').first();
+                if ($sc.length) {
+                    pkApmSync($sc, $form, {});
+                }
             } else {
-                $wrap.addClass('d-none');
-                $txn.prop('required', false).val('');
+                $cw.addClass('d-none');
+                $cw.find('input, textarea, select').prop('disabled', true);
             }
         }
 
@@ -2621,6 +2962,13 @@
             var $form = $(this).find('.add-payment-form');
             if ($form.length) {
                 toggleAddPaymentTransactionField($form);
+            }
+        });
+
+        $(document).on('shown.bs.modal', '#bookingFinancialSettlementModal', function() {
+            var $bf = $('#bfs-add-payment-form');
+            if ($bf.length) {
+                toggleAddPaymentTransactionField($bf);
             }
         });
 
@@ -2647,18 +2995,56 @@
 
             var dueAmount = parseFloat($form.attr('data-due-amount')) || 0;
             var amount = parseFloat($form.find('.add-payment-amount').val()) || 0;
+            if (!amount || amount < 0.01) {
+                $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Amount') }}: {{ translate('This field is required.') }}</li></ul>');
+                return false;
+            }
             if (dueAmount > 0 && amount > dueAmount) {
                 $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Amount cannot exceed the due amount. Due amount') }}: ' + dueAmount.toFixed(2) + '</li></ul>');
                 return false;
             }
 
             var receivedBy = $form.find('input[name="received_by"]:checked').val();
+            var $cwWrap = $form.find('.add-payment-company-inflow-wrap');
             if (receivedBy === 'company') {
-                var tid = ($form.find('.add-payment-transaction-id').val() || '').trim();
-                if (!tid) {
-                    $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Transaction ID') }} {{ translate('is_required') }}</li></ul>');
+                $cwWrap.find('input, textarea, select').prop('disabled', false);
+                $cwWrap.find('.pk-apm-hidden, .pk-apm-tier1, .pk-apm-tier2-digital, .pk-apm-tier2-offline').prop('disabled', false);
+                var $sc = $cwWrap.find('.pk-apm-scope').first();
+                if ($sc.length) {
+                    pkApmUpdateHidden($sc);
+                }
+                // Do not call pkApmSync here — it re-renders dynamic fields and clears typed transaction/offline inputs.
+                pkApmBackfillCompanyInflowNoteIntoAdvanceFields($form);
+                var hv = ($cwWrap.find('.pk-apm-hidden').first().val() || '').trim();
+                if (!hv) {
+                    $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Advance_payment_method_is_required_when_advance_amount_is_set') }}</li></ul>');
                     return false;
                 }
+                var missingLabels = [];
+                $cwWrap.find('.pk-apm-dynamic-fields').find('input[required], textarea[required], select[required]').filter(':enabled').filter(':visible').each(function () {
+                    var $inp = $(this);
+                    if (($inp.val() || '').trim()) {
+                        return;
+                    }
+                    var fid = $inp.attr('id');
+                    var labelText = '';
+                    if (fid) {
+                        var $lbl = $cwWrap.find('label[for="' + pkApmEscapeSelectorAttr(fid) + '"]');
+                        labelText = ($lbl.text() || '').replace(/\s+/g, ' ').replace(/\s*\*+\s*$/,'').trim();
+                    }
+                    missingLabels.push(labelText || '{{ translate('Transaction_Reference_ID') }}');
+                });
+                if (missingLabels.length) {
+                    var esc = function(t) { return $('<div/>').text(t).html(); };
+                    var reqMsg = '{{ translate('This field is required.') }}';
+                    var listHtml = missingLabels.map(function (t) {
+                        return '<li>' + esc(t) + ': ' + esc(reqMsg) + '</li>';
+                    }).join('');
+                    $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3">' + listHtml + '</ul>');
+                    return false;
+                }
+            } else {
+                $cwWrap.find('input, textarea, select').prop('disabled', true);
             }
 
             var $btn = $form.find('button[type="submit"]');
@@ -2676,7 +3062,11 @@
                 if ($form.hasClass('bfs-add-payment-form')) {
                     $btn.prop('disabled', false);
                     $form.find('.add-payment-amount').val('');
-                    $form.find('.add-payment-transaction-id').val('');
+                    $form.find('.pk-apm-dynamic-fields').empty();
+                    $form.find('.pk-apm-hidden').val('');
+                    $form.find('textarea[name="company_inflow_note"]').val('');
+                    $form.find('.pk-apm-tier1').prop('checked', false);
+                    $form.find('.pk-apm-tier2-digital, .pk-apm-tier2-offline').prop('checked', false);
                     var $dateIn = $form.find('input[name="date"]');
                     if ($dateIn.length) {
                         $dateIn.val($form.attr('data-default-date') || new Date().toISOString().slice(0, 10));

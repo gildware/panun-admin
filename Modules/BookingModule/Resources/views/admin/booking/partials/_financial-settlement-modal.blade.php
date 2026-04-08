@@ -197,7 +197,7 @@
                 <div id="bfs-payment-embed-wrap" class="d-none border rounded p-3 mt-3 bg-white">
                     <h6 class="fw-semibold mb-1">{{ translate('Bfs_collect_payment_section_title') }}</h6>
                     <p class="small text-muted mb-3">{{ translate('Bfs_collect_payment_section_hint') }}</p>
-                    <form method="post" action="{{ route('admin.booking.add-payment', [$booking->id]) }}" class="add-payment-form bfs-add-payment-form" data-due-amount="0" data-default-date="{{ date('Y-m-d') }}" id="bfs-add-payment-form">
+                    <form method="post" action="{{ route('admin.booking.add-payment', [$booking->id]) }}" class="add-payment-form bfs-add-payment-form" data-due-amount="0" data-default-date="{{ date('Y-m-d') }}" id="bfs-add-payment-form" novalidate>
                         @csrf
                         <input type="hidden" name="bfs_decided_charges_cap" value="1">
                         <input type="hidden" name="bfs_settlement_outcome" id="bfs-cap-settlement-outcome" value="">
@@ -221,9 +221,20 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="mb-3 add-payment-txn-wrap d-none">
-                            <label class="form-label">{{ translate('Transaction ID') }} <span class="text-danger">*</span> <span class="text-muted small">({{ translate('if received by company') }})</span></label>
-                            <input type="text" name="transaction_id" class="form-control add-payment-transaction-id" maxlength="100" placeholder="{{ translate('Gateway or manual reference') }}">
+                        <div class="mb-3 add-payment-company-inflow-wrap d-none">
+                            <div class="row g-2">
+                                @include('bookingmodule::admin.booking.partials._admin-company-inflow-payment-method', [
+                                    'instanceId' => 'bfs-addpay-' . $booking->id,
+                                    'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
+                                    'advancePmDisabled' => false,
+                                    'advancePmSelected' => '',
+                                ])
+                            </div>
+                            <div class="mb-0 mt-2">
+                                <label class="form-label">{{ translate('Reference_Note') }} <span class="text-muted small">({{ translate('Optional') }})</span></label>
+                                <textarea name="company_inflow_note" class="form-control" rows="2" maxlength="2000" placeholder="{{ translate('Optional_note') }}"></textarea>
+                                <small class="text-muted d-block mt-1 fz-11">{{ translate('Reference_note_can_fill_transaction_field') }}</small>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">{{ translate('Date') }}</label>

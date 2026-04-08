@@ -139,6 +139,7 @@
                                 <tr>
                                     <th>{{ translate('Date') }}</th>
                                     <th>{{ translate('Type') }}</th>
+                                    <th>{{ translate('payment_method') }}</th>
                                     <th class="text-end">{{ translate('Amount') }}</th>
                                     <th>{{ translate('Transaction_ID') }}</th>
                                     <th>{{ translate('Reference') }}</th>
@@ -156,6 +157,7 @@
                                                 <span class="badge bg-success">{{ translate('In') }} ({{ translate('Company_received_from_provider') }})</span>
                                             @endif
                                         </td>
+                                        <td class="text-nowrap">{{ $entry->formatPaymentMethodForDisplay() }}</td>
                                         <td class="text-end fw-semibold">{{ with_currency_symbol($entry->amount) }}</td>
                                         <td>{{ $entry->transaction_id ?: '—' }}</td>
                                         <td>
@@ -171,7 +173,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">{{ translate('No_ledger_entries') }}</td>
+                                        <td colspan="7" class="text-center text-muted py-4">{{ translate('No_ledger_entries') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -227,7 +229,7 @@
                         <div class="modal fade" id="collectAmountFromProviderModal" tabindex="-1" aria-labelledby="collectAmountFromProviderModalLabel" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
-                                    <form action="{{ route('admin.provider.details.collect_amount', $provider->id) }}" method="post">
+                                    <form action="{{ route('admin.provider.details.collect_amount', $provider->id) }}" method="post" id="collect-from-provider-form">
                                         @csrf
                                         <div class="modal-header">
                                             <h5 class="modal-title" id="collectAmountFromProviderModalLabel">{{ translate('Collect_Amount') }}</h5>
@@ -240,13 +242,18 @@
                                                 <input type="number" step="0.01" min="0.01" max="{{ round(abs($netPayableAmount), 2) }}" name="amount" id="collect_amount_amount" class="form-control" required placeholder="0.00">
                                                 <small class="text-muted">{{ translate('Max') }}: {{ with_currency_symbol(abs($netPayableAmount)) }}</small>
                                             </div>
-                                            <div class="mb-3">
-                                                <label for="collect_amount_transaction_id" class="form-label">{{ translate('Transaction_ID') }}</label>
-                                                <input type="text" name="transaction_id" id="collect_amount_transaction_id" class="form-control" maxlength="255" placeholder="{{ translate('e.g._bank_reference') }}">
+                                            <div class="row g-2">
+                                                @include('bookingmodule::admin.booking.partials._admin-company-inflow-payment-method', [
+                                                    'instanceId' => 'collect-provider-' . $provider->id,
+                                                    'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
+                                                    'advancePmDisabled' => false,
+                                                    'advancePmSelected' => '',
+                                                ])
                                             </div>
-                                            <div class="mb-3">
-                                                <label for="collect_amount_reference_note" class="form-label">{{ translate('Reference_Note') }}</label>
-                                                <textarea name="reference_note" id="collect_amount_reference_note" class="form-control" rows="2" maxlength="500" placeholder="{{ translate('Optional_note') }}"></textarea>
+                                            <div class="mb-3 mt-2">
+                                                <label for="collect_company_inflow_note" class="form-label">{{ translate('Reference_Note') }} <span class="text-muted small">({{ translate('Optional') }})</span></label>
+                                                <textarea name="company_inflow_note" id="collect_company_inflow_note" class="form-control" rows="2" maxlength="2000" placeholder="{{ translate('Optional_note') }}"></textarea>
+                                                <small class="text-muted d-block mt-1 fz-11">{{ translate('Reference_note_can_fill_transaction_field') }}</small>
                                             </div>
                                         </div>
                                         <div class="modal-footer">
@@ -299,3 +306,93 @@
         </div>
     </div>
 @endsection
+
+@push('script')
+    <script>
+        "use strict";
+        var pkAdminAdvanceMethodConfig = @json(\Modules\BookingModule\Services\AdminCompanyInflowPaymentService::fieldConfigMapFromGroups($advancePaymentMethodGroups ?? []));
+
+        function pkApmRenderDynamic($scope, selectedKey, $form, opts) {
+            opts = opts || {};
+            var useInitial = !!opts.useInitial;
+            var $box = $scope.find('.pk-apm-dynamic-fields');
+            $box.empty();
+            if (!selectedKey || !pkAdminAdvanceMethodConfig[selectedKey]) return;
+            var fields = (pkAdminAdvanceMethodConfig[selectedKey].fields || []);
+            fields.forEach(function (f) {
+                var fid = 'pkdyn-col-' + String(f.name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                var $col = $('<div class="col-md-6"></div>');
+                var $grp = $('<div class="mb-0"></div>');
+                var req = !!f.required;
+                var $label = $('<label class="form-label" for="' + fid + '"></label>').text(f.label || '');
+                if (req) $label.append(' <span class="text-danger">*</span>');
+                var $input = $('<input type="text" class="form-control" autocomplete="off">')
+                    .attr('id', fid).attr('name', f.input_name || '').attr('placeholder', f.placeholder || '');
+                if (req) $input.attr('required', 'required');
+                $grp.append($label).append($input);
+                $col.append($grp);
+                $box.append($col);
+            });
+        }
+        function pkApmTier2Visibility($scope) {
+            var t1 = $scope.find('.pk-apm-tier1:checked').val();
+            $scope.find('.pk-apm-tier2-digital-wrap').toggleClass('d-none', t1 !== 'digital');
+            $scope.find('.pk-apm-tier2-offline-wrap').toggleClass('d-none', t1 !== 'offline');
+        }
+        function pkApmUpdateHidden($scope) {
+            var t1 = $scope.find('.pk-apm-tier1:checked').val();
+            var v = '';
+            if (t1 === 'cas') v = 'cash_after_service';
+            else if (t1 === 'digital') v = ($scope.find('.pk-apm-tier2-digital:checked').val() || '').trim();
+            else if (t1 === 'offline') v = ($scope.find('.pk-apm-tier2-offline:checked').val() || '').trim();
+            $scope.find('.pk-apm-hidden').val(v);
+        }
+        function pkApmSync($scope, $form, opts) {
+            opts = opts || {};
+            pkApmUpdateHidden($scope);
+            var v = ($scope.find('.pk-apm-hidden').val() || '').trim();
+            pkApmRenderDynamic($scope, v, $form, { useInitial: !!opts.hydrateFromInitial });
+        }
+        function pkApmInitScope($scope, $form) {
+            $scope.find('.pk-apm-tier1').off('change.pkApmCol').on('change.pkApmCol', function (e, payload) {
+                var hydrate = payload && payload.hydrateFromInitial;
+                if (!hydrate) {
+                    $scope.find('.pk-apm-tier2-digital').prop('checked', false);
+                    $scope.find('.pk-apm-tier2-offline').prop('checked', false);
+                }
+                var t1 = $scope.find('.pk-apm-tier1:checked').val();
+                pkApmTier2Visibility($scope);
+                if (!hydrate && t1 === 'digital' && $scope.find('.pk-apm-tier2-digital').length === 1) {
+                    $scope.find('.pk-apm-tier2-digital').first().prop('checked', true);
+                }
+                if (!hydrate && t1 === 'offline' && $scope.find('.pk-apm-tier2-offline').length === 1) {
+                    $scope.find('.pk-apm-tier2-offline').first().prop('checked', true);
+                }
+                pkApmSync($scope, $form, { hydrateFromInitial: !!hydrate });
+            });
+            $scope.find('.pk-apm-tier2-digital, .pk-apm-tier2-offline').off('change.pkApmCol').on('change.pkApmCol', function () {
+                pkApmSync($scope, $form, {});
+            });
+        }
+        function pkApmBindCollectForm() {
+            var $form = $('#collect-from-provider-form');
+            if (!$form.length) return;
+            $form.find('.pk-apm-scope').each(function () {
+                var $scope = $(this);
+                pkApmInitScope($scope, $form);
+                pkApmTier2Visibility($scope);
+                pkApmSync($scope, $form, {});
+            });
+        }
+        $('#collectAmountFromProviderModal').on('shown.bs.modal', function () {
+            pkApmBindCollectForm();
+        });
+        $('#collect-from-provider-form').on('submit', function () {
+            var $form = $(this);
+            var $sc = $form.find('.pk-apm-scope').first();
+            if ($sc.length) {
+                pkApmUpdateHidden($sc);
+            }
+        });
+    </script>
+@endpush

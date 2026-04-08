@@ -194,7 +194,7 @@ class TransactionController extends Controller
                     'created_at' => $e->created_at?->toDateTimeString(),
                     'type' => $e->type,
                     'flow' => $flow,
-                    'channel' => $e->payment_method,
+                    'channel' => $e->formatPaymentMethodForDisplay(),
                     'amount' => $e->amount,
                     'transaction_id' => $e->transaction_id,
                     'booking_readable_id' => $e->booking?->readable_id,
