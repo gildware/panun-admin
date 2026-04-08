@@ -203,7 +203,111 @@ class WhatsAppAiSettingsService
 
     public function defaultGreetingMessageTemplate(): string
     {
-        return "Hello{customer_name_lead_in}! I'm {brand}'s AI assistant — I can help you book a service, answer questions, or connect you with our team.\n\nWhat would you like to do today?";
+        return "✨ Assalam-u-Alaikum & welcome to Panun Kaergar! 🏠\n\n"
+            ."I'm Kaera, your AI assistant 🤖\n"
+            ."We provide trusted and reliable home services across Kashmir — from electricians ⚡, plumbers 🔧 and carpenters 🪚 to appliance repair 🛠️, cleaning 🧹 and more.\n\n"
+            ."I can help you:\n"
+            ."📅 Book a home service\n"
+            ."🛠️ Troubleshoot an issue before booking\n"
+            ."🤝 Guide you if you want to work with Panun Kaergar\n\n"
+            .'Please choose an option below to get started 👇';
+    }
+
+    /**
+     * Default greeting quick-reply labels (≤20 chars each — WhatsApp session button limit).
+     *
+     * @return list<string>
+     */
+    private static function defaultGreetingQuickReplyTexts(): array
+    {
+        return ['🏠 Book home service', '🛠️ Troubleshoot help', '🤝 Join Panun Kaergar'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function legacyDefaultGreetingQuickReplyTexts(): array
+    {
+        return ['Book a service', 'Join as provider', 'Talk to a person'];
+    }
+
+    /**
+     * Session meta for the first-message greeting when DB has no button JSON.
+     *
+     * @return list<array{type: string, text: string}>
+     */
+    public function defaultGreetingMetaButtons(): array
+    {
+        $out = [];
+        foreach (self::defaultGreetingQuickReplyTexts() as $text) {
+            $out[] = ['type' => 'QUICK_REPLY', 'text' => $text];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Quick-reply payload ids for greeting session buttons. Matches {@see WhatsAppSessionInteractiveSequence::send()} order.
+     *
+     * @param  array<int, array<string, mixed>>  $meta
+     * @return list<string>
+     */
+    public function greetingQuickReplyPayloadIdsForMeta(array $meta): array
+    {
+        $titles = $this->normalizedQuickReplyTitlesFromMeta($meta);
+        $n = count($titles);
+        if ($n === 0) {
+            return [];
+        }
+        if ($n === 3) {
+            if ($titles === self::normalizedGreetingTitleTriplet(self::defaultGreetingQuickReplyTexts())) {
+                return ['act_book', 'act_troubleshoot', 'act_provider'];
+            }
+            if ($titles === self::normalizedGreetingTitleTriplet(self::legacyDefaultGreetingQuickReplyTexts())) {
+                return ['act_book', 'act_provider', 'act_human'];
+            }
+
+            return ['act_book', 'act_provider', 'act_human'];
+        }
+        if ($n === 2) {
+            return ['act_book', 'act_provider'];
+        }
+
+        return ['act_book'];
+    }
+
+    /**
+     * @param  list<string>  $texts
+     * @return list<string>
+     */
+    private static function normalizedGreetingTitleTriplet(array $texts): array
+    {
+        $out = [];
+        foreach (array_slice($texts, 0, 3) as $t) {
+            $out[] = mb_substr(trim((string) $t), 0, 20);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $meta
+     * @return list<string>
+     */
+    private function normalizedQuickReplyTitlesFromMeta(array $meta): array
+    {
+        $out = [];
+        foreach ($meta as $b) {
+            if (strtoupper((string) ($b['type'] ?? '')) !== 'QUICK_REPLY') {
+                continue;
+            }
+            $out[] = mb_substr(trim((string) ($b['text'] ?? '')), 0, 20);
+            if (count($out) >= 3) {
+                break;
+            }
+        }
+
+        return $out;
     }
 
     public function resolvedGreetingMessage(?string $phone = null): string
@@ -245,9 +349,9 @@ class WhatsAppAiSettingsService
     public function greetingButtonsForEdit(): array
     {
         $defaults = [
-            ['title' => 'Book a service', 'action' => 'book'],
-            ['title' => 'Join as provider', 'action' => 'provider'],
-            ['title' => 'Talk to a person', 'action' => 'human'],
+            ['title' => '🏠 Book home service', 'action' => 'book'],
+            ['title' => '🛠️ Troubleshoot help', 'action' => 'troubleshoot'],
+            ['title' => '🤝 Join Panun Kaergar', 'action' => 'provider'],
         ];
 
         $j = $this->settings()->db_greeting_buttons_json;
@@ -255,7 +359,7 @@ class WhatsAppAiSettingsService
             return $defaults;
         }
 
-        $valid = ['book', 'provider', 'human'];
+        $valid = ['book', 'troubleshoot', 'provider', 'human'];
         $out = [];
         foreach ($j as $row) {
             if (!is_array($row)) {
@@ -297,6 +401,7 @@ class WhatsAppAiSettingsService
     {
         $map = [
             'book' => 'act_book',
+            'troubleshoot' => 'act_troubleshoot',
             'provider' => 'act_provider',
             'human' => 'act_human',
         ];
@@ -326,8 +431,9 @@ class WhatsAppAiSettingsService
             $out[] = [
                 'id' => $id,
                 'title' => match ($action) {
-                    'book' => 'Book a service',
-                    'provider' => 'Join as provider',
+                    'book' => '🏠 Book home service',
+                    'troubleshoot' => '🛠️ Troubleshoot help',
+                    'provider' => '🤝 Join Panun Kaergar',
                     'human' => 'Talk to a person',
                     default => 'Continue',
                 },
@@ -343,7 +449,7 @@ class WhatsAppAiSettingsService
      */
     public function greetingButtonsJsonFromAdminInput(array $input): ?array
     {
-        $valid = ['book', 'provider', 'human'];
+        $valid = ['book', 'troubleshoot', 'provider', 'human'];
         $seen = [];
         $out = [];
 
@@ -505,7 +611,24 @@ class WhatsAppAiSettingsService
         };
         $raw = $this->settings()->{$col};
         if (!is_array($raw) || $raw === []) {
-            return $which === 'non_text' ? $this->defaultNonTextButtonFormRows() : [];
+            if ($which === 'non_text') {
+                return $this->defaultNonTextButtonFormRows();
+            }
+            if ($which === 'greeting') {
+                $rows = [];
+                foreach ($this->defaultGreetingMetaButtons() as $b) {
+                    $rows[] = [
+                        'kind' => 'QUICK_REPLY',
+                        'text' => (string) ($b['text'] ?? ''),
+                        'url' => '',
+                        'phone' => '',
+                    ];
+                }
+
+                return $rows;
+            }
+
+            return [];
         }
         $rows = [];
         if (isset($raw[0]['type'])) {
@@ -574,7 +697,14 @@ class WhatsAppAiSettingsService
         };
         $raw = $this->settings()->{$col};
         if (!is_array($raw) || $raw === []) {
-            return $context === 'non_text' ? $this->defaultNonTextMetaButtons() : [];
+            if ($context === 'non_text') {
+                return $this->defaultNonTextMetaButtons();
+            }
+            if ($context === 'greeting') {
+                return $this->defaultGreetingMetaButtons();
+            }
+
+            return [];
         }
 
         return $this->normalizeDbJsonToMetaButtons($raw, $context);
@@ -725,8 +855,9 @@ class WhatsAppAiSettingsService
 
     public function defaultNonTextInboundMessageTemplate(): string
     {
-        return "I'm an automated assistant and I can't view images, voice notes, or files in this chat.\n\n"
-            ."Please type your message here. To reach our team by phone, use the button below — or tap *Chat with agent* to connect with us.";
+        return "⚠️ I'm unable to view images, listen to voice notes, or open files in this chat.\n\n"
+            ."Please type your message here and I'll do my best to help 😊\n\n"
+            .'If you need to share a photo, voice note, or file, please tap *Chat with Agent* so our team can review it for you — or use the call button below to speak with us directly 📞';
     }
 
     /**
@@ -737,11 +868,11 @@ class WhatsAppAiSettingsService
     public function defaultNonTextMetaButtons(): array
     {
         $out = [
-            ['type' => 'QUICK_REPLY', 'text' => 'Chat with agent'],
+            ['type' => 'QUICK_REPLY', 'text' => 'Chat with Agent'],
         ];
         $tel = $this->supportPhoneE164ForTemplateButtons();
         if ($tel !== '') {
-            $out[] = ['type' => 'PHONE_NUMBER', 'text' => 'Call support', 'phone_number' => $tel];
+            $out[] = ['type' => 'PHONE_NUMBER', 'text' => 'Call us Now', 'phone_number' => $tel];
         }
 
         return $out;

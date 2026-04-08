@@ -87,7 +87,7 @@
                                 <button type="button" class="btn btn-outline-primary border border-primary btn-sm btn-lead-type-provider" data-bs-toggle="modal" data-bs-target="#leadProviderModal">{{ translate('Mark_as_Provider_Lead') }}</button>
                             </div>
                         @endif
-                        <div class="d-flex align-items-center gap-2 order-3" @if(in_array($lead->lead_type, [\Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER, \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER])) style="margin-right: 50px;" @elseif(!empty($inModal)) style="margin-right: 100px;" @endif>
+                        <div class="d-flex align-items-center flex-wrap justify-content-end gap-2 order-3" @if(in_array($lead->lead_type, [\Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER, \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER])) style="margin-right: 50px;" @elseif(!empty($inModal)) style="margin-right: 100px;" @endif>
                             @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_PROVIDER)
                                 @php
                                     $currentProviderStatusId = $typeHistory && is_array($typeHistory->data ?? null) ? ($typeHistory->data['provider_lead_status_id'] ?? '') : '';
@@ -139,8 +139,26 @@
                                     <button type="button" id="customer-header-status-cancel-btn" class="btn btn--secondary btn-sm">{{ translate('Cancel') }}</button>
                                 </div>
                             @endif
-                            @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && !empty($isPendingCustomerStatus))
-                                <a href="{{ route('admin.booking.create-from-lead', $lead->id) }}" class="btn btn--primary btn-sm">
+                            @if(!empty($linkedWhatsAppBooking) && in_array($lead->lead_type, [\Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER, \Modules\LeadManagement\Entities\Lead::TYPE_UNKNOWN], true))
+                                <div class="alert alert-info border border-info mb-0 py-2 px-3 d-flex flex-column gap-2" style="min-width: 16rem; max-width: 22rem;">
+                                    <p class="mb-0 small w-100 text-start">
+                                        {{ translate('Lead_whatsapp_ai_booking_header_text') }}
+                                        <strong class="text-dark">{{ $linkedWhatsAppBooking['booking_id'] }}</strong>
+                                    </p>
+                                    <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap w-100">
+                                        <span class="text-muted small text-uppercase">{{ translate('Status') }}</span>
+                                        <span class="badge bg-secondary">{{ $linkedWhatsAppBooking['status_label'] ?? ($linkedWhatsAppBooking['status'] ?? '—') }}</span>
+                                        <a href="{{ $linkedWhatsAppBooking['continue_url'] }}"
+                                           class="btn btn--primary btn-sm"
+                                           @if(!empty($inModal)) target="_top" rel="noopener" @endif>
+                                            {{ translate('Continue_with_AI_booking') }}
+                                        </a>
+                                    </div>
+                                </div>
+                            @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER && !empty($isPendingCustomerStatus))
+                                <a href="{{ route('admin.booking.create-from-lead', ['lead' => $lead->id, 'context' => !empty($inModal) ? 'lead_modal' : 'lead']) }}"
+                                   class="btn btn--primary btn-sm"
+                                   @if(!empty($inModal)) target="_top" rel="noopener" @endif>
                                     {{ translate('Create_Booking_for_this_Lead') }}
                                 </a>
                             @endif

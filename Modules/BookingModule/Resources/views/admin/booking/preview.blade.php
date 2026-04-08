@@ -6,9 +6,15 @@
     <div class="content container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="mb-0">{{ translate('Preview_Booking') }}</h2>
-            <a href="{{ route('admin.booking.create', !empty($data['reopen_source_booking_id'] ?? null) ? ['from_reopen' => 1] : []) }}" class="btn btn-secondary">
-                {{ translate('Back_to_Edit') }}
-            </a>
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                <a href="{{ $bookingGoBackUrl ?? route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
+                   class="btn btn-outline-secondary">
+                    {{ translate('Go_back') }}
+                </a>
+                <a href="{{ route('admin.booking.create', !empty($data['reopen_source_booking_id'] ?? null) ? ['from_reopen' => 1] : []) }}" class="btn btn-secondary">
+                    {{ translate('Back_to_Edit') }}
+                </a>
+            </div>
         </div>
 
         <div class="card">

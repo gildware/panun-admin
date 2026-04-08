@@ -953,6 +953,9 @@
                                 @if(!$bookingNotEditable)
                                     <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
                                         @forelse ($__adminNextStatuses as $__nextSt)
+                                            @if ($__overviewSt === 'ongoing' && $__nextSt === 'canceled')
+                                                @continue
+                                            @endif
                                             @php
                                                 $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
                                                 $__btnDisabled = $__overviewStatusCashBlock && in_array($__nextSt, $__cashBlockTargets, true);
@@ -1005,6 +1008,83 @@
                             @else
                                 <p class="fz-12 text-muted mb-0 mt-auto">{{ translate('You do not have permission to change booking status.') }}</p>
                             @endcan
+                            @if ((int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'ongoing')
+                                @can('booking_can_manage_status')
+                                    @if (! $bookingNotEditable || (! empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot)))
+                                    <div class="border-top pt-3 mt-3 flex-shrink-0 w-100">
+                                        @if (! $bookingNotEditable)
+                                            <div class="d-flex flex-wrap justify-content-end gap-2 mb-2">
+                                                <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#bookingFinancialSettlementModal">
+                                                    {{ translate('Configure_special_scenarios') }}
+                                                </button>
+                                            </div>
+                                        @endif
+                                        @if (! empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot))
+                                            @php
+                                                $__bfsOutcome = (string) ($booking->settlement_outcome ?? '');
+                                                $__bfsDecidedCharges = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+                                                    || $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+                                                $__bfsScaledOutcome = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                                                $__bfsScaledLossRows = null;
+                                                if ($__bfsScaledOutcome) {
+                                                    $__bfsLossSvc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
+                                                    $__bfsGt = get_booking_total_amount($booking);
+                                                    $__bfsPd = $__bfsLossSvc->totalPaidForMainBooking($booking);
+                                                    $__bfsScaledLossRows = $__bfsLossSvc->resolveScaledLossBreakdown(
+                                                        $booking,
+                                                        is_array($booking->settlement_config) ? $booking->settlement_config : [],
+                                                        $__bfsGt,
+                                                        $__bfsPd
+                                                    );
+                                                }
+                                            @endphp
+                                            <hr class="my-3">
+                                            <dl class="row small mb-0">
+                                                <dt class="col-sm-5">{{ translate('Scenario') }}</dt>
+                                                <dd class="col-sm-7">
+                                                    @if ($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL)
+                                                        {{ translate('Bfs_label_cancel_keep_visit') }}
+                                                    @elseif ($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT)
+                                                        {{ translate('Bfs_label_complete_visit_only') }}
+                                                    @elseif ($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
+                                                        {{ translate('Bfs_label_scaled_partial_or_bad_debt') }}
+                                                    @else
+                                                        <span class="text-capitalize">{{ str_replace('_', ' ', (string) ($booking->settlement_outcome ?? translate('Standard_settlement'))) }}</span>
+                                                    @endif
+                                                </dd>
+                                                @if ($__bfsDecidedCharges)
+                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_visiting_charges') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['visit_charges_paid'] ?? 0) }}</dd>
+                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_closing_amount') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['closing_amount_paid'] ?? 0) }}</dd>
+                                                @endif
+                                                @if ($__bfsScaledLossRows !== null)
+                                                    @php [$__sx, $__sloss, $__sy, $__sz] = $__bfsScaledLossRows; @endphp
+                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_total_booking') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol(get_booking_total_amount($booking)) }}</dd>
+                                                    <dt class="col-sm-5">{{ translate('Bfs_scaled_amount_paid_by_customer') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sx) }}</dd>
+                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_loss_amount') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sloss) }}</dd>
+                                                    <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_company_share') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sy) }}</dd>
+                                                    <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_provider_share') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sz) }}</dd>
+                                                @endif
+                                                <dt class="col-sm-5">{{ translate('Company_commission') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['company_commission_after_promos'] ?? 0) }}</dd>
+                                                <dt class="col-sm-5">{{ translate('Provider_earning') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['provider_earning'] ?? 0) }}</dd>
+                                                @if (! empty($booking->settlement_remarks))
+                                                    <dt class="col-sm-5">{{ translate('Notes') }}</dt>
+                                                    <dd class="col-sm-7">{{ $booking->settlement_remarks }}</dd>
+                                                @endif
+                                            </dl>
+                                        @endif
+                                    </div>
+                                    @endif
+                                @endcan
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -1967,96 +2047,6 @@
             <div class="row gy-3 align-items-start">
                 <div class="col-lg-8 col-xl-7 d-flex flex-column gap-3 align-items-stretch">
                     @can('booking_can_manage_status')
-                        @if((int)($booking->is_repeated ?? 0) === 0)
-                            @php
-                                $bfsDetailsOngoing = ($booking->booking_status ?? '') === 'ongoing';
-                                $bfsDetailsShowSettlementCard = $bfsDetailsOngoing;
-                            @endphp
-                            @if($bfsDetailsShowSettlementCard)
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-body">
-                                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-                                        <div>
-                                            <h5 class="card-title mb-1">{{ translate('Special_financial_settlement') }}</h5>
-                                            <p class="text-muted small mb-0">{{ translate('Financial_settlement_card_hint') }}</p>
-                                        </div>
-                                        @if($bfsDetailsOngoing && ! $bookingNotEditable)
-                                            <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#bookingFinancialSettlementModal">
-                                                {{ translate('Configure') }}
-                                            </button>
-                                        @endif
-                                    </div>
-                                    @if(!empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot))
-                                        @php
-                                            $__bfsOutcome = (string) ($booking->settlement_outcome ?? '');
-                                            $__bfsDecidedCharges = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
-                                                || $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
-                                            $__bfsSnap = $booking->settlement_snapshot ?? [];
-                                            $__bfsScaledOutcome = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
-                                            $__bfsScaledLossRows = null;
-                                            if ($__bfsScaledOutcome) {
-                                                $__bfsLossSvc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
-                                                $__bfsGt = get_booking_total_amount($booking);
-                                                $__bfsPd = $__bfsLossSvc->totalPaidForMainBooking($booking);
-                                                $__bfsScaledLossRows = $__bfsLossSvc->resolveScaledLossBreakdown(
-                                                    $booking,
-                                                    is_array($booking->settlement_config) ? $booking->settlement_config : [],
-                                                    $__bfsGt,
-                                                    $__bfsPd
-                                                );
-                                            }
-                                        @endphp
-                                        <hr class="my-3">
-                                        <dl class="row small mb-0">
-                                            <dt class="col-sm-5">{{ translate('Scenario') }}</dt>
-                                            <dd class="col-sm-7">
-                                                @if($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL)
-                                                    {{ translate('Bfs_label_cancel_keep_visit') }}
-                                                @elseif($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT)
-                                                    {{ translate('Bfs_label_complete_visit_only') }}
-                                                @elseif($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
-                                                    {{ translate('Bfs_label_scaled_partial_or_bad_debt') }}
-                                                @else
-                                                    <span class="text-capitalize">{{ str_replace('_', ' ', (string)($booking->settlement_outcome ?? translate('Standard_settlement'))) }}</span>
-                                                @endif
-                                            </dd>
-                                            @if($__bfsDecidedCharges)
-                                                <dt class="col-sm-5">{{ translate('Bfs_preview_visiting_charges') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['visit_charges_paid'] ?? 0) }}</dd>
-                                                <dt class="col-sm-5">{{ translate('Bfs_preview_closing_amount') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['closing_amount_paid'] ?? 0) }}</dd>
-                                            @endif
-                                            @if($__bfsScaledLossRows !== null)
-                                                @php [$__sx, $__sloss, $__sy, $__sz] = $__bfsScaledLossRows; @endphp
-                                                <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_total_booking') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol(get_booking_total_amount($booking)) }}</dd>
-                                                <dt class="col-sm-5">{{ translate('Bfs_scaled_amount_paid_by_customer') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($__sx) }}</dd>
-                                                <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_loss_amount') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($__sloss) }}</dd>
-                                                <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_company_share') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($__sy) }}</dd>
-                                                <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_provider_share') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($__sz) }}</dd>
-                                            @endif
-                                            <dt class="col-sm-5">{{ translate('Company_commission') }}</dt>
-                                            <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['company_commission_after_promos'] ?? 0) }}</dd>
-                                            <dt class="col-sm-5">{{ translate('Provider_earning') }}</dt>
-                                            <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['provider_earning'] ?? 0) }}</dd>
-                                            @if(!empty($booking->settlement_remarks))
-                                                <dt class="col-sm-5">{{ translate('Notes') }}</dt>
-                                                <dd class="col-sm-7">{{ $booking->settlement_remarks }}</dd>
-                                            @endif
-                                        </dl>
-                                    @elseif($bfsDetailsOngoing && ! $bookingNotEditable)
-                                        <p class="small text-muted mb-0 mt-2">{{ translate('Financial_settlement_not_configured') }}</p>
-                                    @endif
-                                </div>
-                            </div>
-                            @endif
-                        @endif
-                    @endcan
-                    @can('booking_can_manage_status')
                         @if(!$bookingNotEditable)
                             <div class="d-none" aria-hidden="true">
                                 @php
@@ -2066,6 +2056,9 @@
                                 <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}" data-can-complete="{{ booking_can_be_completed($booking) ? '1' : '0' }}">
                                     <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}</option>
                                     @foreach ($__statusSelectNext as $__selSt)
+                                        @if (($booking->booking_status ?? '') === 'ongoing' && $__selSt === 'canceled')
+                                            @continue
+                                        @endif
                                         @php
                                             $__optDisabled = $__statusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
                                             if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {

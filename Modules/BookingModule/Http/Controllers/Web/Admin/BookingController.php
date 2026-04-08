@@ -516,10 +516,65 @@ class BookingController extends Controller
             'booking_source' => $leadModel->source?->name ?? null,
         ];
 
+        $waReadable = $this->resolveWhatsAppBookingReadableIdForCustomerLead($leadModel);
+        if ($waReadable !== null) {
+            $prefill['whatsapp_reserved_readable_id'] = $waReadable;
+        }
+
+        $context = (string) $request->query('context', 'lead');
+        $prefill['booking_go_back_url'] = match ($context) {
+            'lead_modal' => route('admin.lead.show', ['id' => $leadModel->id, 'in_modal' => 1]),
+            'lead' => route('admin.lead.show', $leadModel->id),
+            default => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']),
+        };
+
         // Merge prefill data with query params and old input (so user edits win)
         $request->merge(array_merge($prefill, $request->query(), $request->old()));
 
         return $this->buildBookingCreateView($request, 'bookingmodule::admin.booking.create-from-lead', null);
+    }
+
+    /**
+     * WhatsApp AI / sync rows store the booking request id before a system booking exists.
+     * When staff opens "Add booking" from the CRM lead, reuse that row (same readable_id) if still open.
+     */
+    protected function resolveWhatsAppBookingReadableIdForCustomerLead(Lead $lead): ?string
+    {
+        if ($lead->lead_type !== Lead::TYPE_CUSTOMER) {
+            return null;
+        }
+        $digits = preg_replace('/\D+/', '', (string) ($lead->phone_number ?? '')) ?? '';
+        if (strlen($digits) < 10) {
+            return null;
+        }
+        $last10 = substr($digits, -10);
+
+        $base = WhatsAppBooking::query()
+            ->whereIn('status', [
+                WhatsAppBooking::STATUS_DRAFT,
+                WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN,
+            ])
+            ->where(function ($q) {
+                $q->whereNull('system_booking_id')->orWhere('system_booking_id', '');
+            });
+
+        $wa = (clone $base)
+            ->where('lead_id', $lead->id)
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if (!$wa) {
+            $wa = (clone $base)
+                ->where('phone', 'like', '%'.$last10)
+                ->orderByDesc('updated_at')
+                ->first();
+        }
+
+        if (!$wa || !BookingReadableIdAllocator::isAppReadableIdFormat((string) $wa->booking_id)) {
+            return null;
+        }
+
+        return (string) $wa->booking_id;
     }
 
     /**
@@ -623,6 +678,13 @@ class BookingController extends Controller
                     $prefill[$k] = (string) $j[$k];
                 }
             }
+            $waEmail = trim((string) ($j['contact_email'] ?? ''));
+            if ($waEmail !== '' && filter_var($waEmail, FILTER_VALIDATE_EMAIL)) {
+                if (! trim((string) ($customer->email ?? ''))) {
+                    $customer->email = Str::limit($waEmail, 191, '');
+                    $customer->save();
+                }
+            }
         }
 
         if ($wa->prefered_datetime) {
@@ -631,6 +693,20 @@ class BookingController extends Controller
             } catch (Throwable) {
                 $prefill['service_schedule'] = $wa->prefered_datetime->toDateTimeString();
             }
+        }
+
+        if ($wa->lead_id) {
+            $prefill['lead_id'] = (string) $wa->lead_id;
+        }
+
+        $context = (string) $request->query('context');
+        $leadIdQ = (int) $request->query('lead_id');
+        if ($context === 'lead_modal' && $leadIdQ > 0) {
+            $prefill['booking_go_back_url'] = route('admin.lead.show', ['id' => $leadIdQ, 'in_modal' => 1]);
+        } elseif ($context === 'lead' && $leadIdQ > 0) {
+            $prefill['booking_go_back_url'] = route('admin.lead.show', $leadIdQ);
+        } else {
+            $prefill['booking_go_back_url'] = route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
         }
 
         $prefill = array_filter(
@@ -691,6 +767,11 @@ class BookingController extends Controller
 
         $advancePaymentMethodGroups = $this->getAdminAdvancePaymentMethodGroupsForCreate();
 
+        $bookingGoBackUrl = $this->sanitizeBookingGoBackUrl($request->input('booking_go_back_url'));
+        if ($bookingGoBackUrl === null) {
+            $bookingGoBackUrl = route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
+        }
+
         return view($view, compact(
             'zones',
             'zoneTreeOptions',
@@ -703,8 +784,35 @@ class BookingController extends Controller
             'currentAdmin',
             'sources',
             'reopenNewBookingDraft',
-            'advancePaymentMethodGroups'
+            'advancePaymentMethodGroups',
+            'bookingGoBackUrl'
         ));
+    }
+
+    /**
+     * Only allow same-host admin URLs as booking form "Go back" targets.
+     */
+    protected function sanitizeBookingGoBackUrl(?string $url): ?string
+    {
+        if ($url === null || trim($url) === '') {
+            return null;
+        }
+        $url = trim($url);
+        $parts = parse_url($url);
+        if ($parts === false || empty($parts['path'])) {
+            return null;
+        }
+        $path = $parts['path'];
+        if (!str_starts_with($path, '/admin') && $path !== '/admin') {
+            return null;
+        }
+        $appUrl = (string) config('app.url');
+        $appHost = parse_url($appUrl, PHP_URL_HOST);
+        if (!empty($parts['host']) && $appHost && strcasecmp((string) $parts['host'], (string) $appHost) !== 0) {
+            return null;
+        }
+
+        return $url;
     }
 
     /**
@@ -1247,6 +1355,7 @@ class BookingController extends Controller
                 'booking_create_extra_services_json' => ['nullable', 'string'],
                 'service_quantity' => ['nullable', 'integer', 'min:1'],
                 'whatsapp_reserved_readable_id' => ['nullable', 'string', 'max:32'],
+                'booking_go_back_url' => ['nullable', 'string', 'max:2048'],
             ], [
                 'advance_payment_method.required' => translate('Advance_payment_method_is_required_when_advance_amount_is_set'),
             ]);
@@ -1256,6 +1365,9 @@ class BookingController extends Controller
             $this->mergeAdvanceMethodFieldsFromRequestIntoData($request, $data);
 
             $this->assertValidWhatsappReservedReadableId($data);
+
+            $data['booking_go_back_url'] = $this->sanitizeBookingGoBackUrl($data['booking_go_back_url'] ?? null)
+                ?? route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
             
             // If service location is provider, clear service_address_id
             if ($data['service_location'] === 'provider') {
@@ -1264,6 +1376,8 @@ class BookingController extends Controller
         } catch (ValidationException $e) {
             return redirect()->back()->withErrors($e->errors())->withInput();
         }
+
+        $bookingGoBackUrl = $data['booking_go_back_url'];
 
         $data['ac_line_amount'] = (array) ($data['ac_line_amount'] ?? []);
         $acOverrides = array_map(
@@ -1367,7 +1481,7 @@ class BookingController extends Controller
             : 'bookingmodule::admin.booking.preview';
 
         return view($view,
-            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance', 'additionalChargeLines', 'createCartPreviewLines', 'createCartPreviewExtras', 'createCartHasTax', 'commissionPreview', 'adminPaymentPreview'));
+            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance', 'additionalChargeLines', 'createCartPreviewLines', 'createCartPreviewExtras', 'createCartHasTax', 'commissionPreview', 'adminPaymentPreview', 'bookingGoBackUrl'));
     }
 
     /**
@@ -1435,6 +1549,7 @@ class BookingController extends Controller
             'booking_create_extra_services_json' => ['nullable', 'string'],
             'service_quantity' => ['nullable', 'integer', 'min:1'],
             'whatsapp_reserved_readable_id' => ['nullable', 'string', 'max:32'],
+            'booking_go_back_url' => ['nullable', 'string', 'max:2048'],
         ], [
             'advance_payment_method.required' => translate('Advance_payment_method_is_required_when_advance_amount_is_set'),
         ]);
@@ -1444,7 +1559,17 @@ class BookingController extends Controller
         $this->mergeAdvanceMethodFieldsFromRequestIntoData($request, $data);
 
         $this->assertValidWhatsappReservedReadableId($data);
-        
+
+        if (empty($data['lead_id'])) {
+            $reserved = trim((string) ($data['whatsapp_reserved_readable_id'] ?? ''));
+            if ($reserved !== '' && BookingReadableIdAllocator::isAppReadableIdFormat($reserved)) {
+                $waLeadId = WhatsAppBooking::query()->where('booking_id', $reserved)->value('lead_id');
+                if ($waLeadId) {
+                    $data['lead_id'] = (int) $waLeadId;
+                }
+            }
+        }
+
         // If service location is provider, clear service_address_id
         if ($data['service_location'] === 'provider') {
             $data['service_address_id'] = null;
@@ -1719,35 +1844,7 @@ class BookingController extends Controller
             $leadId = $data['lead_id'] ?? null;
             if ($leadId) {
                 try {
-                    $lead = \Modules\LeadManagement\Entities\Lead::find($leadId);
-                    if ($lead && $lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_CUSTOMER) {
-                        // Prefer "booked" status if configured; fallback to "completed"
-                        $bookedOrCompletedStatus = \Modules\LeadManagement\Entities\CustomerLeadStatus::where('base_type', 'booked')->first()
-                            ?: \Modules\LeadManagement\Entities\CustomerLeadStatus::where('base_type', 'completed')->first();
-
-                        $history = \Modules\LeadManagement\Entities\LeadTypeHistory::where('lead_id', $lead->id)
-                            ->where('type', 'customer')
-                            ->latest()
-                            ->first();
-
-                        $dataHistory = $history && is_array($history->data) ? $history->data : [];
-                        if ($bookedOrCompletedStatus) {
-                            $dataHistory['customer_lead_status_id'] = $bookedOrCompletedStatus->id;
-                        }
-                        // Store booking id created from this lead
-                        $dataHistory['booking_id'] = $booking->id;
-
-                        if ($history) {
-                            $history->data = $dataHistory;
-                            $history->save();
-                        } else {
-                            \Modules\LeadManagement\Entities\LeadTypeHistory::create([
-                                'lead_id' => $lead->id,
-                                'type' => 'customer',
-                                'data' => $dataHistory,
-                            ]);
-                        }
-                    }
+                    $this->syncCustomerLeadHistoryWithSystemBooking((int) $leadId, (string) $booking->id);
                 } catch (\Throwable $e) {
                     \Log::error('ADMIN_LEAD_UPDATE_AFTER_BOOKING_EXCEPTION', [
                         'message' => $e->getMessage(),
@@ -6395,11 +6492,51 @@ class BookingController extends Controller
                 $wa->system_booking_id = $systemBookingUuid;
                 $wa->status = WhatsAppBooking::STATUS_HUMAN_CONFIRMED;
                 $wa->save();
+
+                if ($wa->lead_id) {
+                    $this->syncCustomerLeadHistoryWithSystemBooking((int) $wa->lead_id, $systemBookingUuid);
+                }
             }
         } catch (Throwable $e) {
             Log::warning('WhatsApp booking row link after admin create failed', [
                 'readable_id' => $reservedReadableId,
                 'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Attach the system booking to the customer lead type history (booked/completed + booking_id).
+     */
+    protected function syncCustomerLeadHistoryWithSystemBooking(int $leadId, string $systemBookingId): void
+    {
+        $lead = Lead::query()->find($leadId);
+        if (!$lead || $lead->lead_type !== Lead::TYPE_CUSTOMER) {
+            return;
+        }
+
+        $bookedOrCompletedStatus = \Modules\LeadManagement\Entities\CustomerLeadStatus::where('base_type', 'booked')->first()
+            ?: \Modules\LeadManagement\Entities\CustomerLeadStatus::where('base_type', 'completed')->first();
+
+        $history = \Modules\LeadManagement\Entities\LeadTypeHistory::where('lead_id', $lead->id)
+            ->where('type', 'customer')
+            ->latest()
+            ->first();
+
+        $dataHistory = $history && is_array($history->data) ? $history->data : [];
+        if ($bookedOrCompletedStatus) {
+            $dataHistory['customer_lead_status_id'] = $bookedOrCompletedStatus->id;
+        }
+        $dataHistory['booking_id'] = $systemBookingId;
+
+        if ($history) {
+            $history->data = $dataHistory;
+            $history->save();
+        } else {
+            \Modules\LeadManagement\Entities\LeadTypeHistory::create([
+                'lead_id' => $lead->id,
+                'type' => 'customer',
+                'data' => $dataHistory,
             ]);
         }
     }

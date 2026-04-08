@@ -14,7 +14,8 @@ use Modules\WhatsAppModule\Entities\WhatsAppUser;
 class WhatsAppAiSessionContextService
 {
     public function __construct(
-        protected WhatsAppAiRuntimeResolver $runtimeResolver
+        protected WhatsAppAiRuntimeResolver $runtimeResolver,
+        protected WhatsAppAiContactProfileResolver $contactProfile,
     ) {}
 
     public function runtimeAppendixForPhone(string $phone): string
@@ -38,6 +39,9 @@ class WhatsAppAiSessionContextService
                 $bits[] = 'saved_name: '.$user->name;
                 $nameForPersonalization = trim((string) $user->name);
             }
+            if (trim((string) $user->email) !== '') {
+                $bits[] = 'saved_email: '.$user->email;
+            }
             if (trim((string) $user->alternate_phone) !== '') {
                 $bits[] = 'saved_alternate_phone: '.$user->alternate_phone;
             }
@@ -45,7 +49,15 @@ class WhatsAppAiSessionContextService
                 $bits[] = 'saved_address_on_file: '.$user->address;
             }
             if ($bits !== []) {
-                $lines[] = 'WhatsApp profile (this number): '.implode('; ', $bits).'. Reuse for bookings without re-asking; only change address/name in tools when the customer explicitly asks.';
+                $lines[] = 'WhatsApp profile (this number): '.implode('; ', $bits).'. Prefer merged **Known contact profile** below for booking; update tools when the customer explicitly changes something.';
+            }
+        }
+
+        $known = $this->contactProfile->snapshot($phone);
+        if ($known['lines_for_prompt'] !== []) {
+            $lines[] = '**Known contact profile (merged app account + WhatsApp profile when linked by this phone):**';
+            foreach ($known['lines_for_prompt'] as $ln) {
+                $lines[] = $ln;
             }
         }
 

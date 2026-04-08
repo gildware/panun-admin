@@ -24,7 +24,19 @@ return [
     'ai_support_enabled' => filter_var(env('WHATSAPP_AI_SUPPORT_ENABLED', true), FILTER_VALIDATE_BOOL),
     'ai_greeting_buttons' => (bool) env('WHATSAPP_AI_GREETING_BUTTONS', true),
     // gemini-2.0-* is deprecated and often returns HTTP 404; use 2.5 or 1.5.
-    'gemini_model' => env('WHATSAPP_GEMINI_MODEL', 'gemini-2.5-flash'),
+    // gemini-2.5-flash-lite is fastest for chat; use gemini-2.5-flash if you need higher quality.
+    'gemini_model' => env('WHATSAPP_GEMINI_MODEL', 'gemini-2.5-flash-lite'),
+    /** HTTP timeout seconds for each Gemini generateContent request. */
+    'gemini_http_timeout' => max(5, min(120, (int) env('WHATSAPP_GEMINI_HTTP_TIMEOUT', 32))),
+    /** Lower = faster responses (and shorter replies). */
+    'gemini_max_output_tokens' => max(256, min(8192, (int) env('WHATSAPP_GEMINI_MAX_OUTPUT_TOKENS', 896))),
+    'gemini_temperature' => (float) env('WHATSAPP_GEMINI_TEMPERATURE', 0.35),
+    /** Max prior chat turns sent to Gemini (each IN/OUT pair may use two turns). Smaller = faster. */
+    'ai_gemini_context_turn_limit' => max(6, min(40, (int) env('WHATSAPP_AI_GEMINI_CONTEXT_TURNS', 18))),
+    /** Max characters per past message in context. */
+    'ai_gemini_context_char_limit' => max(400, min(8000, (int) env('WHATSAPP_AI_GEMINI_CONTEXT_CHAR_LIMIT', 2200))),
+    /** Max model↔tool rounds per inbound message (each round is at least one API call). */
+    'ai_gemini_max_tool_rounds' => max(2, min(12, (int) env('WHATSAPP_AI_GEMINI_MAX_TOOL_ROUNDS', 6))),
     // IST work hours for human handoff messaging (24h format H:i).
     'support_work_hours_start' => env('WHATSAPP_SUPPORT_HOURS_START', '09:00'),
     'support_work_hours_end' => env('WHATSAPP_SUPPORT_HOURS_END', '18:00'),

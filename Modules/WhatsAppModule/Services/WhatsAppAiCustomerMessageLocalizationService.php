@@ -33,8 +33,18 @@ class WhatsAppAiCustomerMessageLocalizationService
             .'<<<'."\n".$template."\n>>>";
 
         $out = $this->gemini->generatePlainText($system, $user, $recorder);
+        if ($out === null || $out === '') {
+            return $template;
+        }
 
-        return ($out !== null && $out !== '') ? $out : $template;
+        $inLen = mb_strlen($template);
+        $outLen = mb_strlen($out);
+        // Prefer the full admin template over an obviously truncated rewrite (common on long bodies).
+        if ($inLen >= 180 && $outLen < (int) max(1, floor($inLen * 0.45))) {
+            return $template;
+        }
+
+        return $out;
     }
 
     /**

@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\Lead;
@@ -32,6 +33,7 @@ use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\BookingModule\Entities\Booking;
 use Modules\WhatsAppModule\Entities\ProviderLead;
+use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
@@ -765,6 +767,57 @@ class LeadController extends Controller
         return view('leadmanagement::admin.leads.create', compact('sources', 'adSources', 'employees', 'currentEmployeeId', 'invalidReasons', 'futureCustomerReasons'));
     }
 
+    /**
+     * JSON: open leads (same definition as {@see LeadOpenStatusService}) matching the given phone, for duplicate hints on create.
+     */
+    public function openLeadsByPhone(Request $request): JsonResponse
+    {
+        $phone = trim((string) $request->query('phone', ''));
+        if ($phone === '') {
+            return response()->json(['leads' => []]);
+        }
+
+        $last10 = $this->digitsLast10($phone);
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        $query = Lead::query()
+            ->whereIn('lead_type', [Lead::TYPE_UNKNOWN, Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
+            ->orderByDesc('id')
+            ->limit(50);
+
+        if ($last10 !== null) {
+            $query->where('phone_number', 'like', '%' . $last10);
+        } elseif (strlen($digits) >= 4) {
+            $query->where('phone_number', 'like', '%' . $digits . '%');
+        } else {
+            return response()->json(['leads' => []]);
+        }
+
+        $candidates = $query->get(['id', 'name', 'phone_number', 'lead_type', 'created_at']);
+        $meta = $this->buildLeadStatusMeta($candidates);
+        $typeLabels = Lead::leadTypes();
+
+        $openLeads = $candidates->filter(function (Lead $lead) use ($meta) {
+            return ($meta[$lead->id]['is_open'] ?? false) === true;
+        })->take(25)->values();
+
+        return response()->json([
+            'leads' => $openLeads->map(function (Lead $lead) use ($typeLabels) {
+                $typeKey = $typeLabels[$lead->lead_type] ?? $lead->lead_type;
+
+                return [
+                    'id' => $lead->id,
+                    'name' => $lead->name ?? '—',
+                    'phone_number' => $lead->phone_number,
+                    'lead_type' => $lead->lead_type,
+                    'lead_type_label' => translate($typeKey),
+                    'created_at' => $lead->created_at?->format('d M Y, h:i a'),
+                    'url' => route('admin.lead.show', $lead->id),
+                ];
+            }),
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -1305,6 +1358,19 @@ class LeadController extends Controller
             }
         }
 
+        $linkedWhatsAppBooking = null;
+        if (in_array($lead->lead_type, [Lead::TYPE_CUSTOMER, Lead::TYPE_UNKNOWN], true)) {
+            $linkedWhatsAppBooking = $this->resolveLinkedWhatsAppDraftForLead($lead);
+            if ($linkedWhatsAppBooking) {
+                $ctx = $inModal ? 'lead_modal' : 'lead';
+                $sep = str_contains($linkedWhatsAppBooking['continue_url'], '?') ? '&' : '?';
+                $linkedWhatsAppBooking['continue_url'] .= $sep.http_build_query([
+                    'context' => $ctx,
+                    'lead_id' => $lead->id,
+                ]);
+            }
+        }
+
         $sources = Source::active()->orderBy('name')->get();
         $adSources = AdSource::active()->orderBy('name')->get();
         $employees = User::whereIn('user_type', ['super-admin', 'admin-employee'])
@@ -1346,6 +1412,7 @@ class LeadController extends Controller
             'leadOpenStatus',
             'inModal',
             'leadBooking',
+            'linkedWhatsAppBooking',
             'sources',
             'providerChecklistItems',
             'providerChecklistDoneMap',
@@ -1755,6 +1822,69 @@ class LeadController extends Controller
             $url .= '?in_modal=1';
         }
         return redirect($url);
+    }
+
+    /**
+     * Active WhatsApp booking row (AI draft / submitted to team) for this lead: match {@see WhatsAppBooking::lead_id}
+     * or phone (last 10 digits). Any {@see WhatsAppBooking::booking_id} format is accepted (allocator PK… or fallback PK-…).
+     */
+    protected function resolveLinkedWhatsAppDraftForLead(Lead $lead): ?array
+    {
+        $waTable = (new WhatsAppBooking)->getTable();
+        if (!Schema::hasTable($waTable)) {
+            return null;
+        }
+
+        $base = WhatsAppBooking::query()
+            ->whereIn('status', [
+                WhatsAppBooking::STATUS_DRAFT,
+                WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN,
+            ]);
+
+        if (Schema::hasColumn($waTable, 'system_booking_id')) {
+            $base->where(function ($q) {
+                $q->whereNull('system_booking_id')->orWhere('system_booking_id', '');
+            });
+        }
+
+        $wa = null;
+
+        if (Schema::hasColumn($waTable, 'lead_id')) {
+            $wa = (clone $base)
+                ->where('lead_id', $lead->id)
+                ->orderByDesc('updated_at')
+                ->first(['booking_id', 'status']);
+        }
+
+        $last10 = $this->digitsLast10($lead->phone_number ?? null);
+        if (!$wa && $last10) {
+            $phoneQuery = (clone $base)->where('phone', 'like', '%'.$last10);
+            if (Schema::hasColumn($waTable, 'lead_id')) {
+                $phoneQuery->where(function ($sub) use ($lead) {
+                    $sub->whereNull('lead_id')->orWhere('lead_id', $lead->id);
+                });
+            }
+            $wa = $phoneQuery->orderByDesc('updated_at')->first(['booking_id', 'status']);
+        }
+
+        $bid = $wa ? trim((string) $wa->booking_id) : '';
+        if ($bid === '') {
+            return null;
+        }
+
+        $statusRaw = strtoupper(trim((string) ($wa->status ?? '')));
+        $statusLabel = match ($statusRaw) {
+            WhatsAppBooking::STATUS_DRAFT => translate('WhatsApp_booking_status_label_draft'),
+            WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN => translate('WhatsApp_booking_status_label_pending_team'),
+            default => $statusRaw !== '' ? $statusRaw : translate('Unknown'),
+        };
+
+        return [
+            'booking_id' => $bid,
+            'status' => $statusRaw,
+            'status_label' => $statusLabel,
+            'continue_url' => route('admin.booking.create-from-whatsapp-booking', ['booking_id' => $bid]),
+        ];
     }
 
     /**

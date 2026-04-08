@@ -20,6 +20,7 @@ Route::group([
 ], function () {
     Route::group(['prefix' => 'whatsapp', 'as' => ''], function () {
         Route::get('conversations', [WhatsAppController::class, 'index'])->middleware(['can:whatsapp_chat_view'])->name('conversations.index');
+        Route::post('conversations/bookings/cancel', [WhatsAppController::class, 'cancelWhatsAppBooking'])->middleware(['can:booking_add'])->name('conversations.bookings.cancel');
         Route::post('conversations/prepare-open-chat', [WhatsAppController::class, 'prepareOpenChat'])->middleware(['can:whatsapp_chat_view'])->name('conversations.prepare-open');
         Route::get('conversations/chat', [WhatsAppController::class, 'chat'])->middleware(['can:whatsapp_chat_view'])->name('conversations.chat');
         Route::post('conversations/chat/reply', [WhatsAppController::class, 'sendReply'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.reply');

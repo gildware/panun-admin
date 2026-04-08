@@ -146,11 +146,18 @@ class WhatsAppGeminiSupportClient
             return ['type' => 'blocked', 'reason' => 'missing_api_key'];
         }
 
+        $maxOut = (int) config('whatsappmodule.gemini_max_output_tokens', 896);
+        $temp = (float) config('whatsappmodule.gemini_temperature', 0.35);
+        $gen = [
+            'maxOutputTokens' => $maxOut,
+            'temperature' => $temp,
+        ];
         $body = [
             'systemInstruction' => [
                 'parts' => [['text' => $systemText]],
             ],
             'contents' => $contents,
+            'generationConfig' => $gen,
         ];
         if ($functionDeclarations !== []) {
             $body['tools'] = [
@@ -172,7 +179,8 @@ class WhatsAppGeminiSupportClient
                     . rawurlencode($model)
                     . ':generateContent';
 
-                $response = Http::timeout(60)
+                $timeout = (int) config('whatsappmodule.gemini_http_timeout', 32);
+                $response = Http::timeout($timeout)
                     ->withQueryParameters(['key' => $key])
                     ->acceptJson()
                     ->post($url, $body);

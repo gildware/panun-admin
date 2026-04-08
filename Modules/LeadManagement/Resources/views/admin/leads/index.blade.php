@@ -359,7 +359,7 @@
 
                                                 <div class="mb-30">
                                                     <label class="form-label">{{ translate('Phone_Number') }} *</label>
-                                                    <input type="text" class="form-control" name="phone_number"
+                                                    <input type="text" class="form-control js-lead-create-phone" name="phone_number"
                                                            placeholder="{{ translate('Phone_Number') }} *"
                                                            required>
                                                 </div>
@@ -466,6 +466,8 @@
                                                     <label class="form-label">{{ translate('Remarks') }}</label>
                                                     <textarea class="form-control" name="remarks" id="lead-modal-create-remarks" rows="3" placeholder="{{ translate('Remarks') }}"></textarea>
                                                 </div>
+
+                                                <div class="mb-30 d-none" data-lead-open-duplicates-alert></div>
                                             </div>
                                         </div>
                                         <div class="d-flex justify-content-end gap-2 mt-3">
@@ -613,4 +615,5 @@
             });
         })(jQuery);
     </script>
+    @include('leadmanagement::admin.leads.partials._lead_open_phone_check_script')
 @endpush
