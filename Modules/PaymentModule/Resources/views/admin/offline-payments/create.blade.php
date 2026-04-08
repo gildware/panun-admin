@@ -7,7 +7,7 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <form action="{{route('admin.configuration.offline-payment.store')}}" method="POST">
+                    <form id="offline-payment-create-form" action="{{route('admin.configuration.offline-payment.store')}}" method="POST">
                         @csrf
                         <div class="d-flex align-items-center justify-content-between flex-sm-nowrap flex-wrap gap-3 mb-20">
                             <div>
@@ -457,7 +457,7 @@
                                     <div class="">
                                         <div class="mb-2 text-dark d-flex align-items-center gap-1">{{translate('input_field_name')}}
                                         </div>
-                                        <input type="text" class="form-control" name="field_name[]"
+                                        <input type="text" class="form-control" name="field_name[${counter}]"
                                                placeholder="Select Field Name" value="" required>
                                     </div>
                                 </div>
@@ -465,25 +465,24 @@
                                     <div class="">
                                         <div class="mb-2 text-dark d-flex align-items-center gap-1">{{translate('placeholder')}}
                                         </div>
-                                        <input type="text" class="form-control" name="placeholder[]"
+                                        <input type="text" class="form-control" name="placeholder[${counter}]"
                                                placeholder="Select placeholder" value="" required>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="d-flex justify-content-between gap-2 align-items-center pt-4 mt-1">
                                         <div class="form-check d-flex align-items-center gap-1">
-                                            <input class="form-check-input" type="checkbox" value="1" name="is_required[]" id="flexCheckDefault__${counter}" checked>
+                                            <input class="form-check-input" type="checkbox" value="1" name="is_required[${counter}]" id="flexCheckDefault__${counter}" checked>
                                             <label class="form-check-label" for="flexCheckDefault__${counter}">
                                                 {{translate('Is Required')}}
                                             </label>
                                         </div>
-
-                                        </div>
                                     </div>
-                                    <span class="btn btn--danger offline-delete-icon position-absolute top-0 end-3 w-30 h-30 p-0 remove-field-btn rounded-1 d-center" data-counter="${counter}">
-                                        <i class="material-symbols-outlined m-0 fz-20">delete</i>
-                                    </span>
                                 </div>
+                            </div>
+                            <span class="btn btn--danger offline-delete-icon position-absolute top-0 end-3 w-30 h-30 p-0 remove-field-btn rounded-1 d-center" data-counter="${counter}">
+                                <i class="material-symbols-outlined m-0 fz-20">delete</i>
+                            </span>
                         </div>`
                     );
 
@@ -541,16 +540,21 @@
                 }
             })
 
-            $('form').on('reset', function (event) {
-                if (counter > 1) {
-                    $('#custom-field-section-payment').html("");
-                    $('#custom-field-section-customer').html("");
-                    $('#method_name').val("");
-                    $('#payment_note').val("");
-                }
+            $('#offline-payment-create-form').on('reset', function () {
+                $('#custom-field-section-payment').empty();
+                $('#custom-field-section-customer').empty();
+                $('#method_name').val('');
+                $('#payment_note').val('');
+                counter = 0;
+                counterPayment = 0;
+            });
 
-                counter = 1;
-            })
+            if ($('#custom-field-section-payment .field-row-payment').length === 0) {
+                $('#add-more-field-payment').trigger('click');
+            }
+            if ($('#custom-field-section-customer .field-row-customer').length === 0) {
+                $('#add-more-field-customer').trigger('click');
+            }
         });
     </script>
 

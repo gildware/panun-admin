@@ -66,12 +66,7 @@
                                 class="border-bottom py-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
                                 <div>
                                     <h4 class="mb-2">{{translate('Payment_Method')}}</h4>
-                                    <h5 class="c1 mb-2"><span
-                                            class="text-capitalize">{{ str_replace(['_', '-'], ' ', $booking->payment_method) }}
-                                            @if($booking->payment_method == 'offline_payment' && $booking?->booking_offline_payments?->first()?->method_name)
-                                                ({{($booking?->booking_offline_payments?->first()?->method_name)}})
-                                            @endif</span>
-                                    </h5>
+                                    <h5 class="c1 mb-2"><span>{{ format_booking_payment_method_for_admin_display($booking) }}</span></h5>
                                     <p>
                                         <span>{{translate('Amount')}} : </span> {{with_currency_symbol(get_booking_total_amount($booking))}}
                                     </p>
@@ -207,6 +202,7 @@
                                     </tbody>
                                 </table>
                             </div>
+                            @php($providerBookingServiceDiscount = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking), 2))
                             <div class="row justify-content-end mt-3">
                                 <div class="col-sm-10 col-md-6 col-xl-5">
                                     <div class="table-responsive">
@@ -217,10 +213,10 @@
                                                         class="fz-12">{{ booking_tax_excluded_bracket_hint() }}</small>@endif</td>
                                                 <td>{{with_currency_symbol($sub_total)}}</td>
                                             </tr>
-                                            @if((float)($booking->total_discount_amount ?? 0) > 0)
+                                            @if($providerBookingServiceDiscount > 0)
                                             <tr>
                                                 <td class="text-capitalize">{{translate('service_discount')}}</td>
-                                                <td>-{{with_currency_symbol($booking->total_discount_amount)}}</td>
+                                                <td>-{{with_currency_symbol($providerBookingServiceDiscount)}}</td>
                                             </tr>
                                             @endif
                                             @if((float)($booking->total_coupon_discount_amount ?? 0) > 0)

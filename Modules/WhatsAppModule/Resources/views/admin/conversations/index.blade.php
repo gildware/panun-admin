@@ -309,6 +309,28 @@
                 0%, 100% { box-shadow: none; }
                 20%, 80% { box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.75); }
             }
+            .wa-msg-staff-note {
+                max-width: 94%;
+                font-size: 0.75rem;
+                line-height: 1.4;
+                color: var(--bs-secondary-color, #6c757d);
+                border-left: 3px solid rgba(108, 117, 125, 0.45);
+                padding-left: 0.6rem;
+                margin-top: 0.35rem;
+            }
+            .wa-msg-row--out .wa-msg-staff-note {
+                align-self: flex-end;
+            }
+            .wa-msg-row--in .wa-msg-staff-note {
+                align-self: flex-start;
+            }
+            .wa-msg-staff-note__label {
+                font-size: 0.65rem;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                opacity: 0.85;
+                margin-bottom: 0.15rem;
+            }
         </style>
     <?php endif; ?>
 @endpush
@@ -576,6 +598,22 @@
                                 <div id="whatsapp-chat-messages" class="card-body overflow-auto flex-grow-1" style="min-height: 320px;"></div>
                                 <?php if(auth()->check() && auth()->user()->can('whatsapp_chat_reply')): ?>
                                     <div class="card-footer border-top">
+                                        <div id="wa-session-window-banner" class="alert alert-warning py-2 px-3 mb-2 d-none small" role="status"></div>
+                                        <div id="wa-waba-template-panel" class="border rounded p-2 mb-2 bg-body-secondary d-none">
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-12 col-md-6">
+                                                    <label class="form-label small mb-0" for="wa-waba-template-select">{{ translate('whatsapp_session_window_select_template') }}</label>
+                                                    <select id="wa-waba-template-select" class="form-select form-select-sm">
+                                                        <option value="">{{ translate('whatsapp_session_window_select_template') }}</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-12 col-md-6 d-flex flex-wrap gap-2 justify-content-md-end align-items-center">
+                                                    <button type="button" class="btn btn-sm btn--primary" id="wa-waba-template-send-btn">{{ translate('whatsapp_session_window_send_template') }}</button>
+                                                </div>
+                                            </div>
+                                            <div id="wa-waba-template-params" class="mt-2 row g-2"></div>
+                                        </div>
+                                        <div id="wa-reply-session-open-block">
                                         <div id="wa-conv-tpl-wrap" class="mb-2 px-1 wa-conv-tpl-row d-none">
                                             <div id="wa-conv-tpl-chips" class="d-flex flex-wrap align-items-center gap-1"></div>
                                         </div>
@@ -660,6 +698,7 @@
                                             </button>
                                             </div>
                                         </form>
+                                        </div>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -732,6 +771,7 @@
     var strReact = {!! json_encode(translate('WhatsApp_react')) !!};
     var strGoToReplied = {!! json_encode(translate('WhatsApp_go_to_replied_message')) !!};
     var strOutNotSent = {!! json_encode(translate('WhatsApp_out_not_sent_to_user')) !!};
+    var strStaffHeading = {!! json_encode(translate('WhatsApp_chat_staff_note_heading')) !!};
     var strCopy = {!! json_encode(translate('WhatsApp_copy')) !!};
     var strForward = {!! json_encode(translate('WhatsApp_forward')) !!};
     var strCopied = {!! json_encode(translate('WhatsApp_copied')) !!};
@@ -740,6 +780,20 @@
     var strForwardSentMultiple = {!! json_encode(translate('WhatsApp_forward_sent_multiple')) !!};
     var strForwardSelectedCount = {!! json_encode(translate('WhatsApp_forward_selected_count')) !!};
     var activeChatsForForwardUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.active-chats-forward') : '');
+    var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates') : '');
+    var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template') : '');
+    var strSessionBanner = {!! json_encode(translate('whatsapp_session_window_banner')) !!};
+    var strSessionTextareaPh = {!! json_encode(translate('whatsapp_session_window_textarea_placeholder')) !!};
+    var strTplLoadFailed = {!! json_encode(translate('whatsapp_waba_templates_load_failed')) !!};
+    var strTplSentOk = {!! json_encode(translate('whatsapp_template_sent_ok')) !!};
+    var strTplSentFail = {!! json_encode(translate('whatsapp_template_send_failed')) !!};
+    var strPlaceholderN = {!! json_encode(translate('whatsapp_session_window_placeholder_n')) !!};
+    var strTplHeaderVars = {!! json_encode(translate('whatsapp_template_section_header_vars')) !!};
+    var strTplBodyVars = {!! json_encode(translate('whatsapp_template_section_body_vars')) !!};
+    var strTplMediaUrlLabel = {!! json_encode(translate('whatsapp_template_header_media_url_label')) !!};
+    var waSessionWindowOpen = true;
+    var waWabaTemplatesList = null;
+    var waWabaTemplatesLoading = false;
     var threadStatusUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-status') : '');
     var threadTagsUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-tags') : '');
     var strChatStatus = {!! json_encode(translate('whatsapp_chat_status')) !!};
@@ -1191,6 +1245,10 @@
                 }
             }
         });
+        if (currentPhone !== phone) {
+            waWabaTemplatesList = null;
+            waWabaTemplatesLoading = false;
+        }
         currentPhone = phone;
         waCustomerName = '';
         startPolling();
@@ -1465,6 +1523,240 @@
         }
     }
 
+    function waApplyMessagingWindow(res) {
+        var mw = res.messaging_window;
+        var open = true;
+        if (mw && Object.prototype.hasOwnProperty.call(mw, 'session_open')) {
+            open = !!mw.session_open;
+        }
+        waSessionWindowOpen = open;
+
+        var banner = document.getElementById('wa-session-window-banner');
+        var panel = document.getElementById('wa-waba-template-panel');
+        var convWrap = document.getElementById('wa-conv-tpl-wrap');
+        var openBlock = document.getElementById('wa-reply-session-open-block');
+        var ta = document.getElementById('wa-reply-body');
+        var attLabel = document.querySelector('label[for="wa-attachment-input"]');
+        var emojiBtn = document.getElementById('wa-emoji-toggle');
+        var handler = res.handler || currentHandler || { type: 'AI' };
+        var showComposer = handler.type === 'USER';
+
+        if (!showComposer) {
+            if (banner) banner.classList.add('d-none');
+            if (panel) panel.classList.add('d-none');
+            if (openBlock) openBlock.classList.add('d-none');
+            return;
+        }
+
+        if (open) {
+            if (banner) banner.classList.add('d-none');
+            if (panel) panel.classList.add('d-none');
+            if (openBlock) openBlock.classList.remove('d-none');
+            if (convWrap) convWrap.classList.remove('d-none');
+            if (ta) {
+                ta.disabled = false;
+                ta.removeAttribute('placeholder');
+            }
+            if (attLabel) {
+                attLabel.classList.remove('opacity-50', 'pe-none');
+            }
+            if (attachmentInputEl) attachmentInputEl.disabled = false;
+            if (emojiBtn) emojiBtn.disabled = false;
+            updateSendDisabled();
+            return;
+        }
+
+        if (banner) {
+            banner.textContent = strSessionBanner;
+            banner.classList.remove('d-none');
+        }
+        if (panel) panel.classList.remove('d-none');
+        if (openBlock) openBlock.classList.add('d-none');
+        if (convWrap) convWrap.classList.add('d-none');
+        if (ta) {
+            ta.disabled = true;
+            ta.value = '';
+            ta.setAttribute('placeholder', strSessionTextareaPh);
+        }
+        if (attLabel) {
+            attLabel.classList.add('opacity-50', 'pe-none');
+        }
+        if (attachmentInputEl) attachmentInputEl.disabled = true;
+        if (emojiBtn) emojiBtn.disabled = true;
+        var emojiPanelMw = document.getElementById('wa-emoji-panel');
+        if (emojiPanelMw) emojiPanelMw.classList.add('d-none');
+        waHideTplSuggest();
+        updateSendDisabled();
+        waLoadWabaTemplatesIfNeeded();
+    }
+
+    function waTemplateSelectValue(t) {
+        return (t.name || '') + '\t' + (t.language || '');
+    }
+
+    function waLoadWabaTemplatesIfNeeded() {
+        var sel = document.getElementById('wa-waba-template-select');
+        if (!sel || !wabaTemplatesUrl) {
+            return;
+        }
+        if (waWabaTemplatesList !== null || waWabaTemplatesLoading) {
+            return;
+        }
+        waWabaTemplatesLoading = true;
+        sel.innerHTML = '<option value="">…</option>';
+        fetch(wabaTemplatesUrl, {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (data) {
+                waWabaTemplatesLoading = false;
+                if (!data || !data.ok) {
+                    waWabaTemplatesList = null;
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(strTplLoadFailed);
+                    }
+                    sel.innerHTML = '<option value="">' + escapeHtml(strTplLoadFailed) + '</option>';
+                    return;
+                }
+                waWabaTemplatesList = data.templates || [];
+                sel.innerHTML = '<option value="">' + escapeHtml({!! json_encode(translate('whatsapp_session_window_select_template')) !!}) + '</option>';
+                waWabaTemplatesList.forEach(function (t) {
+                    var opt = document.createElement('option');
+                    opt.value = waTemplateSelectValue(t);
+                    opt.textContent = (t.name || '') + ' · ' + (t.language || '') + (t.category ? ' (' + t.category + ')' : '');
+                    opt.setAttribute('data-n', String(t.body_placeholder_count != null ? t.body_placeholder_count : 0));
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(function () {
+                waWabaTemplatesLoading = false;
+                waWabaTemplatesList = null;
+                if (typeof toastr !== 'undefined') {
+                    toastr.error(strTplLoadFailed);
+                }
+            });
+    }
+
+    /** Meta-style double-brace placeholders; build with unicode escapes so Blade does not parse them. */
+    function waMetaTplVarBraces(inner) {
+        return '\u007B\u007B' + String(inner) + '\u007D\u007D';
+    }
+
+    function waRebuildWabaTemplateFields() {
+        var sel = document.getElementById('wa-waba-template-select');
+        var host = document.getElementById('wa-waba-template-params');
+        if (!host) {
+            return;
+        }
+        host.innerHTML = '';
+        var raw = sel && sel.value ? sel.value : '';
+        if (!raw || !waWabaTemplatesList || !waWabaTemplatesList.length) {
+            return;
+        }
+        var parts = String(raw).split('\t');
+        var tname = parts[0];
+        var tlang = parts.length > 1 ? parts[1] : '';
+        var tpl = null;
+        waWabaTemplatesList.forEach(function (t) {
+            if ((t.name || '') === tname && (t.language || '') === tlang) {
+                tpl = t;
+            }
+        });
+        if (!tpl) {
+            return;
+        }
+        var pv = (tpl.preview || tpl.body_text || '').trim();
+        if (pv) {
+            var hint = document.createElement('div');
+            hint.className = 'col-12 small text-muted mb-2';
+            hint.textContent = pv;
+            host.appendChild(hint);
+        }
+        var htc = parseInt(tpl.header_text_placeholder_count, 10) || 0;
+        var bpc = parseInt(tpl.body_placeholder_count, 10) || 0;
+        var hm = tpl.header_media_format || null;
+        var i;
+        if (htc > 0) {
+            var hsec = document.createElement('div');
+            hsec.className = 'col-12 fw-semibold small mt-1';
+            hsec.textContent = strTplHeaderVars;
+            host.appendChild(hsec);
+            for (i = 1; i <= htc; i++) {
+                var colH = document.createElement('div');
+                colH.className = 'col-12 col-md-6';
+                var labH = document.createElement('label');
+                labH.className = 'form-label small mb-0';
+                labH.setAttribute('for', 'wa-waba-hdr-param-' + i);
+                var hBraced = (tpl.header_text_parameter_format === 'named' && tpl.header_named_param_names && tpl.header_named_param_names[i - 1])
+                    ? waMetaTplVarBraces(tpl.header_named_param_names[i - 1])
+                    : waMetaTplVarBraces(i);
+                labH.textContent = hBraced;
+                var inpH = document.createElement('input');
+                inpH.type = 'text';
+                inpH.className = 'form-control form-control-sm';
+                inpH.id = 'wa-waba-hdr-param-' + i;
+                inpH.autocomplete = 'off';
+                inpH.placeholder = hBraced;
+                colH.appendChild(labH);
+                colH.appendChild(inpH);
+                host.appendChild(colH);
+            }
+        }
+        if (hm && htc === 0) {
+            var colM = document.createElement('div');
+            colM.className = 'col-12';
+            var labM = document.createElement('label');
+            labM.className = 'form-label small mb-0';
+            labM.setAttribute('for', 'wa-waba-header-media-url');
+            labM.textContent = strTplMediaUrlLabel + ' (' + hm + ')';
+            var inpM = document.createElement('input');
+            inpM.type = 'url';
+            inpM.className = 'form-control form-control-sm';
+            inpM.id = 'wa-waba-header-media-url';
+            inpM.placeholder = 'https://';
+            inpM.autocomplete = 'off';
+            colM.appendChild(labM);
+            colM.appendChild(inpM);
+            host.appendChild(colM);
+        }
+        if (bpc > 0) {
+            var bsec = document.createElement('div');
+            bsec.className = 'col-12 fw-semibold small mt-2';
+            bsec.textContent = strTplBodyVars;
+            host.appendChild(bsec);
+            for (i = 1; i <= bpc; i++) {
+                var colB = document.createElement('div');
+                colB.className = 'col-12 col-md-6';
+                var labB = document.createElement('label');
+                labB.className = 'form-label small mb-0';
+                labB.setAttribute('for', 'wa-waba-body-param-' + i);
+                var bBraced = (tpl.body_parameter_format === 'named' && tpl.body_named_param_names && tpl.body_named_param_names[i - 1])
+                    ? waMetaTplVarBraces(tpl.body_named_param_names[i - 1])
+                    : waMetaTplVarBraces(i);
+                labB.textContent = bBraced;
+                var inpB = document.createElement('input');
+                inpB.type = 'text';
+                inpB.className = 'form-control form-control-sm';
+                inpB.id = 'wa-waba-body-param-' + i;
+                inpB.autocomplete = 'off';
+                inpB.placeholder = bBraced;
+                colB.appendChild(labB);
+                colB.appendChild(inpB);
+                host.appendChild(colB);
+            }
+        }
+    }
+
+    function waClearWabaTemplateComposer() {
+        var sel = document.getElementById('wa-waba-template-select');
+        if (sel) {
+            sel.value = '';
+        }
+        waRebuildWabaTemplateFields();
+    }
+
     function loadMessages(phone, isPoll) {
         var panel = document.getElementById('whatsapp-chat-messages');
         if (!panel) {
@@ -1496,6 +1788,7 @@
                         }
                     }
                 }
+                waApplyMessagingWindow(res);
                 var html = '';
                 (res.data || []).forEach(function(m) {
                     var isOut = (m.direction || '').toUpperCase() === 'OUT';
@@ -1504,9 +1797,20 @@
                         time = waFormatChatMessageTime(m.created_at);
                     }
                     var rawMsg = String(m.message_text || m.body || '');
-                    var body = waEscapeHtmlThenNl2br(rawMsg);
                     var mediaUrl = m.media_url || '';
                     var msgType = (m.message_type || '').toUpperCase();
+                    var body;
+                    if (msgType === 'TEMPLATE' && rawMsg.indexOf('\n\n') !== -1) {
+                        var ix = rawMsg.indexOf('\n\n');
+                        var tLine = rawMsg.slice(0, ix).trim();
+                        var tRest = rawMsg.slice(ix + 2).trim();
+                        body = '<div class="fw-semibold small">' + escapeHtml(tLine) + '</div>';
+                        if (tRest) {
+                            body += '<div class="mt-2 small wa-template-msg-body" style="white-space:pre-wrap;">' + waEscapeHtmlThenNl2br(tRest) + '</div>';
+                        }
+                    } else {
+                        body = waEscapeHtmlThenNl2br(rawMsg);
+                    }
                     var isDocument = msgType === 'DOCUMENT';
                     var isVideo = msgType === 'VIDEO';
                     var isAudio = msgType === 'AUDIO';
@@ -1538,7 +1842,7 @@
                     var waMid = (m.wa_message_id && String(m.wa_message_id).trim()) || '';
                     var safeWaMidAttr = waMid.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                     var canReply = canWaThreadActions && waMid !== '';
-                    var canReact = canReply && !isOut;
+                    var canReact = canReply && !isOut && waSessionWindowOpen;
                     var plainForCopy = rawMsg;
                     var copyB64 = waB64EncodeUtf8(plainForCopy);
                     var hasCopyText = plainForCopy.trim() !== '';
@@ -1560,14 +1864,6 @@
                     }
                     var bubbleCls = 'wa-msg-bubble rounded px-3 py-2 ' + (isOut ? 'bg-primary text-white' : 'bg-light');
                     html += '<div class="' + bubbleCls + '">';
-                    html += '<div class="fz-12 opacity-75 d-flex justify-content-between align-items-center gap-2">';
-                    html += '<span>' + (time || '') + (statusLabel ? ' · ' + statusLabel : '') + statusIcon + '</span>';
-                    if (isOut && sentBy) {
-                        html += '<span class="ms-2 text-end">Sent by ' + sentBy.replace(/</g, '&lt;') + '</span>';
-                    } else {
-                        html += '<span></span>';
-                    }
-                    html += '</div>';
                     var rp = (m.reply_preview || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                     var replyTargetWa = (m.reply_to_wa_message_id && String(m.reply_to_wa_message_id).trim()) || '';
                     var safeJumpWa = replyTargetWa.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -1581,14 +1877,6 @@
                         } else {
                             html += '<div class="' + qCls + '">' + rp + '</div>';
                         }
-                    }
-                    if (isOut && status === 'failed' && statusDetail) {
-                        var safeDetail = statusDetail.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                        html += '<div class="fz-11 mt-1 opacity-90 text-break" style="max-width:100%">' + safeDetail + '</div>';
-                    }
-                    if (isOut && waMid === '' && status !== 'failed') {
-                        var safeNotSent = String(strOutNotSent || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        html += '<div class="fz-11 mt-1 opacity-90">' + safeNotSent + '</div>';
                     }
                     if (isDocument && mediaUrl) {
                         var docName = String(waBasenameFromMediaUrl(mediaUrl))
@@ -1629,6 +1917,31 @@
                         html += '<div class="mt-1">' + body + '</div>';
                     }
                     html += waFormatReactionsStrip(isOut, m.reactions || {});
+                    html += '</div>';
+                    var staffMetaParts = [];
+                    staffMetaParts.push(isOut ? 'OUT' : 'IN');
+                    staffMetaParts.push(msgType || 'TEXT');
+                    if (time) {
+                        staffMetaParts.push(time);
+                    }
+                    if (isOut && statusLabel) {
+                        staffMetaParts.push(statusLabel);
+                    }
+                    var staffMetaLine = staffMetaParts.join(' · ');
+                    if (isOut && sentBy) {
+                        staffMetaLine += ' · Sent by ' + sentBy.replace(/</g, '&lt;');
+                    }
+                    html += '<div class="wa-msg-staff-note text-start">';
+                    html += '<div class="wa-msg-staff-note__label">' + String(strStaffHeading || 'Staff').replace(/</g, '&lt;') + '</div>';
+                    html += '<div class="text-break">' + staffMetaLine.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    if (isOut && status === 'failed' && statusDetail) {
+                        var safeDetail = statusDetail.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                        html += '<div class="mt-1 text-danger text-break">' + safeDetail + '</div>';
+                    }
+                    if (isOut && waMid === '' && status !== 'failed') {
+                        var safeNotSent = String(strOutNotSent || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        html += '<div class="mt-1 text-warning">' + safeNotSent + '</div>';
+                    }
                     html += '</div>';
                     if (hasBottomStrip) {
                         html += '<div class="wa-msg-bottom-strip wa-msg-bottom-strip--' + rowDir + '">';
@@ -2456,7 +2769,8 @@
         if (!sendBtnEl) return;
         var hasText = replyBodyEl && replyBodyEl.value.trim().length > 0;
         var hasFiles = attachmentFiles && attachmentFiles.length > 0;
-        sendBtnEl.disabled = !(hasText || hasFiles);
+        var winOk = typeof waSessionWindowOpen === 'undefined' || waSessionWindowOpen;
+        sendBtnEl.disabled = !winOk || !(hasText || hasFiles);
     }
 
     if (emojiToggleEl && emojiPanelEl) {
@@ -2618,8 +2932,15 @@
         });
     }
 
+    if (replyFormEl) {
     replyFormEl.addEventListener('submit', function(e) {
         e.preventDefault();
+        if (typeof waSessionWindowOpen !== 'undefined' && !waSessionWindowOpen) {
+            if (typeof toastr !== 'undefined') {
+                toastr.warning({!! json_encode(translate('whatsapp_session_window_closed_server')) !!});
+            }
+            return;
+        }
         var phone = document.getElementById('whatsapp-reply-phone').value;
         var body = replyBodyEl.value;
         var hasFilesSubmit = attachmentFiles && attachmentFiles.length > 0;
@@ -2752,6 +3073,9 @@
                     waClearReplyTarget();
                 } else if (errCode === 'invalid_phone') {
                     toastr.error({!! json_encode(translate('Invalid_whatsapp_phone')) !!});
+                } else if (errCode === 'whatsapp_session_window_closed' && res.messaging_window) {
+                    waApplyMessagingWindow({ messaging_window: res.messaging_window, handler: currentHandler });
+                    toastr.warning({!! json_encode(translate('whatsapp_session_window_closed_server')) !!});
                 } else {
                     toastr.warning('Saved, but WhatsApp API failed');
                 }
@@ -2769,6 +3093,117 @@
             updateSendDisabled();
         });
     });
+    }
+
+    (function waBindWabaTemplateComposer() {
+        var waTplSel = document.getElementById('wa-waba-template-select');
+        var waTplSend = document.getElementById('wa-waba-template-send-btn');
+        if (waTplSel && !waTplSel.dataset.waBound) {
+            waTplSel.dataset.waBound = '1';
+            waTplSel.addEventListener('change', function () {
+                waRebuildWabaTemplateFields();
+            });
+        }
+        if (waTplSend && !waTplSend.dataset.waBound && sendTemplateUrl) {
+            waTplSend.dataset.waBound = '1';
+            waTplSend.addEventListener('click', function () {
+                var sel = document.getElementById('wa-waba-template-select');
+                var phoneEl = document.getElementById('whatsapp-reply-phone');
+                var phone = phoneEl ? phoneEl.value : '';
+                var raw = sel && sel.value ? sel.value : '';
+                if (!phone || !raw) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning({!! json_encode(translate('whatsapp_session_window_select_template')) !!});
+                    }
+                    return;
+                }
+                var parts = String(raw).split('\t');
+                var tname = parts[0];
+                var tlang = parts.length > 1 ? parts[1] : 'en';
+                var tpl = null;
+                if (waWabaTemplatesList && waWabaTemplatesList.length) {
+                    waWabaTemplatesList.forEach(function (t) {
+                        if ((t.name || '') === tname && (t.language || '') === tlang) {
+                            tpl = t;
+                        }
+                    });
+                }
+                if (!tpl) {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning({!! json_encode(translate('whatsapp_session_window_select_template')) !!});
+                    }
+                    return;
+                }
+                var htc = tpl ? (parseInt(tpl.header_text_placeholder_count, 10) || 0) : 0;
+                var bpc = tpl ? (parseInt(tpl.body_placeholder_count, 10) || 0) : 0;
+                var headerTextParams = [];
+                var i;
+                for (i = 1; i <= htc; i++) {
+                    var hi = document.getElementById('wa-waba-hdr-param-' + i);
+                    headerTextParams.push(hi ? String(hi.value || '').trim() : '');
+                }
+                var bodyParams = [];
+                for (i = 1; i <= bpc; i++) {
+                    var bi = document.getElementById('wa-waba-body-param-' + i);
+                    bodyParams.push(bi ? String(bi.value || '').trim() : '');
+                }
+                var mediaEl = document.getElementById('wa-waba-header-media-url');
+                var headerImageUrl = mediaEl ? String(mediaEl.value || '').trim() : '';
+                waTplSend.disabled = true;
+                fetch(sendTemplateUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        template_name: tname,
+                        language: tlang,
+                        body_parameters: bodyParams,
+                        header_text_parameters: headerTextParams,
+                        header_image_url: headerImageUrl || null,
+                    }),
+                })
+                    .then(function (r) {
+                        return r.json().then(function (j) {
+                            return { ok: r.ok, status: r.status, body: j };
+                        });
+                    })
+                    .then(function (pack) {
+                        waTplSend.disabled = false;
+                        if (pack.ok && pack.body && pack.body.ok) {
+                            if (typeof toastr !== 'undefined') {
+                                toastr.success(strTplSentOk);
+                            }
+                            waClearWabaTemplateComposer();
+                            if (pack.body.messaging_window) {
+                                waApplyMessagingWindow({
+                                    messaging_window: pack.body.messaging_window,
+                                    handler: currentHandler,
+                                });
+                            }
+                            if (currentPhone) {
+                                loadMessages(currentPhone, false);
+                            }
+                        } else {
+                            var errMsg = (pack.body && pack.body.user_message) ? String(pack.body.user_message) : strTplSentFail;
+                            if (typeof toastr !== 'undefined') {
+                                toastr.error(errMsg);
+                            }
+                        }
+                    })
+                    .catch(function () {
+                        waTplSend.disabled = false;
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error(strTplSentFail);
+                        }
+                    });
+            });
+        }
+    })();
 })();
                 </script>
                 @endpush

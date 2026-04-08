@@ -24,7 +24,6 @@ class WhatsAppAiSupportOrchestrator
         'upsert_my_draft_provider_lead',
         'submit_my_provider_lead_for_human_confirmation',
         'request_human_support_handoff',
-        'get_booking_issue_escalation_reply',
     ];
 
     public function __construct(
@@ -37,6 +36,8 @@ class WhatsAppAiSupportOrchestrator
         protected WhatsAppAiSettingsService $aiSettings,
         protected WhatsAppAiSessionContextService $sessionContext,
         protected WhatsAppAiRuntimeResolver $aiRuntime,
+        protected WhatsAppSessionInteractiveSequence $sessionInteractiveSequence,
+        protected WhatsAppAiCustomerMessageLocalizationService $templateLocalization,
     ) {}
 
     public function handleInboundMessageId(int $messageId, WhatsAppAiExecutionRecorder $recorder): void
@@ -117,9 +118,27 @@ class WhatsAppAiSupportOrchestrator
 
         $text = trim((string) $trigger->message_text);
 
+        if (!$this->isInboundMessageTypeTextLike($trigger->message_type)) {
+            $recorder->step('branch.intent', 'Non-text inbound — canned message + buttons', 'ok', [
+                'message_type' => $trigger->message_type,
+            ]);
+            $outId = $this->sendNonTextInboundReply($phone, $recorder, $text);
+            $recorder->finish('non_text_inbound', ['outbound_id' => $outId]);
+
+            return;
+        }
+
+        if ($this->isGreetingHumanButtonTap($text)) {
+            $recorder->step('branch.intent', 'Greeting button — talk to human', 'ok', []);
+            $outId = $this->sendHumanHandoffReply($phone, $recorder, $text);
+            $recorder->finish('human_handoff', ['outbound_id' => $outId]);
+
+            return;
+        }
+
         if ($this->isHumanHandoffIntent($text)) {
             $recorder->step('branch.intent', 'Detected human handoff intent', 'ok', []);
-            $outId = $this->sendHumanHandoffReply($phone, $recorder);
+            $outId = $this->sendHumanHandoffReply($phone, $recorder, $text);
             $recorder->finish('human_handoff', ['outbound_id' => $outId]);
 
             return;
@@ -127,7 +146,7 @@ class WhatsAppAiSupportOrchestrator
 
         if ($this->shouldSendGreetingButtonsOnly($phone, $text)) {
             $recorder->step('branch.intent', 'First-message greeting + buttons', 'ok', []);
-            $outId = $this->sendWelcomeWithButtons($phone, $recorder);
+            $outId = $this->sendWelcomeWithButtons($phone, $recorder, $text);
             $recorder->finish('greeting_buttons', ['outbound_id' => $outId]);
 
             return;
@@ -155,6 +174,9 @@ class WhatsAppAiSupportOrchestrator
         if ($ctx !== '') {
             $system .= "\n\n".$ctx;
         }
+        $system .= "\n\n## Reply language (non-negotiable)\n"
+            ."- Customer-visible text must be in the **same language** as the customer's **latest** message.\n"
+            .'- **Do not** include translations, bilingual lines, labels like "English:", or the same sentence repeated in another language.';
         $tools = $this->aiSettings->mergedToolDeclarations();
         if ($tools === []) {
             Log::info('WhatsApp AI: no tools exposed to Gemini (admin disabled all, or invalid config)');
@@ -165,6 +187,9 @@ class WhatsAppAiSupportOrchestrator
         $replyKind = 'gemini';
         $hadProductiveToolThisRun = false;
         $hadReportUnclearThisRun = false;
+        $toolFinalizeSessionMeta = null;
+        /** @var ?string Set when submit_my_booking_for_human_confirmation succeeds; used if the model omits the id. */
+        $pendingBookingRequestId = null;
         while ($iter < 8) {
             $iter++;
             $recorder->step('gemini.loop', 'Model turn ' . $iter, 'info', ['iteration' => $iter]);
@@ -229,6 +254,7 @@ class WhatsAppAiSupportOrchestrator
             $userParts = [];
             $toolFinalizeUnclear = false;
             $toolFinalizeExact = null;
+            $toolFinalizeSessionMeta = null;
             foreach ($calls as $c) {
                 $toolName = (string) ($c['name'] ?? '');
                 if ($toolName === 'report_unclear_user_intent') {
@@ -244,6 +270,11 @@ class WhatsAppAiSupportOrchestrator
                 $recorder->step('tool.result', 'Tool result: ' . $c['name'], 'ok', [
                     'result' => $this->truncateForLog($result),
                 ]);
+                if ($toolName === 'submit_my_booking_for_human_confirmation' && is_array($result)) {
+                    if (!empty($result['ok']) && !empty($result['booking_id'])) {
+                        $pendingBookingRequestId = (string) $result['booking_id'];
+                    }
+                }
                 if (is_array($result)) {
                     if (!empty($result['orchestrator_finalize']['send_unclear_handoff_message'])) {
                         $toolFinalizeUnclear = true;
@@ -252,6 +283,8 @@ class WhatsAppAiSupportOrchestrator
                         $t = trim((string) $result['orchestrator_finalize']['send_exact_customer_text']);
                         if ($t !== '') {
                             $toolFinalizeExact = $t;
+                            $sm = $result['orchestrator_finalize']['session_meta_buttons'] ?? null;
+                            $toolFinalizeSessionMeta = is_array($sm) && $sm !== [] ? $sm : null;
                         }
                     }
                 }
@@ -266,7 +299,7 @@ class WhatsAppAiSupportOrchestrator
 
             $exitLoopAfterTools = false;
             if ($toolFinalizeUnclear) {
-                $finalText = $this->buildUnclearLimitHandoffCustomerMessage($text);
+                $finalText = $this->buildUnclearLimitHandoffCustomerMessage($text, $recorder);
                 $replyKind = 'unclear_handoff';
                 $exitLoopAfterTools = true;
                 $recorder->step('orchestrator.unclear', 'Unclear limit — handoff message prepared', 'ok', []);
@@ -287,8 +320,44 @@ class WhatsAppAiSupportOrchestrator
             }
         }
 
+        if (
+            $pendingBookingRequestId !== null
+            && $pendingBookingRequestId !== ''
+            && $replyKind === 'gemini'
+            && $finalText !== ''
+            && stripos($finalText, $pendingBookingRequestId) === false
+        ) {
+            $finalText = rtrim($finalText)."\n\n*Booking request ID:* ".$pendingBookingRequestId;
+            $finalText = $this->sanitizeCustomerReply($finalText);
+            $recorder->step('orchestrator.booking_id', 'Appended booking request id (model omitted it)', 'ok', [
+                'booking_id' => $pendingBookingRequestId,
+            ]);
+        }
+
         if ($hadProductiveToolThisRun && !$hadReportUnclearThisRun) {
             $this->resetConversationUnclearAttempts($phone);
+        }
+
+        if ($replyKind === 'tool_canned') {
+            $finalText = $this->templateLocalization->localizeTemplate($finalText, $text, $recorder);
+            $finalText = $this->sanitizeCustomerReply($finalText);
+            if ($finalText === '') {
+                $finalText = $this->fallbackCustomerMessage();
+                $replyKind = 'fallback';
+            }
+        }
+
+        if (
+            $replyKind === 'tool_canned'
+            && isset($toolFinalizeSessionMeta)
+            && is_array($toolFinalizeSessionMeta)
+            && $toolFinalizeSessionMeta !== []
+        ) {
+            $toolFinalizeSessionMeta = $this->templateLocalization->localizeMetaButtons(
+                $toolFinalizeSessionMeta,
+                $text,
+                $recorder
+            );
         }
 
         if ($finalText === '') {
@@ -300,17 +369,59 @@ class WhatsAppAiSupportOrchestrator
             $this->resetConversationUnclearAttempts($phone);
         }
 
-        $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $finalText, 'AI');
+        $useSessionMeta = $replyKind === 'tool_canned'
+            && is_array($toolFinalizeSessionMeta)
+            && $toolFinalizeSessionMeta !== [];
+        $persistBody = $finalText.($useSessionMeta ? "\n[Quick actions]" : '');
+        $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $persistBody, 'AI');
         $err = null;
         $graph = null;
-        $waId = $this->whatsAppCloud->sendText($phone, $finalText, $err, $graph);
-        $recorder->step('whatsapp.send', 'Send text via WhatsApp Cloud API', $err ? 'fail' : 'ok', [
-            'graph_message_id' => $waId,
-            'error' => $err ? mb_substr($err, 0, 500) : null,
-            'reply_kind' => $replyKind,
-        ]);
-        if ($waId) {
-            $this->messagePersistence->attachWaMessageId($out, $waId);
+        $waId = null;
+        if (WhatsAppAiPlayground::skipCloudApi($phone)) {
+            $recorder->step('whatsapp.send', 'Sandbox — WhatsApp Cloud API skipped (no Meta send)', 'ok', [
+                'sandbox' => true,
+                'reply_kind' => $replyKind,
+                'interactive' => $useSessionMeta,
+            ]);
+            if ($useSessionMeta && is_array($toolFinalizeSessionMeta) && $toolFinalizeSessionMeta !== []) {
+                WhatsAppAiPlayground::storeOutboundSnapshot($phone, $finalText, $toolFinalizeSessionMeta, null);
+            } else {
+                WhatsAppAiPlayground::storePlainOutbound($phone, $finalText);
+            }
+        } elseif ($useSessionMeta) {
+            $seqErr = null;
+            $ids = $this->sessionInteractiveSequence->send(
+                $this->whatsAppCloud,
+                $phone,
+                $finalText,
+                $toolFinalizeSessionMeta,
+                $seqErr,
+                null
+            );
+            $waId = $ids[0] ?? null;
+            if ($seqErr) {
+                $err = $seqErr;
+            }
+            $recorder->step('whatsapp.send', 'Send session buttons (template-style sequence) via WhatsApp Cloud API', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+                'reply_kind' => $replyKind,
+                'interactive' => $useSessionMeta,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
+        } else {
+            $waId = $this->whatsAppCloud->sendText($phone, $finalText, $err, $graph);
+            $recorder->step('whatsapp.send', 'Send text via WhatsApp Cloud API', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+                'reply_kind' => $replyKind,
+                'interactive' => $useSessionMeta,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
         }
 
         $outcome = match ($replyKind) {
@@ -399,8 +510,184 @@ class WhatsAppAiSupportOrchestrator
         $t = preg_replace('/\s*```$/', '', $t) ?? $t;
         $t = $this->stripCustomerUnsafePlaceholders($t);
         $t = $this->stripLeadingModelReasoning($t);
+        $t = $this->normalizeWhatsAppCustomerTextFormatting($t);
+        $t = $this->stripDevanagariFromCustomerReply($t);
+        $t = $this->stripTranslationArtifacts($t);
 
         return mb_substr(trim($t), 0, 3800);
+    }
+
+    /**
+     * Remove translation glosses models add: parentheses, slash-pairs, metadata lines.
+     */
+    private function stripTranslationArtifacts(string $text): string
+    {
+        $t = $this->stripTranslationMetadataLines($text);
+        $lines = preg_split('/\r\n|\r|\n/', $t) ?: [];
+        $out = [];
+        foreach ($lines as $line) {
+            $line = $this->stripTrailingSlashOrPipeEnglishGlossFromLine($line);
+            $line = $this->stripTrailingEnglishParentheticalGlossFromLine($line);
+            $out[] = $line;
+        }
+
+        return implode("\n", $out);
+    }
+
+    /**
+     * Drop whole lines like "English: …" or "Translation: …".
+     */
+    private function stripTranslationMetadataLines(string $text): string
+    {
+        $lines = preg_split('/\r\n|\r|\n/', $text) ?: [];
+        $out = [];
+        foreach ($lines as $line) {
+            if (preg_match('/^\s*(?:English|Translation|Translate|TL|Trans\.?)\s*[:：\-–—]\s*\S+/iu', $line)) {
+                continue;
+            }
+            $out[] = $line;
+        }
+
+        return implode("\n", $out);
+    }
+
+    /**
+     * "Roman line / Which service…" — keep left side only when the right side is an English gloss.
+     */
+    private function stripTrailingSlashOrPipeEnglishGlossFromLine(string $line): string
+    {
+        if (!preg_match('/^(.*?)\s+(?:\/|\|)\s+(.+)$/u', $line, $m)) {
+            return $line;
+        }
+        $right = trim($m[2]);
+        if ($right === '' || preg_match('/\d/', $right)) {
+            return $line;
+        }
+        if (!$this->segmentLooksLikeEnglishTranslationGloss($right)) {
+            return $line;
+        }
+
+        return rtrim($m[1]);
+    }
+
+    private function segmentLooksLikeEnglishTranslationGloss(string $segment): bool
+    {
+        $segment = trim($segment);
+        if (mb_strlen($segment) < 8) {
+            return false;
+        }
+        if ($this->parentheticalLooksLikeEnglishTranslationPhrase($segment)) {
+            return true;
+        }
+        if (preg_match('/\?\s*$/', $segment) && str_word_count($segment) >= 3) {
+            return $this->isMostlyAsciiLatinLetters($segment);
+        }
+
+        return false;
+    }
+
+    private function isMostlyAsciiLatinLetters(string $s): bool
+    {
+        $letterCount = preg_match_all('/\p{L}/u', $s) ?: 0;
+        if ($letterCount < 6) {
+            return false;
+        }
+        $latinAscii = preg_match_all('/[A-Za-z]/', $s) ?: 0;
+
+        return ($latinAscii / $letterCount) >= 0.88;
+    }
+
+    private function stripTrailingEnglishParentheticalGlossFromLine(string $line): string
+    {
+        $s = $line;
+        for ($i = 0; $i < 12; $i++) {
+            if (!preg_match('/\s+\(([^)]*)\)\s*$/u', $s, $m)) {
+                break;
+            }
+            if (!$this->isLikelyEnglishTranslationParenthetical($m[1])) {
+                break;
+            }
+            $s = preg_replace('/\s+\([^)]*\)\s*$/u', '', $s) ?? $s;
+        }
+
+        return rtrim($s);
+    }
+
+    /**
+     * True when (...) at end of line looks like an English gloss, not an id or short tag.
+     * Roman Urdu also uses Latin letters, so we require English translation-like wording
+     * (e.g. "Which service…") or a long English question duplicate, not just "Latin text".
+     */
+    private function isLikelyEnglishTranslationParenthetical(string $inner): bool
+    {
+        $inner = trim($inner);
+        if ($inner === '') {
+            return false;
+        }
+        if (mb_strlen($inner) < 10) {
+            return false;
+        }
+        if (preg_match('/\d/', $inner)) {
+            return false;
+        }
+        $letterCount = preg_match_all('/\p{L}/u', $inner) ?: 0;
+        if ($letterCount < 8) {
+            return false;
+        }
+        $latinAscii = preg_match_all('/[A-Za-z]/', $inner) ?: 0;
+        if ($latinAscii / $letterCount < 0.88) {
+            return false;
+        }
+
+        if ($this->parentheticalLooksLikeEnglishTranslationPhrase($inner)) {
+            return true;
+        }
+
+        return (bool) (preg_match('/\?\s*$/', $inner) && str_word_count($inner) >= 3);
+    }
+
+    private function parentheticalLooksLikeEnglishTranslationPhrase(string $inner): bool
+    {
+        return (bool) preg_match(
+            '/^\s*(?:
+                which\b|what\b|when\b|where\b|who\b|whom\b|why\b|how\b|
+                do\s+you\b|did\s+you\b|can\s+you\b|could\s+you\b|would\s+you\b|should\s+you\b|
+                is\s+there\b|are\s+you\b|is\s+this\b|are\s+there\b|is\s+it\b|
+                please\b|thank\s+you\b|thanks\b|sorry\b
+            )/ix',
+            $inner
+        );
+    }
+
+    /**
+     * Customer-facing AI text must stay in Roman script (English / Hinglish). Models sometimes emit Hindi/Devanagari.
+     */
+    private function stripDevanagariFromCustomerReply(string $text): string
+    {
+        $t = preg_replace('/\p{Devanagari}/u', '', $text) ?? $text;
+        $t = preg_replace('/[ \t]+/', ' ', $t) ?? $t;
+        $t = preg_replace("/\n{3,}/", "\n\n", $t) ?? $t;
+
+        return trim($t);
+    }
+
+    /**
+     * WhatsApp uses *bold* (single asterisk pairs), not Markdown **bold**. Models often emit **…**
+     * or "*   *Label:*" bullets, which show stray asterisks. Normalize before send.
+     */
+    private function normalizeWhatsAppCustomerTextFormatting(string $text): string
+    {
+        $t = $text;
+        // Markdown bold → WhatsApp bold
+        $prev = null;
+        while ($prev !== $t) {
+            $prev = $t;
+            $t = preg_replace('/\*\*([^*]+)\*\*/u', '*$1*', $t) ?? $t;
+        }
+        // Line starts with "* " used as bullet before another *bold* segment → hyphen list
+        $t = preg_replace('/^\*\s+(?=\*)/m', '- ', $t) ?? $t;
+
+        return $t;
     }
 
     /**
@@ -512,21 +799,39 @@ class WhatsAppAiSupportOrchestrator
         return (bool) preg_match('/^I will (gather|confirm|ask|check|verify)\b/i', $s);
     }
 
+    /**
+     * Customer-safe text when Gemini cannot return a usable reply. No delivery/technical/error wording.
+     */
     private function fallbackCustomerMessage(): string
     {
-        $phone = $this->aiSettings->resolvedMessagePlaceholders()['phone'];
+        $p = $this->aiSettings->resolvedMessagePlaceholders();
+        $brand = trim((string) ($p['brand'] ?? ''));
+        if ($brand === '') {
+            $brand = (string) config('app.name');
+        }
+        $phone = trim((string) ($p['phone'] ?? ''));
 
-        return $phone !== ''
-            ? "Thanks for reaching out. We're having a brief technical issue. Please try again in a moment, or call us at {$phone}."
-            : 'Thanks for reaching out. We are having a brief technical issue—please try again shortly.';
+        if ($phone !== '') {
+            return (string) __('whatsapp_ai.customer_fallback_with_phone', [
+                'brand' => $brand,
+                'phone' => $phone,
+            ]);
+        }
+
+        return (string) __('whatsapp_ai.customer_fallback_plain', ['brand' => $brand]);
+    }
+
+    private function isGreetingHumanButtonTap(string $text): bool
+    {
+        return (bool) preg_match('/\[act_human\]\s*$/', trim($text));
     }
 
     private function isHumanHandoffIntent(string $text): bool
     {
         $t = mb_strtolower($text);
         $needles = [
-            'human', 'agent', 'person', 'representative', 'operator', 'manager',
-            'call me', 'phone call', 'speak to someone', 'real person',
+            'human', 'agent', 'representative', 'operator', 'manager',
+            'call me', 'phone call', 'speak to someone', 'real person', 'live agent',
             'insan', 'aadmi', 'bande se baat', 'bande se', 'call karo',
         ];
         $extra = config('whatsapp_ai_support.human_handoff_extra_phrases', []);
@@ -571,52 +876,202 @@ class WhatsAppAiSupportOrchestrator
         return (bool) preg_match('/^(hi|hello|hey|hii|hlo|salam|assalam|good\s+(morning|afternoon|evening)|namaste)\b/i', $t);
     }
 
-    private function sendWelcomeWithButtons(string $phone, WhatsAppAiExecutionRecorder $recorder): int
+    /**
+     * Plain text and interactive (button/list) replies are handled by the main AI path.
+     */
+    private function isInboundMessageTypeTextLike(?string $messageType): bool
     {
-        $brand = $this->aiSettings->resolvedMessagePlaceholders()['brand'];
-        $body = "Hello! Welcome to {$brand} 👋\n\nHow can we help you today?";
+        $mt = strtoupper(trim((string) $messageType));
+        if ($mt === '') {
+            return true;
+        }
 
-        $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $body . "\n[Quick actions]", 'AI');
+        return in_array($mt, ['TEXT', 'INTERACTIVE'], true);
+    }
+
+    /**
+     * Image, audio, document, etc. — no Gemini; configurable body + session buttons (e.g. call + chat with agent).
+     */
+    private function sendNonTextInboundReply(string $phone, WhatsAppAiExecutionRecorder $recorder, string $lastUserText): int
+    {
+        $msg = $this->aiSettings->nonTextInboundMessageForCustomer($phone);
+        $msg = $this->templateLocalization->localizeTemplate($msg, $lastUserText, $recorder);
+        $msg = $this->sanitizeCustomerReply($msg);
+        if ($msg === '') {
+            $msg = $this->sanitizeCustomerReply(
+                $this->aiSettings->mergeCustomerMessagePlaceholders(
+                    $this->aiSettings->defaultNonTextInboundMessageTemplate(),
+                    $phone
+                )
+            );
+        }
+
+        $meta = $this->aiSettings->metaButtonsForContext('non_text');
+        $meta = $this->templateLocalization->localizeMetaButtons($meta, $lastUserText, $recorder);
+
+        $persistBody = $msg.($meta !== [] ? "\n[Quick actions]" : '');
+        $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $persistBody, 'AI');
         $err = null;
-        $waId = $this->whatsAppCloud->sendInteractiveButtons($phone, $body, [
-            ['id' => 'act_book', 'title' => 'Book a service'],
-            ['id' => 'act_provider', 'title' => 'Join as provider'],
-            ['id' => 'act_human', 'title' => 'Talk to a person'],
-        ], $err);
+        $waId = null;
+        $qrIds = $this->nonTextQuickReplyPayloadIds($meta);
 
-        $recorder->step('whatsapp.send', 'Send interactive greeting buttons', $err ? 'fail' : 'ok', [
-            'graph_message_id' => $waId,
-            'error' => $err ? mb_substr($err, 0, 500) : null,
-        ]);
-        if ($waId) {
-            $this->messagePersistence->attachWaMessageId($out, $waId);
+        if (WhatsAppAiPlayground::skipCloudApi($phone)) {
+            $recorder->step('whatsapp.send', 'Sandbox — non-text inbound saved; WhatsApp Cloud API skipped', 'ok', [
+                'sandbox' => true,
+            ]);
+            if ($meta === []) {
+                WhatsAppAiPlayground::storePlainOutbound($phone, $msg);
+            } else {
+                WhatsAppAiPlayground::storeOutboundSnapshot($phone, $msg, $meta, $qrIds);
+            }
+        } elseif ($meta === []) {
+            $waId = $this->whatsAppCloud->sendText($phone, $msg, $err);
+            $recorder->step('whatsapp.send', 'Send non-text inbound (text only)', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
+        } else {
+            $ids = $this->sessionInteractiveSequence->send(
+                $this->whatsAppCloud,
+                $phone,
+                $msg,
+                $meta,
+                $err,
+                $qrIds
+            );
+            $waId = $ids[0] ?? null;
+            $recorder->step('whatsapp.send', 'Send non-text inbound (session buttons)', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
         }
 
         return (int) $out->id;
     }
 
-    private function sendHumanHandoffReply(string $phone, WhatsAppAiExecutionRecorder $recorder): int
+    /**
+     * First quick reply uses act_human so tapping "Chat with agent" triggers the same path as the greeting human button.
+     *
+     * @param  array<int, array<string, mixed>>  $meta
+     * @return list<string>|null
+     */
+    private function nonTextQuickReplyPayloadIds(array $meta): ?array
+    {
+        $ids = [];
+        $qrIndex = 0;
+        foreach ($meta as $b) {
+            if (strtoupper((string) ($b['type'] ?? '')) !== 'QUICK_REPLY') {
+                continue;
+            }
+            $qrIndex++;
+            $ids[] = $qrIndex === 1 ? 'act_human' : 'sess_qr_'.$qrIndex;
+        }
+
+        return $ids === [] ? null : $ids;
+    }
+
+    private function sendWelcomeWithButtons(string $phone, WhatsAppAiExecutionRecorder $recorder, string $lastUserText): int
+    {
+        $body = $this->aiSettings->resolvedGreetingMessage($phone);
+        $body = $this->templateLocalization->localizeTemplate($body, $lastUserText, $recorder);
+        $body = $this->sanitizeCustomerReply($body);
+        $meta = $this->aiSettings->metaButtonsForContext('greeting');
+        $meta = $this->templateLocalization->localizeMetaButtons($meta, $lastUserText, $recorder);
+        $note = $meta !== [] ? "\n[Quick actions]" : '';
+        $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $body.$note, 'AI');
+        $err = null;
+        $waId = null;
+        if (WhatsAppAiPlayground::skipCloudApi($phone)) {
+            $recorder->step('whatsapp.send', 'Sandbox — greeting saved; WhatsApp Cloud API skipped', 'ok', ['sandbox' => true]);
+            if ($meta === []) {
+                WhatsAppAiPlayground::storePlainOutbound($phone, $body);
+            } else {
+                WhatsAppAiPlayground::storeOutboundSnapshot($phone, $body, $meta, ['act_book', 'act_provider', 'act_human']);
+            }
+        } elseif ($meta === []) {
+            $waId = $this->whatsAppCloud->sendText($phone, $body, $err);
+            $recorder->step('whatsapp.send', 'Send greeting text', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
+        } else {
+            $ids = $this->sessionInteractiveSequence->send(
+                $this->whatsAppCloud,
+                $phone,
+                $body,
+                $meta,
+                $err,
+                ['act_book', 'act_provider', 'act_human']
+            );
+            $waId = $ids[0] ?? null;
+            $recorder->step('whatsapp.send', 'Send greeting (template-style session buttons)', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
+        }
+
+        return (int) $out->id;
+    }
+
+    private function sendHumanHandoffReply(string $phone, WhatsAppAiExecutionRecorder $recorder, string $lastUserText): int
     {
         WhatsAppUser::markHumanSupportRequested($phone);
 
         $inHours = $this->workHours->isWithinSupportHours();
         $schedule = $this->workHours->humanReadableSchedule();
         $msg = $this->aiSettings->handoffMessageForCustomer($inHours);
+        $msg = $this->templateLocalization->localizeTemplate($msg, $lastUserText, $recorder);
+        $msg = $this->sanitizeCustomerReply($msg);
+        $meta = $this->aiSettings->metaButtonsForContext($inHours ? 'handoff_in' : 'handoff_out');
+        $meta = $this->templateLocalization->localizeMetaButtons($meta, $lastUserText, $recorder);
 
         $recorder->step('handoff.context', 'Support hours check', 'ok', [
             'in_hours' => $inHours,
             'schedule' => $schedule,
         ]);
 
-        $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $msg, 'AI');
+        $persistBody = $msg.($meta !== [] ? "\n[Quick actions]" : '');
+        $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $persistBody, 'AI');
         $err = null;
-        $waId = $this->whatsAppCloud->sendText($phone, $msg, $err);
-        $recorder->step('whatsapp.send', 'Send human handoff text', $err ? 'fail' : 'ok', [
-            'graph_message_id' => $waId,
-            'error' => $err ? mb_substr($err, 0, 500) : null,
-        ]);
-        if ($waId) {
-            $this->messagePersistence->attachWaMessageId($out, $waId);
+        $waId = null;
+        if (WhatsAppAiPlayground::skipCloudApi($phone)) {
+            $recorder->step('whatsapp.send', 'Sandbox — handoff saved; WhatsApp Cloud API skipped', 'ok', ['sandbox' => true]);
+            if ($meta === []) {
+                WhatsAppAiPlayground::storePlainOutbound($phone, $msg);
+            } else {
+                WhatsAppAiPlayground::storeOutboundSnapshot($phone, $msg, $meta, null);
+            }
+        } elseif ($meta === []) {
+            $waId = $this->whatsAppCloud->sendText($phone, $msg, $err);
+            $recorder->step('whatsapp.send', 'Send human handoff text', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
+        } else {
+            $ids = $this->sessionInteractiveSequence->send($this->whatsAppCloud, $phone, $msg, $meta, $err, null);
+            $waId = $ids[0] ?? null;
+            $recorder->step('whatsapp.send', 'Send human handoff (template-style session buttons)', $err ? 'fail' : 'ok', [
+                'graph_message_id' => $waId,
+                'error' => $err ? mb_substr($err, 0, 500) : null,
+            ]);
+            if ($waId) {
+                $this->messagePersistence->attachWaMessageId($out, $waId);
+            }
         }
 
         return (int) $out->id;
@@ -638,52 +1093,27 @@ class WhatsAppAiSupportOrchestrator
         }
     }
 
-    private function buildUnclearLimitHandoffCustomerMessage(string $lastCustomerText): string
+    private function buildUnclearLimitHandoffCustomerMessage(string $lastCustomerText, WhatsAppAiExecutionRecorder $recorder): string
     {
-        $lastCustomerText = trim($lastCustomerText);
-        $inHours = $this->workHours->isWithinSupportHours();
         $p = $this->aiSettings->resolvedMessagePlaceholders();
-        $schedule = $p['schedule'];
-        $displayPhone = $p['phone'];
-        $callBit = $displayPhone !== '' ? " Please call our support team at {$displayPhone}." : ' Please call our support team.';
+        $schedule = trim((string) ($p['schedule'] ?? ''));
+        $displayPhone = trim((string) ($p['phone'] ?? ''));
 
-        $style = $this->inferCustomerLanguageStyle($lastCustomerText);
-
-        if ($style === 'hinglish') {
-            if ($inHours) {
-                $msg = "Sorry, main ab bhi properly samajh nahi pa raha what you need from this message.{$callBit} We're in working hours right now ({$schedule}) — they'll help you quickly. Thanks!";
-            } else {
-                $msg = "Sorry, main ab bhi properly samajh nahi pa raha what you need.{$callBit} Team abhi working hours ke bahar hai — we're available {$schedule}. You can still message here or try calling. Thanks!";
-            }
-
-            return $this->sanitizeCustomerReply($msg);
+        $supportLine = 'For more details, please reach out to our support team';
+        if ($displayPhone !== '') {
+            $supportLine .= " at {$displayPhone}";
         }
-
-        if ($inHours) {
-            $msg = "I'm sorry — I'm not able to understand what you need from this message.{$callBit} We're in our support hours now ({$schedule}), so someone can take it from here. Thanks!";
-        } else {
-            $msg = "I'm sorry — I'm not able to understand what you need from this message.{$callBit} We're currently outside support hours; we're available {$schedule}. Please leave your message here or try calling — we'll follow up. Thanks!";
+        if ($schedule !== '') {
+            $supportLine .= " (we're usually available {$schedule})";
         }
+        $supportLine .= '.';
+
+        $msg = "Sorry — I'm still not able to understand what you need from this message, or I don't have that information here.\n\n"
+            .$supportLine
+            ."\n\nIs there anything else I can help you with today?";
+
+        $msg = $this->templateLocalization->localizeTemplate($msg, $lastCustomerText, $recorder);
 
         return $this->sanitizeCustomerReply($msg);
-    }
-
-    /**
-     * Rough style for closing copy only (English vs Hinglish Roman).
-     */
-    private function inferCustomerLanguageStyle(string $text): string
-    {
-        $t = mb_strtolower(trim($text));
-        if ($t === '') {
-            return 'english';
-        }
-        if (preg_match('/\p{Devanagari}/u', $text)) {
-            return 'hinglish';
-        }
-        if (preg_match('/\b(kya|kyun|kyu|nahi|nahin|haan|hai|ho|hoon|aap|mujhe|mera|meri|hum|ko|se|par|bas|thik|theek|chahiye|chahie|batao|bata|samajh|matlab|kuch|yeh|ye|wala|wali|kar|karo|karna|abhi|phir|toh|mat|please|thanks)\b/u', $t)) {
-            return 'hinglish';
-        }
-
-        return 'english';
     }
 }

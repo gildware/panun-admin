@@ -376,11 +376,12 @@
                             <td class="">{{translate('subtotal')}} ({{ count($booking->repeat) }} {{translate('days')}})</td>
                             <td>{{with_currency_symbol($sub_total*count($booking->repeat))}}</td>
                         </tr>
-                        @if((float)($booking->total_discount_amount ?? 0) > 0)
+                        @php($fbInvSvcDisc = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking), 2))
+                        @if($fbInvSvcDisc > 0)
                         <tr>
                             <td colspan="3"></td>
                             <td>{{translate('Discount')}}</td>
-                            <td>- {{with_currency_symbol($booking->total_discount_amount)}}</td>
+                            <td>- {{with_currency_symbol($fbInvSvcDisc)}}</td>
                         </tr>
                         @endif
                         @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)

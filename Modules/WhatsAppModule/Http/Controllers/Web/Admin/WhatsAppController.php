@@ -411,6 +411,7 @@ class WhatsAppController extends Controller
             ? $this->waAgentDisplayNameForTemplates(auth()->user())
             : '';
         $chatMetaPayload = $this->buildChatMetaPayloadForPhone($phone);
+        $messagingWindow = $this->buildMessagingWindowPayloadForThreadPhone($phone);
 
         return view('whatsappmodule::admin.conversations.chat', compact(
             'phone',
@@ -420,7 +421,8 @@ class WhatsAppController extends Controller
             'conversationQuickTemplates',
             'waAgentDisplayNameForTemplates',
             'waCustomerNameForTemplates',
-            'chatMetaPayload'
+            'chatMetaPayload',
+            'messagingWindow'
         ));
     }
 
@@ -581,8 +583,25 @@ class WhatsAppController extends Controller
         }
         $replyGraphId = $replyToWa !== '' ? $replyToWa : null;
 
+        $messagingWindow = $this->buildMessagingWindowPayloadForThreadPhone($threadPhone);
+        $body = trim((string) $request->input('body', ''));
+        $hasFiles = $request->hasFile('attachments') || $request->hasFile('attachment');
+        if (!$messagingWindow['session_open'] && ($body !== '' || $hasFiles)) {
+            Toastr::error(translate('whatsapp_session_window_closed_server'));
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'OK',
+                    'whatsapp_sent' => false,
+                    'whatsapp_error' => 'whatsapp_session_window_closed',
+                    'code' => 'whatsapp_session_window_closed',
+                    'messaging_window' => $messagingWindow,
+                ], 422);
+            }
+
+            return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $threadPhone]);
+        }
+
         try {
-            $body = trim((string) $request->input('body', ''));
             $user = $request->user();
 
             // Normalise attachments: support attachments[] (multiple) and attachment (single)
@@ -818,6 +837,324 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * WhatsApp Cloud API allows session (free-form) replies for 24 hours after the customer's last inbound message.
+     *
+     * @return array{session_open: bool, last_customer_message_at: ?string, window_expires_at: ?string}
+     */
+    private function buildMessagingWindowPayloadForThreadPhone(string $threadPhone): array
+    {
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        try {
+            $lastIn = DB::table($table)
+                ->where('phone', $threadPhone)
+                ->whereRaw("UPPER(COALESCE(direction, '')) = 'IN'")
+                ->orderByDesc('created_at')
+                ->value('created_at');
+        } catch (\Throwable $e) {
+            return [
+                'session_open' => false,
+                'last_customer_message_at' => null,
+                'window_expires_at' => null,
+            ];
+        }
+
+        if ($lastIn === null || $lastIn === '') {
+            return [
+                'session_open' => false,
+                'last_customer_message_at' => null,
+                'window_expires_at' => null,
+            ];
+        }
+
+        $lastAt = \Carbon\Carbon::parse($lastIn);
+        $sessionOpen = $lastAt->greaterThan(now()->subHours(24));
+
+        return [
+            'session_open' => $sessionOpen,
+            'last_customer_message_at' => $lastAt->toIso8601String(),
+            'window_expires_at' => $lastAt->copy()->addHours(24)->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Approved templates from Meta (for re-engagement when the 24h session window is closed).
+     */
+    public function chatWabaTemplates(Request $request): JsonResponse
+    {
+        $this->authorize('whatsapp_chat_view');
+
+        $err = null;
+        [$raw] = $this->whatsAppCloud->fetchMessageTemplates($err);
+        if ($err !== null) {
+            return response()->json([
+                'ok' => false,
+                'error' => $err,
+                'templates' => [],
+            ], 502);
+        }
+
+        $out = [];
+        foreach ($raw as $t) {
+            if (!is_array($t)) {
+                continue;
+            }
+            if (strtoupper((string) ($t['status'] ?? '')) !== 'APPROVED') {
+                continue;
+            }
+            $name = trim((string) ($t['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $lang = (string) ($t['language'] ?? 'en');
+            $components = is_array($t['components'] ?? null) ? $t['components'] : [];
+            $bodyPlan = WhatsAppCloudService::resolveBodyParameterPlanFromTemplate($t);
+            $headerTextPlan = WhatsAppCloudService::resolveHeaderTextParameterPlanFromTemplate($t);
+            $headerMedia = WhatsAppCloudService::headerMediaFormatFromComponents($components);
+            $out[] = [
+                'name' => $name,
+                'language' => $lang,
+                'category' => (string) ($t['category'] ?? ''),
+                'body_parameter_format' => $bodyPlan['format'],
+                'body_named_param_names' => $bodyPlan['named_param_names'],
+                'body_placeholder_count' => $bodyPlan['positional_count'],
+                'body_text' => WhatsAppCloudService::bodyTextFromComponents($components),
+                'header_text_parameter_format' => $headerTextPlan['format'],
+                'header_named_param_names' => $headerTextPlan['named_param_names'],
+                'header_text_placeholder_count' => $headerTextPlan['positional_count'],
+                'header_media_format' => $headerMedia,
+                'preview' => WhatsAppCloudService::previewTextFromComponents($components),
+            ];
+        }
+
+        usort($out, static fn ($a, $b) => strcmp($a['name'] . $a['language'], $b['name'] . $b['language']));
+
+        return response()->json([
+            'ok' => true,
+            'templates' => array_values($out),
+        ]);
+    }
+
+    /**
+     * @return array{0: ?array, 1: ?string} [template row from Graph, error code]
+     */
+    private function findApprovedWhatsAppTemplateRow(string $name, string $language): array
+    {
+        $err = null;
+        [$raw] = $this->whatsAppCloud->fetchMessageTemplates($err);
+        if ($err !== null) {
+            return [null, $err];
+        }
+
+        foreach ($raw as $t) {
+            if (!is_array($t)) {
+                continue;
+            }
+            if (strtoupper((string) ($t['status'] ?? '')) !== 'APPROVED') {
+                continue;
+            }
+            if (trim((string) ($t['name'] ?? '')) !== $name) {
+                continue;
+            }
+            if ((string) ($t['language'] ?? '') !== $language) {
+                continue;
+            }
+
+            return [$t, null];
+        }
+
+        return [null, 'template_not_found'];
+    }
+
+    /**
+     * Send an approved WhatsApp template to open or re-open a conversation (works outside the 24h session window).
+     */
+    public function sendChatTemplate(Request $request): JsonResponse
+    {
+        $this->authorize('whatsapp_chat_reply');
+
+        $data = $request->validate([
+            'phone' => 'required|string|max:50',
+            'template_name' => 'required|string|max:512',
+            'language' => 'required|string|max:32',
+            'body_parameters' => 'nullable|array',
+            'body_parameters.*' => 'nullable|string|max:4096',
+            'header_text_parameters' => 'nullable|array',
+            'header_text_parameters.*' => 'nullable|string|max:4096',
+            'header_image_url' => 'nullable|string|max:2048',
+        ]);
+
+        $rawPhone = trim((string) $data['phone']);
+        $graphTo = $this->whatsAppCloud->normalizeRecipientPhone($rawPhone);
+        if ($graphTo === null) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'invalid_phone',
+            ], 422);
+        }
+
+        $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
+
+        [$templateRow, $tplErr] = $this->findApprovedWhatsAppTemplateRow(
+            trim((string) $data['template_name']),
+            (string) $data['language']
+        );
+        if ($tplErr !== null || $templateRow === null) {
+            return response()->json([
+                'ok' => false,
+                'error' => $tplErr ?? 'template_not_found',
+                'user_message' => translate('whatsapp_template_not_found_or_inactive'),
+            ], 422);
+        }
+
+        $templateComponents = is_array($templateRow['components'] ?? null) ? $templateRow['components'] : [];
+        $bodyPlan = WhatsAppCloudService::resolveBodyParameterPlanFromTemplate($templateRow);
+        $headerTextPlan = WhatsAppCloudService::resolveHeaderTextParameterPlanFromTemplate($templateRow);
+        $bodyCount = (int) ($bodyPlan['positional_count'] ?? 0);
+        $headerTextCount = (int) ($headerTextPlan['positional_count'] ?? 0);
+        $headerMediaFmt = WhatsAppCloudService::headerMediaFormatFromComponents($templateComponents);
+
+        $bodyStrings = array_values(array_map(static fn ($v) => (string) $v, $data['body_parameters'] ?? []));
+        if (count($bodyStrings) !== $bodyCount) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'body_parameter_count_mismatch',
+                'expected_body_vars' => $bodyCount,
+                'user_message' => translate('whatsapp_template_body_vars_wrong_count'),
+            ], 422);
+        }
+
+        $headerTextStrings = array_values(array_map(static fn ($v) => (string) $v, $data['header_text_parameters'] ?? []));
+        if (count($headerTextStrings) !== $headerTextCount) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'header_text_parameter_count_mismatch',
+                'expected_header_text_vars' => $headerTextCount,
+                'user_message' => translate('whatsapp_template_header_text_vars_wrong_count'),
+            ], 422);
+        }
+
+        if ($bodyCount > 0) {
+            foreach ($bodyStrings as $s) {
+                if (trim($s) === '') {
+                    return response()->json([
+                        'ok' => false,
+                        'error' => 'body_parameter_empty',
+                        'user_message' => translate('whatsapp_template_fill_all_body_variables'),
+                    ], 422);
+                }
+            }
+        }
+        if ($headerTextCount > 0) {
+            foreach ($headerTextStrings as $s) {
+                if (trim($s) === '') {
+                    return response()->json([
+                        'ok' => false,
+                        'error' => 'header_text_parameter_empty',
+                        'user_message' => translate('whatsapp_template_fill_all_header_variables'),
+                    ], 422);
+                }
+            }
+        }
+
+        $headerMediaUrl = trim((string) ($data['header_image_url'] ?? ''));
+        if ($headerMediaFmt !== null && $headerTextCount === 0) {
+            if ($headerMediaUrl === '' || ! filter_var($headerMediaUrl, FILTER_VALIDATE_URL)) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'header_media_url_required',
+                    'user_message' => translate('whatsapp_template_header_media_url_required'),
+                ], 422);
+            }
+        }
+
+        $whatsAppError = null;
+        $whatsappGraph = null;
+        $waId = $this->whatsAppCloud->sendTemplateMessage(
+            $graphTo,
+            $data['template_name'],
+            $data['language'],
+            $bodyStrings,
+            $whatsAppError,
+            $whatsappGraph,
+            $headerTextStrings,
+            $headerMediaUrl !== '' ? $headerMediaUrl : null,
+            $headerMediaFmt,
+            $bodyPlan,
+            $headerTextPlan,
+        );
+
+        if ($waId === null) {
+            $graphMsg = WhatsAppCloudService::graphErrorMessageFromContext($whatsappGraph);
+
+            return response()->json([
+                'ok' => false,
+                'error' => $whatsAppError ?? 'send_failed',
+                'whatsapp_graph' => $whatsappGraph,
+                'user_message' => $graphMsg ?? translate('whatsapp_template_send_failed'),
+            ], 502);
+        }
+
+        try {
+            $message = new WhatsAppMessage();
+            $message->phone = $threadPhone;
+            $message->direction = 'OUT';
+            $message->message_type = 'TEMPLATE';
+            $titleLine = __('lang.whatsapp_template_conversation_title', [
+                'name' => $data['template_name'],
+                'language' => $data['language'],
+            ]);
+            $customerPreview = WhatsAppCloudService::renderTemplateMessageAsSeenByCustomer(
+                $templateRow,
+                $headerTextStrings,
+                $bodyStrings,
+                $headerMediaUrl !== '' ? $headerMediaUrl : null,
+                $headerMediaFmt,
+                $bodyPlan,
+                $headerTextPlan
+            );
+            if (trim($customerPreview) !== '') {
+                $message->message_text = $titleLine."\n\n".$customerPreview;
+            } else {
+                $sections = [];
+                if ($headerTextStrings !== []) {
+                    $sections[] = translate('whatsapp_template_section_header_vars')."\n".implode("\n", $headerTextStrings);
+                }
+                if ($bodyStrings !== []) {
+                    $sections[] = translate('whatsapp_template_section_body_vars')."\n".implode("\n", $bodyStrings);
+                }
+                if ($headerMediaUrl !== '') {
+                    $sections[] = translate('whatsapp_template_section_media')."\n".$headerMediaUrl;
+                }
+                $message->message_text = $titleLine.($sections === [] ? '' : "\n\n".implode("\n\n", $sections));
+            }
+            $message->wa_message_id = $waId;
+            $message->status = 'sent';
+            $message->status_detail = null;
+            $message->status_updated_at = now();
+            if ($request->user()) {
+                $message->sent_by_id = $request->user()->id;
+            }
+            $message->save();
+
+            Cache::forget('whatsapp_active_chats_list');
+            foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {
+                Cache::forget('whatsapp_chat_full_v2_' . md5($p));
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('WhatsApp chat template persist failed', [
+                'phone' => $threadPhone,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'wa_message_id' => $waId,
+            'messaging_window' => $this->buildMessagingWindowPayloadForThreadPhone($threadPhone),
+        ]);
+    }
+
+    /**
      * AJAX: get messages for a phone. Optional: booking_link and conversation_state for right panel.
      * Caches full response per phone to avoid Neon round trips on repeat opens.
      */
@@ -844,6 +1181,8 @@ class WhatsAppController extends Controller
         if ($request->boolean('full') && !$markSeen && $ttlChat > 0 && !$hasFocus) {
             $cached = Cache::get($cacheKey);
             if ($cached !== null) {
+                $cached['messaging_window'] = $this->buildMessagingWindowPayloadForThreadPhone($phone);
+
                 return response()->json($cached);
             }
         }
@@ -1057,6 +1396,8 @@ class WhatsAppController extends Controller
                 Cache::put($cacheKey, $payload, $ttlChat);
             }
         }
+
+        $payload['messaging_window'] = $this->buildMessagingWindowPayloadForThreadPhone($phone);
 
         return response()->json($payload);
     }

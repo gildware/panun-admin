@@ -7,10 +7,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BusinessSettingsModule\Entities\AdditionalChargeType;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\Serviceman;
+use Modules\WhatsAppModule\Entities\WhatsAppMarketingTemplate;
+use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 
 class BookingWhatsAppNotificationService
 {
@@ -83,7 +87,114 @@ class BookingWhatsAppNotificationService
         '{previous_verification_status}' => 'Previous verification state',
         '{verification_action}' => 'Last verification action: approve, deny, or cancel',
         '{reopen_resolve_remarks}' => 'Remarks when a reopen case is marked resolved (reopen resolved template only)',
+        '{booking_cancellation_reason}' => 'Cancellation reason (from the latest cancel action on this booking)',
+        '{on_hold_reason}' => 'Put on hold — reason (from the latest hold action on this booking)',
+        '{reopen_from_completed_reason}' => 'Reopen from completed — reason or notes (from reopen flow)',
     ];
+
+    /**
+     * Example values for the booking-template preview in admin (Meta variable mapping UI).
+     *
+     * @var array<string, string>
+     */
+    public const PLACEHOLDER_PREVIEW_SAMPLES = [
+        '{service_name}' => 'AC repair, gas refill',
+        '{customer_address}' => '12 MG Road, Bengaluru 560001',
+        '{customer_name}' => 'Priya Sharma',
+        '{customer_phone}' => '+91 98765 43210',
+        '{provider_name}' => 'CoolAir Services Pvt Ltd',
+        '{provider_phone}' => '+91 91234 56789',
+        '{booking_id}' => 'BK-2026-10492',
+        '{booking_datetime}' => '7 Apr 2026, 2:30 PM',
+        '{service_where}' => 'Customer address',
+        '{total_bill}' => '4,500.00',
+        '{amount_paid}' => '1,000.00',
+        '{due_amount}' => '3,500.00',
+        '{booking_status}' => 'Accepted',
+        '{previous_booking_status}' => 'Pending',
+        '{previous_provider_name}' => 'Old Care HVAC',
+        '{previous_provider_phone}' => '+91 90000 00001',
+        '{previous_service_schedule}' => '5 Apr 2026, 10:00 AM',
+        '{payment_status}' => 'Paid',
+        '{previous_payment_status}' => 'Unpaid',
+        '{serviceman_name}' => 'Ravi Kumar',
+        '{serviceman_phone}' => '+91 99887 76655',
+        '{previous_serviceman_name}' => 'Amit Singh',
+        '{previous_serviceman_phone}' => '+91 88776 65544',
+        '{verification_status}' => 'Approved',
+        '{previous_verification_status}' => 'Pending',
+        '{verification_action}' => 'approve',
+        '{reopen_resolve_remarks}' => 'Technician visit completed; case closed.',
+        '{booking_cancellation_reason}' => 'Customer requested reschedule',
+        '{on_hold_reason}' => 'Awaiting parts',
+        '{reopen_from_completed_reason}' => 'Issue recurred after visit',
+    ];
+
+    /**
+     * Preview sample strings for admin UI: static tokens plus one sample per additional charge type.
+     *
+     * @return array<string, string>
+     */
+    public static function allPlaceholderPreviewSamplesForAdmin(): array
+    {
+        $acSamples = [];
+        foreach (self::buildAdditionalChargePlaceholderData()['hints'] as $token => $_label) {
+            $acSamples[$token] = '350.00';
+        }
+
+        return array_merge(self::PLACEHOLDER_PREVIEW_SAMPLES, $acSamples);
+    }
+
+    /**
+     * Static booking tokens plus one token per active additional charge type (amount for that line).
+     *
+     * @return array<string, string>
+     */
+    public static function allPlaceholderHintsForAdmin(): array
+    {
+        $ac = self::buildAdditionalChargePlaceholderData();
+
+        return array_merge(self::PLACEHOLDER_HINTS, $ac['hints']);
+    }
+
+    /**
+     * @return array{hints: array<string, string>, id_to_key: array<string, string>}
+     */
+    private static function buildAdditionalChargePlaceholderData(): array
+    {
+        $hints = [];
+        $idToKey = [];
+        $types = AdditionalChargeType::query()->active()->ordered()->get();
+        $seenBaseSlugs = [];
+        foreach ($types as $t) {
+            $id = (string) $t->id;
+            $base = Str::slug((string) $t->name, '_');
+            if ($base === '') {
+                $base = 'charge';
+            }
+            $slug = $base;
+            if (isset($seenBaseSlugs[$base])) {
+                $slug = $base . '_' . substr(str_replace('-', '', $id), 0, 8);
+            } else {
+                $seenBaseSlugs[$base] = true;
+            }
+            $key = '{additional_charge_' . $slug . '}';
+            $idToKey[$id] = $key;
+            $hints[$key] = 'Additional charge amount: ' . $t->name;
+        }
+
+        return ['hints' => $hints, 'id_to_key' => $idToKey];
+    }
+
+    private static function orphanAdditionalChargeTokenKey(string $typeId, string $name): string
+    {
+        $base = Str::slug($name, '_');
+        if ($base === '') {
+            $base = 'charge';
+        }
+
+        return '{additional_charge_' . $base . '_' . substr(str_replace('-', '', $typeId), 0, 8) . '}';
+    }
 
     /**
      * Sub-keys for per-status WhatsApp templates (booking_status_customer_{segment}, etc.).
@@ -96,6 +207,38 @@ class BookingWhatsAppNotificationService
             array_column(BOOKING_STATUSES, 'key'),
             ['reopened', 'reopen_resolved']
         );
+    }
+
+    /**
+     * Keys for free-text template bodies and optional Meta template bindings (same key + _wa_tpl_id / _wa_body_params).
+     *
+     * @return list<string>
+     */
+    public static function configurableMessageKeys(): array
+    {
+        $keys = [
+            'booking_confirmation_customer',
+            'booking_confirmation_provider',
+            'booking_status_customer',
+            'booking_status_provider',
+            'provider_change_customer',
+            'provider_change_previous_provider',
+            'provider_change_new_provider',
+            'booking_schedule_customer',
+            'booking_schedule_provider',
+            'booking_payment_customer',
+            'booking_payment_provider',
+            'booking_serviceman_customer',
+            'booking_serviceman_provider',
+            'booking_verification_customer',
+            'booking_verification_provider',
+        ];
+        foreach (self::statusTemplateSegmentKeys() as $segment) {
+            $keys[] = 'booking_status_customer_' . $segment;
+            $keys[] = 'booking_status_provider_' . $segment;
+        }
+
+        return $keys;
     }
 
     /**
@@ -175,30 +318,25 @@ class BookingWhatsAppNotificationService
 
             $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
             $vars = $this->buildReplacements($booking, null);
-            $customerTpl = trim((string) ($config['booking_confirmation_customer'] ?? ''));
-            $providerTpl = trim((string) ($config['booking_confirmation_provider'] ?? ''));
-
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-            if ($customerTpl !== '' && $customerPhone) {
-                $body = $this->interpolate($customerTpl, $vars);
-                $this->sendTextAndRecord(
-                    $customerPhone,
-                    $body,
-                    'booking confirm (customer)',
-                    ['booking_id' => $booking->id]
-                );
-            }
+            $this->trySendBookingMetaOnly(
+                $config,
+                'booking_confirmation_customer',
+                $vars,
+                $customerPhone,
+                'booking confirm (customer)',
+                ['booking_id' => $booking->id]
+            );
 
             $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
-            if ($providerTpl !== '' && $providerPhone) {
-                $body = $this->interpolate($providerTpl, $vars);
-                $this->sendTextAndRecord(
-                    $providerPhone,
-                    $body,
-                    'booking confirm (provider)',
-                    ['booking_id' => $booking->id]
-                );
-            }
+            $this->trySendBookingMetaOnly(
+                $config,
+                'booking_confirmation_provider',
+                $vars,
+                $providerPhone,
+                'booking confirm (provider)',
+                ['booking_id' => $booking->id]
+            );
         } finally {
             $lock->release();
         }
@@ -740,30 +878,25 @@ class BookingWhatsAppNotificationService
         string $logContext,
         string $entityId
     ): void {
-        $customerTpl = trim((string) ($config[$customerKey] ?? ''));
-        $providerTpl = trim((string) ($config[$providerKey] ?? ''));
-
         $customerPhone = $this->normalizePhone($customerPhoneRaw, $config);
-        if ($customerTpl !== '' && $customerPhone) {
-            $body = $this->interpolate($customerTpl, $vars);
-            $this->sendTextAndRecord(
-                $customerPhone,
-                $body,
-                'booking ' . $logContext . ' (customer)',
-                ['id' => $entityId]
-            );
-        }
+        $this->trySendBookingMetaOnly(
+            $config,
+            $customerKey,
+            $vars,
+            $customerPhone,
+            'booking ' . $logContext . ' (customer)',
+            ['id' => $entityId]
+        );
 
         $providerPhone = $this->resolveProviderPhone($provider, $config);
-        if ($providerTpl !== '' && $providerPhone) {
-            $body = $this->interpolate($providerTpl, $vars);
-            $this->sendTextAndRecord(
-                $providerPhone,
-                $body,
-                'booking ' . $logContext . ' (provider)',
-                ['id' => $entityId]
-            );
-        }
+        $this->trySendBookingMetaOnly(
+            $config,
+            $providerKey,
+            $vars,
+            $providerPhone,
+            'booking ' . $logContext . ' (provider)',
+            ['id' => $entityId]
+        );
     }
 
     /**
@@ -871,44 +1004,37 @@ class BookingWhatsAppNotificationService
             $prevExtras = $this->previousProviderReplacementMap($previousProvider);
             $vars = array_merge($this->buildReplacements($booking, null), $prevExtras);
 
-            $customerTpl = trim((string) ($config['provider_change_customer'] ?? ''));
-            $oldTpl = trim((string) ($config['provider_change_previous_provider'] ?? ''));
-            $newTpl = trim((string) ($config['provider_change_new_provider'] ?? ''));
-
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-            if ($customerTpl !== '' && $customerPhone) {
-                $body = $this->interpolate($customerTpl, $vars);
-                $this->sendTextAndRecord(
-                    $customerPhone,
-                    $body,
-                    'provider change (customer)',
+            $this->trySendBookingMetaOnly(
+                $config,
+                'provider_change_customer',
+                $vars,
+                $customerPhone,
+                'provider change (customer)',
+                ['booking_id' => $booking->id]
+            );
+
+            if ($previousProvider) {
+                $oldPhone = $this->resolveProviderPhone($previousProvider, $config);
+                $this->trySendBookingMetaOnly(
+                    $config,
+                    'provider_change_previous_provider',
+                    $vars,
+                    $oldPhone,
+                    'provider change (previous provider)',
                     ['booking_id' => $booking->id]
                 );
-            }
-
-            if ($previousProvider && $oldTpl !== '') {
-                $oldPhone = $this->resolveProviderPhone($previousProvider, $config);
-                if ($oldPhone) {
-                    $body = $this->interpolate($oldTpl, $vars);
-                    $this->sendTextAndRecord(
-                        $oldPhone,
-                        $body,
-                        'provider change (previous provider)',
-                        ['booking_id' => $booking->id]
-                    );
-                }
             }
 
             $newProviderPhone = $this->resolveProviderPhone($booking->provider, $config);
-            if ($newTpl !== '' && $newProviderPhone) {
-                $body = $this->interpolate($newTpl, $vars);
-                $this->sendTextAndRecord(
-                    $newProviderPhone,
-                    $body,
-                    'provider change (new provider)',
-                    ['booking_id' => $booking->id]
-                );
-            }
+            $this->trySendBookingMetaOnly(
+                $config,
+                'provider_change_new_provider',
+                $vars,
+                $newProviderPhone,
+                'provider change (new provider)',
+                ['booking_id' => $booking->id]
+            );
         } finally {
             $lock->release();
         }
@@ -969,6 +1095,25 @@ class BookingWhatsAppNotificationService
             $merged[$pk] = filter_var($merged[$pk], FILTER_VALIDATE_BOOLEAN);
         }
 
+        foreach (self::configurableMessageKeys() as $msgKey) {
+            $wk = $msgKey . '_wa_tpl_id';
+            $bp = $msgKey . '_wa_body_params';
+            if (!array_key_exists($wk, $merged)) {
+                $merged[$wk] = null;
+            } elseif ($merged[$wk] !== null && $merged[$wk] !== '') {
+                $merged[$wk] = (int) $merged[$wk];
+            } else {
+                $merged[$wk] = null;
+            }
+            if (!isset($merged[$bp]) || !is_array($merged[$bp])) {
+                $merged[$bp] = [];
+            }
+            $hp = $msgKey . '_wa_header_params';
+            if (!isset($merged[$hp]) || !is_array($merged[$hp])) {
+                $merged[$hp] = [];
+            }
+        }
+
         return $merged;
     }
 
@@ -977,6 +1122,297 @@ class BookingWhatsAppNotificationService
         $u = Auth::user();
 
         return $u ? (int) $u->getAuthIdentifier() : null;
+    }
+
+    /**
+     * @param  array<string, string>  $vars
+     * @param  array<int, mixed>  $paramKeys
+     * @return array<int, string>
+     */
+    protected function buildWaBodyParameterValues(array $vars, array $paramKeys): array
+    {
+        $out = [];
+        foreach ($paramKeys as $key) {
+            $k = is_string($key) ? trim($key) : '';
+            if ($k === '' || !isset($vars[$k])) {
+                $out[] = '';
+            } else {
+                $out[] = (string) $vars[$k];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $logCtx
+     * @param  array<int, string>  $headerTextParameters
+     * @param  array<string, mixed>|null  $bodyPlan
+     * @param  array<string, mixed>|null  $headerTextPlan
+     */
+    protected function sendTemplateAndRecord(
+        string $phone,
+        WhatsAppMarketingTemplate $template,
+        array $bodyParameters,
+        string $logLabel,
+        array $logCtx,
+        array $headerTextParameters = [],
+        ?array $bodyPlan = null,
+        ?array $headerTextPlan = null,
+        ?string $headerMediaUrl = null,
+        ?string $headerMediaFormat = null,
+    ): bool {
+        $err = null;
+        $graphContext = null;
+        $waId = $this->cloud->sendTemplateMessage(
+            $phone,
+            $template->name,
+            $template->language,
+            $bodyParameters,
+            $err,
+            $graphContext,
+            $headerTextParameters,
+            $headerMediaUrl,
+            $headerMediaFormat,
+            $bodyPlan,
+            $headerTextPlan,
+        );
+        if ($err) {
+            Log::warning('WhatsApp ' . $logLabel . ' failed (Meta template)', array_merge($logCtx, ['error' => $err]));
+
+            return false;
+        }
+        if (!$waId) {
+            return false;
+        }
+        $preview = '[' . translate('WhatsApp_template_message_label') . '] ' . $template->name;
+        if ($bodyParameters !== []) {
+            $preview .= "\n" . implode(' | ', $bodyParameters);
+        }
+        $this->tryPersistBookingOutbound($phone, $preview, $waId, 'TEXT', null);
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, string>  $vars
+     * @param  array<string, mixed>  $logCtx
+     */
+    protected function trySendWaTemplate(
+        array $config,
+        string $waStorageKey,
+        array $vars,
+        string $phone,
+        string $logLabel,
+        array $logCtx,
+        ?string $headerMediaUrl = null,
+        ?string $headerMediaFormat = null,
+    ): bool {
+        $tplId = (int) ($config[$waStorageKey . '_wa_tpl_id'] ?? 0);
+        if ($tplId <= 0) {
+            return false;
+        }
+        $template = WhatsAppMarketingTemplate::query()->find($tplId);
+        if (!$template || strtoupper((string) $template->status) !== 'APPROVED') {
+            return false;
+        }
+        $components = is_array($template->components) ? $template->components : [];
+        $bodyPlan = WhatsAppCloudService::resolveBodyParameterPlanFromTemplate(['components' => $components]);
+        $headerTextPlan = WhatsAppCloudService::resolveHeaderTextParameterPlanFromTemplate(['components' => $components]);
+
+        $expectedBody = ($bodyPlan['format'] ?? '') === 'named'
+            ? count($bodyPlan['named_param_names'] ?? [])
+            : (int) ($bodyPlan['positional_count'] ?? 0);
+        $expectedHeader = ($headerTextPlan['format'] ?? '') === 'named'
+            ? count($headerTextPlan['named_param_names'] ?? [])
+            : (int) ($headerTextPlan['positional_count'] ?? 0);
+
+        $paramKeys = $config[$waStorageKey . '_wa_body_params'] ?? [];
+        if (!is_array($paramKeys)) {
+            $paramKeys = [];
+        }
+        $paramKeys = array_values($paramKeys);
+        if (count($paramKeys) !== $expectedBody) {
+            Log::warning('WhatsApp booking Meta template parameter count mismatch', [
+                'message_key' => $waStorageKey,
+                'template' => $template->name,
+                'expected' => $expectedBody,
+                'got' => count($paramKeys),
+            ]);
+
+            return false;
+        }
+        $bodyParams = $this->buildWaBodyParameterValues($vars, $paramKeys);
+
+        $headerKeys = $config[$waStorageKey . '_wa_header_params'] ?? [];
+        if (!is_array($headerKeys)) {
+            $headerKeys = [];
+        }
+        $headerKeys = array_values($headerKeys);
+        if (count($headerKeys) !== $expectedHeader) {
+            Log::warning('WhatsApp booking Meta template header parameter count mismatch', [
+                'message_key' => $waStorageKey,
+                'template' => $template->name,
+                'expected' => $expectedHeader,
+                'got' => count($headerKeys),
+            ]);
+
+            return false;
+        }
+        $headerParams = $this->buildWaBodyParameterValues($vars, $headerKeys);
+
+        return $this->sendTemplateAndRecord(
+            $phone,
+            $template,
+            $bodyParams,
+            $logLabel,
+            $logCtx,
+            $headerParams,
+            $bodyPlan,
+            $headerTextPlan,
+            $headerMediaUrl,
+            $headerMediaFormat
+        );
+    }
+
+    /**
+     * Public HTTPS URL for a file on the public disk (required by Meta for template header media links).
+     */
+    protected function absolutePublicUrlForStoragePath(string $relativePath): string
+    {
+        $path = Storage::disk('public')->url($relativePath);
+        $override = (string) config('whatsappmodule.public_media_base_url', '');
+        if ($override !== '') {
+            $urlPath = parse_url($path, PHP_URL_PATH) ?: '';
+            $query = parse_url($path, PHP_URL_QUERY);
+            $suffix = $urlPath . ($query !== null && $query !== '' ? '?' . $query : '');
+
+            return $override . $suffix;
+        }
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        return rtrim((string) config('app.url'), '/') . '/' . ltrim($path, '/');
+    }
+
+    /**
+     * @param  array<string, string>  $vars
+     * @param  array<string, mixed>  $logCtx
+     */
+    protected function trySendBookingMetaOnly(
+        array $config,
+        string $messageKey,
+        array $vars,
+        ?string $phone,
+        string $logLabel,
+        array $logCtx
+    ): void {
+        if (!$phone) {
+            return;
+        }
+        $this->trySendWaTemplate($config, $messageKey, $vars, $phone, $logLabel, $logCtx);
+    }
+
+    public function templateBodyText(WhatsAppMarketingTemplate $template): string
+    {
+        $components = is_array($template->components) ? $template->components : [];
+        foreach ($components as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            if (strtoupper((string) ($c['type'] ?? '')) === 'BODY') {
+                return (string) ($c['text'] ?? '');
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<int, string>  $positionalValues  Index 0 = {{1}}
+     */
+    protected function synthesizeFilledTemplateBody(string $bodyTemplate, array $positionalValues): string
+    {
+        $out = preg_replace_callback('/\{\{(\d+)\}\}/', function (array $m) use ($positionalValues) {
+            $n = (int) $m[1];
+
+            return $positionalValues[$n - 1] ?? '';
+        }, $bodyTemplate);
+
+        return is_string($out) ? $out : $bodyTemplate;
+    }
+
+    /**
+     * @param  array<string, string>  $vars
+     */
+    protected function synthesizeCaptionFromBookingTemplate(
+        WhatsAppMarketingTemplate $template,
+        array $config,
+        string $waStorageKey,
+        array $vars
+    ): string {
+        $components = is_array($template->components) ? $template->components : [];
+        $bodyPlan = WhatsAppCloudService::resolveBodyParameterPlanFromTemplate(['components' => $components]);
+        $paramKeys = $config[$waStorageKey . '_wa_body_params'] ?? [];
+        if (!is_array($paramKeys)) {
+            $paramKeys = [];
+        }
+        $values = $this->buildWaBodyParameterValues($vars, array_values($paramKeys));
+        $bodyText = $this->templateBodyText($template);
+
+        if (($bodyPlan['format'] ?? '') === 'named' && !empty($bodyPlan['named_param_names'])) {
+            foreach ($bodyPlan['named_param_names'] as $i => $name) {
+                $bodyText = str_replace('{{' . $name . '}}', $values[$i] ?? '', $bodyText);
+            }
+
+            return $bodyText;
+        }
+
+        return $this->synthesizeFilledTemplateBody($bodyText, $values);
+    }
+
+    /**
+     * Meta template binding for automated status messages (per-segment overrides general).
+     *
+     * @return array{params_storage_key: string, template_id: int}|null
+     */
+    protected function resolveWaBindingForStatus(array $config, string $party, string $segment): ?array
+    {
+        $suffix = $party === 'customer' ? 'customer' : 'provider';
+        $specificKey = 'booking_status_' . $suffix . '_' . $segment;
+        $generalKey = 'booking_status_' . $suffix;
+
+        if (!empty($config[$specificKey . '_wa_tpl_id'])) {
+            return [
+                'params_storage_key' => $specificKey,
+                'template_id' => (int) $config[$specificKey . '_wa_tpl_id'],
+            ];
+        }
+        if (!empty($config[$generalKey . '_wa_tpl_id'])) {
+            return [
+                'params_storage_key' => $generalKey,
+                'template_id' => (int) $config[$generalKey . '_wa_tpl_id'],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a Meta template is configured for this status segment (per-status row or general fallback).
+     * Matches {@see self::resolveWaBindingForStatus()} so validation matches runtime sends.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function hasResolvedStatusWaTemplate(array $config, string $party, string $segment): bool
+    {
+        $suffix = $party === 'customer' ? 'customer' : 'provider';
+        $specificKey = 'booking_status_' . $suffix . '_' . $segment;
+        $generalKey = 'booking_status_' . $suffix;
+
+        return ! empty($config[$specificKey . '_wa_tpl_id'] ?? null)
+            || ! empty($config[$generalKey . '_wa_tpl_id'] ?? null);
     }
 
     /**
@@ -1054,7 +1490,12 @@ class BookingWhatsAppNotificationService
      */
     public function buildReplacements(Booking $booking, ?string $previousBookingStatus): array
     {
-        $booking->loadMissing(['detail', 'serviceman.user']);
+        $booking->loadMissing([
+            'detail',
+            'serviceman.user',
+            'latestParentCancellationStatusHistory.cancellationReason',
+            'latestParentHoldStatusHistory.holdReopenReason',
+        ]);
 
         $serviceNames = $booking->detail->pluck('service_name')->filter()->unique()->implode(', ');
         if ($serviceNames === '') {
@@ -1104,7 +1545,30 @@ class BookingWhatsAppNotificationService
 
         $sm = $this->servicemanDisplayPair($booking->serviceman);
 
-        return [
+        $cancellationReasonText = trim((string) ($booking->latestParentCancellationStatusHistory?->cancellationReason?->name ?? ''));
+        if ($cancellationReasonText === '') {
+            $cancellationReasonText = '—';
+        }
+
+        $onHoldReasonText = trim((string) ($booking->latestParentHoldStatusHistory?->holdReopenReason?->name ?? ''));
+        if ($onHoldReasonText === '') {
+            $onHoldReasonText = '—';
+        }
+
+        $reopenEv = $booking->reopenFromCompletedDisplayEvent();
+        $reopenFromCompletedText = '—';
+        if ($reopenEv) {
+            $reopenEv->loadMissing('holdReopenReason');
+            $reopenFromCompletedText = trim((string) ($reopenEv->holdReopenReason?->name ?? ''));
+            if ($reopenFromCompletedText === '') {
+                $reopenFromCompletedText = trim((string) ($reopenEv->complaint_notes ?? ''));
+            }
+            if ($reopenFromCompletedText === '') {
+                $reopenFromCompletedText = '—';
+            }
+        }
+
+        $base = [
             '{service_name}' => $serviceNames,
             '{customer_address}' => $customerAddress,
             '{customer_name}' => $customerName,
@@ -1130,7 +1594,24 @@ class BookingWhatsAppNotificationService
             '{previous_verification_status}' => '—',
             '{verification_action}' => '—',
             '{reopen_resolve_remarks}' => '—',
+            '{booking_cancellation_reason}' => $cancellationReasonText,
+            '{on_hold_reason}' => $onHoldReasonText,
+            '{reopen_from_completed_reason}' => $reopenFromCompletedText,
         ];
+
+        $acData = self::buildAdditionalChargePlaceholderData();
+        $acReplacements = [];
+        foreach (enrich_booking_additional_charges_breakdown_for_display($booking) as $row) {
+            $tid = (string) ($row['id'] ?? '');
+            if ($tid === '') {
+                continue;
+            }
+            $tokenKey = $acData['id_to_key'][$tid] ?? self::orphanAdditionalChargeTokenKey($tid, (string) ($row['name'] ?? ''));
+            $amt = round((float) ($row['amount'] ?? 0), 2);
+            $acReplacements[$tokenKey] = function_exists('with_currency_symbol') ? with_currency_symbol($amt) : (string) $amt;
+        }
+
+        return array_merge($base, $acReplacements);
     }
 
     protected function resolveStatusTemplateSegment(string $previousBookingStatus, string $newStatus): string
@@ -1147,20 +1628,6 @@ class BookingWhatsAppNotificationService
         }
 
         return $new !== '' ? $new : 'pending';
-    }
-
-    /**
-     * @param  array<string, mixed>  $config
-     */
-    protected function pickStatusPartyTemplate(array $config, string $party, string $segment): string
-    {
-        $suffix = $party === 'customer' ? 'customer' : 'provider';
-        $specific = trim((string) ($config['booking_status_' . $suffix . '_' . $segment] ?? ''));
-        if ($specific !== '') {
-            return $specific;
-        }
-
-        return trim((string) ($config['booking_status_' . $suffix] ?? ''));
     }
 
     /**
@@ -1202,20 +1669,69 @@ class BookingWhatsAppNotificationService
             return;
         }
 
-        $template = $this->pickStatusPartyTemplate($config, $party, $segment);
-        if ($template === '') {
+        $waBinding = $this->resolveWaBindingForStatus($config, $party, $segment);
+        if ($waBinding === null) {
             return;
         }
 
-        $body = $this->interpolate($template, $vars);
+        $template = WhatsAppMarketingTemplate::query()->find($waBinding['template_id']);
+        if (!$template) {
+            return;
+        }
+
+        $storageKey = $waBinding['params_storage_key'];
         $attachInvoice = $this->statusInvoiceEnabled($config, $party, $segment);
+        $synthesized = $this->synthesizeCaptionFromBookingTemplate($template, $config, $storageKey, $vars);
+
         $relativePath = null;
         if ($attachInvoice) {
             $relativePath = $this->writeBookingInvoiceToPublicDisk($booking, $repeat);
         }
 
+        $components = is_array($template->components) ? $template->components : [];
+        $headerKind = WhatsAppCloudService::headerMediaFormatFromComponents($components);
+
+        // Meta template with DOCUMENT header: send the approved template with the invoice PDF URL in the header
+        // (body variables still use your mapping). Meta must be able to HTTP(S)-fetch that URL (not localhost/private IP).
+        if ($relativePath && $headerKind === 'DOCUMENT') {
+            $invoiceUrl = $this->absolutePublicUrlForStoragePath($relativePath);
+            $sent = false;
+            if (WhatsAppCloudService::isTemplateHeaderMediaLinkLikelyFetchableByMeta($invoiceUrl)) {
+                $sent = $this->trySendWaTemplate(
+                    $config,
+                    $storageKey,
+                    $vars,
+                    $phone,
+                    $logContext . ' (' . $party . ')',
+                    ['entity_id' => $entityId],
+                    $invoiceUrl,
+                    'DOCUMENT'
+                );
+                if ($sent) {
+                    Storage::disk('public')->delete($relativePath);
+                    $invoiceParent = dirname($relativePath);
+                    if (str_starts_with(basename($invoiceParent), 'wa_')) {
+                        Storage::disk('public')->deleteDirectory($invoiceParent);
+                    }
+
+                    return;
+                }
+
+                Log::warning('WhatsApp booking template+invoice (document header) send failed; trying direct PDF send', [
+                    'entity_id' => $entityId,
+                    'template' => $template->name,
+                ]);
+            } else {
+                Log::info('WhatsApp booking: skipping template DOCUMENT header for invoice (media URL not fetchable by Meta); sending PDF via direct upload', [
+                    'entity_id' => $entityId,
+                    'template' => $template->name,
+                    'invoice_url_host' => parse_url($invoiceUrl, PHP_URL_HOST),
+                ]);
+            }
+        }
+
         if ($relativePath) {
-            $caption = $this->truncateWhatsAppCaption($body);
+            $caption = $this->truncateWhatsAppCaption($synthesized);
             $err = null;
             $waId = $this->cloud->sendOutbound($phone, $caption, $relativePath, $err);
             $archivedPath = null;
@@ -1231,7 +1747,7 @@ class BookingWhatsAppNotificationService
                 $persistType = $archivedPath ? 'DOCUMENT' : 'TEXT';
                 $this->tryPersistBookingOutbound(
                     $phone,
-                    $body,
+                    $synthesized,
                     $waId,
                     $persistType,
                     $archivedPath
@@ -1240,13 +1756,13 @@ class BookingWhatsAppNotificationService
                 return;
             }
 
-            Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') document send failed, retrying text', [
+            Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') document send failed, retrying plain text', [
                 'entity_id' => $entityId,
                 'error' => $err,
             ]);
             $this->sendTextAndRecord(
                 $phone,
-                $body,
+                $synthesized,
                 $logContext . ' (' . $party . ') text fallback',
                 ['entity_id' => $entityId]
             );
@@ -1255,12 +1771,14 @@ class BookingWhatsAppNotificationService
         }
 
         if ($attachInvoice && !$relativePath) {
-            Log::warning('WhatsApp ' . $logContext . ' (' . $party . '): invoice PDF not generated, sending text only', ['entity_id' => $entityId]);
+            Log::warning('WhatsApp ' . $logContext . ' (' . $party . '): invoice PDF not generated', ['entity_id' => $entityId]);
         }
 
-        $this->sendTextAndRecord(
+        $this->trySendWaTemplate(
+            $config,
+            $storageKey,
+            $vars,
             $phone,
-            $body,
             $logContext . ' (' . $party . ')',
             ['entity_id' => $entityId]
         );

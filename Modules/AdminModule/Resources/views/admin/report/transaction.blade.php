@@ -361,7 +361,7 @@
                                                     @endif
                                                 </td>
                                                 <td class="text-nowrap">
-                                                    {{ $entry->payment_method ? str_replace('_', ' ', $entry->payment_method) : '—' }}
+                                                    {{ $entry->formatPaymentMethodForDisplay() }}
                                                 </td>
                                                 <td>
                                                     @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)

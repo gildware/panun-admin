@@ -9,8 +9,9 @@
                 <h2 class="page-title">{{ translate('WhatsApp_Marketing') }} — {{ translate('Templates') }}</h2>
                 @can('whatsapp_marketing_template_update')
                     <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ route('admin.whatsapp.marketing.templates.create') }}" class="btn btn--primary">
-                            <span class="material-icons">add</span>
+                        <a href="{{ config('whatsappmodule.meta_message_templates_url') }}"
+                           target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+                            <span class="material-icons">open_in_new</span>
                             {{ translate('Create_Template') }}
                         </a>
                         <form action="{{ route('admin.whatsapp.marketing.templates.sync') }}" method="post" class="m-0">

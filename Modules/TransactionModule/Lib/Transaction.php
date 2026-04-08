@@ -13,6 +13,18 @@ use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\TransactionModule\Entities\LoyaltyPointTransaction;
 
+if (!function_exists('booking_amount_proportional_share')) {
+    /**
+     * Commission / provider splits use booking total as denominator; when service total is fully
+     * discounted (total_booking_amount === 0), return 0 instead of dividing by zero.
+     */
+    function booking_amount_proportional_share(float $numerator, $booking_total): float
+    {
+        $total = (float) $booking_total;
+
+        return $total > 0 ? $numerator / $total : 0.0;
+    }
+}
 
 //============ Booking Place ============
 if (!function_exists('placeBookingTransactionForDigitalPayment')) {
@@ -902,7 +914,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
         $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
         $advance = get_booking_advance_paid_amount($booking);
-        $commission_cas_portion = ($admin_commission * $due_amount) / $booking['total_booking_amount'];
+        $commission_cas_portion = booking_amount_proportional_share($admin_commission * $due_amount, $booking['total_booking_amount']);
         $commission_cas_net = max(0, $commission_cas_portion - $advance);
 
         //user ids (from/to)
@@ -933,7 +945,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
             if($admin_commission > 0) {
                 //Admin (+received) [commission]
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->received_balance += ($admin_commission * $paid_amount) / $booking['total_booking_amount'];
+                $account->received_balance += booking_amount_proportional_share($admin_commission * $paid_amount, $booking['total_booking_amount']);
                 $account->save();
 
                 Transaction::create([
@@ -941,7 +953,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['received_commission'],
                     'debit' => 0,
-                    'credit' => ($admin_commission * $paid_amount) / $booking['total_booking_amount'],
+                    'credit' => booking_amount_proportional_share($admin_commission * $paid_amount, $booking['total_booking_amount']),
                     'balance' => $account->received_balance,
                     'from_user_id' => $admin_user_id,
                     'to_user_id' => $admin_user_id,
@@ -972,7 +984,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
 
             //Admin (+payable) [provider earning]
             $account = Account::where('user_id', $admin_user_id)->first();
-            $account->account_payable += ($booking_amount_without_commission*$paid_amount)/$booking['total_booking_amount'];
+            $account->account_payable += booking_amount_proportional_share($booking_amount_without_commission * $paid_amount, $booking['total_booking_amount']);
             $account->save();
 
             Transaction::create([
@@ -980,7 +992,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['payable_amount'],
                 'debit' => 0,
-                'credit' => ($booking_amount_without_commission*$paid_amount)/$booking['total_booking_amount'],
+                'credit' => booking_amount_proportional_share($booking_amount_without_commission * $paid_amount, $booking['total_booking_amount']),
                 'balance' => $account->account_payable,
                 'from_user_id' => $admin_user_id,
                 'to_user_id' => $admin_user_id,
@@ -990,7 +1002,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
 
             //Provider (+account_receivable) [provider earning]
             $account = Account::where('user_id', $provider_user_id)->first();
-            $account->account_receivable += ($booking_amount_without_commission*$paid_amount)/$booking['total_booking_amount'];
+            $account->account_receivable += booking_amount_proportional_share($booking_amount_without_commission * $paid_amount, $booking['total_booking_amount']);
             $account->save();
 
             Transaction::create([
@@ -998,7 +1010,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['receivable_amount'],
                 'debit' => 0,
-                'credit' => ($booking_amount_without_commission*$paid_amount)/$booking['total_booking_amount'],
+                'credit' => booking_amount_proportional_share($booking_amount_without_commission * $paid_amount, $booking['total_booking_amount']),
                 'balance' => $account->account_receivable,
                 'from_user_id' => $admin_user_id,
                 'to_user_id' => $provider_user_id,
@@ -1009,7 +1021,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
             /** CAS */
             //Provider (+received_balance) [provider earning]
             $account = Account::where('user_id', $provider_user_id)->first();
-            $account->received_balance += ($booking_amount_without_commission*$due_amount)/$booking['total_booking_amount'];
+            $account->received_balance += booking_amount_proportional_share($booking_amount_without_commission * $due_amount, $booking['total_booking_amount']);
             $account->save();
 
             $primary_transaction = Transaction::create([
@@ -1017,7 +1029,7 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['received_amount'],
                 'debit' => 0,
-                'credit' => ($booking_amount_without_commission*$due_amount)/$booking['total_booking_amount'],
+                'credit' => booking_amount_proportional_share($booking_amount_without_commission * $due_amount, $booking['total_booking_amount']),
                 'balance' => $account->received_balance,
                 'from_user_id' => $provider_user_id,
                 'to_user_id' => $provider_user_id,
@@ -1233,8 +1245,8 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
 
             //=============== DIGITAL ===============
             $digitally_paid_booking_amount = $booking['total_booking_amount'] - $booking['additional_charge'];
-            $commission_for_digital =  round(($admin_commission * $digitally_paid_booking_amount)/$booking['total_booking_amount'], 2);
-            $provider_earning_for_digital = ($booking_amount_without_commission * $digitally_paid_booking_amount)/$booking['total_booking_amount'];
+            $commission_for_digital = round(booking_amount_proportional_share($admin_commission * $digitally_paid_booking_amount, $booking['total_booking_amount']), 2);
+            $provider_earning_for_digital = booking_amount_proportional_share($booking_amount_without_commission * $digitally_paid_booking_amount, $booking['total_booking_amount']);
 
 
             //Admin transaction (-pending)
@@ -1338,10 +1350,10 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
                 $due_amount = $booking?->booking_details_amounts->where('paid_with', 'wallet')->first()?->due_amount ?? 0;
             }
             $due_booking_amount = $booking['additional_charge'] + $booking['removed_booking_amount'] + $due_amount;
-            $commission_for_cas =  round(($admin_commission * $due_booking_amount)/$booking['total_booking_amount'], 2);
+            $commission_for_cas = round(booking_amount_proportional_share($admin_commission * $due_booking_amount, $booking['total_booking_amount']), 2);
             $advance = get_booking_advance_paid_amount($booking);
             $commission_for_cas_net = max(0, $commission_for_cas - $advance);
-            $provider_earning_for_cas = ($booking_amount_without_commission * $due_booking_amount)/$booking['total_booking_amount'];
+            $provider_earning_for_cas = booking_amount_proportional_share($booking_amount_without_commission * $due_booking_amount, $booking['total_booking_amount']);
 
             //Provider transactions
             $account = Account::where('user_id', $provider_user_id)->first();
@@ -1431,8 +1443,8 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraS
 
             //=============== DIGITAL ===============
             $digitally_paid_booking_amount = $booking['total_booking_amount'] - $booking['additional_charge'];
-            $commission_for_digital =  round(($admin_commission * $digitally_paid_booking_amount)/$booking['total_booking_amount'], 2);
-            $provider_earning_for_digital = ($booking_amount_without_commission * $digitally_paid_booking_amount)/$booking['total_booking_amount'];
+            $commission_for_digital = round(booking_amount_proportional_share($admin_commission * $digitally_paid_booking_amount, $booking['total_booking_amount']), 2);
+            $provider_earning_for_digital = booking_amount_proportional_share($booking_amount_without_commission * $digitally_paid_booking_amount, $booking['total_booking_amount']);
 
 
             //Admin transaction (-pending)
@@ -1541,8 +1553,8 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraS
                 $due_amount = $booking?->booking_details_amounts->where('paid_with', 'wallet')->first()?->due_amount ?? 0;
             }
             $due_booking_amount = $booking['additional_charge'] + $booking['removed_booking_amount'] + $due_amount;
-            $commission_for_cas =  round(($admin_commission * $due_booking_amount)/$booking['total_booking_amount'], 2);
-            $provider_earning_for_cas = ($booking_amount_without_commission * $due_booking_amount)/$booking['total_booking_amount'];
+            $commission_for_cas = round(booking_amount_proportional_share($admin_commission * $due_booking_amount, $booking['total_booking_amount']), 2);
+            $provider_earning_for_cas = booking_amount_proportional_share($booking_amount_without_commission * $due_booking_amount, $booking['total_booking_amount']);
 
             //Provider transactions
             $account = Account::where('user_id', $provider_user_id)->first();
@@ -1620,12 +1632,12 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPaymentAndExtraS
 
 //*** (admin) collect cash from provider ***
 if (!function_exists('collectCashTransaction')) {
-    function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null): void
+    function collectCashTransaction($provider_id, $collect_amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $ledger_payment_method = null): void
     {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($provider_id, PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($provider_id, $collect_amount, $admin_user_id, $provider_user_id, $transaction_id, $reference_note) {
+        DB::transaction(function () use ($provider_id, $collect_amount, $admin_user_id, $provider_user_id, $transaction_id, $reference_note, $ledger_payment_method) {
 
             $account = Account::where('user_id', $provider_user_id)->first();
             $account->account_payable -= $collect_amount;
@@ -1686,10 +1698,10 @@ if (!function_exists('collectCashTransaction')) {
                 'transaction_id' => $transaction_id,
                 'booking_id' => null,
                 'provider_id' => $provider_id,
-                'payment_method' => 'collect_from_provider',
+                'payment_method' => $ledger_payment_method ?: 'collect_from_provider',
                 'date' => now()->toDateString(),
                 'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
-                'reference_note' => $reference_note ?: 'Collected from provider',
+                'reference_note' => $reference_note,
                 'created_by' => auth()->id(),
             ]);
         });
@@ -1894,14 +1906,18 @@ if (!function_exists('recordPaymentToProvider')) {
         }
 
         DB::transaction(function () use ($admin_user_id, $provider_user_id, $amount, $transaction_id, $reference_note, $provider_id) {
+            $ledgerTxn = $transaction_id !== null && $transaction_id !== ''
+                ? \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField($transaction_id)
+                : null;
+            $note = trim((string) ($reference_note ?? ''));
             ledger_record_out([
                 'amount' => $amount,
-                'transaction_id' => $transaction_id,
+                'transaction_id' => $ledgerTxn !== '' ? $ledgerTxn : null,
                 'booking_id' => null,
                 'provider_id' => $provider_id,
                 'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT,
                 'date' => now()->toDateString(),
-                'reference_note' => $reference_note ?: 'Payment to provider',
+                'reference_note' => $note !== '' ? $note : null,
                 'created_by' => auth()->id(),
             ]);
 
