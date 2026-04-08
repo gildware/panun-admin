@@ -699,7 +699,7 @@ class ProviderController extends Controller
     public function collectCash(Request $request, string $provider_user_id): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'collected_amount' => 'required|numeric|min:1|max:1000000000',
+            'collected_amount' => 'required|numeric|min:0.01',
         ]);
 
         if ($validator->fails()) {
@@ -707,10 +707,6 @@ class ProviderController extends Controller
         }
 
         $account = $this->account->where('user_id', $provider_user_id)->first();
-
-        if ($account->account_payable < $request['collected_amount']) {
-            return response()->json(response_formatter(DEFAULT_FAIL_200), 200);
-        }
 
         $account->account_payable -= $request['collected_amount'];
         $account->save();

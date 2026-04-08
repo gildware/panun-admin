@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\CustomerModule\Emails\CustomerRegistrationMail;
 use Modules\ProviderManagement\Entities\CustomerIncident;
 use Modules\ProviderManagement\Services\CustomerPerformanceService;
@@ -918,16 +919,35 @@ class CustomerController extends Controller
                 'company_paid_to_customer' => 0.0,
             ];
             $paymentTransactions = collect();
+            $bookingReportRows = collect();
 
             if (!empty($bookingIds)) {
-                $allBookings = $this->booking->with('booking_partial_payments')
+                $allBookings = $this->booking->with(['booking_partial_payments', 'extra_services'])
                     ->whereIn('id', $bookingIds)
+                    ->latest()
                     ->get();
 
                 foreach ($allBookings as $bookingRow) {
                     $settlement = get_booking_received_and_settlement($bookingRow);
                     $totals->customer_paid_to_company += (float) ($settlement['amount_received_by_company'] ?? 0);
                     $totals->customer_paid_to_provider += (float) ($settlement['amount_received_by_provider'] ?? 0);
+                    $isLossMaking = trim((string) ($bookingRow->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                    $pendingDebitLossMaking = 0.0;
+                    if ($isLossMaking && ! in_array((string) ($bookingRow->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true)) {
+                        $grand = get_booking_total_amount($bookingRow);
+                        $paid = get_booking_total_paid($bookingRow);
+                        $pendingDebitLossMaking = round(max(0.0, $grand - $paid), 2);
+                    }
+                    $bookingReportRows->push((object) [
+                        'booking_id' => $bookingRow->id,
+                        'readable_id' => $bookingRow->readable_id ?? $bookingRow->id,
+                        'total_amount' => round((float) get_booking_total_amount($bookingRow), 2),
+                        'paid_to_provider' => round((float) ($settlement['amount_received_by_provider'] ?? 0), 2),
+                        'paid_to_company' => round((float) ($settlement['amount_received_by_company'] ?? 0), 2),
+                        'balance' => round((float) get_booking_invoice_due_amount($bookingRow), 2),
+                        'is_loss_making' => $isLossMaking,
+                        'pending_debit_loss_making' => $pendingDebitLossMaking,
+                    ]);
                 }
 
                 $totals->company_paid_to_customer = (float) LedgerTransaction::query()
@@ -936,10 +956,7 @@ class CustomerController extends Controller
                     ->where('reason', LedgerTransaction::REASON_REFUND)
                     ->sum('amount');
 
-                $bookingMap = $this->booking
-                    ->whereIn('id', $bookingIds)
-                    ->get(['id', 'readable_id'])
-                    ->keyBy('id');
+                $bookingMap = $allBookings->keyBy('id');
 
                 $partials = DB::table('booking_partial_payments')
                     ->whereIn('booking_id', $bookingIds)
@@ -950,10 +967,11 @@ class CustomerController extends Controller
                 foreach ($partials as $partial) {
                     $receivedBy = $partial->received_by ?: 'company';
                     $flow = $receivedBy === 'provider' ? 'customer_paid_to_provider' : 'customer_paid_to_company';
+                    $mapRow = $bookingMap->get($partial->booking_id);
                     $paymentTransactions->push((object) [
                         'date' => $partial->created_at,
                         'booking_id' => $partial->booking_id,
-                        'booking_readable_id' => $bookingMap[$partial->booking_id]->readable_id ?? $partial->booking_id,
+                        'booking_readable_id' => ($mapRow?->readable_id) ?? $partial->booking_id,
                         'flow' => $flow,
                         'amount' => (float) $partial->paid_amount,
                         'channel' => (string) ($partial->paid_with ?? 'N/A'),
@@ -972,10 +990,11 @@ class CustomerController extends Controller
                     ->get(['booking_id', 'amount', 'transaction_id', 'date', 'created_at']);
 
                 foreach ($refundRows as $refund) {
+                    $mapRow = $bookingMap->get($refund->booking_id);
                     $paymentTransactions->push((object) [
                         'date' => $refund->date ?? $refund->created_at,
                         'booking_id' => $refund->booking_id,
-                        'booking_readable_id' => $bookingMap[$refund->booking_id]->readable_id ?? $refund->booking_id,
+                        'booking_readable_id' => ($mapRow?->readable_id) ?? $refund->booking_id,
                         'flow' => 'company_paid_to_customer',
                         'amount' => (float) $refund->amount,
                         'channel' => 'refund',
@@ -1001,7 +1020,27 @@ class CustomerController extends Controller
             );
             $paginatedTransactions->withQueryString();
 
-            return view('customermodule::admin.detail.payments', compact('customer', 'webPage', 'totals', 'paginatedTransactions'));
+            $reportPerPage = 20;
+            $reportPage = max(1, (int) $request->get('report_page', 1));
+            $paginatedBookingReport = new \Illuminate\Pagination\LengthAwarePaginator(
+                $bookingReportRows->forPage($reportPage, $reportPerPage)->values(),
+                $bookingReportRows->count(),
+                $reportPerPage,
+                $reportPage,
+                ['path' => $request->url(), 'pageName' => 'report_page']
+            );
+            $paginatedBookingReport->withQueryString();
+
+            $pendingBadDebtLossMaking = customer_pending_bad_debt_loss_making_bookings_total((string) $id);
+
+            return view('customermodule::admin.detail.payments', compact(
+                'customer',
+                'webPage',
+                'totals',
+                'paginatedTransactions',
+                'paginatedBookingReport',
+                'pendingBadDebtLossMaking'
+            ));
         }
 
 

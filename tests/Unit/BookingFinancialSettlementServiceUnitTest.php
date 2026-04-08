@@ -56,12 +56,12 @@ class BookingFinancialSettlementServiceUnitTest extends TestCase
         $this->assertSame(200.0, $this->service->providerEarningBasisAmount($b, 200.0, 50.0));
     }
 
-    public function test_provider_earning_basis_scaled_uses_min_of_grand_and_paid(): void
+    public function test_provider_earning_basis_scaled_uses_full_grand_total(): void
     {
         $b = new Booking;
         $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
 
-        $this->assertSame(40.0, $this->service->providerEarningBasisAmount($b, 100.0, 40.0));
+        $this->assertSame(100.0, $this->service->providerEarningBasisAmount($b, 100.0, 40.0));
         $this->assertSame(100.0, $this->service->providerEarningBasisAmount($b, 100.0, 150.0));
     }
 

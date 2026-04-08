@@ -3296,17 +3296,34 @@
                                     <td>{{ $displayPhone($booking->phone ?? null) }}</td>
                                     <td>{{ $booking->name ?? '—' }}</td>
                                     <td>{{ $booking->service ?? '—' }}</td>
-                                    <td>{{ $booking->status ?? '—' }}</td>
+                                    <td class="text-wrap" style="max-width: 16rem;">
+                                        <span>{{ $booking->status ?? '—' }}</span>
+                                        @if(($booking->status ?? '') === \Modules\WhatsAppModule\Entities\WhatsAppBooking::STATUS_CANCELLED && !empty($booking->cancellation_reason))
+                                            <div class="small text-muted mt-1">{{ \Illuminate\Support\Str::limit((string) $booking->cancellation_reason, 200) }}</div>
+                                        @endif
+                                    </td>
                                     <td>{{ $booking->created_at?->format('M j, H:i') ?? '—' }}</td>
                                     @can('booking_view')
                                         <td class="text-end text-wrap">
-                                            @if(!empty($booking->booking_id))
-                                                <a href="{{ route('admin.booking.create-from-whatsapp-booking', ['booking_id' => $booking->booking_id]) }}"
-                                                   class="btn btn-sm btn--primary">{{ translate('WhatsApp_create_booking_from_chat') }}</a>
-                                            @endif
                                             @if(!empty($booking->system_booking_id))
                                                 <a href="{{ route('admin.booking.details', ['id' => $booking->system_booking_id]) }}"
-                                                   class="btn btn-sm btn-outline-secondary ms-1">{{ translate('WhatsApp_open_system_booking') }}</a>
+                                                   class="btn btn-sm btn--primary">{{ translate('WhatsApp_open_system_booking') }}</a>
+                                            @elseif(($booking->status ?? '') === \Modules\WhatsAppModule\Entities\WhatsAppBooking::STATUS_CANCELLED)
+                                                <span class="text-muted small">—</span>
+                                            @elseif(!empty($booking->booking_id))
+                                                <div class="d-inline-flex flex-wrap gap-2 justify-content-end">
+                                                    <a href="{{ route('admin.booking.create-from-whatsapp-booking', ['booking_id' => $booking->booking_id]) }}"
+                                                       class="btn btn-sm btn--primary">{{ translate('WhatsApp_create_booking_from_chat') }}</a>
+                                                    @can('booking_add')
+                                                        <button type="button"
+                                                                class="btn btn-sm btn-outline-danger wa-open-cancel-wa-booking"
+                                                                data-booking-id="{{ e($booking->booking_id) }}"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#waCancelWhatsappBookingModal">
+                                                            {{ translate('WhatsApp_cancel_whatsapp_booking') }}
+                                                        </button>
+                                                    @endcan
+                                                </div>
                                             @endif
                                         </td>
                                     @endcan
@@ -3324,6 +3341,64 @@
                         <div class="card-footer border-0">{{ $bookings->links() }}</div>
                     <?php } ?>
                 </div>
+
+                @can('booking_add')
+                    <div class="modal fade" id="waCancelWhatsappBookingModal" tabindex="-1" aria-labelledby="waCancelWhatsappBookingModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="post" action="{{ route('admin.whatsapp.conversations.bookings.cancel') }}" id="waCancelWhatsappBookingForm">
+                                    @csrf
+                                    <input type="hidden" name="booking_id" id="waCancelWhatsappBookingId" value="">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="waCancelWhatsappBookingModalLabel">{{ translate('WhatsApp_cancel_whatsapp_booking_modal_title') }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="text-muted small mb-3">{{ translate('WhatsApp_cancel_whatsapp_booking_modal_body') }}</p>
+                                        <label class="form-label" for="waCancelWhatsappBookingReason">{{ translate('WhatsApp_cancellation_reason') }}</label>
+                                        <textarea class="form-control"
+                                                  id="waCancelWhatsappBookingReason"
+                                                  name="cancellation_reason"
+                                                  rows="4"
+                                                  required
+                                                  minlength="3"
+                                                  maxlength="2000"
+                                                  placeholder="{{ translate('WhatsApp_cancellation_reason_placeholder') }}"></textarea>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                        <button type="submit" class="btn btn-danger">{{ translate('WhatsApp_confirm_cancel_booking') }}</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    @push('script')
+                    <script>
+                    (function () {
+                        var modalEl = document.getElementById('waCancelWhatsappBookingModal');
+                        if (!modalEl) return;
+                        var form = document.getElementById('waCancelWhatsappBookingForm');
+                        var idInput = document.getElementById('waCancelWhatsappBookingId');
+                        var reasonEl = document.getElementById('waCancelWhatsappBookingReason');
+                        modalEl.addEventListener('show.bs.modal', function (ev) {
+                            var btn = ev.relatedTarget;
+                            if (btn && btn.getAttribute('data-booking-id') && idInput) {
+                                idInput.value = btn.getAttribute('data-booking-id');
+                            }
+                        });
+                        modalEl.addEventListener('hidden.bs.modal', function () {
+                            if (form) {
+                                form.reset();
+                            }
+                            if (idInput) {
+                                idInput.value = '';
+                            }
+                        });
+                    })();
+                    </script>
+                    @endpush
+                @endcan
             <?php endif; ?>
 
             {{-- Tab: WhatsApp Users (Neon DB only, separate from main app users) --}}
@@ -3338,6 +3413,7 @@
                             <tr>
                                 <th>{{ translate('Phone') }}</th>
                                 <th>{{ translate('Name') }}</th>
+                                <th>{{ translate('Email') }}</th>
                                 <th>{{ translate('In system') }}</th>
                                 <th>{{ translate('Leads') }}</th>
                                 <th>{{ translate('Alternate phone') }}</th>
@@ -3353,6 +3429,7 @@
                                 <tr id="wa-s-u-{{ (int) ($waUser->id ?? 0) }}">
                                     <td>{{ $displayPhone($waUser->phone ?? null) }}</td>
                                     <td>{{ $waUser->name ?? '—' }}</td>
+                                    <td class="text-break">{{ $waUser->email ?? '—' }}</td>
                                     <td class="align-middle">
                                         @include('whatsappmodule::admin.conversations.partials.system-link-pills', [
                                             'systemLink' => $waUser->system_link ?? [],
@@ -3391,7 +3468,7 @@
                                 @endforeach
                             <?php } else { ?>
                                 <tr>
-                                    <td colspan="9" class="text-center py-5 text-muted">{{ translate('No WhatsApp users') }}</td>
+                                    <td colspan="10" class="text-center py-5 text-muted">{{ translate('No WhatsApp users') }}</td>
                                 </tr>
                             <?php } ?>
                             </tbody>
@@ -3553,6 +3630,7 @@
                         var html = '<div class="row mb-3">';
                         html += '<div class="col-md-6"><strong>Phone</strong><br>' + formatPhoneDisplay(u.phone) + '</div>';
                         html += '<div class="col-md-6"><strong>Name</strong><br>' + (u.name || '—') + '</div>';
+                        html += '<div class="col-md-6 mt-2"><strong>{{ translate('Email') }}</strong><br>' + (u.email || '—') + '</div>';
                         html += '<div class="col-12 mt-2"><strong>{{ translate('In system') }}</strong><br>' + renderSystemLinkFromApi(data.system_link) + '</div>';
                         html += '<div class="col-md-6 mt-2"><strong>Alternate phone</strong><br>' + (u.alternate_phone || '—') + '</div>';
                         html += '<div class="col-md-6 mt-2"><strong>Type</strong><br><span class="badge bg-secondary">' + (u.type || '—') + '</span></div>';

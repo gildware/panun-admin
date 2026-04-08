@@ -50,10 +50,6 @@ class CollectCashController extends Controller
             return response()->json(response_formatter(DEFAULT_404, null, error_processor($validator)), 404);
         }
 
-        if ($request['amount'] > $providerUser->account->account_payable) {
-            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 200);
-        }
-
         collectCashTransaction($request->provider_id, $request['amount']);
 
         return response()->json(response_formatter(DEFAULT_200), 200);

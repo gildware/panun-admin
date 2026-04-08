@@ -29,7 +29,7 @@
 
                                         <div class="mb-30">
                                             <label class="form-label">{{ translate('Phone_Number') }} *</label>
-                                            <input type="text" class="form-control" name="phone_number"
+                                            <input type="text" class="form-control js-lead-create-phone" name="phone_number"
                                                    placeholder="{{ translate('Phone_Number') }} *"
                                                    required value="{{ old('phone_number') }}">
                                             @error('phone_number')
@@ -182,6 +182,8 @@
                                             @enderror
                                         </div>
 
+                                        <div class="mb-30 d-none" data-lead-open-duplicates-alert></div>
+
                                         <div class="d-flex justify-content-end gap-20 mt-30">
                                             <a href="{{ route('admin.lead.index') }}" class="btn btn--secondary">
                                                 {{ translate('Cancel') }}
@@ -270,4 +272,5 @@
             leadCreateApplyTypeUi();
         });
     </script>
+    @include('leadmanagement::admin.leads.partials._lead_open_phone_check_script')
 @endpush

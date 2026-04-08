@@ -203,13 +203,13 @@ class WhatsAppController extends Controller
                 $ttl = config('whatsappmodule.cache_ttl', 60);
                 if ($page === 1 && $ttl > 0) {
                     $bookings = Cache::remember($cacheKey, $ttl, function () {
-                        return WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'system_booking_id', 'created_at'])
+                        return WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'cancellation_reason', 'system_booking_id', 'created_at'])
                             ->orderByDesc('created_at')
                             ->simplePaginate(20);
                     });
                     $bookings->withPath($request->url())->appends($request->query());
                 } else {
-                    $bookings = WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'system_booking_id', 'created_at'])
+                    $bookings = WhatsAppBooking::select(['booking_id', 'id', 'phone', 'name', 'service', 'status', 'cancellation_reason', 'system_booking_id', 'created_at'])
                         ->orderByDesc('created_at')
                         ->simplePaginate(20)->withQueryString();
                 }
@@ -229,13 +229,13 @@ class WhatsAppController extends Controller
                 $ttl = config('whatsappmodule.cache_ttl', 60);
                 if ($page === 1 && $ttl > 0) {
                     $users = Cache::remember($cacheKey, $ttl, function () {
-                        return WhatsAppUser::select(['id', 'phone', 'name', 'alternate_phone', 'address', 'type', 'created_at', 'updated_at'])
+                        return WhatsAppUser::select(['id', 'phone', 'name', 'email', 'alternate_phone', 'address', 'type', 'created_at', 'updated_at'])
                             ->orderByDesc('created_at')
                             ->simplePaginate(20);
                     });
                     $users->withPath($request->url())->appends($request->query());
                 } else {
-                    $users = WhatsAppUser::select(['id', 'phone', 'name', 'alternate_phone', 'address', 'type', 'created_at', 'updated_at'])
+                    $users = WhatsAppUser::select(['id', 'phone', 'name', 'email', 'alternate_phone', 'address', 'type', 'created_at', 'updated_at'])
                         ->orderByDesc('created_at')
                         ->simplePaginate(20)->withQueryString();
                 }
@@ -330,7 +330,7 @@ class WhatsAppController extends Controller
                     'status' => $b->status ?? '—',
                     'created_at' => $b->created_at?->format('M j, Y H:i'),
                 ]);
-            $userPayload = $user->only(['phone', 'name', 'alternate_phone', 'address', 'type']);
+            $userPayload = $user->only(['phone', 'name', 'email', 'alternate_phone', 'address', 'type']);
             $userPayload['created_at'] = $user->created_at?->format('M j, Y H:i');
             $userPayload['updated_at'] = $user->updated_at?->format('M j, Y H:i');
             $normalized = $this->normalizeLeadPhone($phone);
@@ -365,6 +365,49 @@ class WhatsAppController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 404);
         }
+    }
+
+    /**
+     * Cancel a WhatsApp booking request (no system booking yet). Stores reason and sets status to CANCELLED.
+     */
+    public function cancelWhatsAppBooking(Request $request): RedirectResponse
+    {
+        $this->authorize('booking_add');
+
+        $validated = $request->validate([
+            'booking_id' => ['required', 'string', 'max:64'],
+            'cancellation_reason' => ['required', 'string', 'min:3', 'max:2000'],
+        ]);
+
+        $wa = WhatsAppBooking::query()->where('booking_id', $validated['booking_id'])->first();
+        if (!$wa) {
+            Toastr::error(translate('Not_found'));
+
+            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+        }
+
+        $linked = trim((string) ($wa->system_booking_id ?? ''));
+        if ($linked !== '') {
+            Toastr::error(translate('WhatsApp_booking_cannot_cancel_already_linked'));
+
+            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+        }
+
+        if ((string) ($wa->status ?? '') === WhatsAppBooking::STATUS_CANCELLED) {
+            Toastr::warning(translate('WhatsApp_booking_already_cancelled'));
+
+            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+        }
+
+        $wa->status = WhatsAppBooking::STATUS_CANCELLED;
+        $wa->cancellation_reason = $validated['cancellation_reason'];
+        $wa->save();
+
+        Cache::forget('whatsapp_bookings_page1_v2');
+
+        Toastr::success(translate('WhatsApp_booking_cancelled'));
+
+        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
     }
 
     /**

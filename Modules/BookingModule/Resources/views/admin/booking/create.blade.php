@@ -62,9 +62,9 @@
     <div class="content container-fluid">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="mb-0">{{ translate('Add_New_Booking') }}</h2>
-            <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
+            <a href="{{ $bookingGoBackUrl ?? route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
                class="btn btn-secondary">
-                {{ translate('Back_to_Booking_List') }}
+                {{ translate('Go_back') }}
             </a>
         </div>
 
@@ -80,6 +80,8 @@
                 <form action="{{ route('admin.booking.preview') }}" method="POST" id="booking-form"
                       data-currency="{{ currency_symbol() ?? '' }}" novalidate>
                     @csrf
+                    <input type="hidden" name="booking_go_back_url"
+                           value="{{ old('booking_go_back_url', $bookingGoBackUrl ?? request('booking_go_back_url')) }}">
                     @if(old('lead_id', request('lead_id')))
                         <input type="hidden" name="lead_id" value="{{ old('lead_id', request('lead_id')) }}">
                         <input type="hidden" name="in_modal" value="{{ old('in_modal', request('in_modal', 1)) }}">

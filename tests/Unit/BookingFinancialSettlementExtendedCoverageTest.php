@@ -230,6 +230,9 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame(600.0, $preview['scaled_loss_amount']);
         $this->assertSame(300.0, $preview['scaled_loss_company_share']);
         $this->assertSame(300.0, $preview['scaled_loss_provider_share']);
+        $this->assertArrayHasKey('scaled_net_company_share', $preview);
+        $this->assertArrayHasKey('scaled_net_provider_share', $preview);
+        $this->assertArrayHasKey('scaled_bad_debt_balance_not_due', $preview);
     }
 
     public function test_build_preview_suggested_refund_when_customer_overpaid_retained(): void
@@ -360,6 +363,21 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame(75.0, get_booking_revenue_reporting_amount($b));
     }
 
+    public function test_get_booking_revenue_reporting_amount_visit_retained_outcome_without_flag(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 300.0;
+        $b->booking_status = 'canceled';
+        $b->after_visit_cancel = false;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+        $b->settlement_config = [
+            'visit_charges_paid' => 40.0,
+            'closing_amount_paid' => 10.0,
+        ];
+
+        $this->assertSame(50.0, get_booking_revenue_reporting_amount($b));
+    }
+
     public function test_get_booking_total_amount_includes_extra_services_relation(): void
     {
         $b = $this->memoryBooking();
@@ -473,5 +491,85 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame('remarks', $booking->settlement_remarks);
         $this->assertEquals($stubPreview, $booking->settlement_snapshot);
         $this->assertFalse((bool) $booking->allow_complete_without_full_payment);
+    }
+
+    public function test_provider_payment_tab_revenue_visit_fee_split_uses_decided_total_not_cart_grand(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 800.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+        $b->settlement_config = [
+            'visit_charges_paid' => 200.0,
+            'visit_fee_company_percent' => 30.0,
+            'closing_amount_paid' => 100.0,
+            'closing_company_share' => 40.0,
+            'closing_provider_share' => 60.0,
+        ];
+        $b->setRelation('extra_services', collect());
+
+        $this->assertSame(300.0, get_provider_payment_tab_revenue_amount_for_booking($b));
+    }
+
+    public function test_provider_payment_tab_revenue_scaled_uses_full_booking_total(): void
+    {
+        $b = $this->memoryBooking();
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 400.0,
+            'scaled_loss_company_amount' => 300.0,
+            'scaled_loss_provider_amount' => 300.0,
+        ];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 400.0, 'received_by' => 'company'],
+        ]));
+
+        $this->assertSame(1000.0, get_provider_payment_tab_revenue_amount_for_booking($b));
+    }
+
+    public function test_provider_payment_tab_revenue_standard_delegates_to_reporting_amount(): void
+    {
+        $b = $this->memoryBooking();
+        $b->settlement_outcome = null;
+        $b->settlement_config = null;
+        $b->setRelation('extra_services', collect());
+
+        $this->assertSame(1000.0, get_provider_payment_tab_revenue_amount_for_booking($b));
+        $this->assertSame(1000.0, get_booking_revenue_reporting_amount($b));
+    }
+
+    public function test_provider_payment_tab_settlement_legs_matches_received_and_settlement_math(): void
+    {
+        $legs = provider_payment_tab_settlement_legs_from_receipts(800.0, 0.0, 200.0);
+        $this->assertSame(600.0, $legs['pay_to_provider']);
+        $this->assertSame(0.0, $legs['provider_owes_company']);
+
+        $legs2 = provider_payment_tab_settlement_legs_from_receipts(0.0, 1000.0, 200.0);
+        $this->assertSame(0.0, $legs2['pay_to_provider']);
+        $this->assertSame(200.0, $legs2['provider_owes_company']);
+    }
+
+    public function test_earning_report_settlement_columns_for_booking_matches_get_booking_received_and_settlement(): void
+    {
+        $b = $this->memoryBooking();
+        $b->payment_method = 'online';
+        $b->is_paid = 1;
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 800.0, 'received_by' => 'company'],
+        ]));
+
+        $cols = provider_payment_tab_earning_report_settlement_columns_for_booking($b);
+        $s = get_booking_received_and_settlement($b);
+
+        $this->assertSame(round((float) $s['amount_received_by_company'], 2), $cols['amount_received_by_company']);
+        $this->assertSame(round((float) $s['amount_received_by_provider'], 2), $cols['amount_received_by_provider']);
+        $this->assertSame(round((float) $s['provider_owes_company'], 2), $cols['provider_owes_company']);
+        $this->assertSame(round((float) $s['pay_to_provider'], 2), $cols['company_owes_provider']);
+    }
+
+    public function test_customer_pending_bad_debt_loss_making_is_numeric_for_query(): void
+    {
+        $v = customer_pending_bad_debt_loss_making_bookings_total('non-existent-customer-id-xxxxxxxx');
+        $this->assertIsFloat($v);
+        $this->assertGreaterThanOrEqual(0.0, $v);
     }
 }

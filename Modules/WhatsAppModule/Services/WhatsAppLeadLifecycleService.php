@@ -6,6 +6,7 @@ use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
+use Modules\LeadManagement\Entities\Source;
 
 /**
  * CRM lead creation / typing for WhatsApp traffic (shared by internal API, webhooks, AI tools).
@@ -39,17 +40,13 @@ class WhatsAppLeadLifecycleService
             ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
 
         if ($existing) {
-            if (empty($existing->handled_by)) {
-                $existing->handled_by = 'AI';
-                $existing->save();
-            }
-
-            return $existing;
+            return $this->touchAiOpenLead($existing, $name);
         }
 
         return Lead::create([
             'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
             'phone_number' => $leadPhone,
+            'source_id' => Source::ensureAiChatSource()->id,
             'lead_type' => Lead::TYPE_UNKNOWN,
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
@@ -64,24 +61,34 @@ class WhatsAppLeadLifecycleService
             return null;
         }
 
-        $existing = Lead::where('phone_number', $leadPhone)
+        // 1) Reuse an already-open lead of the requested type (newest first).
+        $sameTypeOpen = Lead::where('phone_number', $leadPhone)
             ->where('lead_type', $leadType)
             ->orderByDesc('id')
             ->get()
             ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
 
-        if ($existing) {
-            if (empty($existing->handled_by)) {
-                $existing->handled_by = 'AI';
-                $existing->save();
-            }
+        if ($sameTypeOpen) {
+            return $this->touchAiOpenLead($sameTypeOpen, $name);
+        }
 
-            return $existing;
+        // 2) Upgrade the AI "unknown" thread lead in place — do not create a second row for the same chat.
+        if (in_array($leadType, [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER], true)) {
+            $unknownOpen = Lead::where('phone_number', $leadPhone)
+                ->where('lead_type', Lead::TYPE_UNKNOWN)
+                ->orderBy('id')
+                ->get()
+                ->first(fn (Lead $lead) => $this->isLeadOpen($lead));
+
+            if ($unknownOpen) {
+                return $this->convertUnknownOpenLeadToType($unknownOpen, $leadType, $name);
+            }
         }
 
         $lead = Lead::create([
             'name' => trim((string) ($name ?: ('WhatsApp ' . $leadPhone))),
             'phone_number' => $leadPhone,
+            'source_id' => Source::ensureAiChatSource()->id,
             'lead_type' => $leadType,
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
@@ -90,6 +97,53 @@ class WhatsAppLeadLifecycleService
         $this->seedDefaultTypeHistoryForTypedLead($lead);
 
         return $lead;
+    }
+
+    /**
+     * Keep AI-handled fields fresh on an existing open lead.
+     */
+    protected function touchAiOpenLead(Lead $lead, ?string $name): Lead
+    {
+        $dirty = false;
+        if (empty($lead->handled_by)) {
+            $lead->handled_by = 'AI';
+            $dirty = true;
+        }
+        if ($lead->source_id === null) {
+            $lead->source_id = Source::ensureAiChatSource()->id;
+            $dirty = true;
+        }
+        if ($name !== null && trim((string) $name) !== '') {
+            $trimmed = trim((string) $name);
+            $current = trim((string) ($lead->name ?? ''));
+            if ($current === '' || str_starts_with($current, 'WhatsApp ')) {
+                $lead->name = $trimmed;
+                $dirty = true;
+            }
+        }
+        if ($dirty) {
+            $lead->save();
+        }
+
+        return $lead;
+    }
+
+    protected function convertUnknownOpenLeadToType(Lead $lead, string $newType, ?string $name): Lead
+    {
+        $lead->lead_type = $newType;
+        if ($name !== null && trim((string) $name) !== '') {
+            $lead->name = trim((string) $name);
+        }
+        if (empty($lead->handled_by)) {
+            $lead->handled_by = 'AI';
+        }
+        if ($lead->source_id === null) {
+            $lead->source_id = Source::ensureAiChatSource()->id;
+        }
+        $lead->save();
+        $this->seedDefaultTypeHistoryForTypedLead($lead);
+
+        return $lead->fresh();
     }
 
     public function seedDefaultTypeHistoryForTypedLead(Lead $lead): void
