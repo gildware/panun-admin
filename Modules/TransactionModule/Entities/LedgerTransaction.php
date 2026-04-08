@@ -100,6 +100,65 @@ class LedgerTransaction extends Model
         return $this->belongsTo(Provider::class);
     }
 
+    /**
+     * Offline method name from ledger reference (e.g. "QR Code UPI — UTR: …" from {@see AdminCompanyInflowPaymentService::buildOfflineReferenceNoteForLedger}).
+     */
+    public function offlineSubtypeLabelFromReferenceNote(): ?string
+    {
+        $ref = trim((string) ($this->reference_note ?? ''));
+        if ($ref === '') {
+            return null;
+        }
+        $lines = preg_split('/\R/u', $ref, 2);
+        $firstLine = trim((string) ($lines[0] ?? ''));
+        if ($firstLine === '') {
+            return null;
+        }
+        if (preg_match('/^(.+?)\s*[—–]\s*(.+)$/u', $firstLine, $m)) {
+            return trim($m[1]);
+        }
+        if (! str_contains($firstLine, ':')) {
+            return $firstLine;
+        }
+
+        return null;
+    }
+
+    /**
+     * Human-readable payment / flow label for ledger & transaction list UIs.
+     */
+    public function formatPaymentMethodForDisplay(): string
+    {
+        if ($this->type === self::TYPE_OUT) {
+            if ($this->reason === self::REASON_REFUND) {
+                return translate('Refund');
+            }
+            if ($this->reason === self::REASON_PROVIDER_PAYOUT) {
+                return translate('Provider_payout');
+            }
+
+            return $this->reason ? ucwords(str_replace('_', ' ', (string) $this->reason)) : '—';
+        }
+
+        $pm = (string) ($this->payment_method ?? '');
+        if ($pm === '') {
+            return '—';
+        }
+
+        $tk = 'ledger_pm_' . $pm;
+        $tr = translate($tk);
+        $main = ($tr !== $tk) ? $tr : ucwords(str_replace('_', ' ', $pm));
+
+        if ($this->type === self::TYPE_IN && in_array($pm, ['offline_payment', 'offline'], true)) {
+            $sub = $this->offlineSubtypeLabelFromReferenceNote();
+            if ($sub !== null && $sub !== '') {
+                return $main . ' — ' . $sub;
+            }
+        }
+
+        return $main;
+    }
+
     public function scopeIn($query)
     {
         return $query->where('type', self::TYPE_IN);

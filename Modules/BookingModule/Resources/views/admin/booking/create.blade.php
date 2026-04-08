@@ -380,6 +380,11 @@
                         </div>
                     </div>
 
+                    @php
+                        $adminAdvancePaymentMethodFieldConfig = \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::fieldConfigMapFromGroups($advancePaymentMethodGroups ?? []);
+                        $advancePmSelected = (string) old('advance_payment_method', request('advance_payment_method', ''));
+                        $advancePmDisabled = (float) old('advance_paid_amount', request('advance_paid_amount', 0)) <= 0;
+                    @endphp
                     <div class="mb-4 border rounded-3 p-3" id="advance-payment-section">
                         <h4 class="mb-3">{{ translate('Advance_Payment') }}</h4>
                         <div class="row">
@@ -397,20 +402,18 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ translate('Advance_Payment_Transaction_ID') }}</label>
-                                    <input type="text" name="advance_transaction_id" id="advance-transaction-id" class="form-control"
-                                           value="{{ old('advance_transaction_id', request('advance_transaction_id')) }}"
-                                           placeholder="{{ translate('Enter_bank_or_wallet_transaction_id_if_available') }}">
-                                    @error('advance_transaction_id')
-                                    <span class="text-danger">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                            </div>
+                            @include('bookingmodule::admin.booking.partials._admin-company-inflow-payment-method', [
+                                'instanceId' => 'booking-create',
+                                'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
+                                'advancePmDisabled' => $advancePmDisabled,
+                                'advancePmSelected' => $advancePmSelected,
+                            ])
                         </div>
-                        <p class="text-muted mb-0 small">
+                        <p class="text-muted mb-0 small" id="advance-payment-help-no-advance">
                             {{ translate('Payment_method_will_be_set_as_Cash_After_Service_and_final_payment_will_be_taken_from_customer_at_completion.') }}
+                        </p>
+                        <p class="text-muted mb-0 small d-none" id="advance-payment-help-with-advance">
+                            {{ translate('Advance_payment_method_help') }}
                         </p>
                     </div>
 
@@ -992,9 +995,128 @@
                 service_location: @json(old('service_location', request('service_location'))) || getUrlParameter('service_location') || 'customer',
                 service_schedule: @json(old('service_schedule', request('service_schedule'))) || getUrlParameter('service_schedule'),
                 advance_paid_amount: @json(old('advance_paid_amount', request('advance_paid_amount'))),
+                advance_payment_method: @json(old('advance_payment_method', request('advance_payment_method'))),
+                advance_transaction_id: @json(old('advance_transaction_id', request('advance_transaction_id'))),
+                advance_method_fields: @json(old('advance_method_fields', request('advance_method_fields', [])) ?? []),
                 assignee_id: @json(old('assignee_id', request('assignee_id'))) || getUrlParameter('assignee_id'),
                 booking_source: @json(old('booking_source', request('booking_source')))
             };
+
+            var adminAdvanceMethodConfig = @json($adminAdvancePaymentMethodFieldConfig ?? []);
+
+            function getAdvanceDynamicFieldInitialValue(f, useInitial) {
+                if (!useInitial) {
+                    return '';
+                }
+                if (f.input_name === 'advance_transaction_id') {
+                    return oldValues.advance_transaction_id != null ? String(oldValues.advance_transaction_id) : '';
+                }
+                var m = String(f.input_name || '').match(/^advance_method_fields\[([^\]]+)\]$/);
+                if (m && oldValues.advance_method_fields && typeof oldValues.advance_method_fields === 'object') {
+                    var v = oldValues.advance_method_fields[m[1]];
+                    return v != null ? String(v) : '';
+                }
+                return '';
+            }
+
+            function renderAdminAdvancePaymentDynamicFields(selectedKey, opts) {
+                opts = opts || {};
+                var useInitial = !!opts.useInitial;
+                var $box = $('#advance-payment-section .pk-apm-dynamic-fields');
+                if (!$box.length) {
+                    return;
+                }
+                $box.empty();
+                if (!selectedKey || !adminAdvanceMethodConfig[selectedKey]) {
+                    return;
+                }
+                var cfg = adminAdvanceMethodConfig[selectedKey];
+                var fields = cfg.fields || [];
+                fields.forEach(function (f) {
+                    var fid = 'advance-dyn-' + String(f.name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                    var val = getAdvanceDynamicFieldInitialValue(f, useInitial);
+                    var $col = $('<div class="col-md-6"></div>');
+                    var $grp = $('<div class="mb-0"></div>');
+                    var req = !!f.required;
+                    var $label = $('<label class="form-label" for="' + fid + '"></label>').text(f.label || '');
+                    if (req) {
+                        $label.append(' <span class="text-danger">*</span>');
+                    }
+                    var $input = $('<input type="text" class="form-control" autocomplete="off">')
+                        .attr('id', fid)
+                        .attr('name', f.input_name || '')
+                        .attr('placeholder', f.placeholder || '')
+                        .val(val);
+                    if (req) {
+                        $input.attr('required', 'required');
+                    }
+                    $grp.append($label).append($input);
+                    $col.append($grp);
+                    $box.append($col);
+                });
+            }
+
+            function advancePmApplyTier2Visibility() {
+                var t1 = $('#advance-payment-section .pk-apm-tier1:checked').val();
+                $('#advance-payment-section .pk-apm-tier2-digital-wrap').toggleClass('d-none', t1 !== 'digital');
+                $('#advance-payment-section .pk-apm-tier2-offline-wrap').toggleClass('d-none', t1 !== 'offline');
+            }
+
+            /** Updates hidden advance_payment_method only — does not re-render dynamic fields (avoids wiping typed values). */
+            function advancePmUpdateHiddenOnly() {
+                var t1 = $('#advance-payment-section .pk-apm-tier1:checked').val();
+                var $h = $('#advance-payment-section .pk-apm-hidden');
+                var v = '';
+                if (t1 === 'cas') {
+                    v = 'cash_after_service';
+                } else if (t1 === 'digital') {
+                    v = ($('#advance-payment-section .pk-apm-tier2-digital:checked').val() || '').trim();
+                } else if (t1 === 'offline') {
+                    v = ($('#advance-payment-section .pk-apm-tier2-offline:checked').val() || '').trim();
+                }
+                $h.val(v);
+            }
+
+            function advancePmSyncFinalValue(opts) {
+                opts = opts || {};
+                var hydrate = !!opts.hydrateFromInitial;
+                advancePmUpdateHiddenOnly();
+                var v = ($('#advance-payment-section .pk-apm-hidden').val() || '').trim();
+                if (typeof renderAdminAdvancePaymentDynamicFields === 'function') {
+                    renderAdminAdvancePaymentDynamicFields(v, { useInitial: hydrate });
+                }
+            }
+
+            $('#advance-payment-section').on('change', '.pk-apm-tier1', function (e, payload) {
+                var hydrate = payload && payload.hydrateFromInitial;
+                if (!hydrate) {
+                    $('#advance-payment-section .pk-apm-tier2-digital').prop('checked', false);
+                    $('#advance-payment-section .pk-apm-tier2-offline').prop('checked', false);
+                }
+                var t1 = $('#advance-payment-section .pk-apm-tier1:checked').val();
+                advancePmApplyTier2Visibility();
+                if (!hydrate && t1 === 'digital' && $('#advance-payment-section .pk-apm-tier2-digital').length === 1) {
+                    $('#advance-payment-section .pk-apm-tier2-digital').first().prop('checked', true);
+                }
+                if (!hydrate && t1 === 'offline' && $('#advance-payment-section .pk-apm-tier2-offline').length === 1) {
+                    $('#advance-payment-section .pk-apm-tier2-offline').first().prop('checked', true);
+                }
+                advancePmSyncFinalValue({ hydrateFromInitial: !!hydrate });
+            });
+
+            $('#advance-payment-section').on('change', '.pk-apm-tier2-digital, .pk-apm-tier2-offline', function (e, payload) {
+                var hydrate = payload && payload.hydrateFromInitial;
+                advancePmSyncFinalValue({ hydrateFromInitial: !!hydrate });
+            });
+
+            setTimeout(function () {
+                var adv0 = parseFloat($('#advance-paid-amount').val()) || 0;
+                var hv = ($('#advance-payment-section .pk-apm-hidden').val() || '').trim();
+                advancePmApplyTier2Visibility();
+                if (adv0 > 0 && hv && $('#advance-payment-section .pk-apm-dynamic-fields').children().length === 0) {
+                    renderAdminAdvancePaymentDynamicFields(hv, { useInitial: true });
+                }
+            }, 0);
 
             // --- Admin create booking: multi-line cart + extras (booking summary) ---
             var bookingCreateCart = { lines: [], extras: [] };
@@ -1458,6 +1580,7 @@
                     $('#advance-paid-amount').removeAttr('max');
                     $('#due-balance-row').hide();
                     $('.billing-commission-preview-row').addClass('d-none');
+                    updateDueBalance();
                     return;
                 }
                 // application/json so Laravel receives nested lines[] / extras[] (jQuery default encoding drops nested arrays)
@@ -1610,6 +1733,36 @@
                 return id ? ("{{ translate('Additional_charge') }} · " + id) : "{{ translate('Additional_charges') }}";
             }
 
+            function updateAdvancePaymentMethodUi() {
+                var adv = parseFloat($('#advance-paid-amount').val()) || 0;
+                var $wrap = $('#advance-payment-method-wrap-booking-create');
+                if (!$wrap.length) {
+                    return;
+                }
+                $wrap.show();
+                var $allPm = $('#advance-payment-section .pk-apm-tier1, #advance-payment-section .pk-apm-tier2-digital, #advance-payment-section .pk-apm-tier2-offline');
+                if ($allPm.length) {
+                    if (adv > 0) {
+                        $allPm.prop('disabled', false);
+                        advancePmApplyTier2Visibility();
+                    } else {
+                        $allPm.prop('disabled', true).prop('checked', false);
+                        $('#advance-payment-section .pk-apm-hidden').val('');
+                        $('#advance-payment-section .pk-apm-tier2-digital-wrap, #advance-payment-section .pk-apm-tier2-offline-wrap').addClass('d-none');
+                        if (typeof renderAdminAdvancePaymentDynamicFields === 'function') {
+                            renderAdminAdvancePaymentDynamicFields('');
+                        }
+                    }
+                }
+                if (adv > 0) {
+                    $('#advance-payment-help-no-advance').addClass('d-none');
+                    $('#advance-payment-help-with-advance').removeClass('d-none');
+                } else {
+                    $('#advance-payment-help-no-advance').removeClass('d-none');
+                    $('#advance-payment-help-with-advance').addClass('d-none');
+                }
+            }
+
             function updateDueBalance() {
                 var advance = parseFloat($('#advance-paid-amount').val()) || 0;
                 if (currentBillingTotal != null && currentBillingTotal >= 0) {
@@ -1623,6 +1776,7 @@
                     $('#billing-paid-display').text('—');
                     $('#billing-due-display').text('—');
                 }
+                updateAdvancePaymentMethodUi();
             }
 
             // Helper function to reinitialize Select2
@@ -2342,6 +2496,41 @@
             if (oldValues.advance_paid_amount !== null && oldValues.advance_paid_amount !== undefined) {
                 $('#advance-paid-amount').val(oldValues.advance_paid_amount);
             }
+            if (oldValues.advance_payment_method) {
+                var wantApm = String(oldValues.advance_payment_method);
+                if (wantApm === 'cash_after_service' && $('#pk-apm-t1-cas-booking-create').length) {
+                    $('#pk-apm-t1-cas-booking-create').prop('checked', true).trigger('change', { hydrateFromInitial: true });
+                } else if (wantApm.indexOf('offline:') === 0 && $('#pk-apm-t1-offline-booking-create').length) {
+                    $('#pk-apm-t1-offline-booking-create').prop('checked', true);
+                    advancePmApplyTier2Visibility();
+                    $('#advance-payment-section .pk-apm-tier2-offline').each(function () {
+                        if ($(this).val() === wantApm) {
+                            $(this).prop('checked', true);
+                        }
+                    });
+                    advancePmSyncFinalValue({ hydrateFromInitial: true });
+                } else if ($('#pk-apm-t1-digital-booking-create').length) {
+                    $('#pk-apm-t1-digital-booking-create').prop('checked', true);
+                    advancePmApplyTier2Visibility();
+                    $('#advance-payment-section .pk-apm-tier2-digital').each(function () {
+                        if ($(this).val() === wantApm) {
+                            $(this).prop('checked', true);
+                        }
+                    });
+                    advancePmSyncFinalValue({ hydrateFromInitial: true });
+                }
+            }
+            if (typeof updateAdvancePaymentMethodUi === 'function') {
+                updateAdvancePaymentMethodUi();
+            }
+            setTimeout(function () {
+                var advN = parseFloat($('#advance-paid-amount').val()) || 0;
+                var hv = ($('#advance-payment-section .pk-apm-hidden').val() || '').trim();
+                advancePmApplyTier2Visibility();
+                if (advN > 0 && hv && $('#advance-payment-section .pk-apm-dynamic-fields').children().length === 0) {
+                    renderAdminAdvancePaymentDynamicFields(hv, { useInitial: true });
+                }
+            }, 0);
 
             setTimeout(function () {
                 if (bookingCreateCart.lines.length) {
@@ -2788,9 +2977,29 @@
                     }
                 }
                 if (advanceAmountValid && advParsed > 0) {
-                    var txnId = ($('#advance-transaction-id').val() || '').trim();
-                    if (!txnId) {
-                        pushError('{{ translate('Advance_Payment_Transaction_ID') }}', '{{ translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero') }}', $('#advance-transaction-id'));
+                    if (typeof advancePmUpdateHiddenOnly === 'function') {
+                        advancePmUpdateHiddenOnly();
+                    }
+                    var finalApm = ($('#advance-payment-section .pk-apm-hidden').val() || '').trim();
+                    var $apmFocus = $('#advance-payment-section .pk-apm-tier1:checked').length ? $('#advance-payment-section .pk-apm-tier1:checked') : $('#advance-payment-section .pk-apm-tier1').first();
+                    if (!finalApm) {
+                        pushError('{{ translate('Advance_payment_method') }}', '{{ translate('Advance_payment_method_is_required_when_advance_amount_is_set') }}', $apmFocus.length ? $apmFocus : $('#advance-payment-method-wrap-booking-create'));
+                    } else {
+                        var advCfg = adminAdvanceMethodConfig[finalApm];
+                        if (advCfg && advCfg.fields && advCfg.fields.length) {
+                            advCfg.fields.forEach(function (f) {
+                                if (!f.required) {
+                                    return;
+                                }
+                                var $inp = $('#advance-payment-section .pk-apm-dynamic-fields input').filter(function () {
+                                    return $(this).attr('name') === f.input_name;
+                                }).first();
+                                var v = ($inp.val() || '').trim();
+                                if (!v) {
+                                    pushError(f.label || '{{ translate('This field is required.') }}', '{{ translate('This field is required.') }}', $inp.length ? $inp : $('#advance-payment-section .pk-apm-hidden'));
+                                }
+                            });
+                        }
                     }
                 }
 
@@ -2833,6 +3042,7 @@
                         $s.prop('disabled', false);
                     }
                 });
+                $(this).find('.pk-apm-hidden, .pk-apm-tier1, .pk-apm-tier2-digital, .pk-apm-tier2-offline').prop('disabled', false);
                 $(this).find('button[type="submit"], input[type="submit"]').prop('disabled', true);
                 this.submit();
             });

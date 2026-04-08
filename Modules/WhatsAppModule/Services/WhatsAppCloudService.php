@@ -66,6 +66,31 @@ class WhatsAppCloudService
     }
 
     /**
+     * Meta downloads template header media from the link you pass to Graph API. URLs that point at
+     * localhost or private/reserved IPs always fail (e.g. error 131053 "127.0.0.1 is private").
+     */
+    public static function isTemplateHeaderMediaLinkLikelyFetchableByMeta(string $url): bool
+    {
+        if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+        $host = parse_url($url, PHP_URL_HOST);
+        if ($host === null || $host === '') {
+            return false;
+        }
+        $hostLower = strtolower($host);
+        if (in_array($hostLower, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
+            return false;
+        }
+        $ip = filter_var($host, FILTER_VALIDATE_IP);
+        if ($ip !== false) {
+            return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+        }
+
+        return true;
+    }
+
+    /**
      * Send outbound message via WhatsApp Cloud API.
      * If $mediaPath is provided (relative to public disk), uploads media and sends with optional caption.
      *
@@ -296,6 +321,33 @@ class WhatsAppCloudService
      *
      * @param  array<string, mixed>|null  $json
      */
+    /**
+     * Human-readable message from a failed Graph call (template send, etc.).
+     *
+     * @param  array<string, mixed>|null  $graphContext
+     */
+    public static function graphErrorMessageFromContext(?array $graphContext): ?string
+    {
+        if ($graphContext === null) {
+            return null;
+        }
+        $gr = $graphContext['graph_response'] ?? null;
+        if (!is_array($gr)) {
+            return null;
+        }
+        $e = $gr['error'] ?? null;
+        if (!is_array($e)) {
+            return null;
+        }
+        $msg = (string) ($e['error_user_msg'] ?? $e['message'] ?? '');
+        $code = isset($e['code']) ? (string) $e['code'] : '';
+        if ($msg !== '') {
+            return $code !== '' ? '(' . $code . ') ' . $msg : $msg;
+        }
+
+        return null;
+    }
+
     public function graphErrorIndicatesRecipientNotOnWhatsApp(?array $json): bool
     {
         if (!is_array($json) || !isset($json['error']) || !is_array($json['error'])) {
@@ -752,6 +804,161 @@ class WhatsAppCloudService
     }
 
     /**
+     * Single CTA URL interactive message (session). display_text and body are truncated per Meta limits.
+     */
+    public function sendInteractiveCtaUrl(
+        string $phone,
+        string $bodyText,
+        string $displayText,
+        string $url,
+        ?string &$error = null,
+        ?array &$graphContext = null
+    ): ?string {
+        $graphContext = null;
+        $error = null;
+        $token = (string) config('services.whatsapp_cloud.token');
+        $phoneId = (string) config('services.whatsapp_cloud.phone_id');
+        if (!$token || !$phoneId) {
+            $error = 'missing_config';
+
+            return null;
+        }
+
+        $normalized = $this->normalizeRecipientPhone($phone);
+        if ($normalized === null) {
+            $error = 'invalid_phone';
+
+            return null;
+        }
+
+        $url = trim($url);
+        if ($url === '' || !str_starts_with($url, 'https://')) {
+            $error = 'invalid_cta_url';
+
+            return null;
+        }
+
+        $bodyText = trim($bodyText) === '' ? ' ' : mb_substr($bodyText, 0, 1024);
+        $displayText = mb_substr(trim($displayText), 0, 20);
+
+        $version = (string) config('services.whatsapp_cloud.version', 'v19.0');
+        $messagesUrl = "https://graph.facebook.com/{$version}/{$phoneId}/messages";
+
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'to' => $normalized,
+            'type' => 'interactive',
+            'interactive' => [
+                'type' => 'cta_url',
+                'body' => ['text' => $bodyText],
+                'action' => [
+                    'name' => 'cta_url',
+                    'parameters' => [
+                        'display_text' => $displayText,
+                        'url' => mb_substr($url, 0, 2000),
+                    ],
+                ],
+            ],
+        ];
+
+        try {
+            $response = Http::withToken($token)->acceptJson()->post($messagesUrl, $payload);
+            $respPayload = $response->json();
+            if ($response->failed()) {
+                $error = 'status:'.$response->status();
+                $graphContext = ['graph_response' => $respPayload];
+
+                return null;
+            }
+
+            return $respPayload['messages'][0]['id'] ?? null;
+        } catch (\Throwable $e) {
+            $error = $e->getMessage();
+
+            return null;
+        }
+    }
+
+    /**
+     * Single CTA phone interactive message (session). Same 24h window as {@see sendInteractiveCtaUrl}.
+     * display_text max 20 chars per Meta; body truncated to 1024.
+     *
+     * @param  string  $phoneE164  E.164 with leading + (e.g. +918899881555)
+     */
+    public function sendInteractiveCtaPhone(
+        string $phone,
+        string $bodyText,
+        string $displayText,
+        string $phoneE164,
+        ?string &$error = null,
+        ?array &$graphContext = null
+    ): ?string {
+        $graphContext = null;
+        $error = null;
+        $token = (string) config('services.whatsapp_cloud.token');
+        $phoneId = (string) config('services.whatsapp_cloud.phone_id');
+        if (!$token || !$phoneId) {
+            $error = 'missing_config';
+
+            return null;
+        }
+
+        $normalized = $this->normalizeRecipientPhone($phone);
+        if ($normalized === null) {
+            $error = 'invalid_phone';
+
+            return null;
+        }
+
+        $phoneE164 = trim($phoneE164);
+        if ($phoneE164 === '' || !preg_match('/^\+[1-9]\d{6,14}$/', $phoneE164)) {
+            $error = 'invalid_cta_phone';
+
+            return null;
+        }
+
+        $bodyText = trim($bodyText) === '' ? ' ' : mb_substr($bodyText, 0, 1024);
+        $displayText = mb_substr(trim($displayText), 0, 20);
+
+        $version = (string) config('services.whatsapp_cloud.version', 'v19.0');
+        $messagesUrl = "https://graph.facebook.com/{$version}/{$phoneId}/messages";
+
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'to' => $normalized,
+            'type' => 'interactive',
+            'interactive' => [
+                'type' => 'cta_phone',
+                'body' => ['text' => $bodyText],
+                'action' => [
+                    'name' => 'cta_phone',
+                    'parameters' => [
+                        'display_text' => $displayText,
+                        'phone_number' => $phoneE164,
+                    ],
+                ],
+            ],
+        ];
+
+        try {
+            $response = Http::withToken($token)->acceptJson()->post($messagesUrl, $payload);
+            $respPayload = $response->json();
+            if ($response->failed()) {
+                $error = 'status:'.$response->status();
+                $graphContext = ['graph_response' => $respPayload];
+
+                return null;
+            }
+
+            return $respPayload['messages'][0]['id'] ?? null;
+        } catch (\Throwable $e) {
+            $error = $e->getMessage();
+
+            return null;
+        }
+    }
+
+    /**
      * Fetch all message templates for the configured WhatsApp Business Account (paginated on Graph).
      *
      * @return array{0: array<int, array<string, mixed>>, 1: ?string} [templates, error]
@@ -776,7 +983,7 @@ class WhatsAppCloudService
                 $response = Http::withToken($token)
                     ->acceptJson()
                     ->get($url, [
-                        'fields' => 'name,status,language,category,components,id',
+                        'fields' => 'name,status,language,category,components,id,parameter_format',
                         'limit' => 100,
                     ]);
 
@@ -803,9 +1010,11 @@ class WhatsAppCloudService
     }
 
     /**
-     * Send a template message. $bodyParameters are ordered values for {{1}}, {{2}}, … in the BODY component.
+     * Send a template message.
      *
-     * @param  array<int, string>  $bodyParameters
+     * @param  array<int, string>  $bodyParameters  Ordered values: positional {{1}}…{{n}}, or parallel to named_param_names when $bodyPlan is named.
+     * @param  array<string, mixed>|null  $bodyPlan  From {@see resolveBodyParameterPlanFromTemplate()}; null means all-positional (legacy).
+     * @param  array<string, mixed>|null  $headerTextPlan  From {@see resolveHeaderTextParameterPlanFromTemplate()}; null means all-positional.
      */
     public function sendTemplateMessage(
         string $phone,
@@ -813,7 +1022,12 @@ class WhatsAppCloudService
         string $languageCode,
         array $bodyParameters,
         ?string &$error = null,
-        ?array &$graphContext = null
+        ?array &$graphContext = null,
+        array $headerTextParameters = [],
+        ?string $headerMediaUrl = null,
+        ?string $headerMediaFormat = null,
+        ?array $bodyPlan = null,
+        ?array $headerTextPlan = null,
     ): ?string {
         $graphContext = null;
         $token = (string) config('services.whatsapp_cloud.token');
@@ -841,16 +1055,70 @@ class WhatsAppCloudService
             'language' => ['code' => $languageCode],
         ];
 
-        if ($bodyParameters !== []) {
-            $templatePayload['components'] = [
-                [
-                    'type' => 'body',
-                    'parameters' => array_map(
-                        static fn (string $text) => ['type' => 'text', 'text' => $text],
-                        $bodyParameters
-                    ),
+        $components = [];
+
+        if ($headerTextParameters !== []) {
+            $headerParamsForApi = [];
+            if ($headerTextPlan !== null && ($headerTextPlan['format'] ?? '') === 'named' && !empty($headerTextPlan['named_param_names'])) {
+                foreach ($headerTextPlan['named_param_names'] as $i => $paramName) {
+                    $headerParamsForApi[] = [
+                        'type' => 'text',
+                        'parameter_name' => $paramName,
+                        'text' => $headerTextParameters[$i] ?? '',
+                    ];
+                }
+            } else {
+                foreach ($headerTextParameters as $text) {
+                    $headerParamsForApi[] = ['type' => 'text', 'text' => $text];
+                }
+            }
+            $components[] = [
+                'type' => 'header',
+                'parameters' => $headerParamsForApi,
+            ];
+        } elseif ($headerMediaUrl !== null && $headerMediaUrl !== '' && $headerMediaFormat !== null && $headerMediaFormat !== '') {
+            $fmt = strtoupper($headerMediaFormat);
+            $paramType = match ($fmt) {
+                'VIDEO' => 'video',
+                'DOCUMENT' => 'document',
+                default => 'image',
+            };
+            $components[] = [
+                'type' => 'header',
+                'parameters' => [
+                    [
+                        'type' => $paramType,
+                        $paramType => ['link' => $headerMediaUrl],
+                    ],
                 ],
             ];
+        }
+
+        $bodyParamsForApi = [];
+        if ($bodyParameters !== []) {
+            if ($bodyPlan !== null && ($bodyPlan['format'] ?? '') === 'named' && !empty($bodyPlan['named_param_names'])) {
+                foreach ($bodyPlan['named_param_names'] as $i => $paramName) {
+                    $bodyParamsForApi[] = [
+                        'type' => 'text',
+                        'parameter_name' => $paramName,
+                        'text' => $bodyParameters[$i] ?? '',
+                    ];
+                }
+            } else {
+                foreach ($bodyParameters as $text) {
+                    $bodyParamsForApi[] = ['type' => 'text', 'text' => $text];
+                }
+            }
+        }
+        if ($bodyParamsForApi !== []) {
+            $components[] = [
+                'type' => 'body',
+                'parameters' => $bodyParamsForApi,
+            ];
+        }
+
+        if ($components !== []) {
+            $templatePayload['components'] = $components;
         }
 
         $payload = [
@@ -930,6 +1198,306 @@ class WhatsAppCloudService
         }
 
         return $max;
+    }
+
+    /**
+     * Numbered placeholders {{1}} in HEADER when format is TEXT.
+     */
+    public static function countHeaderTextPlaceholdersFromComponents(?array $components): int
+    {
+        if (!$components) {
+            return 0;
+        }
+        foreach ($components as $component) {
+            if (!is_array($component)) {
+                continue;
+            }
+            if (strtoupper((string) ($component['type'] ?? '')) !== 'HEADER') {
+                continue;
+            }
+            if (strtoupper((string) ($component['format'] ?? '')) !== 'TEXT') {
+                continue;
+            }
+            $text = (string) ($component['text'] ?? '');
+            $max = 0;
+            if (preg_match_all('/\{\{(\d+)\}\}/', $text, $m)) {
+                foreach ($m[1] as $n) {
+                    $max = max($max, (int) $n);
+                }
+            }
+
+            return $max;
+        }
+
+        return 0;
+    }
+
+    /**
+     * IMAGE / VIDEO / DOCUMENT header (often requires a media link on each send).
+     */
+    public static function headerMediaFormatFromComponents(?array $components): ?string
+    {
+        if (!$components) {
+            return null;
+        }
+        foreach ($components as $component) {
+            if (!is_array($component)) {
+                continue;
+            }
+            if (strtoupper((string) ($component['type'] ?? '')) !== 'HEADER') {
+                continue;
+            }
+            $fmt = strtoupper((string) ($component['format'] ?? ''));
+            if (in_array($fmt, ['IMAGE', 'VIDEO', 'DOCUMENT'], true)) {
+                return $fmt;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Raw BODY component text for admin UI hints.
+     */
+    public static function bodyTextFromComponents(?array $components): string
+    {
+        if (!$components) {
+            return '';
+        }
+        foreach ($components as $component) {
+            if (!is_array($component)) {
+                continue;
+            }
+            if (strtoupper((string) ($component['type'] ?? '')) === 'BODY') {
+                return (string) ($component['text'] ?? '');
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Meta templates use either positional {{1}}… or named {{first_name}}…. Named templates require parameter_name on send.
+     *
+     * @return array{format: string, named_param_names: array<int, string>, positional_count: int}
+     */
+    public static function resolveBodyParameterPlanFromTemplate(array $templateRow): array
+    {
+        $components = is_array($templateRow['components'] ?? null) ? $templateRow['components'] : [];
+        $globalFormat = strtoupper((string) ($templateRow['parameter_format'] ?? ''));
+
+        $bodyComp = null;
+        foreach ($components as $c) {
+            if (strtoupper((string) ($c['type'] ?? '')) === 'BODY') {
+                $bodyComp = $c;
+                break;
+            }
+        }
+        if ($bodyComp === null) {
+            return ['format' => 'positional', 'named_param_names' => [], 'positional_count' => 0];
+        }
+
+        $example = is_array($bodyComp['example'] ?? null) ? $bodyComp['example'] : [];
+        if (!empty($example['body_text_named_params']) && is_array($example['body_text_named_params'])) {
+            $names = [];
+            foreach ($example['body_text_named_params'] as $row) {
+                if (is_array($row) && isset($row['param_name'])) {
+                    $names[] = (string) $row['param_name'];
+                }
+            }
+            if ($names !== []) {
+                return ['format' => 'named', 'named_param_names' => $names, 'positional_count' => count($names)];
+            }
+        }
+
+        if ($globalFormat === 'NAMED') {
+            $text = (string) ($bodyComp['text'] ?? '');
+            if (preg_match_all('/\{\{([a-z][a-z0-9_]*)\}\}/', $text, $m)) {
+                $names = array_values(array_unique($m[1]));
+
+                return ['format' => 'named', 'named_param_names' => $names, 'positional_count' => count($names)];
+            }
+        }
+
+        $n = self::countBodyPlaceholdersFromComponents($components);
+        if ($n === 0 && isset($example['body_text'][0]) && is_array($example['body_text'][0])) {
+            $n = count($example['body_text'][0]);
+        }
+
+        return ['format' => 'positional', 'named_param_names' => [], 'positional_count' => $n];
+    }
+
+    /**
+     * @return array{format: string, named_param_names: array<int, string>, positional_count: int}
+     */
+    public static function resolveHeaderTextParameterPlanFromTemplate(array $templateRow): array
+    {
+        $components = is_array($templateRow['components'] ?? null) ? $templateRow['components'] : [];
+
+        foreach ($components as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            if (strtoupper((string) ($c['type'] ?? '')) !== 'HEADER') {
+                continue;
+            }
+            if (strtoupper((string) ($c['format'] ?? '')) !== 'TEXT') {
+                continue;
+            }
+
+            $example = is_array($c['example'] ?? null) ? $c['example'] : [];
+            if (!empty($example['header_text_named_params']) && is_array($example['header_text_named_params'])) {
+                $names = [];
+                foreach ($example['header_text_named_params'] as $row) {
+                    if (is_array($row) && isset($row['param_name'])) {
+                        $names[] = (string) $row['param_name'];
+                    }
+                }
+                if ($names !== []) {
+                    return ['format' => 'named', 'named_param_names' => $names, 'positional_count' => count($names)];
+                }
+            }
+
+            $text = (string) ($c['text'] ?? '');
+            if (preg_match_all('/\{\{([a-z][a-z0-9_]*)\}\}/', $text, $m)) {
+                $names = array_values(array_unique($m[1]));
+
+                return ['format' => 'named', 'named_param_names' => $names, 'positional_count' => count($names)];
+            }
+
+            $max = 0;
+            if (preg_match_all('/\{\{(\d+)\}\}/', $text, $m2)) {
+                foreach ($m2[1] as $n) {
+                    $max = max($max, (int) $n);
+                }
+            }
+
+            return ['format' => 'positional', 'named_param_names' => [], 'positional_count' => $max];
+        }
+
+        return ['format' => 'positional', 'named_param_names' => [], 'positional_count' => 0];
+    }
+
+    /**
+     * Reconstruct the message text as the customer sees it: substitute sent parameters into
+     * template HEADER (text), BODY, then append FOOTER and BUTTON labels from the approved template row.
+     *
+     * @param  array<string, mixed>  $bodyPlan  From {@see resolveBodyParameterPlanFromTemplate()}
+     * @param  array<string, mixed>  $headerTextPlan  From {@see resolveHeaderTextParameterPlanFromTemplate()}
+     */
+    public static function renderTemplateMessageAsSeenByCustomer(
+        array $templateRow,
+        array $headerTextStrings,
+        array $bodyStrings,
+        ?string $headerMediaUrl,
+        ?string $headerMediaFormat,
+        array $bodyPlan,
+        array $headerTextPlan
+    ): string {
+        $components = is_array($templateRow['components'] ?? null) ? $templateRow['components'] : [];
+        $lines = [];
+
+        foreach ($components as $c) {
+            if (!is_array($c) || strtoupper((string) ($c['type'] ?? '')) !== 'HEADER') {
+                continue;
+            }
+            $fmt = strtoupper((string) ($c['format'] ?? 'TEXT'));
+            if ($fmt === 'TEXT') {
+                $raw = (string) ($c['text'] ?? '');
+                $filled = self::substituteTemplateComponentPlaceholders($raw, $headerTextPlan, $headerTextStrings);
+                if (trim($filled) !== '') {
+                    $lines[] = $filled;
+                }
+            } elseif (in_array($fmt, ['IMAGE', 'VIDEO', 'DOCUMENT'], true)) {
+                $label = $headerMediaFormat !== null && $headerMediaFormat !== '' ? $headerMediaFormat : $fmt;
+                if ($headerMediaUrl !== null && trim($headerMediaUrl) !== '') {
+                    $lines[] = '['.$label.'] '.trim($headerMediaUrl);
+                } else {
+                    $lines[] = '['.$label.']';
+                }
+            }
+            break;
+        }
+
+        foreach ($components as $c) {
+            if (!is_array($c) || strtoupper((string) ($c['type'] ?? '')) !== 'BODY') {
+                continue;
+            }
+            $raw = (string) ($c['text'] ?? '');
+            $filled = self::substituteTemplateComponentPlaceholders($raw, $bodyPlan, $bodyStrings);
+            if (trim($filled) !== '') {
+                $lines[] = $filled;
+            }
+            break;
+        }
+
+        foreach ($components as $c) {
+            if (!is_array($c) || strtoupper((string) ($c['type'] ?? '')) !== 'FOOTER') {
+                continue;
+            }
+            $ft = trim((string) ($c['text'] ?? ''));
+            if ($ft !== '') {
+                $lines[] = $ft;
+            }
+            break;
+        }
+
+        foreach ($components as $c) {
+            if (!is_array($c) || strtoupper((string) ($c['type'] ?? '')) !== 'BUTTONS') {
+                continue;
+            }
+            $buttons = $c['buttons'] ?? [];
+            if (!is_array($buttons)) {
+                break;
+            }
+            foreach ($buttons as $b) {
+                if (!is_array($b)) {
+                    continue;
+                }
+                $bt = strtoupper((string) ($b['type'] ?? ''));
+                $tx = trim((string) ($b['text'] ?? ''));
+                if ($tx === '') {
+                    continue;
+                }
+                if ($bt === 'URL') {
+                    $url = trim((string) ($b['url'] ?? ''));
+                    $lines[] = $url !== '' ? $tx."\n".$url : $tx;
+                } elseif ($bt === 'PHONE_NUMBER') {
+                    $pn = trim((string) ($b['phone_number'] ?? ''));
+                    $lines[] = $pn !== '' ? $tx."\n".$pn : $tx;
+                } else {
+                    $lines[] = $tx;
+                }
+            }
+            break;
+        }
+
+        return implode("\n\n", array_filter($lines, static fn ($x) => trim((string) $x) !== ''));
+    }
+
+    /**
+     * @param  array{format?: string, named_param_names?: array<int, string>}  $plan
+     * @param  array<int, string>  $values
+     */
+    private static function substituteTemplateComponentPlaceholders(string $raw, array $plan, array $values): string
+    {
+        $format = (string) ($plan['format'] ?? 'positional');
+        $s = $raw;
+        if ($format === 'named' && !empty($plan['named_param_names']) && is_array($plan['named_param_names'])) {
+            foreach ($plan['named_param_names'] as $i => $name) {
+                $val = (string) ($values[$i] ?? '');
+                $s = str_replace('{{'.$name.'}}', $val, $s);
+            }
+        } else {
+            foreach (array_values($values) as $idx => $val) {
+                $s = str_replace('{{'.($idx + 1).'}}', (string) $val, $s);
+            }
+        }
+
+        $s = preg_replace('/\{\{\d+\}\}/u', '', $s) ?? $s;
+        $s = preg_replace('/\{\{[a-z][a-z0-9_]*\}\}/u', '', $s) ?? $s;
+
+        return $s;
     }
 
     public static function previewTextFromComponents(?array $components): string

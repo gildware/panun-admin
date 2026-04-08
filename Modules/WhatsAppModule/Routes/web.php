@@ -7,6 +7,7 @@ use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMarketingBulkSendController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMarketingCampaignController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMarketingReportController;
+use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppAiPlaygroundController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppAiSettingsController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMarketingTemplateController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppChatConfigController;
@@ -24,6 +25,8 @@ Route::group([
         Route::post('conversations/chat/reply', [WhatsAppController::class, 'sendReply'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.reply');
         Route::post('conversations/chat/reaction', [WhatsAppController::class, 'sendMessageReaction'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.reaction');
         Route::get('conversations/chat/messages', [WhatsAppController::class, 'chatMessages'])->middleware(['can:whatsapp_chat_view'])->name('conversations.chat.messages');
+        Route::get('conversations/chat/waba-templates', [WhatsAppController::class, 'chatWabaTemplates'])->middleware(['can:whatsapp_chat_view'])->name('conversations.chat.waba-templates');
+        Route::post('conversations/chat/send-template', [WhatsAppController::class, 'sendChatTemplate'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.chat.send-template');
         Route::get('conversations/search', [WhatsAppController::class, 'conversationsSearch'])->middleware(['can:whatsapp_chat_view'])->name('conversations.search');
         Route::get('conversations/active-chats-forward', [WhatsAppController::class, 'activeChatsForForward'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.active-chats-forward');
         Route::post('conversations/handoff', [WhatsAppController::class, 'handoff'])->middleware(['can:whatsapp_chat_assign'])->name('conversations.handoff');
@@ -47,11 +50,12 @@ Route::group([
 
         Route::get('ai-support', [WhatsAppAiSettingsController::class, 'edit'])->middleware(['can:whatsapp_chat_view'])->name('ai-settings.edit');
         Route::post('ai-support', [WhatsAppAiSettingsController::class, 'update'])->middleware(['can:whatsapp_chat_assign'])->name('ai-settings.update');
+        Route::get('ai-support/playground/thread', [WhatsAppAiPlaygroundController::class, 'thread'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.thread');
+        Route::post('ai-support/playground', [WhatsAppAiPlaygroundController::class, 'run'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.run');
+        Route::post('ai-support/playground/reset', [WhatsAppAiPlaygroundController::class, 'reset'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.reset');
 
         Route::group(['prefix' => 'marketing', 'as' => 'marketing.'], function () {
             Route::get('templates', [WhatsAppMarketingTemplateController::class, 'index'])->middleware(['can:whatsapp_marketing_template_view'])->name('templates.index');
-            Route::get('templates/create', [WhatsAppMarketingTemplateController::class, 'create'])->middleware(['can:whatsapp_marketing_template_update'])->name('templates.create');
-            Route::post('templates', [WhatsAppMarketingTemplateController::class, 'store'])->middleware(['can:whatsapp_marketing_template_update'])->name('templates.store');
             Route::get('templates/{template}/preview', [WhatsAppMarketingTemplateController::class, 'preview'])->middleware(['can:whatsapp_marketing_template_view'])->name('templates.preview');
             Route::post('templates/sync', [WhatsAppMarketingTemplateController::class, 'sync'])->middleware(['can:whatsapp_marketing_template_update'])->name('templates.sync');
 

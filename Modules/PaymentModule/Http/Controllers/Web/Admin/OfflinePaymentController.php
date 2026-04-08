@@ -30,9 +30,8 @@ class OfflinePaymentController extends Controller
      */
     public function methodList(Request $request): Renderable
     {
-        Validator::make($request->all(), [
-            'search' => 'max:255',
-            'body' => 'required',
+        $request->validate([
+            'search' => 'nullable|string|max:255',
         ]);
 
         $withdrawalMethods = $this->offlinePayment
@@ -71,12 +70,22 @@ class OfflinePaymentController extends Controller
     public function methodStore(Request $request): RedirectResponse
     {
         $request->validate([
-            'method_name' => 'required',
-            'data' => 'required|array',
-            'title' => 'required|array',
-            'field_name' => 'required|array',
-            'placeholder' => 'required|array',
-            'is_required' => '',
+            'method_name' => 'required|string|max:255',
+            'data' => 'required|array|min:1',
+            'title' => 'required|array|min:1',
+            'field_name' => 'required|array|min:1',
+            'placeholder' => 'required|array|min:1',
+            'data.*' => 'required|string|max:2000',
+            'title.*' => 'required|string|max:255',
+            'field_name.*' => 'required|string|max:255',
+            'placeholder.*' => 'required|string|max:500',
+            'is_required' => 'nullable|array',
+            'is_required.*' => 'nullable|in:1',
+        ], [
+            'data.required' => translate('Add_at_least_one_payment_information_row'),
+            'title.required' => translate('Add_at_least_one_payment_information_row'),
+            'field_name.required' => translate('Add_at_least_one_customer_field_row'),
+            'placeholder.required' => translate('Add_at_least_one_customer_field_row'),
         ]);
 
         //payment note for all
@@ -90,7 +99,7 @@ class OfflinePaymentController extends Controller
             $customer_information[] = [
                 'field_name' => strtolower(str_replace(' ', "_", $request->field_name[$key])),
                 'placeholder' => $request->placeholder[$key],
-                'is_required' => isset($request['is_required']) && isset($request['is_required'][$key]) ? 1 : 0,
+                'is_required' => ! empty($request->input('is_required')[$key]) ? 1 : 0,
             ];
         }
 
@@ -111,7 +120,11 @@ class OfflinePaymentController extends Controller
         );
 
         Toastr::success(translate(DEFAULT_STORE_200['message']));
-        return back();
+
+        return redirect()->route('admin.configuration.third-party', [
+            'webPage' => 'payment_config',
+            'type' => 'offline_payment',
+        ]);
     }
 
     /**
@@ -135,12 +148,22 @@ class OfflinePaymentController extends Controller
     public function methodUpdate(Request $request): RedirectResponse
     {
         $request->validate([
-            'method_name' => 'required',
-            'data' => 'required|array',
-            'title' => 'required|array',
-            'field_name' => 'required|array',
-            'placeholder' => 'required|array',
-            'is_required' => '',
+            'method_name' => 'required|string|max:255',
+            'data' => 'required|array|min:1',
+            'title' => 'required|array|min:1',
+            'field_name' => 'required|array|min:1',
+            'placeholder' => 'required|array|min:1',
+            'data.*' => 'required|string|max:2000',
+            'title.*' => 'required|string|max:255',
+            'field_name.*' => 'required|string|max:255',
+            'placeholder.*' => 'required|string|max:500',
+            'is_required' => 'nullable|array',
+            'is_required.*' => 'nullable|in:1',
+        ], [
+            'data.required' => translate('Add_at_least_one_payment_information_row'),
+            'title.required' => translate('Add_at_least_one_payment_information_row'),
+            'field_name.required' => translate('Add_at_least_one_customer_field_row'),
+            'placeholder.required' => translate('Add_at_least_one_customer_field_row'),
         ]);
 
         $withdrawal_method = $this->offlinePayment->find($request['id']);
@@ -161,7 +184,7 @@ class OfflinePaymentController extends Controller
             $customer_information[] = [
                 'field_name' => strtolower(str_replace(' ', "_", $request->field_name[$key])),
                 'placeholder' => $request->placeholder[$key],
-                'is_required' => isset($request['is_required']) && isset($request['is_required'][$key]) ? $request['is_required'][$key] : 0,
+                'is_required' => ! empty($request->input('is_required')[$key]) ? 1 : 0,
             ];
         }
 
@@ -182,7 +205,10 @@ class OfflinePaymentController extends Controller
         );
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
-        return redirect()->route('admin.configuration.third-party', ['payment_config', 'type' => 'offline_payment']);
+        return redirect()->route('admin.configuration.third-party', [
+            'webPage' => 'payment_config',
+            'type' => 'offline_payment',
+        ]);
     }
 
     /**

@@ -329,11 +329,12 @@ h1, h2,h3,h4, h5, h6 {
                             <td class="">{{translate('subtotal')}}</td>
                             <td>{{with_currency_symbol($sub_total)}}</td>
                         </tr>
-                        @if((float)($booking->total_discount_amount ?? 0) > 0)
+                        @php($fbsInvSvcDiscP = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking), 2))
+                        @if($fbsInvSvcDiscP > 0)
                         <tr>
                             <td colspan="3"></td>
                             <td>{{translate('Discount')}}</td>
-                            <td>- {{with_currency_symbol($booking->total_discount_amount)}}</td>
+                            <td>- {{with_currency_symbol($fbsInvSvcDiscP)}}</td>
                         </tr>
                         @endif
                         @if((float)($booking->total_campaign_discount_amount ?? 0) > 0)

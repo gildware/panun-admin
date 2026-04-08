@@ -24,6 +24,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -1430,7 +1431,9 @@ class ProviderController extends Controller
                 ->orderByDesc('created_at');
             $providerLedger = $ledgerQuery->paginate(20)->withQueryString();
 
-            return view('providermanagement::admin.provider.detail.payment', compact('provider', 'webPage', 'totalRevenue', 'totalCompanyCommission', 'providerNetEarning', 'bookingEarningReportPaginated', 'providerLedger'));
+            $advancePaymentMethodGroups = AdminCompanyInflowPaymentService::advanceMethodGroups();
+
+            return view('providermanagement::admin.provider.detail.payment', compact('provider', 'webPage', 'totalRevenue', 'totalCompanyCommission', 'providerNetEarning', 'bookingEarningReportPaginated', 'providerLedger', 'advancePaymentMethodGroups'));
         }
         return back();
     }
@@ -1452,8 +1455,8 @@ class ProviderController extends Controller
         $maxAmount = (float) ($provider->owner->account->account_receivable ?? 0);
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:' . max(0.01, $maxAmount)],
-            'transaction_id' => ['nullable', 'string', 'max:255'],
-            'reference_note' => ['nullable', 'string', 'max:500'],
+            'transaction_id' => ['nullable', 'string', 'max:100'],
+            'reference_note' => ['nullable', 'string', 'max:2000'],
         ]);
 
         try {
@@ -1492,17 +1495,31 @@ class ProviderController extends Controller
             return back();
         }
 
+        $allowedInflow = AdminCompanyInflowPaymentService::allowedAdvanceMethodKeys();
+        if ($allowedInflow === []) {
+            Toastr::error(translate('No_active_payment_methods_for_advance'));
+            return back();
+        }
+
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:' . round($maxAmount, 2)],
-            'transaction_id' => ['nullable', 'string', 'max:255'],
-            'reference_note' => ['nullable', 'string', 'max:500'],
+            'advance_payment_method' => ['required', 'string', Rule::in($allowedInflow)],
+            'advance_transaction_id' => ['nullable', 'string', 'max:191'],
+            'advance_method_fields' => ['nullable', 'array'],
+            'advance_method_fields.*' => ['nullable', 'string', 'max:2000'],
+            'company_inflow_note' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $choice = (string) $validated['advance_payment_method'];
+        AdminCompanyInflowPaymentService::validateAdvanceFollowUp($request, $choice);
+        $payload = AdminCompanyInflowPaymentService::resolveLedgerPayloadForCompanyInflow($request, $choice);
 
         collectCashTransaction(
             $id,
             (float) $validated['amount'],
-            $validated['transaction_id'] ?? null,
-            $validated['reference_note'] ?? null
+            $payload['ledger_transaction_id'],
+            $payload['ledger_reference_note'],
+            $payload['ledger_payment_method'],
         );
 
         Toastr::success(translate('Amount_collected_successfully'));

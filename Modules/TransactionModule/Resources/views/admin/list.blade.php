@@ -171,7 +171,7 @@
                                                             @endif
                                                         @else
                                                             @if($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
-                                                                {{ translate('Refund') }}
+                                                                {{ translate('Refund') }}{{ $entry->reference_note ? ' — ' . \Illuminate\Support\Str::limit($entry->reference_note, 60) : '' }}
                                                             @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
                                                                 {{ translate('Provider_payout') }}{{ $entry->provider?->company_name ? ' — ' . $entry->provider->company_name : '' }}{{ $entry->reference_note ? ' — ' . $entry->reference_note : '' }}
                                                             @else
@@ -197,7 +197,7 @@
                                                         @endif
                                                     </td>
                                                     <td class="text-nowrap">
-                                                        {{ $entry->payment_method ? str_replace('_', ' ', $entry->payment_method) : '—' }}
+                                                        {{ $entry->formatPaymentMethodForDisplay() }}
                                                     </td>
                                                     <td>
                                                         @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)

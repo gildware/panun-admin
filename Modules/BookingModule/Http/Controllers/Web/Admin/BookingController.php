@@ -20,6 +20,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -40,6 +41,7 @@ use Throwable;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
+use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Services\BookingReadableIdAllocator;
 use Modules\BookingModule\Services\BookingReopenService;
@@ -59,6 +61,7 @@ use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\Source;
+use Modules\PaymentModule\Entities\OfflinePayment;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -686,6 +689,8 @@ class BookingController extends Controller
 
         $currentAdmin = auth()->user();
 
+        $advancePaymentMethodGroups = $this->getAdminAdvancePaymentMethodGroupsForCreate();
+
         return view($view, compact(
             'zones',
             'zoneTreeOptions',
@@ -697,8 +702,206 @@ class BookingController extends Controller
             'assignees',
             'currentAdmin',
             'sources',
-            'reopenNewBookingDraft'
+            'reopenNewBookingDraft',
+            'advancePaymentMethodGroups'
         ));
+    }
+
+    /**
+     * Grouped choices for how advance / manual receipts were collected (digital gateways + wallet + offline). Excludes cash after service.
+     *
+     * @return list<array{id: string, label: string, options: list<array{key: string, label: string, kind: string, fields: list<array<string, mixed>>}>}>
+     */
+    protected function getAdminAdvancePaymentMethodGroupsForCreate(): array
+    {
+        return AdminCompanyInflowPaymentService::advanceMethodGroups();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $groups
+     * @return list<string>
+     */
+    protected function collectAdvanceMethodKeysFromGroups(array $groups): array
+    {
+        return AdminCompanyInflowPaymentService::collectKeysFromGroups($groups);
+    }
+
+    /**
+     * Ensure offline/customer advance inputs round-trip on preview → confirm (and stay on $data after validate).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function mergeAdvanceMethodFieldsFromRequestIntoData(Request $request, array &$data): void
+    {
+        $raw = $request->input('advance_method_fields');
+        if (! is_array($raw)) {
+            $data['advance_method_fields'] = [];
+
+            return;
+        }
+        $out = [];
+        foreach ($raw as $k => $v) {
+            $key = is_string($k) ? $k : (is_int($k) ? (string) $k : '');
+            if ($key === '') {
+                continue;
+            }
+            $out[$key] = is_scalar($v) ? (string) $v : '';
+        }
+        $data['advance_method_fields'] = $out;
+    }
+
+    /**
+     * @return list<array{key: string, label: string}>
+     */
+    protected function flattenAdminAdvanceMethodOptionsForPreview(array $groups): array
+    {
+        $flat = [];
+        foreach ($groups as $group) {
+            foreach ($group['options'] ?? [] as $opt) {
+                $flat[] = ['key' => (string) $opt['key'], 'label' => (string) $opt['label']];
+            }
+        }
+
+        return $flat;
+    }
+
+    protected function classifyAdminAdvanceChoiceKind(string $choice): string
+    {
+        return AdminCompanyInflowPaymentService::classifyChoiceKind($choice);
+    }
+
+    /**
+     * Validates transaction reference / offline field requirements after base rules (when advance amount &gt; 0).
+     */
+    protected function assertAdminAdvancePaymentFollowUpValidation(Request $request): void
+    {
+        $advance = (float) ($request->input('advance_paid_amount') ?? 0);
+        if ($advance <= 0) {
+            return;
+        }
+
+        $choice = (string) ($request->input('advance_payment_method') ?? '');
+        if ($choice === '') {
+            return;
+        }
+
+        AdminCompanyInflowPaymentService::validateAdvanceFollowUp($request, $choice);
+    }
+
+    protected function truncateBookingTransactionIdField(string $s): string
+    {
+        return AdminCompanyInflowPaymentService::truncateBookingTransactionIdField($s);
+    }
+
+    protected function truncateLedgerTransactionIdField(string $s): string
+    {
+        return AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField($s);
+    }
+
+    /**
+     * Value for booking.transaction_id, booking_partial_payments.transaction_id, ledger.transaction_id — reference only (no method labels).
+     */
+    protected function extractAdminAdvanceTransactionIdForStorageOnly(string $advanceChoice, Request $request): string
+    {
+        return AdminCompanyInflowPaymentService::extractTransactionIdForStorageOnly($advanceChoice, $request);
+    }
+
+    /**
+     * Full offline context for ledger.reference_note (method name + all filled fields).
+     */
+    protected function buildAdminAdvanceOfflineReferenceNoteForLedger(string $advanceChoice, Request $request): ?string
+    {
+        return AdminCompanyInflowPaymentService::buildOfflineReferenceNoteForLedger($advanceChoice, $request);
+    }
+
+    protected function mapAdvancePartialPaidWithToLedgerPaymentMethod(string $partialPaidWith): string
+    {
+        return AdminCompanyInflowPaymentService::mapPartialPaidWithToLedgerPaymentMethod($partialPaidWith);
+    }
+
+    /**
+     * @return array{payment_method: string, is_paid: int, partial_paid_with: string}
+     */
+    protected function resolveAdminCreateBookingPaymentFromAdvanceChoice(string $choice, bool $isFullyPaidUpfront): array
+    {
+        $isOfflineChoice = $choice === 'offline' || str_starts_with($choice, 'offline:');
+        $partialPaidWith = match (true) {
+            $choice === 'cash_after_service' => 'cash_after_service',
+            $isOfflineChoice => 'offline',
+            default => $choice,
+        };
+
+        if (! $isFullyPaidUpfront) {
+            return [
+                'payment_method' => 'cash_after_service',
+                'is_paid' => 0,
+                'partial_paid_with' => $partialPaidWith,
+            ];
+        }
+
+        $matchKey = match (true) {
+            $isOfflineChoice => 'offline',
+            $choice === 'cash_after_service' => 'cash_after_service',
+            default => $choice,
+        };
+
+        $paymentMethod = match ($matchKey) {
+            'offline' => 'offline_payment',
+            'cash_after_service' => 'cash_after_service',
+            'wallet_payment' => 'wallet_payment',
+            default => $choice,
+        };
+
+        return [
+            'payment_method' => $paymentMethod,
+            'is_paid' => 1,
+            'partial_paid_with' => $partialPaidWith,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data  Validated preview/store payload
+     */
+    protected function buildAdminCreatePaymentPreviewCopy(array $data, float $totalBilling, float $dueBalance): array
+    {
+        $advance = (float) ($data['advance_paid_amount'] ?? 0);
+        if ($advance <= 0) {
+            return [
+                'method_line' => translate('Cash_After_Service'),
+                'footnote' => translate('Final_payment_will_be_collected_upon_service_completion'),
+            ];
+        }
+
+        $key = (string) ($data['advance_payment_method'] ?? '');
+        $label = null;
+        foreach ($this->flattenAdminAdvanceMethodOptionsForPreview($this->getAdminAdvancePaymentMethodGroupsForCreate()) as $opt) {
+            if ($opt['key'] === $key) {
+                $label = $opt['label'];
+                break;
+            }
+        }
+        $advanceLabel = $label ?? ($key !== '' ? $key : translate('Cash_After_Service'));
+
+        $kind = $this->classifyAdminAdvanceChoiceKind($key);
+        $advanceDisplay = match ($kind) {
+            'offline' => translate('offline_payment') . ': ' . $advanceLabel,
+            'digital' => translate('Digital_payment') . ': ' . $advanceLabel,
+            default => $advanceLabel,
+        };
+
+        if ($dueBalance <= 0.009) {
+            return [
+                'method_line' => $advanceDisplay,
+                'footnote' => translate('Booking_is_fully_paid_in_advance'),
+            ];
+        }
+
+        // Do not append "Cash after service" to the method line — that reads like a second payment method.
+        // The footnote already states that any remaining balance follows cash-after-service rules.
+        return [
+            'method_line' => $advanceDisplay,
+            'footnote' => translate('Partial_advance_recorded_remaining_due_follows_CAS'),
+        ];
     }
 
     /**
@@ -1003,6 +1206,13 @@ class BookingController extends Controller
         }
 
         try {
+            $advanceMethodKeys = $this->collectAdvanceMethodKeysFromGroups($this->getAdminAdvancePaymentMethodGroupsForCreate());
+            if ((float) ($request->input('advance_paid_amount') ?? 0) > 0 && $advanceMethodKeys === []) {
+                throw ValidationException::withMessages([
+                    'advance_paid_amount' => [translate('No_active_payment_methods_for_advance')],
+                ]);
+            }
+
             $data = $request->validate([
                 'customer_id' => ['required', 'exists:users,id'],
                 'provider_id' => ['required', 'exists:providers,id'],
@@ -1016,12 +1226,16 @@ class BookingController extends Controller
                 'service_location' => ['required', 'in:customer,provider'],
                 'booking_source' => ['required', 'string', 'max:255'],
                 'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
-                'advance_transaction_id' => [
-                    'nullable',
+                'advance_payment_method' => [
+                    Rule::excludeIf(fn () => (float) ($request->input('advance_paid_amount') ?? 0) <= 0),
+                    'required',
                     'string',
-                    'max:191',
-                    Rule::requiredIf(fn () => (float) ($request->input('advance_paid_amount') ?? 0) > 0),
+                    'max:80',
+                    Rule::in($advanceMethodKeys),
                 ],
+                'advance_transaction_id' => ['nullable', 'string', 'max:191'],
+                'advance_method_fields' => ['nullable', 'array'],
+                'advance_method_fields.*' => ['nullable', 'string', 'max:2000'],
                 'assignee_id' => ['nullable', 'exists:users,id'],
                 'service_description' => ['nullable', 'string', 'max:2000'],
                 'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
@@ -1034,8 +1248,12 @@ class BookingController extends Controller
                 'service_quantity' => ['nullable', 'integer', 'min:1'],
                 'whatsapp_reserved_readable_id' => ['nullable', 'string', 'max:32'],
             ], [
-                'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
+                'advance_payment_method.required' => translate('Advance_payment_method_is_required_when_advance_amount_is_set'),
             ]);
+
+            $this->assertAdminAdvancePaymentFollowUpValidation($request);
+
+            $this->mergeAdvanceMethodFieldsFromRequestIntoData($request, $data);
 
             $this->assertValidWhatsappReservedReadableId($data);
             
@@ -1129,7 +1347,10 @@ class BookingController extends Controller
         $totalBilling = $cartPricing['grand_total'];
         $additionalChargeLines = $cartPricing['additional_charge_lines'];
         $advance = (float) ($data['advance_paid_amount'] ?? 0);
-        $dueBalance = max(0, $totalBilling - $advance);
+        $paidUpfrontPreview = $advance > 0 ? min($advance, $totalBilling) : 0.0;
+        $dueBalance = round(max(0.0, $totalBilling - $paidUpfrontPreview), 2);
+
+        $adminPaymentPreview = $this->buildAdminCreatePaymentPreviewCopy($data, $totalBilling, $dueBalance);
 
         $createCartPreviewLines = $cartPricing['lines'];
         $createCartPreviewExtras = $cartPricing['extras'];
@@ -1146,7 +1367,7 @@ class BookingController extends Controller
             : 'bookingmodule::admin.booking.preview';
 
         return view($view,
-            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance', 'additionalChargeLines', 'createCartPreviewLines', 'createCartPreviewExtras', 'createCartHasTax', 'commissionPreview'));
+            compact('data', 'customer', 'provider', 'zone', 'category', 'subCategory', 'service', 'address', 'assignee', 'variation', 'totalBilling', 'dueBalance', 'additionalChargeLines', 'createCartPreviewLines', 'createCartPreviewExtras', 'createCartHasTax', 'commissionPreview', 'adminPaymentPreview'));
     }
 
     /**
@@ -1173,6 +1394,13 @@ class BookingController extends Controller
             'url' => $request->fullUrl(),
         ]);
 
+        $advanceMethodKeys = $this->collectAdvanceMethodKeysFromGroups($this->getAdminAdvancePaymentMethodGroupsForCreate());
+        if ((float) ($request->input('advance_paid_amount') ?? 0) > 0 && $advanceMethodKeys === []) {
+            throw ValidationException::withMessages([
+                'advance_paid_amount' => [translate('No_active_payment_methods_for_advance')],
+            ]);
+        }
+
         $data = $request->validate([
             'customer_id' => ['required', 'exists:users,id'],
             'provider_id' => ['required', 'exists:providers,id'],
@@ -1186,12 +1414,16 @@ class BookingController extends Controller
             'service_location' => ['required', 'in:customer,provider'],
             'booking_source' => ['required', 'string', 'max:255'],
             'advance_paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'advance_transaction_id' => [
-                'nullable',
+            'advance_payment_method' => [
+                Rule::excludeIf(fn () => (float) ($request->input('advance_paid_amount') ?? 0) <= 0),
+                'required',
                 'string',
-                'max:191',
-                Rule::requiredIf(fn () => (float) ($request->input('advance_paid_amount') ?? 0) > 0),
+                'max:80',
+                Rule::in($advanceMethodKeys),
             ],
+            'advance_transaction_id' => ['nullable', 'string', 'max:191'],
+            'advance_method_fields' => ['nullable', 'array'],
+            'advance_method_fields.*' => ['nullable', 'string', 'max:2000'],
             'assignee_id' => ['nullable', 'exists:users,id'],
             'service_description' => ['nullable', 'string', 'max:2000'],
             'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
@@ -1204,8 +1436,12 @@ class BookingController extends Controller
             'service_quantity' => ['nullable', 'integer', 'min:1'],
             'whatsapp_reserved_readable_id' => ['nullable', 'string', 'max:32'],
         ], [
-            'advance_transaction_id.required' => translate('Transaction_ID_is_required_when_advance_paid_is_greater_than_zero'),
+            'advance_payment_method.required' => translate('Advance_payment_method_is_required_when_advance_amount_is_set'),
         ]);
+
+        $this->assertAdminAdvancePaymentFollowUpValidation($request);
+
+        $this->mergeAdvanceMethodFieldsFromRequestIntoData($request, $data);
 
         $this->assertValidWhatsappReservedReadableId($data);
         
@@ -1279,6 +1515,18 @@ class BookingController extends Controller
             $extraFee = $cartPricing['extra_fee'];
             $finalAcLines = $cartPricing['additional_charge_lines'];
 
+            $paidUpfront = $advanceAmount > 0 ? min($advanceAmount, $totalCost) : 0.0;
+            $dueAfterAdvance = round(max(0.0, $totalCost - $paidUpfront), 2);
+            $isFullyPaidUpfront = $paidUpfront > 0 && $dueAfterAdvance <= 0;
+
+            $advanceChoice = $advanceAmount > 0 ? (string) ($data['advance_payment_method'] ?? '') : '';
+            $advanceTxnIdOnly = $advanceAmount > 0
+                ? $this->extractAdminAdvanceTransactionIdForStorageOnly($advanceChoice, $request)
+                : '';
+            $advanceLedgerReferenceNote = $advanceAmount > 0 && str_starts_with($advanceChoice, 'offline:')
+                ? $this->buildAdminAdvanceOfflineReferenceNoteForLedger($advanceChoice, $request)
+                : null;
+
             // Create booking
             $booking = new Booking();
             $booking->customer_id = $data['customer_id'];
@@ -1287,8 +1535,19 @@ class BookingController extends Controller
             $booking->category_id = $data['category_id'];
             $booking->sub_category_id = $data['sub_category_id'];
             $booking->booking_status = 'accepted';
-            $booking->payment_method = 'cash_after_service';
-            $booking->is_paid = 0;
+            if ($advanceAmount <= 0) {
+                $booking->payment_method = 'cash_after_service';
+                $booking->is_paid = 0;
+                $partialPaidWithForAdvance = 'offline';
+            } else {
+                $resolved = $this->resolveAdminCreateBookingPaymentFromAdvanceChoice($advanceChoice, $isFullyPaidUpfront);
+                $booking->payment_method = $resolved['payment_method'];
+                $booking->is_paid = $resolved['is_paid'];
+                $partialPaidWithForAdvance = $resolved['partial_paid_with'];
+                if ($isFullyPaidUpfront && $advanceTxnIdOnly !== '') {
+                    $booking->transaction_id = $advanceTxnIdOnly;
+                }
+            }
             $booking->service_schedule = $data['service_schedule'];
             $booking->service_address_id = $data['service_address_id'] ?? null;
             $booking->service_location = $data['service_location']; // 'customer' or 'provider'
@@ -1319,10 +1578,12 @@ class BookingController extends Controller
                 $paidAmount = min($data['advance_paid_amount'], $totalCost);
                 $dueAmount = max($totalCost - $paidAmount, 0);
 
+                $advanceTxnFallback = $this->truncateBookingTransactionIdField(trim((string) ($data['advance_transaction_id'] ?? '')));
+
                 $advancePartial = BookingPartialPayment::create([
                     'booking_id' => $booking->id,
-                    'paid_with' => 'offline',
-                    'transaction_id' => $data['advance_transaction_id'] ?? null,
+                    'paid_with' => $partialPaidWithForAdvance,
+                    'transaction_id' => $advanceTxnIdOnly !== '' ? $advanceTxnIdOnly : ($advanceTxnFallback !== '' ? $advanceTxnFallback : null),
                     'paid_amount' => $paidAmount,
                     'due_amount' => $dueAmount,
                     'received_by' => 'company',
@@ -1330,9 +1591,10 @@ class BookingController extends Controller
 
                 ledger_record_in([
                     'amount' => $paidAmount,
-                    'transaction_id' => $data['advance_transaction_id'] ?? null,
+                    'transaction_id' => $this->truncateLedgerTransactionIdField($advanceTxnIdOnly !== '' ? $advanceTxnIdOnly : $advanceTxnFallback),
                     'booking_id' => $booking->id,
-                    'payment_method' => 'advance_on_booking_create',
+                    'payment_method' => $this->mapAdvancePartialPaidWithToLedgerPaymentMethod($partialPaidWithForAdvance),
+                    'reference_note' => $advanceLedgerReferenceNote,
                     'date' => now()->toDateString(),
                     'received_by' => LedgerTransaction::RECEIVED_BY_COMPANY,
                     'created_by' => auth()->id(),
@@ -1895,7 +2157,8 @@ class BookingController extends Controller
                 'status_histories' => fn ($q) => $q->with(['user', 'cancellationReason', 'holdReopenReason']),
                 'latestParentCancellationStatusHistory.cancellationReason',
                 'latestParentHoldStatusHistory.holdReopenReason',
-                'booking_partial_payments',
+                'booking_partial_payments.ledgerTransactions',
+                'booking_offline_payments',
                 'followups',
                 'extra_services',
                 'reopenEvents.actor',
@@ -2055,8 +2318,10 @@ class BookingController extends Controller
             $bfsDefaultCustomAdminCommission = $financialSettlementService->defaultTierAdminCommissionForBooking($booking);
 
             try {
+                $advancePaymentMethodGroups = $this->getAdminAdvancePaymentMethodGroupsForCreate();
+
                 return view('bookingmodule::admin.booking.details', array_merge(
-                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission'),
+                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups'),
                     $this->bookingConfigurationReasonVariables()
                 ));
             } catch (Throwable $e) {
@@ -3747,7 +4012,7 @@ class BookingController extends Controller
     {
         $booking = $this->booking->with(['detail.service' => function ($query) {
             $query->withTrashed();
-        }, 'customer', 'provider', 'serviceman', 'status_histories.user', 'extra_services', 'booking_partial_payments'])->find($id);
+        }, 'customer', 'provider', 'serviceman', 'status_histories.user', 'extra_services', 'booking_partial_payments', 'booking_offline_payments'])->find($id);
 
         $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
@@ -4940,12 +5205,29 @@ class BookingController extends Controller
     public function addPayment(Request $request, string $id): JsonResponse|RedirectResponse
     {
         $this->authorize('booking_can_manage_status');
-        $validator = Validator::make($request->all(), [
+        $allowedInflow = AdminCompanyInflowPaymentService::allowedAdvanceMethodKeys();
+        $rules = [
             'amount' => 'required|numeric|min:0.01',
             'received_by' => 'required|in:company,provider',
-            'transaction_id' => 'required_if:received_by,company|nullable|string|max:100',
             'date' => 'nullable|date',
-        ]);
+        ];
+        if ($request->input('received_by') === 'company') {
+            if ($allowedInflow === []) {
+                $msg = translate('No_active_payment_methods_for_advance');
+                if ($request->wantsJson()) {
+                    return response()->json(response_formatter(DEFAULT_400, null, ['advance_payment_method' => [$msg]]), 400);
+                }
+                Toastr::error($msg);
+
+                return back();
+            }
+            $rules['advance_payment_method'] = ['required', 'string', Rule::in($allowedInflow)];
+            $rules['advance_transaction_id'] = ['nullable', 'string', 'max:191'];
+            $rules['advance_method_fields'] = ['nullable', 'array'];
+            $rules['advance_method_fields.*'] = ['nullable', 'string', 'max:2000'];
+            $rules['company_inflow_note'] = ['nullable', 'string', 'max:2000'];
+        }
+        $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {
             if ($request->wantsJson()) {
                 return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
@@ -4967,6 +5249,7 @@ class BookingController extends Controller
         $totalPaid = get_booking_total_paid($booking);
 
         $useBfsVisitRetainedCap = $request->boolean('bfs_decided_charges_cap') || $request->boolean('bfs_visit_retained_cap');
+        $retainedCap = null;
         if ($useBfsVisitRetainedCap) {
             $request->validate([
                 'visit_charges_paid' => 'required|numeric|min:0',
@@ -5000,25 +5283,44 @@ class BookingController extends Controller
             return back();
         }
         $receivedBy = $request->received_by;
-        $transactionId = $request->transaction_id;
         $date = $request->date ? \Carbon\Carbon::parse($request->date)->toDateString() : now()->toDateString();
 
-        DB::transaction(function () use ($booking, $amount, $receivedBy, $transactionId, $date) {
+        if ($receivedBy === 'company') {
+            $choice = (string) $request->input('advance_payment_method');
+            AdminCompanyInflowPaymentService::validateAdvanceFollowUp($request, $choice);
+            $inflow = AdminCompanyInflowPaymentService::resolveLedgerPayloadForCompanyInflow($request, $choice);
+        } else {
+            $inflow = [
+                'ledger_payment_method' => 'cash_after_service',
+                'partial_transaction_id' => null,
+                'ledger_transaction_id' => null,
+                'ledger_reference_note' => null,
+            ];
+        }
+
+        $payableCapForPartialDue = ($useBfsVisitRetainedCap && $retainedCap !== null)
+            ? round((float) $retainedCap, 2)
+            : get_booking_payable_total_for_partial_dues($booking);
+        $newTotalPaidAfterThis = round($totalPaid + $amount, 2);
+        $dueAfterThisPayment = round(max(0, $payableCapForPartialDue - $newTotalPaidAfterThis), 2);
+
+        DB::transaction(function () use ($booking, $amount, $receivedBy, $inflow, $date, $dueAfterThisPayment) {
             $paidWith = 'admin_entry';
             $partial = $booking->booking_partial_payments()->create([
                 'paid_with' => $paidWith,
-                'transaction_id' => $receivedBy === 'company' ? $transactionId : null,
+                'transaction_id' => $receivedBy === 'company' ? ($inflow['partial_transaction_id'] ?? null) : null,
                 'paid_amount' => $amount,
-                'due_amount' => 0,
+                'due_amount' => $dueAfterThisPayment,
                 'received_by' => $receivedBy,
             ]);
 
             if ($receivedBy === 'company') {
                 ledger_record_in([
                     'amount' => $amount,
-                    'transaction_id' => $transactionId,
+                    'transaction_id' => $inflow['ledger_transaction_id'] ?? null,
                     'booking_id' => $booking->id,
-                    'payment_method' => $paidWith,
+                    'payment_method' => $inflow['ledger_payment_method'],
+                    'reference_note' => $inflow['ledger_reference_note'] ?? null,
                     'date' => $date,
                     'received_by' => LedgerTransaction::RECEIVED_BY_COMPANY,
                     'created_by' => auth()->id(),
@@ -5029,7 +5331,8 @@ class BookingController extends Controller
                     'amount' => $amount,
                     'transaction_id' => null,
                     'booking_id' => $booking->id,
-                    'payment_method' => $paidWith,
+                    'payment_method' => $inflow['ledger_payment_method'],
+                    'reference_note' => null,
                     'date' => $date,
                     'received_by' => LedgerTransaction::RECEIVED_BY_PROVIDER,
                     'created_by' => auth()->id(),
@@ -5525,6 +5828,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:0.01',
             'transaction_id' => 'required|string|max:100',
+            'reference_note' => 'nullable|string|max:2000',
             'date' => 'nullable|date',
         ]);
         if ($validator->fails()) {
@@ -5592,19 +5896,21 @@ class BookingController extends Controller
             return back();
         }
 
-        $transactionId = $request->transaction_id;
+        $transactionId = AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) $request->transaction_id));
+        $refundNote = trim((string) $request->input('reference_note', ''));
         $date = $request->date ? \Carbon\Carbon::parse($request->date)->toDateString() : now()->toDateString();
 
         $ledgerAmountToRecord = $amount;
 
         $fullyRefundedAfter = false;
-        DB::transaction(function () use ($booking, $ledgerAmountToRecord, $transactionId, $date, &$fullyRefundedAfter) {
+        DB::transaction(function () use ($booking, $ledgerAmountToRecord, $transactionId, $refundNote, $date, &$fullyRefundedAfter) {
             ledger_record_out([
                 'amount' => $ledgerAmountToRecord,
-                'transaction_id' => $transactionId,
+                'transaction_id' => $transactionId !== '' ? $transactionId : null,
                 'booking_id' => $booking->id,
                 'reason' => LedgerTransaction::REASON_REFUND,
                 'date' => $date,
+                'reference_note' => $refundNote !== '' ? $refundNote : null,
             ]);
 
             $booking->refresh();

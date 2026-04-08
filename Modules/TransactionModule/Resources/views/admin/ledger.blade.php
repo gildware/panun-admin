@@ -70,6 +70,7 @@
                                         <th>{{ translate('Date') }}</th>
                                         <th>{{ translate('Type') }}</th>
                                         <th>{{ translate('Description') }}</th>
+                                        <th>{{ translate('payment_method') }}</th>
                                         <th>{{ translate('Booking_ID') }}</th>
                                         <th>{{ translate('Transaction_ID') }}</th>
                                         <th>{{ translate('Entry_by') }}</th>
@@ -101,7 +102,7 @@
                                                     @endif
                                                 @else
                                                     @if($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
-                                                        {{ translate('Refund') }}
+                                                        {{ translate('Refund') }}{{ $entry->reference_note ? ' — ' . \Illuminate\Support\Str::limit($entry->reference_note, 60) : '' }}
                                                     @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
                                                         {{ translate('Provider_payout') }}{{ $entry->reference_note ? ' - '.Str::limit($entry->reference_note, 40) : '' }}
                                                     @else
@@ -109,6 +110,7 @@
                                                     @endif
                                                 @endif
                                             </td>
+                                            <td class="text-nowrap">{{ $entry->formatPaymentMethodForDisplay() }}</td>
                                             <td>
                                                 @if($entry->booking_id && $entry->relationLoaded('booking') && $entry->booking)
                                                     <a href="{{ route('admin.booking.details', [$entry->booking_id]) }}" class="text-primary text-decoration-none">{{ $entry->booking->readable_id ?? $entry->booking_id }}</a>
@@ -130,7 +132,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-4 text-muted">{{ translate('No data available') }}</td>
+                                            <td colspan="9" class="text-center py-4 text-muted">{{ translate('No data available') }}</td>
                                         </tr>
                                     @endforelse
                                     </tbody>

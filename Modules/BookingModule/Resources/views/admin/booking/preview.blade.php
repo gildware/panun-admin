@@ -204,7 +204,7 @@
                             @endif
                             <p class="mb-2"><strong>{{ translate('Total_Billing') }}:</strong> {{ with_currency_symbol($totalBilling) }}</p>
                         @endif
-                        <p><strong>{{ translate('Payment_Method') }}:</strong> {{ translate('Cash_After_Service') }}</p>
+                        <p><strong>{{ translate('Payment_Method') }}:</strong> {{ $adminPaymentPreview['method_line'] ?? translate('Cash_After_Service') }}</p>
                         <p><strong>{{ translate('Advance_Paid_Amount') }}:</strong> {{ with_currency_symbol($data['advance_paid_amount'] ?? 0) }}</p>
                         @if(!empty($data['advance_transaction_id']))
                             <p><strong>{{ translate('Advance_Payment_Transaction_ID') }}:</strong> {{ $data['advance_transaction_id'] }}</p>
@@ -216,7 +216,7 @@
                             <p class="mb-1"><strong>{{ translate('Company_commission') }}:</strong> {{ with_currency_symbol($commissionPreview['company_commission'] ?? 0) }}</p>
                             <p class="mb-1"><strong>{{ translate('Provider_commission') }}:</strong> {{ with_currency_symbol($commissionPreview['provider_commission'] ?? 0) }}</p>
                         @endif
-                        <p class="text-muted mb-0"><small>{{ translate('Final_payment_will_be_collected_upon_service_completion') }}</small></p>
+                        <p class="text-muted mb-0"><small>{{ $adminPaymentPreview['footnote'] ?? translate('Final_payment_will_be_collected_upon_service_completion') }}</small></p>
                     </div>
 
                     {{-- Action buttons: sibling forms only (nested forms are invalid HTML and can submit the wrong action). --}}
