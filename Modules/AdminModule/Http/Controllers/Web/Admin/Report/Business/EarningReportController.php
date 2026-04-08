@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\BusinessSettingsModule\Entities\SubscriptionPackage;
 use Modules\CategoryManagement\Entities\Category;
@@ -605,6 +606,27 @@ class EarningReportController extends Controller
             $groupedData[$year]['monthly_data'][$month] += $commission;
         }
 
+        $scaledBookingsForCommissionReport = $this->booking->newQuery()
+            ->forRevenueReporting()
+            ->where('settlement_outcome', BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS);
+        self::filterQuery($scaledBookingsForCommissionReport, $request);
+        foreach ($scaledBookingsForCommissionReport->cursor() as $main) {
+            $delta = booking_scaled_admin_commission_delta_for_main($main);
+            if (abs($delta) < 0.00001) {
+                continue;
+            }
+            $year = (int) $main->created_at->year;
+            $month = $main->created_at->format('F');
+            if (! isset($groupedData[$year])) {
+                $groupedData[$year] = ['yearly_sum' => 0, 'monthly_data' => []];
+            }
+            $groupedData[$year]['yearly_sum'] += $delta;
+            if (! isset($groupedData[$year]['monthly_data'][$month])) {
+                $groupedData[$year]['monthly_data'][$month] = 0;
+            }
+            $groupedData[$year]['monthly_data'][$month] += $delta;
+        }
+
         $years = array_keys($groupedData);
         $yearCount = count($years);
 
@@ -618,9 +640,19 @@ class EarningReportController extends Controller
 
                 $commissionEarning = $query->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])->get();
 
-                if ($commissionEarning->isNotEmpty()) {
+                $scaledDeltaLastMonth = 0.0;
+                $scaledQ = $this->booking->newQuery()
+                    ->forRevenueReporting()
+                    ->where('settlement_outcome', BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
+                    ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth]);
+                self::filterQuery($scaledQ, $request);
+                foreach ($scaledQ->cursor() as $main) {
+                    $scaledDeltaLastMonth += booking_scaled_admin_commission_delta_for_main($main);
+                }
+                $monthlySum = (float) $commissionEarning->sum('admin_commission') + $scaledDeltaLastMonth;
+
+                if ($commissionEarning->isNotEmpty() || abs($monthlySum) > 0.00001) {
                     $categories[] = $lastMonth;
-                    $monthlySum = $commissionEarning->sum('admin_commission');
                     $chartData[] = $monthlySum;
                 } else {
                     $categories[] = 'No Data';

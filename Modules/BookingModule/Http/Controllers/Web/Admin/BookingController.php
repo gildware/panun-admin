@@ -5345,9 +5345,21 @@ class BookingController extends Controller
         $bookingTotal = get_booking_total_amount($booking);
         $totalPaid = get_booking_total_paid($booking);
 
-        $useBfsVisitRetainedCap = $request->boolean('bfs_decided_charges_cap') || $request->boolean('bfs_visit_retained_cap');
+        $useBfsScaledLossCap = $request->boolean('bfs_scaled_loss_cap');
+        $useBfsVisitRetainedCap = ! $useBfsScaledLossCap
+            && ($request->boolean('bfs_decided_charges_cap') || $request->boolean('bfs_visit_retained_cap'));
         $retainedCap = null;
-        if ($useBfsVisitRetainedCap) {
+        $payableCapForPartialDue = get_booking_payable_total_for_partial_dues($booking);
+
+        if ($useBfsScaledLossCap) {
+            $request->validate([
+                'scaled_customer_paid_amount' => 'required|numeric|min:0',
+                'bfs_settlement_outcome' => 'required|string|in:' . BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS,
+            ]);
+            $declaredPaid = round(min($bookingTotal, max(0.0, (float) $request->input('scaled_customer_paid_amount'))), 2);
+            $dueAmount = round(max(0.0, $declaredPaid - $totalPaid), 2);
+            $payableCapForPartialDue = $declaredPaid;
+        } elseif ($useBfsVisitRetainedCap) {
             $request->validate([
                 'visit_charges_paid' => 'required|numeric|min:0',
                 'closing_amount_paid' => 'nullable|numeric|min:0',
@@ -5366,6 +5378,7 @@ class BookingController extends Controller
             }
             $retainedCap = $settlementService->resolveRetainedVisitAmount($bookingForCap, $capConfig);
             $dueAmount = round(max(0.0, $retainedCap - $totalPaid), 2);
+            $payableCapForPartialDue = round((float) $retainedCap, 2);
         } else {
             $dueAmount = round(max(0, $bookingTotal - $totalPaid), 2);
         }
@@ -5395,9 +5408,6 @@ class BookingController extends Controller
             ];
         }
 
-        $payableCapForPartialDue = ($useBfsVisitRetainedCap && $retainedCap !== null)
-            ? round((float) $retainedCap, 2)
-            : get_booking_payable_total_for_partial_dues($booking);
         $newTotalPaidAfterThis = round($totalPaid + $amount, 2);
         $dueAfterThisPayment = round(max(0, $payableCapForPartialDue - $newTotalPaidAfterThis), 2);
 

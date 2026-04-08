@@ -85,24 +85,36 @@ class AdminController extends Controller
         })->orWhereHas('repeat', function ($subQuery) {
             $subQuery->ofBookingStatus('completed');
         });
-        $admin_commission = $baseQuery->sum('admin_commission');
+        $scaledCommissionAdjAll = admin_dashboard_scaled_admin_commission_adjustments(null);
+        $admin_commission = (float) $baseQuery->sum('admin_commission') + (float) ($scaledCommissionAdjAll['total'] ?? 0);
         $discount_by_admin = $baseQuery->sum('discount_by_admin');
         $coupon_discount_by_admin = $baseQuery->sum('coupon_discount_by_admin');
         $campaign_discount_by_admin = $baseQuery->sum('campaign_discount_by_admin');
 
         $our_earning = $admin_commission - $discount_by_admin - $coupon_discount_by_admin - $campaign_discount_by_admin;
 
-        $total_revenue = (float) $this->booking->forRevenueReporting()->get()->sum(fn ($b) => get_booking_revenue_reporting_amount($b))
-            + (float) BookingRepeat::ofBookingStatus('completed')->get()->sum(fn ($r) => get_booking_total_amount($r));
+        $allCompletedRepeats = BookingRepeat::ofBookingStatus('completed')->with('booking.extra_services')->get();
+        $repeatLineTotalByParentId = provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id($allCompletedRepeats);
 
-        $spare_parts_total = (float) $this->booking->forRevenueReporting()->get()->sum(fn ($b) => get_booking_revenue_reporting_spare_parts_amount($b))
-            + (float) BookingRepeat::ofBookingStatus('completed')->get()->sum(fn ($r) => get_booking_spare_parts_amount($r));
-        $service_charges_total = round($total_revenue - $spare_parts_total, 2);
+        $total_revenue = 0.0;
+        $spare_parts_total = 0.0;
+        foreach ($this->booking->forRevenueReporting()->with('extra_services')->get() as $b) {
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($b);
+            $total_revenue += $slice['reported_total'];
+            $spare_parts_total += $slice['spare_parts'];
+        }
+        foreach ($allCompletedRepeats as $r) {
+            $parentKey = (string) $r->booking_id;
+            $den = (float) ($repeatLineTotalByParentId[$parentKey] ?? get_booking_total_amount($r));
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_repeat($r, $den);
+            $total_revenue += $slice['reported_total'];
+            $spare_parts_total += $slice['spare_parts'];
+        }
+        $total_revenue = round($total_revenue, 2);
         $spare_parts_total = round($spare_parts_total, 2);
+        $service_charges_total = round($total_revenue - $spare_parts_total, 2);
 
-        $providerUserIds = $this->provider->pluck('user_id')->filter()->toArray();
-        $payable_amount = $this->account->whereIn('user_id', $providerUserIds)->sum('account_receivable');
-        $balance_with_providers = $this->account->whereIn('user_id', $providerUserIds)->sum('account_payable');
+        $financialSummary = admin_dashboard_financial_summary_metrics();
 
         $data = [];
         $data[] = ['top_cards' => [
@@ -110,8 +122,12 @@ class AdminController extends Controller
             'service_charges_total' => $service_charges_total,
             'spare_parts_total' => $spare_parts_total,
             'our_earning' => round($our_earning ?? 0, 2),
-            'payable_amount' => round($payable_amount ?? 0, 2),
-            'balance_with_providers' => round($balance_with_providers ?? 0, 2),
+            'payable_to_providers' => $financialSummary['payable_to_providers'],
+            'payable_to_customers' => $financialSummary['payable_to_customers'],
+            'balance_with_providers' => $financialSummary['balance_with_providers'],
+            'total_amount_received_by_company' => $financialSummary['total_amount_received_by_company'],
+            'total_loss_in_all_bookings' => $financialSummary['total_loss_in_all_bookings'],
+            'total_bad_debt_with_customers' => $financialSummary['total_bad_debt_with_customers'],
             'total_customer' => $this->user->where(['user_type' => 'customer'])->count(),
             'total_provider' => $this->provider->where(['is_approved' => 1])->count(),
             'total_services' => $this->service->count()
@@ -233,51 +249,17 @@ class AdminController extends Controller
             $adminEarningByMonth[$month] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
         }
 
-        // Total revenue per month (booking total + extra services + extra fee), matching dashboard tile logic.
-        $extraServicesSub = DB::table('booking_extra_services')
-            ->select('booking_id', DB::raw('sum(total) as extra_total'))
-            ->groupBy('booking_id');
+        $scaledCommissionAdjYear = admin_dashboard_scaled_admin_commission_adjustments((int) $year);
+        foreach (range(1, 12) as $m) {
+            $adminEarningByMonth[$m] = ($adminEarningByMonth[$m] ?? 0) + (float) (($scaledCommissionAdjYear['by_month'] ?? [])[$m] ?? 0);
+        }
 
-        $bookingRevenueByMonth = DB::table('bookings as b')
-            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
-                $join->on('es.booking_id', '=', 'b.id');
-            })
-            ->where('b.booking_status', '=', 'completed')
-            ->whereYear('b.created_at', '=', $year)
-            ->select(
-                DB::raw('MONTH(b.created_at) month'),
-                DB::raw('sum(b.total_booking_amount + b.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
-            )
-            ->groupBy('month')
-            ->get()
-            ->keyBy('month');
-
-        $bookingRevenueByMonth = $this->mergeAfterVisitCancelRevenueByMonthForDashboard($bookingRevenueByMonth, (int) $year);
-
-        $repeatRevenueByMonth = DB::table('booking_repeats as br')
-            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
-                $join->on('es.booking_id', '=', 'br.booking_id');
-            })
-            ->where('br.booking_status', '=', 'completed')
-            ->whereYear('br.created_at', '=', $year)
-            ->select(
-                DB::raw('MONTH(br.created_at) month'),
-                DB::raw('sum(br.total_booking_amount + br.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
-            )
-            ->groupBy('month')
-            ->get()
-            ->keyBy('month');
+        // Total revenue per month: same basis as top cards (special settlements use overridden preview amounts).
+        $revenueByMonth = $this->dashboardReportedRevenueByMonth((int) $year, $repeatLineTotalByParentId);
 
         $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
         foreach ($months as $month) {
-            $monthTotalRevenue = 0.0;
-            if (isset($bookingRevenueByMonth[$month])) {
-                $monthTotalRevenue += (float) ($bookingRevenueByMonth[$month]->total_revenue ?? 0);
-            }
-            if (isset($repeatRevenueByMonth[$month])) {
-                $monthTotalRevenue += (float) ($repeatRevenueByMonth[$month]->total_revenue ?? 0);
-            }
-
+            $monthTotalRevenue = (float) ($revenueByMonth[$month] ?? 0);
             $monthAdminEarning = (float) ($adminEarningByMonth[$month] ?? 0);
 
             $chart_data['total_earning'][] = with_decimal_point($monthTotalRevenue);
@@ -337,50 +319,19 @@ class AdminController extends Controller
             $adminEarningByMonth[$month] = $adminCommission - $discountByAdmin - $couponDiscountByAdmin - $campaignDiscountByAdmin;
         }
 
-        $extraServicesSub = DB::table('booking_extra_services')
-            ->select('booking_id', DB::raw('sum(total) as extra_total'))
-            ->groupBy('booking_id');
+        $scaledCommissionAdjYear = admin_dashboard_scaled_admin_commission_adjustments((int) $year);
+        foreach (range(1, 12) as $m) {
+            $adminEarningByMonth[$m] = ($adminEarningByMonth[$m] ?? 0) + (float) (($scaledCommissionAdjYear['by_month'] ?? [])[$m] ?? 0);
+        }
 
-        $bookingRevenueByMonth = DB::table('bookings as b')
-            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
-                $join->on('es.booking_id', '=', 'b.id');
-            })
-            ->where('b.booking_status', '=', 'completed')
-            ->whereYear('b.created_at', '=', $year)
-            ->select(
-                DB::raw('MONTH(b.created_at) month'),
-                DB::raw('sum(b.total_booking_amount + b.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
-            )
-            ->groupBy('month')
-            ->get()
-            ->keyBy('month');
-
-        $bookingRevenueByMonth = $this->mergeAfterVisitCancelRevenueByMonthForDashboard($bookingRevenueByMonth, (int) $year);
-
-        $repeatRevenueByMonth = DB::table('booking_repeats as br')
-            ->leftJoinSub($extraServicesSub, 'es', function ($join) {
-                $join->on('es.booking_id', '=', 'br.booking_id');
-            })
-            ->where('br.booking_status', '=', 'completed')
-            ->whereYear('br.created_at', '=', $year)
-            ->select(
-                DB::raw('MONTH(br.created_at) month'),
-                DB::raw('sum(br.total_booking_amount + br.extra_fee + COALESCE(es.extra_total,0)) as total_revenue')
-            )
-            ->groupBy('month')
-            ->get()
-            ->keyBy('month');
+        $repeatLineTotalByParentId = provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id(
+            BookingRepeat::ofBookingStatus('completed')->with('booking.extra_services')->get()
+        );
+        $revenueByMonth = $this->dashboardReportedRevenueByMonth((int) $year, $repeatLineTotalByParentId);
 
         $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
         foreach ($months as $month) {
-            $monthTotalRevenue = 0.0;
-            if (isset($bookingRevenueByMonth[$month])) {
-                $monthTotalRevenue += (float) ($bookingRevenueByMonth[$month]->total_revenue ?? 0);
-            }
-            if (isset($repeatRevenueByMonth[$month])) {
-                $monthTotalRevenue += (float) ($repeatRevenueByMonth[$month]->total_revenue ?? 0);
-            }
-
+            $monthTotalRevenue = (float) ($revenueByMonth[$month] ?? 0);
             $monthAdminEarning = (float) ($adminEarningByMonth[$month] ?? 0);
 
             $chart_data['total_earning'][] = with_decimal_point($monthTotalRevenue);
@@ -679,31 +630,46 @@ class AdminController extends Controller
     }
 
     /**
-     * Add retained visit+closing amounts from after-visit cancels into per-month booking revenue (chart + tiles).
+     * Per-month reported revenue for the admin earning chart (matches top-card basis: special settlements, after-visit cancels via forRevenueReporting).
      *
-     * @param  \Illuminate\Support\Collection<int|string, object>  $bookingRevenueByMonth
-     * @return \Illuminate\Support\Collection<int|string, object>
+     * @param  array<string, float>  $repeatLineTotalByParentId  Sum of completed repeat line totals per parent booking_id (global, for correct non-standard weights).
+     * @return array<int, float> month => revenue
      */
-    private function mergeAfterVisitCancelRevenueByMonthForDashboard($bookingRevenueByMonth, int $year)
+    private function dashboardReportedRevenueByMonth(int $year, array $repeatLineTotalByParentId): array
     {
-        $rows = $this->booking->newQuery()
-            ->where('booking_status', 'canceled')
-            ->where('after_visit_cancel', true)
+        $byMonth = array_fill(1, 12, 0.0);
+
+        $oneTimeInYear = $this->booking->newQuery()
+            ->forRevenueReporting()
             ->whereYear('created_at', $year)
+            ->with('extra_services')
             ->get();
 
-        foreach ($rows as $b) {
-            $month = (int) Carbon::parse($b->created_at)->format('n');
-            $add = get_booking_revenue_reporting_amount($b);
-            $row = $bookingRevenueByMonth->get($month) ?? $bookingRevenueByMonth->get((string) $month);
-            if ($row !== null) {
-                $row->total_revenue = round((float) ($row->total_revenue ?? 0) + $add, 2);
-            } else {
-                $bookingRevenueByMonth->put($month, (object) ['month' => $month, 'total_revenue' => $add]);
-            }
+        foreach ($oneTimeInYear as $b) {
+            $month = (int) $b->created_at->format('n');
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($b);
+            $byMonth[$month] += $slice['reported_total'];
         }
 
-        return $bookingRevenueByMonth;
+        $repeatsInYear = BookingRepeat::query()
+            ->ofBookingStatus('completed')
+            ->whereYear('created_at', $year)
+            ->with('booking.extra_services')
+            ->get();
+
+        foreach ($repeatsInYear as $r) {
+            $month = (int) $r->created_at->format('n');
+            $parentKey = (string) $r->booking_id;
+            $den = (float) ($repeatLineTotalByParentId[$parentKey] ?? get_booking_total_amount($r));
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_repeat($r, $den);
+            $byMonth[$month] += $slice['reported_total'];
+        }
+
+        foreach ($byMonth as $m => $v) {
+            $byMonth[$m] = round((float) $v, 2);
+        }
+
+        return $byMonth;
     }
 
     /**

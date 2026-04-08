@@ -109,7 +109,7 @@ class BookingFinancialSettlementCommissionScenariosTest extends TestCase
         $this->assertSame(round((float) $fromHelper['commission'], 2), $d['adminCommission']);
     }
 
-    public function test_scaled_commission_is_full_tier_commission_scaled_by_paid_over_grand_total(): void
+    public function test_scaled_commission_matches_full_tier_on_booking_total(): void
     {
         $b = $this->baseInMemoryBooking();
         $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
@@ -118,13 +118,8 @@ class BookingFinancialSettlementCommissionScenariosTest extends TestCase
         ]));
 
         $full = (float) calculate_commission_for_booking($b, null)['commission'];
-        $grand = get_booking_total_amount($b);
-        $paid = $this->service->totalPaidForMainBooking($b);
-        $ratio = $grand > 0 ? min(1.0, $paid / $grand) : 0.0;
-        $expected = round($full * $ratio, 2);
-
         $d = $this->service->calculateAdminCommissionDetails($b, null);
-        $this->assertEqualsWithDelta($expected, $d['adminCommission'], 0.02);
+        $this->assertEqualsWithDelta(round($full, 2), $d['adminCommission'], 0.02);
     }
 
     public function test_scaled_commission_caps_ratio_at_one_when_overpaid(): void
@@ -175,7 +170,7 @@ class BookingFinancialSettlementCommissionScenariosTest extends TestCase
         $this->assertSame($providerFromLines, $expectedFromSync);
     }
 
-    public function test_scaled_provider_basis_is_min_of_grand_and_paid(): void
+    public function test_scaled_provider_basis_uses_full_grand_total(): void
     {
         $b = $this->baseInMemoryBooking();
         $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
@@ -187,6 +182,6 @@ class BookingFinancialSettlementCommissionScenariosTest extends TestCase
         $paid = $this->service->totalPaidForMainBooking($b);
         $basis = $this->service->providerEarningBasisAmount($b, $grand, $paid);
 
-        $this->assertSame(400.0, $basis);
+        $this->assertSame(1000.0, $basis);
     }
 }

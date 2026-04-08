@@ -29,6 +29,56 @@
             line-height: 1.1;
             margin: 0.15rem 0 0;
         }
+        /* Distinct KPI card colors (scoped to admin dashboard top cards). */
+        .dashboard-top-cards .business-summary.dashboard-kpi--total-revenue {
+            background: linear-gradient(145deg, #0369a1 0%, #0c4a6e 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--service-charges {
+            background: linear-gradient(145deg, #7c3aed 0%, #5b21b6 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--parts-charges {
+            background: linear-gradient(145deg, #c2410c 0%, #9a3412 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--total-received {
+            background: linear-gradient(145deg, #0d9488 0%, #115e59 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--our-earning {
+            background: linear-gradient(145deg, #15803d 0%, #14532d 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--payable-providers {
+            background: linear-gradient(145deg, #2563eb 0%, #1e40af 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--balance-providers {
+            background: linear-gradient(145deg, #ca8a04 0%, #a16207 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--payable-customer {
+            background: linear-gradient(145deg, #db2777 0%, #9d174d 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--total-loss {
+            background: linear-gradient(145deg, #b91c1c 0%, #7f1d1d 100%);
+        }
+        .dashboard-top-cards .business-summary.dashboard-kpi--bad-debt {
+            background: linear-gradient(145deg, #4c1d95 0%, #312e81 100%);
+        }
+        .dashboard-top-cards .business-summary .dashboard-kpi-deco-icon {
+            font-size: clamp(2.5rem, 5vw, 3.25rem);
+            line-height: 1;
+            opacity: 0.22;
+            pointer-events: none;
+            user-select: none;
+        }
+        .card-header h5.dashboard-widget-title,
+        h4.dashboard-widget-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .card-header h5.dashboard-widget-title .dashboard-widget-title__icon,
+        h4.dashboard-widget-title .dashboard-widget-title__icon {
+            flex-shrink: 0;
+            font-size: 1.375rem;
+            opacity: 0.85;
+        }
         .missed-followup-row,
         .missed-followup-row > td {
             background-color: #fff !important;
@@ -75,57 +125,77 @@
     <div class="main-content">
         <div class="container-fluid">
             @if(access_checker('dashboard'))
-                <div class="row mb-4 g-4 dashboard-top-cards">
-                    <div class="col-lg-2 col-sm-4">
-                        <div class="business-summary business-summary-customers">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 mb-4 g-4 dashboard-top-cards">
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--total-revenue">
                             <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_revenue', 0))}}</h2>
                             <h3>{{translate('Total_Revenue')}}</h3>
-                            <img src="{{asset('assets/admin-module')}}/img/icons/customers.png"
-                                 class="absolute-img"
-                                 alt="">
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">account_balance_wallet</span>
                         </div>
                     </div>
-                    <div class="col-lg-2 col-sm-4">
-                        <div class="business-summary business-summary-earning">
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--service-charges">
                             <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.service_charges_total', 0))}}</h2>
                             <h3>{{translate('Service_Charges')}}</h3>
-                            <img src="{{asset('assets/admin-module')}}/img/icons/total-earning.png"
-                                 class="absolute-img" alt="">
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">home_repair_service</span>
                         </div>
                     </div>
-                    <div class="col-lg-2 col-sm-4">
-                        <div class="business-summary business-summary-providers">
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--parts-charges">
                             <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.spare_parts_total', 0))}}</h2>
                             <h3>{{translate('Parts_Charges')}}</h3>
-                            <img src="{{asset('assets/admin-module')}}/img/icons/providers.png"
-                                 class="absolute-img"
-                                 alt="">
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">inventory_2</span>
                         </div>
                     </div>
-                    <div class="col-lg-2 col-sm-4">
-                        <div class="business-summary business-summary-earning">
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--total-received">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_amount_received_by_company', 0))}}</h2>
+                            <h3>{{translate('Total_amount_received')}}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">move_to_inbox</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--our-earning">
                             <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.our_earning', 0))}}</h2>
                             <h3>{{translate('Our_Earning')}}</h3>
-                            <img src="{{asset('assets/admin-module')}}/img/icons/total-earning.png"
-                                 class="absolute-img" alt="">
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">trending_up</span>
                         </div>
                     </div>
-                    <div class="col-lg-2 col-sm-4">
-                        <div class="business-summary business-summary-providers">
-                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.payable_amount', 0))}}</h2>
-                            <h3>{{translate('Payable_Amount')}}</h3>
-                            <img src="{{asset('assets/admin-module')}}/img/icons/providers.png"
-                                 class="absolute-img"
-                                 alt="">
+                </div>
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 mb-4 g-4 dashboard-top-cards">
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--payable-providers">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.payable_to_providers', 0))}}</h2>
+                            <h3>{{translate('Payable_to_providers')}}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">engineering</span>
                         </div>
                     </div>
-                    <div class="col-lg-2 col-sm-4">
-                        <div class="business-summary business-summary-services">
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--balance-providers">
                             <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.balance_with_providers', 0))}}</h2>
                             <h3>{{translate('Balance_With_Providers')}}</h3>
-                            <img src="{{asset('assets/admin-module')}}/img/icons/services.png"
-                                 class="absolute-img"
-                                 alt="">
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">compare_arrows</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--payable-customer">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.payable_to_customers', 0))}}</h2>
+                            <h3>{{translate('Payable_to_customer')}}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">person</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--total-loss">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_loss_in_all_bookings', 0))}}</h2>
+                            <h3>{{translate('Total_loss_in_all_bookings')}}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">trending_down</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="business-summary dashboard-kpi--bad-debt">
+                            <h2>{{with_currency_symbol(data_get($data[0], 'top_cards.total_bad_debt_with_customers', 0))}}</h2>
+                            <h3>{{translate('Dashboard_company_loss_from_customers')}}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">gavel</span>
                         </div>
                     </div>
                 </div>
@@ -133,7 +203,8 @@
                     <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card dashboard-widget-todays-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>
+                                <h5 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">event_repeat</span>
                                     Booking Follow-ups- Pending Till Today's
                                     <span class="text-muted">
                                         ({{ $data[5]['todays_pending_followups_total'] ?? 0 }})
@@ -218,7 +289,8 @@
                     <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card dashboard-widget-todays-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>
+                                <h5 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">contact_phone</span>
                                     Leads Follow-ups- Pending Till Today's
                                     <span class="text-muted">
                                         ({{ $data[6]['todays_pending_lead_followups_total'] ?? 0 }})
@@ -301,7 +373,10 @@
                         <div class="card earning-statistics">
                             <div class="card-body ps-0">
                                 <div class="ps-20 d-flex flex-wrap align-items-center justify-content-between gap-3">
-                                    <h4>{{translate('earning_statistics')}}</h4>
+                                    <h4 class="dashboard-widget-title mb-0">
+                                        <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">show_chart</span>
+                                        {{translate('earning_statistics')}}
+                                    </h4>
                                     <div
                                         class="position-relative index-2 d-flex flex-wrap gap-3 align-items-center justify-content-between">
                                         <ul class="option-select-btn">
@@ -336,7 +411,10 @@
                         <div class="card recent-transactions h-100 w-100">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between gap-10">
-                                    <h4 class="mb-3">{{translate('recent_ledger_transactions')}}</h4>
+                                    <h4 class="mb-3 dashboard-widget-title">
+                                        <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">receipt_long</span>
+                                        {{translate('recent_ledger_transactions')}}
+                                    </h4>
                                     <a href="{{route('admin.ledger.index')}}"
                                        class="btn-link">{{translate('view_all')}}</a>
                                 </div>
@@ -494,7 +572,10 @@
                     <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card recent-activities">
                             <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>{{translate('recent_bookings')}}</h5>
+                                <h5 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">calendar_month</span>
+                                    {{translate('recent_bookings')}}
+                                </h5>
                                 <a href="{{route('admin.booking.list', ['booking_status'=>'all', 'service_type' => 'all'])}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
@@ -536,7 +617,10 @@
                     <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card recent-leads">
                             <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>Recent Leads</h5>
+                                <h5 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">person_add</span>
+                                    Recent Leads
+                                </h5>
                                 <a href="{{ route('admin.lead.index') }}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
@@ -581,7 +665,10 @@
                     <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card top-providers">
                             <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>Top Providers</h5>
+                                <h5 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">emoji_events</span>
+                                    Top Providers
+                                </h5>
                                 <a href="{{route('admin.provider.top-providers')}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
@@ -643,7 +730,10 @@
                     <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card top-providers">
                             <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>Top Customers</h5>
+                                <h5 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">groups</span>
+                                    Top Customers
+                                </h5>
                                 <a href="{{route('admin.customer.top-customers')}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>

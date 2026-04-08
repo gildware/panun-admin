@@ -195,11 +195,13 @@
 
                 @if(!empty($bfsAllowCollectPayment))
                 <div id="bfs-payment-embed-wrap" class="d-none border rounded p-3 mt-3 bg-white">
-                    <h6 class="fw-semibold mb-1">{{ translate('Bfs_collect_payment_section_title') }}</h6>
-                    <p class="small text-muted mb-3">{{ translate('Bfs_collect_payment_section_hint') }}</p>
-                    <form method="post" action="{{ route('admin.booking.add-payment', [$booking->id]) }}" class="add-payment-form bfs-add-payment-form" data-due-amount="0" data-default-date="{{ date('Y-m-d') }}" id="bfs-add-payment-form" novalidate>
+                    <h6 class="fw-semibold mb-1" id="bfs-collect-payment-title">{{ translate('Bfs_collect_payment_section_title') }}</h6>
+                    <p class="small text-muted mb-3" id="bfs-collect-payment-hint">{{ translate('Bfs_collect_payment_section_hint') }}</p>
+                    <form method="post" action="{{ route('admin.booking.add-payment', [$booking->id]) }}" class="add-payment-form bfs-add-payment-form" data-due-amount="0" data-default-date="{{ date('Y-m-d') }}" id="bfs-add-payment-form" data-bfs-outcome-scaled="{{ \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS }}" novalidate>
                         @csrf
-                        <input type="hidden" name="bfs_decided_charges_cap" value="1">
+                        <input type="hidden" name="bfs_decided_charges_cap" id="bfs-cap-decided-charges" value="0">
+                        <input type="hidden" name="bfs_scaled_loss_cap" id="bfs-cap-scaled-loss" value="0">
+                        <input type="hidden" name="scaled_customer_paid_amount" id="bfs-cap-scaled-customer-paid" value="">
                         <input type="hidden" name="bfs_settlement_outcome" id="bfs-cap-settlement-outcome" value="">
                         <input type="hidden" name="visit_charges_paid" id="bfs-cap-visit-charges" value="">
                         <input type="hidden" name="closing_amount_paid" id="bfs-cap-closing" value="">
@@ -318,6 +320,11 @@
         vcBookingFinal: @json(translate('Bfs_preview_booking_final_amount')),
         saveCancelBlockedDue: @json(translate('Bfs_save_cancel_disabled_due')),
         saveCompleteBlockedDue: @json(translate('Bfs_save_complete_disabled_due')),
+        saveCompleteScaledBlockedGap: @json(translate('Bfs_save_complete_scaled_blocked_gap')),
+        collectPaymentHintDefault: @json(translate('Bfs_collect_payment_section_hint')),
+        collectPaymentHintScaled: @json(translate('Bfs_collect_payment_section_hint_scaled')),
+        collectPaymentTitleDefault: @json(translate('Bfs_collect_payment_section_title')),
+        collectPaymentTitleScaled: @json(translate('Bfs_collect_payment_section_title_scaled')),
         scaledTotalBooking: @json(translate('Bfs_preview_scaled_total_booking')),
         scaledPaidByCustomer: @json(translate('Bfs_scaled_amount_paid_by_customer')),
         scaledLossAmount: @json(translate('Bfs_preview_scaled_loss_amount')),
@@ -492,6 +499,26 @@
         return Math.round((parseFloat(x) || 0) * 100) / 100;
     }
 
+    function bfsScaledPaymentGap(pv) {
+        if (!pv || bfsSelectedOutcome() !== OUTCOMES.SCALED) {
+            return 0;
+        }
+        var declared = bfsRound2(parseFloat($('#bfs-scaled-customer-paid').val()) || 0);
+        var grand = bfsRound2(parseFloat(bfsBookingGrandTotal) || 0);
+        declared = bfsRound2(Math.max(0, Math.min(declared, grand)));
+        var actual = bfsRound2(parseFloat(pv.collected_from_customer != null ? pv.collected_from_customer : 0) || 0);
+        return bfsRound2(Math.max(0, declared - actual));
+    }
+
+    function bfsResetEmbeddedPaymentCapHidden() {
+        $('#bfs-cap-decided-charges').val('0');
+        $('#bfs-cap-scaled-loss').val('0');
+        $('#bfs-cap-scaled-customer-paid').val('');
+        $('#bfs-cap-visit-charges').val('0');
+        $('#bfs-cap-closing').val('');
+        $('#bfs-cap-settlement-outcome').val('');
+    }
+
     function bfsScaledLossTotalFromInputs() {
         var grand = bfsRound2(parseFloat(bfsBookingGrandTotal) || 0);
         var paid = bfsRound2(parseFloat($('#bfs-scaled-customer-paid').val()) || 0);
@@ -610,7 +637,7 @@
         $wrap.html(html);
     }
 
-    function bfsSyncEmbeddedPaymentForm(due) {
+    function bfsSyncEmbeddedPaymentForm(due, mode) {
         var $form = $('#bfs-add-payment-form');
         if (!$form.length) {
             return;
@@ -626,11 +653,69 @@
         }
         var sym = typeof with_currency_symbol === 'function' ? with_currency_symbol(due) : String(due);
         $('#bfs-embed-due-val').text(sym);
-        $('#bfs-cap-visit-charges').val($('#bfs-visit-charges-paid').val() || '0');
-        $('#bfs-cap-closing').val($('#bfs-closing-amount').val() || '');
-        $('#bfs-cap-settlement-outcome').val(bfsSelectedOutcome());
+        if (mode === 'scaled') {
+            $('#bfs-cap-decided-charges').val('0');
+            $('#bfs-cap-scaled-loss').val('1');
+            $('#bfs-cap-scaled-customer-paid').val($('#bfs-scaled-customer-paid').val() || '0');
+            $('#bfs-cap-settlement-outcome').val(OUTCOMES.SCALED);
+            $('#bfs-cap-visit-charges').val('0');
+            $('#bfs-cap-closing').val('');
+            $('#bfs-collect-payment-title').text(L.collectPaymentTitleScaled);
+            $('#bfs-collect-payment-hint').text(L.collectPaymentHintScaled);
+        } else {
+            $('#bfs-cap-decided-charges').val('1');
+            $('#bfs-cap-scaled-loss').val('0');
+            $('#bfs-cap-scaled-customer-paid').val('');
+            $('#bfs-cap-visit-charges').val($('#bfs-visit-charges-paid').val() || '0');
+            $('#bfs-cap-closing').val($('#bfs-closing-amount').val() || '');
+            $('#bfs-cap-settlement-outcome').val(bfsSelectedOutcome());
+            $('#bfs-collect-payment-title').text(L.collectPaymentTitleDefault);
+            $('#bfs-collect-payment-hint').text(L.collectPaymentHintDefault);
+        }
         if (typeof toggleAddPaymentTransactionField === 'function') {
             toggleAddPaymentTransactionField($form);
+        }
+    }
+
+    function bfsUpdatePaymentEmbedVisibility(pv) {
+        if (!bfsAllowCollectPayment) {
+            return;
+        }
+        var $wrap = $('#bfs-payment-embed-wrap');
+        if (!$wrap.length) {
+            return;
+        }
+        if (!pv) {
+            $wrap.addClass('d-none');
+            bfsResetEmbeddedPaymentCapHidden();
+            $('#bfs-collect-payment-title').text(L.collectPaymentTitleDefault);
+            $('#bfs-collect-payment-hint').text(L.collectPaymentHintDefault);
+            return;
+        }
+        var mode = null;
+        var due = 0;
+        if (bfsDecidedChargesScenarioSelected()) {
+            due = bfsEffectiveAmountDueFromCustomer(pv);
+            if (due < 0.01) {
+                due = 0;
+            }
+            if (due >= 0.01) {
+                mode = 'decided';
+            }
+        } else if (bfsSelectedOutcome() === OUTCOMES.SCALED) {
+            due = bfsScaledPaymentGap(pv);
+            if (due >= 0.01) {
+                mode = 'scaled';
+            }
+        }
+        if (mode) {
+            $wrap.removeClass('d-none');
+            bfsSyncEmbeddedPaymentForm(due, mode);
+        } else {
+            $wrap.addClass('d-none');
+            bfsResetEmbeddedPaymentCapHidden();
+            $('#bfs-collect-payment-title').text(L.collectPaymentTitleDefault);
+            $('#bfs-collect-payment-hint').text(L.collectPaymentHintDefault);
         }
     }
 
@@ -644,6 +729,11 @@
         }
         if (!pv) {
             $btn.prop('disabled', true).attr('title', L.previewError);
+            return;
+        }
+        var gap = bfsScaledPaymentGap(pv);
+        if (gap >= 0.01) {
+            $btn.prop('disabled', true).attr('title', L.saveCompleteScaledBlockedGap);
             return;
         }
         $btn.prop('disabled', false).removeAttr('title');
@@ -681,17 +771,7 @@
                 $bco.removeAttr('title');
             }
         }
-        if (bfsAllowCollectPayment) {
-            var $wrap = $('#bfs-payment-embed-wrap');
-            if ($wrap.length) {
-                if (blockedDue && bfsDecidedChargesScenarioSelected()) {
-                    $wrap.removeClass('d-none');
-                    bfsSyncEmbeddedPaymentForm(due);
-                } else {
-                    $wrap.addClass('d-none');
-                }
-            }
-        }
+        bfsUpdatePaymentEmbedVisibility(pv);
     }
 
     function bfsRunPreview() {
@@ -739,9 +819,11 @@
                     }
                     if (bfsDecidedChargesScenarioSelected()) {
                         bfsUpdateDecidedChargesActions(pv);
-                    }
-                    if (bfsSelectedOutcome() === OUTCOMES.SCALED) {
-                        bfsUpdateScaledCompleteButton(pv);
+                    } else {
+                        bfsUpdatePaymentEmbedVisibility(pv);
+                        if (bfsSelectedOutcome() === OUTCOMES.SCALED) {
+                            bfsUpdateScaledCompleteButton(pv);
+                        }
                     }
                 }
             })
@@ -762,8 +844,8 @@
                 if (bfsDecidedChargesScenarioSelected()) {
                     $('#bfs-save-cancel-btn').prop('disabled', true).attr('title', L.previewError);
                     $('#bfs-save-complete-btn').prop('disabled', true).attr('title', L.previewError);
-                    $('#bfs-payment-embed-wrap').addClass('d-none');
                 }
+                bfsUpdatePaymentEmbedVisibility(null);
                 if (bfsSelectedOutcome() === OUTCOMES.SCALED) {
                     $('#bfs-save-complete-btn').prop('disabled', true).attr('title', L.previewError);
                 }
@@ -1008,6 +1090,9 @@
         if ($payWrap.length) {
             $payWrap.addClass('d-none');
         }
+        bfsResetEmbeddedPaymentCapHidden();
+        $('#bfs-collect-payment-title').text(L.collectPaymentTitleDefault);
+        $('#bfs-collect-payment-hint').text(L.collectPaymentHintDefault);
         bfsRunPreview();
         if (typeof toggleAddPaymentTransactionField === 'function') {
             var $bf = $('#bfs-add-payment-form');

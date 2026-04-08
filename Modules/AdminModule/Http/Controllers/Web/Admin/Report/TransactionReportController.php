@@ -108,13 +108,14 @@ class TransactionReportController extends Controller
         );
 
         $adminAccount = Account::where('user_id', Auth::user()->id)->first();
-        $commission_earning = BookingDetailsAmount::where(function ($query) {
+        $commission_earning = (float) BookingDetailsAmount::where(function ($query) {
             $query->whereHas('booking', function ($subQuery) {
                 $subQuery->forRevenueReporting();
             })->orWhereHas('repeat', function ($subQuery) {
                 $subQuery->ofBookingStatus('completed');
             });
         })->sum('admin_commission');
+        $commission_earning += (float) (admin_dashboard_scaled_admin_commission_adjustments(null)['total'] ?? 0);
 
         $subscription_amounts = $this->transaction->whereIn('trx_type', ['subscription_purchase', 'subscription_renew', 'subscription_shift'])->sum('credit');
 

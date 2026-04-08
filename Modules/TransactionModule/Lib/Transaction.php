@@ -381,10 +381,25 @@ if (!function_exists('completeBookingTransactionForDigitalPayment')) {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider) {
+        $pendingRelease = (float) $booking['total_booking_amount'];
+        $cappedPaidDigital = booking_special_settlement_customer_paid_into_admin_pending($booking);
+        if ($cappedPaidDigital !== null) {
+            $pendingRelease = min($pendingRelease, $cappedPaidDigital);
+        }
+
+        $extraFeeForDigital = (float) ($booking['extra_fee'] ?? 0);
+        $mainDig = $booking instanceof \Modules\BookingModule\Entities\BookingRepeat
+            ? ($booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first())
+            : $booking;
+        if ($mainDig && booking_has_special_financial_settlement($booking)
+            && \Modules\BookingModule\Services\BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges(trim((string) ($mainDig->settlement_outcome ?? '')))) {
+            $extraFeeForDigital = 0.0;
+        }
+
+        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider, $pendingRelease, $extraFeeForDigital) {
 
             $account = Account::where('user_id', $admin_user_id)->first();
-            $account->balance_pending -= $booking['total_booking_amount'];
+            $account->balance_pending -= $pendingRelease;
             $account->save();
 
             //Admin transaction (-pending)
@@ -392,7 +407,7 @@ if (!function_exists('completeBookingTransactionForDigitalPayment')) {
                 'ref_trx_id' => null,
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['pending_amount'],
-                'debit' => $booking['total_booking_amount'],
+                'debit' => $pendingRelease,
                 'credit' => 0,
                 'balance' => $account->balance_pending,
                 'from_user_id' => $admin_user_id,
@@ -440,10 +455,10 @@ if (!function_exists('completeBookingTransactionForDigitalPayment')) {
             }
 
             //admin extra fee transaction
-            if($booking['extra_fee'] > 0) {
+            if ($extraFeeForDigital > 0) {
                 //Admin transactions for extra fee (+received_balance)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->received_balance += $booking['extra_fee'];
+                $account->received_balance += $extraFeeForDigital;
                 $account->save();
 
                 Transaction::create([
@@ -451,7 +466,7 @@ if (!function_exists('completeBookingTransactionForDigitalPayment')) {
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['received_extra_fee'],
                     'debit' => 0,
-                    'credit' => $booking['extra_fee'],
+                    'credit' => $extraFeeForDigital,
                     'balance' => $account->received_balance,
                     'from_user_id' => $admin_user_id,
                     'to_user_id' => $admin_user_id,
@@ -502,10 +517,23 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPayment')) {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider) {
+        $pendingReleaseRepeat = (float) $booking['total_booking_amount'];
+        $cappedPaidRepeat = booking_special_settlement_customer_paid_into_admin_pending($booking);
+        if ($cappedPaidRepeat !== null) {
+            $pendingReleaseRepeat = min($pendingReleaseRepeat, $cappedPaidRepeat);
+        }
+
+        $extraFeeRepeatDigital = (float) ($booking['extra_fee'] ?? 0);
+        $mainRep = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
+        if ($mainRep && booking_has_special_financial_settlement($booking)
+            && \Modules\BookingModule\Services\BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges(trim((string) ($mainRep->settlement_outcome ?? '')))) {
+            $extraFeeRepeatDigital = 0.0;
+        }
+
+        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider, $pendingReleaseRepeat, $extraFeeRepeatDigital) {
 
             $account = Account::where('user_id', $admin_user_id)->first();
-            $account->balance_pending -= $booking['total_booking_amount'];
+            $account->balance_pending -= $pendingReleaseRepeat;
             $account->save();
 
             //Admin transaction (-pending)
@@ -514,7 +542,7 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPayment')) {
                 'booking_id' => 0,
                 'booking_repeat_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['pending_amount'],
-                'debit' => $booking['total_booking_amount'],
+                'debit' => $pendingReleaseRepeat,
                 'credit' => 0,
                 'balance' => $account->balance_pending,
                 'from_user_id' => $admin_user_id,
@@ -564,10 +592,10 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPayment')) {
             }
 
             //admin extra fee transaction
-            if($booking['extra_fee'] > 0) {
+            if ($extraFeeRepeatDigital > 0) {
                 //Admin transactions for extra fee (+received_balance)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->received_balance += $booking['extra_fee'];
+                $account->received_balance += $extraFeeRepeatDigital;
                 $account->save();
 
                 Transaction::create([
@@ -576,7 +604,7 @@ if (!function_exists('completeBookingRepeatTransactionForDigitalPayment')) {
                     'booking_repeat_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['received_extra_fee'],
                     'debit' => 0,
-                    'credit' => $booking['extra_fee'],
+                    'credit' => $extraFeeRepeatDigital,
                     'balance' => $account->received_balance,
                     'from_user_id' => $admin_user_id,
                     'to_user_id' => $admin_user_id,
@@ -634,6 +662,17 @@ if (!function_exists('completeBookingTransactionForCashAfterService')) {
         $advance_remaining = max(0, $advance - $admin_commission);
         $extra_fee = (float) ($booking['extra_fee'] ?? 0);
         $extra_fee_net = max(0, $extra_fee - $advance_remaining);
+
+        $specialOwes = booking_special_financial_settlement_provider_owes_company($booking);
+        if ($specialOwes !== null) {
+            $commission_net = $specialOwes;
+            $main = $booking instanceof \Modules\BookingModule\Entities\BookingRepeat ? $booking->booking : $booking;
+            if ($main && \Modules\BookingModule\Services\BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges(
+                trim((string) ($main->settlement_outcome ?? ''))
+            )) {
+                $extra_fee_net = 0.0;
+            }
+        }
 
         DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider, $commission_net, $extra_fee_net) {
 
@@ -756,11 +795,24 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
         $promotional_cost_by_admin = $breakdown['promotional_cost_by_admin'];
         $promotional_cost_by_provider = $breakdown['promotional_cost_by_provider'];
 
+        $admin_commission_ledger = $admin_commission;
+        $capRepeatCas = booking_repeat_special_settlement_admin_commission_cap_for_cas($booking);
+        if ($capRepeatCas !== null) {
+            $admin_commission_ledger = $capRepeatCas;
+        }
+
+        $extra_fee_repeat_cas = (float) ($booking['extra_fee'] ?? 0);
+        $mainRepeatCas = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
+        if ($mainRepeatCas && booking_has_special_financial_settlement($booking)
+            && \Modules\BookingModule\Services\BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges(trim((string) ($mainRepeatCas->settlement_outcome ?? '')))) {
+            $extra_fee_repeat_cas = 0.0;
+        }
+
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
 
-        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider) {
+        DB::transaction(function () use ($booking, $admin_user_id, $provider_user_id, $admin_commission_ledger, $extra_fee_repeat_cas, $booking_amount_without_commission, $promotional_cost_by_admin, $promotional_cost_by_provider) {
 
             //Provider transactions
             $account = Account::where('user_id', $provider_user_id)->first();
@@ -781,10 +833,10 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
                 'to_user_account' => ACCOUNT_STATES[1]['value']
             ]);
 
-            if($admin_commission > 0) {
+            if ($admin_commission_ledger > 0) {
                 //Provider transactions (for commission)
                 $account = Account::where('user_id', $provider_user_id)->first();
-                $account->account_payable += $admin_commission;
+                $account->account_payable += $admin_commission_ledger;
                 $account->save();
 
                 Transaction::create([
@@ -793,7 +845,7 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
                     'booking_repeat_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['payable_commission'],
                     'debit' => 0,
-                    'credit' => $admin_commission,
+                    'credit' => $admin_commission_ledger,
                     'balance' => $account->account_payable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $provider_user_id,
@@ -802,10 +854,10 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
                 ]);
             }
 
-            if($booking['extra_fee'] > 0){
+            if ($extra_fee_repeat_cas > 0) {
                 //Provider transactions (for commission)
                 $account = Account::where('user_id', $provider_user_id)->first();
-                $account->account_payable += $booking['extra_fee'];
+                $account->account_payable += $extra_fee_repeat_cas;
                 $account->save();
 
                 Transaction::create([
@@ -814,7 +866,7 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
                     'booking_repeat_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['payable_extra_fee'],
                     'debit' => 0,
-                    'credit' => $booking['extra_fee'],
+                    'credit' => $extra_fee_repeat_cas,
                     'balance' => $account->account_payable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $provider_user_id,
@@ -824,10 +876,10 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
 
             }
 
-            if($admin_commission > 0) {
+            if ($admin_commission_ledger > 0) {
                 //Admin transactions (for commission)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->account_receivable += $admin_commission;
+                $account->account_receivable += $admin_commission_ledger;
                 $account->save();
 
                 Transaction::create([
@@ -836,7 +888,7 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
                     'booking_repeat_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['receivable_commission'],
                     'debit' => 0,
-                    'credit' => $admin_commission,
+                    'credit' => $admin_commission_ledger,
                     'balance' => $account->account_receivable,
                     'from_user_id' => $admin_user_id,
                     'to_user_id' => $provider_user_id,
@@ -845,10 +897,10 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
                 ]);
             }
 
-            if($booking['extra_fee']){
+            if ($extra_fee_repeat_cas > 0) {
                 //Admin transactions (for commission)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->account_receivable += $booking['extra_fee'];
+                $account->account_receivable += $extra_fee_repeat_cas;
                 $account->save();
 
                 Transaction::create([
@@ -857,7 +909,7 @@ if (!function_exists('completeBookingRepeatTransactionForCashAfterService')) {
                     'booking_repeat_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['received_extra_fee'],
                     'debit' => 0,
-                    'credit' => $booking['extra_fee'],
+                    'credit' => $extra_fee_repeat_cas,
                     'balance' => $account->account_receivable,
                     'from_user_id' => $provider_user_id,
                     'to_user_id' => $admin_user_id,
@@ -916,6 +968,11 @@ if (!function_exists('completeBookingTransactionForPartialCas')) {
         $advance = get_booking_advance_paid_amount($booking);
         $commission_cas_portion = booking_amount_proportional_share($admin_commission * $due_amount, $booking['total_booking_amount']);
         $commission_cas_net = max(0, $commission_cas_portion - $advance);
+
+        $specialOwesPartialCas = booking_special_financial_settlement_provider_owes_company($booking);
+        if ($specialOwesPartialCas !== null) {
+            $commission_cas_net = $specialOwesPartialCas;
+        }
 
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
@@ -1100,6 +1157,11 @@ if (!function_exists('completeBookingTransactionForPartialDigital')) {
         $advance = get_booking_advance_paid_amount($booking);
         $commission_net = max(0, $admin_commission - $advance);
 
+        $specialOwesPartialDigital = booking_special_financial_settlement_provider_owes_company($booking);
+        if ($specialOwesPartialDigital !== null) {
+            $commission_net = $specialOwesPartialDigital;
+        }
+
         //user ids (from/to)
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_user_id = get_user_id($booking['provider_id'], PROVIDER_USER_TYPES[0]);
@@ -1245,9 +1307,21 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
 
             //=============== DIGITAL ===============
             $digitally_paid_booking_amount = $booking['total_booking_amount'] - $booking['additional_charge'];
+            $cappedPaidExtraMix = booking_special_settlement_customer_paid_into_admin_pending($booking);
+            if ($cappedPaidExtraMix !== null) {
+                $digitally_paid_booking_amount = min((float) $digitally_paid_booking_amount, $cappedPaidExtraMix);
+            }
             $commission_for_digital = round(booking_amount_proportional_share($admin_commission * $digitally_paid_booking_amount, $booking['total_booking_amount']), 2);
             $provider_earning_for_digital = booking_amount_proportional_share($booking_amount_without_commission * $digitally_paid_booking_amount, $booking['total_booking_amount']);
 
+            $extraFeeDigExtraMix = (float) ($booking['extra_fee'] ?? 0);
+            $mainMix = $booking instanceof \Modules\BookingModule\Entities\BookingRepeat
+                ? ($booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first())
+                : $booking;
+            if ($mainMix && booking_has_special_financial_settlement($booking)
+                && \Modules\BookingModule\Services\BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges(trim((string) ($mainMix->settlement_outcome ?? '')))) {
+                $extraFeeDigExtraMix = 0.0;
+            }
 
             //Admin transaction (-pending)
             $account = Account::where('user_id', $admin_user_id)->first();
@@ -1306,10 +1380,10 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
             }
 
             //admin extra fee transaction
-            if($booking['extra_fee'] > 0) {
+            if ($extraFeeDigExtraMix > 0) {
                 //Admin transactions for extra fee (+received)
                 $account = Account::where('user_id', $admin_user_id)->first();
-                $account->received_balance += $booking['extra_fee'];
+                $account->received_balance += $extraFeeDigExtraMix;
                 $account->save();
 
                 Transaction::create([
@@ -1317,7 +1391,7 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
                     'booking_id' => $booking['id'],
                     'trx_type' => TRX_TYPE['received_extra_fee'],
                     'debit' => 0,
-                    'credit' => $booking['extra_fee'],
+                    'credit' => $extraFeeDigExtraMix,
                     'balance' => $account->received_balance,
                     'from_user_id' => $admin_user_id,
                     'to_user_id' => $admin_user_id,
@@ -1353,6 +1427,10 @@ if (!function_exists('completeBookingTransactionForDigitalPaymentAndExtraService
             $commission_for_cas = round(booking_amount_proportional_share($admin_commission * $due_booking_amount, $booking['total_booking_amount']), 2);
             $advance = get_booking_advance_paid_amount($booking);
             $commission_for_cas_net = max(0, $commission_for_cas - $advance);
+            $specialOwesCasMix = booking_special_financial_settlement_provider_owes_company($booking);
+            if ($specialOwesCasMix !== null && $due_booking_amount > 0.005 && (float) $digitally_paid_booking_amount < 0.005) {
+                $commission_for_cas_net = $specialOwesCasMix;
+            }
             $provider_earning_for_cas = booking_amount_proportional_share($booking_amount_without_commission * $due_booking_amount, $booking['total_booking_amount']);
 
             //Provider transactions
@@ -1893,19 +1971,40 @@ if (!function_exists('withdrawRequestAcceptForAdjustTransaction')) {
  * Reduces provider's account_receivable and admin's account_payable, creates ledger OUT and transactions.
  */
 if (!function_exists('recordPaymentToProvider')) {
-    function recordPaymentToProvider(string $provider_user_id, float $amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $provider_id = null): void
+    function recordPaymentToProvider(string $provider_user_id, float $amount, ?string $transaction_id = null, ?string $reference_note = null, ?string $provider_id = null, bool $allowBookingBackedReceivableTopUp = false): void
     {
         if ($amount <= 0) {
             return;
         }
 
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
-        $provider_account = Account::where('user_id', $provider_user_id)->first();
-        if (!$provider_account || $provider_account->account_receivable < $amount) {
-            throw new \InvalidArgumentException('Insufficient amount or invalid provider account.');
-        }
 
-        DB::transaction(function () use ($admin_user_id, $provider_user_id, $amount, $transaction_id, $reference_note, $provider_id) {
+        DB::transaction(function () use ($admin_user_id, $provider_user_id, $amount, $transaction_id, $reference_note, $provider_id, $allowBookingBackedReceivableTopUp) {
+            $provider_account = Account::where('user_id', $provider_user_id)->lockForUpdate()->first();
+            $admin_account = Account::where('user_id', $admin_user_id)->lockForUpdate()->first();
+            if (!$provider_account || !$admin_account) {
+                throw new \InvalidArgumentException('Insufficient amount or invalid provider account.');
+            }
+
+            if ($allowBookingBackedReceivableTopUp) {
+                $shortfall = max(0.0, $amount - (float) $provider_account->account_receivable);
+                if ($shortfall > 0.009) {
+                    $provider_account->account_receivable += $shortfall;
+                }
+                $adminLift = max(0.0, $amount - (float) $admin_account->account_payable);
+                if ($adminLift > 0.009) {
+                    $admin_account->account_payable += $adminLift;
+                }
+                if ($shortfall > 0.009 || $adminLift > 0.009) {
+                    $provider_account->save();
+                    $admin_account->save();
+                }
+            }
+
+            if ((float) $provider_account->account_receivable + 0.0001 < $amount) {
+                throw new \InvalidArgumentException('Insufficient amount or invalid provider account.');
+            }
+
             $ledgerTxn = $transaction_id !== null && $transaction_id !== ''
                 ? \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField($transaction_id)
                 : null;
@@ -1955,9 +2054,9 @@ if (!function_exists('recordPaymentToProvider')) {
                 'to_user_account' => null,
             ]);
 
-            $admin_account = Account::where('user_id', $admin_user_id)->first();
-            $admin_account->account_payable -= $amount;
-            $admin_account->save();
+            $admin_account_row = Account::where('user_id', $admin_user_id)->first();
+            $admin_account_row->account_payable -= $amount;
+            $admin_account_row->save();
 
             Transaction::create([
                 'ref_trx_id' => $primary_transaction['id'],
@@ -1965,7 +2064,7 @@ if (!function_exists('recordPaymentToProvider')) {
                 'trx_type' => TRX_TYPE['paid_amount'],
                 'debit' => $amount,
                 'credit' => 0,
-                'balance' => $admin_account->account_payable,
+                'balance' => $admin_account_row->account_payable,
                 'from_user_id' => $provider_user_id,
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => null,

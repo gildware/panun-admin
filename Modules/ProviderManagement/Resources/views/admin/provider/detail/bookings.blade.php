@@ -26,6 +26,9 @@
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'payment' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=payment">{{ translate('Payment') }}</a>
                     </li>
                     <li class="nav-item">
@@ -61,7 +64,7 @@
                     <div class="card">
                         <div class="card-body">
                             <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                <form action="{{url()->current()}}?web_page=bookings"
+                                <form action="{{ url()->current() }}?web_page={{ $webPage }}"
                                       class="search-form search-form_style-two"
                                       method="POST">
                                     @csrf
@@ -99,11 +102,11 @@
                                     <tbody>
                                     @foreach($bookings as $key=>$booking)
                                         @php
-                                            $grandTotal = get_booking_total_amount($booking);
-                                            $partsCharges = get_booking_spare_parts_amount($booking);
-                                            $serviceCharges = round($grandTotal - $partsCharges, 2);
-                                            $commissionResult = calculate_commission_for_booking($booking);
-                                            $adminCommission = $commissionResult['commission'];
+                                            $grandTotal = get_booking_revenue_reporting_amount($booking);
+                                            $partsCharges = get_booking_revenue_reporting_spare_parts_amount($booking);
+                                            $serviceCharges = round(max(0, $grandTotal - $partsCharges), 2);
+                                            $commissionDetails = $booking->calculateCommissionDetails($booking, $booking->provider_id);
+                                            $adminCommission = (float) ($commissionDetails['adminCommission'] ?? 0);
                                             $statusBadge = $booking->booking_status == 'ongoing' ? 'warning' : ($booking->booking_status == 'completed' ? 'success' : ($booking->booking_status == 'canceled' ? 'danger' : ($booking->booking_status == 'refunded' ? 'secondary' : 'info')));
                                         @endphp
                                         <tr>
@@ -132,10 +135,27 @@
                                             <td>{{ with_currency_symbol($partsCharges) }}</td>
                                             <td>{{ with_currency_symbol($grandTotal) }}</td>
                                             <td>{{ with_currency_symbol($adminCommission) }}</td>
+                                            @php
+                                                $__provListPaidDisplay = (bool) $booking->is_paid;
+                                                if (!$__provListPaidDisplay) {
+                                                    $cap = get_booking_payable_total_for_partial_dues($booking);
+                                                    $pt = (float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount');
+                                                    $st = (string) ($booking->booking_status ?? '');
+                                                    $out = (string) ($booking->settlement_outcome ?? '');
+                                                    if ($st === 'canceled' && (
+                                                        !empty($booking->after_visit_cancel)
+                                                        || $out === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+                                                    )) {
+                                                        $__provListPaidDisplay = $cap > 0 && $pt + 0.005 >= $cap;
+                                                    } elseif ($st === 'completed' && $out === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT) {
+                                                        $__provListPaidDisplay = $cap > 0 && $pt + 0.005 >= $cap;
+                                                    }
+                                                }
+                                            @endphp
                                             <td>
-                                                <span class="badge badge badge-{{$booking->is_paid?'success':'danger'}} radius-50">
+                                                <span class="badge badge badge-{{ $__provListPaidDisplay ? 'success' : 'danger' }} radius-50">
                                                     <span class="dot"></span>
-                                                    {{$booking->is_paid?translate('paid'):translate('unpaid')}}
+                                                    {{ $__provListPaidDisplay ? translate('paid') : translate('unpaid') }}
                                                 </span>
                                             </td>
                                             <td>{{date('d-M-Y h:ia',strtotime($booking->service_schedule))}}</td>

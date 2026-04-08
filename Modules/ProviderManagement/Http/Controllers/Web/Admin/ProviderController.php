@@ -25,6 +25,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -898,7 +899,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,subscribed_services,bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
+            'web_page' => 'in:overview,subscribed_services,bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -942,29 +943,24 @@ class ProviderController extends Controller
             }
             $completedOneTimeBookingIds = $oneTimeQuery->pluck('id');
 
-            $totalRevenueFromBookings = 0.0;
             $oneTimeBookingsForRevenue = Booking::whereIn('id', $completedOneTimeBookingIds)->with('extra_services')->get();
-            foreach ($oneTimeBookingsForRevenue as $b) {
-                $totalRevenueFromBookings += get_booking_revenue_reporting_amount($b);
-            }
-
-            $totalRevenueFromRepeats = 0.0;
             $completedRepeatIds = collect();
             if (!empty($providerBookingIds)) {
                 $completedRepeatIds = DB::table('booking_repeats')
                     ->where('booking_status', 'completed')
                     ->whereIn('booking_id', $providerBookingIds)
                     ->pluck('id');
-                $repeatsForRevenue = BookingRepeat::whereIn('id', $completedRepeatIds)->with('booking.extra_services')->get();
-                foreach ($repeatsForRevenue as $r) {
-                    $totalRevenueFromRepeats += get_booking_total_amount($r);
-                }
             }
+            $repeatsForRevenue = $completedRepeatIds->isNotEmpty()
+                ? BookingRepeat::whereIn('id', $completedRepeatIds)->with('booking.extra_services')->get()
+                : collect();
 
-            $totalRevenue = (float) ($totalRevenueFromBookings + $totalRevenueFromRepeats);
-            $totalCompanyCommission = (float) BookingDetailsAmount::whereIn('booking_id', $completedOneTimeBookingIds)->sum('admin_commission');
-            $totalCompanyCommission += (float) BookingDetailsAmount::whereIn('booking_repeat_id', $completedRepeatIds)->sum('admin_commission');
-            $providerNetEarning = $totalRevenue - $totalCompanyCommission;
+            $paymentSummary = aggregate_provider_payment_summary_for_completed_jobs($oneTimeBookingsForRevenue, $repeatsForRevenue);
+            $totalRevenue = $paymentSummary['total_revenue'];
+            $totalCompanyCommission = $paymentSummary['total_company_commission'];
+            $providerNetEarning = $paymentSummary['provider_net_earning'];
+            $scaledLossProviderShareTotal = (float) ($paymentSummary['scaled_loss_provider_share_total'] ?? 0);
+            $scaledLossCompanyShareTotal = (float) ($paymentSummary['scaled_loss_company_share_total'] ?? 0);
 
             $additionalDocuments = DB::table('providers_additional_documents')
                 ->where('provider_id', $id)
@@ -989,6 +985,8 @@ class ProviderController extends Controller
                 'totalRevenue',
                 'providerNetEarning',
                 'totalCompanyCommission',
+                'scaledLossProviderShareTotal',
+                'scaledLossCompanyShareTotal',
                 'additionalDocuments',
                 'additionalDocumentFiles'
             ));
@@ -1189,23 +1187,32 @@ class ProviderController extends Controller
                 'selectedCategoryIds'
             ));
 
-        } //bookings
-        elseif ($request->web_page == 'bookings') {
+        } //bookings & special_bookings (special = non-empty financial settlement_outcome on parent booking)
+        elseif ($request->web_page == 'bookings' || $request->web_page == 'special_bookings') {
 
+            $webPage = $request->web_page;
             $search = $request->has('search') ? $request['search'] : '';
             $queryParam = ['web_page' => $webPage, 'search' => $search];
 
             $provider = $this->provider->with('owner')->find($id);
 
-            $bookings = $this->booking->where('provider_id', $id)
-                ->with(['customer', 'details_amounts'])
+            $bookingsQuery = $this->booking->where('provider_id', $id)
+                ->with(['customer', 'details_amounts', 'booking_partial_payments'])
                 ->where(function ($query) use ($request) {
                     $keys = explode(' ', $request['search']);
                     foreach ($keys as $key) {
                         $query->where('readable_id', 'LIKE', '%' . $key . '%');
                     }
-                })
-                ->latest()
+                });
+            if ($webPage === 'bookings') {
+                $bookingsQuery->where(function ($q) {
+                    $q->whereNull('settlement_outcome')->orWhere('settlement_outcome', '');
+                });
+            } else {
+                $bookingsQuery->whereNotNull('settlement_outcome')->where('settlement_outcome', '!=', '');
+            }
+
+            $bookings = $bookingsQuery->latest()
                 ->paginate(pagination_limit())->appends($queryParam);
 
             return view('providermanagement::admin.provider.detail.bookings', compact('bookings', 'webPage', 'search', 'provider'));
@@ -1347,70 +1354,212 @@ class ProviderController extends Controller
             $providerBookingIds = DB::table('bookings')->where('provider_id', $providerId)->pluck('id')->toArray();
             $bookingIdsWithRepeats = DB::table('booking_repeats')->whereNotNull('booking_id')->distinct()->pluck('booking_id')->toArray();
 
-            $oneTimeQuery = DB::table('bookings')->where('provider_id', $providerId)->where('booking_status', 'completed');
+            $oneTimeQuery = DB::table('bookings')->where('provider_id', $providerId)->where(function ($q) {
+                $q->where('booking_status', 'completed')
+                    ->orWhere(function ($q2) {
+                        $q2->where('booking_status', 'canceled')
+                            ->where('after_visit_cancel', 1);
+                    });
+            });
             if (!empty($bookingIdsWithRepeats)) {
                 $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
             }
             $completedOneTimeBookingIds = $oneTimeQuery->pluck('id');
-            $totalRevenueFromBookings = 0.0;
-            $oneTimeBookingsForRevenue = Booking::whereIn('id', $completedOneTimeBookingIds)->with('extra_services')->get();
-            foreach ($oneTimeBookingsForRevenue as $b) {
-                $totalRevenueFromBookings += get_booking_total_amount($b);
-            }
-            $totalRevenueFromRepeats = 0.0;
+
+            $oneTimeSettlementById = $completedOneTimeBookingIds->isEmpty()
+                ? collect()
+                : Booking::whereIn('id', $completedOneTimeBookingIds)->pluck('settlement_outcome', 'id');
+
+            $specialOneTimeIds = $completedOneTimeBookingIds->filter(function ($bid) use ($oneTimeSettlementById) {
+                return $this->bookingHasSpecialFinancialSettlement($oneTimeSettlementById->get($bid));
+            })->values();
+            $normalOneTimeIds = $completedOneTimeBookingIds->diff($specialOneTimeIds)->values();
+
             $completedRepeatIds = collect();
             if (!empty($providerBookingIds)) {
                 $completedRepeatIds = DB::table('booking_repeats')->where('booking_status', 'completed')->whereIn('booking_id', $providerBookingIds)->pluck('id');
-                $repeatsForRevenue = BookingRepeat::whereIn('id', $completedRepeatIds)->with('booking.extra_services')->get();
-                foreach ($repeatsForRevenue as $r) {
-                    $totalRevenueFromRepeats += get_booking_total_amount($r);
+            }
+
+            $normalRepeatIds = collect();
+            $specialRepeatIds = collect();
+            if ($completedRepeatIds->isNotEmpty()) {
+                foreach (BookingRepeat::whereIn('id', $completedRepeatIds)->with('booking')->get() as $repeatRow) {
+                    if ($this->bookingHasSpecialFinancialSettlement($repeatRow->booking->settlement_outcome ?? null)) {
+                        $specialRepeatIds->push($repeatRow->id);
+                    } else {
+                        $normalRepeatIds->push($repeatRow->id);
+                    }
                 }
             }
-            $totalRevenue = $totalRevenueFromBookings + $totalRevenueFromRepeats;
-            $totalCompanyCommission = (float) BookingDetailsAmount::whereIn('booking_id', $completedOneTimeBookingIds)->sum('admin_commission');
-            $totalCompanyCommission += (float) BookingDetailsAmount::whereIn('booking_repeat_id', $completedRepeatIds)->sum('admin_commission');
-            $providerNetEarning = $totalRevenue - $totalCompanyCommission;
 
-            // Booking earning report: one row per completed booking/repeat (totals include extra_fee + extra_services)
-            $bookingEarningReport = collect();
-            $oneTimeBookings = Booking::whereIn('id', $completedOneTimeBookingIds)->with(['details_amounts', 'extra_services'])->get();
-            foreach ($oneTimeBookings as $b) {
-                $totalAmount = (float) get_booking_total_amount($b);
-                $partsCharges = (float) get_booking_spare_parts_amount($b);
-                $extraServicesTotal = (float) ($b->extra_services->sum('total') ?? 0);
-                $extraServiceCharges = (float) ($b->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
-                $serviceCharges = (float) $b->total_booking_amount;
+            // Summary widgets: all completed one-time + repeats (includes special settlement bookings)
+            $oneTimeBookingsForRevenue = Booking::whereIn('id', $completedOneTimeBookingIds)->with('extra_services')->get();
+            $repeatsForRevenue = $completedRepeatIds->isNotEmpty()
+                ? BookingRepeat::whereIn('id', $completedRepeatIds)->with('booking.extra_services')->get()
+                : collect();
+            $paymentSummary = aggregate_provider_payment_summary_for_completed_jobs($oneTimeBookingsForRevenue, $repeatsForRevenue);
+            $totalRevenue = $paymentSummary['total_revenue'];
+            $totalCompanyCommission = $paymentSummary['total_company_commission'];
+            $providerNetEarning = $paymentSummary['provider_net_earning'];
+            $scaledLossProviderShareTotal = (float) ($paymentSummary['scaled_loss_provider_share_total'] ?? 0);
+            $scaledLossCompanyShareTotal = (float) ($paymentSummary['scaled_loss_company_share_total'] ?? 0);
+            $bookingSettlementAggregate = aggregate_provider_booking_settlement_net_for_completed_jobs($oneTimeBookingsForRevenue, $repeatsForRevenue);
+            $ledgerManualTotals = provider_ledger_manual_flow_totals_for_provider((string) $providerId);
+            $bookingSettlementNetBeforeLedger = (float) $bookingSettlementAggregate['settlement_net'];
+            $bookingSettlementNet = round(
+                $bookingSettlementNetBeforeLedger - $ledgerManualTotals['payout_out_total'] + $ledgerManualTotals['collect_in_total'],
+                2
+            );
+            $customerRefundDueTotal = $bookingSettlementAggregate['customer_refund_due_total'];
+            $repeatGrandSumsByParentForReports = provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id($repeatsForRevenue);
+
+            $buildEarningReport = function ($oneTimeIds, $repeatIds) use ($repeatGrandSumsByParentForReports) {
+                $report = collect();
+                $oneTimeBookings = Booking::whereIn('id', $oneTimeIds)->with(['details_amounts', 'extra_services', 'booking_partial_payments'])->get();
+                foreach ($oneTimeBookings as $b) {
+                    $totalAmount = (float) get_provider_payment_tab_revenue_amount_for_booking($b);
+                    $partsCharges = (float) get_booking_revenue_reporting_spare_parts_amount($b);
+                    $extraServicesTotal = (float) ($b->extra_services->sum('total') ?? 0);
+                    $extraServiceCharges = (float) ($b->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
+                    $serviceCharges = (float) $b->total_booking_amount;
+                    $providerEarning = (float) $b->details_amounts->sum('provider_earning');
+                    $adminCommission = (float) $b->details_amounts->sum('admin_commission');
+                    $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_booking($b);
+                    $report->push((object)[
+                        'readable_id' => $b->readable_id ?? $b->id,
+                        'booking_id' => $b->id,
+                        'total_amount' => $totalAmount,
+                        'service_charges' => $serviceCharges,
+                        'extra_service_charges' => $extraServiceCharges,
+                        'parts_charges' => $partsCharges,
+                        'provider_earning' => $providerEarning,
+                        'admin_commission' => $adminCommission,
+                        'amount_received_by_company' => $settlementCols['amount_received_by_company'],
+                        'amount_received_by_provider' => $settlementCols['amount_received_by_provider'],
+                        'provider_owes_company' => $settlementCols['provider_owes_company'],
+                        'company_owes_provider' => $settlementCols['company_owes_provider'],
+                    ]);
+                }
+                $repeats = BookingRepeat::whereIn('id', $repeatIds)->with(['details_amounts', 'booking.extra_services', 'booking.booking_partial_payments'])->get();
+                foreach ($repeats as $r) {
+                    $parentKey = (string) $r->booking_id;
+                    $den = (float) ($repeatGrandSumsByParentForReports[$parentKey] ?? get_booking_total_amount($r));
+                    $totalAmount = (float) get_provider_payment_tab_revenue_amount_for_repeat($r, $den);
+                    $partsCharges = (float) get_booking_spare_parts_amount($r);
+                    $extraServicesTotal = (float) ($r->booking->extra_services->sum('total') ?? 0);
+                    $extraServiceCharges = (float) ($r->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
+                    $serviceCharges = (float) $r->total_booking_amount;
+                    $providerEarning = (float) $r->details_amounts->sum('provider_earning');
+                    $adminCommission = (float) $r->details_amounts->sum('admin_commission');
+                    $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_repeat($r, $den);
+                    $report->push((object)[
+                        'readable_id' => $r->readable_id ?? $r->id,
+                        'booking_id' => $r->booking_id,
+                        'total_amount' => $totalAmount,
+                        'service_charges' => $serviceCharges,
+                        'extra_service_charges' => $extraServiceCharges,
+                        'parts_charges' => $partsCharges,
+                        'provider_earning' => $providerEarning,
+                        'admin_commission' => $adminCommission,
+                        'amount_received_by_company' => $settlementCols['amount_received_by_company'],
+                        'amount_received_by_provider' => $settlementCols['amount_received_by_provider'],
+                        'provider_owes_company' => $settlementCols['provider_owes_company'],
+                        'company_owes_provider' => $settlementCols['company_owes_provider'],
+                    ]);
+                }
+
+                return $report;
+            };
+
+            $bookingEarningReport = $buildEarningReport($normalOneTimeIds, $normalRepeatIds);
+
+            $settlementService = app(BookingFinancialSettlementService::class);
+            $specialBookingEarningReport = collect();
+            $specialOneTimeBookings = Booking::whereIn('id', $specialOneTimeIds)->with(['details_amounts', 'booking_partial_payments'])->get();
+            foreach ($specialOneTimeBookings as $b) {
+                $config = is_array($b->settlement_config) ? $b->settlement_config : [];
+                $scaledLossMakingSplit = trim((string) ($b->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
                 $providerEarning = (float) $b->details_amounts->sum('provider_earning');
                 $adminCommission = (float) $b->details_amounts->sum('admin_commission');
-                $bookingEarningReport->push((object)[
+                $scaledCompanyLossLine = 0.0;
+                $scaledProviderLossLine = 0.0;
+                if ($scaledLossMakingSplit) {
+                    $lossPreview = $settlementService->buildPreview($b);
+                    $scaledCompanyLossLine = round((float) ($lossPreview['scaled_loss_company_share'] ?? 0), 2);
+                    $scaledProviderLossLine = round((float) ($lossPreview['scaled_loss_provider_share'] ?? 0), 2);
+                    $grossOnFullBooking = provider_payment_tab_loss_making_earning_display_for_scaled($b, 1.0);
+                    if ($grossOnFullBooking !== null) {
+                        $providerEarning = (float) ($grossOnFullBooking['provider_earning_before_loss'] ?? 0);
+                        $adminCommission = (float) ($grossOnFullBooking['admin_commission_before_loss'] ?? 0);
+                    }
+                }
+                $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_booking($b);
+                $specialBookingEarningReport->push((object)[
                     'readable_id' => $b->readable_id ?? $b->id,
-                    'total_amount' => $totalAmount,
-                    'service_charges' => $serviceCharges,
-                    'extra_service_charges' => $extraServiceCharges,
-                    'parts_charges' => $partsCharges,
+                    'booking_id' => $b->id,
+                    'total_amount' => (float) get_provider_payment_tab_revenue_amount_for_booking($b),
+                    'visiting_charges' => (float) $settlementService->resolveVisitChargesPaid($b, $config),
+                    'closing_amount' => (float) $settlementService->resolveClosingAmountPaid($b, $config),
                     'provider_earning' => $providerEarning,
                     'admin_commission' => $adminCommission,
+                    'scaled_loss_making_split' => $scaledLossMakingSplit,
+                    'scaled_company_loss_line' => $scaledCompanyLossLine,
+                    'scaled_provider_loss_line' => $scaledProviderLossLine,
+                    'amount_received_by_company' => $settlementCols['amount_received_by_company'],
+                    'amount_received_by_provider' => $settlementCols['amount_received_by_provider'],
+                    'provider_owes_company' => $settlementCols['provider_owes_company'],
+                    'company_owes_provider' => $settlementCols['company_owes_provider'],
                 ]);
             }
-            $repeats = BookingRepeat::whereIn('id', $completedRepeatIds)->with(['details_amounts', 'booking.extra_services'])->get();
-            foreach ($repeats as $r) {
-                $totalAmount = (float) get_booking_total_amount($r);
-                $partsCharges = (float) get_booking_spare_parts_amount($r);
-                $extraServicesTotal = (float) ($r->booking->extra_services->sum('total') ?? 0);
-                $extraServiceCharges = (float) ($r->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
-                $serviceCharges = (float) $r->total_booking_amount;
+            $specialRepeats = BookingRepeat::whereIn('id', $specialRepeatIds)->with(['details_amounts', 'booking.booking_partial_payments'])->get();
+            foreach ($specialRepeats as $r) {
+                $main = $r->booking;
+                $config = is_array($main?->settlement_config) ? $main->settlement_config : [];
+                $parentKey = (string) $r->booking_id;
+                $den = (float) ($repeatGrandSumsByParentForReports[$parentKey] ?? get_booking_total_amount($r));
+                $lineW = get_booking_total_amount($r) / max(0.01, $den);
+                $scaledLossMakingSplit = $main instanceof Booking
+                    && trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
                 $providerEarning = (float) $r->details_amounts->sum('provider_earning');
                 $adminCommission = (float) $r->details_amounts->sum('admin_commission');
-                $bookingEarningReport->push((object)[
+                $scaledCompanyLossLine = 0.0;
+                $scaledProviderLossLine = 0.0;
+                if ($scaledLossMakingSplit && $main instanceof Booking) {
+                    $lossPreview = $settlementService->buildPreview($main);
+                    $scaledCompanyLossLine = round((float) ($lossPreview['scaled_loss_company_share'] ?? 0) * $lineW, 2);
+                    $scaledProviderLossLine = round((float) ($lossPreview['scaled_loss_provider_share'] ?? 0) * $lineW, 2);
+                    $grossOnFullBooking = provider_payment_tab_loss_making_earning_display_for_scaled($main, $lineW);
+                    if ($grossOnFullBooking !== null) {
+                        $providerEarning = (float) ($grossOnFullBooking['provider_earning_before_loss'] ?? 0);
+                        $adminCommission = (float) ($grossOnFullBooking['admin_commission_before_loss'] ?? 0);
+                    }
+                }
+                $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_repeat($r, $den);
+                $specialBookingEarningReport->push((object)[
                     'readable_id' => $r->readable_id ?? $r->id,
-                    'total_amount' => $totalAmount,
-                    'service_charges' => $serviceCharges,
-                    'extra_service_charges' => $extraServiceCharges,
-                    'parts_charges' => $partsCharges,
+                    'booking_id' => $r->booking_id,
+                    'total_amount' => (float) get_provider_payment_tab_revenue_amount_for_repeat($r, $den),
+                    'visiting_charges' => $main ? (float) $settlementService->resolveVisitChargesPaid($main, $config) : 0.0,
+                    'closing_amount' => $main ? (float) $settlementService->resolveClosingAmountPaid($main, $config) : 0.0,
                     'provider_earning' => $providerEarning,
                     'admin_commission' => $adminCommission,
+                    'scaled_loss_making_split' => $scaledLossMakingSplit,
+                    'scaled_company_loss_line' => $scaledCompanyLossLine,
+                    'scaled_provider_loss_line' => $scaledProviderLossLine,
+                    'amount_received_by_company' => $settlementCols['amount_received_by_company'],
+                    'amount_received_by_provider' => $settlementCols['amount_received_by_provider'],
+                    'provider_owes_company' => $settlementCols['provider_owes_company'],
+                    'company_owes_provider' => $settlementCols['company_owes_provider'],
                 ]);
             }
+
+            $providerReceivedFromCompanyTotal = (float) ($ledgerManualTotals['payout_out_total'] ?? 0);
+            $providerReceivedFromCustomerTotal = round(
+                (float) $bookingEarningReport->sum(fn ($r) => (float) ($r->amount_received_by_provider ?? 0))
+                + (float) $specialBookingEarningReport->sum(fn ($r) => (float) ($r->amount_received_by_provider ?? 0)),
+                2
+            );
+            $providerReceivedTotalAllSources = round($providerReceivedFromCompanyTotal + $providerReceivedFromCustomerTotal, 2);
 
             $bookingReportPerPage = 20;
             $bookingReportPage = (int) $request->get('booking_page', 1);
@@ -1423,6 +1572,16 @@ class ProviderController extends Controller
             );
             $bookingEarningReportPaginated->withQueryString();
 
+            $specialBookingReportPage = (int) $request->get('special_booking_page', 1);
+            $specialBookingEarningReportPaginated = new \Illuminate\Pagination\LengthAwarePaginator(
+                $specialBookingEarningReport->forPage($specialBookingReportPage, $bookingReportPerPage)->values(),
+                $specialBookingEarningReport->count(),
+                $bookingReportPerPage,
+                $specialBookingReportPage,
+                ['path' => $request->url(), 'pageName' => 'special_booking_page']
+            );
+            $specialBookingEarningReportPaginated->withQueryString();
+
             // Provider ledger: only company↔provider flows (money company sent to provider or received from provider)
             $ledgerQuery = LedgerTransaction::query()
                 ->where('provider_id', $providerId)
@@ -1433,7 +1592,26 @@ class ProviderController extends Controller
 
             $advancePaymentMethodGroups = AdminCompanyInflowPaymentService::advanceMethodGroups();
 
-            return view('providermanagement::admin.provider.detail.payment', compact('provider', 'webPage', 'totalRevenue', 'totalCompanyCommission', 'providerNetEarning', 'bookingEarningReportPaginated', 'providerLedger', 'advancePaymentMethodGroups'));
+            return view('providermanagement::admin.provider.detail.payment', compact(
+                'provider',
+                'webPage',
+                'totalRevenue',
+                'totalCompanyCommission',
+                'providerNetEarning',
+                'scaledLossProviderShareTotal',
+                'scaledLossCompanyShareTotal',
+                'bookingSettlementNet',
+                'bookingSettlementNetBeforeLedger',
+                'ledgerManualTotals',
+                'customerRefundDueTotal',
+                'bookingEarningReportPaginated',
+                'specialBookingEarningReportPaginated',
+                'providerLedger',
+                'advancePaymentMethodGroups',
+                'providerReceivedFromCompanyTotal',
+                'providerReceivedFromCustomerTotal',
+                'providerReceivedTotalAllSources'
+            ));
         }
         return back();
     }
@@ -1452,20 +1630,24 @@ class ProviderController extends Controller
             return back();
         }
 
-        $maxAmount = (float) ($provider->owner->account->account_receivable ?? 0);
+        $maxPayoutAmount = 999999999.99;
+
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01', 'max:' . max(0.01, $maxAmount)],
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:' . $maxPayoutAmount],
             'transaction_id' => ['nullable', 'string', 'max:100'],
             'reference_note' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        $paid = (float) $validated['amount'];
+
         try {
             recordPaymentToProvider(
                 (string) $provider->owner->id,
-                (float) $validated['amount'],
+                $paid,
                 $validated['transaction_id'] ?? null,
                 $validated['reference_note'] ?? null,
-                $provider->id
+                $provider->id,
+                true
             );
         } catch (\InvalidArgumentException $e) {
             Toastr::error($e->getMessage());
@@ -1489,12 +1671,6 @@ class ProviderController extends Controller
             return back();
         }
 
-        $maxAmount = (float) ($provider->owner->account->account_payable ?? 0);
-        if ($maxAmount <= 0) {
-            Toastr::error(translate('No_amount_to_collect'));
-            return back();
-        }
-
         $allowedInflow = AdminCompanyInflowPaymentService::allowedAdvanceMethodKeys();
         if ($allowedInflow === []) {
             Toastr::error(translate('No_active_payment_methods_for_advance'));
@@ -1502,7 +1678,7 @@ class ProviderController extends Controller
         }
 
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01', 'max:' . round($maxAmount, 2)],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'advance_payment_method' => ['required', 'string', Rule::in($allowedInflow)],
             'advance_transaction_id' => ['nullable', 'string', 'max:191'],
             'advance_method_fields' => ['nullable', 'array'],
@@ -2723,6 +2899,11 @@ class ProviderController extends Controller
         $provider = $this->provider->with('reviews')->findOrFail($providerId);
         $reviews = DB::table('reviews')->where('provider_id', $provider->id)->count();
         return response()->json(['reviews' => $reviews, 'rating' => $provider->avg_rating]);
+    }
+
+    private function bookingHasSpecialFinancialSettlement(?string $settlementOutcome): bool
+    {
+        return trim((string) $settlementOutcome) !== '';
     }
 
 }

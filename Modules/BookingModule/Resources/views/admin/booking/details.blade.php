@@ -162,7 +162,7 @@
             }
         }
 
-        /* Booking Summary breakdown: color bands — bill lines (in) vs reductions vs total vs payments vs due */
+        /* Booking summary: colored row bands (no legend text — colors only) */
         .booking-summary-breakdown tbody tr td {
             vertical-align: middle;
             border-bottom-color: rgba(0, 0, 0, 0.06);
@@ -221,21 +221,6 @@
         .booking-summary-breakdown tbody tr.booking-summary-row--refund-info td {
             background-color: rgba(73, 80, 87, 0.07);
         }
-        .booking-summary-legend .booking-summary-legend-swatch {
-            display: inline-block;
-            width: 0.65rem;
-            height: 0.65rem;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
-        .booking-summary-legend-swatch--charge { background: #0d6efd; }
-        .booking-summary-legend-swatch--subtotal { background: #084298; }
-        .booking-summary-legend-swatch--discount { background: #c2255c; }
-        .booking-summary-legend-swatch--tax { background: #6f42c1; }
-        .booking-summary-legend-swatch--grand { background: #052c65; }
-        .booking-summary-legend-swatch--payment { background: #198754; }
-        .booking-summary-legend-swatch--due { background: #e36402; }
-        .booking-summary-legend-swatch--refund { background: #b02a37; }
     </style>
 @endpush
 
@@ -243,7 +228,7 @@
     @php
         $bookingDetail = $booking->detail ?? collect();
         $totalPaidFromPartials = (float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount');
-        $bookingTotalForPayment = get_booking_total_amount($booking);
+        $bookingTotalForPayment = get_booking_payable_total_for_partial_dues($booking);
         if (!isset($remainingDueForAddPayment)) {
             $remainingDueForAddPayment = round(max(0, $bookingTotalForPayment - $totalPaidFromPartials), 2);
         }
@@ -253,11 +238,43 @@
         $displayPaidAmount = $booking->booking_partial_payments->isNotEmpty()
             ? $totalPaidFromPartials
             : (($paymentFullyCovered && (bool) $booking->is_paid) ? $bookingTotalForPayment : 0);
+        $__bfsVisitRetainedCanceled = (string) ($booking->booking_status ?? '') === 'canceled'
+            && (
+                !empty($booking->after_visit_cancel)
+                || (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+            );
+        $__bfsDecidedChargesPaidDisplayCap = $__bfsVisitRetainedCanceled
+            || (
+                (string) ($booking->booking_status ?? '') === 'completed'
+                && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT
+            );
+        if ($__bfsDecidedChargesPaidDisplayCap && round($bookingTotalForPayment, 2) > 0
+            && round($totalPaidFromPartials, 2) >= round($bookingTotalForPayment, 2)) {
+            $displayPaidAmount = round((float) $bookingTotalForPayment, 2);
+        }
         $showAsAmountPaidLabel = $booking->booking_status == 'completed' || $paymentFullyCovered;
         $advanceOffline = ($booking->booking_partial_payments ?? collect())->where('paid_with', 'offline')->first();
         $bookingHasTax = (float)($booking->total_tax_amount ?? 0) > 0;
         $bookingNotEditable = in_array($booking->booking_status ?? '', ['completed', 'canceled', 'refunded']);
         $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
+        $__bfsDecidedChargesSnapshot = ! empty($booking->settlement_snapshot)
+            && is_array($booking->settlement_snapshot)
+            && ! empty($booking->settlement_snapshot['decided_visit_charges_mode']);
+        $__bfsSplitBookingSummaryCancel = (string) ($booking->booking_status ?? '') === 'canceled'
+            && $__bfsDecidedChargesSnapshot
+            && (
+                ! empty($booking->after_visit_cancel)
+                || (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+            );
+        $__bfsSplitBookingSummaryComplete = (string) ($booking->booking_status ?? '') === 'completed'
+            && $__bfsDecidedChargesSnapshot
+            && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+        $__bfsSplitBookingSummary = $__bfsSplitBookingSummaryCancel || $__bfsSplitBookingSummaryComplete;
+        $__bfsScaledLive = null;
+        if ((int) ($booking->is_repeated ?? 0) === 0
+            && trim((string) ($booking->settlement_outcome ?? '')) === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            $__bfsScaledLive = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)->buildPreview($booking);
+        }
     @endphp
     <div class="main-content">
         <div class="container-fluid">
@@ -1026,16 +1043,13 @@
                                                     || $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
                                                 $__bfsScaledOutcome = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
                                                 $__bfsScaledLossRows = null;
-                                                if ($__bfsScaledOutcome) {
-                                                    $__bfsLossSvc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
-                                                    $__bfsGt = get_booking_total_amount($booking);
-                                                    $__bfsPd = $__bfsLossSvc->totalPaidForMainBooking($booking);
-                                                    $__bfsScaledLossRows = $__bfsLossSvc->resolveScaledLossBreakdown(
-                                                        $booking,
-                                                        is_array($booking->settlement_config) ? $booking->settlement_config : [],
-                                                        $__bfsGt,
-                                                        $__bfsPd
-                                                    );
+                                                if ($__bfsScaledOutcome && $__bfsScaledLive !== null) {
+                                                    $__bfsScaledLossRows = [
+                                                        (float) ($__bfsScaledLive['scaled_customer_paid_amount'] ?? 0),
+                                                        (float) ($__bfsScaledLive['scaled_loss_amount'] ?? 0),
+                                                        (float) ($__bfsScaledLive['scaled_loss_company_share'] ?? 0),
+                                                        (float) ($__bfsScaledLive['scaled_loss_provider_share'] ?? 0),
+                                                    ];
                                                 }
                                             @endphp
                                             <hr class="my-3">
@@ -1066,15 +1080,19 @@
                                                     <dd class="col-sm-7">{{ with_currency_symbol($__sx) }}</dd>
                                                     <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_loss_amount') }}</dt>
                                                     <dd class="col-sm-7">{{ with_currency_symbol($__sloss) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_company_share') }}</dt>
+                                                    <dt class="col-sm-5">{{ translate('Loss_to_company') }}</dt>
                                                     <dd class="col-sm-7">{{ with_currency_symbol($__sy) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Bfs_scaled_loss_provider_share') }}</dt>
+                                                    <dt class="col-sm-5">{{ translate('Loss_to_provider') }}</dt>
                                                     <dd class="col-sm-7">{{ with_currency_symbol($__sz) }}</dd>
+                                                    <dt class="col-sm-5">{{ translate('Bfs_gross_company_commission_full_booking') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($__bfsScaledLive['company_commission'] ?? 0) }}</dd>
+                                                    <dt class="col-sm-5">{{ translate('Bfs_gross_provider_share_full_booking') }}</dt>
+                                                    <dd class="col-sm-7">{{ with_currency_symbol($__bfsScaledLive['scaled_gross_provider_share'] ?? 0) }}</dd>
                                                 @endif
-                                                <dt class="col-sm-5">{{ translate('Company_commission') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['company_commission_after_promos'] ?? 0) }}</dd>
-                                                <dt class="col-sm-5">{{ translate('Provider_earning') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['provider_earning'] ?? 0) }}</dd>
+                                                <dt class="col-sm-5">{{ $__bfsScaledOutcome ? translate('Net_company_share_after_loss') : translate('Company_commission') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol((float) data_get($__bfsScaledLive, 'company_commission_after_promos', (float) data_get($booking->settlement_snapshot, 'company_commission_after_promos', 0))) }}</dd>
+                                                <dt class="col-sm-5">{{ $__bfsScaledOutcome ? translate('Net_provider_share_after_loss') : translate('Provider_earning') }}</dt>
+                                                <dd class="col-sm-7">{{ with_currency_symbol((float) data_get($__bfsScaledLive, 'provider_earning', (float) data_get($booking->settlement_snapshot, 'provider_earning', 0))) }}</dd>
                                                 @if (! empty($booking->settlement_remarks))
                                                     <dt class="col-sm-5">{{ translate('Notes') }}</dt>
                                                     <dd class="col-sm-7">{{ $booking->settlement_remarks }}</dd>
@@ -1096,7 +1114,28 @@
                 if ($dueBalanceDisplay > 0 && in_array($booking->booking_status, ['pending', 'accepted', 'ongoing'], true) && $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) > 0) {
                     $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
                 }
-                if (in_array($booking->booking_status, ['canceled', 'refunded'])) {
+                $__bfsPaymentCardVisitRetainedCanceled = (string) ($booking->booking_status ?? '') === 'canceled'
+                    && (
+                        !empty($booking->after_visit_cancel)
+                        || (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+                    );
+                if ($__bfsPaymentCardVisitRetainedCanceled) {
+                    $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+                    $paidPartials = round((float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount'), 2);
+                    if ($payableCap <= 0) {
+                        $adminPaymentStatusLabel = translate('Unpaid');
+                        $adminPaymentStatusBadgeClass = 'danger';
+                    } elseif ($paidPartials + 0.005 >= $payableCap || $paymentFullyCovered) {
+                        $adminPaymentStatusLabel = translate('Paid');
+                        $adminPaymentStatusBadgeClass = 'success';
+                    } elseif ($paidPartials > 0) {
+                        $adminPaymentStatusLabel = translate('Partially paid');
+                        $adminPaymentStatusBadgeClass = 'info';
+                    } else {
+                        $adminPaymentStatusLabel = translate('Unpaid');
+                        $adminPaymentStatusBadgeClass = 'danger';
+                    }
+                } elseif (in_array($booking->booking_status, ['canceled', 'refunded'])) {
                     $adminPaymentStatusLabel = translate('Refunded');
                     $adminPaymentStatusBadgeClass = 'secondary';
                 } elseif ($paymentFullyCovered) {
@@ -1301,6 +1340,20 @@
                                         <span class="title-color flex-shrink-0">{{ translate('Due_Balance') }}</span>
                                         <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($dueBalanceDisplay) }}</span>
                                     </div>
+                                    @if ($__bfsScaledLive !== null)
+                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Bfs_bad_debt_balance_not_due') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol((float) ($__bfsScaledLive['scaled_bad_debt_balance_not_due'] ?? 0)) }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Loss_to_company') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol((float) ($__bfsScaledLive['scaled_loss_company_share'] ?? 0)) }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Loss_to_provider') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol((float) ($__bfsScaledLive['scaled_loss_provider_share'] ?? 0)) }}</span>
+                                        </div>
+                                    @endif
                                     @if($booking->payment_method == 'offline_payment' && $booking->booking_offline_payments->isNotEmpty())
                                         <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Request Verify Status') }}</span>
@@ -1417,12 +1470,24 @@
                                 </div>
                                 <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
                                     <div class="d-flex justify-content-between align-items-center p-2 rounded c1-light-bg">
-                                        <span class="title-color">{{ translate('Company_share') }} ({{ translate('Commission') }})</span>
-                                        <strong class="text-primary">{{ with_currency_symbol($revenueSettlement['company_share']) }}</strong>
+                                        <span class="title-color">
+                                            @if ($__bfsScaledLive !== null && (float) ($revenueSettlement['company_share'] ?? 0) < -0.009)
+                                                {{ translate('Company_loss') }} ({{ translate('Net') }})
+                                            @else
+                                                {{ translate('Company_share') }} ({{ translate('Commission') }})
+                                            @endif
+                                        </span>
+                                        <strong @class(['text-primary' => (float) ($revenueSettlement['company_share'] ?? 0) >= -0.009, 'text-danger' => (float) ($revenueSettlement['company_share'] ?? 0) < -0.009])>{{ with_currency_symbol($revenueSettlement['company_share']) }}</strong>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center p-2 rounded c1-light-bg">
-                                        <span class="title-color">{{ translate('Provider_share') }}</span>
-                                        <strong>{{ with_currency_symbol($revenueSettlement['provider_share']) }}</strong>
+                                        <span class="title-color">
+                                            @if ($__bfsScaledLive !== null && (float) ($revenueSettlement['provider_share'] ?? 0) < -0.009)
+                                                {{ translate('Provider_loss') }} ({{ translate('Net') }})
+                                            @else
+                                                {{ translate('Provider_share') }}
+                                            @endif
+                                        </span>
+                                        <strong @class(['text-danger' => (float) ($revenueSettlement['provider_share'] ?? 0) < -0.009])>{{ with_currency_symbol($revenueSettlement['provider_share']) }}</strong>
                                     </div>
                                     <div class="text-muted border-top pt-2">
                                         <div class="d-flex justify-content-between mb-1">
@@ -1699,10 +1764,119 @@
 
             <div class="row gy-3 align-items-start">
                 <div class="col-12">
+                    @if ($__bfsSplitBookingSummary)
+                        @php
+                            $__snap = $booking->settlement_snapshot;
+                            $__visitAmt = round((float) ($__snap['visit_charges_paid'] ?? 0), 2);
+                            $__closingAmt = round((float) ($__snap['closing_amount_paid'] ?? 0), 2);
+                            $__coVisit = round((float) ($__snap['company_amount_from_visit'] ?? 0), 2);
+                            $__prVisit = round((float) ($__snap['provider_amount_from_visit'] ?? 0), 2);
+                            $__coClose = round((float) ($__snap['company_amount_from_closing'] ?? 0), 2);
+                            $__prClose = round((float) ($__snap['provider_amount_from_closing'] ?? 0), 2);
+                            $__retainedTotal = round((float) ($__snap['retained_on_cancel'] ?? $__snap['booking_total'] ?? 0), 2);
+                        @endphp
+                        <div class="card border-primary mb-3">
+                            <div class="card-body pb-5">
+                                <h3 class="mb-3 fz-18">{{ $__bfsSplitBookingSummaryComplete ? translate('Bfs_after_complete_settlement_card_title') : translate('Bfs_after_cancel_settlement_card_title') }}</h3>
+                                <div class="row justify-content-end">
+                                    <div class="col-sm-10 col-md-6 col-xl-5">
+                                        <div class="table-responsive">
+                                            <table class="table table-md title-color align-right w-100 booking-summary-breakdown mb-4">
+                                                <tbody>
+                                                    <tr class="booking-summary-row--charge">
+                                                        <td class="text-capitalize">{{ translate('Bfs_preview_visiting_charges') }}</td>
+                                                        <td class="text--end pe--4">{{ with_currency_symbol($__visitAmt) }}</td>
+                                                    </tr>
+                                                    <tr class="booking-summary-row--subtotal">
+                                                        <td>{{ translate('Bfs_company_commission_visit_line') }}</td>
+                                                        <td class="text--end pe--4">{{ with_currency_symbol($__coVisit) }}</td>
+                                                    </tr>
+                                                    <tr class="booking-summary-row--subtotal">
+                                                        <td>{{ translate('Bfs_provider_share_visit_line') }}</td>
+                                                        <td class="text--end pe--4">{{ with_currency_symbol($__prVisit) }}</td>
+                                                    </tr>
+                                                    @if ($__closingAmt > 0.005 || $__coClose > 0.005 || $__prClose > 0.005)
+                                                        <tr class="border-top booking-summary-row--charge">
+                                                            <td class="text-capitalize">{{ translate('Bfs_preview_closing_amount') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($__closingAmt) }}</td>
+                                                        </tr>
+                                                        <tr class="booking-summary-row--subtotal">
+                                                            <td>{{ translate('Bfs_company_commission_closing_line') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($__coClose) }}</td>
+                                                        </tr>
+                                                        <tr class="booking-summary-row--subtotal">
+                                                            <td>{{ translate('Bfs_provider_share_closing_line') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($__prClose) }}</td>
+                                                        </tr>
+                                                    @endif
+                                                    <tr class="booking-summary-row--grand border-top">
+                                                        <td><strong>{{ $__bfsSplitBookingSummaryComplete ? translate('Bfs_decided_charges_grand_total') : translate('Bfs_preview_total_retained') }}</strong></td>
+                                                        <td class="text--end pe--4"><strong>{{ with_currency_symbol($__retainedTotal) }}</strong></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h4 class="h6 text-uppercase text-muted mb-2 fz-12">{{ $__bfsSplitBookingSummaryComplete ? translate('Bfs_after_complete_payments_section_title') : translate('Bfs_after_cancel_payments_section_title') }}</h4>
+                                <div class="row justify-content-end">
+                                    <div class="col-sm-10 col-md-6 col-xl-5">
+                                        <div class="table-responsive">
+                                            <table class="table table-md title-color align-right w-100 booking-summary-breakdown">
+                                                <tbody>
+                                                    @if ($booking->booking_partial_payments->isNotEmpty())
+                                                        @php
+                                                            $__sumPaidProvider2 = round((float) ($revenueSettlement['amount_received_by_provider'] ?? 0), 2);
+                                                            $__sumPaidCompany2 = round((float) ($revenueSettlement['amount_received_by_company'] ?? 0), 2);
+                                                            $__sumPaidTotal2 = round((float) ($revenueSettlement['total_paid'] ?? 0), 2);
+                                                        @endphp
+                                                        @if ($__sumPaidProvider2 > 0)
+                                                            <tr class="booking-summary-row--payment-in">
+                                                                <td>{{ translate('Paid_to_service_provider') }}</td>
+                                                                <td class="text--end pe--4">{{ with_currency_symbol($__sumPaidProvider2) }}</td>
+                                                            </tr>
+                                                        @endif
+                                                        @if ($__sumPaidCompany2 > 0)
+                                                            <tr class="booking-summary-row--payment-in">
+                                                                <td>{{ translate('Paid_to_company') }}</td>
+                                                                <td class="text--end pe--4">{{ with_currency_symbol($__sumPaidCompany2) }}</td>
+                                                            </tr>
+                                                        @endif
+                                                        @if ($__sumPaidTotal2 > 0)
+                                                            <tr class="booking-summary-row--payment-in">
+                                                                <td><strong>{{ translate('Total_paid') }}</strong></td>
+                                                                <td class="text--end pe--4"><strong>{{ with_currency_symbol($__sumPaidTotal2) }}</strong></td>
+                                                            </tr>
+                                                        @endif
+                                                    @endif
+                                                    @include('bookingmodule::admin.booking.partials._refund-amount-summary-rows', ['booking' => $booking, 'variant' => 'details', 'summaryRowClass' => 'booking-summary-row--refund-info'])
+                                                    @php
+                                                        $dueAmountAfterCancel = get_booking_invoice_due_amount($booking);
+                                                    @endphp
+                                                    @if ($dueAmountAfterCancel > 0)
+                                                        <tr class="booking-summary-row--due">
+                                                            <td>{{ translate('Due_Amount') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol($dueAmountAfterCancel) }}</td>
+                                                        </tr>
+                                                    @endif
+                                                    @if ($booking->payment_method != 'cash_after_service' && $booking->additional_charge < 0)
+                                                        <tr class="booking-summary-row--refund-out">
+                                                            <td>{{ translate('Refund') }}</td>
+                                                            <td class="text--end pe--4">{{ with_currency_symbol(abs($booking->additional_charge)) }}</td>
+                                                        </tr>
+                                                    @endif
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                     <div class="card mb-3">
                         <div class="card-body pb-5">
                             <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
-                                <h3 class="mb-0">{{ translate('Booking_Summary') }}</h3>
+                                <h3 class="mb-0">{{ $__bfsSplitBookingSummary ? ($__bfsSplitBookingSummaryComplete ? translate('Booking_Summary_before_complete') : translate('Booking_Summary_before_cancel')) : translate('Booking_Summary') }}</h3>
                                 @if (in_array($booking['booking_status'], ['pending', 'accepted', 'ongoing', 'on_hold']))
                                     @can('booking_edit')
                                         <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal"
@@ -1713,17 +1887,9 @@
                                     @endcan
                                 @endif
                             </div>
-                            <p class="booking-summary-legend fz-11 text-muted mb-2 d-flex flex-wrap align-items-center gap-3 gap-y-1">
-                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--charge" aria-hidden="true"></span>{{ translate('service_amount') }}, {{ translate('Extra_Services') }}, {{ translate('Spare_Parts') }}, {{ translate('Additional_charges') }}</span>
-                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--subtotal" aria-hidden="true"></span>{{ translate('total') }}</span>
-                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--discount" aria-hidden="true"></span>{{ translate('service_discount') }}, {{ translate('coupon_discount') }}</span>
-                                @if($bookingHasTax)
-                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--tax" aria-hidden="true"></span>{{ company_default_tax_label() }}</span>
-                                @endif
-                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--grand" aria-hidden="true"></span>{{ translate('Grand_Total') }}</span>
-                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--payment" aria-hidden="true"></span>{{ translate('Total_paid') }}</span>
-                                <span class="d-inline-flex align-items-center gap-1"><span class="booking-summary-legend-swatch booking-summary-legend-swatch--due" aria-hidden="true"></span>{{ translate('Due_Amount') }}</span>
-                            </p>
+                            @if ($__bfsSplitBookingSummary)
+                                <p class="fz-12 text-muted mb-2">{{ $__bfsSplitBookingSummaryComplete ? translate('Bfs_booking_summary_before_complete_hint') : translate('Bfs_booking_summary_before_cancel_hint') }}</p>
+                            @endif
 
                             <div class="table-responsive border-bottom">
                                 <table class="table text-nowrap align-middle mb-0">
@@ -1861,8 +2027,9 @@
                             @endif
                             @endcan
                             @php
-                                // Canonical payable total (matches Payment Details / get_booking_total_amount).
-                                $grandTotalCalculated = round(get_booking_total_amount($booking), 2);
+                                $grandTotalCalculated = $__bfsSplitBookingSummary
+                                    ? round(get_booking_total_amount($booking), 2)
+                                    : round(get_booking_payable_total_for_partial_dues($booking), 2);
                                 $acDisplayRows = $additionalChargesDisplayRows ?? enrich_booking_additional_charges_breakdown_for_display($booking);
                                 $displayBookingServiceDiscount = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking) + $extraSpareDiscountSum, 2);
                                 $catalogGrossSubtotal = round((float) $subTotal, 2);
@@ -1987,6 +2154,7 @@
                                                     </td>
                                                 </tr>
 
+                                                @if (! $__bfsSplitBookingSummary)
                                                 @if ($booking->booking_partial_payments->isNotEmpty())
                                                     @php
                                                         $__sumPaidProvider = round((float) ($revenueSettlement['amount_received_by_provider'] ?? 0), 2);
@@ -2034,6 +2202,7 @@
                                                             {{ with_currency_symbol(abs($booking->additional_charge)) }}
                                                         </td>
                                                     </tr>
+                                                @endif
                                                 @endif
                                             </tbody>
                                         </table>
@@ -2979,10 +3148,22 @@
             $errBox.addClass('d-none').empty();
 
             if ($form.hasClass('bfs-add-payment-form')) {
-                $('#bfs-cap-visit-charges').val($('#bfs-visit-charges-paid').val() || '0');
-                $('#bfs-cap-closing').val($('#bfs-closing-amount').val() || '');
-                if (typeof bfsSelectedOutcome === 'function') {
-                    $('#bfs-cap-settlement-outcome').val(bfsSelectedOutcome());
+                var $scaledCap = $form.find('input[name="bfs_scaled_loss_cap"]');
+                if ($scaledCap.length && String($scaledCap.val()) === '1') {
+                    $form.find('input[name="scaled_customer_paid_amount"]').val($('#bfs-scaled-customer-paid').val() || '0');
+                    var scaledOutcome = ($form.attr('data-bfs-outcome-scaled') || '').trim();
+                    if (scaledOutcome) {
+                        $form.find('input[name="bfs_settlement_outcome"]').val(scaledOutcome);
+                    }
+                    $form.find('input[name="bfs_decided_charges_cap"]').val('0');
+                } else {
+                    $form.find('input[name="bfs_scaled_loss_cap"]').val('0');
+                    $('#bfs-cap-visit-charges').val($('#bfs-visit-charges-paid').val() || '0');
+                    $('#bfs-cap-closing').val($('#bfs-closing-amount').val() || '');
+                    if (typeof bfsSelectedOutcome === 'function') {
+                        $('#bfs-cap-settlement-outcome').val(bfsSelectedOutcome());
+                    }
+                    $form.find('input[name="bfs_decided_charges_cap"]').val('1');
                 }
             }
 
