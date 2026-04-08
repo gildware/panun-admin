@@ -24,7 +24,8 @@ class WhatsAppAiToolExecutor
         protected WhatsAppLeadLifecycleService $leadLifecycle,
         protected WhatsAppAiSupportKnowledgeService $supportKnowledge,
         protected WhatsAppZoneAddressMatcher $zoneAddressMatcher,
-        protected WhatsAppAiSettingsService $aiSettings
+        protected WhatsAppAiSettingsService $aiSettings,
+        protected WhatsAppAiContactProfileResolver $contactProfile,
     ) {}
 
     /**
@@ -148,9 +149,11 @@ class WhatsAppAiToolExecutor
                         'name' => ['type' => 'string', 'description' => 'Contact person for the booking — not job type (e.g. plastering belongs in `service`). If session context has `saved_name`, pass that value and do **not** ask the customer to confirm. Pass a new value only when the customer explicitly asks to change or correct their name.'],
                         'service' => ['type' => 'string'],
                         'service_description' => ['type' => 'string', 'description' => 'Extra job details for staff (symptoms, model, photos described in text) — maps to admin booking "service info"'],
-                        'address' => ['type' => 'string', 'description' => 'Full service address from the customer — always collect this; never ask separately for district/region.'],
+                        'address' => ['type' => 'string', 'description' => 'Full service address. If session context lists a **default service address on file**, do **not** type it all again unless they chose a **different** address — use **use_saved_service_address** true after they confirm **same**, or paste the saved line here. For a **new** customer, collect the full address once.'],
                         'district' => ['type' => 'string', 'description' => 'Internal only: auto-filled from zone match when confident — do not ask the customer. Leave unset unless copying from match_zone_from_address high-confidence result.'],
                         'alternate_phone' => ['type' => 'string'],
+                        'email' => ['type' => 'string', 'description' => 'Customer email when known or collected — stored for admin prefill and WhatsApp profile; do not re-ask if session context already lists Known email.'],
+                        'use_saved_service_address' => ['type' => 'boolean', 'description' => 'Set true only after the customer confirms the visit is at the **saved** address in session context (same address on file). Server fills `address` from profile when the draft address is still empty.'],
                         'location_hint' => ['type' => 'string', 'description' => 'Landmark, floor, gate, pin on map text — helps staff find the customer'],
                         'preferred_datetime_text' => ['type' => 'string', 'description' => 'ISO-8601 or clear datetime the customer agreed to (e.g. 2026-04-05 17:00)'],
                         'zone_id' => ['type' => 'string', 'description' => 'Optional zone UUID from match_zone_from_address (high confidence) or service_hints — never ask the customer to choose a zone'],
@@ -529,6 +532,8 @@ class WhatsAppAiToolExecutor
 
         $booking->phone = $phone;
 
+        $this->contactProfile->prefillDraftBookingFromKnownProfile($phone, $booking, $args);
+
         $nameRejectedAsService = false;
         if (isset($args['name']) && $args['name'] !== null && trim((string) $args['name']) !== '') {
             $nameCandidate = trim((string) $args['name']);
@@ -563,6 +568,14 @@ class WhatsAppAiToolExecutor
         if (isset($args['alternate_phone'])) {
             $booking->alt_phone = $args['alternate_phone'] === null ? null : Str::limit((string) $args['alternate_phone'], 50, '');
         }
+        if (isset($args['email']) && $args['email'] !== null && trim((string) $args['email']) !== '') {
+            $em = Str::lower(trim((string) $args['email']));
+            if (filter_var($em, FILTER_VALIDATE_EMAIL)) {
+                $prefill = is_array($booking->admin_prefill_json) ? $booking->admin_prefill_json : [];
+                $prefill['contact_email'] = Str::limit($em, 191, '');
+                $booking->admin_prefill_json = $prefill;
+            }
+        }
         if (isset($args['location_hint'])) {
             $booking->location_hint = $args['location_hint'] === null ? null : Str::limit((string) $args['location_hint'], 500, '');
         }
@@ -575,6 +588,13 @@ class WhatsAppAiToolExecutor
         }
 
         $prefill = is_array($booking->admin_prefill_json) ? $booking->admin_prefill_json : [];
+        if (! isset($args['email']) && empty($prefill['contact_email'])) {
+            $snap = $this->contactProfile->snapshot($phone);
+            $em = Str::lower(trim((string) ($snap['merged']['email'] ?? '')));
+            if ($em !== '' && filter_var($em, FILTER_VALIDATE_EMAIL)) {
+                $prefill['contact_email'] = Str::limit($em, 191, '');
+            }
+        }
         foreach (['zone_id', 'category_id', 'sub_category_id', 'service_id', 'variant_key'] as $pk) {
             if (!array_key_exists($pk, $args)) {
                 continue;
@@ -608,7 +628,11 @@ class WhatsAppAiToolExecutor
         $booking->status = WhatsAppBooking::STATUS_DRAFT;
         $booking->save();
 
-        $this->leadLifecycle->ensureLeadTypeForPhone($phone, Lead::TYPE_CUSTOMER, $booking->name);
+        $crmLead = $this->leadLifecycle->ensureLeadTypeForPhone($phone, Lead::TYPE_CUSTOMER, $booking->name);
+        if ($crmLead) {
+            $booking->lead_id = $crmLead->id;
+            $booking->save();
+        }
 
         $conv = WhatsAppConversation::firstOrNew(['phone' => $phone]);
         $conv->active_booking_id = $booking->booking_id;
@@ -616,18 +640,23 @@ class WhatsAppAiToolExecutor
         $conv->current_step = null;
         $conv->save();
 
-        $finalName = trim((string) ($booking->name ?? ''));
-        if ($finalName !== '' && ! WhatsAppAiBookingNameHeuristics::looksLikeServiceNotPersonName($finalName)) {
-            $u = WhatsAppUser::firstOrNew(['phone' => $phone]);
-            $u->name = Str::limit($finalName, 255, '');
-            $u->handled_by = $u->handled_by ?: 'AI';
-            $u->save();
-        }
+        $this->contactProfile->persistAfterDraftUpsert($phone, $booking, $args);
 
         $out = ['ok' => true, 'booking_id' => $booking->booking_id, 'status' => $booking->status];
         if ($nameRejectedAsService) {
             $out['name_rejected_likely_service'] = true;
             $out['assistant_hint'] = 'The customer probably repeated the work type (e.g. mistary/plastering) instead of a person name. Save that text in `service` (or align with get_public_business_info), and politely ask again for their real name — the name we should use for the booking / to address them.';
+        }
+
+        $missingAfter = $this->bookingDraftMissingFields($booking);
+        if ($missingAfter === [] && !$nameRejectedAsService) {
+            $out['assistant_instruction'] = 'Booking draft is complete. Before calling submit_my_booking_for_human_confirmation, send one customer message in their language. '
+                .'Opening: short acknowledgment that details are updated/saved + ask if they want to confirm this booking request — do NOT cram the full time or full address into this opening. '
+                .'Then a blank line, then exactly these three lines (use => as shown):'."\n"
+                ."Service => …\n"
+                ."Time => …\n"
+                ."Address => …\n"
+                .'Then a line like "please confirm karo" (or a natural equivalent in their language). Keep Service/Time/Address on separate lines; do not fold them into one paragraph.';
         }
 
         return $out;
@@ -659,6 +688,11 @@ class WhatsAppAiToolExecutor
                 'missing_fields' => $missing,
                 'message' => 'Ask the customer for missing items, call upsert_my_draft_booking, then submit again.',
             ];
+        }
+
+        $crmLead = $this->leadLifecycle->ensureLeadTypeForPhone($phone, Lead::TYPE_CUSTOMER, $booking->name);
+        if ($crmLead && $booking->lead_id === null) {
+            $booking->lead_id = $crmLead->id;
         }
 
         $booking->status = WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN;

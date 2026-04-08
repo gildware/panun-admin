@@ -52,11 +52,6 @@ class CollectCashController extends Controller
             return back();
         }
 
-        if($request['amount'] > $providerUser->account->account_payable) {
-            Toastr::error(translate(COLLECT_CASH_FAIL_200['message']));
-            return back();
-        }
-
         collectCashTransaction($request->provider_id, $request['amount']);
 
         Toastr::success(translate(COLLECT_CASH_SUCCESS_200['message']));

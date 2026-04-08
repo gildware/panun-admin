@@ -3,10 +3,12 @@
 namespace Modules\WhatsAppModule\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\LeadManagement\Entities\Lead;
 
 /**
  * Booking in the WhatsApp PostgreSQL database.
- * Columns: id, booking_id, phone, name, alt_phone, address, service, service_description, district, prefered_datetime, status, location_hint, admin_prefill_json, system_booking_id, created_at, updated_at
+ * Columns: id, booking_id, phone, name, alt_phone, address, service, service_description, district, prefered_datetime, status, cancellation_reason, location_hint, admin_prefill_json, system_booking_id, created_at, updated_at
  */
 class WhatsAppBooking extends Model
 {
@@ -34,9 +36,11 @@ class WhatsAppBooking extends Model
         'service_description',
         'prefered_datetime',
         'status',
+        'cancellation_reason',
         'location_hint',
         'admin_prefill_json',
         'system_booking_id',
+        'lead_id',
     ];
 
     protected $casts = [
@@ -45,4 +49,9 @@ class WhatsAppBooking extends Model
         'updated_at' => 'datetime',
         'admin_prefill_json' => 'array',
     ];
+
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class);
+    }
 }

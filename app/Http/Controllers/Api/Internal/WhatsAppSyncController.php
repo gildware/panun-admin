@@ -182,7 +182,11 @@ class WhatsAppSyncController extends Controller
         $booking->save();
 
         // Booking flow should classify this WhatsApp lead as customer.
-        $this->leadLifecycle->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_CUSTOMER, $data['name'] ?? null);
+        $crmLead = $this->leadLifecycle->ensureLeadTypeForPhone($data['phone'], Lead::TYPE_CUSTOMER, $data['name'] ?? null);
+        if ($crmLead) {
+            $booking->lead_id = $crmLead->id;
+            $booking->save();
+        }
 
         return response()->json([
             'ok' => true,
@@ -314,6 +318,7 @@ class WhatsAppSyncController extends Controller
         $data = $request->validate([
             'phone' => 'required|string|max:50',
             'name' => 'nullable|string',
+            'email' => 'nullable|email|max:191',
             'alternate_phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
             'type' => 'nullable|string|max:20',

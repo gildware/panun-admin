@@ -6,6 +6,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\SubscriptionBookingType;
+use Modules\ProviderManagement\Services\CustomerLossMakingSettlementPenaltyService;
 
 class BookingFinancialSettlementService
 {
@@ -179,15 +180,23 @@ class BookingFinancialSettlementService
             ];
         }
 
+        // Loss-making (scaled): commission tiers run on the parent booking’s full payable total, never on customer paid amount.
+        if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS && $booking instanceof BookingRepeat) {
+            $mainForRepeat = $this->mainBookingFor($booking);
+            $parentResult = calculate_commission_for_booking($mainForRepeat, $providerId);
+            $adminFullParent = (float) $parentResult['commission'];
+            $w = $this->scaledLossRepeatLineWeight($booking, $mainForRepeat);
+            $adminFull = round($adminFullParent * $w, 2);
+            $adminCommissionWithoutCost = max(0.0, $adminFull - $promotionalCostByAdmin);
+
+            return [
+                'adminCommission' => $adminFull,
+                'adminCommissionWithoutCost' => $adminCommissionWithoutCost,
+            ];
+        }
+
         $baseResult = calculate_commission_for_booking($booking, $providerId);
         $adminFull = (float) $baseResult['commission'];
-
-        if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS) {
-            $grandTotal = get_booking_total_amount($booking);
-            $paid = $this->totalPaidForMainBooking($main);
-            $ratio = ($grandTotal > 0) ? min(1.0, $paid / $grandTotal) : 0.0;
-            $adminFull = round($adminFull * $ratio, 2);
-        }
 
         $adminCommissionWithoutCost = max(0.0, $adminFull - $promotionalCostByAdmin);
 
@@ -195,6 +204,26 @@ class BookingFinancialSettlementService
             'adminCommission' => $adminFull,
             'adminCommissionWithoutCost' => $adminCommissionWithoutCost,
         ];
+    }
+
+    /**
+     * Share of parent “full booking” commission/earning for this repeat line (loss-making parent only).
+     */
+    public function scaledLossRepeatLineWeight(BookingRepeat $repeat, Booking $main): float
+    {
+        $line = round(max(0.0, get_booking_total_amount($repeat)), 2);
+        $siblings = BookingRepeat::query()
+            ->where('booking_id', $main->id)
+            ->get();
+        $siblingSum = 0.0;
+        foreach ($siblings as $s) {
+            $siblingSum += get_booking_total_amount($s);
+        }
+        $siblingSum = round(max(0.0, $siblingSum), 2);
+        $parentGrand = round(max(0.0, get_booking_total_amount($main)), 2);
+        $den = round(max($siblingSum, $parentGrand, 0.01), 2);
+
+        return min(1.0, max(0.0, $line / $den));
     }
 
     /**
@@ -263,6 +292,10 @@ class BookingFinancialSettlementService
         $scaledLossBlock = [];
         if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS) {
             [$sx, $sLoss, $sy, $sz] = $this->resolveScaledLossBreakdown($booking, $config, $grandTotal, $paid);
+            $commissionWo = (float) $details['adminCommissionWithoutCost'];
+            $providerGross = round(max(0.0, $grandTotal - $commissionWo), 2);
+            $netCompany = round($commissionWo - $sy, 2);
+            $netProvider = round($providerGross - $sz, 2);
             $scaledLossBlock = [
                 'scaled_loss_mode' => true,
                 'scaled_total_booking_amount' => round($grandTotal, 2),
@@ -270,6 +303,11 @@ class BookingFinancialSettlementService
                 'scaled_loss_amount' => $sLoss,
                 'scaled_loss_company_share' => $sy,
                 'scaled_loss_provider_share' => $sz,
+                'scaled_bad_debt_balance_not_due' => $sLoss,
+                'scaled_gross_company_commission_without_cost' => round($commissionWo, 2),
+                'scaled_gross_provider_share' => $providerGross,
+                'scaled_net_company_share' => $netCompany,
+                'scaled_net_provider_share' => $netProvider,
             ];
         }
 
@@ -326,7 +364,7 @@ class BookingFinancialSettlementService
         }
 
         if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS) {
-            return min($grandTotal, $paid);
+            return max(0.0, $grandTotal);
         }
 
         return $grandTotal;
@@ -381,21 +419,41 @@ class BookingFinancialSettlementService
         $adminCommissionWithoutCost = (float) $commissionDetails['adminCommissionWithoutCost'];
 
         $main = $this->mainBookingFor($booking);
-        $grandTotal = get_booking_total_amount($booking);
-        $paid = $this->totalPaidForMainBooking($main);
-        $providerBasis = $this->providerEarningBasisAmount($main, $grandTotal, $paid);
-        $providerEarning = round(max(0.0, $providerBasis - $adminCommissionWithoutCost), 2);
+        $outcomeMain = trim((string) ($main->settlement_outcome ?? ''));
 
-        if (isset($booking->booking_id)) {
-            $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->first();
+        if ($outcomeMain === self::OUTCOME_SCALED_TO_PAYMENTS && $booking instanceof BookingRepeat) {
+            $w = $this->scaledLossRepeatLineWeight($booking, $main);
+            $parentCd = $this->calculateAdminCommissionDetails($main, $booking->provider_id ?? $main->provider_id);
+            $parentGrand = round(max(0.0, get_booking_total_amount($main)), 2);
+            $parentWo = round(max(0.0, (float) ($parentCd['adminCommissionWithoutCost'] ?? 0)), 2);
+            $providerGrossParent = round(max(0.0, $parentGrand - $parentWo), 2);
+            $providerEarning = round(max(0.0, $providerGrossParent * $w), 2);
         } else {
-            $bookingAmountDetailAmount = BookingDetailsAmount::where('booking_id', $booking->id)->first();
+            $grandTotal = get_booking_total_amount($booking);
+            $paid = $this->totalPaidForMainBooking($main);
+            $providerBasis = $this->providerEarningBasisAmount($main, $grandTotal, $paid);
+            $providerEarning = round(max(0.0, $providerBasis - $adminCommissionWithoutCost), 2);
         }
 
-        if ($bookingAmountDetailAmount) {
-            $bookingAmountDetailAmount->admin_commission = $adminCommission;
-            $bookingAmountDetailAmount->provider_earning = $providerEarning;
-            $bookingAmountDetailAmount->save();
+        if (isset($booking->booking_id)) {
+            $rows = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->orderBy('id')->get();
+        } else {
+            $rows = BookingDetailsAmount::where('booking_id', $booking->id)->orderBy('id')->get();
+        }
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $first = $rows->first();
+        $first->admin_commission = $adminCommission;
+        $first->provider_earning = $providerEarning;
+        $first->save();
+
+        foreach ($rows->skip(1) as $row) {
+            $row->admin_commission = 0;
+            $row->provider_earning = 0;
+            $row->save();
         }
     }
 
@@ -647,6 +705,9 @@ class BookingFinancialSettlementService
      */
     public function saveSettlement(Booking $booking, string $outcome, array $config, ?string $remarks): void
     {
+        $previousOutcome = trim((string) ($booking->getOriginal('settlement_outcome') ?? ''));
+        $wasAlreadyLossMaking = $previousOutcome === self::OUTCOME_SCALED_TO_PAYMENTS;
+
         $booking->settlement_outcome = $outcome === self::OUTCOME_STANDARD ? null : $outcome;
         $booking->settlement_config = $outcome === self::OUTCOME_STANDARD ? null : $config;
         $booking->settlement_remarks = $remarks;
@@ -661,5 +722,9 @@ class BookingFinancialSettlementService
         }
 
         $booking->save();
+
+        if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS && ! $wasAlreadyLossMaking) {
+            app(CustomerLossMakingSettlementPenaltyService::class)->applyWhenBookingBecomesLossMaking($booking);
+        }
     }
 }

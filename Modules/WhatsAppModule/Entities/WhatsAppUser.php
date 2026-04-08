@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * User table in the WhatsApp (Neon) database only.
- * Not related to the main app's User model. Columns: id, phone, name, created_at, updated_at, alternate_phone, address, type (CUSTOMER/PROVIDER).
+ * Not related to the main app's User model. Columns: id, phone, name, email, created_at, updated_at, alternate_phone, address, type (CUSTOMER/PROVIDER).
  */
 class WhatsAppUser extends Model
 {
@@ -19,6 +19,7 @@ class WhatsAppUser extends Model
     protected $fillable = [
         'phone',
         'name',
+        'email',
         'alternate_phone',
         'address',
         'type',

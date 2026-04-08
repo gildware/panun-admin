@@ -92,10 +92,10 @@
                         </div>
                         <div class="@if($checkAdjust) col-lg-6 @else col-lg-3 @endif">
                             <div class="statistics-card statistics-card__style2">
-                                <h2>{{with_currency_symbol($provider->owner->account->account_payable)}}</h2>
+                                <h2>{{with_currency_symbol($provider->owner->account->received_balance ?? 0)}}</h2>
                                 <p class="d-flex align-items-center gap-2 text-muted">{{translate('cash_in_hand')}} <i
                                         class="material-icons text-muted" data-bs-toggle="tooltip"
-                                        title="{{translate('Total amount you’ve received from the customer in cash (Cash after Service)')}}">info</i>
+                                        title="{{translate('Cash_collected_from_customers_cas_tooltip')}}">info</i>
                                 </p>
                             </div>
                         </div>

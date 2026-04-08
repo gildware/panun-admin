@@ -13,18 +13,8 @@
                 <form action="{{ route('admin.booking.store') }}" method="POST" id="confirm-booking-form">
                     @csrf
 
-                    {{-- Hidden fields with all data --}}
-                    @foreach($data as $key => $value)
-                        @if($key === 'ac_line_amount' || is_array($value))
-                            @continue
-                        @endif
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endforeach
-                    @if(!empty($data['ac_line_amount']) && is_array($data['ac_line_amount']))
-                        @foreach($data['ac_line_amount'] as $acTypeId => $acAmt)
-                            <input type="hidden" name="ac_line_amount[{{ $acTypeId }}]" value="{{ $acAmt }}">
-                        @endforeach
-                    @endif
+                    {{-- Same round-trip as main preview: arrays (advance_method_fields, ac_line_amount) must use the shared partial. --}}
+                    @include('bookingmodule::admin.booking.partials._preview-booking-hidden-fields', ['data' => $data])
 
                     {{-- 0. Booking Source --}}
                     <div class="mb-4 border rounded-3 p-3">

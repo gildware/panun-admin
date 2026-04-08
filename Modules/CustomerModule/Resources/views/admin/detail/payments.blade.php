@@ -42,6 +42,13 @@
             background: rgba(25, 135, 84, .12);
             border-color: rgba(25, 135, 84, .35);
         }
+        tr.customer-payment-report-row--loss-making > td {
+            background-color: rgba(220, 53, 69, .09);
+            border-color: rgba(220, 53, 69, .25);
+        }
+        tr.customer-payment-report-row--loss-making > td:first-child {
+            box-shadow: inset 3px 0 0 0 #dc3545;
+        }
     </style>
 @endpush
 
@@ -83,26 +90,89 @@
                     </div>
 
                     <div class="row g-3 mb-4">
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-6 col-xl-3">
                             <div class="statistics-card statistics-card__style2 flow-card flow-card--company-in h-100">
                                 <h3>{{ translate('Customer_paid_to_company') }}</h3>
                                 <h2>{{ with_currency_symbol((float) ($totals->customer_paid_to_company ?? 0)) }}</h2>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-6 col-xl-3">
                             <div class="statistics-card statistics-card__style2 flow-card flow-card--company-out h-100">
                                 <h3>{{ translate('Company_paid_to_customer') }}</h3>
                                 <h2>{{ with_currency_symbol((float) ($totals->company_paid_to_customer ?? 0)) }}</h2>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-6 col-xl-3">
                             <div class="statistics-card statistics-card__style2 flow-card flow-card--provider-in h-100">
                                 <h3>{{ translate('Customer_paid_to_provider') }}</h3>
                                 <h2>{{ with_currency_symbol((float) ($totals->customer_paid_to_provider ?? 0)) }}</h2>
                             </div>
                         </div>
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <div class="statistics-card statistics-card__style2 h-100 border border-warning flow-card" style="background: rgba(255, 193, 7, .08); border-color: rgba(255, 193, 7, .45) !important;">
+                                <h3 title="{{ translate('Customer_pending_bad_debt_loss_making_hint') }}">{{ translate('Customer_pending_bad_debt_loss_making') }}</h3>
+                                <h2 class="{{ ($pendingBadDebtLossMaking ?? 0) > 0.009 ? 'text-warning' : '' }}">{{ with_currency_symbol((float) ($pendingBadDebtLossMaking ?? 0)) }}</h2>
+                            </div>
+                        </div>
                     </div>
 
+                    <h3 class="h5 mb-3">{{ translate('Customer_booking_wise_payment_report') }}</h3>
+                    <div class="table-responsive mb-5">
+                        <table class="table align-middle table-bordered">
+                            <thead class="table-light">
+                            <tr>
+                                <th>{{ translate('Booking_Id') }}</th>
+                                <th class="text-end">{{ translate('Total_Amount') }}</th>
+                                <th class="text-end">{{ translate('Paid_to_provider') }}</th>
+                                <th class="text-end">{{ translate('Paid_to_company') }}</th>
+                                <th class="text-end">{{ translate('Balance') }}</th>
+                                <th class="text-end">{{ translate('Customer_report_pending_debit_loss_making') }}</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @forelse($paginatedBookingReport as $bRow)
+                                <tr @class(['customer-payment-report-row--loss-making' => !empty($bRow->is_loss_making)])>
+                                    <td>
+                                        <div class="d-flex flex-wrap align-items-center gap-2">
+                                            <a href="{{ route('admin.booking.details', [$bRow->booking_id]) }}" class="fw-semibold text-decoration-none @if(!empty($bRow->is_loss_making)) text-danger @endif">
+                                                #{{ $bRow->readable_id }}
+                                            </a>
+                                            @if(!empty($bRow->is_loss_making))
+                                                <span class="badge bg-danger">{{ translate('Bfs_badge_loss_making_booking') }}</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td class="text-end @if(!empty($bRow->is_loss_making)) text-danger fw-semibold @endif">{{ with_currency_symbol((float) $bRow->total_amount) }}</td>
+                                    <td class="text-end">{{ with_currency_symbol((float) $bRow->paid_to_provider) }}</td>
+                                    <td class="text-end">{{ with_currency_symbol((float) $bRow->paid_to_company) }}</td>
+                                    <td class="text-end fw-semibold @if((float) $bRow->balance > 0.009) text-warning @elseif(!empty($bRow->is_loss_making)) text-danger @endif">{{ with_currency_symbol((float) $bRow->balance) }}</td>
+                                    <td class="text-end fw-semibold">
+                                        @if(!empty($bRow->is_loss_making))
+                                            @if((float) ($bRow->pending_debit_loss_making ?? 0) > 0.009)
+                                                <span class="text-danger">{{ with_currency_symbol((float) $bRow->pending_debit_loss_making) }}</span>
+                                            @else
+                                                <span class="text-muted">{{ with_currency_symbol(0) }}</span>
+                                            @endif
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
+                                </tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($paginatedBookingReport->hasPages())
+                        <div class="d-flex justify-content-end mb-5">
+                            {{ $paginatedBookingReport->links() }}
+                        </div>
+                    @endif
+
+                    <h3 class="h5 mb-3">{{ translate('Payment_transaction_log') }}</h3>
                     <div class="table-responsive">
                         <table class="table align-middle table-bordered">
                             <thead class="table-light">

@@ -3,6 +3,42 @@
 @section('title', translate('provider_details') . ' - ' . translate('Payment'))
 
 @push('css_or_js')
+    <style>
+        .pk-payment-widget-card { position: relative; }
+        .pk-payment-widget-card.statistics-card__style2 {
+            padding: 0.75rem 1rem 0.875rem;
+        }
+        .pk-payment-widget-card.statistics-card__style2 h3 {
+            margin-block-end: 0.125rem;
+            line-height: 1.3;
+        }
+        .pk-payment-widget-card.statistics-card__style2 h2 {
+            font-size: 1.25rem;
+            margin-block-end: 0.25rem;
+        }
+        .statistics-card.pk-payment-widget-card.statistics-card__style2 h2.text-danger {
+            color: var(--bs-danger, #dc3545);
+        }
+        .pk-payment-widget-card.statistics-card__style2 .btn--lg {
+            margin-top: 0.375rem !important;
+        }
+        .pk-payment-widget-info-btn {
+            z-index: 2;
+            line-height: 1;
+            opacity: 0.55;
+            text-decoration: none !important;
+        }
+        .pk-payment-widget-info-btn:hover,
+        .pk-payment-widget-info-btn:focus {
+            opacity: 1;
+        }
+        .popover.pk-payment-widget-popover {
+            max-width: min(22rem, 92vw);
+        }
+        .popover.pk-payment-widget-popover .popover-body {
+            text-align: start;
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -22,6 +58,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'payment' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=payment">{{ translate('Payment') }}</a>
@@ -52,55 +91,141 @@
                     @php
                         $providerPayable = (float) ($provider->owner->account->account_payable ?? 0);
                         $providerReceivable = (float) ($provider->owner->account->account_receivable ?? 0);
-                        $netPayableAmount = $providerReceivable - $providerPayable;
-                        $companyPaysProvider = $netPayableAmount > 0;
-                        $providerPaysCompany = $netPayableAmount < 0;
+                        $ledgerNetPayable = $providerReceivable - $providerPayable;
+                        $bookingSettlementNet = (float) ($bookingSettlementNet ?? 0);
+                        $netPayableAmount = $bookingSettlementNet;
+                        $companyPaysProvider = $netPayableAmount > 0.009;
+                        $providerPaysCompany = $netPayableAmount < -0.009;
+                        $customerRefundDueTotal = (float) ($customerRefundDueTotal ?? 0);
+                        $payoutCapWhenCompanyOwes = $companyPaysProvider
+                            ? max($providerReceivable, max(0.0, $bookingSettlementNet))
+                            : max(0.0, $providerReceivable);
+                        $addPaymentFormMax = $companyPaysProvider ? max(0.0, $bookingSettlementNet) : 0.0;
+                        $collectFormMax = $providerPaysCompany ? min($providerPayable, max(0.0, -$bookingSettlementNet)) : 0.0;
+                        $collectModalMaxLedger = max(0.0, $providerPayable);
+                        $addPaymentModalMaxLedger = $payoutCapWhenCompanyOwes;
                     @endphp
 
-                    {{-- Net Payable + Revenue Summary (single first row, 4 cards) --}}
+                    @can('provider_update')
+                        <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-3">
+                            <button type="button" class="btn btn--primary text-capitalize" data-bs-toggle="modal" data-bs-target="#collectAmountFromProviderModal">
+                                {{ translate('Collect_Amount_From_Provider') }}
+                            </button>
+                            <button type="button" class="btn btn--primary text-capitalize" data-bs-toggle="modal" data-bs-target="#addPaymentToProviderModal">
+                                {{ translate('Add_Payment_to_Provider') }}
+                            </button>
+                        </div>
+                    @endcan
+
+                    {{-- Net balance + Revenue Summary (first row) --}}
                     <div class="row g-3 mb-30">
-                        <div class="col-12 col-md-6 col-lg-3">
-                            <div class="statistics-card statistics-card__style2 h-100 {{ $companyPaysProvider ? 'statistics-card__collect-cash' : '' }}">
-                                <h3>{{ translate('Net_Payable') }}</h3>
-                                <h2>{{ with_currency_symbol(abs($netPayableAmount)) }}</h2>
-                                @if($companyPaysProvider)
-                                    <p class="small text-muted mb-1">{{ translate('Company_has_to_pay_to_provider') }}</p>
-                                    @can('provider_update')
-                                        <button type="button" class="btn btn--primary text-capitalize w-100 btn--lg mw-75" data-bs-toggle="modal" data-bs-target="#addPaymentToProviderModal">
+                        <div class="col-12 col-md-6 col-lg">
+                            @php
+                                $netBalanceIsZero = abs($netPayableAmount) <= 0.009;
+                                $netPayableInfoWarn = \Illuminate\Support\Facades\Gate::check('provider_update')
+                                    && (($companyPaysProvider && $addPaymentModalMaxLedger <= 0.009) || ($providerPaysCompany && $collectFormMax <= 0.009));
+                            @endphp
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 {{ $netPayableInfoWarn ? 'text-warning' : 'text-muted' }}" data-pk-popover-src="pk-pop-body-net-payable" data-pk-popover-title="{{ translate('Net_Balance') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Net_Balance') }}</h3>
+                                <h2 @class(['text-danger' => $companyPaysProvider && ! $netBalanceIsZero, 'text-success' => $providerPaysCompany && ! $netBalanceIsZero])>{{ with_currency_symbol(abs($netPayableAmount)) }}</h2>
+                                @if($companyPaysProvider && ! $netBalanceIsZero)
+                                    <p class="small mb-0 mt-1 text-danger">{{ translate('Company_has_to_pay_to_provider') }}</p>
+                                @elseif($providerPaysCompany && ! $netBalanceIsZero)
+                                    <p class="small mb-0 mt-1 text-success">{{ translate('Provider_has_to_pay_to_company') }}</p>
+                                @endif
+                                @can('provider_update')
+                                    @if($companyPaysProvider && $addPaymentFormMax > 0.009)
+                                        <button type="button" class="btn btn--primary text-capitalize w-100 btn--lg mw-75 mt-2" data-bs-toggle="modal" data-bs-target="#addPaymentToProviderModal">
                                             {{ translate('Add_Payment_to_Provider') }}
                                         </button>
-                                    @endcan
-                                @elseif($providerPaysCompany)
-                                    <p class="small text-muted mb-1">{{ translate('Provider_has_to_pay_to_company') }}</p>
-                                    @can('provider_update')
-                                        <button type="button" class="btn btn--primary text-capitalize w-100 btn--lg mw-75" data-bs-toggle="modal" data-bs-target="#collectAmountFromProviderModal">
+                                    @elseif($providerPaysCompany && $collectFormMax > 0.009)
+                                        <button type="button" class="btn btn--primary text-capitalize w-100 btn--lg mw-75 mt-2" data-bs-toggle="modal" data-bs-target="#collectAmountFromProviderModal">
                                             {{ translate('Collect_Amount') }}
                                         </button>
-                                    @endcan
-                                @else
-                                    <p class="small text-muted mb-1">{{ translate('No_outstanding_balance') }}</p>
-                                @endif
+                                    @endif
+                                @endcan
                             </div>
                         </div>
-                        <div class="col-12 col-md-6 col-lg-3">
-                            <div class="statistics-card statistics-card__style2 h-100 border border-primary">
-                                <h3>{{ translate('Total_Revenue') }}</h3>
+                        <div class="col-12 col-md-6 col-lg">
+                            <div class="statistics-card statistics-card__style2 h-100 border border-primary pk-payment-widget-card">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-total-revenue" data-pk-popover-title="{{ translate('Total_Revenue') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Total_Revenue') }}</h3>
                                 <h2 class="text-primary">{{ with_currency_symbol($totalRevenue ?? 0) }}</h2>
-                                <p class="small text-muted mb-0">{{ translate('Grand_total_of_all_completed_bookings') }}</p>
                             </div>
                         </div>
-                        <div class="col-12 col-md-6 col-lg-3">
-                            <div class="statistics-card statistics-card__style2 h-100">
-                                <h3>{{ translate('Provider_Net_Earning') }}</h3>
+                        <div class="col-12 col-md-6 col-lg">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-provider-net" data-pk-popover-title="{{ translate('Provider_Earning') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Provider_Earning') }}</h3>
                                 <h2>{{ with_currency_symbol($providerNetEarning ?? 0) }}</h2>
-                                <p class="small text-muted mb-0">{{ translate('Total_revenue_minus_company_commission') }}</p>
                             </div>
                         </div>
-                        <div class="col-12 col-md-6 col-lg-3">
-                            <div class="statistics-card statistics-card__style2 h-100">
-                                <h3>{{ translate('Total_Company_Commission') }}</h3>
+                        <div class="col-12 col-md-6 col-lg">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-company-commission" data-pk-popover-title="{{ translate('Total_Company_Commission') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Total_Company_Commission') }}</h3>
                                 <h2>{{ with_currency_symbol($totalCompanyCommission ?? 0) }}</h2>
-                                <p class="small text-muted mb-0">{{ translate('Company_commission_of_completed_bookings') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-secondary">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-provider-loss-absorbed" data-pk-popover-title="{{ translate('Provider_loss_absorbed_total') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Provider_loss_absorbed_total') }}</h3>
+                                <h2 class="text-danger">{{ with_currency_symbol($scaledLossProviderShareTotal ?? 0) }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-secondary">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-company-loss-absorbed" data-pk-popover-title="{{ translate('Company_loss_absorbed_total') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Company_loss_absorbed_total') }}</h3>
+                                <h2 class="text-danger">{{ with_currency_symbol($scaledLossCompanyShareTotal ?? 0) }}</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Provider receipts: company ledger vs customer (booking reports) --}}
+                    <div class="row g-3 mb-30">
+                        <div class="col-12">
+                            <h4 class="mb-2">{{ translate('Provider_payment_receipts_section') }}</h4>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-info">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-received-from-company" data-pk-popover-title="{{ translate('Provider_payment_total_from_company') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Provider_payment_total_from_company') }}</h3>
+                                <h2>{{ with_currency_symbol($providerReceivedFromCompanyTotal ?? 0) }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-info">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-received-from-customer" data-pk-popover-title="{{ translate('Provider_payment_total_from_customer') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Provider_payment_total_from_customer') }}</h3>
+                                <h2>{{ with_currency_symbol($providerReceivedFromCustomerTotal ?? 0) }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-primary">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-received-total" data-pk-popover-title="{{ translate('Provider_payment_total_received') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Provider_payment_total_received') }}</h3>
+                                <h2 class="text-primary">{{ with_currency_symbol($providerReceivedTotalAllSources ?? 0) }}</h2>
                             </div>
                         </div>
                     </div>
@@ -111,28 +236,119 @@
                             <h4 class="mb-2">{{ translate('Withdrawal_Summary') }}</h4>
                         </div>
                         <div class="col-6 col-md-3">
-                            <div class="statistics-card statistics-card__style2 statistics-card__pending-withdraw h-100">
-                                <h3>{{ translate('Pending_Withdrawn') }}</h3>
+                            <div class="statistics-card statistics-card__style2 statistics-card__pending-withdraw h-100 pk-payment-widget-card">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-pending-withdrawn" data-pk-popover-title="{{ translate('Pending_Withdrawn') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Pending_Withdrawn') }}</h3>
                                 <h2>{{ with_currency_symbol($provider->owner->account->balance_pending ?? 0) }}</h2>
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
-                            <div class="statistics-card statistics-card__style2 statistics-card__already-withdraw h-100">
-                                <h3>{{ translate('Already_Withdrawn') }}</h3>
+                            <div class="statistics-card statistics-card__style2 statistics-card__already-withdraw h-100 pk-payment-widget-card">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-already-withdrawn" data-pk-popover-title="{{ translate('Already_Withdrawn') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Already_Withdrawn') }}</h3>
                                 <h2>{{ with_currency_symbol($provider->owner->account->total_withdrawn ?? 0) }}</h2>
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
-                            <div class="statistics-card statistics-card__style2 statistics-card__withdrawable-amount h-100">
-                                <h3>{{ translate('Withdrawable_Amount') }}</h3>
+                            <div class="statistics-card statistics-card__style2 statistics-card__withdrawable-amount h-100 pk-payment-widget-card">
+                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-withdrawable" data-pk-popover-title="{{ translate('Withdrawable_Amount') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                                <h3 class="pe-4">{{ translate('Withdrawable_Amount') }}</h3>
                                 <h2>{{ with_currency_symbol($provider->owner->account->account_receivable ?? 0) }}</h2>
                             </div>
                         </div>
                     </div>
 
+                    {{-- Hidden HTML sources for widget popovers (Bootstrap reads innerHTML once at init) --}}
+                    <div id="pk-pop-body-net-payable" class="d-none" aria-hidden="true">
+                        <div class="small text-body">
+                            @if($companyPaysProvider)
+                                <p class="mb-2"><strong>{{ translate('Company_has_to_pay_to_provider') }}</strong></p>
+                            @elseif($providerPaysCompany)
+                                <p class="mb-2"><strong>{{ translate('Provider_has_to_pay_to_company') }}</strong></p>
+                            @else
+                                <p class="mb-2">{{ translate('No_outstanding_balance') }}</p>
+                            @endif
+                            @if($customerRefundDueTotal > 0.009)
+                                <p class="mb-2">{{ translate('Customer_refunds_due_total') }}: {{ with_currency_symbol($customerRefundDueTotal) }}</p>
+                            @endif
+                            <p class="mb-2">{{ translate('Net_Payable_booking_settlement_explanation') }}</p>
+                            @php
+                                $ledgerPayoutOut = (float) ($ledgerManualTotals['payout_out_total'] ?? 0);
+                                $ledgerCollectIn = (float) ($ledgerManualTotals['collect_in_total'] ?? 0);
+                            @endphp
+                            @if($ledgerPayoutOut > 0.009 || $ledgerCollectIn > 0.009)
+                                <p class="mb-2">
+                                    <span class="d-block">{{ translate('Net_balance_provider_ledger_adjustment_hint') }}</span>
+                                    @if($ledgerPayoutOut > 0.009)
+                                        <span class="d-block">{{ translate('Net_balance_ledger_out_paid_to_provider') }}: {{ with_currency_symbol($ledgerPayoutOut) }}</span>
+                                    @endif
+                                    @if($ledgerCollectIn > 0.009)
+                                        <span class="d-block">{{ translate('Net_balance_ledger_in_collected_from_provider') }}: {{ with_currency_symbol($ledgerCollectIn) }}</span>
+                                    @endif
+                                </p>
+                            @endif
+                            <p class="mb-2">{{ translate('Net_Payable_ledger_reference') }}: {{ with_currency_symbol(abs($ledgerNetPayable)) }}
+                                @if($ledgerNetPayable > 0.009)({{ translate('Company_has_to_pay_to_provider') }})@elseif($ledgerNetPayable < -0.009)({{ translate('Provider_has_to_pay_to_company') }})@else({{ translate('No_outstanding_balance') }})@endif
+                            </p>
+                            @can('provider_update')
+                                @if($companyPaysProvider && $addPaymentModalMaxLedger <= 0.009)
+                                    <p class="mb-0 text-warning">{{ translate('Booking_settlement_no_receivable_for_payout') }}</p>
+                                @elseif($providerPaysCompany && $collectFormMax <= 0.009)
+                                    <p class="mb-0 text-warning">{{ translate('Booking_settlement_no_payable_for_collect') }}</p>
+                                @endif
+                            @endcan
+                        </div>
+                    </div>
+                    <div id="pk-pop-body-total-revenue" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Grand_total_of_all_completed_bookings') }}</p>
+                    </div>
+                    <div id="pk-pop-body-provider-net" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Provider_net_earning_payment_tab_hint') }}</p>
+                    </div>
+                    <div id="pk-pop-body-company-commission" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Company_commission_of_completed_bookings') }}</p>
+                    </div>
+                    <div id="pk-pop-body-provider-loss-absorbed" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Provider_loss_absorbed_payment_tab_hint') }}</p>
+                    </div>
+                    <div id="pk-pop-body-company-loss-absorbed" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Company_loss_absorbed_payment_tab_hint') }}</p>
+                    </div>
+                    <div id="pk-pop-body-received-from-company" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Provider_payment_total_from_company_hint') }}</p>
+                    </div>
+                    <div id="pk-pop-body-received-from-customer" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Provider_payment_total_from_customer_hint') }}</p>
+                    </div>
+                    <div id="pk-pop-body-received-total" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Provider_payment_total_received_hint') }}</p>
+                    </div>
+                    <div id="pk-pop-body-pending-withdrawn" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Payment_widget_hint_pending_withdrawn') }}</p>
+                    </div>
+                    <div id="pk-pop-body-already-withdrawn" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Payment_widget_hint_already_withdrawn') }}</p>
+                    </div>
+                    <div id="pk-pop-body-withdrawable" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Payment_widget_hint_withdrawable_receivable') }}</p>
+                    </div>
+                    <div id="pk-pop-body-ledger-section" class="d-none" aria-hidden="true">
+                        <p class="small text-body mb-0">{{ translate('Payment_widget_hint_ledger_section') }}</p>
+                    </div>
+
                     {{-- 1. Provider Ledger: company sent to provider / company received from provider --}}
-                    <h4 class="mb-3">{{ translate('Provider_Ledger') }}</h4>
-                    <p class="text-muted small mb-3">{{ translate('Money_company_sent_to_provider_and_money_company_received_from_provider') }}</p>
+                    <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap mb-3">
+                        <h4 class="mb-0">{{ translate('Provider_Ledger') }}</h4>
+                        <button type="button" class="btn btn-link pk-payment-widget-info-btn text-muted p-1" data-pk-popover-src="pk-pop-body-ledger-section" data-pk-popover-title="{{ translate('Provider_Ledger') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                            <i class="material-icons" style="font-size:20px;">info_outline</i>
+                        </button>
+                    </div>
                     <div class="table-responsive mb-4">
                         <table class="table table-bordered table-hover align-middle">
                             <thead class="table-light">
@@ -198,22 +414,36 @@
                                     <th class="text-end">{{ translate('Parts_Charges') }}</th>
                                     <th class="text-end">{{ translate('Provider_Earning') }}</th>
                                     <th class="text-end">{{ translate('Admin_Commission') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_received_by_company') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_received_by_provider') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_provider_owes_company') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_company_owes_provider') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($bookingEarningReportPaginated as $row)
                                     <tr>
-                                        <td>{{ $row->readable_id }}</td>
+                                        <td>
+                                            @if(!empty($row->booking_id))
+                                                <a href="{{ route('admin.booking.details', [$row->booking_id]) }}" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-none">{{ $row->readable_id }}</a>
+                                            @else
+                                                {{ $row->readable_id }}
+                                            @endif
+                                        </td>
                                         <td class="text-end">{{ with_currency_symbol($row->total_amount) }}</td>
                                         <td class="text-end">{{ with_currency_symbol($row->service_charges) }}</td>
                                         <td class="text-end">{{ with_currency_symbol($row->extra_service_charges ?? 0) }}</td>
                                         <td class="text-end">{{ with_currency_symbol($row->parts_charges) }}</td>
                                         <td class="text-end">{{ with_currency_symbol($row->provider_earning) }}</td>
                                         <td class="text-end">{{ with_currency_symbol($row->admin_commission) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->amount_received_by_company ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->amount_received_by_provider ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->provider_owes_company ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->company_owes_provider ?? 0) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">{{ translate('No_completed_bookings') }}</td>
+                                        <td colspan="11" class="text-center text-muted py-4">{{ translate('No_completed_bookings') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -225,7 +455,74 @@
                         </div>
                     @endif
 
-                    @if($providerPaysCompany && abs($netPayableAmount) > 0)
+                    <h4 class="mb-3 mt-4">{{ translate('Special_Booking_Earning_Report') }}</h4>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ translate('Booking_ID') }}</th>
+                                    <th class="text-end">{{ translate('Total_Amount') }}</th>
+                                    <th class="text-end">{{ translate('Bfs_preview_visiting_charges') }}</th>
+                                    <th class="text-end">{{ translate('Bfs_preview_closing_amount') }}</th>
+                                    <th class="text-end">{{ translate('Provider_Earning') }}</th>
+                                    <th class="text-end">{{ translate('Admin_Commission') }}</th>
+                                    <th class="text-end">{{ translate('Company_loss_absorbed_line') }}</th>
+                                    <th class="text-end">{{ translate('Provider_loss_absorbed_line') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_received_by_company') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_received_by_provider') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_provider_owes_company') }}</th>
+                                    <th class="text-end">{{ translate('Earning_report_company_owes_provider') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($specialBookingEarningReportPaginated as $row)
+                                    <tr>
+                                        <td>
+                                            @if(!empty($row->booking_id))
+                                                <a href="{{ route('admin.booking.details', [$row->booking_id]) }}" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-none">{{ $row->readable_id }}</a>
+                                            @else
+                                                {{ $row->readable_id }}
+                                            @endif
+                                        </td>
+                                        <td class="text-end">{{ with_currency_symbol($row->total_amount ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->visiting_charges ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->closing_amount ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->provider_earning) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->admin_commission) }}</td>
+                                        <td class="text-end">
+                                            @if(!empty($row->scaled_loss_making_split))
+                                                {{ with_currency_symbol($row->scaled_company_loss_line ?? 0) }}
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            @if(!empty($row->scaled_loss_making_split))
+                                                {{ with_currency_symbol($row->scaled_provider_loss_line ?? 0) }}
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td class="text-end">{{ with_currency_symbol($row->amount_received_by_company ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->amount_received_by_provider ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->provider_owes_company ?? 0) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol($row->company_owes_provider ?? 0) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="12" class="text-center text-muted py-4">{{ translate('No_special_settlement_bookings_in_report') }}</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($specialBookingEarningReportPaginated->hasPages())
+                        <div class="d-flex justify-content-end mb-30">
+                            {{ $specialBookingEarningReportPaginated->links() }}
+                        </div>
+                    @endif
+
+                    @can('provider_update')
                         <div class="modal fade" id="collectAmountFromProviderModal" tabindex="-1" aria-labelledby="collectAmountFromProviderModalLabel" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
@@ -237,10 +534,18 @@
                                         </div>
                                         <div class="modal-body">
                                             <p class="text-muted small mb-3">{{ translate('Record_amount_collected_from_provider._It_will_be_added_as_IN_in_ledger.') }}</p>
+                                            <p class="small text-body-secondary mb-3">{{ translate('Collect_from_provider_advance_hint') }}</p>
+                                            @if($collectModalMaxLedger > 0.009)
+                                                <p class="small mb-2"><span class="text-muted">{{ translate('Provider_ledger_payable_current') }}:</span> <span class="fw-semibold">{{ with_currency_symbol($collectModalMaxLedger) }}</span></p>
+                                            @else
+                                                <p class="small text-warning mb-2">{{ translate('Collect_from_provider_zero_payable_advance_only') }}</p>
+                                            @endif
                                             <div class="mb-3">
                                                 <label for="collect_amount_amount" class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span></label>
-                                                <input type="number" step="0.01" min="0.01" max="{{ round(abs($netPayableAmount), 2) }}" name="amount" id="collect_amount_amount" class="form-control" required placeholder="0.00">
-                                                <small class="text-muted">{{ translate('Max') }}: {{ with_currency_symbol(abs($netPayableAmount)) }}</small>
+                                                <input type="number" step="0.01" min="0.01" name="amount" id="collect_amount_amount" class="form-control" required placeholder="0.00">
+                                                @if($providerPaysCompany && $collectFormMax > 0.009)
+                                                    <small class="d-block text-muted mt-1 fz-11">{{ translate('Booking_settlement_suggested_max_collect') }}: {{ with_currency_symbol($collectFormMax) }}</small>
+                                                @endif
                                             </div>
                                             <div class="row g-2">
                                                 @include('bookingmodule::admin.booking.partials._admin-company-inflow-payment-method', [
@@ -264,9 +569,7 @@
                                 </div>
                             </div>
                         </div>
-                    @endif
 
-                    @if($companyPaysProvider && $netPayableAmount > 0)
                         <div class="modal fade" id="addPaymentToProviderModal" tabindex="-1" aria-labelledby="addPaymentToProviderModalLabel" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
@@ -278,10 +581,18 @@
                                         </div>
                                         <div class="modal-body">
                                             <p class="text-muted small mb-3">{{ translate('Record_a_payment_sent_to_provider._It_will_be_added_as_OUT_in_ledger.') }}</p>
+                                            <p class="small text-body-secondary mb-3">{{ translate('Add_payment_to_provider_advance_hint') }}</p>
+                                            @if($addPaymentModalMaxLedger > 0.009)
+                                                <p class="small mb-2"><span class="text-muted">{{ translate('Provider_ledger_receivable_current') }}:</span> <span class="fw-semibold">{{ with_currency_symbol($addPaymentModalMaxLedger) }}</span></p>
+                                            @else
+                                                <p class="small text-warning mb-2">{{ translate('Add_payment_to_provider_zero_receivable_advance') }}</p>
+                                            @endif
                                             <div class="mb-3">
                                                 <label for="add_payment_amount" class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span></label>
-                                                <input type="number" step="0.01" min="0.01" max="{{ round($netPayableAmount, 2) }}" name="amount" id="add_payment_amount" class="form-control" required placeholder="0.00">
-                                                <small class="text-muted">{{ translate('Max') }}: {{ with_currency_symbol($netPayableAmount) }}</small>
+                                                <input type="number" step="0.01" min="0.01" name="amount" id="add_payment_amount" class="form-control" required placeholder="0.00">
+                                                @if($companyPaysProvider && $addPaymentFormMax > 0.009)
+                                                    <small class="d-block text-muted mt-1 fz-11">{{ translate('Booking_settlement_suggested_max_payout') }}: {{ with_currency_symbol($addPaymentFormMax) }}</small>
+                                                @endif
                                             </div>
                                             <div class="mb-3">
                                                 <label for="add_payment_transaction_id" class="form-label">{{ translate('Transaction_ID') }}</label>
@@ -300,7 +611,7 @@
                                 </div>
                             </div>
                         </div>
-                    @endif
+                    @endcan
                 </div>
             </div>
         </div>
@@ -310,6 +621,32 @@
 @push('script')
     <script>
         "use strict";
+        (function () {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Popover) return;
+            document.querySelectorAll('.pk-payment-widget-info-btn[data-pk-popover-src]').forEach(function (btn) {
+                var srcId = btn.getAttribute('data-pk-popover-src');
+                var title = btn.getAttribute('data-pk-popover-title') || '';
+                var srcEl = srcId ? document.getElementById(srcId) : null;
+                if (!srcEl) return;
+                new bootstrap.Popover(btn, {
+                    container: 'body',
+                    placement: 'auto',
+                    html: true,
+                    sanitize: false,
+                    trigger: 'click',
+                    title: title,
+                    content: srcEl.innerHTML,
+                    customClass: 'pk-payment-widget-popover',
+                });
+                btn.addEventListener('show.bs.popover', function () {
+                    document.querySelectorAll('.pk-payment-widget-info-btn[data-pk-popover-src]').forEach(function (other) {
+                        if (other === btn) return;
+                        var inst = bootstrap.Popover.getInstance(other);
+                        if (inst) inst.hide();
+                    });
+                });
+            });
+        })();
         var pkAdminAdvanceMethodConfig = @json(\Modules\BookingModule\Services\AdminCompanyInflowPaymentService::fieldConfigMapFromGroups($advancePaymentMethodGroups ?? []));
 
         function pkApmRenderDynamic($scope, selectedKey, $form, opts) {

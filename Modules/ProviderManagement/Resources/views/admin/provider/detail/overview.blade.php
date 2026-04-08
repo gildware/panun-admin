@@ -235,6 +235,9 @@
                         <a class="nav-link {{ $webPage == 'bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=bookings">{{ translate('Bookings') }}</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ $webPage == 'special_bookings' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=special_bookings">{{ translate('Special_Bookings') }}</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ $webPage == 'payment' ? 'active' : '' }}" href="{{ url()->current() }}?web_page=payment">{{ translate('Payment') }}</a>
                     </li>
                     <li class="nav-item">
@@ -309,6 +312,17 @@
                                     <span>{{ translate('Total_Company_Commission') }}</span>
                                     <strong>{{ with_currency_symbol($totalCompanyCommission) }}</strong>
                                 </div>
+                                @if(($scaledLossCompanyShareTotal ?? 0) > 0.009 || ($scaledLossProviderShareTotal ?? 0) > 0.009)
+                                    <div class="overview-widget-divider"></div>
+                                    <div class="overview-stat-line small text-muted">
+                                        <span>{{ translate('Company_loss_absorbed_total') }}</span>
+                                        <strong class="text-warning">{{ with_currency_symbol($scaledLossCompanyShareTotal ?? 0) }}</strong>
+                                    </div>
+                                    <div class="overview-stat-line small text-muted">
+                                        <span>{{ translate('Provider_loss_absorbed_total') }}</span>
+                                        <strong class="text-warning">{{ with_currency_symbol($scaledLossProviderShareTotal ?? 0) }}</strong>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>

@@ -13,7 +13,7 @@ class WhatsAppSessionInteractiveSequence
 {
     /**
      * @param  array<int, array<string, mixed>>  $metaButtons  Output of WhatsAppTemplateButtonValidator::buildButtonsComponent()['component']['buttons']
-     * @param  list<string>|null  $quickReplyIds  Optional explicit ids for first quick replies (e.g. act_book, act_provider, act_human for greeting)
+     * @param  list<string>|null  $quickReplyIds  Optional explicit ids for first quick replies (e.g. act_book, act_troubleshoot, act_provider for default greeting)
      * @return list<?string> Graph message ids in send order (null entries on failure)
      */
     public function send(

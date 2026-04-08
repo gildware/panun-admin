@@ -190,7 +190,8 @@ class WhatsAppAiSupportOrchestrator
         $toolFinalizeSessionMeta = null;
         /** @var ?string Set when submit_my_booking_for_human_confirmation succeeds; used if the model omits the id. */
         $pendingBookingRequestId = null;
-        while ($iter < 8) {
+        $maxRounds = (int) config('whatsappmodule.ai_gemini_max_tool_rounds', 6);
+        while ($iter < $maxRounds) {
             $iter++;
             $recorder->step('gemini.loop', 'Model turn ' . $iter, 'info', ['iteration' => $iter]);
             $turn = $this->gemini->generateTurn($system, $contents, $tools, $recorder);
@@ -451,10 +452,12 @@ class WhatsAppAiSupportOrchestrator
      */
     private function buildGeminiContents(string $phone, int $triggerMessageId): array
     {
+        $turnLimit = (int) config('whatsappmodule.ai_gemini_context_turn_limit', 18);
+        $charLimit = (int) config('whatsappmodule.ai_gemini_context_char_limit', 2200);
         $rows = WhatsAppMessage::query()
             ->where('phone', $phone)
             ->orderByDesc('id')
-            ->limit(28)
+            ->limit($turnLimit)
             ->get(['id', 'message_text', 'direction']);
 
         $ordered = $rows->reverse()->values();
@@ -468,7 +471,7 @@ class WhatsAppAiSupportOrchestrator
             $role = $row->direction === 'IN' ? 'user' : 'model';
             $contents[] = [
                 'role' => $role,
-                'parts' => [['text' => mb_substr($t, 0, 3500)]],
+                'parts' => [['text' => mb_substr($t, 0, $charLimit)]],
             ];
         }
 
@@ -484,7 +487,7 @@ class WhatsAppAiSupportOrchestrator
                 }
                 $contents[] = [
                     'role' => 'user',
-                    'parts' => [['text' => mb_substr($raw, 0, 3500)]],
+                    'parts' => [['text' => mb_substr($raw, 0, $charLimit)]],
                 ];
             }
         }
@@ -956,7 +959,7 @@ class WhatsAppAiSupportOrchestrator
     }
 
     /**
-     * First quick reply uses act_human so tapping "Chat with agent" triggers the same path as the greeting human button.
+     * First quick reply uses act_human so tapping "Chat with Agent" triggers the same path as the greeting human button.
      *
      * @param  array<int, array<string, mixed>>  $meta
      * @return list<string>|null
@@ -979,7 +982,8 @@ class WhatsAppAiSupportOrchestrator
     private function sendWelcomeWithButtons(string $phone, WhatsAppAiExecutionRecorder $recorder, string $lastUserText): int
     {
         $body = $this->aiSettings->resolvedGreetingMessage($phone);
-        $body = $this->templateLocalization->localizeTemplate($body, $lastUserText, $recorder);
+        // Do not run Gemini rewrite on the greeting body: models often return a partial rewrite
+        // (truncated mid-paragraph) while quick-reply labels stay short and safe to localize.
         $body = $this->sanitizeCustomerReply($body);
         $meta = $this->aiSettings->metaButtonsForContext('greeting');
         $meta = $this->templateLocalization->localizeMetaButtons($meta, $lastUserText, $recorder);
@@ -987,12 +991,14 @@ class WhatsAppAiSupportOrchestrator
         $out = $this->messagePersistence->persistOutboundPlaceholder($phone, $body.$note, 'AI');
         $err = null;
         $waId = null;
+        $greetingQrIds = $this->aiSettings->greetingQuickReplyPayloadIdsForMeta($meta);
+
         if (WhatsAppAiPlayground::skipCloudApi($phone)) {
             $recorder->step('whatsapp.send', 'Sandbox — greeting saved; WhatsApp Cloud API skipped', 'ok', ['sandbox' => true]);
             if ($meta === []) {
                 WhatsAppAiPlayground::storePlainOutbound($phone, $body);
             } else {
-                WhatsAppAiPlayground::storeOutboundSnapshot($phone, $body, $meta, ['act_book', 'act_provider', 'act_human']);
+                WhatsAppAiPlayground::storeOutboundSnapshot($phone, $body, $meta, $greetingQrIds);
             }
         } elseif ($meta === []) {
             $waId = $this->whatsAppCloud->sendText($phone, $body, $err);
@@ -1010,7 +1016,7 @@ class WhatsAppAiSupportOrchestrator
                 $body,
                 $meta,
                 $err,
-                ['act_book', 'act_provider', 'act_human']
+                $greetingQrIds
             );
             $waId = $ids[0] ?? null;
             $recorder->step('whatsapp.send', 'Send greeting (template-style session buttons)', $err ? 'fail' : 'ok', [

@@ -19,6 +19,7 @@ Route::group([
         Route::get('create', [LeadController::class, 'create'])->middleware(['can:lead_add'])->name('create');
         Route::get('create/from-whatsapp-provider/{lead_id}', [LeadController::class, 'createFromWhatsAppProvider'])->middleware(['can:lead_add'])->name('create-from-whatsapp-provider');
         Route::post('store', [LeadController::class, 'store'])->middleware(['can:lead_add'])->name('store');
+        Route::get('open-by-phone', [LeadController::class, 'openLeadsByPhone'])->middleware(['can:lead_add'])->name('open-by-phone');
 
         Route::group(['prefix' => 'outbound-enquiry', 'as' => 'outbound-enquiry.', 'middleware' => ['can:lead_outbound_enquiry_view']], function () {
             Route::get('/', [LeadOutboundEnquiryController::class, 'index'])->name('index');
