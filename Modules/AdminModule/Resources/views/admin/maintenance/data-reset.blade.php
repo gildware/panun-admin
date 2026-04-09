@@ -18,9 +18,9 @@
                             <div class="alert alert-danger" role="alert">
                                 <h5 class="alert-heading mb-2">{{ translate('This_action_will_permanently_delete_data') }}</h5>
                                 <ul class="mb-0 ps-3">
+                                    <li>{{ translate('All_ledger_and_transaction_entries_linked_to_operations_will_be_cleared') }}</li>
                                     <li>{{ translate('All_bookings_and_their_related_records_will_be_deleted') }}</li>
                                     <li>{{ translate('All_leads_and_their_followups_will_be_deleted') }}</li>
-                                    <li>{{ translate('All_ledger_and_transaction_entries_linked_to_operations_will_be_cleared') }}</li>
                                 </ul>
                                 <p class="mb-0 mt-2">
                                     {{ translate('Use_this_only_when_you_want_to_clear_test_data_and_start_with_fresh_operational_data') }}
@@ -46,6 +46,43 @@
 
                                 <button type="submit" class="btn btn--danger">
                                     {{ translate('Clear_All_Operational_Data') }}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card mt-4">
+                        <div class="card-body">
+                            <h3 class="h5 mb-3">{{ translate('Clear_transactions_and_ledger_only') }}</h3>
+                            <div class="alert alert-danger" role="alert">
+                                <p class="mb-2">{{ translate('Clear_transactions_and_ledger_only_description') }}</p>
+                                <ul class="mb-0 ps-3">
+                                    <li>{{ translate('Deletes_all_ledger_transaction_rows') }}</li>
+                                    <li>{{ translate('Deletes_all_transaction_rows') }}</li>
+                                    <li>{{ translate('Resets_user_account_balances_to_zero') }}</li>
+                                    <li>{{ translate('Does_not_delete_bookings_or_leads') }}</li>
+                                </ul>
+                            </div>
+
+                            <form action="{{ route('admin.system-maintenance.data-reset.run') }}" method="POST"
+                                  onsubmit="return confirm('{{ translate('Are_you_sure_clear_all_financial_records') }}');">
+                                @csrf
+                                <input type="hidden" name="reset_form" value="financial">
+
+                                <div class="mb-3">
+                                    <label for="confirm_financial" class="form-label">
+                                        {{ translate('Type_RESET_to_confirm') }}
+                                    </label>
+                                    <input type="text"
+                                           id="confirm_financial"
+                                           name="confirm"
+                                           class="form-control"
+                                           placeholder="RESET"
+                                           required>
+                                </div>
+
+                                <button type="submit" class="btn btn--danger">
+                                    {{ translate('Clear_all_transactions_and_ledger') }}
                                 </button>
                             </form>
                         </div>

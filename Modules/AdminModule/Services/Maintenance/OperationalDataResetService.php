@@ -10,11 +10,25 @@ use Modules\TransactionModule\Entities\Transaction;
 
 class OperationalDataResetService
 {
+    /**
+     * Full operational wipe: financial records first so foreign keys to bookings do not block deletes,
+     * then bookings (and related tables), then leads.
+     */
     public function reset(): void
     {
         DB::transaction(function () {
-            $this->clearLeadData();
+            $this->clearFinancialData();
             $this->clearBookingData();
+            $this->clearLeadData();
+        });
+    }
+
+    /**
+     * Delete every ledger row and transaction, then zero account balances. Does not remove bookings or leads.
+     */
+    public function resetFinancialRecordsOnly(): void
+    {
+        DB::transaction(function () {
             $this->clearFinancialData();
         });
     }
@@ -63,7 +77,6 @@ class OperationalDataResetService
 
     private function clearFinancialData(): void
     {
-        // Remove all booking-related ledger and transaction rows.
         LedgerTransaction::query()->delete();
         Transaction::query()->delete();
 

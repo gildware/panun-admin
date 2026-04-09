@@ -8,10 +8,13 @@ use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingRepeatDetails;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\LedgerTransaction;
+use Modules\TransactionModule\Entities\Transaction;
 
 if (!function_exists('get_booking_total_amount')) {
     /**
@@ -106,6 +109,27 @@ if (!function_exists('customer_pending_bad_debt_loss_making_bookings_total')) {
             $grand = get_booking_total_amount($booking);
             $paid = get_booking_total_paid($booking);
             $sum += round(max(0.0, $grand - $paid), 2);
+        }
+
+        return round($sum, 2);
+    }
+}
+
+if (!function_exists('sum_customer_bookings_payable_grand_total')) {
+    /**
+     * Sum of {@see get_booking_total_amount} for every parent booking row for this customer
+     * (service line totals + extra services + extra_fee). Matches admin customer payments tab per-booking total.
+     */
+    function sum_customer_bookings_payable_grand_total(string $customerId): float
+    {
+        $bookings = Booking::query()
+            ->where('customer_id', $customerId)
+            ->with('extra_services')
+            ->get();
+
+        $sum = 0.0;
+        foreach ($bookings as $booking) {
+            $sum += get_booking_total_amount($booking);
         }
 
         return round($sum, 2);
@@ -660,6 +684,24 @@ if (!function_exists('get_booking_revenue_reporting_amount')) {
         }
 
         return get_booking_total_amount($booking);
+    }
+}
+
+if (!function_exists('get_customer_booking_list_display_total')) {
+    /**
+     * Total amount shown on admin customer booking list: full payable grand total (lines + extras + extra_fee),
+     * except visit-charge settlements use the decided retained total, and canceled-after-visit uses reporting basis.
+     */
+    function get_customer_booking_list_display_total(Booking $booking): float
+    {
+        $booking->loadMissing('extra_services');
+
+        $outcome = trim((string) ($booking->settlement_outcome ?? ''));
+        if ($outcome !== '' && BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges($outcome)) {
+            return get_booking_payable_total_for_partial_dues($booking);
+        }
+
+        return round((float) get_booking_revenue_reporting_amount($booking), 2);
     }
 }
 
@@ -1896,6 +1938,408 @@ if (!function_exists('booking_display_customer_phone')) {
         }
 
         return '';
+    }
+}
+
+if (!function_exists('format_booking_payment_event_channel_label')) {
+    /**
+     * Short label for payment-event rows (not raw trx_type).
+     */
+    function format_booking_payment_event_channel_label(?string $trxType): string
+    {
+        return match ($trxType) {
+            TRX_TYPE['cross_party_booking_payment'] => translate('Trx_type_cross_party_booking_payment'),
+            TRX_TYPE['booking_amount'] => translate('Payment_customer_to_company'),
+            TRX_TYPE['booking_refund'] => translate('Refund'),
+            default => $trxType ? str_replace('_', ' ', $trxType) : '—',
+        };
+    }
+}
+
+if (!function_exists('translate_payment_counterparty_flow_key')) {
+    function translate_payment_counterparty_flow_key(string $key): string
+    {
+        return match ($key) {
+            'customer_to_company' => translate('Payment_flow_customer_to_company'),
+            'provider_to_company' => translate('Payment_flow_provider_to_company'),
+            'company_to_customer' => translate('Payment_flow_company_to_customer'),
+            'company_to_provider' => translate('Payment_flow_company_to_provider'),
+            'customer_to_provider' => translate('Payment_flow_customer_to_provider'),
+            'provider_to_customer' => translate('Payment_flow_provider_to_customer'),
+            default => translate('Company_money_flow_unclassified'),
+        };
+    }
+}
+
+if (!function_exists('payment_counterparty_flow_party_pair')) {
+    /**
+     * @return array{0: string, 1: string}|null Roles: customer, provider, company
+     */
+    function payment_counterparty_flow_party_pair(string $key): ?array
+    {
+        return match ($key) {
+            'customer_to_company' => ['customer', 'company'],
+            'provider_to_company' => ['provider', 'company'],
+            'company_to_customer' => ['company', 'customer'],
+            'company_to_provider' => ['company', 'provider'],
+            'customer_to_provider' => ['customer', 'provider'],
+            'provider_to_customer' => ['provider', 'customer'],
+            default => null,
+        };
+    }
+}
+
+if (!function_exists('payment_counterparty_party_pill_html')) {
+    /**
+     * Colored pill for one party role (customer / provider / company).
+     */
+    function payment_counterparty_party_pill_html(string $role): string
+    {
+        $label = match ($role) {
+            'customer' => translate('Customer'),
+            'provider' => translate('Provider'),
+            'company' => translate('Company'),
+            default => '—',
+        };
+        $class = match ($role) {
+            'customer' => 'badge rounded-pill payment-flow-pill-customer',
+            'provider' => 'badge rounded-pill payment-flow-pill-provider',
+            'company' => 'badge rounded-pill payment-flow-pill-company',
+            default => 'badge bg-secondary',
+        };
+
+        return '<span class="'.$class.'">'.e($label).'</span>';
+    }
+}
+
+if (!function_exists('payment_counterparty_flow_badge_html')) {
+    /**
+     * Flow as "Party → Party" with distinct colors per role (admin payment UIs).
+     */
+    function payment_counterparty_flow_badge_html(string $key): HtmlString
+    {
+        $pair = payment_counterparty_flow_party_pair($key);
+        if ($pair === null) {
+            return new HtmlString(
+                '<span class="badge bg-secondary">'.e(translate('Company_money_flow_unclassified')).'</span>'
+            );
+        }
+        [$from, $to] = $pair;
+        $title = e(translate_payment_counterparty_flow_key($key));
+        $inner = payment_counterparty_party_pill_html($from)
+            .'<span class="text-muted px-1" aria-hidden="true">→</span>'
+            .payment_counterparty_party_pill_html($to);
+
+        return new HtmlString(
+            '<span class="d-inline-flex align-items-center flex-nowrap gap-1" title="'.$title.'">'.$inner.'</span>'
+        );
+    }
+}
+
+if (!function_exists('payment_counterparty_flow_arrow_text')) {
+    /**
+     * Plain "Customer → Company" for exports and non-HTML contexts.
+     */
+    function payment_counterparty_flow_arrow_text(string $key): string
+    {
+        $pair = payment_counterparty_flow_party_pair($key);
+        if ($pair === null) {
+            return translate_payment_counterparty_flow_key($key);
+        }
+        [$from, $to] = $pair;
+        $a = match ($from) {
+            'customer' => translate('Customer'),
+            'provider' => translate('Provider'),
+            'company' => translate('Company'),
+            default => '',
+        };
+        $b = match ($to) {
+            'customer' => translate('Customer'),
+            'provider' => translate('Provider'),
+            'company' => translate('Company'),
+            default => '',
+        };
+
+        return $a.' → '.$b;
+    }
+}
+
+if (!function_exists('admin_std_payment_event_from_ledger')) {
+    function admin_std_payment_event_from_ledger(LedgerTransaction $entry): object
+    {
+        $companyFlow = $entry->type === LedgerTransaction::TYPE_IN
+            ? Transaction::FLOW_IN
+            : Transaction::FLOW_OUT;
+
+        return (object) [
+            // Ledger `date` is date-only (midnight); use created_at so Recorded payments shows actual recording time.
+            'date' => $entry->created_at ?? $entry->date,
+            'booking_id' => $entry->booking_id,
+            'booking_readable_id' => $entry->booking?->readable_id ?? $entry->booking_id,
+            'company_flow' => $companyFlow,
+            'counterparty_flow' => $entry->counterpartyFlowKey(),
+            'amount' => (float) $entry->amount,
+            'channel' => $entry->formatPaymentMethodForDisplay(),
+            'transaction_id' => (string) ($entry->transaction_id ?? ''),
+            'source' => 'ledger',
+        ];
+    }
+}
+
+if (!function_exists('admin_std_payment_event_from_cross_party_txn')) {
+    function admin_std_payment_event_from_cross_party_txn(Transaction $txn, $bookingRow): object
+    {
+        return (object) [
+            'date' => $txn->created_at,
+            'booking_id' => $txn->booking_id,
+            'booking_readable_id' => $bookingRow?->readable_id ?? $txn->booking_id,
+            'company_flow' => Transaction::FLOW_NONE,
+            'counterparty_flow' => 'customer_to_provider',
+            'amount' => round(max((float) $txn->debit, (float) $txn->credit), 2),
+            'channel' => format_booking_payment_event_channel_label($txn->trx_type),
+            'transaction_id' => '',
+            'source' => 'transaction',
+        ];
+    }
+}
+
+if (!function_exists('admin_ledger_company_counterparty_for_customer_bookings')) {
+    /**
+     * @param  array<int, string>  $bookingIds
+     */
+    function admin_ledger_company_counterparty_for_customer_bookings(array $bookingIds): Collection
+    {
+        if ($bookingIds === []) {
+            return collect();
+        }
+
+        return LedgerTransaction::query()
+            ->whereIn('booking_id', $bookingIds)
+            ->whereCompanyCounterpartyOnly()
+            ->with(['booking' => fn ($q) => $q->select('id', 'readable_id')])
+            ->orderByDesc('date')
+            ->orderByDesc('created_at')
+            ->get();
+    }
+}
+
+if (!function_exists('admin_ledger_company_counterparty_for_provider')) {
+    /**
+     * Ledger rows: company ↔ parties for this provider (by provider_id or booking on this provider).
+     *
+     * @param  array<int, string>  $bookingIds
+     */
+    function admin_ledger_company_counterparty_for_provider(string $providerId, array $bookingIds): Collection
+    {
+        return LedgerTransaction::query()
+            ->whereCompanyCounterpartyOnly()
+            ->where(function ($outer) use ($providerId, $bookingIds) {
+                $outer->where('provider_id', $providerId);
+                if ($bookingIds !== []) {
+                    $outer->orWhereIn('booking_id', $bookingIds);
+                }
+            })
+            ->with([
+                'booking' => fn ($q) => $q->select('id', 'readable_id'),
+                'repeat' => fn ($q) => $q->select('id', 'readable_id', 'booking_id'),
+                'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
+                'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id', 'received_by'),
+            ])
+            ->orderByDesc('date')
+            ->orderByDesc('created_at')
+            ->get();
+    }
+}
+
+if (!function_exists('admin_merged_payment_events_for_customer_bookings')) {
+    /**
+     * Full transaction log: ledger (IN/OUT) + NONE (e.g. customer→provider) + orphan partials.
+     *
+     * @param  array<int, string>  $bookingIds
+     */
+    function admin_merged_payment_events_for_customer_bookings(array $bookingIds, Collection $bookingMap): Collection
+    {
+        if ($bookingIds === []) {
+            return collect();
+        }
+
+        $rows = collect();
+
+        foreach (admin_ledger_company_counterparty_for_customer_bookings($bookingIds) as $entry) {
+            $rows->push(admin_std_payment_event_from_ledger($entry));
+        }
+
+        $partialIdsWithCrossPartyTxn = Transaction::query()
+            ->whereIn('booking_id', $bookingIds)
+            ->where('reference_note', 'like', 'booking_partial_payment:%')
+            ->pluck('reference_note')
+            ->map(fn ($n) => substr((string) $n, strlen('booking_partial_payment:')))
+            ->filter()
+            ->all();
+
+        foreach (Transaction::query()
+            ->whereIn('booking_id', $bookingIds)
+            ->where('trx_type', TRX_TYPE['cross_party_booking_payment'])
+            ->orderByDesc('created_at')
+            ->get() as $txn) {
+            $rows->push(admin_std_payment_event_from_cross_party_txn($txn, $bookingMap->get($txn->booking_id)));
+        }
+
+        $ledgerPartialIds = LedgerTransaction::query()
+            ->whereIn('booking_id', $bookingIds)
+            ->whereNotNull('booking_partial_payment_id')
+            ->pluck('booking_partial_payment_id')
+            ->all();
+
+        $partials = DB::table('booking_partial_payments')
+            ->whereIn('booking_id', $bookingIds)
+            ->where('paid_amount', '>', 0)
+            ->orderByDesc('created_at')
+            ->get();
+
+        foreach ($partials as $partial) {
+            if (in_array((string) $partial->id, $partialIdsWithCrossPartyTxn, true)) {
+                continue;
+            }
+            if (in_array((string) $partial->id, array_map('strval', $ledgerPartialIds), true)) {
+                continue;
+            }
+            $receivedBy = $partial->received_by ?: 'company';
+            $counterpartyFlow = $receivedBy === 'provider' ? 'customer_to_provider' : 'customer_to_company';
+            $companyFlow = $receivedBy === 'provider' ? Transaction::FLOW_NONE : Transaction::FLOW_IN;
+            $mapRow = $bookingMap->get($partial->booking_id);
+            $rows->push((object) [
+                'date' => $partial->created_at,
+                'booking_id' => $partial->booking_id,
+                'booking_readable_id' => $mapRow?->readable_id ?? $partial->booking_id,
+                'company_flow' => $companyFlow,
+                'counterparty_flow' => $counterpartyFlow,
+                'amount' => (float) $partial->paid_amount,
+                'channel' => str_replace('_', ' ', (string) ($partial->paid_with ?? '')),
+                'transaction_id' => (string) ($partial->transaction_id ?? ''),
+                'source' => 'partial_orphan',
+            ]);
+        }
+
+        return $rows
+            ->filter(fn ($r) => (float) ($r->amount ?? 0) > 0.0001)
+            ->sortByDesc(function ($r) {
+                $d = $r->date ?? null;
+                if ($d instanceof \Carbon\Carbon) {
+                    return $d->timestamp;
+                }
+
+                return strtotime((string) $d) ?: 0;
+            })
+            ->values();
+    }
+}
+
+if (!function_exists('admin_merged_payment_events_for_provider')) {
+    /**
+     * @param  array<int, string>  $bookingIds
+     */
+    function admin_merged_payment_events_for_provider(string $providerId, array $bookingIds, Collection $bookingMap): Collection
+    {
+        $rows = collect();
+
+        foreach (admin_ledger_company_counterparty_for_provider($providerId, $bookingIds) as $entry) {
+            $rows->push(admin_std_payment_event_from_ledger($entry));
+        }
+
+        if ($bookingIds !== []) {
+            $partialIdsWithCrossPartyTxn = Transaction::query()
+                ->whereIn('booking_id', $bookingIds)
+                ->where('reference_note', 'like', 'booking_partial_payment:%')
+                ->pluck('reference_note')
+                ->map(fn ($n) => substr((string) $n, strlen('booking_partial_payment:')))
+                ->filter()
+                ->all();
+
+            foreach (Transaction::query()
+                ->whereIn('booking_id', $bookingIds)
+                ->where('trx_type', TRX_TYPE['cross_party_booking_payment'])
+                ->orderByDesc('created_at')
+                ->get() as $txn) {
+                $rows->push(admin_std_payment_event_from_cross_party_txn($txn, $bookingMap->get($txn->booking_id)));
+            }
+
+            $ledgerPartialIds = LedgerTransaction::query()
+                ->whereIn('booking_id', $bookingIds)
+                ->whereNotNull('booking_partial_payment_id')
+                ->pluck('booking_partial_payment_id')
+                ->all();
+
+            $partials = DB::table('booking_partial_payments')
+                ->whereIn('booking_id', $bookingIds)
+                ->where('paid_amount', '>', 0)
+                ->orderByDesc('created_at')
+                ->get();
+
+            foreach ($partials as $partial) {
+                if (in_array((string) $partial->id, $partialIdsWithCrossPartyTxn, true)) {
+                    continue;
+                }
+                if (in_array((string) $partial->id, array_map('strval', $ledgerPartialIds), true)) {
+                    continue;
+                }
+                $receivedBy = $partial->received_by ?: 'company';
+                $counterpartyFlow = $receivedBy === 'provider' ? 'customer_to_provider' : 'customer_to_company';
+                $companyFlow = $receivedBy === 'provider' ? Transaction::FLOW_NONE : Transaction::FLOW_IN;
+                $mapRow = $bookingMap->get($partial->booking_id);
+                $rows->push((object) [
+                    'date' => $partial->created_at,
+                    'booking_id' => $partial->booking_id,
+                    'booking_readable_id' => $mapRow?->readable_id ?? $partial->booking_id,
+                    'company_flow' => $companyFlow,
+                    'counterparty_flow' => $counterpartyFlow,
+                    'amount' => (float) $partial->paid_amount,
+                    'channel' => str_replace('_', ' ', (string) ($partial->paid_with ?? '')),
+                    'transaction_id' => (string) ($partial->transaction_id ?? ''),
+                    'source' => 'partial_orphan',
+                ]);
+            }
+        }
+
+        return $rows
+            ->filter(fn ($r) => (float) ($r->amount ?? 0) > 0.0001)
+            ->sortByDesc(function ($r) {
+                $d = $r->date ?? null;
+                if ($d instanceof \Carbon\Carbon) {
+                    return $d->timestamp;
+                }
+
+                return strtotime((string) $d) ?: 0;
+            })
+            ->values();
+    }
+}
+
+if (!function_exists('record_cross_party_booking_partial_transaction')) {
+    /**
+     * Customer paid provider directly (booking partial). Stored on transactions with company_flow NONE — not on ledger.
+     */
+    function record_cross_party_booking_partial_transaction(Booking $booking, float $amount, string $partialPaymentId): \Modules\TransactionModule\Entities\Transaction
+    {
+        $providerUserId = \Modules\ProviderManagement\Entities\Provider::query()
+            ->where('id', $booking->provider_id)
+            ->value('user_id');
+        if (! $providerUserId) {
+            throw new \InvalidArgumentException('Provider user not found for booking.');
+        }
+
+        return \Modules\TransactionModule\Entities\Transaction::create([
+            'ref_trx_id' => null,
+            'booking_id' => $booking->id,
+            'trx_type' => TRX_TYPE['cross_party_booking_payment'],
+            'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_NONE,
+            'debit' => $amount,
+            'credit' => 0,
+            'balance' => 0,
+            'from_user_id' => $booking->customer_id,
+            'to_user_id' => $providerUserId,
+            'reference_note' => 'booking_partial_payment:'.$partialPaymentId,
+        ]);
     }
 }
 

@@ -83,7 +83,7 @@
                                             <td>
                                                 {{Str::limit(($booking->provider) ? ($booking?->provider->company_name) : translate('No provider accepted yet'), 30)}}
                                             </td>
-                                            <td>{{with_currency_symbol($booking->total_booking_amount)}}</td>
+                                            <td>{{with_currency_symbol(get_customer_booking_list_display_total($booking))}}</td>
                                             <td>
                                                 {{translate($booking->booking_status)}}
                                             </td>

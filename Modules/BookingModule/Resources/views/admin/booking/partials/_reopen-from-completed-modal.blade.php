@@ -12,23 +12,10 @@
                         <div class="modal-body">
                             <p class="text-muted small mb-3">{{ translate('Reopen_after_completion_help') }}</p>
                             <div class="mb-3">
-                                <label class="form-label fw-semibold">{{ translate('Resolution') }}</label>
-                                <div class="d-flex flex-column gap-2">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="resolution" id="reopenInPlace--{{ $booking->id }}" value="reopen_in_place" checked>
-                                        <label class="form-check-label" for="reopenInPlace--{{ $booking->id }}">{{ translate('Reopen_same_booking') }}</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="resolution" id="reopenNewBooking--{{ $booking->id }}" value="new_booking">
-                                        <label class="form-check-label" for="reopenNewBooking--{{ $booking->id }}">{{ translate('Create_new_linked_booking') }}</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-3" id="reopenTargetStatusWrap--{{ $booking->id }}">
                                 <label class="form-label">{{ translate('Status_after_reopen') }}</label>
                                 <select name="target_status" class="form-select">
-                                    <option value="accepted">{{ translate('Accepted') }}</option>
-                                    <option value="pending">{{ translate('Pending') }}</option>
+                                    <option value="accepted" @selected(old('target_status', 'accepted') === 'accepted')>{{ translate('Accepted') }}</option>
+                                    <option value="pending" @selected(old('target_status') === 'pending')>{{ translate('Pending') }}</option>
                                 </select>
                             </div>
                             <div class="mb-3">
@@ -53,27 +40,5 @@
                 </div>
             </div>
         </div>
-        @push('script')
-            <script>
-                (function () {
-                    const modalId = 'bookingReopenModal--{{ $booking->id }}';
-                    const wrapId = 'reopenTargetStatusWrap--{{ $booking->id }}';
-                    document.addEventListener('DOMContentLoaded', function () {
-                        const modal = document.getElementById(modalId);
-                        if (!modal) return;
-                        const wrap = document.getElementById(wrapId);
-                        const radios = modal.querySelectorAll('input[name="resolution"]');
-                        function sync() {
-                            const v = modal.querySelector('input[name="resolution"]:checked')?.value;
-                            if (wrap) {
-                                wrap.classList.toggle('d-none', v === 'new_booking');
-                            }
-                        }
-                        radios.forEach(function (r) { r.addEventListener('change', sync); });
-                        sync();
-                    });
-                })();
-            </script>
-        @endpush
     @endif
 @endcan
