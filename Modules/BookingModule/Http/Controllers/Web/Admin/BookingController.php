@@ -5989,6 +5989,12 @@ class BookingController extends Controller
             $validated['settlement_remarks'] ?? null
         );
 
+        $booking->refresh();
+        if ($booking->isOpenReopenTicket()) {
+            $booking->reopen_completion_allowed = true;
+            $booking->save();
+        }
+
         $payload = response_formatter(DEFAULT_UPDATE_200, null);
         $payload['message'] = translate('Financial_settlement_saved');
         $payload['snapshot'] = $booking->fresh()->settlement_snapshot;
@@ -6093,12 +6099,6 @@ class BookingController extends Controller
         $booking = $this->booking->find($id);
         if (! $booking) {
             return response()->json(response_formatter(DEFAULT_204), 204);
-        }
-        if ($booking->adminMustConfigureReopenBeforeComplete()) {
-            return response()->json(response_formatter([
-                'response_code' => 'default_400',
-                'message' => translate('Configure_reopened_scenarios_before_complete'),
-            ]), 422);
         }
         if ((int) ($booking->is_repeated ?? 0) === 1) {
             return response()->json(response_formatter([
