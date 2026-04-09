@@ -9,15 +9,6 @@
             <div class="modal-body pt-0">
                 <input type="hidden" id="bsr-target-status" value="">
                 <input type="hidden" id="bsr-previous-status" value="">
-                <div id="bsr-group-cancel" class="d-none mb-3">
-                    <label class="form-label">{{ translate('Cancellation_reason') }} <span class="text-danger">*</span></label>
-                    <select id="bsr-cancellation-reason-id" class="form-select">
-                        <option value="">{{ translate('Select') }}</option>
-                        @foreach($bookingCancellationReasons ?? [] as $r)
-                            <option value="{{ $r->id }}">{{ $r->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
                 <div id="bsr-group-hold" class="d-none mb-3">
                     <label class="form-label">{{ translate('Hold_reason') }} <span class="text-danger">*</span></label>
                     <select id="bsr-hold-reason-id" class="form-select">
@@ -48,14 +39,13 @@
 
             window.bookingAdminStatusNeedsReason = function (toStatus, fromStatus) {
                 const to = String(toStatus);
-                if (to === 'canceled') return true;
                 if (to === 'on_hold') return true;
                 return false;
             };
 
             function bsrResetGroups() {
-                $('#bsr-group-cancel, #bsr-group-hold').addClass('d-none');
-                $('#bsr-cancellation-reason-id, #bsr-hold-reason-id').val('');
+                $('#bsr-group-hold').addClass('d-none');
+                $('#bsr-hold-reason-id').val('');
                 $('#bsr-remarks').val('');
             }
 
@@ -63,11 +53,8 @@
                 bsrResetGroups();
                 $('#bsr-target-status').val(targetStatus);
                 $('#bsr-previous-status').val(previousStatus || '');
-                const from = String(previousStatus || '');
                 const to = String(targetStatus);
-                if (to === 'canceled') {
-                    $('#bsr-group-cancel').removeClass('d-none');
-                } else if (to === 'on_hold') {
+                if (to === 'on_hold') {
                     $('#bsr-group-hold').removeClass('d-none');
                 }
                 const el = document.getElementById('bookingStatusReasonModal');
@@ -84,13 +71,7 @@
                     booking_status: to,
                     status_change_remarks: $('#bsr-remarks').val() || ''
                 };
-                if (to === 'canceled') {
-                    data.booking_cancellation_reason_id = $('#bsr-cancellation-reason-id').val();
-                    if (!data.booking_cancellation_reason_id) {
-                        toastr.error('{{ translate('Cancellation_reason') }} {{ translate('is_required') }}');
-                        return;
-                    }
-                } else if (to === 'on_hold') {
+                if (to === 'on_hold') {
                     data.booking_hold_reopen_reason_id = $('#bsr-hold-reason-id').val();
                     if (!data.booking_hold_reopen_reason_id) {
                         toastr.error('{{ translate('Hold_reason') }} {{ translate('is_required') }}');
@@ -114,7 +95,7 @@
                     if (res && res.message && typeof toastr !== 'undefined') {
                         toastr.success(res.message, { CloseButton: true, ProgressBar: true });
                     }
-                    if (to === 'canceled' || to === 'completed' || to === 'cancelled') {
+                    if (to === 'completed' || to === 'cancelled') {
                         var bookingCurrentProviderId = typeof window.bookingCurrentProviderId !== 'undefined' ? window.bookingCurrentProviderId : null;
                         if (bookingCurrentProviderId && typeof openProviderPerformanceFeedbackModal === 'function') {
                             if (typeof pendingPostFeedbackAction !== 'undefined') {

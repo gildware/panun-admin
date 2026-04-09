@@ -133,16 +133,20 @@ class AdminController extends Controller
             'total_services' => $this->service->count()
         ]];
 
-        $recent_ledger_transactions = LedgerTransaction::with([
-            'booking:id,readable_id',
-            'creator:id,first_name,last_name,email',
-        ])
+        $recent_ledger_transactions = LedgerTransaction::query()
+            ->whereCompanyCounterpartyOnly()
+            ->with([
+                'booking:id,readable_id',
+                'creator:id,first_name,last_name,email',
+            ])
             ->orderByDesc('date')
             ->orderByDesc('created_at')
             ->take(5)
             ->get();
 
-        $this_month_ledger_transactions_count = LedgerTransaction::whereYear('date', Carbon::now()->year)
+        $this_month_ledger_transactions_count = LedgerTransaction::query()
+            ->whereCompanyCounterpartyOnly()
+            ->whereYear('date', Carbon::now()->year)
             ->whereMonth('date', Carbon::now()->month)
             ->count();
         $data[] = [

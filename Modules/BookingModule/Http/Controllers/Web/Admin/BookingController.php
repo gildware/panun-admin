@@ -2488,6 +2488,7 @@ class BookingController extends Controller
             ],
             'complaint_notes' => ['nullable', 'string', 'max:5000'],
             'target_status' => ['required', Rule::in(['pending', 'accepted'])],
+            'service_schedule' => ['required', 'date'],
         ]);
         $reopenReasonId = (int) $validated['booking_hold_reopen_reason_id'];
 
@@ -2501,7 +2502,8 @@ class BookingController extends Controller
                 $request->user(),
                 (string) ($validated['complaint_notes'] ?? ''),
                 $targetStatus,
-                $reopenReasonId
+                $reopenReasonId,
+                (string) $validated['service_schedule']
             );
             Toastr::success(translate('Booking_reopened_in_place'));
 
@@ -2569,6 +2571,375 @@ class BookingController extends Controller
 
             return back();
         }
+
+        return back();
+    }
+
+    /**
+     * Open reopen ticket: mark booking completed and close the reopen case in one step (notes required).
+     * Allowed only from statuses that may transition to completed (e.g. ongoing) with payment rules satisfied.
+     */
+    public function resolveReopenAndComplete(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $booking = $this->booking->with(['booking_partial_payments', 'reopenEvents'])->findOrFail($id);
+
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            Toastr::error(translate('Reopen_scenarios_single_booking_only'));
+
+            return back();
+        }
+
+        if (! $booking->isOpenReopenTicket()) {
+            Toastr::error(translate('This_booking_is_not_an_open_reopen_ticket'));
+
+            return back();
+        }
+
+        $current = strtolower(trim((string) ($booking->booking_status ?? '')));
+        if (! booking_admin_status_transition_allowed($current, 'completed')) {
+            Toastr::error(translate('Resolve_reopen_invalid_status_for_complete'));
+
+            return back();
+        }
+
+        $booking->loadMissing('booking_partial_payments');
+        if (! booking_can_be_completed($booking)) {
+            Toastr::error(translate('Booking cannot be completed until full payment is received.'));
+
+            return back();
+        }
+
+        if ((string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+            Toastr::error(translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'));
+
+            return back();
+        }
+
+        $validated = $request->validate([
+            'reopen_resolve_complete_remarks' => ['required', 'string', 'max:5000'],
+        ], [
+            'reopen_resolve_complete_remarks.required' => translate('Reopen_resolve_remarks_required'),
+        ]);
+
+        $remarks = trim((string) $validated['reopen_resolve_complete_remarks']);
+        if ($remarks === '') {
+            throw ValidationException::withMessages([
+                'reopen_resolve_complete_remarks' => [translate('Reopen_resolve_remarks_required')],
+            ]);
+        }
+
+        $previousStatus = (string) ($booking->booking_status ?? '');
+        $resolverUserId = $request->user()->id;
+
+        try {
+            DB::transaction(function () use ($booking, $remarks, $resolverUserId) {
+                $booking->booking_status = 'completed';
+                $booking->reopen_completion_allowed = false;
+                $booking->reopen_resolved_at = now();
+                $booking->reopen_resolved_by = $resolverUserId;
+                $booking->reopen_resolve_remarks = $remarks;
+                $booking->save();
+
+                $this->logBookingStatusHistory(
+                    null,
+                    'completed',
+                    (string) $resolverUserId,
+                    $booking->id,
+                    null,
+                    null,
+                    'reopen_resolved_complete: '.$remarks
+                );
+            });
+        } catch (\Throwable $e) {
+            Toastr::error($e->getMessage());
+
+            return back()->withInput();
+        }
+
+        $booking->refresh();
+        if ((int) ($booking->is_repeated ?? 0) === 0) {
+            try {
+                $fresh = $this->booking
+                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
+                    ->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingStatusChange($fresh, $previousStatus);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking status (reopen resolve complete) failed', [
+                    'booking_id' => $booking->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+        try {
+            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendReopenCaseResolved($booking);
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp reopen resolved notification failed', [
+                'booking_id' => $booking->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        Toastr::success(translate('Reopen_resolve_complete_success'));
+
+        return back();
+    }
+
+    public function reopenScenarioAllowCompletion(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $booking = $this->booking->with(['reopenEvents'])->findOrFail($id);
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            Toastr::error(translate('Reopen_scenarios_single_booking_only'));
+
+            return back();
+        }
+        if (! $booking->isOpenReopenTicket()) {
+            Toastr::error(translate('This_booking_is_not_an_open_reopen_ticket'));
+
+            return back();
+        }
+
+        $booking->reopen_completion_allowed = true;
+        $booking->save();
+
+        Toastr::success(translate('Reopen_resolved_path_unlocked'));
+
+        return back();
+    }
+
+    /**
+     * Disputed reopen: cancel booking and record refund legs on the ledger (company vs provider pools),
+     * plus a snapshot for reconciliation (who owes whom when refunds exceed each side's collected pool).
+     */
+    public function reopenScenarioDisputedRefund(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $booking = $this->booking->with(['booking_partial_payments', 'reopenEvents', 'details_amounts'])->findOrFail($id);
+
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            Toastr::error(translate('Reopen_scenarios_single_booking_only'));
+
+            return back();
+        }
+        if (! $booking->isOpenReopenTicket()) {
+            Toastr::error(translate('This_booking_is_not_an_open_reopen_ticket'));
+
+            return back();
+        }
+        if (in_array((string) $booking->booking_status, ['canceled', 'cancelled', 'refunded'], true)) {
+            Toastr::error(translate('Booking_already_closed'));
+
+            return back();
+        }
+        if ($this->bookingSuppressesAdminCustomerRefundCard($booking)) {
+            Toastr::error(translate('Bfs_refund_not_available_after_visit_cancel'));
+
+            return back();
+        }
+
+        $validated = $request->validate([
+            'refund_company_amount' => ['required', 'numeric', 'min:0'],
+            'refund_provider_amount' => ['required', 'numeric', 'min:0'],
+            'refund_company_transaction_id' => ['nullable', 'string', 'max:100'],
+            'refund_provider_transaction_id' => ['nullable', 'string', 'max:100'],
+            'reopen_dispute_remarks' => ['required', 'string', 'max:5000'],
+        ], [
+            'reopen_dispute_remarks.required' => translate('Reopen_resolve_remarks_required'),
+        ]);
+
+        $refundCompany = round((float) $validated['refund_company_amount'], 2);
+        $refundProvider = round((float) $validated['refund_provider_amount'], 2);
+
+        if ($refundCompany >= 0.01 && trim((string) ($validated['refund_company_transaction_id'] ?? '')) === '') {
+            throw ValidationException::withMessages([
+                'refund_company_transaction_id' => [translate('Transaction_ID') . ' ' . translate('is_required')],
+            ]);
+        }
+        if ($refundProvider >= 0.01 && trim((string) ($validated['refund_provider_transaction_id'] ?? '')) === '') {
+            throw ValidationException::withMessages([
+                'refund_provider_transaction_id' => [translate('Transaction_ID') . ' ' . translate('is_required')],
+            ]);
+        }
+
+        $split = booking_customer_paid_split_by_receiver($booking);
+        $companyEligible = round((float) $split['company'] + (float) $split['unassigned'], 2);
+        $providerEligible = round((float) $split['provider'], 2);
+        $totalPaid = round((float) get_booking_total_paid($booking), 2);
+        $totalRefund = round($refundCompany + $refundProvider, 2);
+
+        if ($totalRefund < 0.01) {
+            throw ValidationException::withMessages([
+                'refund_company_amount' => [translate('Disputed_refund_total_must_be_positive')],
+            ]);
+        }
+        if ($totalRefund > $totalPaid + 0.02) {
+            throw ValidationException::withMessages([
+                'refund_company_amount' => [translate('Disputed_refund_cannot_exceed_customer_paid')],
+            ]);
+        }
+
+        $providerOwesCompanyRefundPool = max(0.0, round($refundCompany - $companyEligible, 2));
+        $companyOwesProviderRefundPool = max(0.0, round($refundProvider - $providerEligible, 2));
+
+        $detailRows = $booking->details_amounts->filter(fn ($r) => $r->booking_repeat_id === null);
+        $baseAdminCommission = round((float) $detailRows->sum('admin_commission'), 2);
+        $baseProviderEarning = round((float) $detailRows->sum('provider_earning'), 2);
+        $retainedFromCustomer = max(0.0, round($totalPaid - $totalRefund, 2));
+        $netRatio = $totalPaid > 0.0001 ? min(1.0, $retainedFromCustomer / $totalPaid) : 0.0;
+        $finalAdminCommission = round($baseAdminCommission * $netRatio, 2);
+        $finalProviderEarning = round($baseProviderEarning * $netRatio, 2);
+        $providerTotalRemittanceToCompany = round($providerOwesCompanyRefundPool + $finalAdminCommission, 2);
+
+        $remarks = trim((string) $validated['reopen_dispute_remarks']);
+        if ($remarks === '') {
+            throw ValidationException::withMessages([
+                'reopen_dispute_remarks' => [translate('Reopen_resolve_remarks_required')],
+            ]);
+        }
+
+        $tidCompany = AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) ($validated['refund_company_transaction_id'] ?? '')));
+        $tidProvider = AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) ($validated['refund_provider_transaction_id'] ?? '')));
+
+        $snapshot = [
+            'type' => 'reopen_disputed_refund',
+            'submitted_at' => now()->toIso8601String(),
+            'customer_paid_split' => $split,
+            'company_refund_pool_eligible' => $companyEligible,
+            'provider_refund_pool_eligible' => $providerEligible,
+            'customer_paid_total' => $totalPaid,
+            'refund_company_amount' => $refundCompany,
+            'refund_provider_amount' => $refundProvider,
+            'refund_total' => $totalRefund,
+            'provider_owes_company' => $providerOwesCompanyRefundPool,
+            'provider_total_remittance_to_company' => $providerTotalRemittanceToCompany,
+            'company_owes_provider' => $companyOwesProviderRefundPool,
+            'retained_from_customer' => $retainedFromCustomer,
+            'net_commission_ratio' => $netRatio,
+            'base_admin_commission_before_dispute' => $baseAdminCommission,
+            'base_provider_earning_before_dispute' => $baseProviderEarning,
+            'final_net_to_customer' => $retainedFromCustomer,
+            'final_admin_commission' => $finalAdminCommission,
+            'final_provider_earning' => $finalProviderEarning,
+        ];
+
+        $date = Carbon::now()->toDateString();
+        $resolverUserId = $request->user()->id;
+        $userIdForHistory = (string) $resolverUserId;
+
+        try {
+            DB::transaction(function () use (
+                $booking,
+                $refundCompany,
+                $refundProvider,
+                $tidCompany,
+                $tidProvider,
+                $date,
+                $userIdForHistory,
+                $resolverUserId,
+                $remarks,
+                $snapshot,
+                $totalPaid,
+                $totalRefund,
+                $finalAdminCommission,
+                $finalProviderEarning,
+                $providerTotalRemittanceToCompany,
+                $companyOwesProviderRefundPool
+            ) {
+                if ($refundCompany >= 0.01) {
+                    ledger_record_out([
+                        'amount' => $refundCompany,
+                        'transaction_id' => $tidCompany !== '' ? $tidCompany : null,
+                        'booking_id' => $booking->id,
+                        'reason' => LedgerTransaction::REASON_REFUND,
+                        'date' => $date,
+                        'received_by' => LedgerTransaction::RECEIVED_BY_COMPANY,
+                        'reference_note' => 'reopen_disputed_refund:company_portion',
+                        'created_by' => $resolverUserId,
+                    ]);
+                }
+                if ($refundProvider >= 0.01) {
+                    ledger_record_out([
+                        'amount' => $refundProvider,
+                        'transaction_id' => $tidProvider !== '' ? $tidProvider : null,
+                        'booking_id' => $booking->id,
+                        'reason' => LedgerTransaction::REASON_REFUND,
+                        'date' => $date,
+                        'received_by' => LedgerTransaction::RECEIVED_BY_PROVIDER,
+                        'reference_note' => 'reopen_disputed_refund:provider_portion',
+                        'created_by' => $resolverUserId,
+                    ]);
+                }
+
+                record_reopen_disputed_refund_reconciliation(
+                    (string) $booking->id,
+                    $booking->provider_id ? (string) $booking->provider_id : null,
+                    $providerTotalRemittanceToCompany,
+                    $companyOwesProviderRefundPool
+                );
+
+                $this->distributeDisputedRefundNetAcrossDetailsAmounts($booking, $finalAdminCommission, $finalProviderEarning);
+
+                $booking->refresh();
+                $booking->load('details_amounts');
+                if ($booking->provider_id) {
+                    try {
+                        $outcome = trim((string) ($booking->settlement_outcome ?? ''));
+                        if ($outcome !== '' && $outcome !== BookingFinancialSettlementService::OUTCOME_STANDARD) {
+                            $booking->settlement_snapshot = app(BookingFinancialSettlementService::class)->buildPreview($booking);
+                        }
+                    } catch (\Throwable) {
+                        // keep prior snapshot
+                    }
+                }
+
+                $booking->reopen_disputed_snapshot = $snapshot;
+                $booking->reopen_completion_allowed = false;
+                $booking->reopen_resolved_at = now();
+                $booking->reopen_resolved_by = $resolverUserId;
+                $booking->reopen_resolve_remarks = $remarks;
+
+                if ($totalRefund + 0.005 >= $totalPaid) {
+                    $booking->booking_status = 'refunded';
+                } else {
+                    $booking->booking_status = 'canceled';
+                }
+
+                $booking->save();
+
+                $this->logBookingStatusHistory(
+                    null,
+                    (string) $booking->booking_status,
+                    $userIdForHistory,
+                    $booking->id,
+                    null,
+                    null,
+                    'reopen_disputed: '.$remarks
+                );
+            });
+        } catch (\Throwable $e) {
+            Toastr::error($e->getMessage());
+
+            return back()->withInput();
+        }
+
+        $booking->refresh();
+        try {
+            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendReopenCaseResolved($booking);
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp reopen disputed resolved notification failed', [
+                'booking_id' => $booking->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        Toastr::success(translate('Disputed_reopen_recorded'));
 
         return back();
     }
@@ -3057,7 +3428,7 @@ class BookingController extends Controller
 
         try {
             if ($booking) {
-                if (! booking_admin_status_transition_allowed($current, $to)) {
+                if (! booking_admin_status_transition_allowed_for_booking($booking, $current, $to)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Invalid_booking_status_transition'),
@@ -3120,6 +3491,9 @@ class BookingController extends Controller
         $remarks = $meta['remarks'] ?? null;
 
         $booking->booking_status = $status;
+        if ($status === 'completed') {
+            $booking->reopen_completion_allowed = false;
+        }
 
         if ($booking->isDirty('booking_status')) {
             $previousParentStatus = (string) $booking->getOriginal('booking_status');
@@ -3378,12 +3752,8 @@ class BookingController extends Controller
         $this->authorize('booking_can_manage_status');
 
         $request->validate([
-            'status' => 'required|in:approve,deny,cancel',
+            'status' => 'required|in:approve,deny',
             'booking_deny_note' => 'required_if:status,deny|string|nullable',
-            'booking_cancellation_reason_id' => [
-                'required_if:status,cancel',
-                Rule::exists('booking_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
-            ],
             'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
@@ -3445,37 +3815,6 @@ class BookingController extends Controller
 
             Toastr::success(translate(DEFAULT_STATUS_UPDATE_200['message']));
             return back();
-        } elseif (isset($booking) && $request->status == 'cancel') {
-            $previousVerified = (int) $booking->is_verified;
-            $booking->booking_status = 'canceled';
-            $booking->is_verified = 3;
-
-            $bookingStatusHistory = $this->bookingStatusHistory;
-            $bookingStatusHistory->booking_id = $bookingId;
-            $bookingStatusHistory->changed_by = $request->user()->id;
-            $bookingStatusHistory->booking_status = 'canceled';
-            $bookingStatusHistory->booking_cancellation_reason_id = $request->input('booking_cancellation_reason_id');
-            $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
-
-            if ($booking->isDirty('booking_status')) {
-                DB::transaction(function () use ($bookingStatusHistory, $booking) {
-                    $booking->save();
-                    $bookingStatusHistory->save();
-                });
-
-                try {
-                    $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingVerificationChange($fresh, $previousVerified, 'cancel');
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp booking verification failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
-                }
-
-                Toastr::success(translate(DEFAULT_STATUS_UPDATE_200['message']));
-                return back();
-            }
         }
 
         Toastr::success(translate(DEFAULT_404['message']));
@@ -5755,6 +6094,12 @@ class BookingController extends Controller
         if (! $booking) {
             return response()->json(response_formatter(DEFAULT_204), 204);
         }
+        if ($booking->adminMustConfigureReopenBeforeComplete()) {
+            return response()->json(response_formatter([
+                'response_code' => 'default_400',
+                'message' => translate('Configure_reopened_scenarios_before_complete'),
+            ]), 422);
+        }
         if ((int) ($booking->is_repeated ?? 0) === 1) {
             return response()->json(response_formatter([
                 'response_code' => 'default_400',
@@ -6524,6 +6869,44 @@ class BookingController extends Controller
                 'type' => 'customer',
                 'data' => $dataHistory,
             ]);
+        }
+    }
+
+    /**
+     * Scale persisted {@see BookingDetailsAmount} commission rows to net amounts after disputed reopen refund.
+     */
+    private function distributeDisputedRefundNetAcrossDetailsAmounts(Booking $booking, float $finalAdmin, float $finalProvider): void
+    {
+        $rows = BookingDetailsAmount::query()
+            ->where('booking_id', $booking->id)
+            ->whereNull('booking_repeat_id')
+            ->orderBy('id')
+            ->get();
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $sumA = round((float) $rows->sum('admin_commission'), 2);
+        $sumP = round((float) $rows->sum('provider_earning'), 2);
+        $n = $rows->count();
+        $remainA = $finalAdmin;
+        $remainP = $finalProvider;
+
+        foreach ($rows as $i => $row) {
+            if ($i === $n - 1) {
+                $row->admin_commission = round($remainA, 2);
+                $row->provider_earning = round($remainP, 2);
+            } else {
+                $wa = $sumA > 0.0001 ? ((float) $row->admin_commission / $sumA) : (1 / $n);
+                $wp = $sumP > 0.0001 ? ((float) $row->provider_earning / $sumP) : (1 / $n);
+                $da = round($finalAdmin * $wa, 2);
+                $dp = round($finalProvider * $wp, 2);
+                $row->admin_commission = $da;
+                $row->provider_earning = $dp;
+                $remainA = round($remainA - $da, 2);
+                $remainP = round($remainP - $dp, 2);
+            }
+            $row->save();
         }
     }
 

@@ -951,10 +951,16 @@ class CustomerController extends Controller
                     ]);
                 }
 
+                // Company-ledger refunds only (exclude provider-pool refunds; those are not company→customer).
                 $totals->company_paid_to_customer = (float) LedgerTransaction::query()
                     ->whereIn('booking_id', $bookingIds)
                     ->where('type', LedgerTransaction::TYPE_OUT)
                     ->where('reason', LedgerTransaction::REASON_REFUND)
+                    ->where(function ($q) {
+                        $q->where('received_by', LedgerTransaction::RECEIVED_BY_COMPANY)
+                            ->orWhereNull('received_by')
+                            ->orWhere('received_by', '');
+                    })
                     ->sum('amount');
 
                 $bookingMap = $allBookings->keyBy('id');

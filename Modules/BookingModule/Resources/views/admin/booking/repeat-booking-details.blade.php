@@ -546,43 +546,30 @@
                             <hr>
                              @can('booking_can_manage_status')
                                 <div class="mt-3">
-                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}">
-                                            @if ($booking->booking_status != 'pending')
-                                                @if ($booking->booking_status == 'accepted')
-                                                    <option value="0" disabled
-                                                        {{ $booking['booking_status'] == 'accepted' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Accepted') }}</option>
-                                                @elseif($booking->booking_status == 'ongoing')
-                                                    <option value="0" disabled
-                                                        {{ $booking['booking_status'] == 'ongoing' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Ongoing') }}</option>
-                                                @elseif($booking->booking_status == 'canceled')
-                                                    <option value="0" disabled
-                                                        {{ $booking['booking_status'] == 'canceled' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Canceled') }}</option>
-                                                @endif
-                                                @if ($booking->booking_status != 'completed'
-                                                    && isset($booking->nextService)
-                                                    && !$booking->nextService['is_paid']
-                                                    && $booking->nextService['payment_method'] == 'cash_after_service')
-                                                    <option value="canceled"
-                                                        {{ $booking->booking_status == 'canceled' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Canceled') }}
-                                                    </option>
-                                                @elseif($booking->booking_status == 'completed')
-                                                    <option value="completed"
-                                                        {{ $booking->booking_status == 'completed' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('completed') }}
-                                                    </option>
-                                                @endif
-                                            @else{
-                                            <option value="0"
-                                                {{ $booking['booking_status'] == 'pending' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('pending') }}</option>
-                                            <option value="canceled"
-                                                {{ $booking['booking_status'] == 'canceled' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('Canceled') }}</option>
-                                            @endif
+                                        @php
+                                            $__repeatStatusNext = booking_admin_allowed_next_statuses_for_booking($booking);
+                                            $maxBookingAmountRepeat = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
+                                            $__repeatStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmountRepeat;
+                                        @endphp
+                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}" data-can-complete="{{ booking_can_be_completed($booking) ? '1' : '0' }}">
+                                            <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}</option>
+                                            @foreach ($__repeatStatusNext as $__selSt)
+                                                @php
+                                                    $__repeatOptDisabled = $__repeatStatusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                                    if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
+                                                        $__repeatOptDisabled = true;
+                                                    }
+                                                    $__repeatOptLabel = match ($__selSt) {
+                                                        'accepted' => translate('Accept_Booking'),
+                                                        'pending' => translate('Mark_as_Pending'),
+                                                        'ongoing' => translate('Mark_as_Ongoing'),
+                                                        'on_hold' => translate('Put_on_hold'),
+                                                        'completed' => translate('Complete_Booking'),
+                                                        default => ucwords(str_replace('_', ' ', $__selSt)),
+                                                    };
+                                                @endphp
+                                                <option value="{{ $__selSt }}" @if($__repeatOptDisabled) disabled @endif>{{ $__repeatOptLabel }}</option>
+                                            @endforeach
                                         </select>
                                 </div>
                              @endcan
@@ -1243,12 +1230,7 @@
                     return;
                 }
                 var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
-                if (booking_status === 'canceled') {
-                    update_booking_details(route, '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}', 'booking_status',
-                        booking_status, '{{ translate('Are you sure you want to cancel the entire booking?') }}');
-                } else {
-                    update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status', booking_status);
-                }
+                update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status', booking_status);
             } else {
                 toastr.error('{{ translate('choose_proper_status') }}');
             }

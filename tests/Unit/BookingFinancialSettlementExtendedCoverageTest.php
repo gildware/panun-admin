@@ -319,6 +319,42 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame(100.0, $r['total_paid']);
     }
 
+    public function test_received_settlement_includes_disputed_reopen_refund_io_u_when_refunded(): void
+    {
+        $b = $this->memoryBooking();
+        $b->booking_status = 'refunded';
+        $b->settlement_outcome = null;
+        $b->reopen_disputed_snapshot = [
+            'type' => 'reopen_disputed_refund',
+            'provider_owes_company' => 50.0,
+            'final_admin_commission' => 25.0,
+            'company_owes_provider' => 30.0,
+        ];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 100.0, 'received_by' => 'company'],
+        ]));
+        $r = get_booking_received_and_settlement($b);
+        $this->assertTrue($r['net_revenue_zeroed_after_refund']);
+        $this->assertSame(30.0, $r['pay_to_provider']);
+        $this->assertSame(75.0, $r['provider_owes_company']);
+    }
+
+    public function test_provider_payment_tab_uses_disputed_snapshot_for_commission_and_revenue(): void
+    {
+        $b = $this->memoryBooking();
+        $b->settlement_outcome = null;
+        $b->reopen_disputed_snapshot = [
+            'type' => 'reopen_disputed_refund',
+            'final_admin_commission' => 120.0,
+            'final_provider_earning' => 1080.0,
+            'retained_from_customer' => 1200.0,
+        ];
+        $pair = provider_payment_tab_earning_commission_pair($b);
+        $this->assertSame(1080.0, $pair['provider_earning']);
+        $this->assertSame(120.0, $pair['admin_commission']);
+        $this->assertSame(1200.0, get_provider_payment_tab_revenue_amount_for_booking($b));
+    }
+
     public function test_received_settlement_not_zeroed_for_visit_fee_split_when_refunded(): void
     {
         $b = $this->memoryBooking();

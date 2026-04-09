@@ -502,23 +502,30 @@
                             @can('booking_can_manage_status')
                                 <div class="mt-3">
                                     @if ($booking->booking_status != 'pending')
-                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}">
-                                            @if($booking['booking_status'] != 'canceled')
-                                            <option value="0" disabled
-                                                {{ $booking['booking_status'] == 'accepted' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('Accepted') }}</option>
-                                            <option value="ongoing"
-                                                {{ $booking['booking_status'] == 'ongoing' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('Ongoing') }}</option>
-                                            <option value="completed"
-                                                {{ $booking['booking_status'] == 'completed' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('Completed') }}</option>
-                                            @endif
-                                            @if($booking['booking_status'] != 'completed' && !$booking->is_paid)
-                                            <option value="canceled"
-                                                {{ $booking['booking_status'] == 'canceled' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('Canceled') }}</option>
-                                            @endif
+                                        @php
+                                            $__rebookStatusNext = booking_admin_allowed_next_statuses_for_booking($booking);
+                                            $maxBookingAmountRebook = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
+                                            $__rebookStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmountRebook;
+                                        @endphp
+                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}" data-can-complete="{{ booking_can_be_completed($booking) ? '1' : '0' }}">
+                                            <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}</option>
+                                            @foreach ($__rebookStatusNext as $__selSt)
+                                                @php
+                                                    $__rebookOptDisabled = $__rebookStatusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                                    if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
+                                                        $__rebookOptDisabled = true;
+                                                    }
+                                                    $__rebookOptLabel = match ($__selSt) {
+                                                        'accepted' => translate('Accept_Booking'),
+                                                        'pending' => translate('Mark_as_Pending'),
+                                                        'ongoing' => translate('Mark_as_Ongoing'),
+                                                        'on_hold' => translate('Put_on_hold'),
+                                                        'completed' => translate('Complete_Booking'),
+                                                        default => ucwords(str_replace('_', ' ', $__selSt)),
+                                                    };
+                                                @endphp
+                                                <option value="{{ $__selSt }}" @if($__rebookOptDisabled) disabled @endif>{{ $__rebookOptLabel }}</option>
+                                            @endforeach
                                         </select>
                                     @endif
                                 </div>

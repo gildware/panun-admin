@@ -18,6 +18,17 @@
                                     <option value="pending" @selected(old('target_status') === 'pending')>{{ translate('Pending') }}</option>
                                 </select>
                             </div>
+                            @php
+                                $__reopenScheduleDefault = $booking->service_schedule
+                                    ? \Carbon\Carbon::parse($booking->service_schedule)->format('Y-m-d\TH:i')
+                                    : \Carbon\Carbon::now()->format('Y-m-d\TH:i');
+                            @endphp
+                            <div class="mb-3">
+                                <label class="form-label">{{ translate('New_schedule_date_time') }} <span class="text-danger">*</span></label>
+                                <input type="datetime-local" name="service_schedule" class="form-control"
+                                       value="{{ old('service_schedule', $__reopenScheduleDefault) }}" required>
+                                <div class="form-text text-muted small">{{ translate('New_schedule_date_time_reopen_help') }}</div>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">{{ translate('Reopen_reason') }} <span class="text-danger">*</span></label>
                                 <select name="booking_hold_reopen_reason_id" class="form-select" required>
