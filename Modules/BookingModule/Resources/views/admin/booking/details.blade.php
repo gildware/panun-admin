@@ -1054,6 +1054,12 @@
                                         @empty
                                             <p class="fz-12 text-muted mb-0">{{ translate('No_status_changes_available') }}</p>
                                         @endforelse
+                                        @if((int)($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'ongoing')
+                                            <button type="button" class="booking-status-pill booking-status-pill--secondary" data-bs-toggle="modal"
+                                                data-bs-target="#bookingFinancialSettlementModal">
+                                                {{ translate('Configure_special_scenarios') }}
+                                            </button>
+                                        @endif
                                         @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
                                             <button type="button" class="booking-status-pill booking-status-pill--success" data-bs-toggle="modal"
                                                 data-bs-target="#reopenResolveCompleteModal--{{ $booking->id }}">

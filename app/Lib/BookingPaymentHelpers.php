@@ -1558,20 +1558,24 @@ if (!function_exists('aggregate_provider_booking_settlement_net_for_provider_id'
 
 if (!function_exists('provider_ledger_manual_flow_totals_for_provider')) {
     /**
-     * Sums on ledger rows scoped to this provider (same subset as the provider payment tab ledger table).
-     * OUT with reason provider_payout: add payment to provider + approved withdrawals. IN: collect-from-provider (and any other IN rows with provider_id).
+     * Sums on ledger rows scoped to this provider (same subset as the provider payment tab ledger table):
+     * company ↔ provider only (payout OUT, collect IN), not customer↔company booking lines.
      */
     function provider_ledger_manual_flow_totals_for_provider(string $providerId): array
     {
-        $payoutOut = (float) LedgerTransaction::query()
-            ->where('provider_id', $providerId)
+        $base = LedgerTransaction::query()->where('provider_id', $providerId);
+
+        $payoutOut = (float) (clone $base)
             ->where('type', LedgerTransaction::TYPE_OUT)
             ->where('reason', LedgerTransaction::REASON_PROVIDER_PAYOUT)
             ->sum('amount');
 
-        $collectIn = (float) LedgerTransaction::query()
-            ->where('provider_id', $providerId)
+        $collectIn = (float) (clone $base)
             ->where('type', LedgerTransaction::TYPE_IN)
+            ->where(function ($c) {
+                $c->where('payment_method', 'collect_from_provider')
+                    ->orWhereNull('booking_id');
+            })
             ->sum('amount');
 
         return [
@@ -1588,15 +1592,19 @@ if (!function_exists('provider_ledger_manual_flow_totals_all_providers')) {
      */
     function provider_ledger_manual_flow_totals_all_providers(): array
     {
-        $payoutOut = (float) LedgerTransaction::query()
-            ->whereNotNull('provider_id')
+        $base = LedgerTransaction::query()->whereNotNull('provider_id');
+
+        $payoutOut = (float) (clone $base)
             ->where('type', LedgerTransaction::TYPE_OUT)
             ->where('reason', LedgerTransaction::REASON_PROVIDER_PAYOUT)
             ->sum('amount');
 
-        $collectIn = (float) LedgerTransaction::query()
-            ->whereNotNull('provider_id')
+        $collectIn = (float) (clone $base)
             ->where('type', LedgerTransaction::TYPE_IN)
+            ->where(function ($c) {
+                $c->where('payment_method', 'collect_from_provider')
+                    ->orWhereNull('booking_id');
+            })
             ->sum('amount');
 
         return [
@@ -2255,20 +2263,16 @@ if (!function_exists('admin_ledger_company_counterparty_for_customer_bookings'))
 
 if (!function_exists('admin_ledger_company_counterparty_for_provider')) {
     /**
-     * Ledger rows: company ↔ parties for this provider (by provider_id or booking on this provider).
+     * Provider ledger: company ↔ provider only (money collected from provider, payouts to provider).
+     * Excludes customer↔company lines on this provider’s bookings (those belong on booking/customer payment views).
      *
-     * @param  array<int, string>  $bookingIds
+     * @param  array<int, string>  $bookingIds  Unused; kept for call-site compatibility.
      */
     function admin_ledger_company_counterparty_for_provider(string $providerId, array $bookingIds): Collection
     {
         return LedgerTransaction::query()
-            ->whereCompanyCounterpartyOnly()
-            ->where(function ($outer) use ($providerId, $bookingIds) {
-                $outer->where('provider_id', $providerId);
-                if ($bookingIds !== []) {
-                    $outer->orWhereIn('booking_id', $bookingIds);
-                }
-            })
+            ->where('provider_id', $providerId)
+            ->whereCompanyProviderCounterpartyOnly()
             ->with([
                 'booking' => fn ($q) => $q->select('id', 'readable_id'),
                 'repeat' => fn ($q) => $q->select('id', 'readable_id', 'booking_id'),
