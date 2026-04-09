@@ -252,4 +252,30 @@ class LedgerTransaction extends Model
                 ->where('received_by', self::RECEIVED_BY_PROVIDER);
         });
     }
+
+    /**
+     * Money movement strictly between company and provider: collect-from-provider (IN) and payouts (OUT).
+     * Excludes customer↔company ledger lines on bookings (even for this provider’s jobs).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeWhereCompanyProviderCounterpartyOnly($query)
+    {
+        return $query->where(function ($q) {
+            $q->where(function ($in) {
+                $in->where('type', self::TYPE_IN)
+                    ->where(function ($c) {
+                        $c->where('payment_method', 'collect_from_provider')
+                            ->orWhere(function ($d) {
+                                $d->whereNotNull('provider_id')
+                                    ->whereNull('booking_id');
+                            });
+                    });
+            })->orWhere(function ($out) {
+                $out->where('type', self::TYPE_OUT)
+                    ->where('reason', self::REASON_PROVIDER_PAYOUT);
+            });
+        });
+    }
 }
