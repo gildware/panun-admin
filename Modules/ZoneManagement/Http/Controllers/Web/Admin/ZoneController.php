@@ -61,9 +61,63 @@ class ZoneController extends Controller
         $zones = $this->buildZoneListingQuery($request)
             ->paginate(pagination_limit())
             ->appends($queryParam);
-        $parentZoneChoices = $this->zone->withoutGlobalScope('translate')->orderBy('name')->get(['id', 'name']);
+        $parentZoneTreeOptions = $this->parentZoneTreeOptionsForCreate();
 
-        return view('zonemanagement::admin.create', compact('zones', 'search', 'parentZoneChoices'));
+        return view('zonemanagement::admin.create', compact('zones', 'search', 'parentZoneTreeOptions'));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function zoneDescendantIds(string $rootId): array
+    {
+        $ids = [];
+        $queue = [$rootId];
+
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            $children = Zone::withoutGlobalScope('translate')
+                ->where('parent_id', $current)
+                ->pluck('id');
+
+            foreach ($children as $cid) {
+                $cid = (string) $cid;
+                $ids[] = $cid;
+                $queue[] = $cid;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @return array<int, array{id: string, label: string}>
+     */
+    protected function parentZoneTreeOptionsForCreate(): array
+    {
+        $parentZones = $this->zone->withoutGlobalScope('translate')
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id']);
+
+        return Zone::flatTreeOptionsForSelect($parentZones);
+    }
+
+    /**
+     * @return array<int, array{id: string, label: string}>
+     */
+    protected function parentZoneTreeOptionsForEdit(string $excludeZoneId): array
+    {
+        $excludeIds = array_merge(
+            [$excludeZoneId],
+            $this->zoneDescendantIds($excludeZoneId)
+        );
+
+        $parentZones = $this->zone->withoutGlobalScope('translate')
+            ->whereNotIn('id', $excludeIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id']);
+
+        return Zone::flatTreeOptionsForSelect($parentZones);
     }
 
     /**
@@ -542,9 +596,9 @@ class ZoneController extends Controller
                 $centerLat = trim($centerMatch[2], " \t\n\r\0\x0B'\"");
             }
 
-            $parentZoneChoices = $this->zone->withoutGlobalScope('translate')->where('id', '<>', $id)->orderBy('name')->get(['id', 'name']);
+            $parentZoneTreeOptions = $this->parentZoneTreeOptionsForEdit($id);
 
-            return view('zonemanagement::admin.edit', compact('zone', 'currentZone', 'centerLat', 'centerLng', 'area', 'parentZoneChoices'));
+            return view('zonemanagement::admin.edit', compact('zone', 'currentZone', 'centerLat', 'centerLng', 'area', 'parentZoneTreeOptions'));
         }
 
         Toastr::error(translate(DEFAULT_204['message']));
@@ -567,24 +621,19 @@ class ZoneController extends Controller
     }
 
     /**
-     * GeoJSON-like path for the parent zone boundary (lat/lng pairs for Google Maps).
+     * First exterior ring of a zone polygon as lat/lng pairs for Google Maps.
      *
-     * @throws AuthorizationException
+     * @return array<int, array{lat: float, lng: float}>
      */
-    public function parentGeometry(string $id): JsonResponse
+    private function zoneFirstRingLatLngPaths(?Zone $zone): array
     {
-        abort_unless(Gate::any(['zone_view', 'zone_add', 'zone_update']), 403);
-        $zone = Zone::withoutGlobalScope('translate')->find($id);
-        // This endpoint is used by the "select parent zone" dropdown in create/edit UI.
-        // The UX should not treat "missing coordinates" as a hard error (404),
-        // otherwise jQuery triggers the AJAX fail() branch and shows an error toast every time.
         if (! $zone || $zone->coordinates === null) {
-            return response()->json(['paths' => []], 200);
+            return [];
         }
 
         $firstRing = $zone->coordinates[0] ?? null;
         if ($firstRing === null) {
-            return response()->json(['paths' => []], 200);
+            return [];
         }
 
         $paths = [];
@@ -596,7 +645,51 @@ class ZoneController extends Controller
             $paths[] = ['lat' => (float) $pair[1], 'lng' => (float) $pair[0]];
         }
 
-        return response()->json(['paths' => $paths]);
+        return $paths;
+    }
+
+    /**
+     * GeoJSON-like path for the parent zone boundary (lat/lng pairs for Google Maps),
+     * plus sibling child-zone boundaries under the same parent (optional exclude for edit form).
+     *
+     * @throws AuthorizationException
+     */
+    public function parentGeometry(Request $request, string $id): JsonResponse
+    {
+        abort_unless(Gate::any(['zone_view', 'zone_add', 'zone_update']), 403);
+        $zone = Zone::withoutGlobalScope('translate')->find($id);
+        // This endpoint is used by the "select parent zone" dropdown in create/edit UI.
+        // The UX should not treat "missing coordinates" as a hard error (404),
+        // otherwise jQuery triggers the AJAX fail() branch and shows an error toast every time.
+        if (! $zone) {
+            return response()->json(['paths' => [], 'siblings' => []], 200);
+        }
+
+        $parentPaths = $this->zoneFirstRingLatLngPaths($zone);
+
+        $excludeId = $request->query('exclude_zone');
+        $excludeId = is_string($excludeId) ? trim($excludeId) : '';
+
+        $siblingsQuery = Zone::withoutGlobalScope('translate')
+            ->where('parent_id', $id)
+            ->whereNotNull('coordinates');
+
+        if ($excludeId !== '') {
+            $siblingsQuery->where('id', '<>', $excludeId);
+        }
+
+        $siblings = [];
+        foreach ($siblingsQuery->get() as $child) {
+            $childPaths = $this->zoneFirstRingLatLngPaths($child);
+            if ($childPaths !== []) {
+                $siblings[] = ['paths' => $childPaths];
+            }
+        }
+
+        return response()->json([
+            'paths' => $parentPaths,
+            'siblings' => $siblings,
+        ]);
     }
 
     /**
