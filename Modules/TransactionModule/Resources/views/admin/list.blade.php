@@ -11,6 +11,12 @@
             white-space: nowrap;
             vertical-align: middle;
         }
+        .table-ledger-nowrap td.table-ledger-desc {
+            white-space: nowrap;
+            max-width: 28rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 @endpush
 
@@ -52,6 +58,8 @@
                             </div>
                         </div>
                     </div>
+
+                    <p class="text-muted small mx-lg-4 mb-3">{{ translate('Transaction_list_totals_hint') }}</p>
 
                     <div
                         class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
@@ -136,6 +144,7 @@
                                                 <th>{{ translate('Sl') }}</th>
                                                 <th>{{ translate('Date') }}</th>
                                                 <th>{{ translate('Type') }}</th>
+                                                <th class="text-end">{{ translate('Amount') }}</th>
                                                 <th>{{ translate('Description') }}</th>
                                                 <th>{{ translate('Flow') }}</th>
                                                 <th>{{ translate('Channel') }}</th>
@@ -143,94 +152,110 @@
                                                 <th>{{ translate('Booking_ID') }}</th>
                                                 <th>{{ translate('Transaction_ID') }}</th>
                                                 <th>{{ translate('Entry_by') }}</th>
-                                                <th class="text-end">{{ translate('Amount') }}</th>
                                             </tr>
                                             </thead>
                                             <tbody>
                                             @forelse($transactions as $key => $entry)
+                                                @php
+                                                    $isLedger = $entry instanceof \Modules\TransactionModule\Entities\LedgerTransaction;
+                                                @endphp
                                                 <tr>
-                                                    <td>{{ $key + $transactions->firstItem() }}</td>
-                                                    <td>{{ $entry->created_at ? $entry->created_at->format('jS F Y : g i A') : '—' }}</td>
-                                                    <td>
-                                                        @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                            <span class="badge bg-success">{{ translate('In') }}</span>
-                                                        @else
-                                                            <span class="badge bg-danger">{{ translate('Out') }}</span>
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                            @if($entry->payment_method === 'collect_from_provider')
-                                                                {{ translate('Cash_collected_from_provider') }}
-                                                            @elseif($entry->payment_method === 'advance_on_booking_create')
-                                                                {{ translate('Advance_payment_on_booking_create') }}
-                                                            @elseif($entry->booking)
-                                                                {{ translate('Booking_payment') }}
+                                                    <td class="text-nowrap">{{ $key + $transactions->firstItem() }}</td>
+                                                    <td class="text-nowrap">{{ $entry->created_at ? $entry->created_at->format('jS F Y : g i A') : '—' }}</td>
+                                                    @if($isLedger)
+                                                        <td>
+                                                            @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                                <span class="badge bg-success">{{ translate('In') }}</span>
                                                             @else
-                                                                {{ translate('Payment_received') }}{{ $entry->payment_method ? ' (' . str_replace('_', ' ', $entry->payment_method) . ')' : '' }}
+                                                                <span class="badge bg-danger">{{ translate('Out') }}</span>
                                                             @endif
-                                                        @else
-                                                            @if($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
-                                                                {{ translate('Refund') }}{{ $entry->reference_note ? ' — ' . \Illuminate\Support\Str::limit($entry->reference_note, 60) : '' }}
-                                                            @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
-                                                                {{ translate('Provider_payout') }}{{ $entry->provider?->company_name ? ' — ' . $entry->provider->company_name : '' }}{{ $entry->reference_note ? ' — ' . $entry->reference_note : '' }}
+                                                        </td>
+                                                        <td class="text-end fw-medium text-nowrap">
+                                                            @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                                <span class="text-success">+ {{ with_currency_symbol($entry->amount) }}</span>
                                                             @else
-                                                                {{ $entry->reason ? str_replace('_', ' ', $entry->reason) : translate('Out') }}
+                                                                <span class="text-danger">- {{ with_currency_symbol($entry->amount) }}</span>
                                                             @endif
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                            @if($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_PROVIDER)
-                                                                {{ translate('Customer_paid_to_provider') }}
-                                                            @elseif($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY)
-                                                                {{ translate('Customer_paid_to_company') }}
+                                                        </td>
+                                                        <td class="table-ledger-desc">
+                                                            @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                                @if($entry->payment_method === 'collect_from_provider')
+                                                                    {{ translate('Cash_collected_from_provider') }}
+                                                                @elseif($entry->payment_method === 'advance_on_booking_create')
+                                                                    {{ translate('Advance_payment_on_booking_create') }}
+                                                                @elseif($entry->booking)
+                                                                    {{ translate('Booking_payment') }}
+                                                                @else
+                                                                    {{ translate('Payment_received') }}{{ $entry->payment_method ? ' (' . str_replace('_', ' ', $entry->payment_method) . ')' : '' }}
+                                                                @endif
                                                             @else
-                                                                —
+                                                                @if($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
+                                                                    {{ translate('Refund') }}{{ $entry->reference_note ? ' — ' . \Illuminate\Support\Str::limit($entry->reference_note, 60) : '' }}
+                                                                @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
+                                                                    {{ translate('Provider_payout') }}{{ $entry->provider?->company_name ? ' — ' . $entry->provider->company_name : '' }}{{ $entry->reference_note ? ' — ' . $entry->reference_note : '' }}
+                                                                @else
+                                                                    {{ $entry->reason ? str_replace('_', ' ', $entry->reason) : translate('Out') }}
+                                                                @endif
                                                             @endif
-                                                        @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
-                                                            {{ translate('Company_paid_to_customer') }}
-                                                        @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
-                                                            {{ translate('Provider_payout') }}
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                    <td class="text-nowrap">
-                                                        {{ $entry->formatPaymentMethodForDisplay() }}
-                                                    </td>
-                                                    <td>
-                                                        @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                            @if($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_PROVIDER)
-                                                                {{ translate('Received_by_provider') }}
-                                                            @elseif($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY)
-                                                                {{ translate('Received_by_company') }}
+                                                        </td>
+                                                        <td>
+                                                            {!! payment_counterparty_flow_badge_html($entry->counterpartyFlowKey()) !!}
+                                                        </td>
+                                                        <td class="text-nowrap">
+                                                            {{ $entry->formatPaymentMethodForDisplay() }}
+                                                        </td>
+                                                        <td>
+                                                            @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                                @if($entry->payment_method === 'collect_from_provider')
+                                                                    {{ translate('Received_by_company') }}
+                                                                @elseif($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY)
+                                                                    {{ translate('Received_by_company') }}
+                                                                @else
+                                                                    —
+                                                                @endif
                                                             @else
                                                                 —
                                                             @endif
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        @if($entry->booking_id && $entry->relationLoaded('booking') && $entry->booking)
-                                                            <a href="{{ route('admin.booking.details', [$entry->booking_id]) }}"
-                                                               class="text-primary text-decoration-none">{{ $entry->booking->readable_id ?? $entry->booking_id }}</a>
-                                                        @elseif($entry->booking_id)
-                                                            {{ $entry->booking_id }}
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                    <td>{{ $entry->transaction_id ?: '—' }}</td>
-                                                    <td>{{ $entry->resolvedEntryByLabel() }}</td>
-                                                    <td class="text-end fw-medium">
-                                                        @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                            <span class="text-success">+ {{ with_currency_symbol($entry->amount) }}</span>
-                                                        @else
-                                                            <span class="text-danger">- {{ with_currency_symbol($entry->amount) }}</span>
-                                                        @endif
-                                                    </td>
+                                                        </td>
+                                                        <td>
+                                                            @if($entry->booking_id && $entry->relationLoaded('booking') && $entry->booking)
+                                                                <a href="{{ route('admin.booking.details', [$entry->booking_id]) }}"
+                                                                   class="text-primary text-decoration-none">{{ $entry->booking->readable_id ?? $entry->booking_id }}</a>
+                                                            @elseif($entry->booking_id)
+                                                                {{ $entry->booking_id }}
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ $entry->transaction_id ?: '—' }}</td>
+                                                        <td>{{ $entry->resolvedEntryByLabel() }}</td>
+                                                    @else
+                                                        @php
+                                                            $cpAmt = round(max((float) $entry->debit, (float) $entry->credit), 2);
+                                                        @endphp
+                                                        <td>
+                                                            <span class="badge bg-secondary text-nowrap">{{ translate('Company_money_flow_none') }}</span>
+                                                        </td>
+                                                        <td class="text-end fw-medium text-nowrap">
+                                                            <span class="text-body">{{ with_currency_symbol($cpAmt) }}</span>
+                                                        </td>
+                                                        <td>{{ translate('Trx_type_cross_party_booking_payment') }}</td>
+                                                        <td>{!! payment_counterparty_flow_badge_html('customer_to_provider') !!}</td>
+                                                        <td class="text-nowrap">{{ format_booking_payment_event_channel_label($entry->trx_type) }}</td>
+                                                        <td>{{ translate('Received_by_provider') }}</td>
+                                                        <td>
+                                                            @if($entry->booking_id && $entry->relationLoaded('booking') && $entry->booking)
+                                                                <a href="{{ route('admin.booking.details', [$entry->booking_id]) }}"
+                                                                   class="text-primary text-decoration-none">{{ $entry->booking->readable_id ?? $entry->booking_id }}</a>
+                                                            @elseif($entry->booking_id)
+                                                                {{ $entry->booking_id }}
+                                                            @else
+                                                                —
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ $entry->ref_trx_id ?: $entry->id }}</td>
+                                                        <td>—</td>
+                                                    @endif
                                                 </tr>
                                             @empty
                                                 <tr class="text-center">

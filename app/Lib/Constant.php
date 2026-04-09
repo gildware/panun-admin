@@ -911,6 +911,8 @@ const TRX_TYPE = [
     'subscription_renew' => 'subscription_renew',
     'subscription_shift' => 'subscription_shift',
     'subscription_refund' => 'subscription_refund',
+    /** Customer ↔ provider booking payment (company is not counterparty; not in ledger). */
+    'cross_party_booking_payment' => 'cross_party_booking_payment',
 ];
 
 const WALLET_TRX_TYPE = [

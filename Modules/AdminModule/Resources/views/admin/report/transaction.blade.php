@@ -344,29 +344,15 @@
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                        @if($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_PROVIDER)
-                                                            {{ translate('Customer_paid_to_provider') }}
-                                                        @elseif($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY)
-                                                            {{ translate('Customer_paid_to_company') }}
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
-                                                        {{ translate('Company_paid_to_customer') }}
-                                                    @elseif($entry->reason === \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
-                                                        {{ translate('Provider_payout') }}
-                                                    @else
-                                                        —
-                                                    @endif
+                                                    {!! payment_counterparty_flow_badge_html($entry->counterpartyFlowKey()) !!}
                                                 </td>
                                                 <td class="text-nowrap">
                                                     {{ $entry->formatPaymentMethodForDisplay() }}
                                                 </td>
                                                 <td>
                                                     @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                        @if($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_PROVIDER)
-                                                            {{ translate('Received_by_provider') }}
+                                                        @if($entry->payment_method === 'collect_from_provider')
+                                                            {{ translate('Received_by_company') }}
                                                         @elseif($entry->received_by === \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY)
                                                             {{ translate('Received_by_company') }}
                                                         @else

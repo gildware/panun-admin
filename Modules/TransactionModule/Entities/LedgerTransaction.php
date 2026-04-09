@@ -168,4 +168,71 @@ class LedgerTransaction extends Model
     {
         return $query->where('type', self::TYPE_OUT);
     }
+
+    /**
+     * Company-counterparty meaning for admin UIs (ledger = IN/OUT only).
+     *
+     * @return string customer_to_company|provider_to_company|company_to_customer|company_to_provider|unknown
+     */
+    public function counterpartyFlowKey(): string
+    {
+        if ($this->type === self::TYPE_IN) {
+            $pm = (string) ($this->payment_method ?? '');
+            if ($pm === 'collect_from_provider') {
+                return 'provider_to_company';
+            }
+            // Collect-from-provider flow now stores the real inflow method (UPI, offline, etc.) via
+            // {@see collectCashTransaction()} — those rows still have provider_id and no booking_id.
+            if ($this->provider_id !== null && $this->booking_id === null) {
+                return 'provider_to_company';
+            }
+            if ($this->received_by === self::RECEIVED_BY_COMPANY) {
+                return 'customer_to_company';
+            }
+
+            return 'unknown';
+        }
+
+        if ($this->type === self::TYPE_OUT) {
+            if ($this->reason === self::REASON_REFUND) {
+                return 'company_to_customer';
+            }
+            if ($this->reason === self::REASON_PROVIDER_PAYOUT) {
+                return 'company_to_provider';
+            }
+
+            return 'unknown';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * Ledger rows that involve the company as counterparty (IN/OUT only; no direct customer↔provider).
+     */
+    public function scopeWhereCompanyCounterpartyOnly($query)
+    {
+        return $query->excludingNonCompanyCounterpartyIn()
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('type', self::TYPE_IN)
+                        ->where('received_by', self::RECEIVED_BY_COMPANY);
+                })->orWhere(function ($q2) {
+                    $q2->where('type', self::TYPE_OUT)
+                        ->whereIn('reason', [self::REASON_REFUND, self::REASON_PROVIDER_PAYOUT]);
+                });
+            });
+    }
+
+    /**
+     * Ledger is only for company ↔ customer or company ↔ provider.
+     * Exclude legacy/wrong rows that represented customer → provider (now {@see Transaction::FLOW_NONE} on transactions).
+     */
+    public function scopeExcludingNonCompanyCounterpartyIn($query)
+    {
+        return $query->whereNot(function ($q) {
+            $q->where('type', self::TYPE_IN)
+                ->where('received_by', self::RECEIVED_BY_PROVIDER);
+        });
+    }
 }

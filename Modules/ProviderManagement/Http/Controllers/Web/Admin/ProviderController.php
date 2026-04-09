@@ -50,7 +50,6 @@ use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Traits\PreservesAdminProviderFormDrafts;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
-use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Modules\UserManagement\Entities\Serviceman;
@@ -1582,13 +1581,33 @@ class ProviderController extends Controller
             );
             $specialBookingEarningReportPaginated->withQueryString();
 
-            // Provider ledger: only company↔provider flows (money company sent to provider or received from provider)
-            $ledgerQuery = LedgerTransaction::query()
-                ->where('provider_id', $providerId)
-                ->with(['booking', 'repeat', 'creator', 'bookingPartialPayment'])
-                ->orderByDesc('date')
-                ->orderByDesc('created_at');
-            $providerLedger = $ledgerQuery->paginate(20)->withQueryString();
+            $bookingMapForPaymentEvents = $providerBookingIds === []
+                ? collect()
+                : Booking::whereIn('id', $providerBookingIds)->get()->keyBy('id');
+
+            $ledgerRowsForProvider = admin_ledger_company_counterparty_for_provider((string) $providerId, $providerBookingIds);
+
+            $ledgerPage = max(1, (int) $request->get('ledger_page', 1));
+            $providerLedger = new \Illuminate\Pagination\LengthAwarePaginator(
+                $ledgerRowsForProvider->forPage($ledgerPage, 20)->values(),
+                $ledgerRowsForProvider->count(),
+                20,
+                $ledgerPage,
+                ['path' => $request->url(), 'pageName' => 'ledger_page']
+            );
+            $providerLedger->withQueryString();
+
+            $mergedProviderPaymentEvents = admin_merged_payment_events_for_provider((string) $providerId, $providerBookingIds, $bookingMapForPaymentEvents);
+
+            $trxPage = max(1, (int) $request->get('trx_page', 1));
+            $providerPaymentEvents = new \Illuminate\Pagination\LengthAwarePaginator(
+                $mergedProviderPaymentEvents->forPage($trxPage, 20)->values(),
+                $mergedProviderPaymentEvents->count(),
+                20,
+                $trxPage,
+                ['path' => $request->url(), 'pageName' => 'trx_page']
+            );
+            $providerPaymentEvents->withQueryString();
 
             $advancePaymentMethodGroups = AdminCompanyInflowPaymentService::advanceMethodGroups();
 
@@ -1607,6 +1626,7 @@ class ProviderController extends Controller
                 'bookingEarningReportPaginated',
                 'specialBookingEarningReportPaginated',
                 'providerLedger',
+                'providerPaymentEvents',
                 'advancePaymentMethodGroups',
                 'providerReceivedFromCompanyTotal',
                 'providerReceivedFromCustomerTotal',

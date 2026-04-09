@@ -1,5 +1,19 @@
 @extends('adminmodule::layouts.master')
 
+@push('css_or_js')
+    <style>
+        .table-responsive--ledger {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table-ledger-nowrap th,
+        .table-ledger-nowrap td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+    </style>
+@endpush
+
 @section('title', translate('Ledger'))
 
 @section('content')
@@ -62,19 +76,20 @@
                                 </div>
                             </form>
 
-                            <div class="table-responsive">
-                                <table class="table align-middle table-hover">
-                                    <thead class="text-nowrap">
+                            <div class="table-responsive table-responsive--ledger">
+                                <table class="table align-middle table-hover table-ledger-nowrap">
+                                    <thead>
                                     <tr>
                                         <th>{{ translate('Sl') }}</th>
                                         <th>{{ translate('Date') }}</th>
                                         <th>{{ translate('Type') }}</th>
+                                        <th class="text-end">{{ translate('Amount') }}</th>
                                         <th>{{ translate('Description') }}</th>
+                                        <th>{{ translate('Flow') }}</th>
                                         <th>{{ translate('payment_method') }}</th>
                                         <th>{{ translate('Booking_ID') }}</th>
                                         <th>{{ translate('Transaction_ID') }}</th>
                                         <th>{{ translate('Entry_by') }}</th>
-                                        <th class="text-end">{{ translate('Amount') }}</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -87,6 +102,13 @@
                                                     <span class="badge bg-success">{{ translate('In') }}</span>
                                                 @else
                                                     <span class="badge bg-danger">{{ translate('Out') }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end fw-medium">
+                                                @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                    <span class="text-success">+ {{ with_currency_symbol($entry->amount) }}</span>
+                                                @else
+                                                    <span class="text-danger">- {{ with_currency_symbol($entry->amount) }}</span>
                                                 @endif
                                             </td>
                                             <td>
@@ -110,7 +132,8 @@
                                                     @endif
                                                 @endif
                                             </td>
-                                            <td class="text-nowrap">{{ $entry->formatPaymentMethodForDisplay() }}</td>
+                                            <td>{!! payment_counterparty_flow_badge_html($entry->counterpartyFlowKey()) !!}</td>
+                                            <td>{{ $entry->formatPaymentMethodForDisplay() }}</td>
                                             <td>
                                                 @if($entry->booking_id && $entry->relationLoaded('booking') && $entry->booking)
                                                     <a href="{{ route('admin.booking.details', [$entry->booking_id]) }}" class="text-primary text-decoration-none">{{ $entry->booking->readable_id ?? $entry->booking_id }}</a>
@@ -122,17 +145,10 @@
                                             </td>
                                             <td>{{ $entry->transaction_id ?: '—' }}</td>
                                             <td>{{ $entry->resolvedEntryByLabel() }}</td>
-                                            <td class="text-end fw-medium">
-                                                @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
-                                                    <span class="text-success">+ {{ with_currency_symbol($entry->amount) }}</span>
-                                                @else
-                                                    <span class="text-danger">- {{ with_currency_symbol($entry->amount) }}</span>
-                                                @endif
-                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="9" class="text-center py-4 text-muted">{{ translate('No data available') }}</td>
+                                            <td colspan="10" class="text-center py-4 text-muted">{{ translate('No data available') }}</td>
                                         </tr>
                                     @endforelse
                                     </tbody>
