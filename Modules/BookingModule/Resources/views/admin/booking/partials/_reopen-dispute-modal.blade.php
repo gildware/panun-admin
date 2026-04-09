@@ -1,0 +1,226 @@
+{{-- Disputed reopen: refund split + cancel/refund status + close reopen case --}}
+@php
+    $__rsSplit = booking_customer_paid_split_by_receiver($booking);
+    $__rsPaid = round((float) get_booking_total_paid($booking), 2);
+    $__rsCompanyPool = round((float) ($__rsSplit['company'] ?? 0) + (float) ($__rsSplit['unassigned'] ?? 0), 2);
+    $__rsProviderPool = round((float) ($__rsSplit['provider'] ?? 0), 2);
+    $__rsDetailRows = $booking->relationLoaded('details_amounts')
+        ? $booking->details_amounts->filter(fn ($r) => $r->booking_repeat_id === null)
+        : \Modules\BookingModule\Entities\BookingDetailsAmount::query()
+            ->where('booking_id', $booking->id)
+            ->whereNull('booking_repeat_id')
+            ->get();
+    $__rsBaseAdmin = round((float) $__rsDetailRows->sum('admin_commission'), 2);
+    $__rsBaseProvider = round((float) $__rsDetailRows->sum('provider_earning'), 2);
+    $__rsDefaultRetained = max(0, round($__rsPaid - $__rsCompanyPool - $__rsProviderPool, 2));
+    $__rsCurPos = business_config('currency_symbol_position', 'business_information')['live_values'] ?? 'right';
+    $__rsCurDec = (int) (business_config('currency_decimal_point', 'business_information')['live_values'] ?? 2);
+@endphp
+@can('booking_can_manage_status')
+    <div class="modal fade" id="reopenDisputeModal--{{ $booking->id }}" tabindex="-1" aria-hidden="true"
+        data-rs-total-paid="{{ $__rsPaid }}"
+        data-rs-base-admin="{{ $__rsBaseAdmin }}"
+        data-rs-base-provider="{{ $__rsBaseProvider }}"
+        data-rs-cur-symbol="{{ e(currency_symbol()) }}"
+        data-rs-cur-pos="{{ e($__rsCurPos) }}"
+        data-rs-cur-decimals="{{ $__rsCurDec }}">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title">{{ translate('Reopen_scenario_disputed_title') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                </div>
+                <div class="modal-body pt-0">
+                    <p class="small text-muted mb-2">{{ translate('Reopen_scenario_disputed_intro') }}</p>
+                    <ul class="small mb-3 ps-3">
+                        <li>{{ translate('Customer_paid_total') }}: <strong>{{ with_currency_symbol($__rsPaid) }}</strong></li>
+                        <li>{{ translate('Collected_by_company') }}: <strong>{{ with_currency_symbol($__rsCompanyPool) }}</strong>
+                            <span class="text-muted">({{ translate('Includes_unassigned_partials') }})</span></li>
+                        <li>{{ translate('Collected_by_provider') }}: <strong>{{ with_currency_symbol($__rsProviderPool) }}</strong></li>
+                    </ul>
+                    <form method="post" action="{{ route('admin.booking.reopen_scenario.disputed_refund', $booking->id) }}" class="reopen-disputed-form">
+                        @csrf
+                        <p class="small text-muted mb-2">{{ translate('Disputed_refund_pair_linked_hint') }}</p>
+                        <div class="small mb-2 d-flex flex-wrap gap-3 align-items-baseline">
+                            <span><span class="text-muted">{{ translate('Disputed_refund_combined_total') }}:</span> <strong class="js-rs-refund-sum">{{ with_currency_symbol($__rsCompanyPool + $__rsProviderPool) }}</strong></span>
+                            <span class="text-muted">/ {{ translate('Customer_paid_total') }}: {{ with_currency_symbol($__rsPaid) }}</span>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">{{ translate('Refund_paid_from_company_pool') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" max="{{ $__rsPaid }}" name="refund_company_amount" class="form-control js-rs-refund-co" value="{{ old('refund_company_amount', (string) $__rsCompanyPool) }}" required>
+                                @error('refund_company_amount')
+                                    <span class="text-danger small d-block">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">{{ translate('Refund_company_transaction_id') }}</label>
+                                <input type="text" name="refund_company_transaction_id" class="form-control" maxlength="100" placeholder="{{ translate('Required_if_amount_positive') }}" value="{{ old('refund_company_transaction_id') }}">
+                                @error('refund_company_transaction_id')
+                                    <span class="text-danger small d-block">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">{{ translate('Refund_paid_from_provider_pool') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" max="{{ $__rsPaid }}" name="refund_provider_amount" class="form-control js-rs-refund-pr" value="{{ old('refund_provider_amount', (string) $__rsProviderPool) }}" required>
+                                @error('refund_provider_amount')
+                                    <span class="text-danger small d-block">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">{{ translate('Refund_provider_transaction_id') }}</label>
+                                <input type="text" name="refund_provider_transaction_id" class="form-control" maxlength="100" placeholder="{{ translate('Required_if_amount_positive') }}" value="{{ old('refund_provider_transaction_id') }}">
+                                @error('refund_provider_transaction_id')
+                                    <span class="text-danger small d-block">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_amount_retained_from_customer_after_refunds') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control js-rs-retained bg-light" readonly tabindex="-1"
+                                    value="{{ $__rsDefaultRetained }}"
+                                    aria-describedby="rs-retained-hint--{{ $booking->id }}">
+                                <div id="rs-retained-hint--{{ $booking->id }}" class="form-text text-muted small">{{ translate('Auto_total_paid_minus_refunds') }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_admin_commission_net_basis') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control js-rs-final-admin bg-light" readonly tabindex="-1"
+                                    value="{{ $__rsBaseAdmin }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_provider_earning_net_basis') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control js-rs-final-pr bg-light" readonly tabindex="-1"
+                                    value="{{ $__rsBaseProvider }}">
+                            </div>
+                        </div>
+                        <div class="alert alert-light border small mb-2 js-rs-reconcile" data-co-pool="{{ $__rsCompanyPool }}" data-pr-pool="{{ $__rsProviderPool }}">
+                            <div><span class="text-muted">{{ translate('Provider_owes_company_refund_above_pool') }}:</span> <strong class="js-rs-owes-co">0.00</strong></div>
+                            <div><span class="text-muted">{{ translate('Company_owes_provider_refund_above_pool') }}:</span> <strong class="js-rs-owes-pr">0.00</strong></div>
+                            <div class="border-top pt-2 mt-2"><span class="text-muted">{{ translate('Disputed_total_provider_pays_company') }} <span class="text-muted fw-normal">({{ translate('Disputed_provider_pays_company_formula_hint') }})</span>:</span> <strong class="js-rs-provider-remit-total">0.00</strong></div>
+                            <div class="mt-1"><span class="text-muted">{{ translate('Disputed_total_company_pays_provider') }}:</span> <strong class="js-rs-company-pay-pr-total">0.00</strong></div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">{{ translate('Reopen_resolve_remarks') }} <span class="text-danger">*</span></label>
+                            <textarea name="reopen_dispute_remarks" class="form-control" rows="3" maxlength="5000" required placeholder="{{ translate('Reopen_resolve_remarks_placeholder') }}">{{ old('reopen_dispute_remarks') }}</textarea>
+                            @error('reopen_dispute_remarks')
+                                <span class="text-danger small d-block">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <button type="submit" class="btn btn--danger w-100" onclick="return confirm(@json(translate('Confirm_disputed_reopen_cancel')));">
+                            {{ translate('Apply_disputed_refund_and_close') }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @push('script')
+        <script>
+            (function () {
+                var modal = document.getElementById('reopenDisputeModal--{{ $booking->id }}');
+                if (!modal) return;
+                var totalPaid = parseFloat(modal.getAttribute('data-rs-total-paid')) || 0;
+                var baseAdmin = parseFloat(modal.getAttribute('data-rs-base-admin')) || 0;
+                var baseProvider = parseFloat(modal.getAttribute('data-rs-base-provider')) || 0;
+                var curSymbol = modal.getAttribute('data-rs-cur-symbol') || '';
+                var curPosition = (modal.getAttribute('data-rs-cur-pos') || 'right').toLowerCase();
+                var curDecimals = parseInt(modal.getAttribute('data-rs-cur-decimals'), 10);
+                if (isNaN(curDecimals) || curDecimals < 0) curDecimals = 2;
+                function round2(x) {
+                    return Math.round(Math.max(0, x) * 100) / 100;
+                }
+                function formatMoney(n) {
+                    var v = round2(n);
+                    var s = v.toFixed(curDecimals);
+                    var parts = s.split('.');
+                    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    var num = parts.length > 1 ? parts.join('.') : parts[0];
+                    return curPosition === 'left' ? (curSymbol + num) : (num + curSymbol);
+                }
+                /** Keep company + provider refunds from exceeding customer paid; the non-edited side shrinks first. */
+                function applyPairedRefundCap(edited) {
+                    var inpCo = modal.querySelector('.js-rs-refund-co');
+                    var inpPr = modal.querySelector('.js-rs-refund-pr');
+                    if (!inpCo || !inpPr) return;
+                    var rCo = parseFloat(inpCo.value);
+                    var rPr = parseFloat(inpPr.value);
+                    if (isNaN(rCo)) rCo = 0;
+                    if (isNaN(rPr)) rPr = 0;
+                    rCo = round2(Math.min(rCo, totalPaid));
+                    rPr = round2(Math.min(rPr, totalPaid));
+                    if (totalPaid <= 0) {
+                        inpCo.value = '0.00';
+                        inpPr.value = '0.00';
+                        return;
+                    }
+                    if (edited === 'co' && rCo + rPr > totalPaid + 0.005) {
+                        rPr = round2(totalPaid - rCo);
+                    } else if (edited === 'pr' && rCo + rPr > totalPaid + 0.005) {
+                        rCo = round2(totalPaid - rPr);
+                    } else if (edited === null && rCo + rPr > totalPaid + 0.005) {
+                        rPr = round2(Math.max(0, totalPaid - rCo));
+                        if (rCo + rPr > totalPaid + 0.005) {
+                            rCo = round2(Math.max(0, totalPaid - rPr));
+                        }
+                    }
+                    inpCo.value = rCo.toFixed(2);
+                    inpPr.value = rPr.toFixed(2);
+                }
+                function recalc() {
+                    var box = modal.querySelector('.js-rs-reconcile');
+                    if (!box) return;
+                    var coPool = parseFloat(box.getAttribute('data-co-pool')) || 0;
+                    var prPool = parseFloat(box.getAttribute('data-pr-pool')) || 0;
+                    var inpCo = modal.querySelector('.js-rs-refund-co');
+                    var inpPr = modal.querySelector('.js-rs-refund-pr');
+                    var rCo = inpCo ? parseFloat(inpCo.value) : 0;
+                    var rPr = inpPr ? parseFloat(inpPr.value) : 0;
+                    if (isNaN(rCo)) rCo = 0;
+                    if (isNaN(rPr)) rPr = 0;
+                    var sumEl = modal.querySelector('.js-rs-refund-sum');
+                    if (sumEl) sumEl.textContent = formatMoney(rCo + rPr);
+                    var owesCo = Math.max(0, Math.round((rCo - coPool) * 100) / 100);
+                    var owesPr = Math.max(0, Math.round((rPr - prPool) * 100) / 100);
+                    var elCo = modal.querySelector('.js-rs-owes-co');
+                    var elPr = modal.querySelector('.js-rs-owes-pr');
+                    if (elCo) elCo.textContent = owesCo.toFixed(2);
+                    if (elPr) elPr.textContent = owesPr.toFixed(2);
+                    var retained = Math.max(0, Math.round((totalPaid - rCo - rPr) * 100) / 100);
+                    var ratio = totalPaid > 0.0001 ? Math.min(1, retained / totalPaid) : 0;
+                    var fa = Math.round(baseAdmin * ratio * 100) / 100;
+                    var fp = Math.round(baseProvider * ratio * 100) / 100;
+                    var elRet = modal.querySelector('.js-rs-retained');
+                    var elFa = modal.querySelector('.js-rs-final-admin');
+                    var elFp = modal.querySelector('.js-rs-final-pr');
+                    if (elRet) elRet.value = retained.toFixed(2);
+                    if (elFa) elFa.value = fa.toFixed(2);
+                    if (elFp) elFp.value = fp.toFixed(2);
+                    var providerRemitTotal = Math.round((owesCo + fa) * 100) / 100;
+                    var elRemitTot = modal.querySelector('.js-rs-provider-remit-total');
+                    var elCoPayTot = modal.querySelector('.js-rs-company-pay-pr-total');
+                    if (elRemitTot) elRemitTot.textContent = formatMoney(providerRemitTotal);
+                    if (elCoPayTot) elCoPayTot.textContent = formatMoney(owesPr);
+                }
+                function onRefundInput(e) {
+                    if (!e.target) return;
+                    if (e.target.classList.contains('js-rs-refund-co')) {
+                        applyPairedRefundCap('co');
+                        recalc();
+                    } else if (e.target.classList.contains('js-rs-refund-pr')) {
+                        applyPairedRefundCap('pr');
+                        recalc();
+                    }
+                }
+                modal.addEventListener('input', onRefundInput);
+                modal.addEventListener('change', onRefundInput);
+                modal.addEventListener('shown.bs.modal', function () {
+                    applyPairedRefundCap(null);
+                    recalc();
+                });
+            })();
+        </script>
+    @endpush
+@endcan

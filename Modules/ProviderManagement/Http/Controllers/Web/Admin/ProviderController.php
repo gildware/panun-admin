@@ -931,11 +931,7 @@ class ProviderController extends Controller
             $providerBookingIds = DB::table('bookings')->where('provider_id', $id)->pluck('id')->toArray();
             $bookingIdsWithRepeats = DB::table('booking_repeats')->whereNotNull('booking_id')->distinct()->pluck('booking_id')->toArray();
             $oneTimeQuery = DB::table('bookings')->where('provider_id', $id)->where(function ($q) {
-                $q->where('booking_status', 'completed')
-                    ->orWhere(function ($q2) {
-                        $q2->where('booking_status', 'canceled')
-                            ->where('after_visit_cancel', 1);
-                    });
+                provider_payment_tab_one_time_revenue_bookings_inner($q);
             });
             if (!empty($bookingIdsWithRepeats)) {
                 $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
@@ -1354,11 +1350,7 @@ class ProviderController extends Controller
             $bookingIdsWithRepeats = DB::table('booking_repeats')->whereNotNull('booking_id')->distinct()->pluck('booking_id')->toArray();
 
             $oneTimeQuery = DB::table('bookings')->where('provider_id', $providerId)->where(function ($q) {
-                $q->where('booking_status', 'completed')
-                    ->orWhere(function ($q2) {
-                        $q2->where('booking_status', 'canceled')
-                            ->where('after_visit_cancel', 1);
-                    });
+                provider_payment_tab_one_time_revenue_bookings_inner($q);
             });
             if (!empty($bookingIdsWithRepeats)) {
                 $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
@@ -1421,8 +1413,9 @@ class ProviderController extends Controller
                     $extraServicesTotal = (float) ($b->extra_services->sum('total') ?? 0);
                     $extraServiceCharges = (float) ($b->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
                     $serviceCharges = (float) $b->total_booking_amount;
-                    $providerEarning = (float) $b->details_amounts->sum('provider_earning');
-                    $adminCommission = (float) $b->details_amounts->sum('admin_commission');
+                    $pair = provider_payment_tab_earning_commission_pair($b);
+                    $providerEarning = $pair['provider_earning'];
+                    $adminCommission = $pair['admin_commission'];
                     $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_booking($b);
                     $report->push((object)[
                         'readable_id' => $b->readable_id ?? $b->id,
@@ -1448,8 +1441,9 @@ class ProviderController extends Controller
                     $extraServicesTotal = (float) ($r->booking->extra_services->sum('total') ?? 0);
                     $extraServiceCharges = (float) ($r->extra_fee ?? 0) + ($extraServicesTotal - $partsCharges);
                     $serviceCharges = (float) $r->total_booking_amount;
-                    $providerEarning = (float) $r->details_amounts->sum('provider_earning');
-                    $adminCommission = (float) $r->details_amounts->sum('admin_commission');
+                    $pair = provider_payment_tab_earning_commission_pair($r);
+                    $providerEarning = $pair['provider_earning'];
+                    $adminCommission = $pair['admin_commission'];
                     $settlementCols = provider_payment_tab_earning_report_settlement_columns_for_repeat($r, $den);
                     $report->push((object)[
                         'readable_id' => $r->readable_id ?? $r->id,
@@ -1478,8 +1472,9 @@ class ProviderController extends Controller
             foreach ($specialOneTimeBookings as $b) {
                 $config = is_array($b->settlement_config) ? $b->settlement_config : [];
                 $scaledLossMakingSplit = trim((string) ($b->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
-                $providerEarning = (float) $b->details_amounts->sum('provider_earning');
-                $adminCommission = (float) $b->details_amounts->sum('admin_commission');
+                $pair = provider_payment_tab_earning_commission_pair($b);
+                $providerEarning = $pair['provider_earning'];
+                $adminCommission = $pair['admin_commission'];
                 $scaledCompanyLossLine = 0.0;
                 $scaledProviderLossLine = 0.0;
                 if ($scaledLossMakingSplit) {
@@ -1519,8 +1514,9 @@ class ProviderController extends Controller
                 $lineW = get_booking_total_amount($r) / max(0.01, $den);
                 $scaledLossMakingSplit = $main instanceof Booking
                     && trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
-                $providerEarning = (float) $r->details_amounts->sum('provider_earning');
-                $adminCommission = (float) $r->details_amounts->sum('admin_commission');
+                $pair = provider_payment_tab_earning_commission_pair($r);
+                $providerEarning = $pair['provider_earning'];
+                $adminCommission = $pair['admin_commission'];
                 $scaledCompanyLossLine = 0.0;
                 $scaledProviderLossLine = 0.0;
                 if ($scaledLossMakingSplit && $main instanceof Booking) {
@@ -1611,6 +1607,29 @@ class ProviderController extends Controller
 
             $advancePaymentMethodGroups = AdminCompanyInflowPaymentService::advanceMethodGroups();
 
+            $allowedPaymentSubs = ['ledger', 'recorded', 'earning', 'special_earning', 'disputed'];
+            $paymentSub = (string) $request->get('payment_sub', 'ledger');
+            if (! in_array($paymentSub, $allowedPaymentSubs, true)) {
+                $paymentSub = 'ledger';
+            }
+
+            if ($paymentSub === 'disputed') {
+                $disputedBookingsPaginated = Booking::query()
+                    ->where('provider_id', $providerId)
+                    ->whereNotNull('reopen_disputed_snapshot')
+                    ->with(['customer'])
+                    ->orderByDesc('reopen_resolved_at')
+                    ->orderByDesc('updated_at')
+                    ->paginate(20, ['*'], 'disputed_page');
+                $disputedBookingsPaginated->withQueryString();
+            } else {
+                $disputedBookingsPaginated = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20, 1, [
+                    'path' => $request->url(),
+                    'pageName' => 'disputed_page',
+                ]);
+                $disputedBookingsPaginated->withQueryString();
+            }
+
             return view('providermanagement::admin.provider.detail.payment', compact(
                 'provider',
                 'webPage',
@@ -1630,7 +1649,9 @@ class ProviderController extends Controller
                 'advancePaymentMethodGroups',
                 'providerReceivedFromCompanyTotal',
                 'providerReceivedFromCustomerTotal',
-                'providerReceivedTotalAllSources'
+                'providerReceivedTotalAllSources',
+                'paymentSub',
+                'disputedBookingsPaginated'
             ));
         }
         return back();

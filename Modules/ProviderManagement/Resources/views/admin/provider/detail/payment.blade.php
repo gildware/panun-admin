@@ -342,6 +342,34 @@
                         <p class="small text-body mb-0">{{ translate('Payment_widget_hint_ledger_section') }}</p>
                     </div>
 
+                    @php
+                        $paymentSubActive = $paymentSub ?? request('payment_sub', 'ledger');
+                        $paymentTabBaseQuery = array_merge(
+                            request()->except(['ledger_page', 'trx_page', 'booking_page', 'special_booking_page', 'disputed_page']),
+                            ['web_page' => 'payment']
+                        );
+                    @endphp
+                    <div class="border-bottom pb-2 mb-4 pk-payment-subtabs-wrap" data-pk-scroll-provider-id="{{ $provider->id }}">
+                        <ul class="nav nav--tabs flex-wrap gap-2">
+                            <li class="nav-item">
+                                <a class="nav-link js-pk-payment-subtab {{ $paymentSubActive === 'ledger' ? 'active' : '' }}" href="{{ url()->current() }}?{{ http_build_query(array_merge($paymentTabBaseQuery, ['payment_sub' => 'ledger'])) }}">{{ translate('Provider_Ledger') }}</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link js-pk-payment-subtab {{ $paymentSubActive === 'recorded' ? 'active' : '' }}" href="{{ url()->current() }}?{{ http_build_query(array_merge($paymentTabBaseQuery, ['payment_sub' => 'recorded'])) }}">{{ translate('Payment_transactions_all_parties') }}</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link js-pk-payment-subtab {{ $paymentSubActive === 'earning' ? 'active' : '' }}" href="{{ url()->current() }}?{{ http_build_query(array_merge($paymentTabBaseQuery, ['payment_sub' => 'earning'])) }}">{{ translate('Booking_Earning_Report') }}</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link js-pk-payment-subtab {{ $paymentSubActive === 'special_earning' ? 'active' : '' }}" href="{{ url()->current() }}?{{ http_build_query(array_merge($paymentTabBaseQuery, ['payment_sub' => 'special_earning'])) }}">{{ translate('Special_Booking_Earning_Report') }}</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link js-pk-payment-subtab {{ $paymentSubActive === 'disputed' ? 'active' : '' }}" href="{{ url()->current() }}?{{ http_build_query(array_merge($paymentTabBaseQuery, ['payment_sub' => 'disputed'])) }}">{{ translate('Disputed_bookings') }}</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    @if($paymentSubActive === 'ledger')
                     {{-- 1. Provider Ledger: company sent to provider / company received from provider --}}
                     <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap mb-3">
                         <h4 class="mb-0">{{ translate('Provider_Ledger') }}</h4>
@@ -407,7 +435,9 @@
                             {{ $providerLedger->links() }}
                         </div>
                     @endif
+                    @endif
 
+                    @if($paymentSubActive === 'recorded')
                     <h4 class="mb-2">{{ translate('Payment_transactions_all_parties') }}</h4>
                     <p class="text-muted small mb-3">{{ translate('Payment_transactions_booking_log_hint') }}</p>
                     <div class="table-responsive mb-4">
@@ -469,7 +499,9 @@
                             {{ $providerPaymentEvents->links() }}
                         </div>
                     @endif
+                    @endif
 
+                    @if($paymentSubActive === 'earning')
                     {{-- 2. Booking Earning Report (below, max 20 per page) --}}
                     <h4 class="mb-3">{{ translate('Booking_Earning_Report') }}</h4>
                     <div class="table-responsive mb-4">
@@ -523,7 +555,9 @@
                             {{ $bookingEarningReportPaginated->links() }}
                         </div>
                     @endif
+                    @endif
 
+                    @if($paymentSubActive === 'special_earning')
                     <h4 class="mb-3 mt-4">{{ translate('Special_Booking_Earning_Report') }}</h4>
                     <div class="table-responsive mb-4">
                         <table class="table table-bordered table-hover align-middle">
@@ -589,6 +623,64 @@
                         <div class="d-flex justify-content-end mb-30">
                             {{ $specialBookingEarningReportPaginated->links() }}
                         </div>
+                    @endif
+                    @endif
+
+                    @if($paymentSubActive === 'disputed')
+                    <h4 class="mb-2">{{ translate('Disputed_bookings') }}</h4>
+                    <p class="text-muted small mb-2">{{ translate('Disputed_bookings_tab_hint') }}</p>
+                    <p class="fw-semibold small mb-3">{{ translate('Reopen_disputed_settlement_snapshot') }}</p>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered table-hover table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ translate('Booking_ID') }}</th>
+                                    <th>{{ translate('status') }}</th>
+                                    <th class="text-end">{{ translate('Total_Amount') }}</th>
+                                    <th class="text-end text-nowrap">{{ translate('Refund_paid_from_company_pool') }}</th>
+                                    <th class="text-end text-nowrap">{{ translate('Refund_paid_from_provider_pool') }}</th>
+                                    <th class="text-end text-nowrap">{{ translate('Provider_owes_company_refund_above_pool') }}</th>
+                                    <th class="text-end text-nowrap">{{ translate('Company_owes_provider_refund_above_pool') }}</th>
+                                    <th class="text-end text-nowrap">{{ translate('Final_amount_retained_from_customer_after_refunds') }}</th>
+                                    <th class="text-end text-nowrap">{{ translate('Final_admin_commission_net_basis') }}</th>
+                                    <th class="text-end text-nowrap">{{ translate('Final_provider_earning_net_basis') }}</th>
+                                    <th>{{ translate('Disputed_recorded_at') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($disputedBookingsPaginated as $disputedBooking)
+                                    @php
+                                        $disputedAt = $disputedBooking->reopen_resolved_at ?? $disputedBooking->updated_at;
+                                        $snap = is_array($disputedBooking->reopen_disputed_snapshot ?? null) ? $disputedBooking->reopen_disputed_snapshot : [];
+                                    @endphp
+                                    <tr>
+                                        <td>
+                                            <a href="{{ route('admin.booking.details', [$disputedBooking->id]) }}" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-none">{{ $disputedBooking->readable_id ?? $disputedBooking->id }}</a>
+                                        </td>
+                                        <td><span class="text-capitalize">{{ str_replace('_', ' ', (string) $disputedBooking->booking_status) }}</span></td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($disputedBooking->total_booking_amount ?? 0)) }}</td>
+                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['refund_company_amount'] ?? 0)) }}</td>
+                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['refund_provider_amount'] ?? 0)) }}</td>
+                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['provider_owes_company'] ?? 0)) }}</td>
+                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['company_owes_provider'] ?? 0)) }}</td>
+                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['retained_from_customer'] ?? $snap['final_net_to_customer'] ?? 0)) }}</td>
+                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['final_admin_commission'] ?? 0)) }}</td>
+                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['final_provider_earning'] ?? 0)) }}</td>
+                                        <td class="text-nowrap">{{ $disputedAt ? $disputedAt->format('d M Y H:i') : '—' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="11" class="text-center text-muted py-4">{{ translate('No_disputed_bookings_for_provider') }}</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($disputedBookingsPaginated->hasPages())
+                        <div class="d-flex justify-content-end mb-30">
+                            {{ $disputedBookingsPaginated->links() }}
+                        </div>
+                    @endif
                     @endif
 
                     @can('provider_update')
@@ -690,6 +782,37 @@
 @push('script')
     <script>
         "use strict";
+        (function () {
+            var wrap = document.querySelector('.pk-payment-subtabs-wrap[data-pk-scroll-provider-id]');
+            if (wrap) {
+                var providerId = String(wrap.getAttribute('data-pk-scroll-provider-id') || '');
+                var scrollKey = 'pk_payment_subtab_scroll_' + providerId;
+                function applyStoredScroll() {
+                    var raw = sessionStorage.getItem(scrollKey);
+                    if (raw === null) return;
+                    sessionStorage.removeItem(scrollKey);
+                    var y = parseInt(raw, 10);
+                    if (isNaN(y) || y < 0) return;
+                    window.scrollTo(0, y);
+                    requestAnimationFrame(function () {
+                        window.scrollTo(0, y);
+                    });
+                }
+                if (document.readyState === 'complete') {
+                    applyStoredScroll();
+                } else {
+                    window.addEventListener('load', applyStoredScroll);
+                }
+                wrap.addEventListener('click', function (e) {
+                    var a = e.target && e.target.closest ? e.target.closest('a.js-pk-payment-subtab') : null;
+                    if (!a || !wrap.contains(a)) return;
+                    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+                    try {
+                        sessionStorage.setItem(scrollKey, String(Math.round(y)));
+                    } catch (err) { /* ignore */ }
+                });
+            }
+        })();
         (function () {
             if (typeof bootstrap === 'undefined' || !bootstrap.Popover) return;
             document.querySelectorAll('.pk-payment-widget-info-btn[data-pk-popover-src]').forEach(function (btn) {

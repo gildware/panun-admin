@@ -172,7 +172,7 @@ class LedgerTransaction extends Model
     /**
      * Company-counterparty meaning for admin UIs (ledger = IN/OUT only).
      *
-     * @return string customer_to_company|provider_to_company|company_to_customer|company_to_provider|unknown
+     * @return string customer_to_company|provider_to_company|company_to_customer|provider_to_customer|company_to_provider|unknown
      */
     public function counterpartyFlowKey(): string
     {
@@ -195,6 +195,11 @@ class LedgerTransaction extends Model
 
         if ($this->type === self::TYPE_OUT) {
             if ($this->reason === self::REASON_REFUND) {
+                // e.g. reopen disputed refund: pool taken from provider-held funds vs company pool
+                if ($this->received_by === self::RECEIVED_BY_PROVIDER) {
+                    return 'provider_to_customer';
+                }
+
                 return 'company_to_customer';
             }
             if ($this->reason === self::REASON_PROVIDER_PAYOUT) {
@@ -209,6 +214,10 @@ class LedgerTransaction extends Model
 
     /**
      * Ledger rows that involve the company as counterparty (IN/OUT only; no direct customer↔provider).
+     *
+     * Excludes: IN where the provider received the payment (customer→provider); OUT refunds funded from
+     * the provider pool ({@see RECEIVED_BY_PROVIDER}) (provider→customer). Those are tracked on bookings /
+     * provider accounts, not on the company ledger.
      */
     public function scopeWhereCompanyCounterpartyOnly($query)
     {
@@ -219,7 +228,15 @@ class LedgerTransaction extends Model
                         ->where('received_by', self::RECEIVED_BY_COMPANY);
                 })->orWhere(function ($q2) {
                     $q2->where('type', self::TYPE_OUT)
-                        ->whereIn('reason', [self::REASON_REFUND, self::REASON_PROVIDER_PAYOUT]);
+                        ->where('reason', self::REASON_PROVIDER_PAYOUT);
+                })->orWhere(function ($q2) {
+                    $q2->where('type', self::TYPE_OUT)
+                        ->where('reason', self::REASON_REFUND)
+                        ->where(function ($q3) {
+                            $q3->where('received_by', self::RECEIVED_BY_COMPANY)
+                                ->orWhereNull('received_by')
+                                ->orWhere('received_by', '');
+                        });
                 });
             });
     }

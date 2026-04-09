@@ -469,6 +469,96 @@ if (!function_exists('get_commission_breakdown_for_booking')) {
     }
 }
 
+if (!function_exists('provider_payment_tab_one_time_revenue_bookings_inner')) {
+    /**
+     * Inner WHERE group: one-time bookings that count toward provider payment tab / dashboard revenue & settlement.
+     * Includes completed, after-visit canceled, and closed disputed reopen (canceled/refunded with reopen_disputed_snapshot).
+     *
+     * @param  \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder  $q
+     */
+    function provider_payment_tab_one_time_revenue_bookings_inner($q): void
+    {
+        $q->where('booking_status', 'completed')
+            ->orWhere(function ($q2) {
+                $q2->where('booking_status', 'canceled')
+                    ->where('after_visit_cancel', 1);
+            })
+            ->orWhere(function ($q3) {
+                $q3->whereIn('booking_status', ['canceled', 'refunded'])
+                    ->whereNotNull('reopen_disputed_snapshot');
+            });
+    }
+}
+
+if (!function_exists('provider_payment_tab_earning_commission_pair')) {
+    /**
+     * Provider payment tab "Booking Earning Report": provider earning and admin commission from live commission breakdown
+     * (same basis as booking details Revenue & Settlement via {@see get_commission_breakdown_for_booking}),
+     * not sums of persisted {@see BookingDetailsAmount} rows.
+     *
+     * Disputed reopen refund (closed): use net basis from {@see Booking::$reopen_disputed_snapshot} so canceled/refunded
+     * jobs still contribute commission and provider earning like the settlement snapshot.
+     *
+     * @param  Booking|BookingRepeat|object  $bookingOrRepeat
+     * @return array{provider_earning: float, admin_commission: float}
+     */
+    function provider_payment_tab_earning_commission_pair($bookingOrRepeat): array
+    {
+        if ($bookingOrRepeat instanceof Booking) {
+            $snap = $bookingOrRepeat->reopen_disputed_snapshot ?? null;
+            if (is_array($snap)
+                && ($snap['type'] ?? '') === 'reopen_disputed_refund'
+                && trim((string) ($bookingOrRepeat->settlement_outcome ?? '')) !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                return [
+                    'provider_earning' => round(max(0.0, (float) ($snap['final_provider_earning'] ?? 0)), 2),
+                    'admin_commission' => round(max(0.0, (float) ($snap['final_admin_commission'] ?? 0)), 2),
+                ];
+            }
+        }
+
+        $breakdown = get_commission_breakdown_for_booking($bookingOrRepeat);
+
+        return [
+            'provider_earning' => (float) ($breakdown['booking_amount_without_commission'] ?? 0),
+            'admin_commission' => (float) ($breakdown['commission_without_cost'] ?? 0),
+        ];
+    }
+}
+
+if (!function_exists('booking_reopen_disputed_refund_settlement_adjustment')) {
+    /**
+     * Inter-party IOU from disputed reopen refund. Provider→company total is:
+     * refund leg above company pool + net admin commission on retained customer amount (provider remits commission to company).
+     * Company→provider is refund leg above provider pool only.
+     * Merged into {@see get_booking_received_and_settlement()} and {@see record_reopen_disputed_refund_reconciliation()}.
+     *
+     * @return array{provider_owes_company: float, company_owes_provider: float, provider_owes_from_refund_pool_only: float, final_admin_commission_included: float}
+     */
+    function booking_reopen_disputed_refund_settlement_adjustment(Booking $booking): array
+    {
+        $snap = $booking->reopen_disputed_snapshot ?? null;
+        if (! is_array($snap) || ($snap['type'] ?? '') !== 'reopen_disputed_refund') {
+            return [
+                'provider_owes_company' => 0.0,
+                'company_owes_provider' => 0.0,
+                'provider_owes_from_refund_pool_only' => 0.0,
+                'final_admin_commission_included' => 0.0,
+            ];
+        }
+
+        $fromPool = round(max(0.0, (float) ($snap['provider_owes_company'] ?? 0)), 2);
+        $finalComm = round(max(0.0, (float) ($snap['final_admin_commission'] ?? 0)), 2);
+        $providerTotal = round($fromPool + $finalComm, 2);
+
+        return [
+            'provider_owes_company' => $providerTotal,
+            'company_owes_provider' => round(max(0.0, (float) ($snap['company_owes_provider'] ?? 0)), 2),
+            'provider_owes_from_refund_pool_only' => $fromPool,
+            'final_admin_commission_included' => $finalComm,
+        ];
+    }
+}
+
 if (!function_exists('get_booking_received_and_settlement')) {
     /**
      * For admin booking details: amounts received by company vs provider, and settlement (pay provider / provider owes).
@@ -512,14 +602,18 @@ if (!function_exists('get_booking_received_and_settlement')) {
 
         $netRevenueZeroedAfterRefund = $booking instanceof Booking && booking_should_zero_net_revenue_settlement_display($booking);
         if ($netRevenueZeroedAfterRefund) {
+            $disputedAdj = $booking instanceof Booking
+                ? booking_reopen_disputed_refund_settlement_adjustment($booking)
+                : ['provider_owes_company' => 0.0, 'company_owes_provider' => 0.0];
+
             return [
                 'company_share' => 0.0,
                 'provider_share' => 0.0,
                 'amount_received_by_company' => 0.0,
                 'amount_received_by_provider' => 0.0,
                 'total_paid' => round($totalPaid, 2),
-                'pay_to_provider' => 0.0,
-                'provider_owes_company' => 0.0,
+                'pay_to_provider' => $disputedAdj['company_owes_provider'],
+                'provider_owes_company' => $disputedAdj['provider_owes_company'],
                 'net_revenue_zeroed_after_refund' => true,
             ];
         }
@@ -546,6 +640,12 @@ if (!function_exists('get_booking_received_and_settlement')) {
         $providerOwesCompany = $amountReceivedByProvider > 0
             ? round(min($amountReceivedByProvider, $commissionShortfall), 2)
             : 0.0;
+
+        $disputedAdj = $booking instanceof Booking
+            ? booking_reopen_disputed_refund_settlement_adjustment($booking)
+            : ['provider_owes_company' => 0.0, 'company_owes_provider' => 0.0];
+        $payToProvider = round($payToProvider + $disputedAdj['company_owes_provider'], 2);
+        $providerOwesCompany = round($providerOwesCompany + $disputedAdj['provider_owes_company'], 2);
 
         return [
             'company_share' => round($companyShare, 2),
@@ -738,6 +838,20 @@ if (!function_exists('get_provider_payment_tab_revenue_amount_for_booking')) {
      */
     function get_provider_payment_tab_revenue_amount_for_booking(Booking $booking): float
     {
+        $snap = $booking->reopen_disputed_snapshot ?? null;
+        if (is_array($snap)
+            && ($snap['type'] ?? '') === 'reopen_disputed_refund'
+            && trim((string) ($booking->settlement_outcome ?? '')) !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            $adm = (float) ($snap['final_admin_commission'] ?? 0);
+            $prov = (float) ($snap['final_provider_earning'] ?? 0);
+            $fromParts = round($adm + $prov, 2);
+            if ($fromParts > 0.0001) {
+                return $fromParts;
+            }
+
+            return round(max(0.0, (float) ($snap['retained_from_customer'] ?? $snap['final_net_to_customer'] ?? 0)), 2);
+        }
+
         $outcome = trim((string) ($booking->settlement_outcome ?? ''));
         if ($outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
             return get_booking_revenue_reporting_amount($booking);
@@ -854,8 +968,8 @@ if (!function_exists('aggregate_provider_payment_summary_for_completed_jobs')) {
     /**
      * Totals for provider overview / payment: total_revenue sums per-booking amounts
      * ({@see get_provider_payment_tab_revenue_amount_for_booking} / repeat);
-     * total_company_commission / provider_net_earning: sum of detail rows for normal jobs; for loss-making (scaled)
-     * jobs, admin commission and provider earning are taken from full-booking gross ({@see provider_payment_tab_loss_making_earning_display_for_scaled} before_loss), not row sums.
+     * total_company_commission / provider_net_earning: live breakdown ({@see provider_payment_tab_earning_commission_pair}) for normal jobs;
+     * for loss-making (scaled) parents, from {@see provider_payment_tab_loss_making_earning_display_for_scaled} (before_loss) per line, not row sums.
      * Scaled loss splits remain in scaled_loss_company_share_total / scaled_loss_provider_share_total.
      *
      * @param  iterable<int, Booking>  $oneTimeBookings
@@ -884,22 +998,33 @@ if (!function_exists('aggregate_provider_payment_summary_for_completed_jobs')) {
             }
         }
 
-        $oneTimeIds = $oneTimeCol->pluck('id')->filter()->values();
-        $repeatIds = $repeatsCol->pluck('id')->filter()->values();
+        $totalCompanyCommission = 0.0;
+        $totalProviderEarning = 0.0;
 
-        $totalCompanyCommission = (float) BookingDetailsAmount::query()
-            ->whereIn('booking_id', $oneTimeIds)
-            ->sum('admin_commission');
-        $totalCompanyCommission += (float) BookingDetailsAmount::query()
-            ->whereIn('booking_repeat_id', $repeatIds)
-            ->sum('admin_commission');
+        foreach ($oneTimeCol as $b) {
+            if (! $b instanceof Booking) {
+                continue;
+            }
+            if (trim((string) ($b->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                continue;
+            }
+            $pair = provider_payment_tab_earning_commission_pair($b);
+            $totalCompanyCommission += $pair['admin_commission'];
+            $totalProviderEarning += $pair['provider_earning'];
+        }
 
-        $totalProviderEarning = (float) BookingDetailsAmount::query()
-            ->whereIn('booking_id', $oneTimeIds)
-            ->sum('provider_earning');
-        $totalProviderEarning += (float) BookingDetailsAmount::query()
-            ->whereIn('booking_repeat_id', $repeatIds)
-            ->sum('provider_earning');
+        foreach ($repeatsCol as $r) {
+            if (! $r instanceof BookingRepeat) {
+                continue;
+            }
+            $main = $r->relationLoaded('booking') ? $r->booking : $r->booking()->first();
+            if ($main instanceof Booking && trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                continue;
+            }
+            $pair = provider_payment_tab_earning_commission_pair($r);
+            $totalCompanyCommission += $pair['admin_commission'];
+            $totalProviderEarning += $pair['provider_earning'];
+        }
 
         $scaledGrossAdjustedParents = [];
 
@@ -915,10 +1040,6 @@ if (!function_exists('aggregate_provider_payment_summary_for_completed_jobs')) {
                 continue;
             }
             $scaledGrossAdjustedParents[$idStr] = true;
-            $subC = (float) BookingDetailsAmount::query()->where('booking_id', $b->id)->sum('admin_commission');
-            $subP = (float) BookingDetailsAmount::query()->where('booking_id', $b->id)->sum('provider_earning');
-            $totalCompanyCommission -= $subC;
-            $totalProviderEarning -= $subP;
             $grossLine = provider_payment_tab_loss_making_earning_display_for_scaled($b, 1.0);
             if ($grossLine !== null) {
                 $totalCompanyCommission += (float) ($grossLine['admin_commission_before_loss'] ?? 0);
@@ -943,14 +1064,6 @@ if (!function_exists('aggregate_provider_payment_summary_for_completed_jobs')) {
                 continue;
             }
             $scaledGrossAdjustedParents[$idStr] = true;
-            $repeatIdList = $group->pluck('id')->filter()->values()->all();
-            if ($repeatIdList === []) {
-                continue;
-            }
-            $subC = (float) BookingDetailsAmount::query()->whereIn('booking_repeat_id', $repeatIdList)->sum('admin_commission');
-            $subP = (float) BookingDetailsAmount::query()->whereIn('booking_repeat_id', $repeatIdList)->sum('provider_earning');
-            $totalCompanyCommission -= $subC;
-            $totalProviderEarning -= $subP;
             $den = (float) ($sumRepeatByParent[(string) $parentId] ?? 0.01);
             $den = round(max(0.01, $den), 2);
             foreach ($group as $r) {
@@ -1360,9 +1473,7 @@ if (!function_exists('aggregate_provider_booking_settlement_net_for_completed_jo
                 continue;
             }
             $settled = get_booking_received_and_settlement($b);
-            if (empty($settled['net_revenue_zeroed_after_refund'])) {
-                $net += (float) ($settled['pay_to_provider'] ?? 0) - (float) ($settled['provider_owes_company'] ?? 0);
-            }
+            $net += (float) ($settled['pay_to_provider'] ?? 0) - (float) ($settled['provider_owes_company'] ?? 0);
             $customerRefundDue += provider_payment_tab_customer_refund_hint_for_main_booking($b);
         }
 
@@ -1419,11 +1530,7 @@ if (!function_exists('aggregate_provider_booking_settlement_net_for_provider_id'
         $bookingIdsWithRepeats = DB::table('booking_repeats')->whereNotNull('booking_id')->distinct()->pluck('booking_id')->toArray();
 
         $oneTimeQuery = DB::table('bookings')->where('provider_id', $providerId)->where(function ($q) {
-            $q->where('booking_status', 'completed')
-                ->orWhere(function ($q2) {
-                    $q2->where('booking_status', 'canceled')
-                        ->where('after_visit_cancel', 1);
-                });
+            provider_payment_tab_one_time_revenue_bookings_inner($q);
         });
         if ($bookingIdsWithRepeats !== []) {
             $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
@@ -1544,6 +1651,8 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
      *     total_loss_in_all_bookings: float,
      *     total_bad_debt_with_customers: float
      * }
+     * total_amount_received_by_company: company-ledger net cash position — sum of all IN minus sum of all OUT on rows
+     *     included in {@see LedgerTransaction::scopeWhereCompanyCounterpartyOnly()} (same scope as the admin ledger screen).
      * total_loss_in_all_bookings: sum of scaled loss amounts (customer shortfall on loss-making bookings).
      * total_bad_debt_with_customers: sum of the company’s configured loss share on those bookings (company loss absorbed).
      */
@@ -1558,11 +1667,7 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
             ->all();
 
         $oneTimeQuery = Booking::query()->where(function ($q) {
-            $q->where('booking_status', 'completed')
-                ->orWhere(function ($q2) {
-                    $q2->where('booking_status', 'canceled')
-                        ->where('after_visit_cancel', true);
-                });
+            provider_payment_tab_one_time_revenue_bookings_inner($q);
         });
         if ($bookingIdsWithRepeats !== []) {
             $oneTimeQuery->whereNotIn('id', $bookingIdsWithRepeats);
@@ -1590,27 +1695,12 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
         );
         $refundDue = (float) ($agg['customer_refund_due_total'] ?? 0);
 
-        $totalCompanyReceived = 0.0;
-        foreach ($oneTimeBookings as $b) {
-            if ($b instanceof Booking) {
-                $rec = provider_payment_tab_receipts_for_main_booking($b);
-                $totalCompanyReceived += (float) ($rec['company'] ?? 0);
-            }
-        }
+        $ledgerCompanyScope = LedgerTransaction::query()->whereCompanyCounterpartyOnly();
+        $ledgerTotalIn = (float) (clone $ledgerCompanyScope)->in()->sum('amount');
+        $ledgerTotalOut = (float) (clone $ledgerCompanyScope)->out()->sum('amount');
+        $totalCompanyReceived = round($ledgerTotalIn - $ledgerTotalOut, 2);
 
         $repeatsCol = collect($repeats);
-        foreach ($repeatsCol->groupBy('booking_id') as $_parentId => $group) {
-            $first = $group->first();
-            if (! $first instanceof BookingRepeat) {
-                continue;
-            }
-            $main = $first->relationLoaded('booking') ? $first->booking : $first->booking()->first();
-            if (! $main instanceof Booking) {
-                continue;
-            }
-            $rec = provider_payment_tab_receipts_for_main_booking($main);
-            $totalCompanyReceived += (float) ($rec['company'] ?? 0);
-        }
 
         $svc = app(BookingFinancialSettlementService::class);
         $scaledParentsDone = [];
@@ -1765,6 +1855,46 @@ if (!function_exists('booking_refund_max_eligible_total')) {
         }
 
         return round((float) get_booking_total_paid($booking), 2);
+    }
+}
+
+if (!function_exists('booking_customer_paid_split_by_receiver')) {
+    /**
+     * Customer amounts collected toward the booking, split by who received them (company platform vs provider directly).
+     * Partials without received_by are summed as "unassigned" (shown separately; admin should correct data if needed).
+     *
+     * @return array{company: float, provider: float, unassigned: float, total: float}
+     */
+    function booking_customer_paid_split_by_receiver(Booking $booking): array
+    {
+        $booking->loadMissing('booking_partial_payments');
+        $company = 0.0;
+        $provider = 0.0;
+        $unassigned = 0.0;
+        foreach ($booking->booking_partial_payments as $p) {
+            $amt = (float) ($p->paid_amount ?? 0);
+            if ($amt <= 0) {
+                continue;
+            }
+            $rb = (string) ($p->received_by ?? '');
+            if ($rb === LedgerTransaction::RECEIVED_BY_COMPANY || $rb === 'company') {
+                $company += $amt;
+            } elseif ($rb === LedgerTransaction::RECEIVED_BY_PROVIDER || $rb === 'provider') {
+                $provider += $amt;
+            } else {
+                $unassigned += $amt;
+            }
+        }
+        $company = round($company, 2);
+        $provider = round($provider, 2);
+        $unassigned = round($unassigned, 2);
+
+        return [
+            'company' => $company,
+            'provider' => $provider,
+            'unassigned' => $unassigned,
+            'total' => round($company + $provider + $unassigned, 2),
+        ];
     }
 }
 

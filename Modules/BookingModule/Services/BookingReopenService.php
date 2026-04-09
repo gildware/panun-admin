@@ -2,9 +2,11 @@
 
 namespace Modules\BookingModule\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingReopenEvent;
+use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Services\FeedbackScoreConfigService;
@@ -22,7 +24,7 @@ class BookingReopenService
     /**
      * @return array{event: BookingReopenEvent, booking: Booking}
      */
-    public function reopenInPlace(Booking $source, User $actor, string $complaintNotes, string $targetStatus, ?int $holdReopenReasonId = null): array
+    public function reopenInPlace(Booking $source, User $actor, string $complaintNotes, string $targetStatus, ?int $holdReopenReasonId = null, ?string $newServiceSchedule = null): array
     {
         if (!in_array($targetStatus, ['pending', 'accepted'], true)) {
             throw new \InvalidArgumentException('Invalid target status for reopen.');
@@ -36,7 +38,7 @@ class BookingReopenService
             throw new \RuntimeException(translate('Only completed bookings can be reopened this way.'));
         }
 
-        return DB::transaction(function () use ($source, $actor, $complaintNotes, $targetStatus, $holdReopenReasonId) {
+        return DB::transaction(function () use ($source, $actor, $complaintNotes, $targetStatus, $holdReopenReasonId, $newServiceSchedule) {
             $event = BookingReopenEvent::query()->create([
                 'source_booking_id' => $source->id,
                 'actor_user_id' => $actor->id,
@@ -54,7 +56,21 @@ class BookingReopenService
             $source->reopen_resolve_remarks = null;
             $source->booking_status = $targetStatus;
             $source->serviceman_id = null;
+
+            if ($newServiceSchedule !== null && $newServiceSchedule !== '') {
+                $parsed = Carbon::parse($newServiceSchedule)->toDateTimeString();
+                $source->service_schedule = $parsed;
+            }
+
             $source->save();
+
+            if ($newServiceSchedule !== null && $newServiceSchedule !== '' && $source->wasChanged('service_schedule')) {
+                $history = new BookingScheduleHistory();
+                $history->booking_id = $source->id;
+                $history->changed_by = $actor->id;
+                $history->schedule = $source->service_schedule;
+                $history->save();
+            }
 
             BookingStatusHistory::query()->create([
                 'booking_id' => $source->id,

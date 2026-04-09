@@ -328,7 +328,7 @@
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
                 </div>
-                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3 align-items-xxl-center flex-column flex-xxl-row">
+                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3 flex-column flex-xxl-row ms-auto align-items-end align-items-xxl-center">
                     @php
                         $bookingFeedbackSvc = app(\Modules\ProviderManagement\Services\BookingAdminFeedbackService::class);
                         $terminalBooking = $bookingFeedbackSvc->isTerminalBooking($booking);
@@ -352,7 +352,7 @@
                             </div>
                         </div>
                     @endif
-                    <div class="d-flex flex-wrap gap-3">
+                    <div class="d-flex flex-wrap gap-3 justify-content-end">
                         @php
                             $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
                         @endphp
@@ -491,8 +491,6 @@
                                     data-bs-target="#reopenResolveModal--{{ $booking->id }}">
                                     <span class="material-icons">check_circle</span>{{ translate('Mark_reopen_resolved') }}
                                 </button>
-                            @elseif($booking->isOpenReopenTicket())
-                                <span class="badge bg-info text-dark align-self-center">{{ translate('Complete_booking_then_mark_resolved') }}</span>
                             @endif
                         @endcan
                     </div>
@@ -505,6 +503,41 @@
                         <h5 class="mb-0">{{ translate('Reopen_and_complaint_history') }}</h5>
                     </div>
                     <div class="card-body">
+                        @if(!empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot))
+                            @php
+                                $snap = $booking->reopen_disputed_snapshot;
+                            @endphp
+                            @php
+                                $__snapPoolOwesCo = (float) ($snap['provider_owes_company'] ?? 0);
+                                $__snapFinAdmin = (float) ($snap['final_admin_commission'] ?? 0);
+                                $__snapProviderRemitTotal = isset($snap['provider_total_remittance_to_company'])
+                                    ? (float) $snap['provider_total_remittance_to_company']
+                                    : round($__snapPoolOwesCo + $__snapFinAdmin, 2);
+                                $__snapCompanyPaysPr = (float) ($snap['company_owes_provider'] ?? 0);
+                            @endphp
+                            <div class="alert alert-secondary py-2 mb-3 small">
+                                <div class="fw-semibold mb-1">{{ translate('Reopen_disputed_settlement_snapshot') }}</div>
+                                <div class="row g-2">
+                                    <div class="col-md-6">{{ translate('Refund_paid_from_company_pool') }}: <strong>{{ with_currency_symbol((float) ($snap['refund_company_amount'] ?? 0)) }}</strong></div>
+                                    <div class="col-md-6">{{ translate('Refund_paid_from_provider_pool') }}: <strong>{{ with_currency_symbol((float) ($snap['refund_provider_amount'] ?? 0)) }}</strong></div>
+                                    <div class="col-md-6">{{ translate('Provider_owes_company_refund_above_pool') }}: <strong>{{ with_currency_symbol($__snapPoolOwesCo) }}</strong></div>
+                                    <div class="col-md-6">{{ translate('Company_owes_provider_refund_above_pool') }}: <strong>{{ with_currency_symbol($__snapCompanyPaysPr) }}</strong></div>
+                                    <div class="col-md-4">{{ translate('Final_amount_retained_from_customer_after_refunds') }}: <strong>{{ with_currency_symbol((float) ($snap['retained_from_customer'] ?? $snap['final_net_to_customer'] ?? 0)) }}</strong></div>
+                                    <div class="col-md-4">{{ translate('Final_admin_commission_net_basis') }}: <strong>{{ with_currency_symbol($__snapFinAdmin) }}</strong></div>
+                                    <div class="col-md-4">{{ translate('Final_provider_earning_net_basis') }}: <strong>{{ with_currency_symbol((float) ($snap['final_provider_earning'] ?? 0)) }}</strong></div>
+                                    <div class="col-12 border-top pt-2 mt-1">
+                                        <div class="d-flex flex-wrap justify-content-between gap-2">
+                                            <span>{{ translate('Disputed_total_provider_pays_company') }} <span class="text-muted">({{ translate('Disputed_provider_pays_company_formula_hint') }})</span>:</span>
+                                            <strong>{{ with_currency_symbol($__snapProviderRemitTotal) }}</strong>
+                                        </div>
+                                        <div class="d-flex flex-wrap justify-content-between gap-2 mt-1">
+                                            <span>{{ translate('Disputed_total_company_pays_provider') }}:</span>
+                                            <strong>{{ with_currency_symbol($__snapCompanyPaysPr) }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
                         @if($booking->reopen_resolved_at)
                             <p class="alert alert-success py-2 mb-3">
                                 <span class="fw-semibold">{{ translate('Resolved') }}:</span>
@@ -582,13 +615,36 @@
                 'formId' => 'reopenResolveForm--' . $booking->id,
                 'formAction' => route('admin.booking.reopen-resolve', $booking->id),
             ])
-            @if($errors->has('reopen_resolve_remarks'))
+            @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
+                @include('bookingmodule::admin.booking.partials._reopen-scenarios-modal')
+            @endif
+            @php
+                $__reopenErrResolve = $errors->has('reopen_resolve_remarks');
+                $__reopenErrResolveComplete = $errors->has('reopen_resolve_complete_remarks');
+                $__reopenErrDispute = $errors->has('reopen_dispute_remarks')
+                    || $errors->has('refund_company_amount')
+                    || $errors->has('refund_provider_amount')
+                    || $errors->has('refund_company_transaction_id')
+                    || $errors->has('refund_provider_transaction_id')
+                    || $errors->has('final_net_to_customer')
+                    || $errors->has('final_admin_commission')
+                    || $errors->has('final_provider_earning');
+            @endphp
+            @if($__reopenErrResolve || $__reopenErrResolveComplete || $__reopenErrDispute)
                 @push('script')
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
-                            var el = document.getElementById('reopenResolveModal--{{ $booking->id }}');
-                            if (el && window.bootstrap && bootstrap.Modal) {
-                                bootstrap.Modal.getOrCreateInstance(el).show();
+                            if (window.bootstrap && bootstrap.Modal) {
+                                @if($__reopenErrDispute)
+                                    var d = document.getElementById('reopenDisputeModal--{{ $booking->id }}');
+                                    if (d) bootstrap.Modal.getOrCreateInstance(d).show();
+                                @elseif($__reopenErrResolveComplete)
+                                    var c = document.getElementById('reopenResolveCompleteModal--{{ $booking->id }}');
+                                    if (c) bootstrap.Modal.getOrCreateInstance(c).show();
+                                @elseif($__reopenErrResolve)
+                                    var el = document.getElementById('reopenResolveModal--{{ $booking->id }}');
+                                    if (el) bootstrap.Modal.getOrCreateInstance(el).show();
+                                @endif
                             }
                         });
                     </script>
@@ -817,7 +873,7 @@
                 } elseif ($__overviewSt === 'refunded') {
                     $__overviewBadge = 'secondary';
                 }
-                $__adminNextStatuses = booking_admin_allowed_next_statuses($__overviewSt);
+                $__adminNextStatuses = booking_admin_allowed_next_statuses_for_booking($booking, $__overviewSt);
             @endphp
             <div class="row mb-3 g-3 align-items-stretch">
                 <div class="col-xl-4 col-md-6 d-flex">
@@ -970,9 +1026,6 @@
                                 @if(!$bookingNotEditable)
                                     <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
                                         @forelse ($__adminNextStatuses as $__nextSt)
-                                            @if ($__overviewSt === 'ongoing' && $__nextSt === 'canceled')
-                                                @continue
-                                            @endif
                                             @php
                                                 $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
                                                 $__btnDisabled = $__overviewStatusCashBlock && in_array($__nextSt, $__cashBlockTargets, true);
@@ -981,7 +1034,6 @@
                                                 }
                                                 $__pillClass = match ($__nextSt) {
                                                     'accepted' => 'booking-status-pill--success',
-                                                    'canceled' => 'booking-status-pill--danger',
                                                     'pending' => 'booking-status-pill--secondary',
                                                     'ongoing' => 'booking-status-pill--warning',
                                                     'on_hold' => 'booking-status-pill--secondary',
@@ -990,7 +1042,6 @@
                                                 };
                                                 $__pillLabel = match ($__nextSt) {
                                                     'accepted' => translate('Accept_Booking'),
-                                                    'canceled' => translate('Cancel_Booking'),
                                                     'pending' => translate('Mark_as_Pending'),
                                                     'ongoing' => translate('Mark_as_Ongoing'),
                                                     'on_hold' => translate('Put_on_hold'),
@@ -1003,6 +1054,16 @@
                                         @empty
                                             <p class="fz-12 text-muted mb-0">{{ translate('No_status_changes_available') }}</p>
                                         @endforelse
+                                        @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
+                                            <button type="button" class="booking-status-pill booking-status-pill--success" data-bs-toggle="modal"
+                                                data-bs-target="#reopenResolveCompleteModal--{{ $booking->id }}">
+                                                {{ translate('Resolve_booking') }}
+                                            </button>
+                                            <button type="button" class="booking-status-pill booking-status-pill--danger" data-bs-toggle="modal"
+                                                data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
+                                                {{ translate('Dispute_and_close') }}
+                                            </button>
+                                        @endif
                                     </div>
                                 @elseif($__overviewShowReopenInCard)
                                     <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
@@ -1010,13 +1071,17 @@
                                             data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                                             {{ translate('Reopen_Booking') }}
                                         </button>
+                                        @if($booking->isOpenReopenTicket())
+                                            <button type="button" class="booking-status-pill booking-status-pill--danger" data-bs-toggle="modal"
+                                                data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
+                                                {{ translate('Dispute_and_close') }}
+                                            </button>
+                                        @endif
                                         @if($booking->canMarkReopenResolved())
                                             <button type="button" class="booking-status-pill booking-status-pill--success" data-bs-toggle="modal"
                                                 data-bs-target="#reopenResolveModal--{{ $booking->id }}">
                                                 {{ translate('Mark_as_Resolved') }}
                                             </button>
-                                        @elseif($booking->isOpenReopenTicket())
-                                            <span class="fz-12 text-muted align-self-center">{{ translate('Complete_booking_then_mark_resolved') }}</span>
                                         @endif
                                     </div>
                                 @else
@@ -1027,16 +1092,8 @@
                             @endcan
                             @if ((int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'ongoing')
                                 @can('booking_can_manage_status')
-                                    @if (! $bookingNotEditable || (! empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot)))
+                                    @if (! empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot))
                                     <div class="border-top pt-3 mt-3 flex-shrink-0 w-100">
-                                        @if (! $bookingNotEditable)
-                                            <div class="d-flex flex-wrap justify-content-end gap-2 mb-2">
-                                                <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#bookingFinancialSettlementModal">
-                                                    {{ translate('Configure_special_scenarios') }}
-                                                </button>
-                                            </div>
-                                        @endif
-                                        @if (! empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot))
                                             @php
                                                 $__bfsOutcome = (string) ($booking->settlement_outcome ?? '');
                                                 $__bfsDecidedCharges = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
@@ -1098,7 +1155,6 @@
                                                     <dd class="col-sm-7">{{ $booking->settlement_remarks }}</dd>
                                                 @endif
                                             </dl>
-                                        @endif
                                     </div>
                                     @endif
                                 @endcan
@@ -1507,6 +1563,18 @@
                                         <div class="alert alert-secondary mb-0 py-2 px-2 fz-12">
                                             {{ translate('Net_settlement_zero_after_full_refund_hint') }}
                                         </div>
+                                        @if((float) ($revenueSettlement['pay_to_provider'] ?? 0) > 0.009)
+                                            <div class="alert alert-info mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center mt-2">
+                                                <span>{{ translate('Pay_to_provider') }} <span class="text-muted">({{ translate('Reopen_disputed_settlement_snapshot') }})</span>:</span>
+                                                <strong>{{ with_currency_symbol($revenueSettlement['pay_to_provider']) }}</strong>
+                                            </div>
+                                        @endif
+                                        @if((float) ($revenueSettlement['provider_owes_company'] ?? 0) > 0.009)
+                                            <div class="alert alert-warning mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center mt-2">
+                                                <span>{{ translate('Provider_owes_you') }} <span class="text-muted">({{ translate('Reopen_disputed_settlement_snapshot') }})</span>:</span>
+                                                <strong>{{ with_currency_symbol($revenueSettlement['provider_owes_company']) }}</strong>
+                                            </div>
+                                        @endif
                                     @elseif($revenueSettlement['pay_to_provider'] > 0)
                                         <div class="alert alert-info mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center">
                                             <span>{{ translate('Pay_to_provider') }}:</span>
@@ -2223,15 +2291,12 @@
                         @if(!$bookingNotEditable)
                             <div class="d-none" aria-hidden="true">
                                 @php
-                                    $__statusSelectNext = booking_admin_allowed_next_statuses($booking->booking_status);
+                                    $__statusSelectNext = booking_admin_allowed_next_statuses_for_booking($booking);
                                     $__statusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmount;
                                 @endphp
                                 <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}" data-can-complete="{{ booking_can_be_completed($booking) ? '1' : '0' }}">
                                     <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}</option>
                                     @foreach ($__statusSelectNext as $__selSt)
-                                        @if (($booking->booking_status ?? '') === 'ongoing' && $__selSt === 'canceled')
-                                            @continue
-                                        @endif
                                         @php
                                             $__optDisabled = $__statusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
                                             if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
@@ -2239,7 +2304,6 @@
                                             }
                                             $__optLabel = match ($__selSt) {
                                                 'accepted' => translate('Accept_Booking'),
-                                                'canceled' => translate('Cancel_Booking'),
                                                 'pending' => translate('Mark_as_Pending'),
                                                 'ongoing' => translate('Mark_as_Ongoing'),
                                                 'on_hold' => translate('Put_on_hold'),
@@ -2349,7 +2413,6 @@
                                                     @if($booking['booking_status'] != 'canceled')
                                                         <div class="d-flex flex-column gap-2 mt-4">
                                                             <button class="btn badge-info w-100 py-3 switch-to-cash-after-service">{{ translate('Switch to Cash after Service') }}</button>
-                                                            <button class="btn badge-danger w-100 py-3 change-booking-status">{{ translate('Cancel Booking') }}</button>
                                                         </div>
                                                     @endif
                                                 @endif
@@ -2360,7 +2423,6 @@
                                                 @if($booking['booking_status'] != 'canceled')
                                                     <div class="d-flex flex-column gap-2 mt-4">
                                                         <button class="btn badge-info w-100 py-3 switch-to-cash-after-service">{{ translate('Switch to Cash after Service') }}</button>
-                                                        <button class="btn badge-danger w-100 py-3 change-booking-status">{{ translate('Cancel Booking') }}</button>
                                                     </div>
                                                 @endif
                                             @endif
@@ -3032,14 +3094,6 @@
             $('#booking-schedule-edit-mode').addClass('d-none');
             $('#booking-schedule-view-mode').removeClass('d-none');
         }
-
-        $(".change-booking-status").on('click', function() {
-            var $select = $('#booking_status');
-            var previous_status = $select.length ? $select.data('current') : '{{ $booking->booking_status }}';
-            if (typeof bookingAdminOpenStatusReasonModal === 'function') {
-                bookingAdminOpenStatusReasonModal('canceled', previous_status);
-            }
-        });
 
         $("#serviceman_assign").change(function() {
             var serviceman_id = $("#serviceman_assign option:selected").val();

@@ -64,6 +64,8 @@ class Booking extends Model
         'settlement_snapshot' => 'array',
         'allow_complete_without_full_payment' => 'boolean',
         'after_visit_cancel' => 'boolean',
+        'reopen_completion_allowed' => 'boolean',
+        'reopen_disputed_snapshot' => 'array',
     ];
 
     protected $fillable = [
@@ -118,6 +120,8 @@ class Booking extends Model
         'allow_complete_without_full_payment',
         'settlement_remarks',
         'after_visit_cancel',
+        'reopen_completion_allowed',
+        'reopen_disputed_snapshot',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
@@ -362,12 +366,81 @@ class Booking extends Model
     }
 
     /**
+     * Open reopen ticket: admin must use "Resolve booking" (or another reopen completion path) before marking Completed via status controls.
+     */
+    public function adminMustConfigureReopenBeforeComplete(): bool
+    {
+        return $this->isOpenReopenTicket() && ! (bool) ($this->reopen_completion_allowed ?? false);
+    }
+
+    /**
      * Employee may close the reopen case only after the booking is completed again.
      */
     public function canMarkReopenResolved(): bool
     {
         return $this->isOpenReopenTicket()
             && ($this->booking_status ?? '') === 'completed';
+    }
+
+    /**
+     * When a booking was already marked completed once, completion accounting was skipped to avoid duplicate
+     * ledger effects. After an in-place reopen (or follow-up workflow), marking completed again must still
+     * refresh commission rows and settlement preview — only the first completion posts heavy transactions.
+     */
+    public static function shouldResyncCommissionAfterPriorCompletion(self $model): bool
+    {
+        if ($model->last_reopen_event_at !== null) {
+            return true;
+        }
+        if ($model->originated_from_booking_id !== null) {
+            return true;
+        }
+
+        $latestCompleted = BookingStatusHistory::query()
+            ->where('booking_id', $model->id)
+            ->where('booking_status', 'completed')
+            ->whereNull('booking_repeat_id')
+            ->orderByDesc('id')
+            ->first();
+        if (!$latestCompleted) {
+            return false;
+        }
+
+        return BookingStatusHistory::query()
+            ->where('booking_id', $model->id)
+            ->whereNull('booking_repeat_id')
+            ->where('id', '>', $latestCompleted->id)
+            ->whereNotIn('booking_status', ['completed'])
+            ->exists();
+    }
+
+    /**
+     * Recompute persisted {@see BookingDetailsAmount} commission / provider earning from current booking
+     * totals (including extra services and fees), and refresh financial settlement snapshot when applicable.
+     * Call after extras or other edits that change {@see get_booking_total_amount} but do not go through completion accounting.
+     */
+    public function resyncStoredCommissionAndSettlementSnapshot(): void
+    {
+        if (!$this->provider_id) {
+            return;
+        }
+
+        if (!$this->details_amounts()->exists()) {
+            return;
+        }
+
+        $this->update_admin_commission($this, (float) $this->total_booking_amount, $this->provider_id);
+
+        $outcome = trim((string) ($this->settlement_outcome ?? ''));
+        if ($outcome !== '' && $outcome !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_STANDARD) {
+            try {
+                $this->settlement_snapshot = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)
+                    ->buildPreview($this);
+                $this->saveQuietly();
+            } catch (\Throwable) {
+                // Keep prior snapshot if preview fails
+            }
+        }
     }
 
     public function booking_offline_payments(): HasMany
@@ -548,12 +621,24 @@ class Booking extends Model
                         ->exists();
                 }
 
+                $resyncCommissionAfterReopenCycle = $skipHeavyCompletionAccounting
+                    && self::shouldResyncCommissionAfterPriorCompletion($model);
+
                 $model->is_paid = 1;
 
                 $provider = $model->provider;
 
-                if ($provider && !$skipHeavyCompletionAccounting) {
+                if ($provider && (!$skipHeavyCompletionAccounting || $resyncCommissionAfterReopenCycle)) {
                     $model->update_admin_commission($model, $model->total_booking_amount, $model->provider_id);
+                    $outcome = trim((string) ($model->settlement_outcome ?? ''));
+                    if ($outcome !== '' && $outcome !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_STANDARD) {
+                        try {
+                            $model->settlement_snapshot = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)
+                                ->buildPreview($model);
+                        } catch (\Throwable) {
+                            // keep existing snapshot if preview fails
+                        }
+                    }
                 }
 
                 if (!$skipHeavyCompletionAccounting && !$model->is_guest && $model?->customer) {

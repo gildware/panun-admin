@@ -2687,3 +2687,122 @@ if (!function_exists('shiftRefundSubscriptionTransaction')) {
         });
     }
 }
+
+/**
+ * After a disputed reopen refund, post inter-party reconciliation.
+ * $providerOwesCompany should be the full amount the provider must remit to the company: refund leg above the
+ * company pool plus net admin commission on retained customer funds (same basis as reopen_disputed_snapshot).
+ * $companyOwesProvider is the refund leg above the provider pool only.
+ */
+if (!function_exists('record_reopen_disputed_refund_reconciliation')) {
+    function record_reopen_disputed_refund_reconciliation(
+        string $bookingId,
+        ?string $providerId,
+        float $providerOwesCompany,
+        float $companyOwesProvider,
+    ): void {
+        $providerOwesCompany = round(max(0.0, $providerOwesCompany), 2);
+        $companyOwesProvider = round(max(0.0, $companyOwesProvider), 2);
+        if ($providerOwesCompany < 0.01 && $companyOwesProvider < 0.01) {
+            return;
+        }
+
+        $adminUser = User::where('user_type', ADMIN_USER_TYPES[0])->first();
+        if (! $adminUser) {
+            return;
+        }
+        $admin_user_id = $adminUser->id;
+        $provider_user_id = ($providerId !== null && $providerId !== '')
+            ? get_user_id($providerId, PROVIDER_USER_TYPES[0])
+            : null;
+        if ($provider_user_id === null || $provider_user_id === '') {
+            return;
+        }
+
+        DB::transaction(function () use (
+            $bookingId,
+            $admin_user_id,
+            $provider_user_id,
+            $providerOwesCompany,
+            $companyOwesProvider
+        ) {
+            $adminAccount = Account::where('user_id', $admin_user_id)->lockForUpdate()->first();
+            $providerAccount = Account::where('user_id', $provider_user_id)->lockForUpdate()->first();
+            if (! $adminAccount || ! $providerAccount) {
+                return;
+            }
+
+            if ($providerOwesCompany >= 0.01) {
+                $providerAccount->account_payable += $providerOwesCompany;
+                $providerAccount->save();
+
+                $primary = Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $bookingId,
+                    'trx_type' => TRX_TYPE['payable_commission'],
+                    'debit' => 0,
+                    'credit' => $providerOwesCompany,
+                    'balance' => $providerAccount->account_payable,
+                    'from_user_id' => $provider_user_id,
+                    'to_user_id' => $admin_user_id,
+                    'from_user_account' => ACCOUNT_STATES[2]['value'],
+                    'to_user_account' => null,
+                ]);
+
+                $adminAccount->refresh();
+                $adminAccount->account_receivable += $providerOwesCompany;
+                $adminAccount->save();
+
+                Transaction::create([
+                    'ref_trx_id' => $primary->id,
+                    'booking_id' => $bookingId,
+                    'trx_type' => TRX_TYPE['receivable_commission'],
+                    'debit' => 0,
+                    'credit' => $providerOwesCompany,
+                    'balance' => $adminAccount->account_receivable,
+                    'from_user_id' => $admin_user_id,
+                    'to_user_id' => $provider_user_id,
+                    'from_user_account' => ACCOUNT_STATES[3]['value'],
+                    'to_user_account' => null,
+                ]);
+            }
+
+            if ($companyOwesProvider >= 0.01) {
+                $providerAccount->refresh();
+                $adminAccount->refresh();
+
+                $providerAccount->account_receivable += $companyOwesProvider;
+                $providerAccount->save();
+
+                $primary2 = Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $bookingId,
+                    'trx_type' => TRX_TYPE['receivable_amount'],
+                    'debit' => 0,
+                    'credit' => $companyOwesProvider,
+                    'balance' => $providerAccount->account_receivable,
+                    'from_user_id' => $provider_user_id,
+                    'to_user_id' => $admin_user_id,
+                    'from_user_account' => ACCOUNT_STATES[3]['value'],
+                    'to_user_account' => null,
+                ]);
+
+                $adminAccount->account_payable += $companyOwesProvider;
+                $adminAccount->save();
+
+                Transaction::create([
+                    'ref_trx_id' => $primary2->id,
+                    'booking_id' => $bookingId,
+                    'trx_type' => TRX_TYPE['payable_amount'],
+                    'debit' => 0,
+                    'credit' => $companyOwesProvider,
+                    'balance' => $adminAccount->account_payable,
+                    'from_user_id' => $admin_user_id,
+                    'to_user_id' => $provider_user_id,
+                    'from_user_account' => ACCOUNT_STATES[2]['value'],
+                    'to_user_account' => null,
+                ]);
+            }
+        });
+    }
+}

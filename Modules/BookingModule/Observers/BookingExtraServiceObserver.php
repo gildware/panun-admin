@@ -2,6 +2,7 @@
 
 namespace Modules\BookingModule\Observers;
 
+use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Services\BookingAuditLogger;
 
@@ -18,6 +19,7 @@ class BookingExtraServiceObserver
     public function created(BookingExtraService $row): void
     {
         BookingAuditLogger::logBookingExtraServiceChange('created', $row, null);
+        self::resyncParentBookingCommission($row);
     }
 
     public function updated(BookingExtraService $row): void
@@ -35,6 +37,7 @@ class BookingExtraServiceObserver
             ];
         }
         BookingAuditLogger::logBookingExtraServiceChange('updated', $row, $pairs);
+        self::resyncParentBookingCommission($row);
     }
 
     public function deleted(BookingExtraService $row): void
@@ -42,5 +45,20 @@ class BookingExtraServiceObserver
         $oid = spl_object_id($row);
         unset(self::$originals[$oid]);
         BookingAuditLogger::logBookingExtraServiceChange('deleted', $row, null);
+        self::resyncParentBookingCommission($row);
+    }
+
+    private static function resyncParentBookingCommission(BookingExtraService $row): void
+    {
+        if (!$row->booking_id) {
+            return;
+        }
+
+        $booking = Booking::query()->find($row->booking_id);
+        if (!$booking) {
+            return;
+        }
+
+        $booking->resyncStoredCommissionAndSettlementSnapshot();
     }
 }

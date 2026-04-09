@@ -26,6 +26,50 @@ final class BookingAuditLogger
         'updated_at',
     ];
 
+    /** @var array<string, list<string>> */
+    private const BOOKING_UPDATE_GROUPS = [
+        'payment' => [
+            'is_paid',
+            'payment_method',
+            'transaction_id',
+            'total_booking_amount',
+            'total_tax_amount',
+            'total_discount_amount',
+            'total_campaign_discount_amount',
+            'total_coupon_discount_amount',
+            'coupon_code',
+            'additional_charge',
+            'additional_tax_amount',
+            'additional_discount_amount',
+            'additional_campaign_discount_amount',
+            'extra_fee',
+            'total_referral_discount_amount',
+            'provider_payment_confirmed_at',
+            'allow_complete_without_full_payment',
+            'additional_charges_breakdown',
+            'settlement_outcome',
+            'settlement_config',
+            'settlement_snapshot',
+            'settlement_remarks',
+        ],
+        'schedule' => [
+            'service_schedule',
+        ],
+        'assignment' => [
+            'provider_id',
+            'serviceman_id',
+            'assignee_id',
+        ],
+        'service' => [
+            'category_id',
+            'sub_category_id',
+            'service_description',
+        ],
+        'status' => [
+            'booking_status',
+        ],
+    ];
+
     public static function clearCache(): void
     {
         self::$cache = [];
@@ -78,25 +122,17 @@ final class BookingAuditLogger
     public static function logBookingCreated(Booking $booking): void
     {
         self::clearCache();
-        foreach ($booking->getAttributes() as $key => $value) {
-            if (in_array($key, ['id', 'created_at', 'updated_at'], true)) {
-                continue;
-            }
-            if ($value === null || $value === '') {
-                continue;
-            }
-            if (in_array($key, self::SKIP_BOOKING_KEYS, true)) {
-                continue;
-            }
-            self::log(
-                (string) $booking->id,
-                $key,
-                self::humanizeKey($key),
-                '—',
-                self::formatBookingAttribute($key, $value),
-                null
-            );
-        }
+        $ref = $booking->readable_id !== null && $booking->readable_id !== ''
+            ? (string) $booking->readable_id
+            : (string) $booking->id;
+        self::log(
+            (string) $booking->id,
+            'booking.created',
+            translate('Booking created'),
+            '—',
+            '#' . $ref,
+            null
+        );
     }
 
     /**
@@ -107,6 +143,7 @@ final class BookingAuditLogger
     {
         self::clearCache();
         unset($changes['updated_at']);
+        $keysChanged = [];
         foreach ($changes as $key => $newRaw) {
             if (in_array($key, self::SKIP_BOOKING_KEYS, true)) {
                 continue;
@@ -115,12 +152,41 @@ final class BookingAuditLogger
             if (self::valuesEquivalent($oldRaw, $newRaw, $booking, $key)) {
                 continue;
             }
+            $keysChanged[] = $key;
+        }
+        if ($keysChanged === []) {
+            return;
+        }
+
+        $handled = [];
+        foreach (self::BOOKING_UPDATE_GROUPS as $groupId => $groupKeys) {
+            $inGroup = array_values(array_intersect($keysChanged, $groupKeys));
+            if ($inGroup === []) {
+                continue;
+            }
+            foreach ($inGroup as $k) {
+                $handled[$k] = true;
+            }
+            [$oldText, $newText] = self::summarizeBookingFieldGroup($booking, $inGroup, $original, $changes);
             self::log(
                 (string) $booking->id,
-                $key,
-                self::humanizeKey($key),
-                self::formatBookingAttribute($key, $oldRaw),
-                self::formatBookingAttribute($key, $newRaw),
+                'booking.updated.' . $groupId,
+                self::bookingGroupLabel($groupId),
+                $oldText,
+                $newText,
+                null
+            );
+        }
+
+        $remaining = array_values(array_diff($keysChanged, array_keys($handled)));
+        if ($remaining !== []) {
+            [$oldText, $newText] = self::summarizeBookingFieldGroup($booking, $remaining, $original, $changes);
+            self::log(
+                (string) $booking->id,
+                'booking.updated.other',
+                translate('Booking updated'),
+                $oldText,
+                $newText,
                 null
             );
         }
@@ -175,6 +241,8 @@ final class BookingAuditLogger
         }
 
         if ($action === 'updated' && is_array($changes)) {
+            $oldParts = [];
+            $newParts = [];
             foreach ($changes as $key => $pair) {
                 if ($key === 'updated_at') {
                     continue;
@@ -187,12 +255,16 @@ final class BookingAuditLogger
                 if (self::rawEquivalent($oldRaw, $newRaw)) {
                     continue;
                 }
+                $oldParts[] = self::humanizeKey($key) . ': ' . self::formatDetailAttribute($key, $oldRaw, $detail);
+                $newParts[] = self::humanizeKey($key) . ': ' . self::formatDetailAttribute($key, $newRaw, $detail);
+            }
+            if ($oldParts !== [] && $newParts !== []) {
                 self::log(
                     (string) $detail->booking_id,
-                    'booking_detail.' . $key,
-                    $label . ' — ' . self::humanizeKey($key),
-                    self::formatDetailAttribute($key, $oldRaw, $detail),
-                    self::formatDetailAttribute($key, $newRaw, $detail),
+                    'booking_detail.updated',
+                    $label . ' — ' . translate('Updated'),
+                    implode('; ', $oldParts),
+                    implode('; ', $newParts),
                     $ctx
                 );
             }
@@ -235,6 +307,8 @@ final class BookingAuditLogger
         }
 
         if ($action === 'updated' && is_array($changes)) {
+            $oldParts = [];
+            $newParts = [];
             foreach ($changes as $key => $pair) {
                 if ($key === 'updated_at') {
                     continue;
@@ -247,12 +321,16 @@ final class BookingAuditLogger
                 if (self::rawEquivalent($oldRaw, $newRaw)) {
                     continue;
                 }
+                $oldParts[] = self::humanizeKey($key) . ': ' . self::formatScalar($oldRaw);
+                $newParts[] = self::humanizeKey($key) . ': ' . self::formatScalar($newRaw);
+            }
+            if ($oldParts !== [] && $newParts !== []) {
                 self::log(
                     (string) $row->booking_id,
-                    'booking_extra_service.' . $key,
-                    $label . ' — ' . self::humanizeKey($key),
-                    self::formatScalar($oldRaw),
-                    self::formatScalar($newRaw),
+                    'booking_extra_service.updated',
+                    $label . ' — ' . translate('Updated'),
+                    implode('; ', $oldParts),
+                    implode('; ', $newParts),
                     $ctx
                 );
             }
@@ -316,6 +394,144 @@ final class BookingAuditLogger
             '—',
             'booking_repeat:' . $repeat->id
         );
+    }
+
+    private static function bookingGroupLabel(string $groupId): string
+    {
+        return match ($groupId) {
+            'payment' => translate('Payment updated'),
+            'schedule' => translate('Schedule updated'),
+            'assignment' => translate('Reassignment'),
+            'service' => translate('Service updated'),
+            'status' => translate('Status updated'),
+            default => translate('Booking updated'),
+        };
+    }
+
+    /**
+     * @param  list<string>  $keys
+     * @param  array<string, mixed>  $original
+     * @param  array<string, mixed>  $changes
+     * @return array{0: string, 1: string}
+     */
+    private static function summarizeBookingFieldGroup(
+        Booking $booking,
+        array $keys,
+        array $original,
+        array $changes
+    ): array {
+        $oldParts = [];
+        $newParts = [];
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $changes)) {
+                continue;
+            }
+            $oldRaw = array_key_exists($key, $original) ? $original[$key] : null;
+            $newRaw = $changes[$key];
+            if (self::valuesEquivalent($oldRaw, $newRaw, $booking, $key)) {
+                continue;
+            }
+            if ($key === 'is_paid') {
+                $oldParts[] = self::formatIsPaidChangeForAuditHistory($booking, (int) $oldRaw);
+                $newParts[] = self::formatIsPaidChangeForAuditHistory($booking, (int) $newRaw);
+
+                continue;
+            }
+            $oldParts[] = self::humanizeKey($key) . ': ' . self::formatBookingAttribute($key, $oldRaw);
+            $newParts[] = self::humanizeKey($key) . ': ' . self::formatBookingAttribute($key, $newRaw);
+        }
+
+        return [
+            $oldParts === [] ? '—' : implode('; ', $oldParts),
+            $newParts === [] ? '—' : implode('; ', $newParts),
+        ];
+    }
+
+    /**
+     * Same figures as the admin booking details payment card, for a hypothetical {@see Booking::$is_paid} value
+     * (used to show Total / amount paid / due balance before vs after a payment-status toggle).
+     *
+     * @return array{total: float, amount_paid_display: float, due_balance: float, status_label: string, amount_row_label: string}
+     */
+    private static function adminPaymentSnapshot(Booking $booking, int $isPaid): array
+    {
+        $booking->loadMissing(['booking_partial_payments', 'extra_services']);
+
+        $totalPaidFromPartials = round((float) $booking->booking_partial_payments->sum('paid_amount'), 2);
+        $bookingTotalForPayment = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+
+        $paymentFullyCovered = $booking->booking_partial_payments->isEmpty()
+            ? ($isPaid === 1)
+            : (round($totalPaidFromPartials, 2) >= round($bookingTotalForPayment, 2));
+
+        $displayPaidAmount = $booking->booking_partial_payments->isNotEmpty()
+            ? $totalPaidFromPartials
+            : (($paymentFullyCovered && $isPaid === 1) ? $bookingTotalForPayment : 0.0);
+
+        $visitRetainedCanceled = (string) ($booking->booking_status ?? '') === 'canceled'
+            && (
+                ! empty($booking->after_visit_cancel)
+                || (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+            );
+        $decidedChargesPaidDisplayCap = $visitRetainedCanceled
+            || (
+                (string) ($booking->booking_status ?? '') === 'completed'
+                && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT
+            );
+        if ($decidedChargesPaidDisplayCap && round($bookingTotalForPayment, 2) > 0
+            && round($totalPaidFromPartials, 2) >= round($bookingTotalForPayment, 2)) {
+            $displayPaidAmount = round($bookingTotalForPayment, 2);
+        }
+
+        $dueBalanceDisplay = round(max(0.0, $bookingTotalForPayment - $displayPaidAmount), 2);
+        if ($dueBalanceDisplay > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
+            && ($booking->payment_method ?? '') !== 'cash_after_service'
+            && (float) ($booking->additional_charge ?? 0) > 0) {
+            $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
+        }
+
+        if ($visitRetainedCanceled) {
+            $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+            $paidPartials = round((float) $booking->booking_partial_payments->sum('paid_amount'), 2);
+            if ($payableCap <= 0) {
+                $statusLabel = translate('Unpaid');
+            } elseif ($paidPartials + 0.005 >= $payableCap || $paymentFullyCovered) {
+                $statusLabel = translate('Paid');
+            } elseif ($paidPartials > 0) {
+                $statusLabel = translate('Partially paid');
+            } else {
+                $statusLabel = translate('Unpaid');
+            }
+        } elseif (in_array((string) ($booking->booking_status ?? ''), ['canceled', 'refunded'], true)) {
+            $statusLabel = translate('Refunded');
+        } elseif ($paymentFullyCovered) {
+            $statusLabel = translate('Paid');
+        } elseif ($booking->booking_partial_payments->isNotEmpty()) {
+            $statusLabel = translate('Partially paid');
+        } else {
+            $statusLabel = translate('Unpaid');
+        }
+
+        $showAsAmountPaidLabel = (string) ($booking->booking_status ?? '') === 'completed' || $paymentFullyCovered;
+        $amountRowLabel = $showAsAmountPaidLabel ? translate('Amount_Paid') : translate('Advance_Paid');
+
+        return [
+            'total' => $bookingTotalForPayment,
+            'amount_paid_display' => round($displayPaidAmount, 2),
+            'due_balance' => $dueBalanceDisplay,
+            'status_label' => $statusLabel,
+            'amount_row_label' => $amountRowLabel,
+        ];
+    }
+
+    private static function formatIsPaidChangeForAuditHistory(Booking $booking, int $isPaid): string
+    {
+        $s = self::adminPaymentSnapshot($booking, $isPaid);
+
+        return translate('Total_Amount') . ': ' . with_currency_symbol($s['total'])
+            . '; ' . $s['amount_row_label'] . ': ' . with_currency_symbol($s['amount_paid_display'])
+            . '; ' . translate('Due_Balance') . ': ' . with_currency_symbol($s['due_balance'])
+            . '; ' . translate('Payment_Status') . ': ' . $s['status_label'];
     }
 
     private static function humanizeKey(string $key): string

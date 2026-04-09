@@ -55,20 +55,29 @@
                                                 action="{{ route('admin.booking.verification-status', [$booking->id]) }}">
                                                 @csrf
                                                 <div class="c1-light-bg p-4 rounded">
-                                                    <div class="form-check form-check-inline">
-                                                        <input class="form-check-input approve-request" checked
-                                                            type="radio" name="status" id="inlineRadio1" value="approve">
-                                                        <label class="form-check-label"
-                                                            for="inlineRadio1">{{ translate('Approve the Request') }}</label>
+                                                    <h5 class="mb-3">{{ translate('Request Status') }}</h5>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <div class="form-check-inline">
+                                                            <input class="form-check-input approve-request" checked
+                                                                type="radio" name="status" id="changeReqStatusApprove--{{ $booking->id }}"
+                                                                value="approve">
+                                                            <label class="form-check-label"
+                                                                for="changeReqStatusApprove--{{ $booking->id }}">{{ translate('Approve the Request') }}</label>
+                                                        </div>
+                                                        <div class="form-check-inline">
+                                                            <input class="form-check-input deny-request" type="radio"
+                                                                name="status" id="changeReqStatusDeny--{{ $booking->id }}"
+                                                                value="deny">
+                                                            <label class="form-check-label"
+                                                                for="changeReqStatusDeny--{{ $booking->id }}">{{ translate('Deny the Request') }}</label>
+                                                        </div>
                                                     </div>
-                                                    <div class="form-check form-check-inline">
-                                                        <input class="form-check-input deny-request" type="radio"
-                                                            name="status" id="inlineRadio2" value="cancel">
-                                                        <label class="form-check-label"
-                                                            for="inlineRadio2">{{ translate('Cancel Booking') }}</label>
+                                                    <div class="mt-4 cancellation-note" style="display: none;">
+                                                        <textarea class="form-control h-69px" placeholder="{{ translate('Cancellation Note') }}" name="booking_deny_note"
+                                                            id="changeReqDenyNote--{{ $booking->id }}"></textarea>
                                                     </div>
                                                 </div>
-                                                <div class="modal-footer text-center justify-content-center border-0">
+                                                <div class="d-flex justify-content-center mt-4">
                                                     <button type="submit"
                                                         class="btn btn--primary">{{ translate('submit') }}</button>
                                                 </div>
