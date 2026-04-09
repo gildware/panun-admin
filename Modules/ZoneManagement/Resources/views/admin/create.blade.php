@@ -5,7 +5,13 @@
 @push('css_or_js')
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/dataTables/select.dataTables.min.css')}}"/>
+    <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/select2/select2.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module/css/zone-module.css')}}"/>
+    <style>
+        .zone-parent-select2-wrap .select2-container {
+            width: 100% !important;
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -121,13 +127,13 @@
                                                 <input type="hidden" name="lang[]" value="default">
                                             @endif
 
-                                            @if(isset($parentZoneChoices))
-                                                <div class="mb-30">
+                                            @if(isset($parentZoneTreeOptions))
+                                                <div class="mb-30 zone-parent-select2-wrap">
                                                     <label class="input-label d-block mb-2">{{ translate('Parent_zone') }}</label>
-                                                    <select name="parent_id" class="form-select theme-input-style w-100">
+                                                    <select name="parent_id" id="zone-parent-select" class="form-select theme-input-style w-100">
                                                         <option value="">{{ translate('No_parent_root_zone') }}</option>
-                                                        @foreach($parentZoneChoices as $pz)
-                                                            <option value="{{ $pz->id }}" @selected(old('parent_id') == $pz->id)>{{ $pz->name }}</option>
+                                                        @foreach($parentZoneTreeOptions as $row)
+                                                            <option value="{{ $row['id'] }}" @selected(old('parent_id') == $row['id'])>{{ $row['label'] }}</option>
                                                         @endforeach
                                                     </select>
                                                 </div>
@@ -232,6 +238,7 @@
 @push('script')
     <script src="{{asset('assets/admin-module/plugins/dataTables/jquery.dataTables.min.js')}}"></script>
     <script src="{{asset('assets/admin-module/plugins/dataTables/dataTables.select.min.js')}}"></script>
+    <script src="{{asset('assets/admin-module/plugins/select2/select2.min.js')}}"></script>
 
     @php
         $api_key = optional(business_config('google_map', 'third_party'))->live_values ?? [];
@@ -246,6 +253,7 @@
         const ZONE_BOUNDARY_FROM_PLACE_URL = "{{ route('admin.zone.boundary-from-place') }}";
         const ZONE_VECTOR_MAP_ID = @json($zoneVectorMapId);
         const MSG_CHILD_OUTSIDE_PARENT = @json(translate('Child_zone_must_be_inside_parent_boundary'));
+        const ZONE_EXCLUDE_FOR_SIBLINGS = null;
 
         const ZONE_GREEN_STYLE = {
             strokeColor: '#2e7d32',
@@ -268,7 +276,38 @@
         let lastPolygon = null;
         let polygons = [];
         let parentBoundaryPolygon = null;
+        let siblingBoundaryPolygons = [];
         let currentLocationMarker = null;
+
+        function clearSiblingBoundaryOverlays() {
+            if (siblingBoundaryPolygons.length) {
+                siblingBoundaryPolygons.forEach(function (p) {
+                    p.setMap(null);
+                });
+            }
+            siblingBoundaryPolygons = [];
+        }
+
+        function buildParentGeometryUrl(zoneId) {
+            let u = ZONE_PARENT_GEO_URL + '/' + zoneId;
+            if (ZONE_EXCLUDE_FOR_SIBLINGS) {
+                u += '?exclude_zone=' + encodeURIComponent(ZONE_EXCLUDE_FOR_SIBLINGS);
+            }
+            return u;
+        }
+
+        window.initZoneParentSelect2Once = function () {
+            const $sel = $('#zone-parent-select');
+            if (!$sel.length || $sel.data('select2')) {
+                return;
+            }
+            $sel.select2({
+                width: '100%',
+                placeholder: @json(translate('No_parent_root_zone')),
+                allowClear: true,
+                dropdownParent: $('body'),
+            });
+        };
 
         function addCurrentLocationControl() {
             if (!map) return;
@@ -322,6 +361,7 @@
             if (!map) {
                 return;
             }
+            clearSiblingBoundaryOverlays();
             if (parentBoundaryPolygon) {
                 parentBoundaryPolygon.setMap(null);
                 parentBoundaryPolygon = null;
@@ -329,23 +369,47 @@
             if (!zoneId) {
                 return;
             }
-            $.getJSON(ZONE_PARENT_GEO_URL + '/' + zoneId)
+            $.getJSON(buildParentGeometryUrl(zoneId))
                 .done(function (data) {
-                    if (!data.paths || !data.paths.length) {
-                        toastr.warning(@json(translate('Parent_zone_has_no_drawn_boundary')));
-                        return;
-                    }
-                    parentBoundaryPolygon = new google.maps.Polygon({
-                        paths: data.paths,
-                        strokeColor: '#1a7f37',
-                        strokeOpacity: 0.95,
-                        strokeWeight: 2,
-                        fillColor: '#1a7f37',
-                        fillOpacity: 0.12,
-                        clickable: false,
-                        zIndex: 1,
+                    const hasSiblings = data.siblings && data.siblings.some(function (s) {
+                        return s.paths && s.paths.length;
                     });
-                    parentBoundaryPolygon.setMap(map);
+                    if (!data.paths || !data.paths.length) {
+                        if (!hasSiblings) {
+                            toastr.warning(@json(translate('Parent_zone_has_no_drawn_boundary')));
+                        }
+                    } else {
+                        parentBoundaryPolygon = new google.maps.Polygon({
+                            paths: data.paths,
+                            strokeColor: '#2e7d32',
+                            strokeOpacity: 0.95,
+                            strokeWeight: 2,
+                            fillColor: '#43a047',
+                            fillOpacity: 0.14,
+                            clickable: false,
+                            zIndex: 1,
+                        });
+                        parentBoundaryPolygon.setMap(map);
+                    }
+                    if (data.siblings && Array.isArray(data.siblings)) {
+                        data.siblings.forEach(function (sib) {
+                            if (!sib.paths || !sib.paths.length) {
+                                return;
+                            }
+                            const poly = new google.maps.Polygon({
+                                paths: sib.paths,
+                                strokeColor: '#6a1b9a',
+                                strokeOpacity: 0.95,
+                                strokeWeight: 2,
+                                fillColor: '#8e24aa',
+                                fillOpacity: 0.2,
+                                clickable: false,
+                                zIndex: 2,
+                            });
+                            poly.setMap(map);
+                            siblingBoundaryPolygons.push(poly);
+                        });
+                    }
                 })
                 .fail(function () {
                     toastr.warning(@json(translate('Could_not_load_parent_zone_boundary')));
@@ -1074,6 +1138,9 @@
             btn.addEventListener('click', function () {
                 wrapper.classList.remove('d-none');
                 btn.classList.add('d-none');
+                if (typeof window.initZoneParentSelect2Once === 'function') {
+                    window.initZoneParentSelect2Once();
+                }
                 // Google Maps sometimes renders incorrectly when initialized while hidden.
                 if (typeof google !== 'undefined' && google?.maps?.event && typeof map !== 'undefined' && map) {
                     google.maps.event.trigger(map, 'resize');
