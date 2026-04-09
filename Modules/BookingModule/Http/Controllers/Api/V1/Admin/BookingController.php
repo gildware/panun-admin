@@ -162,7 +162,7 @@ class BookingController extends Controller
         $booking = $this->booking->where('id', $booking_id)->first();
 
         if (isset($booking)) {
-            if (! booking_admin_status_transition_allowed((string) $booking->booking_status, (string) $request['booking_status'])) {
+            if (! booking_admin_status_transition_allowed_for_booking($booking, (string) $booking->booking_status, (string) $request['booking_status'])) {
                 return response()->json(response_formatter([
                     'response_code' => 'default_400',
                     'message' => translate('Invalid_booking_status_transition'),
@@ -183,6 +183,9 @@ class BookingController extends Controller
             }
             $previousParentStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
+            if ($request['booking_status'] === 'completed') {
+                $booking->reopen_completion_allowed = false;
+            }
 
             $booking_status_history = $this->booking_status_history;
             $booking_status_history->booking_id = $booking_id;

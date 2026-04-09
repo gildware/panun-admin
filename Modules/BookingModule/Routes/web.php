@@ -66,6 +66,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
         Route::post('reopen/{id}', [BookingController::class, 'reopenFromCompleted'])->name('reopen');
         Route::post('reopen-resolve/{id}', [BookingController::class, 'resolveReopenTicket'])->name('reopen-resolve');
+        Route::post('reopen-resolve-complete/{id}', [BookingController::class, 'resolveReopenAndComplete'])->name('reopen-resolve-complete');
+        Route::post('reopen-scenario/allow-completion/{id}', [BookingController::class, 'reopenScenarioAllowCompletion'])->name('reopen_scenario.allow_completion');
+        Route::post('reopen-scenario/disputed-refund/{id}', [BookingController::class, 'reopenScenarioDisputedRefund'])->name('reopen_scenario.disputed_refund');
 
         Route::delete('delete/{id}', [BookingController::class, 'destroy'])->name('delete');
 

@@ -29,8 +29,8 @@
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
                 </div>
-                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3">
-                    <div class="d-flex flex-wrap gap-3">
+                <div class="d-flex flex-wrap flex-xxl-nowrap gap-3 ms-auto align-items-end align-items-xxl-center">
+                    <div class="d-flex flex-wrap gap-3 justify-content-end">
 {{--                        @if ($booking['payment_method'] == 'offline_payment' && !$booking['is_paid'])--}}
 {{--                            <span class="btn btn--primary offline-payment" data-id="{{ $booking->id }}">--}}
 {{--                                <span class="material-icons">done</span>{{ translate('Verify Offline Payment') }}--}}
@@ -127,20 +127,29 @@
                                                 action="{{ route('admin.booking.verification-status', [$booking->id]) }}">
                                                 @csrf
                                                 <div class="c1-light-bg p-4 rounded">
-                                                    <div class="form-check form-check-inline">
-                                                        <input class="form-check-input approve-request" checked
-                                                            type="radio" name="status" id="inlineRadio1" value="approve">
-                                                        <label class="form-check-label"
-                                                            for="inlineRadio1">{{ translate('Approve the Request') }}</label>
+                                                    <h5 class="mb-3">{{ translate('Request Status') }}</h5>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <div class="form-check-inline">
+                                                            <input class="form-check-input approve-request" checked
+                                                                type="radio" name="status" id="changeReqStatusApprove--{{ $booking->id }}"
+                                                                value="approve">
+                                                            <label class="form-check-label"
+                                                                for="changeReqStatusApprove--{{ $booking->id }}">{{ translate('Approve the Request') }}</label>
+                                                        </div>
+                                                        <div class="form-check-inline">
+                                                            <input class="form-check-input deny-request" type="radio"
+                                                                name="status" id="changeReqStatusDeny--{{ $booking->id }}"
+                                                                value="deny">
+                                                            <label class="form-check-label"
+                                                                for="changeReqStatusDeny--{{ $booking->id }}">{{ translate('Deny the Request') }}</label>
+                                                        </div>
                                                     </div>
-                                                    <div class="form-check form-check-inline">
-                                                        <input class="form-check-input deny-request" type="radio"
-                                                            name="status" id="inlineRadio2" value="cancel">
-                                                        <label class="form-check-label"
-                                                            for="inlineRadio2">{{ translate('Cancel Booking') }}</label>
+                                                    <div class="mt-4 cancellation-note" style="display: none;">
+                                                        <textarea class="form-control h-69px" placeholder="{{ translate('Cancellation Note') }}" name="booking_deny_note"
+                                                            id="changeReqDenyNote--{{ $booking->id }}"></textarea>
                                                     </div>
                                                 </div>
-                                                <div class="modal-footer text-center justify-content-center border-0">
+                                                <div class="d-flex justify-content-center mt-4">
                                                     <button type="submit"
                                                         class="btn btn--primary">{{ translate('submit') }}</button>
                                                 </div>
@@ -190,8 +199,6 @@
                                     data-bs-target="#reopenResolveModal--{{ $booking->id }}">
                                     <span class="material-icons">check_circle</span>{{ translate('Mark_reopen_resolved') }}
                                 </button>
-                            @elseif($booking->isOpenReopenTicket())
-                                <span class="badge bg-info text-dark">{{ translate('Complete_booking_then_mark_resolved') }}</span>
                             @endif
                         @endcan
                     </div>
@@ -204,13 +211,36 @@
                 'formId' => 'reopenResolveForm--' . $booking->id,
                 'formAction' => route('admin.booking.reopen-resolve', $booking->id),
             ])
-            @if($errors->has('reopen_resolve_remarks'))
+            @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
+                @include('bookingmodule::admin.booking.partials._reopen-scenarios-modal')
+            @endif
+            @php
+                $__reopenErrResolve = $errors->has('reopen_resolve_remarks');
+                $__reopenErrResolveComplete = $errors->has('reopen_resolve_complete_remarks');
+                $__reopenErrDispute = $errors->has('reopen_dispute_remarks')
+                    || $errors->has('refund_company_amount')
+                    || $errors->has('refund_provider_amount')
+                    || $errors->has('refund_company_transaction_id')
+                    || $errors->has('refund_provider_transaction_id')
+                    || $errors->has('final_net_to_customer')
+                    || $errors->has('final_admin_commission')
+                    || $errors->has('final_provider_earning');
+            @endphp
+            @if($__reopenErrResolve || $__reopenErrResolveComplete || $__reopenErrDispute)
                 @push('script')
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
-                            var el = document.getElementById('reopenResolveModal--{{ $booking->id }}');
-                            if (el && window.bootstrap && bootstrap.Modal) {
-                                bootstrap.Modal.getOrCreateInstance(el).show();
+                            if (window.bootstrap && bootstrap.Modal) {
+                                @if($__reopenErrDispute)
+                                    var d = document.getElementById('reopenDisputeModal--{{ $booking->id }}');
+                                    if (d) bootstrap.Modal.getOrCreateInstance(d).show();
+                                @elseif($__reopenErrResolveComplete)
+                                    var c = document.getElementById('reopenResolveCompleteModal--{{ $booking->id }}');
+                                    if (c) bootstrap.Modal.getOrCreateInstance(c).show();
+                                @elseif($__reopenErrResolve)
+                                    var el = document.getElementById('reopenResolveModal--{{ $booking->id }}');
+                                    if (el) bootstrap.Modal.getOrCreateInstance(el).show();
+                                @endif
                             }
                         });
                     </script>
@@ -505,7 +535,6 @@
                                                         @if($booking['booking_status'] != 'canceled')
                                                             <div class="d-flex flex-column gap-2 mt-4">
                                                                 <button class="btn badge-info w-100 py-3 switch-to-cash-after-service">{{ translate('Switch to Cash after Service') }}</button>
-                                                                <button class="btn badge-danger w-100 py-3 change-booking-status">{{ translate('Cancel Booking') }}</button>
                                                             </div>
                                                         @endif
                                                     @endif
@@ -516,7 +545,6 @@
                                                     @if($booking['booking_status'] != 'canceled')
                                                         <div class="d-flex flex-column gap-2 mt-4">
                                                             <button class="btn badge-info w-100 py-3 switch-to-cash-after-service">{{ translate('Switch to Cash after Service') }}</button>
-                                                            <button class="btn badge-danger w-100 py-3 change-booking-status">{{ translate('Cancel Booking') }}</button>
                                                         </div>
                                                     @endif
                                                 @endif
@@ -951,12 +979,6 @@
                     toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to store feedback') }}');
                 }
             });
-        });
-
-        $(".change-booking-status").on('click', function() {
-            var booking_status = 'canceled';
-            var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
-            update_booking_details(route, '{{ translate('want_to_cancel_booking_status') }}', 'booking_status', booking_status);
         });
 
         $(".switch-to-cash-after-service").on('click', function() {

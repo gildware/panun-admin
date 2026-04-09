@@ -335,15 +335,17 @@
                                                                     {{ translate('download_invoice') }}
                                                                 </a>
                                                             </li>
+                                                            @if(isset($upComing['booking_status']) && booking_admin_status_transition_allowed($upComing['booking_status'], 'on_hold'))
                                                             <li>
                                                                 <button type="button"
                                                                         data-bs-toggle="modal"
-                                                                        data-bs-target="#upcomingCancelModal-{{ $upComing['id'] }}"
+                                                                        data-bs-target="#upcomingHoldModal-{{ $upComing['id'] }}"
                                                                         class="dropdown-item d-flex align-items-center gap-1 {{ env('APP_ENV') != 'demo' ? '' : 'demo_check' }}">
-                                                                    <span class="material-icons">cancel</span>
-                                                                    {{ translate('cancel') }}
+                                                                    <span class="material-icons">pause_circle</span>
+                                                                    {{ translate('Put_on_hold') }}
                                                                 </button>
                                                             </li>
+                                                            @endif
                                                         </ul>
                                                     </div>
                                                 </div>
@@ -351,23 +353,23 @@
                                         </div>
                                     </div>
 
-                                    <div class="modal fade" id="upcomingCancelModal-{{ $upComing['id'] }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal fade" id="upcomingHoldModal-{{ $upComing['id'] }}" tabindex="-1" aria-hidden="true">
                                         <div class="modal-dialog modal-dialog-centered">
                                             <div class="modal-content">
                                                 <form method="post" action="{{ route('admin.booking.up_coming_booking_cancel', [$upComing['id']]) }}">
                                                     @csrf
-                                                    <input type="hidden" name="booking_status" value="canceled">
+                                                    <input type="hidden" name="booking_status" value="on_hold">
                                                     <div class="modal-header border-0">
-                                                        <h5 class="modal-title">{{ translate('Cancel_Booking') }}</h5>
+                                                        <h5 class="modal-title">{{ translate('Put_on_hold') }}</h5>
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                                                     </div>
                                                     <div class="modal-body pt-0">
-                                                        <p class="small text-muted mb-3">{{ translate('want_to_cancel_this_booking') }}?</p>
+                                                        <p class="small text-muted mb-3">{{ translate('want_to_update_status') }}</p>
                                                         <div class="mb-3">
-                                                            <label class="form-label">{{ translate('Cancellation_reason') }} <span class="text-danger">*</span></label>
-                                                            <select name="booking_cancellation_reason_id" class="form-select" required>
+                                                            <label class="form-label">{{ translate('Hold_reason') }} <span class="text-danger">*</span></label>
+                                                            <select name="booking_hold_reopen_reason_id" class="form-select" required>
                                                                 <option value="">{{ translate('Select') }}</option>
-                                                                @foreach($bookingCancellationReasons ?? [] as $r)
+                                                                @foreach($bookingHoldReasons ?? [] as $r)
                                                                     <option value="{{ $r->id }}">{{ $r->name }}</option>
                                                                 @endforeach
                                                             </select>
@@ -379,7 +381,7 @@
                                                     </div>
                                                     <div class="modal-footer border-0">
                                                         <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
-                                                        <button type="submit" class="btn btn--danger">{{ translate('Confirm') }}</button>
+                                                        <button type="submit" class="btn btn--primary">{{ translate('Confirm') }}</button>
                                                     </div>
                                                 </form>
                                             </div>
@@ -420,43 +422,30 @@
                             <div class="mt-3">
                                 @can('booking_can_manage_status')
                                     <div class="mt-3">
-                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}">
-                                            @if ($booking->booking_status != 'pending')
-                                                @if ($booking->booking_status == 'accepted')
-                                                    <option value="0" disabled
-                                                        {{ $booking['booking_status'] == 'accepted' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Accepted') }}</option>
-                                                @elseif($booking->booking_status == 'ongoing')
-                                                    <option value="0" disabled
-                                                        {{ $booking['booking_status'] == 'ongoing' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Ongoing') }}</option>
-                                                @elseif($booking->booking_status == 'canceled')
-                                                    <option value="0" disabled
-                                                        {{ $booking['booking_status'] == 'canceled' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Canceled') }}</option>
-                                                @endif
-                                                @if ($booking->booking_status != 'completed'
-                                                    && isset($booking->nextService)
-                                                    && !$booking->nextService['is_paid']
-                                                    && $booking->nextService['payment_method'] == 'cash_after_service')
-                                                    <option value="canceled"
-                                                        {{ $booking->booking_status == 'canceled' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('Canceled') }}
-                                                    </option>
-                                                @elseif($booking->booking_status == 'completed')
-                                                    <option value="completed"
-                                                        {{ $booking->booking_status == 'completed' ? 'selected' : '' }}>
-                                                        {{ translate('Booking_Status') }}: {{ translate('completed') }}
-                                                    </option>
-                                                @endif
-                                            @else{
-                                            <option value="0"
-                                                {{ $booking['booking_status'] == 'pending' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('pending') }}</option>
-                                            <option value="canceled"
-                                                {{ $booking['booking_status'] == 'canceled' ? 'selected' : '' }}>
-                                                {{ translate('Booking_Status') }}: {{ translate('Canceled') }}</option>
-                                            @endif
+                                        @php
+                                            $__slStatusNext = booking_admin_allowed_next_statuses_for_booking($booking);
+                                            $maxBookingAmountSl = business_config('max_booking_amount', 'booking_setup')->live_values ?? 0;
+                                            $__slStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && $booking->total_booking_amount >= $maxBookingAmountSl;
+                                        @endphp
+                                        <select class="js-select without-search" id="booking_status" data-current="{{ $booking->booking_status }}" data-can-complete="{{ booking_can_be_completed($booking) ? '1' : '0' }}">
+                                            <option value="0" disabled selected>{{ translate('Booking_Status') }}: {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}</option>
+                                            @foreach ($__slStatusNext as $__selSt)
+                                                @php
+                                                    $__slOptDisabled = $__slStatusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                                    if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
+                                                        $__slOptDisabled = true;
+                                                    }
+                                                    $__slOptLabel = match ($__selSt) {
+                                                        'accepted' => translate('Accept_Booking'),
+                                                        'pending' => translate('Mark_as_Pending'),
+                                                        'ongoing' => translate('Mark_as_Ongoing'),
+                                                        'on_hold' => translate('Put_on_hold'),
+                                                        'completed' => translate('Complete_Booking'),
+                                                        default => ucwords(str_replace('_', ' ', $__selSt)),
+                                                    };
+                                                @endphp
+                                                <option value="{{ $__selSt }}" @if($__slOptDisabled) disabled @endif>{{ $__slOptLabel }}</option>
+                                            @endforeach
                                         </select>
                                     </div>
                                 @endcan
@@ -932,13 +921,8 @@
                     return;
                 }
                 var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
-                if (booking_status === 'canceled') {
-                    update_booking_details(route, '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}', 'booking_status',
-                        booking_status, '{{ translate('Are you sure you want to cancel the entire booking?') }}');
-                } else {
-                    update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status',
-                        booking_status);
-                }
+                update_booking_details(route, '{{ translate('want_to_update_status') }}', 'booking_status',
+                    booking_status);
             } else {
                 toastr.error('{{ translate('choose_proper_status') }}');
             }
