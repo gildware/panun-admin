@@ -1405,6 +1405,10 @@
                                                     ['created_at', 'asc'],
                                                     ['id', 'asc'],
                                                 ])
+                                                ->values()
+                                                ->filter(function ($pp) {
+                                                    return round((float) ($pp->paid_amount ?? 0), 2) != 0.0;
+                                                })
                                                 ->values();
                                             $installmentPayableCap = get_booking_payable_total_for_partial_dues($booking);
                                             $installmentRunningPaid = 0.0;

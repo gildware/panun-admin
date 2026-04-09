@@ -454,7 +454,7 @@ class CustomerController extends Controller
 
         $customer = $this->user->where(['id' => $id])->with(['bookings', 'addresses', 'reviews'])->first();
         $totalBookingPlaced = $this->booking->where(['customer_id' => $id])->count();
-        $totalBookingAmount = $this->booking->where(['customer_id' => $id])->sum('total_booking_amount');
+        $totalBookingAmount = sum_customer_bookings_payable_grand_total($id);
         $completeBookings = $this->booking->where(['customer_id' => $id, 'booking_status' => 'completed'])->count();
         $canceledBookings = $this->booking->where(['customer_id' => $id, 'booking_status' => 'canceled'])->count();
         $ongoingBookings = $this->booking->where(['customer_id' => $id, 'booking_status' => 'ongoing'])->count();
@@ -833,7 +833,7 @@ class CustomerController extends Controller
 
         if ($webPage === 'overview') {
             $customer = $this->user->inCustomerDirectory()->with(['account', 'addresses'])->withCount(['bookings'])->find($id);
-            $totalBookingAmount = $this->booking->where('customer_id', $id)->sum('total_booking_amount');
+            $totalBookingAmount = sum_customer_bookings_payable_grand_total($id);
 
             $booking_overview = DB::table('bookings')->where('customer_id', $id)
                 ->select('booking_status', DB::raw('count(*) as total'))
@@ -869,7 +869,7 @@ class CustomerController extends Controller
             $search = $request->has('search') ? $request['search'] : '';
             $queryParam = ['web_page' => $webPage, 'search' => $search];
 
-            $bookings = $this->booking->with(['provider.owner'])
+            $bookings = $this->booking->with(['provider.owner', 'extra_services'])
                 ->where('customer_id', $id)
                 ->where(function ($query) use ($request) {
                     $keys = explode(' ', $request['search']);
@@ -920,6 +920,7 @@ class CustomerController extends Controller
             ];
             $paymentTransactions = collect();
             $bookingReportRows = collect();
+            $ledgerRowsForCustomer = collect();
 
             if (!empty($bookingIds)) {
                 $allBookings = $this->booking->with(['booking_partial_payments', 'extra_services'])
@@ -958,56 +959,10 @@ class CustomerController extends Controller
 
                 $bookingMap = $allBookings->keyBy('id');
 
-                $partials = DB::table('booking_partial_payments')
-                    ->whereIn('booking_id', $bookingIds)
-                    ->where('paid_amount', '>', 0)
-                    ->orderByDesc('created_at')
-                    ->get();
+                $ledgerRowsForCustomer = admin_ledger_company_counterparty_for_customer_bookings($bookingIds);
 
-                foreach ($partials as $partial) {
-                    $receivedBy = $partial->received_by ?: 'company';
-                    $flow = $receivedBy === 'provider' ? 'customer_paid_to_provider' : 'customer_paid_to_company';
-                    $mapRow = $bookingMap->get($partial->booking_id);
-                    $paymentTransactions->push((object) [
-                        'date' => $partial->created_at,
-                        'booking_id' => $partial->booking_id,
-                        'booking_readable_id' => ($mapRow?->readable_id) ?? $partial->booking_id,
-                        'flow' => $flow,
-                        'amount' => (float) $partial->paid_amount,
-                        'channel' => (string) ($partial->paid_with ?? 'N/A'),
-                        'transaction_id' => (string) ($partial->transaction_id ?? ''),
-                        'source' => 'partial_payment',
-                    ]);
-                }
-
-                $refundRows = LedgerTransaction::query()
-                    ->whereIn('booking_id', $bookingIds)
-                    ->where('type', LedgerTransaction::TYPE_OUT)
-                    ->where('reason', LedgerTransaction::REASON_REFUND)
-                    ->where('amount', '>', 0)
-                    ->orderByDesc('date')
-                    ->orderByDesc('created_at')
-                    ->get(['booking_id', 'amount', 'transaction_id', 'date', 'created_at']);
-
-                foreach ($refundRows as $refund) {
-                    $mapRow = $bookingMap->get($refund->booking_id);
-                    $paymentTransactions->push((object) [
-                        'date' => $refund->date ?? $refund->created_at,
-                        'booking_id' => $refund->booking_id,
-                        'booking_readable_id' => ($mapRow?->readable_id) ?? $refund->booking_id,
-                        'flow' => 'company_paid_to_customer',
-                        'amount' => (float) $refund->amount,
-                        'channel' => 'refund',
-                        'transaction_id' => (string) ($refund->transaction_id ?? ''),
-                        'source' => 'ledger_refund',
-                    ]);
-                }
+                $paymentTransactions = admin_merged_payment_events_for_customer_bookings($bookingIds, $bookingMap);
             }
-
-            $paymentTransactions = $paymentTransactions
-                ->filter(fn ($row) => (float) ($row->amount ?? 0) > 0)
-                ->sortByDesc(fn ($row) => strtotime((string) $row->date))
-                ->values();
 
             $perPage = 20;
             $page = (int) ($request->get('page', 1));
@@ -1019,6 +974,17 @@ class CustomerController extends Controller
                 ['path' => $request->url(), 'pageName' => 'page']
             );
             $paginatedTransactions->withQueryString();
+
+            $ledgerPerPage = 20;
+            $ledgerPage = max(1, (int) $request->get('ledger_page', 1));
+            $paginatedLedger = new \Illuminate\Pagination\LengthAwarePaginator(
+                $ledgerRowsForCustomer->forPage($ledgerPage, $ledgerPerPage)->values(),
+                $ledgerRowsForCustomer->count(),
+                $ledgerPerPage,
+                $ledgerPage,
+                ['path' => $request->url(), 'pageName' => 'ledger_page']
+            );
+            $paginatedLedger->withQueryString();
 
             $reportPerPage = 20;
             $reportPage = max(1, (int) $request->get('report_page', 1));
@@ -1038,6 +1004,7 @@ class CustomerController extends Controller
                 'webPage',
                 'totals',
                 'paginatedTransactions',
+                'paginatedLedger',
                 'paginatedBookingReport',
                 'pendingBadDebtLossMaking'
             ));

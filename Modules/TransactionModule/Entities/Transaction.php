@@ -16,13 +16,53 @@ class Transaction extends Model
 {
     use HasFactory, HasUuid;
 
+    public const FLOW_IN = 'IN';
+
+    public const FLOW_OUT = 'OUT';
+
+    /** Direct customer ↔ provider (or other non-company) movement. */
+    public const FLOW_NONE = 'NONE';
+
     protected $casts = [
         'debit' => 'float',
         'credit' => 'float',
         'balance' => 'float',
     ];
 
-    protected $fillable = ['ref_trx_id', 'booking_id', 'booking_repeat_id', 'trx_type', 'debit', 'credit', 'balance', 'from_user_id', 'to_user_id', 'from_user_account', 'to_user_account', 'reference_note'];
+    protected $fillable = ['ref_trx_id', 'booking_id', 'booking_repeat_id', 'trx_type', 'company_flow', 'debit', 'credit', 'balance', 'from_user_id', 'to_user_id', 'from_user_account', 'to_user_account', 'reference_note'];
+
+    public function scopeWithCompanyMoneyFlow($query)
+    {
+        return $query->whereNotNull('company_flow')->whereIn('company_flow', [self::FLOW_IN, self::FLOW_OUT]);
+    }
+
+    public function scopeBookingScoped($query, array $bookingIds)
+    {
+        return $query->whereIn('booking_id', $bookingIds);
+    }
+
+    /**
+     * Only rows that represent a real payment on a booking (not wallet legs, commission, receivable mirrors, etc.).
+     * Refunds are optional: customer UI usually lists refunds from ledger; pass true for provider booking log.
+     */
+    public function scopeWhereBookingPaymentEvent($query, bool $includeBookingRefund = false)
+    {
+        return $query->where(function ($q) use ($includeBookingRefund) {
+            $q->where('trx_type', TRX_TYPE['cross_party_booking_payment'])
+                ->orWhere(function ($q2) {
+                    $q2->where('trx_type', TRX_TYPE['booking_amount'])
+                        ->whereNull('ref_trx_id')
+                        ->where('credit', '>', 0)
+                        ->where(function ($q3) {
+                            $q3->where('company_flow', self::FLOW_IN)
+                                ->orWhereNull('company_flow');
+                        });
+                });
+            if ($includeBookingRefund) {
+                $q->orWhere('trx_type', TRX_TYPE['booking_refund']);
+            }
+        });
+    }
 
     public function scopeSearch($query, $keywords, array $searchColumns): mixed
     {

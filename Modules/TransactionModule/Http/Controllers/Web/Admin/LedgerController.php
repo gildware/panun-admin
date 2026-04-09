@@ -25,11 +25,13 @@ class LedgerController extends Controller
         $from = $request->get('from_date');
         $to = $request->get('to_date');
 
-        $query = LedgerTransaction::query()->with([
-            'booking' => fn ($q) => $q->select('id', 'readable_id'),
-            'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id'),
-            'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
-        ]);
+        $query = LedgerTransaction::query()
+            ->whereCompanyCounterpartyOnly()
+            ->with([
+                'booking' => fn ($q) => $q->select('id', 'readable_id'),
+                'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id'),
+                'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
+            ]);
 
         if ($from && $to) {
             $query->whereBetween('date', [
@@ -50,7 +52,7 @@ class LedgerController extends Controller
 
         $entries = $query->orderByDesc('date')->orderByDesc('created_at')->paginate(pagination_limit())->withQueryString();
 
-        $baseQuery = LedgerTransaction::query();
+        $baseQuery = LedgerTransaction::query()->whereCompanyCounterpartyOnly();
         if ($from && $to) {
             $baseQuery->whereBetween('date', [
                 Carbon::parse($from)->startOfDay()->toDateString(),

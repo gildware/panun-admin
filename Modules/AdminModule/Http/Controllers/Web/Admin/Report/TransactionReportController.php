@@ -176,20 +176,7 @@ class TransactionReportController extends Controller
             ->orderByDesc('created_at')
             ->get()
             ->map(function (LedgerTransaction $e) {
-                $flow = '';
-                if ($e->type === LedgerTransaction::TYPE_IN) {
-                    if ($e->received_by === LedgerTransaction::RECEIVED_BY_PROVIDER) {
-                        $flow = 'Customer paid to provider';
-                    } elseif ($e->received_by === LedgerTransaction::RECEIVED_BY_COMPANY) {
-                        $flow = 'Customer paid to company';
-                    }
-                } elseif ($e->type === LedgerTransaction::TYPE_OUT) {
-                    if ($e->reason === LedgerTransaction::REASON_REFUND) {
-                        $flow = 'Company paid to customer';
-                    } elseif ($e->reason === LedgerTransaction::REASON_PROVIDER_PAYOUT) {
-                        $flow = 'Provider payout';
-                    }
-                }
+                $flow = payment_counterparty_flow_arrow_text($e->counterpartyFlowKey());
 
                 return [
                     'ledger_id' => $e->id,
@@ -213,12 +200,14 @@ class TransactionReportController extends Controller
 
     protected function ledgerReportBaseQuery(Request $request): Builder
     {
-        $query = LedgerTransaction::query()->with([
-            'booking' => fn ($q) => $q->select('id', 'readable_id', 'zone_id', 'provider_id'),
-            'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id'),
-            'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
-            'provider' => fn ($q) => $q->select('id', 'company_name'),
-        ]);
+        $query = LedgerTransaction::query()
+            ->whereCompanyCounterpartyOnly()
+            ->with([
+                'booking' => fn ($q) => $q->select('id', 'readable_id', 'zone_id', 'provider_id'),
+                'bookingPartialPayment' => fn ($q) => $q->select('id', 'paid_with', 'booking_id'),
+                'creator' => fn ($q) => $q->select('id', 'first_name', 'last_name', 'email'),
+                'provider' => fn ($q) => $q->select('id', 'company_name'),
+            ]);
 
         $transactionType = $request->input('transaction_type', 'all');
         if ($transactionType === 'credit') {

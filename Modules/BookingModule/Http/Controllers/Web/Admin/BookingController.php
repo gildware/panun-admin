@@ -2481,14 +2481,13 @@ class BookingController extends Controller
     {
         $this->authorize('booking_can_manage_status');
         $validated = $request->validate([
-            'resolution' => ['required', Rule::in(['reopen_in_place', 'new_booking'])],
             'booking_hold_reopen_reason_id' => [
                 'required',
                 'integer',
                 Rule::exists('booking_hold_reopen_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)->where('kind', BookingHoldReopenReason::KIND_REOPEN)),
             ],
             'complaint_notes' => ['nullable', 'string', 'max:5000'],
-            'target_status' => ['required_if:resolution,reopen_in_place', 'nullable', Rule::in(['pending', 'accepted'])],
+            'target_status' => ['required', Rule::in(['pending', 'accepted'])],
         ]);
         $reopenReasonId = (int) $validated['booking_hold_reopen_reason_id'];
 
@@ -2496,20 +2495,7 @@ class BookingController extends Controller
         $service = app(BookingReopenService::class);
 
         try {
-            if ($validated['resolution'] === 'new_booking') {
-                session([
-                    'reopen_new_booking_draft' => [
-                        'source_booking_id' => $booking->id,
-                        'complaint_notes' => (string) ($validated['complaint_notes'] ?? ''),
-                        'booking_hold_reopen_reason_id' => $reopenReasonId,
-                    ],
-                ]);
-                Toastr::success(translate('Reopen_follow_up_redirect_to_create'));
-
-                return redirect()->route('admin.booking.create', ['from_reopen' => 1]);
-            }
-
-            $targetStatus = (string) ($validated['target_status'] ?? 'accepted');
+            $targetStatus = (string) $validated['target_status'];
             $result = $service->reopenInPlace(
                 $booking,
                 $request->user(),
@@ -5434,17 +5420,7 @@ class BookingController extends Controller
                     'booking_partial_payment_id' => $partial->id,
                 ]);
             } else {
-                ledger_record_in([
-                    'amount' => $amount,
-                    'transaction_id' => null,
-                    'booking_id' => $booking->id,
-                    'payment_method' => $inflow['ledger_payment_method'],
-                    'reference_note' => null,
-                    'date' => $date,
-                    'received_by' => LedgerTransaction::RECEIVED_BY_PROVIDER,
-                    'created_by' => auth()->id(),
-                    'booking_partial_payment_id' => $partial->id,
-                ]);
+                record_cross_party_booking_partial_transaction($booking, $amount, (string) $partial->id);
             }
 
             $totalPaid = get_booking_total_paid($booking->fresh());

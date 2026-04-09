@@ -354,7 +354,9 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>{{ translate('Date') }}</th>
+                                    <th>{{ translate('Booking_ID') }}</th>
                                     <th>{{ translate('Type') }}</th>
+                                    <th>{{ translate('Payment_ledger_column_payment_type') }}</th>
                                     <th>{{ translate('payment_method') }}</th>
                                     <th class="text-end">{{ translate('Amount') }}</th>
                                     <th>{{ translate('Transaction_ID') }}</th>
@@ -365,22 +367,27 @@
                             <tbody>
                                 @forelse($providerLedger as $entry)
                                     <tr>
-                                        <td>{{ $entry->date ? $entry->date->format('d M Y') : '—' }}</td>
+                                        <td class="text-nowrap">{{ $entry->created_at ? $entry->created_at->format('d M Y H:i') : '—' }}</td>
                                         <td>
-                                            @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT)
-                                                <span class="badge bg-danger">{{ translate('Out') }} ({{ translate('Company_sent_to_provider') }})</span>
+                                            @if($entry->booking_id && $entry->booking)
+                                                <a href="{{ route('admin.booking.details', [$entry->booking_id]) }}" class="fw-semibold text-decoration-none" target="_blank" rel="noopener noreferrer">{{ $entry->booking->readable_id ?? $entry->booking_id }}</a>
                                             @else
-                                                <span class="badge bg-success">{{ translate('In') }} ({{ translate('Company_received_from_provider') }})</span>
+                                                —
                                             @endif
                                         </td>
+                                        <td>
+                                            @if($entry->type === \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_IN)
+                                                <span class="badge bg-success">{{ translate('In') }}</span>
+                                            @else
+                                                <span class="badge bg-danger">{{ translate('Out') }}</span>
+                                            @endif
+                                        </td>
+                                        <td>{!! payment_counterparty_flow_badge_html($entry->counterpartyFlowKey()) !!}</td>
                                         <td class="text-nowrap">{{ $entry->formatPaymentMethodForDisplay() }}</td>
                                         <td class="text-end fw-semibold">{{ with_currency_symbol($entry->amount) }}</td>
                                         <td>{{ $entry->transaction_id ?: '—' }}</td>
                                         <td>
                                             {{ $entry->reference_note ?: '—' }}
-                                            @if($entry->booking_id && $entry->booking)
-                                                <br><small class="text-muted">{{ translate('Booking') }}: {{ $entry->booking->readable_id ?? $entry->booking_id }}</small>
-                                            @endif
                                             @if($entry->booking_repeat_id && $entry->repeat)
                                                 <br><small class="text-muted">{{ translate('Repeat') }}: {{ $entry->repeat->readable_id ?? $entry->booking_repeat_id }}</small>
                                             @endif
@@ -389,7 +396,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted py-4">{{ translate('No_ledger_entries') }}</td>
+                                        <td colspan="9" class="text-center text-muted py-4">{{ translate('No_ledger_entries') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -398,6 +405,68 @@
                     @if($providerLedger->hasPages())
                         <div class="d-flex justify-content-end mb-30">
                             {{ $providerLedger->links() }}
+                        </div>
+                    @endif
+
+                    <h4 class="mb-2">{{ translate('Payment_transactions_all_parties') }}</h4>
+                    <p class="text-muted small mb-3">{{ translate('Payment_transactions_booking_log_hint') }}</p>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ translate('Date') }}</th>
+                                    <th>{{ translate('Booking_ID') }}</th>
+                                    <th>{{ translate('Payment_transactions_column_company_flow') }}</th>
+                                    <th>{{ translate('Payment_ledger_column_payment_type') }}</th>
+                                    <th>{{ translate('Channel') }}</th>
+                                    <th>{{ translate('Transaction_ID') }}</th>
+                                    <th class="text-end">{{ translate('Amount') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($providerPaymentEvents as $row)
+                                    @php
+                                        $cf = (string) ($row->company_flow ?? '');
+                                        $cfLabel = match ($cf) {
+                                            \Modules\TransactionModule\Entities\Transaction::FLOW_IN => translate('Company_money_flow_in'),
+                                            \Modules\TransactionModule\Entities\Transaction::FLOW_OUT => translate('Company_money_flow_out'),
+                                            \Modules\TransactionModule\Entities\Transaction::FLOW_NONE => translate('Company_money_flow_none'),
+                                            default => '—',
+                                        };
+                                        $cfBadge = match ($cf) {
+                                            \Modules\TransactionModule\Entities\Transaction::FLOW_IN => 'bg-success',
+                                            \Modules\TransactionModule\Entities\Transaction::FLOW_OUT => 'bg-danger',
+                                            \Modules\TransactionModule\Entities\Transaction::FLOW_NONE => 'bg-secondary',
+                                            default => 'bg-light text-dark',
+                                        };
+                                        $__flowKey = (string) ($row->counterparty_flow ?? 'unknown');
+                                    @endphp
+                                    <tr>
+                                        <td class="text-nowrap">{{ $row->date ? \Illuminate\Support\Carbon::parse($row->date)->format('d M Y H:i') : '—' }}</td>
+                                        <td>
+                                            @if(!empty($row->booking_id))
+                                                <a href="{{ route('admin.booking.details', [$row->booking_id]) }}" class="fw-semibold text-decoration-none" target="_blank" rel="noopener noreferrer">{{ $row->booking_readable_id ?? $row->booking_id }}</a>
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td><span class="badge {{ $cfBadge }}">{{ $cfLabel }}</span></td>
+                                        <td>{!! payment_counterparty_flow_badge_html($__flowKey) !!}</td>
+                                        <td class="text-nowrap">{{ $row->channel }}</td>
+                                        <td>{{ $row->transaction_id ?: '—' }}</td>
+                                        <td class="text-end fw-semibold">{{ with_currency_symbol((float) $row->amount) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">{{ translate('No_data_available') }}</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($providerPaymentEvents->hasPages())
+                        <div class="d-flex justify-content-end mb-30">
+                            {{ $providerPaymentEvents->links() }}
                         </div>
                     @endif
 

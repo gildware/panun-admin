@@ -867,7 +867,7 @@
             "Booking_payment": "Booking payment",
             "Payment_received": "Payment received",
             "Provider_payout": "Provider payout",
-            "Cash_collected_from_provider": "Cash collected from provider",
+            "Cash_collected_from_provider": "Amount collected from provider",
             "Entry_by": "Entry by",
             "Advance_payment_on_booking_create": "Advance payment (booking create)",
             "Payment_Status": "Payment Status",

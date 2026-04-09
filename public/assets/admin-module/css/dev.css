@@ -5,3 +5,17 @@
 .hide-div {
     display: none;
 }
+
+/* Payment flow pills: customer / provider / company (ledger, transactions, reports) */
+.payment-flow-pill-customer {
+    background-color: #3d7bfd;
+    color: #fff;
+}
+.payment-flow-pill-provider {
+    background-color: #7c3aed;
+    color: #fff;
+}
+.payment-flow-pill-company {
+    background-color: #198754;
+    color: #fff;
+}

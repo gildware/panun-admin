@@ -54,6 +54,18 @@ class SystemMaintenanceController extends Controller
             return redirect()->route('admin.system-maintenance.data-reset.index');
         }
 
+        if ($request->input('reset_form') === 'financial') {
+            $request->validate([
+                'confirm' => 'required|in:RESET',
+            ]);
+
+            $resetService->resetFinancialRecordsOnly();
+
+            Toastr::success(translate('Financial_records_cleared_successfully'));
+
+            return redirect()->route('admin.system-maintenance.data-reset.index');
+        }
+
         $request->validate([
             'confirm' => 'required|in:RESET',
         ]);

@@ -117,7 +117,7 @@ class CustomerController extends Controller
     {
         $customer = $this->user->where(['id' => $id])->with(['bookings', 'addresses', 'reviews'])->first();
         $totalBookingPlaced = $this->booking->where(['customer_id' => $id])->count();
-        $totalBookingAmount = $this->booking->where(['customer_id' => $id])->sum('total_booking_amount');
+        $totalBookingAmount = sum_customer_bookings_payable_grand_total($id);
         $completeBookings = $this->booking->where(['customer_id' => $id, 'booking_status' => 'completed'])->count();
         $canceledBookings = $this->booking->where(['customer_id' => $id, 'booking_status' => 'canceled'])->count();
         $ongoingBookings = $this->booking->where(['customer_id' => $id, 'booking_status' => 'ongoing'])->count();
@@ -145,7 +145,7 @@ class CustomerController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $bookings = $this->booking->with(['provider.owner'])->where(['customer_id' => $id])
+        $bookings = $this->booking->with(['provider.owner', 'extra_services'])->where(['customer_id' => $id])
             ->when($request->has('string'), function ($query) use ($request) {
                 $query->where(function ($query) use ($request) {
                     $keys = explode(' ', base64_decode($request['string']));
@@ -155,6 +155,12 @@ class CustomerController extends Controller
                 });
             })
             ->orderBy('created_at', 'desc')->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+
+        $bookings->getCollection()->transform(function (Booking $booking) {
+            $booking->setAttribute('list_display_total', get_customer_booking_list_display_total($booking));
+
+            return $booking;
+        });
 
         return response()->json(response_formatter(DEFAULT_200, $bookings), 200);
     }
