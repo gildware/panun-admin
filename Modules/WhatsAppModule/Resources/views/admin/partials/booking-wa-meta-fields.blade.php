@@ -13,7 +13,7 @@
     $initialHeaderParams = array_values($initialHeaderParams);
     $previewUid = 'wa-bk-prev-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', $fieldKey);
 @endphp
-<div class="wa-booking-meta-wrap border rounded p-3 mb-2 bg-light"
+<div class="wa-booking-meta-wrap border rounded p-3 mb-2 bg-light min-w-0"
      data-field="{{ $fieldKey }}"
      data-initial-tpl="{{ $initialTpl }}"
      data-initial-body-params='@json($initialBodyParams)'
@@ -26,6 +26,10 @@
         @foreach($waTemplates as $wt)
             @php $st = strtoupper((string) ($wt->status ?? '')); @endphp
             <option value="{{ $wt->id }}"
+                    data-wa-tpl-name="{{ e($wt->name) }}"
+                    data-wa-tpl-language="{{ e((string) ($wt->language ?? '')) }}"
+                    data-wa-tpl-status="{{ e((string) ($wt->status ?? '')) }}"
+                    data-wa-tpl-category="{{ e((string) ($wt->category ?? '')) }}"
                     @selected((string) $initialTpl === (string) $wt->id)
                     @disabled($st !== 'APPROVED')>
                 {{ $wt->name }} ({{ $wt->language }}) — {{ $wt->status }}@if($wt->category) · {{ $wt->category }} @endif
