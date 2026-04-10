@@ -391,15 +391,23 @@ class BookingWhatsAppNotificationService
 
     /**
      * Sub-keys for per-status WhatsApp templates (booking_status_customer_{segment}, etc.).
+     * One admin tab per target status; order matches the booking-template UI.
      *
      * @return list<string>
      */
     public static function statusTemplateSegmentKeys(): array
     {
-        return array_merge(
-            array_column(BOOKING_STATUSES, 'key'),
-            ['reopened', 'reopen_resolved']
-        );
+        return [
+            'pending',
+            'accepted',
+            'ongoing',
+            'on_hold',
+            'completed',
+            'canceled',
+            'refunded',
+            'reopened',
+            'reopen_resolved',
+        ];
     }
 
     /**
