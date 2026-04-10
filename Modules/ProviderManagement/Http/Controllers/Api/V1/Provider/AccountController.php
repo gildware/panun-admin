@@ -147,7 +147,12 @@ class AccountController extends Controller
         $providerType = $provider?->provider_type ?? 'company';
         $validator = Validator::make($request->all(), [
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $provider->user_id,
+            'contact_person_phone' => [
+                'required',
+                'regex:/^([0-9\s\-\+\(\)]*)$/',
+                'min:8',
+                User::uniquePhoneAmongUserTypesRule((string) $provider->user_id, PROVIDER_USER_TYPES),
+            ],
             'contact_person_email' => 'required|email|unique:users,email,' . $provider->user_id,
 
             'password' => 'string|min:8',

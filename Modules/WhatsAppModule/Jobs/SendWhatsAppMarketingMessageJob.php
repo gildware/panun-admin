@@ -71,17 +71,37 @@ class SendWhatsAppMarketingMessageJob implements ShouldQueue
                 ]);
             });
 
-            $preview = '[' . translate('Marketing') . '] ' . ($template->name ?? 'template');
-            if ($bodyStrings !== []) {
+            $components = is_array($template->components) ? $template->components : [];
+            $templateRow = ['components' => $components];
+            $bodyPlan = WhatsAppCloudService::resolveBodyParameterPlanFromTemplate($templateRow);
+            $headerTextPlan = WhatsAppCloudService::resolveHeaderTextParameterPlanFromTemplate($templateRow);
+            $customerPreview = WhatsAppCloudService::renderTemplateMessageAsSeenByCustomer(
+                $templateRow,
+                [],
+                $bodyStrings,
+                null,
+                null,
+                $bodyPlan,
+                $headerTextPlan
+            );
+            $titleLine = __('lang.whatsapp_template_conversation_title', [
+                'name' => $template->name ?? 'template',
+                'language' => $template->language ?? '',
+            ]);
+            $preview = '[' . translate('Marketing') . '] ' . $titleLine;
+            if (trim($customerPreview) !== '') {
+                $preview .= "\n\n" . $customerPreview;
+            } elseif ($bodyStrings !== []) {
                 $preview .= "\n" . implode(' | ', $bodyStrings);
             }
+            $actingAdminUserId = $campaign->created_by ? (int) $campaign->created_by : null;
             try {
                 $messagePersistence->persistOutboundAutomation(
                     $message->phone_e164,
                     $preview,
                     $waId,
                     'Marketing',
-                    null,
+                    $actingAdminUserId,
                     'TEXT',
                     null
                 );

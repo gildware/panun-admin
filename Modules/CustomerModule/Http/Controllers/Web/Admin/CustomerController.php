@@ -28,6 +28,9 @@ use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\UserManagement\Entities\UserVerification;
+use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
+use Modules\WhatsAppModule\Services\LedgerPaymentWhatsAppService;
+use Modules\WhatsAppModule\Services\WhatsAppMessagePersistenceService;
 use Modules\ZoneManagement\Services\ZoneGeometryService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -198,7 +201,12 @@ class CustomerController extends Controller
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required|email|unique:users,email',
-            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
+            'phone' => [
+                'required',
+                'regex:/^([0-9\s\-\+\(\)]*)$/',
+                'min:8',
+                User::uniquePhoneAmongUserTypesRule(null, CUSTOMER_USER_TYPES),
+            ],
             'password' => 'required|min:6',
             'confirm_password' => 'same:password',
             'gender' => 'in:male,female,others',
@@ -280,7 +288,12 @@ class CustomerController extends Controller
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'nullable|email|unique:users,email',
-            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone',
+            'phone' => [
+                'required',
+                'regex:/^([0-9\s\-\+\(\)]*)$/',
+                'min:8',
+                User::uniquePhoneAmongUserTypesRule(null, CUSTOMER_USER_TYPES),
+            ],
         ]);
 
         if ($validator->fails()) {
@@ -543,11 +556,20 @@ class CustomerController extends Controller
 
         $customer = $this->user->inCustomerDirectory()->find($id);
 
+        $phoneScopedUserTypes = $customer->user_type === 'customer'
+            ? CUSTOMER_USER_TYPES
+            : PROVIDER_USER_TYPES;
+
         $request->validate([
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required|email',
-            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10',
+            'phone' => [
+                'required',
+                'regex:/^([0-9\s\-\+\(\)]*)$/',
+                'min:10',
+                User::uniquePhoneAmongUserTypesRule((string) $customer->id, $phoneScopedUserTypes),
+            ],
             'confirm_password' => !is_null($request->password) ? 'required|same:password' : '',
             'gender' => 'in:male,female,others',
             'profile_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
@@ -555,10 +577,6 @@ class CustomerController extends Controller
 
         if (User::where('email', $request['email'])->where('id', '!=', $customer->id)->exists()) {
             Toastr::error(translate('Email already taken'));
-            return back();
-        }
-        if (User::where('phone', $request['phone'])->where('id', '!=', $customer->id)->exists()) {
-            Toastr::error(translate('Phone already taken'));
             return back();
         }
 
@@ -1017,6 +1035,123 @@ class CustomerController extends Controller
         }
 
 
+    }
+
+    public function whatsappCustomerPaymentReminderPreview(string $id, Request $request): JsonResponse
+    {
+        $this->authorize('customer_update');
+
+        $customer = $this->user->inCustomerDirectory()->find($id);
+        if (!$customer) {
+            return response()->json(['ok' => false, 'error' => 'not_found'], 404);
+        }
+
+        $pending = (float) customer_pending_bad_debt_loss_making_bookings_total((string) $id);
+        $ledgerWa = app(LedgerPaymentWhatsAppService::class);
+        $vars = $ledgerWa->varsCustomerPaymentReminder($customer, $pending);
+        $preview = $ledgerWa->notifications()->previewMetaTemplateForLedgerMessage('ledger_customer_payment_reminder', $vars);
+        $errorMessage = null;
+        if (!$preview['ok']) {
+            $errorMessage = match ($preview['error']) {
+                'no_template' => translate('WhatsApp_payment_reminder_no_template'),
+                'template_inactive' => translate('whatsapp_template_not_found_or_inactive'),
+                default => translate('WhatsApp_payment_reminder_failed'),
+            };
+        }
+
+        $waTo = $ledgerWa->notifications()->customerLedgerRecipientPhoneDetail($customer);
+        $phoneDigits = $waTo['normalized_digits']
+            ?: (preg_replace('/\D+/', '', (string) ($waTo['raw'] ?? '')) ?: '');
+
+        return response()->json([
+            'ok' => $preview['ok'],
+            'error' => $preview['error'],
+            'message' => $errorMessage,
+            'body' => $preview['body'],
+            'phone' => $phoneDigits,
+            'phone_raw_profile' => (string) ($waTo['raw'] ?? ''),
+        ]);
+    }
+
+    public function whatsappCustomerPaymentReminderSend(string $id, Request $request): RedirectResponse|JsonResponse
+    {
+        $this->authorize('customer_update');
+
+        $json = $request->expectsJson();
+
+        $customer = $this->user->inCustomerDirectory()->find($id);
+        if (!$customer) {
+            if ($json) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('No_data_available'),
+                ], 404);
+            }
+            Toastr::error(translate('No_data_available'));
+            return back();
+        }
+
+        $pending = (float) customer_pending_bad_debt_loss_making_bookings_total((string) $id);
+        if ($pending <= 0.009) {
+            if ($json) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('WhatsApp_customer_payment_reminder_nothing_due'),
+                ]);
+            }
+            Toastr::warning(translate('WhatsApp_customer_payment_reminder_nothing_due'));
+            return redirect()->route('admin.customer.detail', [$id, 'web_page' => 'payments']);
+        }
+
+        $ledgerWa = app(LedgerPaymentWhatsAppService::class);
+        $waRecipientDetail = $ledgerWa->notifications()->customerLedgerRecipientPhoneDetail($customer);
+        $waRecipientLabel = $ledgerWa->notifications()->customerLedgerRecipientLabelForErrors($customer);
+        $vars = $ledgerWa->varsCustomerPaymentReminder($customer, $pending);
+        $sent = $ledgerWa->notifications()->sendConfiguredLedgerMeta(
+            'ledger_customer_payment_reminder',
+            $vars,
+            $customer->phone,
+            $request->user()?->id ? (int) $request->user()->id : null
+        );
+
+        $failMessage = __('lang.WhatsApp_payment_reminder_failed_with_recipient', [
+            'recipient' => $waRecipientLabel,
+        ]);
+        $metaRaw = $ledgerWa->notifications()->pullLedgerSendFailureDetail();
+        if (!$sent && $metaRaw) {
+            $failMessage .= ' ' . __('lang.WhatsApp_meta_api_detail_suffix', [
+                'detail' => BookingWhatsAppNotificationService::formatMetaFailureForAdmin($metaRaw),
+            ]);
+        }
+
+        $chatPhoneKey = app(WhatsAppMessagePersistenceService::class)->resolveAdminChatPhoneKey((string) ($customer->phone ?? ''));
+        $canViewChat = $request->user()?->can('whatsapp_chat_view') ?? false;
+        $chatUrl = ($sent && $chatPhoneKey !== null && $canViewChat)
+            ? route('admin.whatsapp.conversations.chat', ['phone' => $chatPhoneKey])
+            : null;
+
+        if ($json) {
+            return response()->json([
+                'ok' => $sent,
+                'message' => $sent
+                    ? translate('WhatsApp_payment_reminder_sent')
+                    : $failMessage,
+                'meta_detail' => (!$sent && $metaRaw) ? BookingWhatsAppNotificationService::formatMetaFailureForAdmin($metaRaw) : null,
+                'chat_url' => $chatUrl,
+                'show_chat_link' => $chatUrl !== null,
+                'attempted_recipient' => $waRecipientLabel,
+                'attempted_raw' => $waRecipientDetail['raw'],
+                'attempted_normalized_digits' => $waRecipientDetail['normalized_digits'],
+            ]);
+        }
+
+        if ($sent) {
+            Toastr::success(translate('WhatsApp_payment_reminder_sent'));
+        } else {
+            Toastr::warning($failMessage);
+        }
+
+        return redirect()->route('admin.customer.detail', [$id, 'web_page' => 'payments']);
     }
 
     private function resolveZoneIdForAddressCoords($lat, $lon): ?string

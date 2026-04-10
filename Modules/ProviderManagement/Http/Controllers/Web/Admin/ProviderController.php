@@ -47,11 +47,15 @@ use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Support\ProviderPhoneUpdateNormalizer;
 use Modules\ProviderManagement\Traits\PreservesAdminProviderFormDrafts;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\Transaction;
+use Modules\ProviderManagement\Services\ProviderBookingSettlementNetResolver;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
+use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
+use Modules\WhatsAppModule\Services\LedgerPaymentWhatsAppService;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
@@ -387,7 +391,7 @@ class ProviderController extends Controller
      */
     private function ownerContactPhoneTaken(string $phone, ?string $excludeUserId): bool
     {
-        $user = User::findByContactPhone($phone);
+        $user = User::findByContactPhoneScoped($phone, PROVIDER_USER_TYPES);
         if (! $user) {
             return false;
         }
@@ -395,7 +399,7 @@ class ProviderController extends Controller
             return false;
         }
 
-        return ! $user->qualifiesForCustomerToProviderUpgrade();
+        return true;
     }
 
     /**
@@ -1630,6 +1634,15 @@ class ProviderController extends Controller
                 $disputedBookingsPaginated->withQueryString();
             }
 
+            $providerPaymentLedgerContext = provider_payment_ledger_context([
+                'collect_in_total' => $ledgerManualTotals['collect_in_total'] ?? 0,
+                'payout_out_total' => $ledgerManualTotals['payout_out_total'] ?? 0,
+                'booking_settlement_net_before_ledger' => $bookingSettlementNetBeforeLedger,
+                'booking_settlement_net_after_ledger' => $bookingSettlementNet,
+                'provider_account_payable' => (float) ($provider->owner->account->account_payable ?? 0),
+                'provider_account_receivable' => (float) ($provider->owner->account->account_receivable ?? 0),
+            ]);
+
             return view('providermanagement::admin.provider.detail.payment', compact(
                 'provider',
                 'webPage',
@@ -1641,6 +1654,7 @@ class ProviderController extends Controller
                 'bookingSettlementNet',
                 'bookingSettlementNetBeforeLedger',
                 'ledgerManualTotals',
+                'providerPaymentLedgerContext',
                 'customerRefundDueTotal',
                 'bookingEarningReportPaginated',
                 'specialBookingEarningReportPaginated',
@@ -1681,6 +1695,9 @@ class ProviderController extends Controller
 
         $paid = (float) $validated['amount'];
 
+        $settlementResolver = app(ProviderBookingSettlementNetResolver::class);
+        $bookingSettlementNetBefore = $settlementResolver->resolveForProviderId((string) $provider->id)['booking_settlement_net'];
+
         try {
             recordPaymentToProvider(
                 (string) $provider->owner->id,
@@ -1694,6 +1711,15 @@ class ProviderController extends Controller
             Toastr::error($e->getMessage());
             return back();
         }
+
+        $ledgerWa = app(LedgerPaymentWhatsAppService::class);
+        $waVars = $ledgerWa->varsPaymentSentToProvider($provider, $paid, $bookingSettlementNetBefore);
+        $ledgerWa->notifications()->sendConfiguredLedgerMetaToProvider(
+            $provider,
+            'ledger_payment_sent_to_provider',
+            $waVars,
+            auth()->id() ? (int) auth()->id() : null
+        );
 
         Toastr::success(translate('Payment_recorded_successfully'));
         return redirect()->route('admin.provider.details', [$id, 'web_page' => 'payment']);
@@ -1731,15 +1757,124 @@ class ProviderController extends Controller
         AdminCompanyInflowPaymentService::validateAdvanceFollowUp($request, $choice);
         $payload = AdminCompanyInflowPaymentService::resolveLedgerPayloadForCompanyInflow($request, $choice);
 
+        $settlementResolver = app(ProviderBookingSettlementNetResolver::class);
+        $bookingSettlementNetBefore = $settlementResolver->resolveForProviderId((string) $id)['booking_settlement_net'];
+        $collected = (float) $validated['amount'];
+
         collectCashTransaction(
             $id,
-            (float) $validated['amount'],
+            $collected,
             $payload['ledger_transaction_id'],
             $payload['ledger_reference_note'],
             $payload['ledger_payment_method'],
         );
 
+        $ledgerWa = app(LedgerPaymentWhatsAppService::class);
+        $waVars = $ledgerWa->varsPaymentReceivedFromProvider($provider, $collected, $bookingSettlementNetBefore);
+        $ledgerWa->notifications()->sendConfiguredLedgerMetaToProvider(
+            $provider,
+            'ledger_payment_received_from_provider',
+            $waVars,
+            auth()->id() ? (int) auth()->id() : null
+        );
+
         Toastr::success(translate('Amount_collected_successfully'));
+        return redirect()->route('admin.provider.details', [$id, 'web_page' => 'payment']);
+    }
+
+    /**
+     * JSON preview for provider payment reminder WhatsApp (Meta template).
+     */
+    public function whatsappProviderPaymentReminderPreview(string $id, Request $request): JsonResponse
+    {
+        $this->authorize('provider_update');
+
+        $provider = $this->provider->with('owner')->find($id);
+        if (!$provider || !$provider->owner) {
+            return response()->json(['ok' => false, 'error' => 'not_found'], 404);
+        }
+
+        $net = app(ProviderBookingSettlementNetResolver::class)->resolveForProviderId((string) $id)['booking_settlement_net'];
+        $ledgerWa = app(LedgerPaymentWhatsAppService::class);
+        $vars = $ledgerWa->varsProviderPaymentReminder($provider, $net);
+        $preview = $ledgerWa->notifications()->previewMetaTemplateForLedgerMessage('ledger_provider_payment_reminder', $vars);
+        $errorMessage = null;
+        if (!$preview['ok']) {
+            $errorMessage = match ($preview['error']) {
+                'no_template' => translate('WhatsApp_payment_reminder_no_template'),
+                'template_inactive' => translate('whatsapp_template_not_found_or_inactive'),
+                default => translate('WhatsApp_payment_reminder_failed'),
+            };
+        }
+
+        $waTo = $ledgerWa->notifications()->providerLedgerRecipientPhoneDetail($provider);
+        $phoneDigits = $waTo['normalized_digits']
+            ?: (preg_replace('/\D+/', '', (string) ($waTo['raw'] ?? '')) ?: '');
+
+        return response()->json([
+            'ok' => $preview['ok'],
+            'error' => $preview['error'],
+            'message' => $errorMessage,
+            'body' => $preview['body'],
+            'phone' => $phoneDigits,
+            'phone_raw_profile' => (string) ($waTo['raw'] ?? ''),
+        ]);
+    }
+
+    public function whatsappProviderPaymentReminderSend(string $id, Request $request): RedirectResponse|JsonResponse
+    {
+        $this->authorize('provider_update');
+
+        $json = $request->expectsJson();
+
+        $provider = $this->provider->with('owner.account')->find($id);
+        if (!$provider || !$provider->owner) {
+            if ($json) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Provider_or_account_not_found'),
+                ], 404);
+            }
+            Toastr::error(translate('Provider_or_account_not_found'));
+            return back();
+        }
+
+        $ledgerWa = app(LedgerPaymentWhatsAppService::class);
+        $result = $ledgerWa->trySendProviderPaymentReminder(
+            $provider,
+            auth()->id() ? (int) auth()->id() : null
+        );
+
+        if (($result['nothing_due'] ?? false) === true) {
+            if ($json) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => $result['message'],
+                ]);
+            }
+            Toastr::warning($result['message']);
+            return redirect()->route('admin.provider.details', [$id, 'web_page' => 'payment']);
+        }
+
+        if ($json) {
+            return response()->json([
+                'ok' => $result['ok'],
+                'message' => $result['message'],
+                'meta_detail' => $result['meta_detail'],
+                'chat_url' => $result['chat_url'],
+                'show_chat_link' => $result['show_chat_link'],
+                'attempted_recipient' => $result['attempted_recipient'],
+                'attempted_raw' => $result['attempted_raw'],
+                'attempted_normalized_digits' => $result['attempted_normalized_digits'],
+            ]);
+        }
+
+        if ($result['ok']) {
+            Toastr::success($result['message']);
+        } else {
+            Toastr::warning($result['message']);
+        }
+
         return redirect()->route('admin.provider.details', [$id, 'web_page' => 'payment']);
     }
 
@@ -1870,6 +2005,31 @@ class ProviderController extends Controller
         ));
     }
 
+    /**
+     * Update the provider owner's login password (separate from the main provider edit wizard).
+     */
+    public function updateOwnerPassword(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('provider_update');
+
+        $provider = $this->provider->with('owner')->find($id);
+        if (! $provider || ! $provider->owner) {
+            Toastr::error(translate('Provider_or_account_not_found'));
+
+            return redirect()->route('admin.provider.list');
+        }
+
+        $validated = $request->validateWithBag('updateOwnerPassword', [
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $provider->owner->password = bcrypt($validated['password']);
+        $provider->owner->save();
+
+        Toastr::success(translate(DEFAULT_UPDATE_200['message']));
+
+        return redirect()->route('admin.provider.edit', [$id]);
+    }
 
     /**
      * Update the specified resource in storage.
@@ -1909,16 +2069,18 @@ class ProviderController extends Controller
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required|string|max:191',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $provider->user_id,
+            'contact_person_phone' => [
+                'required',
+                'regex:/^([0-9\s\-\+\(\)]*)$/',
+                'min:8',
+                User::uniquePhoneAmongUserTypesRule((string) $provider->user_id, PROVIDER_USER_TYPES),
+            ],
             'contact_person_email' => [
                 'nullable',
                 'email',
                 'max:191',
                 Rule::unique('users', 'email')->ignore($provider->user_id),
             ],
-
-            'password' => !is_null($request->password) ? 'string|min:8' : '',
-            'confirm_password' => !is_null($request->password) ? 'required|same:password' : '',
 
             'company_name' => 'required_if:provider_type,company|string|max:191',
             'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
@@ -1956,10 +2118,23 @@ class ProviderController extends Controller
             'zone_ids.*' => 'uuid',
             'zone_excluded_ids' => 'nullable|array',
             'zone_excluded_ids.*' => 'uuid',
+        ], [
+            'contact_person_phone.unique' => translate('The contact person phone has already been taken.'),
         ])->validate();
         } catch (ValidationException $e) {
             $this->persistProviderFormDraftAfterFailedValidation($request, $formKey);
             throw $e;
+        }
+
+        if ($request->provider_type === 'company') {
+            $alignedCompanyPhone = ProviderPhoneUpdateNormalizer::alignCompanyPhoneWithContactIfPreviouslyPaired(
+                (string) $request->provider_type,
+                $provider->company_phone,
+                $provider->contact_person_phone,
+                trim((string) $request->input('company_phone', '')),
+                trim((string) $request->input('contact_person_phone', ''))
+            );
+            $request->merge(['company_phone' => $alignedCompanyPhone]);
         }
 
         $leafZoneIds = $this->normalizedProviderLeafZoneIdsFromRequest($request);
@@ -2095,9 +2270,6 @@ class ProviderController extends Controller
         $owner->identification_type = $request->identity_type;
         if (count($identityImages) > 0) {
             $owner->identification_image = $identityImages;
-        }
-        if (!is_null($request->password)) {
-            $owner->password = bcrypt($request->password);
         }
         $owner->user_type = 'provider-admin';
 

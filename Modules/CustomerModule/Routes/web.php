@@ -27,6 +27,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('{id}/addresses', [CustomerController::class, 'addresses'])->name('addresses');
         Route::post('{id}/addresses', [CustomerController::class, 'quickStoreAddress'])->name('address-quick-store');
         Route::any('detail/{id}', [CustomerController::class, 'show'])->name('detail');
+        Route::post('detail/{id}/whatsapp/customer-payment-reminder/preview', [CustomerController::class, 'whatsappCustomerPaymentReminderPreview'])->name('detail.whatsapp.customer_payment_reminder.preview');
+        Route::post('detail/{id}/whatsapp/customer-payment-reminder/send', [CustomerController::class, 'whatsappCustomerPaymentReminderSend'])->name('detail.whatsapp.customer_payment_reminder.send');
         Route::get('edit/{id}', [CustomerController::class, 'edit'])->name('edit');
         Route::put('update/{id}', [CustomerController::class, 'update'])->name('update');
         Route::any('status-update/{id}', [CustomerController::class, 'statusUpdate'])->name('status-update');

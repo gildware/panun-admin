@@ -5,6 +5,7 @@ use Modules\TransactionModule\Http\Controllers\Web\Admin\WithdrawnController;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\WithdrawRequestController;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\TransactionController;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\LedgerController;
+use Modules\TransactionModule\Http\Controllers\Web\Admin\PendingProviderBalancesController;
 use Modules\TransactionModule\Http\Controllers\Web\Provider\WithdrawController as ProviderWithdrawnController;
 
 
@@ -16,6 +17,12 @@ Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Web\Admin','m
     });
 
     Route::get('ledger', [LedgerController::class, 'index'])->middleware(['can:ledger_view'])->name('ledger.index');
+
+    Route::get('transaction/pending-provider-balances', [PendingProviderBalancesController::class, 'index'])
+        ->name('transaction.pending_provider_balances.index');
+    Route::post('transaction/pending-provider-balances/send-reminders', [PendingProviderBalancesController::class, 'sendReminders'])
+        ->middleware(['can:provider_update'])
+        ->name('transaction.pending_provider_balances.send_reminders');
 
     Route::group(['prefix' => 'withdraw', 'as'=>'withdraw.'], function () {
         Route::group(['prefix' => 'request', 'as'=>'request.'], function () {

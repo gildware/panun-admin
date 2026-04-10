@@ -1614,6 +1614,51 @@ if (!function_exists('provider_ledger_manual_flow_totals_all_providers')) {
     }
 }
 
+if (!function_exists('provider_payment_ledger_context')) {
+    /**
+     * Normalized payment / ledger figures for provider payment UI, notifications, and templates.
+     *
+     * @param  array{
+     *     collect_in_total?: float|int|string,
+     *     payout_out_total?: float|int|string,
+     *     booking_settlement_net_before_ledger?: float|int|string,
+     *     booking_settlement_net_after_ledger?: float|int|string,
+     *     provider_account_payable?: float|int|string,
+     *     provider_account_receivable?: float|int|string
+     * }  $totals  Use values already computed on the provider payment tab (avoids duplicate queries).
+     * @return array{
+     *     amount_collected_from_provider: float,
+     *     amount_paid_to_provider: float,
+     *     booking_settlement_net_before_ledger: float,
+     *     booking_settlement_net_after_ledger: float,
+     *     balance_after_payment_collected: float,
+     *     balance_remaining_to_pay_to_provider: float,
+     *     provider_account_payable: float,
+     *     provider_account_receivable: float
+     * }
+     */
+    function provider_payment_ledger_context(array $totals): array
+    {
+        $collect = round((float) ($totals['collect_in_total'] ?? 0), 2);
+        $payout = round((float) ($totals['payout_out_total'] ?? 0), 2);
+        $netBefore = round((float) ($totals['booking_settlement_net_before_ledger'] ?? 0), 2);
+        $netAfter = round((float) ($totals['booking_settlement_net_after_ledger'] ?? 0), 2);
+        $payable = round((float) ($totals['provider_account_payable'] ?? 0), 2);
+        $receivable = round((float) ($totals['provider_account_receivable'] ?? 0), 2);
+
+        return [
+            'amount_collected_from_provider' => $collect,
+            'amount_paid_to_provider' => $payout,
+            'booking_settlement_net_before_ledger' => $netBefore,
+            'booking_settlement_net_after_ledger' => $netAfter,
+            'balance_after_payment_collected' => round(max(0.0, -$netAfter), 2),
+            'balance_remaining_to_pay_to_provider' => round(max(0.0, $netAfter), 2),
+            'provider_account_payable' => $payable,
+            'provider_account_receivable' => $receivable,
+        ];
+    }
+}
+
 if (!function_exists('booking_settlement_net_with_provider_ledger_for_provider_id')) {
     /**
      * Booking-derived settlement net adjusted by this provider’s ledger: remaining company↔provider obligation
