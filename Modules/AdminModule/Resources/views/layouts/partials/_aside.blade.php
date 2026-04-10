@@ -330,6 +330,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </a>
                     </li>
                 @endcan
+                <li>
+                    <a href="{{ route('admin.transaction.pending_provider_balances.index') }}"
+                       class="{{ request()->is('admin/transaction/pending-provider-balances') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Pending_provider_balances') }}">account_balance_wallet</span>
+                        <span class="link-title">{{ translate('Pending_provider_balances') }}</span>
+                    </a>
+                </li>
             @endcanany
             @can('report_view')
                 <li>

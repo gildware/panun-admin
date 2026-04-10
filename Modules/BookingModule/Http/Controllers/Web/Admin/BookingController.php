@@ -2630,7 +2630,6 @@ class BookingController extends Controller
             ]);
         }
 
-        $previousStatus = (string) ($booking->booking_status ?? '');
         $resolverUserId = $request->user()->id;
 
         try {
@@ -2659,22 +2658,6 @@ class BookingController extends Controller
         }
 
         $booking->refresh();
-        if ((int) ($booking->is_repeated ?? 0) === 0) {
-            try {
-                $fresh = $this->booking
-                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
-                    ->find($booking->id);
-                if ($fresh) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                        ->sendBookingStatusChange($fresh, $previousStatus);
-                }
-            } catch (\Throwable $e) {
-                Log::warning('WhatsApp booking status (reopen resolve complete) failed', [
-                    'booking_id' => $booking->id,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-        }
         try {
             app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendReopenCaseResolved($booking);
         } catch (\Throwable $e) {
@@ -3496,7 +3479,6 @@ class BookingController extends Controller
         }
 
         if ($booking->isDirty('booking_status')) {
-            $previousParentStatus = (string) $booking->getOriginal('booking_status');
             DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks) {
                 if ($booking->repeat) {
                     foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold']) as $repeat) {
@@ -3517,23 +3499,6 @@ class BookingController extends Controller
                 $booking->save();
                 $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, $remarks);
             });
-
-            if ((int) ($booking->is_repeated ?? 0) === 1) {
-                try {
-                    $fresh = $this->booking
-                        ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
-                        ->find($booking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingStatusChange($fresh, $previousParentStatus);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp booking status (repeat series parent) failed', [
-                        'booking_id' => $booking->id,
-                        'message' => $e->getMessage(),
-                    ]);
-                }
-            }
 
             return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
         }
@@ -6031,7 +5996,6 @@ class BookingController extends Controller
         ]));
 
         $config = $this->financialSettlementConfigFromValidated($validated);
-        $previousStatus = (string) $booking->booking_status;
         $service = app(BookingFinancialSettlementService::class);
 
         $bookingForDue = $this->booking->with('booking_partial_payments')->findOrFail($booking->id);
@@ -6066,23 +6030,6 @@ class BookingController extends Controller
             );
         });
 
-        if ((int) ($booking->is_repeated ?? 0) === 0) {
-            try {
-                $fresh = $this->booking
-                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
-                    ->find($booking->id);
-                if ($fresh) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                        ->sendBookingStatusChange($fresh, $previousStatus);
-                }
-            } catch (\Throwable $e) {
-                Log::warning('WhatsApp booking status (after visit cancel) failed', [
-                    'booking_id' => $booking->id,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-        }
-
         $payload = response_formatter(DEFAULT_UPDATE_200, null);
         $payload['message'] = translate('Bfs_save_and_cancel_success');
         $payload['snapshot'] = $booking->fresh()->settlement_snapshot;
@@ -6116,7 +6063,6 @@ class BookingController extends Controller
         ]));
 
         $config = $this->financialSettlementConfigFromValidated($validated);
-        $previousStatus = (string) $booking->booking_status;
         $service = app(BookingFinancialSettlementService::class);
         $outcome = $validated['settlement_outcome'];
 
@@ -6219,23 +6165,6 @@ class BookingController extends Controller
                     'response_code' => 'default_400',
                     'message' => $e->getMessage(),
                 ]), 422);
-            }
-        }
-
-        if ((int) ($booking->is_repeated ?? 0) === 0) {
-            try {
-                $fresh = $this->booking
-                    ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
-                    ->find($booking->id);
-                if ($fresh) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                        ->sendBookingStatusChange($fresh, $previousStatus);
-                }
-            } catch (\Throwable $e) {
-                Log::warning('WhatsApp booking status (financial settlement complete) failed', [
-                    'booking_id' => $booking->id,
-                    'message' => $e->getMessage(),
-                ]);
             }
         }
 

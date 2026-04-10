@@ -32,6 +32,7 @@ class WhatsAppBookingTemplateController extends Controller
             'provider-change',
             'schedule',
             'payment',
+            'ledger-payments',
             'serviceman',
             'verification',
         ];
@@ -86,6 +87,11 @@ class WhatsAppBookingTemplateController extends Controller
         })->values()->all();
 
         $placeholderHints = $placeholders;
+        $placeholderGuides = BookingWhatsAppNotificationService::allPlaceholderAdminGuidesForAdmin();
+        $placeholderDropdownModules = array_map(
+            static fn (string $langKey) => translate($langKey),
+            BookingWhatsAppNotificationService::allPlaceholderDropdownModuleLangKeysForAdmin()
+        );
         $bookingTokenKeys = array_keys($placeholders);
         $placeholderSamples = BookingWhatsAppNotificationService::allPlaceholderPreviewSamplesForAdmin();
 
@@ -96,6 +102,8 @@ class WhatsAppBookingTemplateController extends Controller
             'waTemplates',
             'waTemplatesJson',
             'placeholderHints',
+            'placeholderGuides',
+            'placeholderDropdownModules',
             'placeholderSamples',
             'bookingTokenKeys',
             'waActiveMainTab',
@@ -120,6 +128,8 @@ class WhatsAppBookingTemplateController extends Controller
             $rules[$msgKey . '_wa_header_params'] = 'nullable|array|max:32';
             $rules[$msgKey . '_wa_header_params.*'] = $tokenRule;
         }
+
+        $this->dropStaleWaHeaderMappingsBeforeValidate($request);
 
         $data = $request->validate($rules);
         $post = $request->post();
@@ -305,5 +315,36 @@ class WhatsAppBookingTemplateController extends Controller
         Toastr::success(translate('successfully_updated'));
 
         return redirect()->route('admin.whatsapp.booking-templates.edit');
+    }
+
+    /**
+     * Templates with image/video/document headers (or no header) expect zero text header variables.
+     * Clear any leftover header mappings so save validation and sends stay consistent.
+     */
+    private function dropStaleWaHeaderMappingsBeforeValidate(Request $request): void
+    {
+        $post = $request->post();
+        if (!is_array($post)) {
+            return;
+        }
+        foreach (BookingWhatsAppNotificationService::configurableMessageKeys() as $msgKey) {
+            $wk = $msgKey . '_wa_tpl_id';
+            $rawTid = $post[$wk] ?? null;
+            if ($rawTid === null || $rawTid === '') {
+                continue;
+            }
+            $tpl = WhatsAppMarketingTemplate::query()->find((int) $rawTid);
+            if (!$tpl || strtoupper((string) $tpl->status) !== 'APPROVED') {
+                continue;
+            }
+            $components = is_array($tpl->components) ? $tpl->components : [];
+            $headerPlan = WhatsAppCloudService::resolveHeaderTextParameterPlanFromTemplate(['components' => $components]);
+            $expectedHeader = ($headerPlan['format'] ?? '') === 'named'
+                ? count($headerPlan['named_param_names'] ?? [])
+                : (int) ($headerPlan['positional_count'] ?? 0);
+            if ($expectedHeader === 0) {
+                $request->merge([$msgKey . '_wa_header_params' => []]);
+            }
+        }
     }
 }

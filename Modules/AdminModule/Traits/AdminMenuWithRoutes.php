@@ -426,6 +426,13 @@ trait AdminMenuWithRoutes
                 'type' => 'menu',
             ],
             [
+                'route_name' => 'Pending_balances',
+                'uri' => 'admin/transaction/pending-provider-balances',
+                'full_route' => url('admin/transaction/pending-provider-balances'),
+                'keywords' => 'pending balances, provider collection, payment reminder',
+                'type' => 'menu',
+            ],
+            [
                 'route_name' => 'Transaction_Reports',
                 'uri' => 'admin/report/transaction?transaction_type=all',
                 'full_route' => url('admin/report/transaction?transaction_type=all'),

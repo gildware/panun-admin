@@ -36,6 +36,17 @@
                 </div>
             @endif
 
+            @if ($errors->any())
+                <div class="alert alert-danger mb-3" role="alert" id="provider-edit-server-validation-alert">
+                    <p class="fw-semibold mb-2">{{ translate('Please_review_the_following_issues') }}</p>
+                    <ul class="mb-0 ps-3">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <form action="{{route('admin.provider.update', [$provider->id])}}" method="POST" id="create-provider-form"
                   enctype="multipart/form-data" novalidate>
                 @csrf
@@ -368,7 +379,8 @@
                                         <div class="col-lg-6">
                                             <div class="form-floating form-floating__icon mb-30">
                                                 <input type="password" class="form-control" name="password"
-                                                       placeholder="{{translate('Password')}}">
+                                                       id="pass"
+                                                       placeholder="{{translate('Password')}}" autocomplete="new-password">
                                                 <label>{{translate('Password')}}</label>
                                                 <span class="material-icons">lock</span>
                                                 <span class="material-icons togglePassword __right-eye">visibility_off</span>
@@ -516,6 +528,66 @@
                     @endif
                 </section>
             </form>
+
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h4 class="c1 mb-2">{{ translate('Authentication') }}</h4>
+                    <p class="text-muted small mb-3">
+                        {{ translate('Change_the_provider_admin_login_password_separately_from_provider_details') }}
+                    </p>
+
+                    @if ($errors->updateOwnerPassword->any())
+                        <div class="alert alert-danger mb-3" role="alert">
+                            <ul class="mb-0 ps-3">
+                                @foreach ($errors->updateOwnerPassword->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <form action="{{ route('admin.provider.owner-password.update', [$provider->id]) }}" method="POST" novalidate>
+                        @csrf
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-floating form-floating__icon">
+                                    <input
+                                        type="password"
+                                        class="form-control"
+                                        name="password"
+                                        id="provider_owner_password"
+                                        minlength="8"
+                                        autocomplete="new-password"
+                                        required
+                                        placeholder="{{ translate('Password') }}">
+                                    <label for="provider_owner_password">{{ translate('Password') }}</label>
+                                    <span class="material-icons togglePassword __right-eye">visibility_off</span>
+                                    <span class="material-icons">lock</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating form-floating__icon">
+                                    <input
+                                        type="password"
+                                        class="form-control"
+                                        name="password_confirmation"
+                                        id="provider_owner_password_confirmation"
+                                        minlength="8"
+                                        autocomplete="new-password"
+                                        required
+                                        placeholder="{{ translate('Confirm_Password') }}">
+                                    <label for="provider_owner_password_confirmation">{{ translate('Confirm_Password') }}</label>
+                                    <span class="material-icons togglePassword __right-eye">visibility_off</span>
+                                    <span class="material-icons">lock</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn--primary mt-3">
+                            {{ translate('Save_changes') }}
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 @endsection
@@ -757,9 +829,13 @@
                 },
                 onFinished: function (event, currentIndex) {
                     var el = document.getElementById("create-provider-form");
-                    if (el && typeof el.submit === "function") {
-                        el.submit();
+                    if (!el || typeof el.submit !== "function") {
+                        return;
                     }
+                    if (typeof window.syncProviderWizardIntlPhoneHiddens === "function") {
+                        window.syncProviderWizardIntlPhoneHiddens(el);
+                    }
+                    el.submit();
                 }
             });
 
@@ -802,9 +878,6 @@
                     provider_type: {
                         required: true
                     },
-                    confirm_password: {
-                        equalTo: "#pass"
-                    },
                     contact_person_email: {
                         email: true
                     },
@@ -830,6 +903,7 @@
                     $(".provider-company-identity-fields").hide();
                     $formRoot.find('[name="company_name"]').prop('required', false);
                     $formRoot.find('[name="company_name"]').prop('disabled', true);
+                    $formRoot.find('#company_phone').prop('disabled', true);
                     $formRoot.find('[name="company_phone"]').prop('required', false);
                     $formRoot.find('[name="company_phone"]').prop('disabled', true);
                     $formRoot.find('[name="company_email"]').prop('required', false);
@@ -844,6 +918,7 @@
                     $(".provider-company-identity-fields").show();
                     $formRoot.find('[name="company_name"]').prop('required', true);
                     $formRoot.find('[name="company_name"]').prop('disabled', false);
+                    $formRoot.find('#company_phone').prop('disabled', false);
                     $formRoot.find('[name="company_phone"]').prop('required', true);
                     $formRoot.find('[name="company_phone"]').prop('disabled', false);
                     $formRoot.find('[name="company_email"]').prop('required', true);
@@ -879,13 +954,8 @@
                 $('#account_email').val($(this).val());
             });
 
-            $("#contact_person_phone").on("change keyup paste", function () {
-                $('#account_phone').val($(this).val());
-            });
-
-            // Set initial values.
+            // Set initial values (account block is legacy hidden markup; contact phone is in the shared partial).
             $('#account_email').val($('[name="contact_person_email"]').val());
-            $('#account_phone').val($('[name="contact_person_phone"]').val());
         });
 
         $(document).ready(function () {

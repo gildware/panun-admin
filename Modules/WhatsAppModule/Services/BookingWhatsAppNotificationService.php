@@ -13,11 +13,17 @@ use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BusinessSettingsModule\Entities\AdditionalChargeType;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\Serviceman;
+use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppMarketingTemplate;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 
 class BookingWhatsAppNotificationService
 {
+    /**
+     * Set on failed ledger/template sends so admin UIs can show Meta's real error (e.g. #132001 wrong template language).
+     */
+    protected ?string $ledgerSendFailureDetail = null;
+
     public const SETTINGS_KEY = 'whatsapp_booking_templates';
 
     public const SETTINGS_TYPE = 'whatsapp';
@@ -90,6 +96,66 @@ class BookingWhatsAppNotificationService
         '{booking_cancellation_reason}' => 'Cancellation reason (from the latest cancel action on this booking)',
         '{on_hold_reason}' => 'Put on hold — reason (from the latest hold action on this booking)',
         '{reopen_from_completed_reason}' => 'Reopen from completed — reason or notes (from reopen flow)',
+        '{provider_pending_balance}' => 'Amount provider owes the company (settlement basis; payment reminders to provider)',
+        '{provider_due_balance}' => 'Provider amount due (same value as provider pending balance; for Meta templates using provider_due_balance)',
+        '{customer_pending_balance}' => 'Amount customer still owes (loss-making / pending debit; payment reminders to customer)',
+        '{amount_received_from_provider}' => 'Amount just collected from provider (ledger IN); same value as {amount_collected_from_provider}',
+        '{amount_collected_from_provider}' => 'Amount collected from provider in this step (ledger IN)',
+        '{balance_after_payment_collected}' => 'Remaining settlement balance to collect from provider after this collection (0 if none)',
+        '{booking_settlement_net_after_collect}' => 'Booking settlement net after this collection (signed; negative means provider still owes)',
+        '{amount_sent_to_provider}' => 'Amount just sent to provider (ledger OUT)',
+        '{remaining_balance_to_collect}' => 'Same as {balance_after_payment_collected} (backward compatible)',
+        '{remaining_balance_to_send}' => 'Remaining amount to pay to provider after this payout',
+    ];
+
+    /**
+     * Long-form help for the booking-template variable picker (when to use, what is sent, which UI tab).
+     * Keys must match {@see self::PLACEHOLDER_HINTS}; dynamic additional-charge keys are appended in
+     * {@see self::allPlaceholderAdminGuidesForAdmin()}.
+     *
+     * @var array<string, string>
+     */
+    public const PLACEHOLDER_ADMIN_GUIDES = [
+        '{service_name}' => "Modules: Booking (all booking-related message tabs).\nWhen: Any template that should name the booked service.\nContains: Human-readable service name(s) for this booking.",
+        '{customer_address}' => "Modules: Booking.\nWhen: Messages to customer or provider that include where the job is.\nContains: Formatted customer/service address string from the booking.",
+        '{customer_name}' => "Modules: Booking.\nWhen: Any template mentioning the end customer.\nContains: Display name of the booking customer.",
+        '{customer_phone}' => "Modules: Booking.\nWhen: Provider-facing or internal templates that need to reach the customer.\nContains: Customer phone in stored/display format.",
+        '{provider_name}' => "Modules: Booking.\nWhen: Customer-facing booking updates, or cross-party copy.\nContains: Assigned provider (company) name.",
+        '{provider_phone}' => "Modules: Booking.\nWhen: Customer-facing templates with provider contact.\nContains: Provider phone in stored/display format.",
+        '{booking_id}' => "Modules: Booking.\nWhen: Almost all booking templates (reference in copy).\nContains: Readable booking reference/id shown in the system UI.",
+        '{booking_datetime}' => "Modules: Booking.\nWhen: Confirmations, reminders, schedule or status updates that mention timing.\nContains: Scheduled service date & time in the app’s display format.",
+        '{service_where}' => "Modules: Booking.\nWhen: Clarifying on-site vs off-site or similar.\nContains: Short label such as where service is performed.",
+        '{total_bill}' => "Modules: Booking.\nWhen: New booking, invoice, or payment-related booking messages.\nContains: Total bill for the booking, formatted with currency where applicable.",
+        '{amount_paid}' => "Modules: Booking.\nWhen: Payment change tab and any message describing money already collected on the booking.\nContains: Amount paid so far on this booking (formatted).",
+        '{due_amount}' => "Modules: Booking.\nWhen: Payment change tab and reminders about balance on the booking.\nContains: Outstanding amount still due on the booking (formatted).",
+        '{booking_status}' => "Modules: Booking.\nWhen: Status-changed templates and any update that reflects current state.\nContains: Current booking status label (e.g. Pending, Accepted).",
+        '{previous_booking_status}' => "Modules: Booking.\nWhen: Status-changed templates (before → after).\nContains: Previous status label before the latest transition.",
+        '{previous_provider_name}' => "Modules: Booking — provider reassignment.\nWhen: Provider change tab only (old vs new assignee).\nContains: Name of the provider before reassignment.",
+        '{previous_provider_phone}' => "Modules: Booking — provider reassignment.\nWhen: Provider change tab.\nContains: Phone of the provider before reassignment.",
+        '{previous_service_schedule}' => "Modules: Booking — schedule change.\nWhen: Schedule change tab (old vs new time).\nContains: Previous scheduled date & time string.",
+        '{payment_status}' => "Modules: Booking — payment updates.\nWhen: “Payment change” tab templates (paid vs unpaid messaging).\nContains: Current payment status label (e.g. Paid, Unpaid).",
+        '{previous_payment_status}' => "Modules: Booking — payment updates.\nWhen: “Payment change” tab when you need “was → now” wording.\nContains: Payment status before the latest booking payment change.",
+        '{serviceman_name}' => "Modules: Booking — serviceman assignment.\nWhen: Serviceman tab and any template naming the assigned technician.\nContains: Current serviceman display name.",
+        '{serviceman_phone}' => "Modules: Booking — serviceman assignment.\nWhen: Templates that should show how to contact the assigned serviceman.\nContains: Serviceman phone string.",
+        '{previous_serviceman_name}' => "Modules: Booking — serviceman change.\nWhen: Serviceman tab (previous vs current assignee).\nContains: Name before the last assignment change.",
+        '{previous_serviceman_phone}' => "Modules: Booking — serviceman change.\nWhen: Serviceman tab.\nContains: Phone before the last assignment change.",
+        '{verification_status}' => "Modules: Booking — verification.\nWhen: Verification tab (approved/denied etc.).\nContains: Current booking verification state label.",
+        '{previous_verification_status}' => "Modules: Booking — verification.\nWhen: Verification tab for before/after wording.\nContains: Verification state before the last change.",
+        '{verification_action}' => "Modules: Booking — verification.\nWhen: Verification tab; describes what just happened.\nContains: Last action token such as approve, deny, or cancel.",
+        '{reopen_resolve_remarks}' => "Modules: Booking — reopen resolved.\nWhen: “Reopen resolved” status segment only.\nContains: Admin/staff remarks entered when the reopen case is marked resolved.",
+        '{booking_cancellation_reason}' => "Modules: Booking.\nWhen: Cancellation or status flows that capture a reason.\nContains: Last cancellation reason text from the booking.",
+        '{on_hold_reason}' => "Modules: Booking.\nWhen: On-hold / hold-related status messaging.\nContains: Reason from the latest hold action.",
+        '{reopen_from_completed_reason}' => "Modules: Booking — reopened from completed.\nWhen: Reopen flows that store a reason.\nContains: Text from the reopen-from-completed flow.",
+        '{provider_pending_balance}' => "Modules: Payments / ledger (WhatsApp “Ledger payment messages” tab).\nWhen: Provider payment reminders — amount they still owe the company.\nContains: Formatted pending settlement due from provider to company.",
+        '{provider_due_balance}' => "Modules: Payments / ledger.\nWhen: Same as pending provider balance; use whichever token matches your approved Meta template name.\nContains: Same numeric meaning as {provider_pending_balance} (formatted).",
+        '{customer_pending_balance}' => "Modules: Payments / ledger.\nWhen: Customer-side reminders (e.g. loss / debit still owed by customer).\nContains: Formatted amount customer still owes in that context.",
+        '{amount_received_from_provider}' => "Modules: Payments / ledger.\nWhen: Confirmation after recording money received from provider (collection).\nContains: Amount collected in this ledger step (formatted). Alias meaning of {amount_collected_from_provider}.",
+        '{amount_collected_from_provider}' => "Modules: Payments / ledger.\nWhen: Same as {amount_received_from_provider} — pick the token your template defines.\nContains: Amount collected from provider in this transaction (formatted).",
+        '{balance_after_payment_collected}' => "Modules: Payments / ledger.\nWhen: After a collection — how much provider balance remains to collect.\nContains: Remaining debt to collect after this payment (0 if none). {remaining_balance_to_collect} is equivalent.",
+        '{booking_settlement_net_after_collect}' => "Modules: Payments / ledger.\nWhen: After collection — booking-level settlement snapshot.\nContains: Signed net; negative typically means provider still owes on that booking slice.",
+        '{amount_sent_to_provider}' => "Modules: Payments / ledger.\nWhen: After a payout to provider (money out).\nContains: Amount paid out in this step (formatted).",
+        '{remaining_balance_to_collect}' => "Modules: Payments / ledger.\nWhen: After partial collection — remaining collectable balance.\nContains: Same as {balance_after_payment_collected}.",
+        '{remaining_balance_to_send}' => "Modules: Payments / ledger.\nWhen: After partial payout — how much remains to send to provider.\nContains: Remaining payout due (formatted).",
     ];
 
     /**
@@ -128,6 +194,16 @@ class BookingWhatsAppNotificationService
         '{booking_cancellation_reason}' => 'Customer requested reschedule',
         '{on_hold_reason}' => 'Awaiting parts',
         '{reopen_from_completed_reason}' => 'Issue recurred after visit',
+        '{provider_pending_balance}' => '12,500.00',
+        '{provider_due_balance}' => '12,500.00',
+        '{customer_pending_balance}' => '3,200.00',
+        '{amount_received_from_provider}' => '5,000.00',
+        '{amount_collected_from_provider}' => '5,000.00',
+        '{balance_after_payment_collected}' => '7,500.00',
+        '{booking_settlement_net_after_collect}' => '-7,500.00',
+        '{amount_sent_to_provider}' => '8,000.00',
+        '{remaining_balance_to_collect}' => '7,500.00',
+        '{remaining_balance_to_send}' => '2,000.00',
     ];
 
     /**
@@ -155,6 +231,123 @@ class BookingWhatsAppNotificationService
         $ac = self::buildAdditionalChargePlaceholderData();
 
         return array_merge(self::PLACEHOLDER_HINTS, $ac['hints']);
+    }
+
+    /**
+     * Translation keys for short “module” labels in the variable dropdown (resolved in the controller/view).
+     *
+     * @return array<string, string>
+     */
+    public static function allPlaceholderDropdownModuleLangKeysForAdmin(): array
+    {
+        $out = [];
+        foreach (array_keys(self::allPlaceholderHintsForAdmin()) as $token) {
+            $out[$token] = self::dropdownModuleLangKeyForToken($token);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Long-form guides for the admin variable dropdown (parallel to {@see self::allPlaceholderHintsForAdmin()}).
+     *
+     * @return array<string, string>
+     */
+    public static function allPlaceholderAdminGuidesForAdmin(): array
+    {
+        $ac = self::buildAdditionalChargePlaceholderData();
+        $acGuides = [];
+        foreach ($ac['hints'] as $token => $label) {
+            $acGuides[$token] = "Modules: Booking (service fees on the order).\nWhen: Map this when your Meta template has a separate placeholder for this fee line.\nContains: Formatted amount for this additional charge on the current booking ({$label}).\nNot for: Ledger-only payout messages or booking payment status labels — use booking amount/payment tokens or ledger tokens instead.";
+        }
+
+        $merged = array_merge(self::PLACEHOLDER_ADMIN_GUIDES, $acGuides);
+        $out = [];
+        foreach ($merged as $token => $guide) {
+            $out[$token] = $guide."\n".self::placeholderGuideAudienceLine($token);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Who should receive messages that use this token (customer vs provider template column).
+     */
+    private static function placeholderGuideAudienceLine(string $token): string
+    {
+        $providerLedgerTokens = [
+            '{provider_pending_balance}',
+            '{provider_due_balance}',
+            '{amount_received_from_provider}',
+            '{amount_collected_from_provider}',
+            '{balance_after_payment_collected}',
+            '{booking_settlement_net_after_collect}',
+            '{remaining_balance_to_collect}',
+        ];
+        $payoutLedgerTokens = [
+            '{amount_sent_to_provider}',
+            '{remaining_balance_to_send}',
+        ];
+
+        if ($token === '{customer_pending_balance}') {
+            return 'Audience: Customer-focused ledger/reminder templates (amount the customer still owes in that settlement context). Use the Customer template column on the Ledger payment tabs.';
+        }
+        if (in_array($token, $providerLedgerTokens, true)) {
+            return 'Audience: Provider-focused ledger templates — reminders, collection receipts, and balances after money-in from the provider. Map under the Provider template column on Ledger payment tabs.';
+        }
+        if (in_array($token, $payoutLedgerTokens, true)) {
+            return 'Audience: Provider-focused ledger templates when you notify about payouts (money sent to the provider). Map under the Provider template column on Ledger payment tabs.';
+        }
+        if (str_starts_with($token, '{additional_charge_')) {
+            return 'Audience: Booking templates (Customer or Provider columns) whenever that recipient should see this extra fee line. Not for pure ledger settlement messages — use ledger tokens there.';
+        }
+
+        $customerIdentity = ['{customer_name}', '{customer_phone}', '{customer_address}'];
+        if (in_array($token, $customerIdentity, true)) {
+            return 'Audience: Mainly customer-facing messages; also provider-facing when you inform the provider about the customer’s contact or address.';
+        }
+
+        $providerIdentity = ['{provider_name}', '{provider_phone}'];
+        if (in_array($token, $providerIdentity, true)) {
+            return 'Audience: Customer templates (who will serve them) and provider templates (their own business name/phone).';
+        }
+
+        $bookingPaymentTokens = ['{payment_status}', '{previous_payment_status}', '{amount_paid}', '{due_amount}', '{total_bill}'];
+        if (in_array($token, $bookingPaymentTokens, true)) {
+            return 'Audience: Payment change tab (and related billing copy) — use Customer template column for the customer, Provider template column for the provider, depending on who receives the WhatsApp.';
+        }
+
+        return 'Audience: Choose Customer template to message the customer, or Provider template to message the provider. The token value comes from the same booking (or ledger event for ledger tokens); only the recipient changes.';
+    }
+
+    private static function dropdownModuleLangKeyForToken(string $token): string
+    {
+        if (str_starts_with($token, '{additional_charge_')) {
+            return 'WhatsApp_booking_var_module_booking_fee';
+        }
+
+        $ledgerTokens = [
+            '{provider_pending_balance}',
+            '{provider_due_balance}',
+            '{customer_pending_balance}',
+            '{amount_received_from_provider}',
+            '{amount_collected_from_provider}',
+            '{balance_after_payment_collected}',
+            '{booking_settlement_net_after_collect}',
+            '{amount_sent_to_provider}',
+            '{remaining_balance_to_collect}',
+            '{remaining_balance_to_send}',
+        ];
+        if (in_array($token, $ledgerTokens, true)) {
+            return 'WhatsApp_booking_var_module_ledger';
+        }
+
+        $paymentTokens = ['{payment_status}', '{previous_payment_status}', '{amount_paid}', '{due_amount}', '{total_bill}'];
+        if (in_array($token, $paymentTokens, true)) {
+            return 'WhatsApp_booking_var_module_booking_payment';
+        }
+
+        return 'WhatsApp_booking_var_module_booking';
     }
 
     /**
@@ -228,6 +421,10 @@ class BookingWhatsAppNotificationService
             'booking_schedule_provider',
             'booking_payment_customer',
             'booking_payment_provider',
+            'ledger_provider_payment_reminder',
+            'ledger_customer_payment_reminder',
+            'ledger_payment_received_from_provider',
+            'ledger_payment_sent_to_provider',
             'booking_serviceman_customer',
             'booking_serviceman_provider',
             'booking_verification_customer',
@@ -285,6 +482,10 @@ class BookingWhatsAppNotificationService
             'booking_schedule_provider' => "Schedule update\n\nBooking *{booking_id}* rescheduled.\n\nBefore: {previous_service_schedule}\nNow: {booking_datetime}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
             'booking_payment_customer' => "Payment update\n\nBooking *{booking_id}* payment status: {previous_payment_status} → *{payment_status}*\n\nService: {service_name}\nWhen: {booking_datetime}\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
             'booking_payment_provider' => "Payment update\n\nBooking *{booking_id}* payment status: {previous_payment_status} → *{payment_status}*\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
+            'ledger_provider_payment_reminder' => "Payment reminder\n\nHello {provider_name},\n\nPending balance: {provider_pending_balance}\n\nPlease settle at your earliest convenience.",
+            'ledger_customer_payment_reminder' => "Payment reminder\n\nHello {customer_name},\n\nOutstanding amount: {customer_pending_balance}\n\nPlease complete your payment.",
+            'ledger_payment_received_from_provider' => "Payment received\n\nThank you {provider_name}. Collected: {amount_collected_from_provider}.\n\nStill to collect (settlement): {balance_after_payment_collected}\nNet after this payment: {booking_settlement_net_after_collect}",
+            'ledger_payment_sent_to_provider' => "Payment sent\n\nHello {provider_name}, we sent you {amount_sent_to_provider}.\n\nRemaining to pay you: {remaining_balance_to_send}",
             'booking_serviceman_customer' => "Serviceman update\n\nBooking *{booking_id}* — your assigned serviceman changed.\n\nBefore: {previous_serviceman_name} ({previous_serviceman_phone})\nNow: {serviceman_name} ({serviceman_phone})\n\nWhen: {booking_datetime}\nProvider: {provider_name}",
             'booking_serviceman_provider' => "Serviceman update\n\nBooking *{booking_id}*\n\nServiceman: {previous_serviceman_name} → *{serviceman_name}*\nPhone: {serviceman_phone}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
             'booking_verification_customer' => "Booking verification\n\nBooking *{booking_id}* — action: *{verification_action}*\n\nStatus was: {previous_verification_status}\nNow: {verification_status}\n\nService: {service_name}\nWhen: {booking_datetime}",
@@ -1161,6 +1362,7 @@ class BookingWhatsAppNotificationService
         ?array $headerTextPlan = null,
         ?string $headerMediaUrl = null,
         ?string $headerMediaFormat = null,
+        ?int $actingAdminUserId = null,
     ): bool {
         $err = null;
         $graphContext = null;
@@ -1179,19 +1381,128 @@ class BookingWhatsAppNotificationService
         );
         if ($err) {
             Log::warning('WhatsApp ' . $logLabel . ' failed (Meta template)', array_merge($logCtx, ['error' => $err]));
+            $this->ledgerSendFailureDetail = $err;
 
             return false;
         }
         if (!$waId) {
+            $this->ledgerSendFailureDetail = 'missing_wa_message_id';
+
             return false;
         }
-        $preview = '[' . translate('WhatsApp_template_message_label') . '] ' . $template->name;
-        if ($bodyParameters !== []) {
-            $preview .= "\n" . implode(' | ', $bodyParameters);
+
+        $templateRow = ['components' => is_array($template->components) ? $template->components : []];
+        $resolvedBodyPlan = $bodyPlan ?? WhatsAppCloudService::resolveBodyParameterPlanFromTemplate($templateRow);
+        $resolvedHeaderPlan = $headerTextPlan ?? WhatsAppCloudService::resolveHeaderTextParameterPlanFromTemplate($templateRow);
+        $customerPreview = WhatsAppCloudService::renderTemplateMessageAsSeenByCustomer(
+            $templateRow,
+            $headerTextParameters,
+            $bodyParameters,
+            $headerMediaUrl,
+            $headerMediaFormat,
+            $resolvedBodyPlan,
+            $resolvedHeaderPlan
+        );
+        $titleLine = __('lang.whatsapp_template_conversation_title', [
+            'name' => $template->name,
+            'language' => $template->language,
+        ]);
+        if (trim($customerPreview) !== '') {
+            $persistBody = $titleLine . "\n\n" . $customerPreview;
+        } else {
+            $persistBody = $titleLine;
+            if ($bodyParameters !== []) {
+                $persistBody .= "\n" . implode(' | ', $bodyParameters);
+            }
         }
-        $this->tryPersistBookingOutbound($phone, $preview, $waId, 'TEXT', null);
+
+        $this->tryPersistBookingOutbound($phone, $persistBody, $waId, 'TEXT', null, $actingAdminUserId);
+
+        $this->ledgerSendFailureDetail = null;
 
         return true;
+    }
+
+    public function pullLedgerSendFailureDetail(): ?string
+    {
+        $detail = $this->ledgerSendFailureDetail;
+        $this->ledgerSendFailureDetail = null;
+
+        return $detail;
+    }
+
+    /**
+     * Meta sometimes repeats "(#code)" in `message`; we add the code once ourselves.
+     */
+    private static function stripMetaErrorCodePrefix(string $text): string
+    {
+        return trim(preg_replace('/^(?:\s*\(#\d+\)\s*)+/u', '', trim($text)) ?? '');
+    }
+
+    /**
+     * Turn raw Cloud API / local failure strings into text for admin toasts and JSON.
+     */
+    public static function formatMetaFailureForAdmin(?string $raw): string
+    {
+        if ($raw === null || $raw === '') {
+            return '';
+        }
+
+        $internalHints = [
+            'missing_config' => 'WhatsApp_ledger_err_missing_cloud_config',
+            'invalid_phone' => 'WhatsApp_ledger_err_invalid_phone_meta',
+            'missing_wa_message_id' => 'WhatsApp_ledger_err_no_message_id',
+        ];
+        if (isset($internalHints[$raw])) {
+            return __('lang.' . $internalHints[$raw]);
+        }
+
+        if (preg_match('/^status:\d+\s+body:(.+)$/s', $raw, $m)) {
+            $data = json_decode(trim($m[1]), true);
+            if (is_array($data) && isset($data['error']) && is_array($data['error'])) {
+                $code = $data['error']['code'] ?? null;
+                $msg = self::stripMetaErrorCodePrefix((string) ($data['error']['message'] ?? ''));
+                $details = '';
+                if (isset($data['error']['error_data']) && is_array($data['error']['error_data'])) {
+                    $d = $data['error']['error_data']['details'] ?? null;
+                    if ($d !== null && $d !== '') {
+                        $details = is_string($d) ? $d : (is_scalar($d) ? (string) $d : json_encode($d));
+                        $details = self::stripMetaErrorCodePrefix($details);
+                    }
+                }
+
+                $codePart = ($code !== null && $code !== '') ? '(#' . $code . ')' : '';
+                $is132001 = (int) $code === 132001
+                    || str_contains(mb_strtolower($msg), 'template name does not exist')
+                    || (str_contains(mb_strtolower($details), 'template name')
+                        && str_contains(mb_strtolower($details), 'does not exist'));
+
+                // Meta often puts the useful template name + locale only in `details`; concatenating
+                // `message` + `details` reads as duplicated "template name … template name".
+                if ($is132001 && $details !== '') {
+                    $body = $details;
+                } elseif ($msg !== '' && $details !== '' && $msg !== $details) {
+                    $msgLow = mb_strtolower($msg);
+                    $detLow = mb_strtolower($details);
+                    if (str_contains($msgLow, $detLow) || str_contains($detLow, $msgLow)) {
+                        $body = mb_strlen($details) >= mb_strlen($msg) ? $details : $msg;
+                    } else {
+                        $body = $msg . ' — ' . $details;
+                    }
+                } else {
+                    $body = $msg !== '' ? $msg : $details;
+                }
+
+                $summary = trim($codePart . ($codePart !== '' && $body !== '' ? ' ' : '') . $body);
+                if ($is132001) {
+                    $summary .= ' ' . __('lang.WhatsApp_hint_template_language_or_name_mismatch');
+                }
+
+                return trim($summary);
+            }
+        }
+
+        return $raw;
     }
 
     /**
@@ -1207,13 +1518,18 @@ class BookingWhatsAppNotificationService
         array $logCtx,
         ?string $headerMediaUrl = null,
         ?string $headerMediaFormat = null,
+        ?int $actingAdminUserId = null,
     ): bool {
         $tplId = (int) ($config[$waStorageKey . '_wa_tpl_id'] ?? 0);
         if ($tplId <= 0) {
+            $this->ledgerSendFailureDetail = __('lang.WhatsApp_ledger_err_not_configured');
+
             return false;
         }
         $template = WhatsAppMarketingTemplate::query()->find($tplId);
         if (!$template || strtoupper((string) $template->status) !== 'APPROVED') {
+            $this->ledgerSendFailureDetail = __('lang.WhatsApp_ledger_err_template_missing_or_not_approved');
+
             return false;
         }
         $components = is_array($template->components) ? $template->components : [];
@@ -1239,6 +1555,10 @@ class BookingWhatsAppNotificationService
                 'expected' => $expectedBody,
                 'got' => count($paramKeys),
             ]);
+            $this->ledgerSendFailureDetail = __('lang.WhatsApp_ledger_err_body_param_count', [
+                'expected' => $expectedBody,
+                'got' => count($paramKeys),
+            ]);
 
             return false;
         }
@@ -1249,10 +1569,23 @@ class BookingWhatsAppNotificationService
             $headerKeys = [];
         }
         $headerKeys = array_values($headerKeys);
+        // Media-only headers need no variables; old saves may still list header mappings—ignore them.
+        if ($expectedHeader === 0 && count($headerKeys) > 0) {
+            Log::info('WhatsApp template send: dropping unused header variable mappings (template has no text header placeholders)', [
+                'message_key' => $waStorageKey,
+                'template' => $template->name,
+                'dropped' => count($headerKeys),
+            ]);
+            $headerKeys = [];
+        }
         if (count($headerKeys) !== $expectedHeader) {
             Log::warning('WhatsApp booking Meta template header parameter count mismatch', [
                 'message_key' => $waStorageKey,
                 'template' => $template->name,
+                'expected' => $expectedHeader,
+                'got' => count($headerKeys),
+            ]);
+            $this->ledgerSendFailureDetail = __('lang.WhatsApp_ledger_err_header_param_count', [
                 'expected' => $expectedHeader,
                 'got' => count($headerKeys),
             ]);
@@ -1271,7 +1604,8 @@ class BookingWhatsAppNotificationService
             $bodyPlan,
             $headerTextPlan,
             $headerMediaUrl,
-            $headerMediaFormat
+            $headerMediaFormat,
+            $actingAdminUserId
         );
     }
 
@@ -1312,6 +1646,76 @@ class BookingWhatsAppNotificationService
             return;
         }
         $this->trySendWaTemplate($config, $messageKey, $vars, $phone, $logLabel, $logCtx);
+    }
+
+    /**
+     * Filled Meta template body for admin preview (provider/customer ledger payment messages).
+     *
+     * @param  array<string, string>  $vars
+     * @return array{ok: bool, error: ?string, body: string}
+     */
+    public function previewMetaTemplateForLedgerMessage(string $messageKey, array $vars): array
+    {
+        $config = $this->getConfig();
+        $tplId = (int) ($config[$messageKey . '_wa_tpl_id'] ?? 0);
+        if ($tplId <= 0) {
+            return ['ok' => false, 'error' => 'no_template', 'body' => ''];
+        }
+        $template = WhatsAppMarketingTemplate::query()->find($tplId);
+        if (!$template || strtoupper((string) $template->status) !== 'APPROVED') {
+            return ['ok' => false, 'error' => 'template_inactive', 'body' => ''];
+        }
+        $body = $this->synthesizeCaptionFromBookingTemplate($template, $config, $messageKey, $vars);
+
+        return ['ok' => true, 'error' => null, 'body' => $body];
+    }
+
+    /**
+     * @param  array<string, string>  $vars
+     */
+    public function sendConfiguredLedgerMeta(string $messageKey, array $vars, ?string $phoneRaw, ?int $actingAdminUserId = null): bool
+    {
+        $this->ledgerSendFailureDetail = null;
+        $config = $this->getConfig();
+        // Do not require the booking-automation master toggle: ledger/reminder sends are explicit admin actions
+        // and use the same Meta templates + Cloud API as booking messages.
+        $phone = $this->normalizePhone($phoneRaw, $config);
+        if (!$phone) {
+            $this->ledgerSendFailureDetail = __('lang.WhatsApp_phone_could_not_normalize', [
+                'raw' => (string) ($phoneRaw ?? ''),
+            ]);
+
+            return false;
+        }
+
+        $actor = $actingAdminUserId;
+        if ($actor === null && Auth::check()) {
+            $actor = (int) Auth::id();
+        }
+
+        return $this->trySendWaTemplate(
+            $config,
+            $messageKey,
+            $vars,
+            $phone,
+            'ledger ' . $messageKey,
+            ['message_key' => $messageKey],
+            null,
+            null,
+            $actor
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $vars
+     */
+    public function sendConfiguredLedgerMetaToProvider(Provider $provider, string $messageKey, array $vars, ?int $actingAdminUserId = null): bool
+    {
+        $provider->loadMissing(['owner']);
+        $config = $this->getConfig();
+        $phone = $this->resolveProviderPhone($provider, $config);
+
+        return $this->sendConfiguredLedgerMeta($messageKey, $vars, $phone, $actingAdminUserId);
     }
 
     public function templateBodyText(WhatsAppMarketingTemplate $template): string
@@ -1430,7 +1834,7 @@ class BookingWhatsAppNotificationService
         if (!$waId) {
             return;
         }
-        $this->tryPersistBookingOutbound($phone, $body, $waId, 'TEXT', null);
+        $this->tryPersistBookingOutbound($phone, $body, $waId, 'TEXT', null, null);
     }
 
     protected function tryPersistBookingOutbound(
@@ -1438,15 +1842,17 @@ class BookingWhatsAppNotificationService
         string $body,
         string $waId,
         string $messageType = 'TEXT',
-        ?string $mediaPath = null
+        ?string $mediaPath = null,
+        ?int $actingAdminUserId = null,
     ): void {
         try {
+            $actor = $actingAdminUserId ?? $this->triggerAdminId();
             $this->messagePersistence->persistOutboundAutomation(
                 $phone,
                 $body,
                 $waId,
                 'Booking',
-                $this->triggerAdminId(),
+                $actor,
                 $messageType,
                 $mediaPath
             );
@@ -1750,7 +2156,8 @@ class BookingWhatsAppNotificationService
                     $synthesized,
                     $waId,
                     $persistType,
-                    $archivedPath
+                    $archivedPath,
+                    null
                 );
 
                 return;
@@ -1867,6 +2274,82 @@ class BookingWhatsAppNotificationService
     }
 
     /**
+     * Raw + normalized digits (no +) used for provider ledger WhatsApp — same logic as {@see resolveProviderPhone()}.
+     *
+     * @return array{raw: string, normalized_digits: ?string}
+     */
+    public function providerLedgerRecipientPhoneDetail(Provider $provider): array
+    {
+        $provider->loadMissing(['owner']);
+        $raw = $provider->owner?->phone
+            ?: $provider->contact_person_phone
+            ?: $provider->company_phone;
+        $rawStr = $raw !== null && $raw !== '' ? trim((string) $raw) : '';
+        $config = $this->getConfig();
+        $normalized = $rawStr !== '' ? $this->normalizePhone($rawStr, $config) : null;
+
+        return [
+            'raw' => $rawStr,
+            'normalized_digits' => ($normalized !== null && $normalized !== '') ? $normalized : null,
+        ];
+    }
+
+    /**
+     * Human-readable line for admin error messages (API "to" is the +normalized value when present).
+     */
+    public function providerLedgerRecipientLabelForErrors(Provider $provider): string
+    {
+        return $this->formatProviderLedgerRecipientErrorLabel($this->providerLedgerRecipientPhoneDetail($provider));
+    }
+
+    /**
+     * @param  array{raw: string, normalized_digits: ?string}  $detail
+     */
+    protected function formatProviderLedgerRecipientErrorLabel(array $detail): string
+    {
+        $raw = (string) ($detail['raw'] ?? '');
+        $norm = $detail['normalized_digits'] ?? null;
+        if (is_string($norm) && $norm !== '') {
+            $line = $norm;
+            $rawDigits = preg_replace('/\D+/', '', $raw) ?? '';
+            if ($raw !== '' && $rawDigits !== $norm) {
+                $line .= ' (' . __('lang.WhatsApp_recipient_profile_source_note', ['raw' => $raw]) . ')';
+            }
+
+            return $line;
+        }
+        if ($raw !== '') {
+            return __('lang.WhatsApp_phone_could_not_normalize', ['raw' => $raw]);
+        }
+
+        return __('lang.WhatsApp_no_phone_for_reminder_recipient');
+    }
+
+    /**
+     * @return array{raw: string, normalized_digits: ?string}
+     */
+    public function customerLedgerRecipientPhoneDetail(User $customer): array
+    {
+        $rawStr = trim((string) ($customer->phone ?? ''));
+        $config = $this->getConfig();
+        $normalized = $rawStr !== '' ? $this->normalizePhone($rawStr, $config) : null;
+
+        return [
+            'raw' => $rawStr,
+            'normalized_digits' => ($normalized !== null && $normalized !== '') ? $normalized : null,
+        ];
+    }
+
+    public function customerLedgerRecipientLabelForErrors(User $customer): string
+    {
+        return $this->formatProviderLedgerRecipientErrorLabel($this->customerLedgerRecipientPhoneDetail($customer));
+    }
+
+    /**
+     * Raw phone to use for WhatsApp to a provider (Cloud API "to" field).
+     * Prefer provider-admin owner phone so admin preview and send target the same number as the login account;
+     * company_phone is often a desk/main line and may differ or not be on WhatsApp.
+     *
      * @param  array<string, mixed>  $config
      */
     protected function resolveProviderPhone(?Provider $provider, array $config): ?string
@@ -1874,9 +2357,10 @@ class BookingWhatsAppNotificationService
         if (!$provider) {
             return null;
         }
-        $raw = $provider->company_phone
+        $provider->loadMissing(['owner']);
+        $raw = $provider->owner?->phone
             ?: $provider->contact_person_phone
-            ?: $provider->owner?->phone;
+            ?: $provider->company_phone;
 
         return $this->normalizePhone($raw, $config);
     }

@@ -421,42 +421,7 @@
                     </div>
                 </div>
 
-                @if($mode === 'edit')
-                    <h4 class="c1 mb-20">{{ translate('Authentication') }}</h4>
-                    <div class="row gx-2">
-                        <div class="col-lg-6">
-                            <div class="mb-30">
-                                <div class="form-floating form-floating__icon">
-                                    <input
-                                        type="password"
-                                        class="form-control"
-                                        name="password"
-                                        id="pass"
-                                        placeholder="{{ translate('Password') }}">
-                                    <label>{{ translate('Password') }}</label>
-                                    <span class="material-icons togglePassword __right-eye">visibility_off</span>
-                                    <span class="material-icons">lock</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-lg-6">
-                            <div class="mb-30">
-                                <div class="form-floating form-floating__icon">
-                                    <input
-                                        type="password"
-                                        class="form-control"
-                                        name="confirm_password"
-                                        id="confirm_password"
-                                        placeholder="{{ translate('Confirm_Password') }}">
-                                    <label>{{ translate('Confirm_Password') }}</label>
-                                    <span class="material-icons togglePassword __right-eye">visibility_off</span>
-                                    <span class="material-icons">lock</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                @else
+                @if($mode === 'add')
                     <p class="text-muted small mb-0">{{ translate('New_providers_use_contact_phone_as_login_password') }}</p>
                 @endif
             </div>
@@ -857,6 +822,152 @@
     <script>
         "use strict";
         (function () {
+            /**
+             * intl-tel-input stores the submitted value in a hidden sibling; the visible <input type="tel"> has no name.
+             * Flush E.164 (or best-effort) into that hidden before native submit or before programmatic form.submit().
+             */
+            window.syncProviderWizardIntlPhoneHiddens = function (formEl) {
+                var form = formEl || document.getElementById("create-provider-form");
+                if (!form) {
+                    return;
+                }
+                /**
+                 * intlTelInout-validation.js uses a hidden input whose `value` is a custom accessor calling iti.setNumber().
+                 * Assigning can loop back and restore a stale/empty getNumber() — unreliable across browsers.
+                 * Submit with a fresh plain hidden (last in form wins) and strip `name` from intl-managed hiddens.
+                 */
+                function replacePhoneHiddenForSubmit(fieldName, value) {
+                    var trimmed = String(value || "").trim();
+                    if (!trimmed) {
+                        return;
+                    }
+                    var esc = fieldName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+                    form.querySelectorAll('input[name="' + esc + '"]').forEach(function (el) {
+                        el.removeAttribute("name");
+                        el.disabled = true;
+                    });
+                    var fresh = document.createElement("input");
+                    fresh.type = "hidden";
+                    fresh.name = fieldName;
+                    fresh.value = trimmed;
+                    form.appendChild(fresh);
+                }
+                var getIti = function (tel) {
+                    if (!tel || !window.intlTelInputGlobals || typeof window.intlTelInputGlobals.getInstance !== "function") {
+                        return null;
+                    }
+                    return window.intlTelInputGlobals.getInstance(tel);
+                };
+                /**
+                 * intl-tel wraps the <input type="tel">; the real POST body uses a hidden input named like the original field.
+                 * Match by id === field name (see partial: id/name contact_person_phone, company_phone) so we never pick the wrong hidden.
+                 */
+                function readIntlTelBestValue(tel) {
+                    var iti = getIti(tel);
+                    var dial = "";
+                    if (iti && typeof iti.getSelectedCountryData === "function") {
+                        try {
+                            var cdata = iti.getSelectedCountryData();
+                            dial = cdata && cdata.dialCode != null ? String(cdata.dialCode).replace(/\D/g, "") : "";
+                        } catch (e0) {}
+                    }
+                    var raw = String(tel.value || "").replace(/\D/g, "");
+                    var fromVisible = "";
+                    if (dial && raw) {
+                        fromVisible = raw.indexOf(dial) === 0 ? "+" + raw : "+" + dial + raw;
+                    } else if (!dial && raw.length >= 8) {
+                        fromVisible = "+" + raw;
+                    }
+                    var fromIti = "";
+                    if (iti && typeof iti.getNumber === "function") {
+                        try {
+                            fromIti = String(iti.getNumber() || "").trim();
+                        } catch (e3) {}
+                    }
+                    if (fromVisible && raw.length >= 8) {
+                        return fromVisible;
+                    }
+                    if (fromIti) {
+                        return fromIti;
+                    }
+                    if (fromVisible) {
+                        return fromVisible;
+                    }
+                    if (raw.length >= 8) {
+                        return "+" + raw;
+                    }
+                    return String(tel.value || "").trim();
+                }
+
+                function syncNamedPhoneField(fieldName) {
+                    var tel = document.getElementById(fieldName);
+                    if (!tel || tel.getAttribute("type") !== "tel") {
+                        return;
+                    }
+                    if (tel.disabled) {
+                        return;
+                    }
+                    try {
+                        tel.dispatchEvent(new Event("input", { bubbles: false }));
+                    } catch (e) {}
+                    try {
+                        tel.dispatchEvent(new Event("blur", { bubbles: false }));
+                    } catch (e2) {}
+                    var finalVal = readIntlTelBestValue(tel);
+                    if (finalVal) {
+                        replacePhoneHiddenForSubmit(fieldName, finalVal);
+                    }
+                }
+
+                syncNamedPhoneField("contact_person_phone");
+                syncNamedPhoneField("company_phone");
+
+                form.querySelectorAll('input[type="tel"][data-intl-initialized]').forEach(function (tel) {
+                    if (!tel.id || tel.id === "contact_person_phone" || tel.id === "company_phone") {
+                        return;
+                    }
+                    if (tel.disabled) {
+                        return;
+                    }
+                    try {
+                        tel.dispatchEvent(new Event("input", { bubbles: false }));
+                    } catch (e) {}
+                    var nameGuess = tel.id;
+                    var hid = null;
+                    if (tel.parentNode) {
+                        var hiddens = tel.parentNode.querySelectorAll("input[type=\"hidden\"]");
+                        for (var hi = 0; hi < hiddens.length; hi++) {
+                            var h = hiddens[hi];
+                            var n = h.name || "";
+                            if (!n || n === "country_code" || /_country_code$/.test(n)) {
+                                continue;
+                            }
+                            hid = h;
+                            nameGuess = n;
+                            break;
+                        }
+                    }
+                    if (!nameGuess) {
+                        return;
+                    }
+                    var finalVal = readIntlTelBestValue(tel);
+                    if (finalVal && !(hid && hid.disabled)) {
+                        replacePhoneHiddenForSubmit(nameGuess, finalVal);
+                    }
+                });
+            };
+
+            var __providerWizardFormEl = document.getElementById("create-provider-form");
+            if (__providerWizardFormEl) {
+                __providerWizardFormEl.addEventListener(
+                    "submit",
+                    function () {
+                        window.syncProviderWizardIntlPhoneHiddens(__providerWizardFormEl);
+                    },
+                    true
+                );
+            }
+
             function expandProviderZoneAncestorsOfChecked() {
                 document.querySelectorAll(".provider-zone-leaf-cb:checked").forEach(function (cb) {
                     var panel = cb.closest(".provider-zone-tree-children");

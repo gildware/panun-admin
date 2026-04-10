@@ -392,8 +392,12 @@
         }
 
         function getSelectedTemplateOption() {
-            var $sel = $('#template_id');
-            return $sel.find('option:selected').get(0);
+            var el = document.getElementById('template_id');
+            if (!el || el.selectedIndex < 0) {
+                return null;
+            }
+            var opt = el.options[el.selectedIndex];
+            return opt && opt.value ? opt : null;
         }
 
         function tplParamsCount() {
@@ -746,7 +750,7 @@
             waPreviousAudienceType = $('#audience_type').val();
             waSyncRecipientAdjustmentsHidden();
 
-            $('#template_id').on('change', updateTemplatePreview);
+            $('#template_id').on('change select2:select select2:clear', updateTemplatePreview);
             $('#audience_type').on('change select2:select', function () {
                 var t = $('#audience_type').val();
                 if (waPreviousAudienceType !== t) {

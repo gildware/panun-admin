@@ -181,7 +181,6 @@ class BookingController extends Controller
                     'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                 ]), 422);
             }
-            $previousParentStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
             if ($request['booking_status'] === 'completed') {
                 $booking->reopen_completion_allowed = false;
@@ -196,24 +195,6 @@ class BookingController extends Controller
                 $booking->save();
                 $booking_status_history->save();
             });
-
-            if ((int) ($booking->is_repeated ?? 0) === 1
-                && $previousParentStatus !== (string) $booking->booking_status) {
-                try {
-                    $fresh = $this->booking->with([
-                        'customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments',
-                    ])->find($booking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingStatusChange($fresh, $previousParentStatus);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp booking status (API admin repeat parent) failed', [
-                        'booking_id' => $booking->id,
-                        'message' => $e->getMessage(),
-                    ]);
-                }
-            }
 
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }

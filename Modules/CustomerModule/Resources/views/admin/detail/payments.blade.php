@@ -63,7 +63,16 @@
                 <div class="card-body p-30">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
                         <h2 class="mb-0">{{ translate('Payment') }}</h2>
-                        <div class="text-muted fs-12">{{ translate('Booking_wise_customer_payment_breakdown') }}</div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            @can('customer_update')
+                                @if((float) ($pendingBadDebtLossMaking ?? 0) > 0.009)
+                                    <button type="button" class="btn btn-outline--primary text-capitalize" data-bs-toggle="modal" data-bs-target="#customerPaymentReminderWaModal">
+                                        {{ translate('Send_payment_reminder_to_customer') }}
+                                    </button>
+                                @endif
+                            @endcan
+                            <div class="text-muted fs-12">{{ translate('Booking_wise_customer_payment_breakdown') }}</div>
+                        </div>
                     </div>
 
                     <div class="row g-3 mb-4">
@@ -264,8 +273,176 @@
                             {{ $paginatedTransactions->links() }}
                         </div>
                     @endif
+
+                    @can('customer_update')
+                        @if((float) ($pendingBadDebtLossMaking ?? 0) > 0.009)
+                            <div class="modal fade" id="customerPaymentReminderWaModal" tabindex="-1" aria-labelledby="customerPaymentReminderWaModalLabel" aria-hidden="true"
+                                 data-preview-url="{{ route('admin.customer.detail.whatsapp.customer_payment_reminder.preview', $customer->id) }}">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="customerPaymentReminderWaModalLabel">{{ translate('Send_payment_reminder_to_customer') }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p class="text-muted small mb-2">{{ translate('WhatsApp_payment_reminder_modal_intro') }}</p>
+                                            <p class="small mb-2"><span class="text-muted">{{ translate('phone') }}:</span> <span class="fw-semibold" id="pk-customer-reminder-phone">—</span></p>
+                                            <div class="border rounded p-3 bg-light" style="white-space: pre-wrap; min-height: 4rem;" id="pk-customer-reminder-preview">{{ translate('Loading…') }}</div>
+                                            <p class="text-danger small mt-2 d-none" id="pk-customer-reminder-err"></p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                            <form method="post" action="{{ route('admin.customer.detail.whatsapp.customer_payment_reminder.send', $customer->id) }}" class="d-inline" id="pk-customer-reminder-send-form">
+                                                @csrf
+                                                <button type="submit" class="btn btn--primary" id="pk-customer-reminder-submit">{{ translate('Send') }}</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal fade" id="waLedgerSendResultModal" tabindex="-1" aria-labelledby="waLedgerSendResultModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="waLedgerSendResultModalLabel" data-role="result-title">{{ translate('WhatsApp_message_sent_modal_title') }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p class="mb-0" id="waLedgerSendResultMessage"></p>
+                                        </div>
+                                        <div class="modal-footer flex-wrap gap-2">
+                                            <a href="#" class="btn btn--primary d-none" id="waLedgerSendResultChatBtn">{{ translate('WhatsApp_view_chat_inbox') }}</a>
+                                            <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('close') }}</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    @endcan
                 </div>
             </div>
         </div>
     </div>
+
+    @can('customer_update')
+        @if((float) ($pendingBadDebtLossMaking ?? 0) > 0.009)
+            @push('script')
+                <script>
+                    (function () {
+                        var modal = document.getElementById('customerPaymentReminderWaModal');
+                        if (!modal || typeof fetch === 'undefined') return;
+                        var previewEl = document.getElementById('pk-customer-reminder-preview');
+                        var errEl = document.getElementById('pk-customer-reminder-err');
+                        var phoneEl = document.getElementById('pk-customer-reminder-phone');
+                        var submitBtn = document.getElementById('pk-customer-reminder-submit');
+                        function csrf() {
+                            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        }
+                        modal.addEventListener('show.bs.modal', function () {
+                            if (previewEl) previewEl.textContent = @json(translate('Loading…'));
+                            if (errEl) { errEl.textContent = ''; errEl.classList.add('d-none'); }
+                            if (phoneEl) phoneEl.textContent = '—';
+                            if (submitBtn) submitBtn.disabled = true;
+                            var url = modal.getAttribute('data-preview-url');
+                            if (!url || !previewEl) return;
+                            fetch(url, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrf(),
+                                    'Accept': 'application/json'
+                                },
+                                body: '{}'
+                            }).then(function (r) { return r.json(); }).then(function (data) {
+                                if (phoneEl) phoneEl.textContent = data.phone || '—';
+                                if (data.ok) {
+                                    if (previewEl) previewEl.textContent = data.body || '';
+                                    if (submitBtn) submitBtn.disabled = false;
+                                } else {
+                                    if (previewEl) previewEl.textContent = '';
+                                    if (errEl) {
+                                        errEl.textContent = data.message || data.error || '';
+                                        errEl.classList.remove('d-none');
+                                    }
+                                }
+                            }).catch(function () {
+                                if (previewEl) previewEl.textContent = '';
+                                if (errEl) {
+                                    errEl.textContent = @json(translate('WhatsApp_payment_reminder_failed'));
+                                    errEl.classList.remove('d-none');
+                                }
+                            });
+                        });
+                        var sendForm = document.getElementById('pk-customer-reminder-send-form');
+                        var resultModalEl = document.getElementById('waLedgerSendResultModal');
+                        if (sendForm && resultModalEl && typeof bootstrap !== 'undefined') {
+                            function csrfSend() {
+                                return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                            }
+                            var titleOk = @json(translate('WhatsApp_message_sent_modal_title'));
+                            var titleFail = @json(translate('WhatsApp_message_send_failed_modal_title'));
+                            sendForm.addEventListener('submit', function (e) {
+                                e.preventDefault();
+                                var submitBtn = document.getElementById('pk-customer-reminder-submit');
+                                if (submitBtn) submitBtn.disabled = true;
+                                var fd = new FormData(sendForm);
+                                fetch(sendForm.action, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': csrfSend(),
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: fd,
+                                    credentials: 'same-origin'
+                                }).then(function (r) {
+                                    return r.json().then(function (data) {
+                                        return { status: r.status, data: data };
+                                    });
+                                }).then(function (pack) {
+                                    var data = pack.data || {};
+                                    var reminderEl = document.getElementById('customerPaymentReminderWaModal');
+                                    if (reminderEl) {
+                                        var inst = bootstrap.Modal.getInstance(reminderEl);
+                                        if (inst) inst.hide();
+                                    }
+                                    var titleEl = resultModalEl.querySelector('[data-role="result-title"]');
+                                    var msgEl = document.getElementById('waLedgerSendResultMessage');
+                                    var chatBtn = document.getElementById('waLedgerSendResultChatBtn');
+                                    if (titleEl) titleEl.textContent = data.ok ? titleOk : titleFail;
+                                    if (msgEl) msgEl.textContent = data.message || '';
+                                    if (chatBtn) {
+                                        if (data.ok && data.show_chat_link && data.chat_url) {
+                                            chatBtn.href = data.chat_url;
+                                            chatBtn.classList.remove('d-none');
+                                        } else {
+                                            chatBtn.classList.add('d-none');
+                                            chatBtn.removeAttribute('href');
+                                        }
+                                    }
+                                    bootstrap.Modal.getOrCreateInstance(resultModalEl).show();
+                                }).catch(function () {
+                                    var reminderEl = document.getElementById('customerPaymentReminderWaModal');
+                                    if (reminderEl) {
+                                        var inst = bootstrap.Modal.getInstance(reminderEl);
+                                        if (inst) inst.hide();
+                                    }
+                                    var titleEl = resultModalEl.querySelector('[data-role="result-title"]');
+                                    var msgEl = document.getElementById('waLedgerSendResultMessage');
+                                    var chatBtn = document.getElementById('waLedgerSendResultChatBtn');
+                                    if (titleEl) titleEl.textContent = titleFail;
+                                    if (msgEl) msgEl.textContent = @json(translate('WhatsApp_payment_reminder_failed'));
+                                    if (chatBtn) chatBtn.classList.add('d-none');
+                                    bootstrap.Modal.getOrCreateInstance(resultModalEl).show();
+                                }).finally(function () {
+                                    if (submitBtn) submitBtn.disabled = false;
+                                });
+                            });
+                        }
+                    })();
+                </script>
+            @endpush
+        @endif
+    @endcan
 @endsection
