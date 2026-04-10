@@ -89,6 +89,14 @@
             <div class="card">
                 <div class="card-body p-30">
                     @php
+                        $ppLedger = $providerPaymentLedgerContext ?? provider_payment_ledger_context([
+                            'collect_in_total' => (float) ($ledgerManualTotals['collect_in_total'] ?? 0),
+                            'payout_out_total' => (float) ($ledgerManualTotals['payout_out_total'] ?? 0),
+                            'booking_settlement_net_before_ledger' => (float) ($bookingSettlementNetBeforeLedger ?? 0),
+                            'booking_settlement_net_after_ledger' => (float) ($bookingSettlementNet ?? 0),
+                            'provider_account_payable' => (float) ($provider->owner->account->account_payable ?? 0),
+                            'provider_account_receivable' => (float) ($provider->owner->account->account_receivable ?? 0),
+                        ]);
                         $providerPayable = (float) ($provider->owner->account->account_payable ?? 0);
                         $providerReceivable = (float) ($provider->owner->account->account_receivable ?? 0);
                         $ledgerNetPayable = $providerReceivable - $providerPayable;
@@ -104,10 +112,16 @@
                         $collectFormMax = $providerPaysCompany ? min($providerPayable, max(0.0, -$bookingSettlementNet)) : 0.0;
                         $collectModalMaxLedger = max(0.0, $providerPayable);
                         $addPaymentModalMaxLedger = $payoutCapWhenCompanyOwes;
+                        $showProviderPaymentReminderBtn = max(0.0, -$netPayableAmount) > 0.009 || $collectModalMaxLedger > 0.009;
                     @endphp
 
                     @can('provider_update')
                         <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-3">
+                            @if($showProviderPaymentReminderBtn)
+                                <button type="button" class="btn btn-outline--primary text-capitalize" data-bs-toggle="modal" data-bs-target="#providerPaymentReminderWaModal">
+                                    {{ translate('Send_payment_reminder_to_provider') }}
+                                </button>
+                            @endif
                             <button type="button" class="btn btn--primary text-capitalize" data-bs-toggle="modal" data-bs-target="#collectAmountFromProviderModal">
                                 {{ translate('Collect_Amount_From_Provider') }}
                             </button>
@@ -279,8 +293,8 @@
                             @endif
                             <p class="mb-2">{{ translate('Net_Payable_booking_settlement_explanation') }}</p>
                             @php
-                                $ledgerPayoutOut = (float) ($ledgerManualTotals['payout_out_total'] ?? 0);
-                                $ledgerCollectIn = (float) ($ledgerManualTotals['collect_in_total'] ?? 0);
+                                $ledgerPayoutOut = (float) ($ppLedger['amount_paid_to_provider'] ?? 0);
+                                $ledgerCollectIn = (float) ($ppLedger['amount_collected_from_provider'] ?? 0);
                             @endphp
                             @if($ledgerPayoutOut > 0.009 || $ledgerCollectIn > 0.009)
                                 <p class="mb-2">
@@ -290,6 +304,16 @@
                                     @endif
                                     @if($ledgerCollectIn > 0.009)
                                         <span class="d-block">{{ translate('Net_balance_ledger_in_collected_from_provider') }}: {{ with_currency_symbol($ledgerCollectIn) }}</span>
+                                    @endif
+                                </p>
+                            @endif
+                            @if((float) ($ppLedger['balance_after_payment_collected'] ?? 0) > 0.009 || (float) ($ppLedger['balance_remaining_to_pay_to_provider'] ?? 0) > 0.009)
+                                <p class="mb-2 small text-muted">
+                                    @if((float) ($ppLedger['balance_after_payment_collected'] ?? 0) > 0.009)
+                                        <span class="d-block">{{ translate('Balance_after_payment_collected_hint') }}: {{ with_currency_symbol($ppLedger['balance_after_payment_collected']) }}</span>
+                                    @endif
+                                    @if((float) ($ppLedger['balance_remaining_to_pay_to_provider'] ?? 0) > 0.009)
+                                        <span class="d-block">{{ translate('Balance_remaining_to_pay_provider_hint') }}: {{ with_currency_symbol($ppLedger['balance_remaining_to_pay_to_provider']) }}</span>
                                     @endif
                                 </p>
                             @endif
@@ -772,6 +796,49 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="modal fade" id="providerPaymentReminderWaModal" tabindex="-1" aria-labelledby="providerPaymentReminderWaModalLabel" aria-hidden="true"
+                             data-preview-url="{{ route('admin.provider.details.whatsapp.provider_payment_reminder.preview', $provider->id) }}">
+                            <div class="modal-dialog modal-dialog-centered modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="providerPaymentReminderWaModalLabel">{{ translate('Send_payment_reminder_to_provider') }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="text-muted small mb-2">{{ translate('WhatsApp_payment_reminder_modal_intro') }}</p>
+                                        <p class="small mb-2"><span class="text-muted">{{ translate('phone') }}:</span> <span class="fw-semibold" id="pk-provider-reminder-phone">—</span></p>
+                                        <div class="border rounded p-3 bg-light" style="white-space: pre-wrap; min-height: 4rem;" id="pk-provider-reminder-preview">{{ translate('Loading…') }}</div>
+                                        <p class="text-danger small mt-2 d-none" id="pk-provider-reminder-err"></p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                        <form method="post" action="{{ route('admin.provider.details.whatsapp.provider_payment_reminder.send', $provider->id) }}" class="d-inline" id="pk-provider-reminder-send-form">
+                                            @csrf
+                                            <button type="submit" class="btn btn--primary" id="pk-provider-reminder-submit">{{ translate('Send') }}</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal fade" id="waLedgerSendResultModal" tabindex="-1" aria-labelledby="waLedgerSendResultModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="waLedgerSendResultModalLabel" data-role="result-title">{{ translate('WhatsApp_message_sent_modal_title') }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="mb-0" id="waLedgerSendResultMessage"></p>
+                                    </div>
+                                    <div class="modal-footer flex-wrap gap-2">
+                                        <a href="#" class="btn btn--primary d-none" id="waLedgerSendResultChatBtn">{{ translate('WhatsApp_view_chat_inbox') }}</a>
+                                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('close') }}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     @endcan
                 </div>
             </div>
@@ -923,5 +990,119 @@
                 pkApmUpdateHidden($sc);
             }
         });
+        (function () {
+            var modal = document.getElementById('providerPaymentReminderWaModal');
+            if (!modal || typeof fetch === 'undefined') return;
+            var previewEl = document.getElementById('pk-provider-reminder-preview');
+            var errEl = document.getElementById('pk-provider-reminder-err');
+            var phoneEl = document.getElementById('pk-provider-reminder-phone');
+            var submitBtn = document.getElementById('pk-provider-reminder-submit');
+            function csrf() {
+                return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            }
+            modal.addEventListener('show.bs.modal', function () {
+                if (previewEl) previewEl.textContent = @json(translate('Loading…'));
+                if (errEl) { errEl.textContent = ''; errEl.classList.add('d-none'); }
+                if (phoneEl) phoneEl.textContent = '—';
+                if (submitBtn) submitBtn.disabled = true;
+                var url = modal.getAttribute('data-preview-url');
+                if (!url || !previewEl) return;
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf(),
+                        'Accept': 'application/json'
+                    },
+                    body: '{}'
+                }).then(function (r) { return r.json(); }).then(function (data) {
+                    if (phoneEl) phoneEl.textContent = data.phone || '—';
+                    if (data.ok) {
+                        if (previewEl) previewEl.textContent = data.body || '';
+                        if (submitBtn) submitBtn.disabled = false;
+                    } else {
+                        if (previewEl) previewEl.textContent = '';
+                        if (errEl) {
+                            errEl.textContent = data.message || data.error || '';
+                            errEl.classList.remove('d-none');
+                        }
+                    }
+                }).catch(function () {
+                    if (previewEl) previewEl.textContent = '';
+                    if (errEl) {
+                        errEl.textContent = @json(translate('WhatsApp_payment_reminder_failed'));
+                        errEl.classList.remove('d-none');
+                    }
+                });
+            });
+        })();
+        (function () {
+            var sendForm = document.getElementById('pk-provider-reminder-send-form');
+            var resultModalEl = document.getElementById('waLedgerSendResultModal');
+            if (!sendForm || !resultModalEl || typeof bootstrap === 'undefined') return;
+            function csrf() {
+                return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            }
+            var titleOk = @json(translate('WhatsApp_message_sent_modal_title'));
+            var titleFail = @json(translate('WhatsApp_message_send_failed_modal_title'));
+            sendForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var submitBtn = document.getElementById('pk-provider-reminder-submit');
+                if (submitBtn) submitBtn.disabled = true;
+                var fd = new FormData(sendForm);
+                fetch(sendForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf(),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: fd,
+                    credentials: 'same-origin'
+                }).then(function (r) {
+                    return r.json().then(function (data) {
+                        return { status: r.status, data: data };
+                    });
+                }).then(function (pack) {
+                    var data = pack.data || {};
+                    var reminderEl = document.getElementById('providerPaymentReminderWaModal');
+                    if (reminderEl) {
+                        var inst = bootstrap.Modal.getInstance(reminderEl);
+                        if (inst) inst.hide();
+                    }
+                    var titleEl = resultModalEl.querySelector('[data-role="result-title"]');
+                    var msgEl = document.getElementById('waLedgerSendResultMessage');
+                    var chatBtn = document.getElementById('waLedgerSendResultChatBtn');
+                    if (titleEl) titleEl.textContent = data.ok ? titleOk : titleFail;
+                    if (msgEl) msgEl.textContent = data.message || '';
+                    if (chatBtn) {
+                        if (data.ok && data.show_chat_link && data.chat_url) {
+                            chatBtn.href = data.chat_url;
+                            chatBtn.classList.remove('d-none');
+                        } else {
+                            chatBtn.classList.add('d-none');
+                            chatBtn.removeAttribute('href');
+                        }
+                    }
+                    var rm = bootstrap.Modal.getOrCreateInstance(resultModalEl);
+                    rm.show();
+                }).catch(function () {
+                    var reminderEl = document.getElementById('providerPaymentReminderWaModal');
+                    if (reminderEl) {
+                        var inst = bootstrap.Modal.getInstance(reminderEl);
+                        if (inst) inst.hide();
+                    }
+                    var titleEl = resultModalEl.querySelector('[data-role="result-title"]');
+                    var msgEl = document.getElementById('waLedgerSendResultMessage');
+                    var chatBtn = document.getElementById('waLedgerSendResultChatBtn');
+                    if (titleEl) titleEl.textContent = titleFail;
+                    if (msgEl) msgEl.textContent = @json(translate('WhatsApp_payment_reminder_failed'));
+                    if (chatBtn) chatBtn.classList.add('d-none');
+                    bootstrap.Modal.getOrCreateInstance(resultModalEl).show();
+                }).finally(function () {
+                    if (submitBtn) submitBtn.disabled = false;
+                });
+            });
+        })();
     </script>
 @endpush

@@ -654,7 +654,6 @@ class BookingController extends Controller
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
             if ($booking->isDirty('booking_status')) {
-                $previousParentStatus = (string) $booking->getOriginal('booking_status');
                 if (!is_null($booking->repeat)) {
                     foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing']) as $bookingRepeat) {
                         $bookingRepeat->provider_id = $request->provider_id;
@@ -679,23 +678,6 @@ class BookingController extends Controller
                     $booking->save();
                     $bookingStatusHistory->save();
                 });
-
-                if (!is_null($booking->repeat)) {
-                    try {
-                        $fresh = $this->booking->with([
-                            'customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments',
-                        ])->find($booking->id);
-                        if ($fresh) {
-                            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                                ->sendBookingStatusChange($fresh, $previousParentStatus);
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('WhatsApp booking status (provider web repeat parent) failed', [
-                            'booking_id' => $booking->id,
-                            'message' => $e->getMessage(),
-                        ]);
-                    }
-                }
 
                 self::checkBooking($booking->id);
 

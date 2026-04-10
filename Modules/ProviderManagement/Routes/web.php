@@ -50,11 +50,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('check-owner-contact-unique', [ProviderController::class, 'checkOwnerContactUnique'])->name('check-owner-contact-unique');
         Route::post('store', [ProviderController::class, 'store'])->name('store');
         Route::get('edit/{id}', [ProviderController::class, 'edit'])->name('edit');
+        Route::post('owner-password/{id}', [ProviderController::class, 'updateOwnerPassword'])->name('owner-password.update');
         Route::put('update/{id}', [ProviderController::class, 'update'])->name('update');
         Route::delete('delete/{id}', [ProviderController::class, 'destroy'])->name('delete');
         Route::any('details/{id}', [ProviderController::class, 'details'])->name('details');
         Route::post('details/{id}/add-payment', [ProviderController::class, 'addPaymentToProvider'])->name('details.add_payment');
         Route::post('details/{id}/collect-amount', [ProviderController::class, 'collectAmountFromProvider'])->name('details.collect_amount');
+        Route::post('details/{id}/whatsapp/provider-payment-reminder/preview', [ProviderController::class, 'whatsappProviderPaymentReminderPreview'])->name('details.whatsapp.provider_payment_reminder.preview');
+        Route::post('details/{id}/whatsapp/provider-payment-reminder/send', [ProviderController::class, 'whatsappProviderPaymentReminderSend'])->name('details.whatsapp.provider_payment_reminder.send');
         Route::any('download', [ProviderController::class, 'download'])->name('download');
         Route::any('reviews/download', [ProviderController::class, 'reviewsDownload'])->name('reviews.download');
         Route::get('get-provider-info/{provider_id}', [ProviderController::class, 'getProviderInfo'])->name('get-provider-info')->withoutMiddleware('admin');

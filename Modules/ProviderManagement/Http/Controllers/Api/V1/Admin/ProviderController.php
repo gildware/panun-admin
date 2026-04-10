@@ -368,7 +368,12 @@ class ProviderController extends Controller
             'provider_type' => 'required|in:company,individual',
 
             'contact_person_name' => 'required',
-            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8|unique:users,phone,' . $provider->user_id . ',id',
+            'contact_person_phone' => [
+                'required',
+                'regex:/^([0-9\s\-\+\(\)]*)$/',
+                'min:8',
+                User::uniquePhoneAmongUserTypesRule((string) $provider->user_id, PROVIDER_USER_TYPES),
+            ],
             'contact_person_email' => 'required|email|unique:users,email,' . $provider->user_id . ',id',
 
             'password' => 'string|min:8',

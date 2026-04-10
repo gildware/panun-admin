@@ -436,6 +436,36 @@ function validatePhoneInput(input) {
     return isValid;
 }
 
+function setIntlHiddenBestEffort(hiddenInput, iti, dialCode, localPartDigits) {
+    if (!hiddenInput || !iti) {
+        return;
+    }
+    let full = "";
+    try {
+        full = String(iti.getNumber() || "").trim();
+    } catch (e) {}
+    if (!full && dialCode && localPartDigits) {
+        const d = String(dialCode).replace(/\D/g, "");
+        const loc = String(localPartDigits).replace(/\D/g, "");
+        if (d && loc.length >= 8) {
+            full = "+" + d + loc;
+        }
+    }
+    if (!full) {
+        return;
+    }
+    try {
+        const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+        if (desc && desc.set) {
+            desc.set.call(hiddenInput, full);
+        } else {
+            hiddenInput.value = full;
+        }
+    } catch (e2) {
+        hiddenInput.value = full;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initializeIntlTelInput();
 
@@ -445,27 +475,29 @@ document.addEventListener("DOMContentLoaded", () => {
             const iti = itiInstances.get(input);
             if (!iti) return;
 
+            const inProviderWizard = !!(input.closest && input.closest("#create-provider-form"));
+
             const inputVal = keepOnlyNumbers(input.value);
             const dialCode = iti.getSelectedCountryData().dialCode;
             const expectedLength = getLocalExampleNumberLength(iti);
 
-            // Extract local part (remove dial code if present)
-            const dialCodeIndex = inputVal.indexOf(dialCode);
-            let localPart =
-                dialCodeIndex >= 0
-                    ? inputVal.slice(dialCodeIndex + dialCode.length)
-                    : inputVal;
+            const dialStr = dialCode != null ? String(dialCode) : "";
+            let dialCodeIndex = dialStr ? inputVal.indexOf(dialStr) : -1;
+            let localPart = dialCodeIndex >= 0 ? inputVal.slice(dialCodeIndex + dialStr.length) : inputVal;
 
-            // Limit only if too long
-            if (localPart.length > expectedLength) {
+            if (!inProviderWizard && localPart.length > expectedLength) {
                 localPart = localPart.slice(0, expectedLength + 4);
-                input.value = localPart; // update field only when needed
+                input.value = localPart;
             }
 
-            // Update hidden input fields
             const hiddenInput = input.parentNode.querySelector('input[type="hidden"]:not([name="country_code"])');
-            if (hiddenInput && iti) {
-                hiddenInput.value = iti.getNumber();
+            if (inProviderWizard) {
+                setIntlHiddenBestEffort(hiddenInput, iti, dialCode, localPart);
+            } else if (hiddenInput && iti) {
+                const num = (iti.getNumber() || "").trim();
+                if (num) {
+                    hiddenInput.value = num;
+                }
             }
 
             const hiddenCountryCodeInput = input.parentNode.querySelector('input[name="country_code"]');
@@ -473,7 +505,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 hiddenCountryCodeInput.value = iti.getSelectedCountryData()?.dialCode || "";
             }
 
-            validatePhoneInput(input);
+            if (inProviderWizard) {
+                input.classList.remove("is-invalid", "is-valid");
+            } else {
+                validatePhoneInput(input);
+            }
         }
     });
 

@@ -39,18 +39,27 @@
                                 <th>{{ translate('language') }}</th>
                                 <th>{{ translate('preview') }}</th>
                                 <th>{{ translate('status') }}</th>
-                                <th>{{ translate('action') }}</th>
                             </tr>
                             </thead>
                             <tbody>
                             @forelse($templates as $key => $tpl)
+                                @php $waMktPreviewCollapseId = 'wa-mkt-tpl-preview-' . $tpl->id; @endphp
                                 <tr>
                                     <td>{{ $key + $templates->firstItem() }}</td>
                                     <td class="fw-medium">{{ $tpl->name }}</td>
                                     <td>{{ $tpl->category ?? '—' }}</td>
                                     <td><code>{{ $tpl->language }}</code></td>
                                     <td style="max-width: 420px;">
-                                        <small class="text-break">{{ \Illuminate\Support\Str::limit($tpl->preview_text ?? '', 200) }}</small>
+                                        <small class="text-break d-block">{{ \Illuminate\Support\Str::limit($tpl->preview_text ?? '', 200) }}</small>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary mt-2 d-inline-flex align-items-center gap-1"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#{{ $waMktPreviewCollapseId }}"
+                                                aria-expanded="false"
+                                                aria-controls="{{ $waMktPreviewCollapseId }}">
+                                            <span class="material-icons" style="font-size: 1rem;">expand_more</span>
+                                            {{ translate('Open_preview') }}
+                                        </button>
                                     </td>
                                     <td>
                                         @php
@@ -64,17 +73,21 @@
                                         @endphp
                                         <span class="badge {{ $badgeClass }}">{{ $tpl->status }}</span>
                                     </td>
-                                    <td>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-primary wa-marketing-tpl-preview"
-                                                data-preview-url="{{ route('admin.whatsapp.marketing.templates.preview', $tpl) }}">
-                                            {{ translate('Open_preview') }}
-                                        </button>
+                                </tr>
+                                <tr class="p-0 border-0">
+                                    <td colspan="6" class="p-0 border-0">
+                                        <div class="collapse wa-mkt-tpl-preview-collapse"
+                                             id="{{ $waMktPreviewCollapseId }}"
+                                             data-preview-url="{{ route('admin.whatsapp.marketing.templates.preview', $tpl) }}">
+                                            <div class="px-3 py-3 bg-body-secondary border-bottom">
+                                                <div class="wa-mkt-tpl-preview-host"></div>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center">{{ translate('no_data_found') }}</td>
+                                    <td colspan="6" class="text-center">{{ translate('no_data_found') }}</td>
                                 </tr>
                             @endforelse
                             </tbody>
@@ -87,34 +100,19 @@
             </div>
         </div>
     </div>
-
-    <div class="modal fade" id="waMarketingTplPreviewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">{{ translate('preview') }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="waMarketingTplPreviewBody"></div>
-            </div>
-        </div>
-    </div>
 @endsection
 
 @push('script')
     <script>
         'use strict';
-        document.querySelectorAll('.wa-marketing-tpl-preview').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var url = btn.getAttribute('data-preview-url');
-                var bodyEl = document.getElementById('waMarketingTplPreviewBody');
-                var modalEl = document.getElementById('waMarketingTplPreviewModal');
-                if (!url || !bodyEl || !modalEl) {
+        document.querySelectorAll('.wa-mkt-tpl-preview-collapse').forEach(function (collapseEl) {
+            collapseEl.addEventListener('shown.bs.collapse', function () {
+                var url = collapseEl.getAttribute('data-preview-url');
+                var host = collapseEl.querySelector('.wa-mkt-tpl-preview-host');
+                if (!url || !host || host.dataset.loaded === '1') {
                     return;
                 }
-                bodyEl.innerHTML = '<p class="text-muted text-center py-4 mb-0">{{ translate('Loading...') }}</p>';
-                var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
+                host.innerHTML = '<p class="text-muted text-center py-4 mb-0">{{ translate('Loading...') }}</p>';
                 fetch(url, {
                     headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
                     credentials: 'same-origin'
@@ -123,10 +121,11 @@
                         return r.json();
                     })
                     .then(function (d) {
-                        bodyEl.innerHTML = d.html || '';
+                        host.innerHTML = d.html || '';
+                        host.dataset.loaded = '1';
                     })
                     .catch(function () {
-                        bodyEl.innerHTML = '<p class="text-danger mb-0">{{ translate('Something_went_wrong') }}</p>';
+                        host.innerHTML = '<p class="text-danger mb-0">{{ translate('Something_went_wrong') }}</p>';
                     });
             });
         });

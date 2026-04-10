@@ -714,6 +714,13 @@ class WhatsAppController extends Controller
                 }
             }
 
+            if ($request->user()) {
+                $waUser = WhatsAppUser::firstOrNew(['phone' => $threadPhone]);
+                $waUser->handled_by = (string) $request->user()->id;
+                $waUser->human_support_requested_at = null;
+                $waUser->save();
+            }
+
             Cache::forget('whatsapp_active_chats_list');
             foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {
                 Cache::forget('whatsapp_chat_full_v2_' . md5($p));
@@ -1178,6 +1185,13 @@ class WhatsAppController extends Controller
                 $message->sent_by_id = $request->user()->id;
             }
             $message->save();
+
+            if ($request->user()) {
+                $waUser = WhatsAppUser::firstOrNew(['phone' => $threadPhone]);
+                $waUser->handled_by = (string) $request->user()->id;
+                $waUser->human_support_requested_at = null;
+                $waUser->save();
+            }
 
             Cache::forget('whatsapp_active_chats_list');
             foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {

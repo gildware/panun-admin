@@ -12,6 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Laravel\Passport\HasApiTokens;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BusinessSettingsModule\Entities\SettingsTutorials;
@@ -118,6 +119,52 @@ class User extends Authenticatable
         return $this->user_type === 'customer' && ! $this->provider()->exists();
     }
 
+    /**
+     * Same phone matching as {@see findByContactPhone}, but only among given user_type values.
+     *
+     * @param  list<string>  $userTypes
+     */
+    public static function findByContactPhoneScoped(string $phone, array $userTypes): ?self
+    {
+        if ($userTypes === []) {
+            return null;
+        }
+
+        $trim = trim($phone);
+        $digits = preg_replace('/\D+/', '', $trim) ?? '';
+
+        return static::query()
+            ->whereIn('user_type', $userTypes)
+            ->where(function ($w) use ($trim, $digits) {
+                if ($trim !== '') {
+                    $w->where('phone', $trim);
+                }
+                if ($digits !== '' && $digits !== $trim) {
+                    $w->orWhere('phone', $digits);
+                }
+                if ($digits !== '' && DB::connection()->getDriverName() === 'mysql') {
+                    $w->orWhereRaw('REGEXP_REPLACE(COALESCE(phone, \'\'), \'[^0-9]\', \'\') = ?', [$digits]);
+                }
+            })
+            ->first();
+    }
+
+    /**
+     * Phone must be unique only within $userTypes (e.g. customers or provider-side accounts).
+     *
+     * @param  list<string>  $userTypes
+     */
+    public static function uniquePhoneAmongUserTypesRule(?string $ignoreUserId, array $userTypes)
+    {
+        $rule = Rule::unique('users', 'phone')->where(fn ($q) => $q->whereIn('user_type', $userTypes));
+
+        if ($ignoreUserId !== null && $ignoreUserId !== '') {
+            $rule = $rule->ignore($ignoreUserId);
+        }
+
+        return $rule;
+    }
+
     public static function findByContactPhone(string $phone): ?self
     {
         $trim = trim($phone);
@@ -155,19 +202,25 @@ class User extends Authenticatable
     public static function providerContactRegistrationErrors(string $phone, string $email): array
     {
         $errors = [];
-        $byPhone = self::findByContactPhone($phone);
-        $byEmail = self::findByContactEmail($email);
 
-        if ($byPhone && ! $byPhone->qualifiesForCustomerToProviderUpgrade()) {
+        if (self::findByContactPhoneScoped($phone, PROVIDER_USER_TYPES)) {
             $errors['contact_person_phone'] = translate('The contact person phone has already been taken.');
         }
+
+        $byEmail = self::findByContactEmail($email);
         if ($byEmail && ! $byEmail->qualifiesForCustomerToProviderUpgrade()) {
             $errors['contact_person_email'] = translate('The contact person email has already been taken.');
         }
-        if ($byPhone && $byEmail && $byPhone->id !== $byEmail->id) {
-            $msg = translate('Phone and email must belong to the same user account.');
-            $errors['contact_person_phone'] = $msg;
-            $errors['contact_person_email'] = $msg;
+
+        $phone = trim($phone);
+        $email = Str::lower(trim($email));
+        if ($phone !== '' && $email !== '') {
+            $byPhone = self::findByContactPhone($phone);
+            if ($byPhone && $byEmail && $byPhone->id !== $byEmail->id) {
+                $msg = translate('Phone and email must belong to the same user account.');
+                $errors['contact_person_phone'] = $msg;
+                $errors['contact_person_email'] = $msg;
+            }
         }
 
         return $errors;

@@ -677,81 +677,6 @@
 
             var formWizard = $("#create-provider-form");
 
-            function providerCreateGetIntlInstance(telEl) {
-                if (!telEl || !window.intlTelInputGlobals || typeof window.intlTelInputGlobals.getInstance !== "function") {
-                    return null;
-                }
-                return window.intlTelInputGlobals.getInstance(telEl);
-            }
-
-            var providerCreateIntlSyncDepth = 0;
-
-            function providerCreateSyncAllIntlPhones(formEl) {
-                if (providerCreateIntlSyncDepth > 0) {
-                    return;
-                }
-                providerCreateIntlSyncDepth++;
-                try {
-                    var form = formEl || document.getElementById("create-provider-form");
-                    if (!form) {
-                        return;
-                    }
-                    form.querySelectorAll('input[type="tel"][data-intl-initialized]').forEach(function (tel) {
-                        try {
-                            tel.dispatchEvent(new Event("input", { bubbles: false }));
-                        } catch (e) {}
-                        var iti = providerCreateGetIntlInstance(tel);
-                        var hid = null;
-                        if (tel.id) {
-                            hid = form.querySelector('input[type="hidden"][name="' + tel.id + '"]');
-                        }
-                        if (!hid && tel.parentNode) {
-                            tel.parentNode.querySelectorAll('input[type="hidden"]').forEach(function (h) {
-                                var n = h.name || "";
-                                if (!n || n === "country_code" || /_country_code$/.test(n)) {
-                                    return;
-                                }
-                                if (!hid) {
-                                    hid = h;
-                                }
-                            });
-                        }
-                        if (!hid) {
-                            return;
-                        }
-                        var num = "";
-                        if (iti && typeof iti.getNumber === "function") {
-                            try {
-                                num = String(iti.getNumber() || "").trim();
-                            } catch (e2) {}
-                        }
-                        if (!num && iti && typeof iti.getSelectedCountryData === "function") {
-                            var cdata = iti.getSelectedCountryData();
-                            var dial = cdata && cdata.dialCode != null ? String(cdata.dialCode).replace(/\D/g, "") : "";
-                            var raw = String(tel.value || "").replace(/\D/g, "");
-                            if (dial && raw) {
-                                if (raw.indexOf(dial) === 0) {
-                                    num = "+" + raw;
-                                } else {
-                                    num = "+" + dial + raw;
-                                }
-                            }
-                        }
-                        if (!num) {
-                            var fb = String(tel.value || "").replace(/\D/g, "");
-                            if (fb.length >= 8) {
-                                num = "+" + fb;
-                            }
-                        }
-                        if (String(hid.value || "") !== String(num || "")) {
-                            hid.value = num;
-                        }
-                    });
-                } finally {
-                    providerCreateIntlSyncDepth--;
-                }
-            }
-
             window.refreshProviderCreateStep0ValidationSummary = function () {};
 
             formWizard.steps({
@@ -814,7 +739,9 @@
                     if (!el || typeof el.submit !== "function") {
                         return;
                     }
-                    providerCreateSyncAllIntlPhones(el);
+                    if (typeof window.syncProviderWizardIntlPhoneHiddens === "function") {
+                        window.syncProviderWizardIntlPhoneHiddens(el);
+                    }
                     el.submit();
                 }
             });
@@ -841,6 +768,7 @@
                     $(".provider-company-identity-fields").hide();
                     $formRoot.find('[name="company_name"]').prop('required', false);
                     $formRoot.find('[name="company_name"]').prop('disabled', true);
+                    $formRoot.find('#company_phone').prop('disabled', true);
                     $formRoot.find('[name="company_phone"]').prop('required', false);
                     $formRoot.find('[name="company_phone"]').prop('disabled', true);
                     $formRoot.find('[name="company_email"]').prop('required', false);
@@ -855,6 +783,7 @@
                     $(".provider-company-identity-fields").show();
                     $formRoot.find('[name="company_name"]').prop('required', true);
                     $formRoot.find('[name="company_name"]').prop('disabled', false);
+                    $formRoot.find('#company_phone').prop('disabled', false);
                     $formRoot.find('[name="company_phone"]').prop('required', true);
                     $formRoot.find('[name="company_phone"]').prop('disabled', false);
                     $formRoot.find('[name="company_email"]').prop('required', true);

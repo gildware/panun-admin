@@ -4,6 +4,7 @@ namespace Modules\WhatsAppModule\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 
@@ -16,6 +17,29 @@ class WhatsAppMessagePersistenceService
         protected WhatsAppCloudService $whatsAppCloud,
         protected WhatsAppCrmBootstrapService $crmBootstrap
     ) {}
+
+    /**
+     * Same `phone` key as {@see \Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppController::chat} expects (matches existing thread rows when present).
+     */
+    public function resolveAdminChatPhoneKey(?string $rawPhone): ?string
+    {
+        if ($rawPhone === null || trim($rawPhone) === '') {
+            return null;
+        }
+        $raw = trim($rawPhone);
+        $normalized = $this->whatsAppCloud->normalizeRecipientPhone($raw);
+        if ($normalized === null) {
+            return null;
+        }
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        foreach (array_unique(array_filter([$raw, $normalized])) as $candidate) {
+            if (DB::table($table)->where('phone', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        return $normalized;
+    }
 
     /**
      * @param  array<string, mixed>  $data

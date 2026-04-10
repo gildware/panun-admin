@@ -1319,6 +1319,25 @@ class WhatsAppCloudService
             }
         }
 
+        // Meta named-parameter templates often omit `parameter_format` on the stored row; HEADER already
+        // infers names from {{snake_case}}. Do the same for BODY when there are no {{1}}-style slots.
+        $bodyText = (string) ($bodyComp['text'] ?? '');
+        if ($bodyText !== '' && !preg_match('/\{\{\d+\}\}/', $bodyText)) {
+            if (preg_match_all('/\{\{([a-z][a-z0-9_]*)\}\}/', $bodyText, $m)) {
+                $seen = [];
+                $names = [];
+                foreach ($m[1] as $name) {
+                    if (!isset($seen[$name])) {
+                        $seen[$name] = true;
+                        $names[] = $name;
+                    }
+                }
+                if ($names !== []) {
+                    return ['format' => 'named', 'named_param_names' => $names, 'positional_count' => count($names)];
+                }
+            }
+        }
+
         $n = self::countBodyPlaceholdersFromComponents($components);
         if ($n === 0 && isset($example['body_text'][0]) && is_array($example['body_text'][0])) {
             $n = count($example['body_text'][0]);

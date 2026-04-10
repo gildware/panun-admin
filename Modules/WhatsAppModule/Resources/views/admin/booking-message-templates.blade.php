@@ -26,6 +26,10 @@
         .wa-booking-map-table td .select2-container {
             min-width: 12rem;
         }
+        .wa-booking-meta-wrap .select2-container {
+            min-width: 12rem;
+            width: 100% !important;
+        }
         #waBookingTplVarsCollapse .select2-dropdown.select2-wa-booking-var-dd,
         .select2-container--open .select2-dropdown.select2-wa-booking-var-dd {
             z-index: 1060;
@@ -45,16 +49,91 @@
         .select2-wa-booking-var-dd .select2-results__option {
             padding: 0.35rem 0.5rem;
         }
+        .select2-wa-booking-var-dd .select2-results__options > .select2-results__option:not(.select2-results__message):nth-child(odd) {
+            background-color: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.04);
+        }
+        .select2-wa-booking-var-dd .select2-results__options > .select2-results__option:not(.select2-results__message):nth-child(even) {
+            background-color: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.09);
+        }
+        .select2-wa-booking-var-dd .select2-results__option--highlighted {
+            background-color: var(--bs-primary) !important;
+            color: var(--bs-primary-color, #fff) !important;
+        }
+        .select2-wa-booking-var-dd .select2-results__option--highlighted .wa-booking-var-opt-module,
+        .select2-wa-booking-var-dd .select2-results__option--highlighted .wa-booking-var-opt-lbl {
+            color: inherit !important;
+            opacity: 0.92;
+        }
+        .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-opt-row {
+            position: relative;
+            width: 100%;
+            min-height: 2.25rem;
+        }
+        .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-opt-main {
+            padding-right: 1.85rem;
+        }
+        .select2-wa-booking-var-dd .select2-results__option[aria-selected=true]::after {
+            display: none !important;
+        }
+        .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-guide-btn {
+            position: absolute;
+            top: 0.15rem;
+            right: 0.2rem;
+            z-index: 3;
+            line-height: 1;
+            min-width: 1.65rem;
+            min-height: 1.65rem;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            padding: 0 !important;
+            border-radius: 50%;
+            border: 1px solid rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.22);
+            background: rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0.92);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+            color: var(--bs-body-color, #212529) !important;
+        }
+        .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-guide-btn .wa-booking-var-info-svg {
+            display: block;
+            flex-shrink: 0;
+            opacity: 0.85;
+        }
+        .select2-wa-booking-var-dd .select2-results__option--highlighted .wa-booking-var-guide-btn {
+            border-color: rgba(255, 255, 255, 0.45) !important;
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: inherit !important;
+        }
+        .select2-wa-booking-var-dd .select2-results__option--highlighted .wa-booking-var-guide-btn .wa-booking-var-info-svg {
+            opacity: 0.95;
+        }
+        .popover.wa-booking-var-popover {
+            max-width: min(22rem, 92vw);
+            font-size: 0.8125rem;
+            z-index: 1080 !important;
+        }
+        .popover.wa-booking-var-popover .popover-header {
+            font-family: var(--bs-font-monospace, ui-monospace, monospace);
+            font-size: 0.75rem;
+            word-break: break-all;
+            padding: 0.4rem 0.6rem;
+        }
+        .popover.wa-booking-var-popover .popover-body {
+            line-height: 1.45;
+            text-align: start;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
         .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-opt-token {
             font-size: 0.8125rem;
             word-break: break-all;
             line-height: 1.3;
         }
-        .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-opt-desc {
+        .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-opt-module {
             font-size: 0.78rem;
             color: var(--bs-secondary-color, #6c757d);
-            margin-top: 0.25rem;
+            margin-top: 0.2rem;
             line-height: 1.35;
+            font-weight: 500;
         }
         .select2-wa-booking-var-dd .select2-results__option .wa-booking-var-opt-lbl {
             font-size: 0.65rem;
@@ -183,6 +262,13 @@
                                data-bs-target="#wa-tpl-pane-payment" href="#wa-tpl-pane-payment"
                                role="tab" aria-controls="wa-tpl-pane-payment" aria-selected="{{ $waActiveMainTab === 'payment' ? 'true' : 'false' }}">
                                 {{ translate('WhatsApp_tab_payment_change') }}
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link {{ $waActiveMainTab === 'ledger-payments' ? 'active' : '' }}" id="wa-tpl-tab-ledger-payments" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-ledger-payments" href="#wa-tpl-pane-ledger-payments"
+                               role="tab" aria-controls="wa-tpl-pane-ledger-payments" aria-selected="{{ $waActiveMainTab === 'ledger-payments' ? 'true' : 'false' }}">
+                                {{ translate('WhatsApp_tab_ledger_payment_messages') }}
                             </a>
                         </li>
                         <li class="nav-item" role="presentation">
@@ -333,6 +419,28 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="tab-pane fade {{ $waActiveMainTab === 'ledger-payments' ? 'show active' : '' }}" id="wa-tpl-pane-ledger-payments" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-ledger-payments" tabindex="0">
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_ledger_payment_messages_hint_meta') }}</p>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_provider_payment_reminder') }}</div>
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_provider_payment_reminder', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_customer_payment_reminder') }}</div>
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_customer_payment_reminder', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_payment_received_from_provider') }}</div>
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_payment_received_from_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_payment_sent_to_provider') }}</div>
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_payment_sent_to_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                </div>
+                            </div>
+                        </div>
                         <div class="tab-pane fade {{ $waActiveMainTab === 'serviceman' ? 'show active' : '' }}" id="wa-tpl-pane-serviceman" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-serviceman" tabindex="0">
                             <p class="text-muted small mb-3">{{ translate('WhatsApp_template_serviceman_change_hint_meta') }}</p>
@@ -379,13 +487,20 @@
         var waBookingMetaTemplates = @json($waTemplatesJson ?? []);
         var waBookingPlaceholderTokens = @json(array_keys($placeholders));
         var waBookingPlaceholderHints = @json($placeholderHints ?? []);
+        var waBookingPlaceholderGuides = @json($placeholderGuides ?? []);
+        var waBookingPlaceholderModules = @json($placeholderDropdownModules ?? []);
         var waBookingPlaceholderSamples = @json($placeholderSamples ?? []);
+        var waLblVarInfoAria = {!! json_encode(translate('WhatsApp_booking_var_info_aria')) !!};
+        var waLblVarGuideEmpty = {!! json_encode(translate('WhatsApp_booking_var_guide_empty')) !!};
         var waLblMapTemplateVar = {!! json_encode(translate('WhatsApp_booking_map_col_template_var')) !!};
         var waLblMapBookingVar = {!! json_encode(translate('WhatsApp_booking_map_col_booking_var')) !!};
         var waLblHeaderPrefix = {!! json_encode(translate('WhatsApp_booking_map_header_prefix')) !!};
         var waLblMapPickPlaceholder = {!! json_encode(translate('WhatsApp_booking_map_pick_variable')) !!};
         var waLblMapColToken = {!! json_encode(translate('WhatsApp_booking_var_col_token')) !!};
-        var waLblMapColMeaning = {!! json_encode(translate('WhatsApp_booking_var_col_meaning')) !!};
+        var waLblMapColModule = {!! json_encode(translate('WhatsApp_booking_var_col_module')) !!};
+
+        /** Inline SVG so the control is visible without Themify/TIO icon fonts (admin layout loads Material Icons only). */
+        var waBookingVarInfoIconSvg = '<svg class="wa-booking-var-info-svg" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="currentColor" d="M11.25 10h1.5v6h-1.5v-6zm0-3.25h1.5V8h-1.5V6.75z"/></svg>';
 
         /** Builds Meta template placeholders (double curly braces + inner id). Do not put raw brace pairs in Blade source. */
         function waBookingTplVarBraces(inner) {
@@ -400,6 +515,16 @@
                 }
             }
             return null;
+        }
+
+        function waBookingVarGuidePopoverHtml(plain) {
+            var t = plain ? String(plain) : '';
+            if (!t) {
+                return '';
+            }
+            return t.split('\n').map(function (line) {
+                return jQuery('<div>').text(line).html();
+            }).join('<br>');
         }
 
         /** Demo value for the phone preview when a booking token is selected in the mapping dropdown. */
@@ -568,11 +693,15 @@
             sel.appendChild(opt0);
             (waBookingPlaceholderTokens || []).forEach(function (tok) {
                 var label = (waBookingPlaceholderHints && waBookingPlaceholderHints[tok]) ? waBookingPlaceholderHints[tok] : '';
+                var guide = (waBookingPlaceholderGuides && waBookingPlaceholderGuides[tok]) ? waBookingPlaceholderGuides[tok] : '';
+                var mod = (waBookingPlaceholderModules && waBookingPlaceholderModules[tok]) ? waBookingPlaceholderModules[tok] : '';
                 var opt = document.createElement('option');
                 opt.value = tok;
                 opt.setAttribute('data-description', label);
-                opt.setAttribute('title', label);
-                opt.textContent = tok + ' — ' + (label || '');
+                opt.setAttribute('data-guide', guide);
+                opt.setAttribute('data-module', mod);
+                opt.setAttribute('title', mod ? tok + ' — ' + mod : tok);
+                opt.textContent = tok + ' — ' + (mod || '');
                 if (initialVal !== undefined && initialVal !== null && String(initialVal) === String(tok)) {
                     opt.selected = true;
                 }
@@ -609,10 +738,12 @@
                         var id = String(data.id).toLowerCase();
                         var txt = String(data.text || '').toLowerCase();
                         var desc = '';
+                        var mod = '';
                         if (data.element) {
                             desc = String(data.element.getAttribute('data-description') || '').toLowerCase();
+                            mod = String(data.element.getAttribute('data-module') || '').toLowerCase();
                         }
-                        if (id.indexOf(term) > -1 || txt.indexOf(term) > -1 || desc.indexOf(term) > -1) {
+                        if (id.indexOf(term) > -1 || txt.indexOf(term) > -1 || desc.indexOf(term) > -1 || mod.indexOf(term) > -1) {
                             return data;
                         }
                         return null;
@@ -622,23 +753,38 @@
                             return state.text;
                         }
                         var el = state.element;
-                        if (!el) {
-                            return state.text;
-                        }
                         var tok = String(state.id);
-                        var desc = String(el.getAttribute('data-description') || '').trim();
-                        if (!desc && state.text) {
-                            var m = String(state.text).split(/\s*[—\-]\s*/);
-                            if (m.length > 1) {
-                                desc = m.slice(1).join(' — ').trim();
-                            }
+                        var mod = '';
+                        if (el) {
+                            mod = String(el.getAttribute('data-module') || '').trim();
                         }
-                        var $w = jQuery('<div class="wa-booking-var-opt"></div>');
-                        $w.append(jQuery('<div class="wa-booking-var-opt-lbl"></div>').text(waLblMapColToken));
-                        $w.append(jQuery('<div class="wa-booking-var-opt-token font-monospace fw-semibold"></div>').text(tok));
-                        $w.append(jQuery('<div class="wa-booking-var-opt-lbl mt-2"></div>').text(waLblMapColMeaning));
-                        $w.append(jQuery('<div class="wa-booking-var-opt-desc"></div>').text(desc || '—'));
-                        return $w;
+                        if (!mod && waBookingPlaceholderModules && waBookingPlaceholderModules[tok]) {
+                            mod = String(waBookingPlaceholderModules[tok]);
+                        }
+                        var $wrap = jQuery('<div class="wa-booking-var-opt wa-booking-var-opt-row"></div>');
+                        var $main = jQuery('<div class="wa-booking-var-opt-main"></div>');
+                        $main.append(jQuery('<div class="wa-booking-var-opt-lbl"></div>').text(waLblMapColToken));
+                        $main.append(jQuery('<div class="wa-booking-var-opt-token font-monospace fw-semibold"></div>').text(tok));
+                        $main.append(jQuery('<div class="wa-booking-var-opt-lbl mt-2"></div>').text(waLblMapColModule));
+                        $main.append(jQuery('<div class="wa-booking-var-opt-module"></div>').text(mod || '—'));
+                        var $btn = jQuery('<button type="button" class="btn btn-link btn-sm wa-booking-var-guide-btn text-secondary"></button>');
+                        $btn.attr('aria-label', waLblVarInfoAria);
+                        $btn.attr('data-wa-var-token', tok);
+                        $btn.html(waBookingVarInfoIconSvg);
+                        $btn.on('mousedown', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        });
+                        $btn.on('mouseup', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        });
+                        $btn.on('click', function (e) {
+                            e.stopPropagation();
+                        });
+                        $wrap.append($main);
+                        $wrap.append($btn);
+                        return $wrap;
                     },
                     templateSelection: function (state) {
                         if (!state.id) {
@@ -647,13 +793,121 @@
                         return String(state.id);
                     },
                 });
-                $s.off('select2:select.waBkPrev select2:clear.waBkPrev select2:unselect.waBkPrev')
+                $s.off('select2:select.waBkPrev select2:clear.waBkPrev select2:unselect.waBkPrev select2:open.waVarPop select2:closing.waVarPop')
+                    .on('select2:open.waVarPop', function () {
+                        if (typeof bootstrap === 'undefined' || !bootstrap.Popover) {
+                            return;
+                        }
+                        requestAnimationFrame(function () {
+                            jQuery('.select2-wa-booking-var-dd .wa-booking-var-guide-btn').each(function () {
+                                var btnEl = this;
+                                if (bootstrap.Popover.getInstance(btnEl)) {
+                                    return;
+                                }
+                                var tok = btnEl.getAttribute('data-wa-var-token') || '';
+                                var guideRaw = (waBookingPlaceholderGuides && waBookingPlaceholderGuides[tok])
+                                    ? String(waBookingPlaceholderGuides[tok])
+                                    : '';
+                                new bootstrap.Popover(btnEl, {
+                                    html: true,
+                                    sanitize: false,
+                                    trigger: 'click',
+                                    placement: 'left',
+                                    container: 'body',
+                                    title: tok,
+                                    content: waBookingVarGuidePopoverHtml(guideRaw || waLblVarGuideEmpty),
+                                    customClass: 'wa-booking-var-popover shadow',
+                                    fallbackPlacements: ['right', 'top', 'bottom']
+                                });
+                            });
+                        });
+                    })
+                    .on('select2:closing.waVarPop', function () {
+                        if (typeof bootstrap === 'undefined' || !bootstrap.Popover) {
+                            return;
+                        }
+                        jQuery('.select2-wa-booking-var-dd .wa-booking-var-guide-btn').each(function () {
+                            var p = bootstrap.Popover.getInstance(this);
+                            if (p) {
+                                p.dispose();
+                            }
+                        });
+                    })
                     .on('select2:select.waBkPrev select2:clear.waBkPrev select2:unselect.waBkPrev', function () {
                         var w = jQuery(this).closest('.wa-booking-meta-wrap')[0];
                         if (w) {
                             waBookingUpdatePreview(w);
                         }
                     });
+            });
+        }
+
+        (function () {
+            if (typeof document === 'undefined' || typeof bootstrap === 'undefined' || !bootstrap.Popover) {
+                return;
+            }
+            document.addEventListener('show.bs.popover', function (event) {
+                var tgt = event.target;
+                if (!tgt || !tgt.classList || !tgt.classList.contains('wa-booking-var-guide-btn')) {
+                    return;
+                }
+                document.querySelectorAll('.wa-booking-var-guide-btn').forEach(function (el) {
+                    if (el === tgt) {
+                        return;
+                    }
+                    var p = bootstrap.Popover.getInstance(el);
+                    if (p) {
+                        p.hide();
+                    }
+                });
+            });
+        })();
+
+        function waBookingMetaWrapIsVisible(wrap) {
+            if (!wrap || !wrap.parentElement) {
+                return false;
+            }
+            var el = wrap;
+            while (el) {
+                if (el.classList && el.classList.contains('tab-pane') && !el.classList.contains('show')) {
+                    return false;
+                }
+                el = el.parentElement;
+            }
+            return true;
+        }
+
+        function waBookingInitMetaTemplateSelect2(wrap) {
+            if (typeof jQuery === 'undefined' || !jQuery.fn.select2 || !wrap) {
+                return;
+            }
+            var $s = jQuery(wrap).find('select.js-wa-booking-meta-select').first();
+            if (!$s.length) {
+                return;
+            }
+            if ($s.hasClass('select2-hidden-accessible')) {
+                $s.select2('destroy');
+            }
+            $s.select2({
+                width: '100%',
+                dropdownParent: jQuery('body'),
+                dropdownCssClass: 'select2-wa-booking-var-dd',
+                minimumResultsForSearch: 0,
+            });
+            $s.off('select2:select.waBkMetaTpl select2:clear.waBkMetaTpl')
+                .on('select2:select.waBkMetaTpl select2:clear.waBkMetaTpl', function () {
+                    waBookingRenderMapping(wrap, false);
+                });
+        }
+
+        function waBookingRefreshMetaTemplateSelect2InPane(pane) {
+            if (!pane) {
+                return;
+            }
+            pane.querySelectorAll('.wa-booking-meta-wrap').forEach(function (wrap) {
+                if (waBookingMetaWrapIsVisible(wrap)) {
+                    waBookingInitMetaTemplateSelect2(wrap);
+                }
             });
         }
 
@@ -799,7 +1053,7 @@
         document.querySelectorAll('.wa-booking-meta-wrap').forEach(function (wrap) {
             waBookingRenderMapping(wrap, true);
             var sel = wrap.querySelector('.js-wa-booking-meta-select');
-            if (sel) {
+            if (sel && (typeof jQuery === 'undefined' || !jQuery.fn.select2)) {
                 sel.addEventListener('change', function () {
                     waBookingRenderMapping(wrap, false);
                 });
@@ -809,6 +1063,9 @@
                     waBookingUpdatePreview(wrap);
                 }
             });
+            if (waBookingMetaWrapIsVisible(wrap)) {
+                waBookingInitMetaTemplateSelect2(wrap);
+            }
         });
 
         (function () {
@@ -816,6 +1073,14 @@
             var statusInput = document.getElementById('waActiveStatusSegment');
             if (!mainInput) {
                 return;
+            }
+            function refreshMetaSelect2FromTabTrigger(el) {
+                var target = el.getAttribute('data-bs-target') || '';
+                if (!target) {
+                    return;
+                }
+                var pane = document.querySelector(target);
+                waBookingRefreshMetaTemplateSelect2InPane(pane);
             }
             document.querySelectorAll('#waBookingTemplateTabs [data-bs-toggle="tab"]').forEach(function (el) {
                 el.addEventListener('shown.bs.tab', function () {
@@ -827,6 +1092,7 @@
                     if (m && m[1] !== 'status' && statusInput) {
                         statusInput.value = '';
                     }
+                    refreshMetaSelect2FromTabTrigger(el);
                 });
             });
             if (statusInput) {
@@ -837,6 +1103,7 @@
                         if (m) {
                             statusInput.value = m[1];
                         }
+                        refreshMetaSelect2FromTabTrigger(el);
                     });
                 });
             }
@@ -873,6 +1140,18 @@
                     statusInput.value = '';
                 }
                 jQuery(form).find('select.js-wa-booking-map-token-select').each(function () {
+                    var $s = jQuery(this);
+                    var v = $s.val();
+                    if ($s.hasClass('select2-hidden-accessible')) {
+                        try {
+                            $s.select2('destroy');
+                        } catch (e) { /* ignore */ }
+                    }
+                    if (v !== null && v !== undefined) {
+                        $s.val(v);
+                    }
+                });
+                jQuery(form).find('select.js-wa-booking-meta-select').each(function () {
                     var $s = jQuery(this);
                     var v = $s.val();
                     if ($s.hasClass('select2-hidden-accessible')) {
