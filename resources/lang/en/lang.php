@@ -3083,6 +3083,7 @@ _Message' => 'Customer notification for provider bid offer
   'delete_account' => 'Delete account',
   'Delete Account' => 'Delete Account',
   'want_to_delete_your_account' => 'Want to delete your account',
+  'provider_delete_all_data_warning' => 'This will permanently delete this provider and all of their bookings, transactions, servicemen, and related records. This cannot be undone.',
   'add_fund' => 'Add fund',
   'add_fund_bonus' => 'Add fund bonus',
   'gghh' => 'Gghh',

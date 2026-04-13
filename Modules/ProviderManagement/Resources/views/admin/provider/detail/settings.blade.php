@@ -105,9 +105,50 @@
                                 </label>
                             @endcan
                         </div>
+
+                        @can('provider_delete')
+                            <div class="border-top pt-4 mt-2">
+                                <h5 class="mb-2 text-danger">{{ translate('This_action_will_permanently_delete_data') }}</h5>
+                                <p class="text-muted mb-3">
+                                    {{ translate('provider_delete_all_data_warning') }}
+                                </p>
+                                <button type="button"
+                                        class="btn btn-danger provider-delete-settings"
+                                        data-form-id="delete-provider-{{ $provider->id }}"
+                                        data-message="{{ translate('provider_delete_all_data_warning') }}">
+                                    {{ translate('delete') }} {{ translate('Provider') }}
+                                </button>
+                                <form action="{{ route('admin.provider.delete', [$provider->id]) }}"
+                                      method="post"
+                                      id="delete-provider-{{ $provider->id }}"
+                                      class="d-none">
+                                    @csrf
+                                    @method('DELETE')
+                                </form>
+                            </div>
+                        @endcan
                     </div>
                 </div>
             </div>
         </div>
     </div>
 @endsection
+
+@can('provider_delete')
+    @push('script')
+        <script>
+            $('.provider-delete-settings').on('click', function () {
+                var formId = $(this).data('form-id');
+                var message = $(this).data('message');
+                if ('{{ env('APP_ENV') == 'demo' }}') {
+                    toastr.info('This function is disabled for demo mode', {
+                        closeButton: true,
+                        progressBar: true
+                    });
+                } else {
+                    form_alert(formId, message);
+                }
+            });
+        </script>
+    @endpush
+@endcan

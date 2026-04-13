@@ -152,16 +152,12 @@
                                             <th>{{translate('Service Availability')}}</th>
                                             <th>{{translate('Status')}}</th>
                                         @endcan
-                                        @canany(['provider_delete', 'provider_update'])
+                                        @can('provider_update')
                                             <th>{{translate('Action')}}</th>
                                         @endcan
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    @php
-                                        $ongoingBookings = 0;
-                                        $acceptedBookings = 0;
-                                    @endphp
                                     @forelse($providers as $key => $provider)
                                         <tr>
                                             <td>{{$key+$providers->firstItem()}}</td>
@@ -249,47 +245,14 @@
                                                     </label>
                                                 </td>
                                             @endcan
-                                            @canany(['provider_delete', 'provider_update'])
+                                            @can('provider_update')
                                                 <td>
                                                     <div class="d-flex gap-2">
-                                                        @can('provider_update')
-                                                            <a href="{{route('admin.provider.edit',[$provider->id])}}"
-                                                               class="action-btn btn--light-primary"
-                                                               style="--size: 30px">
-                                                                <span class="material-icons">edit</span>
-                                                            </a>
-                                                        @endcan
-                                                        @php
-                                                            $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values; @endphp
-                                                        @can('provider_delete')
-                                                            <button type="button"
-                                                                    class="action-btn btn--danger provider-delete"
-                                                                    style="--size: 30px"
-                                                                    data-provider="delete-{{$provider->id}}"
-                                                                    data-ongoing="{{$provider->bookings->where('booking_status', 'ongoing')->count() ?? 0}}"
-                                                                    data-accepted="{{$provider->bookings->where('booking_status', 'accepted')
-                                                            ->where('provider_id', $provider->id)
-                                                            ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
-                                                                $query->where(function ($query) use ($maxBookingAmount) {
-                                                                    $query->where('payment_method', 'cash_after_service')
-                                                                        ->where(function ($query) use ($maxBookingAmount) {
-                                                                            $query->where('total_booking_amount', '<=', $maxBookingAmount)
-                                                                                ->orWhere('is_verified', 1);
-                                                                        })
-                                                                        ->orWhere('payment_method', '<>', 'cash_after_service');
-                                                                });
-                                                            })->count() ?? 0}}"
-                                                                    data-url="{{route('admin.provider.details',[$provider->id, 'web_page'=>'bookings'])}}">
-                                                                <span class="material-symbols-outlined">delete</span>
-                                                            </button>
-                                                            <form
-                                                                action="{{route('admin.provider.delete',[$provider->id])}}"
-                                                                method="post" id="delete-{{$provider->id}}"
-                                                                class="hidden">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                            </form>
-                                                        @endcan
+                                                        <a href="{{route('admin.provider.edit',[$provider->id])}}"
+                                                           class="action-btn btn--light-primary"
+                                                           style="--size: 30px">
+                                                            <span class="material-icons">edit</span>
+                                                        </a>
                                                     </div>
                                                 </td>
                                             @endcan
@@ -319,58 +282,4 @@
         </div>
     </div>
 
-    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header pb-0 border-0">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body pb-sm-5 px-sm-5">
-                    <div class="d-flex flex-column align-items-center gap-2 text-center">
-                        <img src="{{ asset('/assets/provider-module/img/profile-delete.png') }}" alt="">
-                        <h3>{{ translate('Sorry you can’t delete this provider account!') }}</h3>
-                        <p class="fw-medium">{{ translate('Provider must have to complete the ongoing and accepted bookings.') }}</p>
-                        <a href="#" id="bookingRequestLink">
-                            <button type="reset" class="btn btn--primary">{{ translate('Booking Request') }}</button>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
 @endsection
-
-@push('script')
-    <script>
-
-        $('.provider-delete').on('click', function () {
-            let provider = $(this).data('provider');
-            let url = $(this).data('url');
-            let accepted = $(this).data('accepted');
-            let ongoing = $(this).data('ongoing');
-            let message = "{{ translate('want_to_delete_your_account') }}";
-
-            if ('{{ env('APP_ENV') == 'demo' }}') {
-                toastr.info('This function is disabled for demo mode', {
-                    closeButton: true,
-                    progressBar: true
-                });
-            } else {
-                if (accepted !== 0 || ongoing !== 0) {
-                    $('#exampleModal').data('url', url);
-                    let modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('exampleModal'));
-                    modal.show();
-                } else {
-                    form_alert(provider, message);
-                }
-            }
-        });
-
-        $('#exampleModal').on('show.bs.modal', function (event) {
-            let url = $(this).data('url');
-            $('#bookingRequestLink').attr('href', url);
-        });
-
-    </script>
-@endpush
