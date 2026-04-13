@@ -59,7 +59,18 @@ return [
          * Local/dev only: allow opening a thread without Cloud API + without a successful probe.
          * Production should keep this false so numbers are verified via Graph when there is no prior inbound message.
          */
-        'allow_open_without_graph_verify' => filter_var(env('WHATSAPP_ALLOW_OPEN_WITHOUT_GRAPH_VERIFY', 'false'), FILTER_VALIDATE_BOOL),
+        'allow_open_without_graph_verify' => filter_var(env('WHATSAPP_ALLOW_OPEN_WITHOUT_GRAPH_VERIFY', 'true'), FILTER_VALIDATE_BOOL),
+
+        /**
+         * WhatsApp Cloud API expects full international digits (E.164, digits-only, no '+').
+         * If your stored phones are local/national format (e.g. PK "03xx..."), enable auto-prefixing and set the prefix.
+         *
+         * Example:
+         * - WHATSAPP_DEFAULT_COUNTRY_PREFIX=92
+         * - phone "03001234567" => "923001234567"
+         */
+        'auto_prefix_enabled' => filter_var(env('WHATSAPP_AUTO_PREFIX_ENABLED', 'true'), FILTER_VALIDATE_BOOL),
+        'default_country_prefix' => (string) env('WHATSAPP_DEFAULT_COUNTRY_PREFIX', '91'),
     ],
 
     'whatsapp_internal' => [

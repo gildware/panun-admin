@@ -23,7 +23,7 @@ class WhatsAppCloudService
     }
 
     /**
-     * Strip to digits; for short local-style numbers, prepend India country code 91 (not configurable).
+     * Strip to digits; for short local-style numbers, optionally prepend a default country prefix (configurable).
      *
      * National numbers often include a trunk "0" (e.g. PK 03xx…, UK 07xx…). n8n / Graph API expect full international
      * digits without +. If we prepend the country prefix without dropping that 0, the number is wrong (e.g. 920300…
@@ -44,20 +44,31 @@ class WhatsAppCloudService
             }
         }
 
-        $applyPrefix = true;
-        $prefix = '91';
+        $applyPrefix = (bool) config('services.whatsapp_cloud.auto_prefix_enabled', true);
+        $prefix = (string) config('services.whatsapp_cloud.default_country_prefix', '');
+        $prefix = preg_replace('/\D+/', '', $prefix) ?? '';
 
-        if ($applyPrefix && $prefix !== '' && strlen($digits) <= 11 && !str_starts_with($digits, $prefix)) {
-            if (str_starts_with($digits, '0')) {
+        // WhatsApp Cloud API expects full international digits (no '+', digits only).
+        // Default project rule: if we receive a 10-digit number, prefix it (e.g. IN 91xxxxxxxxxx).
+        // If we receive 12 digits that already start with the prefix (e.g. 91xxxxxxxxxx), keep as-is.
+        // If the input is "+91..." the "+" is already removed by digit stripping above.
+        $len = strlen($digits);
+        if ($applyPrefix && $prefix !== '') {
+            if ($len === 12 && str_starts_with($digits, $prefix)) {
+                // already normalized
+            } elseif ($len === 11 && str_starts_with($digits, '0')) {
                 $digits = substr($digits, 1);
+                $len = strlen($digits);
+                if ($len === 10) {
+                    $digits = $prefix . $digits;
+                    $len = strlen($digits);
+                }
+            } elseif ($len === 10) {
+                $digits = $prefix . $digits;
+                $len = strlen($digits);
             }
-            if ($digits === '') {
-                return null;
-            }
-            $digits = $prefix . $digits;
         }
 
-        $len = strlen($digits);
         if ($len < self::PHONE_DIGITS_MIN || $len > self::PHONE_DIGITS_MAX) {
             return null;
         }

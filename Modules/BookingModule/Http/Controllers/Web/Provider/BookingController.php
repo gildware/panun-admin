@@ -908,15 +908,6 @@ class BookingController extends Controller
             if ($booking->isDirty('is_paid')) {
                 $previousIsPaid = (int) $booking->getOriginal('is_paid');
                 $booking->save();
-                try {
-                    $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingPaymentChange($fresh, $previousIsPaid);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp booking payment failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
-                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -928,18 +919,6 @@ class BookingController extends Controller
             if ($repeatBooking->isDirty('is_paid')) {
                 $previousIsPaid = (int) $repeatBooking->getOriginal('is_paid');
                 $repeatBooking->save();
-                try {
-                    $fresh = $this->bookingRepeat->with([
-                        'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
-                        'detail', 'provider.owner', 'serviceman.user', 'booking',
-                    ])->find($repeatBooking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingRepeatPaymentChange($fresh, $previousIsPaid);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp repeat payment failed', ['booking_repeat_id' => $repeatBooking->id, 'message' => $e->getMessage()]);
-                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);

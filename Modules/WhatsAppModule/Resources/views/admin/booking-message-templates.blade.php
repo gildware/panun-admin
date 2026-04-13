@@ -115,10 +115,6 @@
         .select2-wa-booking-var-dd .select2-results__option--highlighted .wa-booking-var-guide-btn .wa-booking-var-info-svg {
             opacity: 0.95;
         }
-        .wa-booking-automation-recent-table th,
-        .wa-booking-automation-recent-table td {
-            white-space: nowrap;
-        }
         .popover.wa-booking-var-popover {
             max-width: min(22rem, 92vw);
             font-size: 0.8125rem;
@@ -165,7 +161,8 @@
                 <h2 class="h4 mb-1">{{ translate('Message_templates') }}</h2>
                 <p class="text-muted mb-0">{{ translate('WhatsApp_booking_template_help_meta_only') }}</p>
                 <a href="{{ route('admin.whatsapp.booking-templates.automation-log') }}"
-                   class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 mt-2">
+                   class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 mt-2"
+                   target="_blank" rel="noopener">
                     <span class="material-icons" style="font-size: 1.1rem;" aria-hidden="true">receipt_long</span>
                     {{ translate('WhatsApp_booking_automation_log_open') }}
                 </a>
@@ -194,52 +191,6 @@
                         </span>
                     @endcan
                 </div>
-            </div>
-        </div>
-
-        <div class="card mb-3">
-            <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <span class="fw-semibold">{{ translate('WhatsApp_booking_automation_recent_title') }}</span>
-                <a href="{{ route('admin.whatsapp.booking-templates.automation-log') }}" class="btn btn-sm btn-outline-secondary">
-                    {{ translate('WhatsApp_booking_automation_log_open') }}
-                </a>
-            </div>
-            <div class="card-body p-0">
-                @if(isset($recentAutomationLogs) && $recentAutomationLogs->count() > 0)
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped mb-0 wa-booking-map-table wa-booking-automation-recent-table">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>{{ translate('WhatsApp_booking_automation_col_time') }}</th>
-                                    <th>{{ translate('WhatsApp_booking_automation_col_message_key') }}</th>
-                                    <th>{{ translate('WhatsApp_booking_automation_col_result') }}</th>
-                                    <th>{{ translate('WhatsApp_booking_automation_col_booking') }}</th>
-                                    <th>{{ translate('WhatsApp_booking_automation_col_error') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($recentAutomationLogs as $log)
-                                    <tr>
-                                        <td class="small">{{ $log->created_at?->format('Y-m-d H:i') }}</td>
-                                        <td><code class="small">{{ $log->message_key }}</code></td>
-                                        <td><span class="badge bg-secondary">{{ $log->result }}</span></td>
-                                        <td class="small">
-                                            @if($log->booking_id)
-                                                #{{ $log->booking_id }}
-                                            @endif
-                                            @if($log->booking_repeat_id)
-                                                <span class="text-muted"> · R#{{ $log->booking_repeat_id }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="small">{{ $log->error_detail ?: '—' }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <p class="text-muted small mb-0 p-3">{{ translate('WhatsApp_booking_automation_recent_empty') }}</p>
-                @endif
             </div>
         </div>
 
@@ -493,15 +444,15 @@
                         </div>
                         <div class="tab-pane fade {{ $waActiveMainTab === 'payment' ? 'show active' : '' }}" id="wa-tpl-pane-payment" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-payment" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_payment_change_hint_meta') }}</p>
+                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_payment_added_hint_meta') }}</p>
                             <div class="row g-3">
                                 <div class="col-md-6 min-w-0">
                                     <div class="form-label">{{ translate('Customer_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_added_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
                                 </div>
                                 <div class="col-md-6 min-w-0">
                                     <div class="form-label">{{ translate('Provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_added_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
                                 </div>
                             </div>
                         </div>

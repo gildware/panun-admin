@@ -2258,7 +2258,7 @@
                 );
                 initializeProviderSelect2();
                 var route = '{{ route('admin.booking.service.ajax-get-providers') }}';
-                $.get(route, { category_id: categoryId }, function (response) {
+                $.get(route, { category_id: categoryId, zone_id: $zoneSelect.val() || '' }, function (response) {
                     if (categoryRequestGen !== ajaxBookingCategoryGen) {
                         return;
                     }
