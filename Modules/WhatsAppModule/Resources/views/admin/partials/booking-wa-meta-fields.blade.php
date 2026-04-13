@@ -1,5 +1,6 @@
 @php
     $invoiceHint = $invoiceHint ?? false;
+    $sendEnabled = (bool) old($fieldKey . '_send_enabled', $config[$fieldKey . '_send_enabled'] ?? true);
     $initialTpl = old($fieldKey . '_wa_tpl_id', $config[$fieldKey . '_wa_tpl_id'] ?? null);
     $initialBodyParams = old($fieldKey . '_wa_body_params', $config[$fieldKey . '_wa_body_params'] ?? []);
     if (!is_array($initialBodyParams)) {
@@ -18,7 +19,33 @@
      data-initial-tpl="{{ $initialTpl }}"
      data-initial-body-params='@json($initialBodyParams)'
      data-initial-header-params='@json($initialHeaderParams)'>
-    <label class="form-label small mb-1 fw-semibold">{{ translate('WhatsApp_booking_meta_template_label') }}</label>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+        <label class="form-label small mb-0 fw-semibold">{{ translate('WhatsApp_booking_meta_template_label') }}</label>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
+            <span class="small text-muted text-nowrap d-none d-md-inline">{{ translate('WhatsApp_booking_send_this_message') }}</span>
+            @can('whatsapp_message_template_update')
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2 py-0 px-2 js-wa-booking-msg-send-toggle-open"
+                        data-wa-msg-key="{{ $fieldKey }}"
+                        data-wa-send-enabled="{{ $sendEnabled ? '1' : '0' }}"
+                        aria-haspopup="dialog">
+                    <span class="form-check form-switch mb-0">
+                        <input class="form-check-input flex-shrink-0" type="checkbox" role="switch" disabled
+                               style="opacity: 1; cursor: inherit;"
+                               {{ $sendEnabled ? 'checked' : '' }}
+                               aria-hidden="true" tabindex="-1">
+                    </span>
+                    <span class="badge {{ $sendEnabled ? 'bg-success' : 'bg-secondary' }}">
+                        {{ $sendEnabled ? translate('on') : translate('WhatsApp_off') }}
+                    </span>
+                </button>
+            @else
+                <span class="badge {{ $sendEnabled ? 'bg-success' : 'bg-secondary' }}">
+                    {{ $sendEnabled ? translate('on') : translate('WhatsApp_off') }}
+                </span>
+            @endcan
+        </div>
+    </div>
     <select name="{{ $fieldKey }}_wa_tpl_id"
             class="form-control form-control-sm js-wa-booking-meta-select"
             data-field="{{ $fieldKey }}">
