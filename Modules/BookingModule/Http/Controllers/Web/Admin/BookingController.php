@@ -43,6 +43,7 @@ use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
+use Modules\BookingModule\Services\AdminBookingDeletionService;
 use Modules\BookingModule\Services\BookingReadableIdAllocator;
 use Modules\BookingModule\Services\BookingReopenService;
 use Modules\BookingModule\Http\Traits\BookingTrait;
@@ -54,9 +55,7 @@ use Modules\ServiceManagement\Entities\Variation;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
-use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\LedgerTransaction;
-use Modules\TransactionModule\Entities\Transaction;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Modules\LeadManagement\Entities\Lead;
@@ -3008,79 +3007,7 @@ class BookingController extends Controller
             ->findOrFail($id);
 
         DB::transaction(function () use ($booking) {
-            $repeatIds = $booking->repeat->pluck('id')->toArray();
-
-            // Delete transactions for this booking (and its repeats) and reverse account balances
-            $txQuery = Transaction::where('booking_id', $booking->id);
-            if (!empty($repeatIds)) {
-                $txQuery->orWhereIn('booking_repeat_id', $repeatIds);
-            }
-            $transactions = $txQuery->get();
-
-            $accountDeltas = []; // [user_id => [account_key => delta]]
-            foreach ($transactions as $tx) {
-                // Credit to to_user's to_user_account (standard case)
-                if ($tx->to_user_id && $tx->to_user_account && $tx->credit > 0) {
-                    $accountDeltas[$tx->to_user_id][$tx->to_user_account] = ($accountDeltas[$tx->to_user_id][$tx->to_user_account] ?? 0) - $tx->credit;
-                }
-                // Credit to from_user's from_user_account when to_user_account is null (e.g. provider account_payable, admin account_receivable)
-                if ($tx->from_user_id && $tx->from_user_account && $tx->credit > 0 && empty($tx->to_user_account)) {
-                    $accountDeltas[$tx->from_user_id][$tx->from_user_account] = ($accountDeltas[$tx->from_user_id][$tx->from_user_account] ?? 0) - $tx->credit;
-                }
-                // Debit from from_user's from_user_account
-                if ($tx->from_user_id && $tx->from_user_account && $tx->debit > 0) {
-                    $accountDeltas[$tx->from_user_id][$tx->from_user_account] = ($accountDeltas[$tx->from_user_id][$tx->from_user_account] ?? 0) + $tx->debit;
-                }
-                // Debit from to_user's to_user_account when from_user_account is null
-                if ($tx->to_user_id && $tx->to_user_account && $tx->debit > 0 && empty($tx->from_user_account)) {
-                    $accountDeltas[$tx->to_user_id][$tx->to_user_account] = ($accountDeltas[$tx->to_user_id][$tx->to_user_account] ?? 0) + $tx->debit;
-                }
-            }
-
-            foreach ($accountDeltas as $userId => $deltas) {
-                $account = Account::where('user_id', $userId)->first();
-                if ($account) {
-                    foreach ($deltas as $accountKey => $delta) {
-                        if (in_array($accountKey, ['balance_pending', 'received_balance', 'account_payable', 'account_receivable', 'total_withdrawn'])) {
-                            $account->$accountKey = max(0, ($account->$accountKey ?? 0) + $delta);
-                        }
-                    }
-                    $account->save();
-                }
-            }
-
-            $txDeleteQuery = Transaction::where('booking_id', $booking->id);
-            if (!empty($repeatIds)) {
-                $txDeleteQuery->orWhereIn('booking_repeat_id', $repeatIds);
-            }
-            $txDeleteQuery->delete();
-
-            $ledgerQuery = LedgerTransaction::where('booking_id', $booking->id);
-            if (!empty($repeatIds)) {
-                $ledgerQuery->orWhereIn('booking_repeat_id', $repeatIds);
-            }
-            $ledgerQuery->delete();
-
-            foreach ($booking->repeat as $repeat) {
-                $repeat->detail()->delete();
-                $repeat->details_amounts()->delete();
-                $repeat->statusHistories()->delete();
-                $repeat->scheduleHistories()->delete();
-                $repeat->repeatHistories()->delete();
-                $repeat->delete();
-            }
-
-            $booking->extra_services()->delete();
-            $booking->detail()->delete();
-            $booking->details_amounts()->delete();
-            $booking->schedule_histories()->delete();
-            $booking->status_histories()->delete();
-            $booking->booking_offline_payments()->delete();
-            $booking->ignores()->delete();
-            $booking->reviews()->delete();
-            $booking->booking_partial_payments()->delete();
-
-            $booking->delete();
+            app(AdminBookingDeletionService::class)->deleteBookingAndRelations($booking);
         });
 
         Toastr::success(translate('Booking_deleted_successfully'));

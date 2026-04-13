@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -24,6 +25,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Services\AdminBookingDeletionService;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
@@ -31,6 +33,7 @@ use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
+use Modules\BusinessSettingsModule\Entities\Storage;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriberFeature;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriberLimit;
 use Modules\BusinessSettingsModule\Entities\SubscriptionPackage;
@@ -51,6 +54,8 @@ use Modules\ProviderManagement\Support\ProviderPhoneUpdateNormalizer;
 use Modules\ProviderManagement\Traits\PreservesAdminProviderFormDrafts;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\Service;
+use Modules\TransactionModule\Entities\Account;
+use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ProviderManagement\Services\ProviderBookingSettlementNetResolver;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
@@ -2475,33 +2480,166 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_delete');
 
-        Validator::make($request->all(), [
-            'provider_id' => 'required'
-        ]);
+        if (env('APP_ENV') === 'demo') {
+            Toastr::info('This function is disabled for demo mode', '', ['closeButton' => true, 'progressBar' => true]);
 
-        $providers = $this->provider->where('id', $id);
-        if ($providers->count() > 0) {
-            foreach ($providers->get() as $provider) {
-                file_remover('provider/logo/', $provider->logo);
-                if (!empty($provider->owner->identification_image)) {
-                    foreach ($provider->owner->identification_image as $image) {
-                        file_remover('provider/identity/', $image);
-                    }
-                }
-
-                $provider->servicemen->each(function ($serviceman) {
-                    $serviceman->user->update(['is_active' => 0]);
-                });
-
-                $provider->owner()->delete();
-            }
-            $providers->delete();
-            Toastr::success(translate(DEFAULT_DELETE_200['message']));
             return back();
         }
 
-        Toastr::error(translate(DEFAULT_FAIL_200['message']));
-        return back();
+        $provider = $this->provider->with(['owner', 'servicemen'])->find($id);
+
+        if (! $provider) {
+            Toastr::error(translate(DEFAULT_FAIL_200['message']));
+
+            return back();
+        }
+
+        $deletionService = app(AdminBookingDeletionService::class);
+
+        $bookingEager = [
+            'repeat.detail',
+            'repeat.details_amounts',
+            'repeat.statusHistories',
+            'repeat.scheduleHistories',
+            'repeat.repeatHistories',
+            'detail',
+            'details_amounts',
+            'schedule_histories',
+            'status_histories',
+            'booking_offline_payments',
+            'ignores',
+            'reviews',
+            'booking_partial_payments',
+            'extra_services',
+        ];
+
+        try {
+            DB::transaction(function () use ($provider, $id, $deletionService, $bookingEager) {
+                file_remover('provider/logo/', $provider->logo);
+                if (! empty($provider->cover_image)) {
+                    file_remover('provider/logo/', $provider->cover_image);
+                }
+                if (! empty($provider->contact_person_photo)) {
+                    file_remover('provider/contact_person_photo/', $provider->contact_person_photo);
+                }
+                if (! empty($provider->owner?->identification_image)) {
+                    foreach ($provider->owner->identification_image as $image) {
+                        $imgName = is_array($image) ? ($image['image'] ?? $image) : $image;
+                        file_remover('provider/identity/', $imgName);
+                    }
+                }
+                if (is_array($provider->company_identity_images)) {
+                    foreach ($provider->company_identity_images as $image) {
+                        $imgName = is_array($image) ? ($image['image'] ?? $image) : $image;
+                        file_remover('provider/company-identity/', $imgName);
+                    }
+                }
+
+                $bookingIds = $this->booking->where('provider_id', $id)->pluck('id');
+                foreach ($bookingIds as $bookingId) {
+                    $booking = $this->booking->with($bookingEager)->find($bookingId);
+                    if ($booking) {
+                        $deletionService->deleteBookingAndRelations($booking);
+                    }
+                }
+
+                if (Schema::hasColumn('ledger_transactions', 'provider_id')) {
+                    LedgerTransaction::where('provider_id', $id)->delete();
+                }
+
+                foreach ($this->serviceman->where('provider_id', $id)->get() as $serviceman) {
+                    $uid = $serviceman->user_id;
+                    $servicemanTx = Transaction::where(function ($q) use ($uid) {
+                        $q->where('from_user_id', $uid)->orWhere('to_user_id', $uid);
+                    })->get();
+                    $deletionService->reverseAccountsAndDeleteTransactions($servicemanTx);
+                    Account::where('user_id', $uid)->delete();
+                    $serviceman->delete();
+                }
+
+                $ownerUserId = $provider->user_id;
+                if ($ownerUserId) {
+                    $ownerTx = Transaction::where(function ($q) use ($ownerUserId) {
+                        $q->where('from_user_id', $ownerUserId)->orWhere('to_user_id', $ownerUserId);
+                    })->get();
+                    $deletionService->reverseAccountsAndDeleteTransactions($ownerTx);
+                    Account::where('user_id', $ownerUserId)->delete();
+                }
+
+                if (Schema::hasTable('subscription_subscriber_bookings')) {
+                    DB::table('subscription_subscriber_bookings')->where('provider_id', $id)->delete();
+                }
+
+                $this->paymentRequest->where('attribute', 'provider-reg')->where('attribute_id', $id)->delete();
+
+                $this->review->where('provider_id', $id)->delete();
+
+                if (Schema::hasTable('favorite_providers')) {
+                    DB::table('favorite_providers')->where('provider_id', $id)->delete();
+                }
+
+                if (Schema::hasTable('package_subscriber_features')) {
+                    DB::table('package_subscriber_features')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('package_subscriber_limits')) {
+                    DB::table('package_subscriber_limits')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('package_subscriber_logs')) {
+                    DB::table('package_subscriber_logs')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('package_subscribers')) {
+                    DB::table('package_subscribers')->where('provider_id', $id)->delete();
+                }
+
+                $this->subscribedService->where('provider_id', $id)->delete();
+
+                if (Schema::hasTable('carts')) {
+                    DB::table('carts')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('advertisements')) {
+                    DB::table('advertisements')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('post_bids')) {
+                    DB::table('post_bids')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('ignored_posts')) {
+                    DB::table('ignored_posts')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('provider_notification_setups')) {
+                    DB::table('provider_notification_setups')->where('provider_id', $id)->delete();
+                }
+                if (Schema::hasTable('providers_withdraw_methods_data')) {
+                    DB::table('providers_withdraw_methods_data')->where('provider_id', $id)->delete();
+                }
+
+                $this->bank_detail->where('provider_id', $id)->delete();
+
+                ProviderSetting::where('provider_id', $id)->delete();
+
+                if (Schema::hasTable('provider_sub_category')) {
+                    DB::table('provider_sub_category')->where('provider_id', $id)->delete();
+                }
+
+                if (Schema::hasTable('storages')) {
+                    Storage::where('model_id', $id)->where('model', Provider::class)->delete();
+                }
+
+                if ($provider->owner) {
+                    $provider->owner->forceDelete();
+                }
+
+                $provider->forceDelete();
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            Toastr::error(translate(DEFAULT_FAIL_200['message']));
+
+            return back();
+        }
+
+        Toastr::success(translate(DEFAULT_DELETE_200['message']));
+
+        return redirect()->route('admin.provider.list');
     }
 
     /**
