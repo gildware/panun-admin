@@ -3400,12 +3400,15 @@ class BookingController extends Controller
         $holdReopenId = $meta['hold_reopen_reason_id'] ?? null;
         $remarks = $meta['remarks'] ?? null;
 
+        $previousParentStatus = (string) $booking->getOriginal('booking_status');
         $booking->booking_status = $status;
         if ($status === 'completed') {
             $booking->reopen_completion_allowed = false;
         }
 
         if ($booking->isDirty('booking_status')) {
+            $hasRepeatSeries = BookingRepeat::query()->where('booking_id', $booking->id)->exists();
+
             DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks) {
                 if ($booking->repeat) {
                     foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold']) as $repeat) {
@@ -3426,6 +3429,27 @@ class BookingController extends Controller
                 $booking->save();
                 $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, $remarks);
             });
+
+            if ($hasRepeatSeries) {
+                try {
+                    $fresh = $this->booking->with([
+                        'customer',
+                        'provider.owner',
+                        'service_address',
+                        'detail',
+                        'booking_partial_payments',
+                    ])->find($booking->id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingStatusChange($fresh, $previousParentStatus);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp booking status (admin parent bulk update) failed', [
+                        'booking_id' => $booking->id ?? null,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
 
             return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
         }

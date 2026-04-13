@@ -9,6 +9,7 @@ return [
         'bookings' => 'whatsapp_bookings',
         'provider_lead' => 'whatsapp_provider_leads',
         'users' => 'whatsapp_users',
+        'booking_automation_logs' => 'whatsapp_booking_automation_message_logs',
     ],
     // Cache TTL in seconds for list/panel data. Set to 0 to disable.
     'cache_ttl' => (int) env('WHATSAPP_CACHE_TTL', 60),

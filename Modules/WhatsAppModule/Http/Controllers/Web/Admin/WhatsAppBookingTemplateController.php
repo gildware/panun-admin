@@ -11,7 +11,9 @@ use Illuminate\Routing\Controller;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
+use Modules\WhatsAppModule\Entities\WhatsAppBookingAutomationMessageLog;
 use Modules\WhatsAppModule\Entities\WhatsAppMarketingTemplate;
+use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 
@@ -95,6 +97,11 @@ class WhatsAppBookingTemplateController extends Controller
         $bookingTokenKeys = array_keys($placeholders);
         $placeholderSamples = BookingWhatsAppNotificationService::allPlaceholderPreviewSamplesForAdmin();
 
+        $recentAutomationLogs = WhatsAppBookingAutomationMessageLog::query()
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
         return view('whatsappmodule::admin.booking-message-templates', compact(
             'config',
             'placeholders',
@@ -107,7 +114,42 @@ class WhatsAppBookingTemplateController extends Controller
             'placeholderSamples',
             'bookingTokenKeys',
             'waActiveMainTab',
-            'waActiveStatusSegment'
+            'waActiveStatusSegment',
+            'recentAutomationLogs'
+        ));
+    }
+
+    public function automationMessageLogs(Request $request): View
+    {
+        $this->authorize('whatsapp_message_template_view');
+
+        $logs = WhatsAppBookingAutomationMessageLog::query()
+            ->orderByDesc('id')
+            ->paginate(50)
+            ->withQueryString();
+
+        $waIds = $logs->getCollection()->pluck('wa_message_id')->filter()->unique()->values();
+        $statusByWaId = [];
+        $detailByWaId = [];
+        if ($waIds->isNotEmpty()) {
+            $rows = WhatsAppMessage::query()
+                ->whereIn('wa_message_id', $waIds->all())
+                ->whereRaw("UPPER(COALESCE(direction,'')) = 'OUT'")
+                ->get(['wa_message_id', 'status', 'status_detail', 'status_updated_at']);
+            foreach ($rows as $row) {
+                $wid = (string) ($row->wa_message_id ?? '');
+                if ($wid === '') {
+                    continue;
+                }
+                $statusByWaId[$wid] = $row->status;
+                $detailByWaId[$wid] = $row->status_detail;
+            }
+        }
+
+        return view('whatsappmodule::admin.booking-automation-message-logs', compact(
+            'logs',
+            'statusByWaId',
+            'detailByWaId',
         ));
     }
 
