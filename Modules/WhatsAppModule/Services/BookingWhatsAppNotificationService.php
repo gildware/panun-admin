@@ -562,8 +562,8 @@ class BookingWhatsAppNotificationService
                     : null,
                 'recipient_party' => $this->inferRecipientParty($logLabel),
                 'recipient_phone' => $recipientPhone,
-                'booking_id' => isset($logCtx['booking_id']) ? (int) $logCtx['booking_id'] : null,
-                'booking_repeat_id' => isset($logCtx['booking_repeat_id']) ? (int) $logCtx['booking_repeat_id'] : null,
+                'booking_id' => isset($logCtx['booking_id']) ? (string) $logCtx['booking_id'] : null,
+                'booking_repeat_id' => isset($logCtx['booking_repeat_id']) ? (string) $logCtx['booking_repeat_id'] : null,
                 'wa_message_id' => $waMessageId,
                 'local_whatsapp_message_id' => $localWhatsappMessageId,
                 'result' => $result,
@@ -1278,8 +1278,8 @@ class BookingWhatsAppNotificationService
         string $providerKey,
         string $logContext,
         string $entityId,
-        ?int $bookingIdForLog = null,
-        ?int $bookingRepeatIdForLog = null,
+        ?string $bookingIdForLog = null,
+        ?string $bookingRepeatIdForLog = null,
     ): bool {
         $ctx = array_filter([
             'entity_id' => $entityId,
