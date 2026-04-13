@@ -44,6 +44,7 @@ Route::group([
         Route::get('booking-message-templates', [WhatsAppBookingTemplateController::class, 'edit'])->middleware(['can:whatsapp_message_template_view'])->name('booking-templates.edit');
         Route::post('booking-message-templates', [WhatsAppBookingTemplateController::class, 'update'])->middleware(['can:whatsapp_message_template_update'])->name('booking-templates.update');
         Route::post('booking-message-templates/toggle-enabled', [WhatsAppBookingTemplateController::class, 'toggleEnabled'])->middleware(['can:whatsapp_message_template_update'])->name('booking-templates.toggle-enabled');
+        Route::post('booking-message-templates/toggle-message-send-enabled', [WhatsAppBookingTemplateController::class, 'toggleMessageSendEnabled'])->middleware(['can:whatsapp_message_template_update'])->name('booking-templates.toggle-message-send-enabled');
         Route::post('conversation-templates', [WhatsAppConversationTemplateController::class, 'store'])->middleware(['can:whatsapp_message_template_update'])->name('conversation-templates.store');
         Route::put('conversation-templates/{template}', [WhatsAppConversationTemplateController::class, 'update'])->middleware(['can:whatsapp_message_template_update'])->name('conversation-templates.update');
         Route::post('conversation-templates/{template}/toggle-active', [WhatsAppConversationTemplateController::class, 'toggleActive'])->middleware(['can:whatsapp_message_template_update'])->name('conversation-templates.toggle-active');
