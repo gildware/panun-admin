@@ -30,8 +30,8 @@ class WhatsAppBookingAutomationLogTest extends TestCase
             $table->string('template_name', 255)->nullable();
             $table->string('recipient_party', 32)->default('unknown')->index();
             $table->string('recipient_phone', 64)->nullable()->index();
-            $table->unsignedBigInteger('booking_id')->nullable()->index();
-            $table->unsignedBigInteger('booking_repeat_id')->nullable()->index();
+            $table->string('booking_id', 64)->nullable()->index();
+            $table->string('booking_repeat_id', 64)->nullable()->index();
             $table->string('wa_message_id', 255)->nullable()->index();
             $table->unsignedBigInteger('local_whatsapp_message_id')->nullable()->index();
             $table->string('result', 24)->index();
@@ -52,7 +52,7 @@ class WhatsAppBookingAutomationLogTest extends TestCase
         $m->setAccessible(true);
         $m->invoke(
             $svc,
-            ['booking_id' => 42, 'entity_id' => '42'],
+            ['booking_id' => '42', 'entity_id' => '42'],
             'booking_confirmation_customer',
             '919876543210',
             'booking confirm (customer)',
@@ -70,7 +70,7 @@ class WhatsAppBookingAutomationLogTest extends TestCase
         $this->assertSame('sent', $log->result);
         $this->assertSame('customer', $log->recipient_party);
         $this->assertSame('wamid.HBgM', $log->wa_message_id);
-        $this->assertSame(42, (int) $log->booking_id);
+        $this->assertSame('42', (string) $log->booking_id);
     }
 
     public function test_log_automation_master_disabled_writes_one_row_per_slot(): void

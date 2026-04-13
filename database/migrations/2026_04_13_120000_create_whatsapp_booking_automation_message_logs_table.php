@@ -19,8 +19,9 @@ return new class extends Migration {
             $table->string('template_name', 255)->nullable();
             $table->string('recipient_party', 32)->default('unknown');
             $table->string('recipient_phone', 64)->nullable();
-            $table->unsignedBigInteger('booking_id')->nullable();
-            $table->unsignedBigInteger('booking_repeat_id')->nullable();
+            // Booking IDs are UUID strings in this project.
+            $table->string('booking_id', 64)->nullable();
+            $table->string('booking_repeat_id', 64)->nullable();
             $table->string('wa_message_id', 255)->nullable();
             $table->unsignedBigInteger('local_whatsapp_message_id')->nullable();
             $table->string('result', 24);
