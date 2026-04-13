@@ -6863,6 +6863,7 @@ _Message' => 'Customer notification for provider bid offer
   'WhatsApp_prefill_provider_lead' => 'Add provider lead',
   'WhatsApp_booking_template_help' => 'Set messages for new bookings, status changes, provider reassignment, schedule and payment updates, serviceman assignment, and booking verification. When enabled, each non-empty template is sent to that party if a valid phone is available. Use the variables below; they are replaced with live booking data.',
   'WhatsApp_booking_template_help_meta_only' => 'Choose an approved Meta message template for each automated message (same library as Marketing → Templates). Map each template variable to a booking field. Leave a slot empty to skip sending that message.',
+  'WhatsApp_template_payment_added_hint_meta' => 'Sent when an admin adds a payment from booking details (Add payment modal). Uses the payment-specific tokens (amount added, received by, date, method, reference).',
   'WhatsApp_booking_variables_reference_hint' => 'Use these tokens when mapping Meta template placeholders to live data. Booking tabs (new booking, status, schedule, provider change, etc.) use booking fields; the “Payment change” tab adds payment status and amounts on the booking; “Ledger payment messages” uses settlement and payout tokens (provider/customer balances, collections, payouts). Open the info icon on any variable in the dropdown for full guidance.',
   'WhatsApp_booking_meta_template_intro' => 'Pick an approved Meta template and map {{1}}, {{2}}, … to booking variables.',
   'WhatsApp_booking_meta_template_label' => 'Meta template',
@@ -8037,4 +8038,5 @@ _Message' => 'Customer notification for provider bid offer
   'Pending_provider_balances_bulk_intro_all' => 'You are about to send a WhatsApp payment reminder to all :count provider(s) matching your current filters (including other pages).',
   'Pending_balances' => 'Pending balances',
   'No Record Found' => 'No Record Found',
+  'Others' => 'Others',
 );

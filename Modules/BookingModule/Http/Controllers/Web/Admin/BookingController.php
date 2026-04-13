@@ -2337,9 +2337,12 @@ class BookingController extends Controller
             $customerAddress = $this->userAddress->find($booking['service_address_id']);
             $zones = Zone::ofStatus(1)->withoutGlobalScope('translate')->get();
 
+            // Important: the booking details page itself may contain `?search=...` from the booking list filters.
+            // That query param is unrelated to provider search, and it caused the reassign-provider modal to
+            // sometimes open with an empty provider list. Provider searching is handled via the modal AJAX.
             $allProviders = $this->provider
-                ->when($request->has('search'), function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
+                ->when($request->filled('provider_search'), function ($query) use ($request) {
+                    $keys = explode(' ', (string) $request->input('provider_search'));
                     return $query->where(function ($query) use ($keys) {
                         foreach ($keys as $key) {
                             $query->orWhere('company_phone', 'LIKE', '%' . $key . '%')
@@ -3759,17 +3762,7 @@ class BookingController extends Controller
             $booking->is_paid = $request->payment_status == '1' ? 1 : 0;
 
             if ($booking->isDirty('is_paid')) {
-                $previousIsPaid = (int) $booking->getOriginal('is_paid');
                 $booking->save();
-                try {
-                    $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingPaymentChange($fresh, $previousIsPaid);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp booking payment failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
-                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -3778,20 +3771,7 @@ class BookingController extends Controller
             $repeatBooking->is_paid = $request->payment_status == '1' ? 1 : 0;
 
             if ($repeatBooking->isDirty('is_paid')) {
-                $previousIsPaid = (int) $repeatBooking->getOriginal('is_paid');
                 $repeatBooking->save();
-                try {
-                    $fresh = $this->bookingRepeat->with([
-                        'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
-                        'detail', 'provider.owner', 'serviceman.user', 'booking',
-                    ])->find($repeatBooking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingRepeatPaymentChange($fresh, $previousIsPaid);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp repeat payment failed', ['booking_repeat_id' => $repeatBooking->id, 'message' => $e->getMessage()]);
-                }
                 return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -5024,6 +5004,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'sub_category_id' => 'nullable|uuid',
             'category_id' => 'nullable|uuid',
+            'zone_id' => 'nullable|uuid',
         ]);
 
         if ($validator->fails()) {
@@ -5032,11 +5013,17 @@ class BookingController extends Controller
 
         $subCategoryId = $request->input('sub_category_id');
         $categoryId = $request->input('category_id');
+        $zoneId = $request->input('zone_id');
 
         if (! $subCategoryId && ! $categoryId) {
             return response()->json(response_formatter(DEFAULT_400, null, [[
                 'message' => translate('This_field_required'),
             ]]), 400);
+        }
+
+        // Zone must be selected to load eligible providers (prevents "show all").
+        if (! $zoneId) {
+            return response()->json(response_formatter(DEFAULT_200, collect([])), 200);
         }
 
         if ($subCategoryId) {
@@ -5066,7 +5053,8 @@ class BookingController extends Controller
         // Get only subscribed providers with contact person info
         $providers = $this->provider
             ->whereIn('id', $subscribedProviderIds)
-            ->get()
+            ->coveringLeafZone($zoneId)
+            ->get(['id', 'company_name', 'contact_person_name', 'contact_person_phone', 'zone_id'])
             ->map(function ($provider) {
                 $companyName = $provider->company_name ?? '';
                 $contactPersonName = $provider->contact_person_name ?? '';
@@ -5652,7 +5640,8 @@ class BookingController extends Controller
         $newTotalPaidAfterThis = round($totalPaid + $amount, 2);
         $dueAfterThisPayment = round(max(0, $payableCapForPartialDue - $newTotalPaidAfterThis), 2);
 
-        DB::transaction(function () use ($booking, $amount, $receivedBy, $inflow, $date, $dueAfterThisPayment) {
+        $partial = null;
+        DB::transaction(function () use ($booking, $amount, $receivedBy, $inflow, $date, $dueAfterThisPayment, &$partial) {
             $paidWith = 'admin_entry';
             $partial = $booking->booking_partial_payments()->create([
                 'paid_with' => $paidWith,
@@ -5685,6 +5674,21 @@ class BookingController extends Controller
                 $booking->save();
             }
         });
+
+        try {
+            if ($partial && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+                $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingPaymentAdded($fresh, $partial, [
+                        'date' => $date,
+                        'payment_method' => (string) ($inflow['ledger_payment_method'] ?? ''),
+                        'reference_id' => (string) ($inflow['partial_transaction_id'] ?? ''),
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp booking payment added failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
+        }
 
         if ($request->wantsJson()) {
             $payload = response_formatter(DEFAULT_UPDATE_200, null);

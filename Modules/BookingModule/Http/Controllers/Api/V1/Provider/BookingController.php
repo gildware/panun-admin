@@ -940,6 +940,8 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
+            'booking_hold_reopen_reason_id' => ($request->booking_status == 'on_hold') ? 'required|integer' : 'nullable|integer',
+            'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
         if ($validator->fails()) {
@@ -1005,6 +1007,8 @@ class BookingController extends Controller
             $bookingStatusHistory->booking_id = $bookingId;
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
+            $bookingStatusHistory->booking_hold_reopen_reason_id = $request->input('booking_hold_reopen_reason_id');
+            $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
 
             if ($booking->isDirty('booking_status')) {
                 DB::transaction(function () use ($bookingStatusHistory, $booking) {
@@ -1030,6 +1034,8 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
+            'booking_hold_reopen_reason_id' => ($request->booking_status == 'on_hold') ? 'required|integer' : 'nullable|integer',
+            'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
         if ($validator->fails()) {
@@ -1083,6 +1089,8 @@ class BookingController extends Controller
             $bookingStatusHistory->booking_repeat_id = $repeatId;
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
+            $bookingStatusHistory->booking_hold_reopen_reason_id = $request->input('booking_hold_reopen_reason_id');
+            $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
 
             if ($booking->isDirty('booking_status')) {
                 DB::transaction(function () use ($bookingStatusHistory, $booking) {
@@ -1369,6 +1377,8 @@ class BookingController extends Controller
             'serviceman_id' => 'nullable',
             'booking_status' => 'nullable|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'service_schedule' => 'nullable',
+            'booking_hold_reopen_reason_id' => ($request->booking_status == 'on_hold') ? 'required|integer' : 'nullable|integer',
+            'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
         if ($validator->fails()) {
@@ -1391,7 +1401,25 @@ class BookingController extends Controller
         if (!is_null($request['serviceman_id'])) $booking->serviceman_id = $request['serviceman_id'];
         if (!is_null($request['booking_status'])) $booking->booking_status = $request['booking_status'];
         if (!is_null($request['service_schedule'])) $booking->service_schedule = $request['service_schedule'];
-        $booking->save();
+
+        $newStatus = !is_null($request['booking_status']) ? (string) $request['booking_status'] : $previousStatus;
+        $statusChanged = $previousStatus !== '' && $newStatus !== '' && $newStatus !== $previousStatus;
+        $holdReasonId = $request->input('booking_hold_reopen_reason_id');
+        $remarks = $request->input('status_change_remarks');
+
+        DB::transaction(function () use ($booking, $statusChanged, $newStatus, $holdReasonId, $remarks, $request) {
+            $booking->save();
+            if ($statusChanged) {
+                $hist = new BookingStatusHistory();
+                $hist->booking_id = (string) $booking->id;
+                $hist->booking_repeat_id = null;
+                $hist->changed_by = $request->user()->id;
+                $hist->booking_status = $newStatus;
+                $hist->booking_hold_reopen_reason_id = $newStatus === 'on_hold' ? $holdReasonId : null;
+                $hist->status_change_remarks = is_string($remarks) && trim($remarks) !== '' ? $remarks : null;
+                $hist->save();
+            }
+        });
 
         try {
             if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
@@ -1406,8 +1434,7 @@ class BookingController extends Controller
                             ->sendBookingScheduleChange($fresh, $previousSchedule);
                     }
                     if ((int) ($fresh->is_paid ?? 0) !== $previousIsPaid) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingPaymentChange($fresh, $previousIsPaid);
+                        // Removed: “Payment status changed” automation is no longer used.
                     }
                     $freshSm = $fresh->serviceman_id ? (string) $fresh->serviceman_id : null;
                     if (((string) ($previousServicemanId ?? '')) !== ((string) ($freshSm ?? ''))) {
@@ -1557,8 +1584,7 @@ class BookingController extends Controller
                             ->sendBookingRepeatScheduleChange($freshRepeat, $previousSchedule);
                     }
                     if ((int) ($freshRepeat->is_paid ?? 0) !== $previousIsPaid) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingRepeatPaymentChange($freshRepeat, $previousIsPaid);
+                        // Removed: “Payment status changed” automation is no longer used.
                     }
                     $freshSm = $freshRepeat->serviceman_id ? (string) $freshRepeat->serviceman_id : null;
                     if (((string) ($previousServicemanId ?? '')) !== ((string) ($freshSm ?? ''))) {

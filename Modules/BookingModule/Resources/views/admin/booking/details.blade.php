@@ -1816,6 +1816,14 @@
                                     @endif
                                 </div>
                                 <div class="flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
+                                    <p class="fw-semibold fz-12 mb-1">{{ translate('Zone') }}:</p>
+                                    <p class="mb-2 fz-12 text-break">
+                                        @if($booking?->zone?->name)
+                                            {{ $booking->zone->name }}@if($booking->zone?->parentZone?->name) ({{ $booking->zone->parentZone->name }})@endif
+                                        @else
+                                            {{ translate('not_available') }}
+                                        @endif
+                                    </p>
                                 @if($booking->service_location == 'provider')
                                     <p class="fz-12 mb-2 text-muted lh-sm">{{ translate('Customer has to go to the Provider Location to receive the service') }}</p>
                                     @if($booking->provider_id != null)

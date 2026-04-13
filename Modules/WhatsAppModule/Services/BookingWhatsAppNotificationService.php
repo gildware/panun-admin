@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BusinessSettingsModule\Entities\AdditionalChargeType;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\Serviceman;
@@ -85,8 +87,11 @@ class BookingWhatsAppNotificationService
         '{previous_provider_name}' => 'Previous provider name (provider change only)',
         '{previous_provider_phone}' => 'Previous provider phone (provider change only)',
         '{previous_service_schedule}' => 'Previous service date & time (schedule change only; same format as booking date/time)',
-        '{payment_status}' => 'Payment status (Paid / Unpaid)',
-        '{previous_payment_status}' => 'Previous payment status (payment updates only)',
+        '{amount_added}' => 'Amount added (Add payment modal)',
+        '{payment_received_by}' => 'Received by (Company / Provider)',
+        '{payment_date}' => 'Payment date',
+        '{payment_method}' => 'Payment method (cash / bank / etc.)',
+        '{payment_reference}' => 'Transaction / reference id (if any)',
         '{serviceman_name}' => 'Assigned serviceman name',
         '{serviceman_phone}' => 'Assigned serviceman phone',
         '{previous_serviceman_name}' => 'Previous serviceman name (assignment change only)',
@@ -97,6 +102,7 @@ class BookingWhatsAppNotificationService
         '{reopen_resolve_remarks}' => 'Remarks when a reopen case is marked resolved (reopen resolved template only)',
         '{booking_cancellation_reason}' => 'Cancellation reason (from the latest cancel action on this booking)',
         '{on_hold_reason}' => 'Put on hold — reason (from the latest hold action on this booking)',
+        '{on_hold_reason_remarks}' => 'Put on hold — remarks/notes (from the latest hold action on this booking)',
         '{reopen_from_completed_reason}' => 'Reopen from completed — reason or notes (from reopen flow)',
         '{provider_pending_balance}' => 'Amount provider owes the company (settlement basis; payment reminders to provider)',
         '{provider_due_balance}' => 'Provider amount due (same value as provider pending balance; for Meta templates using provider_due_balance)',
@@ -128,15 +134,18 @@ class BookingWhatsAppNotificationService
         '{booking_datetime}' => "Modules: Booking.\nWhen: Confirmations, reminders, schedule or status updates that mention timing.\nContains: Scheduled service date & time in the app’s display format.",
         '{service_where}' => "Modules: Booking.\nWhen: Clarifying on-site vs off-site or similar.\nContains: Short label such as where service is performed.",
         '{total_bill}' => "Modules: Booking.\nWhen: New booking, invoice, or payment-related booking messages.\nContains: Total bill for the booking, formatted with currency where applicable.",
-        '{amount_paid}' => "Modules: Booking.\nWhen: Payment change tab and any message describing money already collected on the booking.\nContains: Amount paid so far on this booking (formatted).",
-        '{due_amount}' => "Modules: Booking.\nWhen: Payment change tab and reminders about balance on the booking.\nContains: Outstanding amount still due on the booking (formatted).",
+        '{amount_paid}' => "Modules: Booking.\nWhen: Any template describing money already collected on the booking.\nContains: Amount paid so far on this booking (formatted).",
+        '{due_amount}' => "Modules: Booking.\nWhen: Any template that needs the outstanding amount on the booking.\nContains: Outstanding amount still due on the booking (formatted).",
         '{booking_status}' => "Modules: Booking.\nWhen: Status-changed templates and any update that reflects current state.\nContains: Current booking status label (e.g. Pending, Accepted).",
         '{previous_booking_status}' => "Modules: Booking.\nWhen: Status-changed templates (before → after).\nContains: Previous status label before the latest transition.",
         '{previous_provider_name}' => "Modules: Booking — provider reassignment.\nWhen: Provider change tab only (old vs new assignee).\nContains: Name of the provider before reassignment.",
         '{previous_provider_phone}' => "Modules: Booking — provider reassignment.\nWhen: Provider change tab.\nContains: Phone of the provider before reassignment.",
         '{previous_service_schedule}' => "Modules: Booking — schedule change.\nWhen: Schedule change tab (old vs new time).\nContains: Previous scheduled date & time string.",
-        '{payment_status}' => "Modules: Booking — payment updates.\nWhen: “Payment change” tab templates (paid vs unpaid messaging).\nContains: Current payment status label (e.g. Paid, Unpaid).",
-        '{previous_payment_status}' => "Modules: Booking — payment updates.\nWhen: “Payment change” tab when you need “was → now” wording.\nContains: Payment status before the latest booking payment change.",
+        '{amount_added}' => "Modules: Booking — payments.\nWhen: “Add payment” message templates.\nContains: The amount recorded in the Add payment modal (formatted).",
+        '{payment_received_by}' => "Modules: Booking — payments.\nWhen: “Add payment” message templates.\nContains: Who received this payment (Company or Provider).",
+        '{payment_date}' => "Modules: Booking — payments.\nWhen: “Add payment” message templates.\nContains: The payment date recorded in the Add payment modal.",
+        '{payment_method}' => "Modules: Booking — payments.\nWhen: “Add payment” templates.\nContains: The payment method label used for ledger recording (cash/bank/etc.).",
+        '{payment_reference}' => "Modules: Booking — payments.\nWhen: “Add payment” templates.\nContains: Transaction / reference id if recorded; otherwise blank/—.",
         '{serviceman_name}' => "Modules: Booking — serviceman assignment.\nWhen: Serviceman tab and any template naming the assigned technician.\nContains: Current serviceman display name.",
         '{serviceman_phone}' => "Modules: Booking — serviceman assignment.\nWhen: Templates that should show how to contact the assigned serviceman.\nContains: Serviceman phone string.",
         '{previous_serviceman_name}' => "Modules: Booking — serviceman change.\nWhen: Serviceman tab (previous vs current assignee).\nContains: Name before the last assignment change.",
@@ -147,6 +156,7 @@ class BookingWhatsAppNotificationService
         '{reopen_resolve_remarks}' => "Modules: Booking — reopen resolved.\nWhen: “Reopen resolved” status segment only.\nContains: Admin/staff remarks entered when the reopen case is marked resolved.",
         '{booking_cancellation_reason}' => "Modules: Booking.\nWhen: Cancellation or status flows that capture a reason.\nContains: Last cancellation reason text from the booking.",
         '{on_hold_reason}' => "Modules: Booking.\nWhen: On-hold / hold-related status messaging.\nContains: Reason from the latest hold action.",
+        '{on_hold_reason_remarks}' => "Modules: Booking.\nWhen: On-hold / hold-related status messaging.\nContains: Remarks/notes recorded when the booking is put on hold.",
         '{reopen_from_completed_reason}' => "Modules: Booking — reopened from completed.\nWhen: Reopen flows that store a reason.\nContains: Text from the reopen-from-completed flow.",
         '{provider_pending_balance}' => "Modules: Payments / ledger (WhatsApp “Ledger payment messages” tab).\nWhen: Provider payment reminders — amount they still owe the company.\nContains: Formatted pending settlement due from provider to company.",
         '{provider_due_balance}' => "Modules: Payments / ledger.\nWhen: Same as pending provider balance; use whichever token matches your approved Meta template name.\nContains: Same numeric meaning as {provider_pending_balance} (formatted).",
@@ -183,8 +193,11 @@ class BookingWhatsAppNotificationService
         '{previous_provider_name}' => 'Old Care HVAC',
         '{previous_provider_phone}' => '+91 90000 00001',
         '{previous_service_schedule}' => '5 Apr 2026, 10:00 AM',
-        '{payment_status}' => 'Paid',
-        '{previous_payment_status}' => 'Unpaid',
+        '{amount_added}' => '500.00',
+        '{payment_received_by}' => 'Company',
+        '{payment_date}' => '2026-04-13',
+        '{payment_method}' => 'cash_after_service',
+        '{payment_reference}' => 'TXN-884120',
         '{serviceman_name}' => 'Ravi Kumar',
         '{serviceman_phone}' => '+91 99887 76655',
         '{previous_serviceman_name}' => 'Amit Singh',
@@ -195,6 +208,7 @@ class BookingWhatsAppNotificationService
         '{reopen_resolve_remarks}' => 'Technician visit completed; case closed.',
         '{booking_cancellation_reason}' => 'Customer requested reschedule',
         '{on_hold_reason}' => 'Awaiting parts',
+        '{on_hold_reason_remarks}' => 'Need supplier confirmation before resuming',
         '{reopen_from_completed_reason}' => 'Issue recurred after visit',
         '{provider_pending_balance}' => '12,500.00',
         '{provider_due_balance}' => '12,500.00',
@@ -314,9 +328,9 @@ class BookingWhatsAppNotificationService
             return 'Audience: Customer templates (who will serve them) and provider templates (their own business name/phone).';
         }
 
-        $bookingPaymentTokens = ['{payment_status}', '{previous_payment_status}', '{amount_paid}', '{due_amount}', '{total_bill}'];
+        $bookingPaymentTokens = ['{amount_added}', '{payment_received_by}', '{payment_date}', '{payment_method}', '{payment_reference}', '{amount_paid}', '{due_amount}', '{total_bill}'];
         if (in_array($token, $bookingPaymentTokens, true)) {
-            return 'Audience: Payment change tab (and related billing copy) — use Customer template column for the customer, Provider template column for the provider, depending on who receives the WhatsApp.';
+            return 'Audience: Booking payment templates — use Customer template column for the customer, Provider template column for the provider, depending on who receives the WhatsApp.';
         }
 
         return 'Audience: Choose Customer template to message the customer, or Provider template to message the provider. The token value comes from the same booking (or ledger event for ledger tokens); only the recipient changes.';
@@ -429,8 +443,8 @@ class BookingWhatsAppNotificationService
             'provider_change_new_provider',
             'booking_schedule_customer',
             'booking_schedule_provider',
-            'booking_payment_customer',
-            'booking_payment_provider',
+            'booking_payment_added_customer',
+            'booking_payment_added_provider',
             'ledger_provider_payment_reminder',
             'ledger_customer_payment_reminder',
             'ledger_payment_received_from_provider',
@@ -490,8 +504,8 @@ class BookingWhatsAppNotificationService
             'provider_change_new_provider' => "You have been assigned booking *{booking_id}*\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\nAddress: {customer_address}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\nService at: {service_where}\n\n*Payment*\nTotal: {total_bill}\nPaid: {amount_paid}\nDue: {due_amount}\n\n*Previous provider*\n{previous_provider_name}\nPhone: {previous_provider_phone}\n\nPlease accept and prepare in your app.",
             'booking_schedule_customer' => "Schedule update\n\nBooking *{booking_id}* has a new service time.\n\nBefore: {previous_service_schedule}\nNow: {booking_datetime}\n\nService: {service_name}\nProvider: {provider_name} ({provider_phone})",
             'booking_schedule_provider' => "Schedule update\n\nBooking *{booking_id}* rescheduled.\n\nBefore: {previous_service_schedule}\nNow: {booking_datetime}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
-            'booking_payment_customer' => "Payment update\n\nBooking *{booking_id}* payment status: {previous_payment_status} → *{payment_status}*\n\nService: {service_name}\nWhen: {booking_datetime}\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
-            'booking_payment_provider' => "Payment update\n\nBooking *{booking_id}* payment status: {previous_payment_status} → *{payment_status}*\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
+            'booking_payment_added_customer' => "Payment received\n\nBooking *{booking_id}*\nAmount added: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
+            'booking_payment_added_provider' => "Payment added\n\nBooking *{booking_id}*\nAmount: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nCustomer: {customer_name} ({customer_phone})\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
             'ledger_provider_payment_reminder' => "Payment reminder\n\nHello {provider_name},\n\nPending balance: {provider_pending_balance}\n\nPlease settle at your earliest convenience.",
             'ledger_customer_payment_reminder' => "Payment reminder\n\nHello {customer_name},\n\nOutstanding amount: {customer_pending_balance}\n\nPlease complete your payment.",
             'ledger_payment_received_from_provider' => "Payment received\n\nThank you {provider_name}. Collected: {amount_collected_from_provider}.\n\nStill to collect (settlement): {balance_after_payment_collected}\nNet after this payment: {booking_settlement_net_after_collect}",
@@ -677,16 +691,36 @@ class BookingWhatsAppNotificationService
             return;
         }
 
-        $transitionKey = self::CACHE_STATUS_SENT_PREFIX . $booking->id . ':' . $previousBookingStatus . '>' . $newStatus;
         $lock = Cache::lock(self::CACHE_STATUS_LOCK_PREFIX . $booking->id, 30);
         if (!$lock->get()) {
+            // Avoid silent no-ops: if the lock can't be acquired, record a skipped row so admins can
+            // see why no WhatsApp was sent for this transition.
+            $baseCtx = [
+                'booking_id' => $booking->id,
+                'entity_id' => (string) $booking->id,
+                'segment' => $segment,
+            ];
+            $reason = 'skipped_lock_busy';
+            $this->writeAutomationLog(
+                array_merge($baseCtx, ['party' => 'customer', 'message_key' => 'booking_status_customer_' . $segment]),
+                'booking_status_customer_' . $segment,
+                null,
+                'booking status (customer)',
+                'skipped',
+                $reason
+            );
+            $this->writeAutomationLog(
+                array_merge($baseCtx, ['party' => 'provider', 'message_key' => 'booking_status_provider_' . $segment]),
+                'booking_status_provider_' . $segment,
+                null,
+                'booking status (provider)',
+                'skipped',
+                $reason
+            );
+
             return;
         }
         try {
-            if (Cache::has($transitionKey)) {
-                return;
-            }
-
             $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
             $vars = $this->buildReplacements($booking, $previousBookingStatus);
 
@@ -715,10 +749,6 @@ class BookingWhatsAppNotificationService
                 'booking status',
                 (string) $booking->id
             );
-
-            if ($cOk || $pOk) {
-                Cache::put($transitionKey, 1, now()->addYears(5));
-            }
         } finally {
             $lock->release();
         }
@@ -784,7 +814,7 @@ class BookingWhatsAppNotificationService
             );
 
             if ($cOk || $pOk) {
-                Cache::put($dedupKey, 1, now()->addYears(5));
+                Cache::put($dedupKey, 1, now()->addSeconds(15));
             }
         } finally {
             $lock->release();
@@ -826,16 +856,35 @@ class BookingWhatsAppNotificationService
             return;
         }
 
-        $transitionKey = self::CACHE_STATUS_SENT_PREFIX . 'repeat:' . $repeat->id . ':' . $previousBookingStatus . '>' . $newStatus;
         $lock = Cache::lock(self::CACHE_STATUS_LOCK_PREFIX . 'repeat:' . $repeat->id, 30);
         if (!$lock->get()) {
+            $baseCtx = [
+                'booking_id' => $parent->id,
+                'booking_repeat_id' => $repeat->id,
+                'entity_id' => (string) $repeat->id,
+                'segment' => $segment,
+            ];
+            $reason = 'skipped_lock_busy';
+            $this->writeAutomationLog(
+                array_merge($baseCtx, ['party' => 'customer', 'message_key' => 'booking_status_customer_' . $segment]),
+                'booking_status_customer_' . $segment,
+                null,
+                'repeat booking status (customer)',
+                'skipped',
+                $reason
+            );
+            $this->writeAutomationLog(
+                array_merge($baseCtx, ['party' => 'provider', 'message_key' => 'booking_status_provider_' . $segment]),
+                'booking_status_provider_' . $segment,
+                null,
+                'repeat booking status (provider)',
+                'skipped',
+                $reason
+            );
+
             return;
         }
         try {
-            if (Cache::has($transitionKey)) {
-                return;
-            }
-
             $vars = $this->buildRepeatStatusReplacements($repeat, $parent, $previousBookingStatus);
 
             $customerPhone = $this->normalizePhone($parent->customer?->phone, $config);
@@ -864,10 +913,6 @@ class BookingWhatsAppNotificationService
                 'repeat booking status',
                 (string) $repeat->id
             );
-
-            if ($cOk || $pOk) {
-                Cache::put($transitionKey, 1, now()->addYears(5));
-            }
         } finally {
             $lock->release();
         }
@@ -908,6 +953,25 @@ class BookingWhatsAppNotificationService
             $serviceNames = '—';
         }
         $vars['{service_name}'] = $serviceNames;
+
+        // For repeat rows, hold reason/remarks are recorded against booking_repeat_id (not the parent booking row).
+        // Fall back to parent tokens if repeat history is missing.
+        $repeatHoldHist = BookingStatusHistory::query()
+            ->where('booking_repeat_id', $repeat->id)
+            ->where('booking_status', 'on_hold')
+            ->with('holdReopenReason')
+            ->latest('created_at')
+            ->latest('id')
+            ->first();
+        if ($repeatHoldHist) {
+            $repeatHoldReason = trim((string) ($repeatHoldHist->holdReopenReason?->name ?? ''));
+            $repeatHoldRemarks = trim((string) ($repeatHoldHist->status_change_remarks ?? ''));
+            if ($repeatHoldReason === '' && $repeatHoldRemarks !== '') {
+                $repeatHoldReason = $repeatHoldRemarks;
+            }
+            $vars['{on_hold_reason}'] = $repeatHoldReason !== '' ? $repeatHoldReason : '—';
+            $vars['{on_hold_reason_remarks}'] = $repeatHoldRemarks !== '' ? $repeatHoldRemarks : '—';
+        }
 
         $totalBill = get_booking_total_amount($repeat);
         $amountPaid = get_booking_total_paid($repeat);
@@ -1034,92 +1098,75 @@ class BookingWhatsAppNotificationService
 
     public function sendBookingPaymentChange(Booking $booking, int $previousIsPaid): void
     {
-        $config = $this->getConfig();
-        $newIsPaid = (int) ($booking->is_paid ?? 0);
-        if ($previousIsPaid === $newIsPaid) {
-            return;
-        }
+        // Removed: “Payment status changed” automation is no longer used.
+    }
 
+    /**
+     * Triggered when a payment is added from booking details (Add payment modal).
+     *
+     * @param  array{date?: string, payment_method?: string, reference_id?: string}  $meta
+     */
+    public function sendBookingPaymentAdded(Booking $booking, BookingPartialPayment $partial, array $meta = []): void
+    {
+        $config = $this->getConfig();
         if (empty($config['enabled'])) {
             $this->logAutomationMasterDisabled($booking, null, [
-                ['key' => 'booking_payment_customer', 'label' => 'booking payment (customer)'],
-                ['key' => 'booking_payment_provider', 'label' => 'booking payment (provider)'],
+                ['key' => 'booking_payment_added_customer', 'label' => 'booking payment added (customer)'],
+                ['key' => 'booking_payment_added_provider', 'label' => 'booking payment added (provider)'],
             ]);
 
             return;
         }
 
-        $dedupKey = self::CACHE_PAYMENT_SENT_PREFIX . $booking->id . ':' . $previousIsPaid . '>' . $newIsPaid;
-        $lock = Cache::lock(self::CACHE_PAYMENT_LOCK_PREFIX . $booking->id, 30);
-        if (!$lock->get()) {
-            return;
-        }
-        try {
-            if (Cache::has($dedupKey)) {
-                return;
-            }
+        $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
 
-            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
-            $vars = array_merge($this->buildReplacements($booking, null), [
-                '{previous_payment_status}' => $this->paymentPaidLabel($previousIsPaid),
-                '{payment_status}' => $this->paymentPaidLabel($newIsPaid),
-            ]);
+        $amount = (float) ($partial->paid_amount ?? 0);
+        $amountLabel = function_exists('with_currency_symbol') ? with_currency_symbol($amount) : (string) $amount;
 
-            $ok = $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_payment_customer', 'booking_payment_provider', 'payment', (string) $booking->id, $booking->id, null);
-            if ($ok) {
-                Cache::put($dedupKey, 1, now()->addYears(3));
-            }
-        } finally {
-            $lock->release();
+        $receivedBy = (string) ($partial->received_by ?? '');
+        $receivedByLabel = $receivedBy !== '' ? ucfirst($receivedBy) : '—';
+
+        $date = trim((string) ($meta['date'] ?? ''));
+        if ($date === '') {
+            $date = $partial->created_at ? $partial->created_at->toDateString() : now()->toDateString();
         }
+        $method = trim((string) ($meta['payment_method'] ?? ''));
+        if ($method === '') {
+            $method = '—';
+        }
+        $reference = trim((string) ($meta['reference_id'] ?? ''));
+        if ($reference === '') {
+            $reference = (string) ($partial->transaction_id ?? '');
+        }
+        if ($reference === '') {
+            $reference = '—';
+        }
+
+        $vars = array_merge($this->buildReplacements($booking, null), [
+            '{amount_added}' => $amountLabel,
+            '{payment_received_by}' => $receivedByLabel,
+            '{payment_date}' => $date,
+            '{payment_method}' => $method,
+            '{payment_reference}' => $reference,
+        ]);
+
+        $this->sendTemplatePair(
+            $config,
+            $vars,
+            $booking->customer?->phone,
+            $booking->provider,
+            'booking_payment_added_customer',
+            'booking_payment_added_provider',
+            'payment added',
+            (string) $booking->id,
+            (string) $booking->id,
+            null
+        );
     }
 
     public function sendBookingRepeatPaymentChange(BookingRepeat $repeat, int $previousIsPaid): void
     {
-        $newIsPaid = (int) ($repeat->is_paid ?? 0);
-        if ($previousIsPaid === $newIsPaid) {
-            return;
-        }
-
-        $repeat->loadMissing(['booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments', 'booking', 'detail', 'provider.owner', 'serviceman.user']);
-        $parent = $repeat->booking;
-        if (!$parent) {
-            return;
-        }
-
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
-            $this->logAutomationMasterDisabled($parent, $repeat, [
-                ['key' => 'booking_payment_customer', 'label' => 'booking repeat_payment (customer)'],
-                ['key' => 'booking_payment_provider', 'label' => 'booking repeat_payment (provider)'],
-            ]);
-
-            return;
-        }
-
-        $dedupKey = self::CACHE_PAYMENT_SENT_PREFIX . 'repeat:' . $repeat->id . ':' . $previousIsPaid . '>' . $newIsPaid;
-        $lock = Cache::lock(self::CACHE_PAYMENT_LOCK_PREFIX . 'repeat:' . $repeat->id, 30);
-        if (!$lock->get()) {
-            return;
-        }
-        try {
-            if (Cache::has($dedupKey)) {
-                return;
-            }
-
-            $vars = array_merge($this->buildRepeatRowReplacements($repeat, $parent), [
-                '{previous_payment_status}' => $this->paymentPaidLabel($previousIsPaid),
-                '{payment_status}' => $this->paymentPaidLabel($newIsPaid),
-            ]);
-
-            $provider = $repeat->provider ?? $parent->provider;
-            $ok = $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_payment_customer', 'booking_payment_provider', 'repeat_payment', (string) $repeat->id, $parent->id, $repeat->id);
-            if ($ok) {
-                Cache::put($dedupKey, 1, now()->addYears(3));
-            }
-        } finally {
-            $lock->release();
-        }
+        // Removed: “Payment status changed” automation is no longer used.
     }
 
     public function sendBookingServicemanChange(Booking $booking, ?string $previousServicemanId): void
@@ -1458,7 +1505,7 @@ class BookingWhatsAppNotificationService
             );
 
             if ($cOk || $prevOk || $nOk) {
-                Cache::put($dedupKey, 1, now()->addYears(5));
+                Cache::put($dedupKey, 1, now()->addSeconds(15));
             }
         } finally {
             $lock->release();
@@ -1574,11 +1621,45 @@ class BookingWhatsAppNotificationService
         $out = [];
         foreach ($paramKeys as $key) {
             $k = is_string($key) ? trim($key) : '';
-            if ($k === '' || !isset($vars[$k])) {
+            if ($k === '') {
                 $out[] = '';
-            } else {
-                $out[] = (string) $vars[$k];
+                continue;
             }
+
+            // Accept both {token} (canonical) and [token] (legacy/admin-entered) mappings.
+            if (isset($vars[$k])) {
+                $out[] = (string) $vars[$k];
+                continue;
+            }
+
+            // Some older saves (or manual edits) may store the bare token name without braces.
+            // Treat "token_name" as "{token_name}" for lookup.
+            if (preg_match('/^[a-z][a-z0-9_]*$/', $k)) {
+                $brace = '{' . $k . '}';
+                if (isset($vars[$brace])) {
+                    $out[] = (string) $vars[$brace];
+                    continue;
+                }
+                $square = '[' . $k . ']';
+                if (isset($vars[$square])) {
+                    $out[] = (string) $vars[$square];
+                    continue;
+                }
+            }
+
+            if (preg_match('/^\[(.+)\]$/', $k, $m)) {
+                $alt = '{' . $m[1] . '}';
+                $out[] = isset($vars[$alt]) ? (string) $vars[$alt] : '';
+                continue;
+            }
+
+            if (preg_match('/^\{(.+)\}$/', $k, $m)) {
+                $alt = '[' . $m[1] . ']';
+                $out[] = isset($vars[$alt]) ? (string) $vars[$alt] : '';
+                continue;
+            }
+
+            $out[] = '';
         }
 
         return $out;
@@ -2329,14 +2410,39 @@ class BookingWhatsAppNotificationService
 
         $sm = $this->servicemanDisplayPair($booking->serviceman);
 
-        $cancellationReasonText = trim((string) ($booking->latestParentCancellationStatusHistory?->cancellationReason?->name ?? ''));
+        // Like hold, cancellation can be recorded on repeat-linked history rows; mirror booking details UI.
+        $cancelHist = BookingStatusHistory::query()
+            ->where('booking_id', $booking->id)
+            ->whereIn('booking_status', ['canceled', 'cancelled'])
+            ->with('cancellationReason')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+        $cancellationReasonText = trim((string) ($cancelHist?->cancellationReason?->name ?? ''));
         if ($cancellationReasonText === '') {
             $cancellationReasonText = '—';
         }
 
-        $onHoldReasonText = trim((string) ($booking->latestParentHoldStatusHistory?->holdReopenReason?->name ?? ''));
+        // IMPORTANT: In repeat series, "put on hold" can be recorded against a repeat-linked history row.
+        // The booking details UI shows the latest hold reason across all histories; mirror that here.
+        $holdHist = BookingStatusHistory::query()
+            ->where('booking_id', $booking->id)
+            ->where('booking_status', 'on_hold')
+            ->with('holdReopenReason')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+        $onHoldReasonText = trim((string) ($holdHist?->holdReopenReason?->name ?? ''));
+        $onHoldRemarksText = trim((string) ($holdHist?->status_change_remarks ?? ''));
+        // Some flows capture remarks but not a structured reason; ensure the message still shows something meaningful.
+        if ($onHoldReasonText === '' && $onHoldRemarksText !== '') {
+            $onHoldReasonText = $onHoldRemarksText;
+        }
         if ($onHoldReasonText === '') {
             $onHoldReasonText = '—';
+        }
+        if ($onHoldRemarksText === '') {
+            $onHoldRemarksText = '—';
         }
 
         $reopenEv = $booking->reopenFromCompletedDisplayEvent();
@@ -2370,6 +2476,11 @@ class BookingWhatsAppNotificationService
             '{previous_service_schedule}' => '—',
             '{payment_status}' => $this->paymentPaidLabel((int) ($booking->is_paid ?? 0)),
             '{previous_payment_status}' => '—',
+            '{amount_added}' => '—',
+            '{payment_received_by}' => '—',
+            '{payment_date}' => '—',
+            '{payment_method}' => '—',
+            '{payment_reference}' => '—',
             '{serviceman_name}' => $sm['name'],
             '{serviceman_phone}' => $sm['phone'],
             '{previous_serviceman_name}' => '—',
@@ -2380,6 +2491,7 @@ class BookingWhatsAppNotificationService
             '{reopen_resolve_remarks}' => '—',
             '{booking_cancellation_reason}' => $cancellationReasonText,
             '{on_hold_reason}' => $onHoldReasonText,
+            '{on_hold_reason_remarks}' => $onHoldRemarksText,
             '{reopen_from_completed_reason}' => $reopenFromCompletedText,
         ];
 
@@ -2846,6 +2958,15 @@ class BookingWhatsAppNotificationService
      */
     protected function interpolate(string $template, array $vars): string
     {
-        return strtr($template, $vars);
+        // Backward compatible: older/admin-entered templates sometimes use [token] instead of {token}.
+        // Our canonical tokens are {token}. Support both syntaxes at render time.
+        $expanded = $vars;
+        foreach ($vars as $token => $value) {
+            if (preg_match('/^\{(.+)\}$/', $token, $m)) {
+                $expanded['[' . $m[1] . ']'] = $value;
+            }
+        }
+
+        return strtr($template, $expanded);
     }
 }

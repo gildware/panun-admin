@@ -53,7 +53,7 @@
                                 }
                             @endphp
                             <tr>
-                                <td class="small">{{ $log->created_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '—' }}</td>
+                                <td class="small">{{ $log->created_at?->timezone('Asia/Kolkata')->format('Y-m-d H:i:s') . ' IST' ?? '—' }}</td>
                                 <td>
                                     @php
                                         $badgeClass = match ($log->result) {
