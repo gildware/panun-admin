@@ -100,6 +100,33 @@ class Provider extends Model
     }
 
     /**
+     * Cover providers for a zone, whether it's a leaf or a parent zone.
+     * If a parent zone is selected, providers serving any descendant zone are eligible.
+     */
+    public function scopeCoveringZoneOrDescendants($query, ?string $zoneId)
+    {
+        if (! $zoneId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $zoneIds = Zone::selfAndDescendantIds((string) $zoneId);
+        if ($zoneIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $table = $query->getModel()->getTable();
+
+        return $query->where(function ($outer) use ($zoneIds, $table) {
+            $outer->whereHas('zones', function ($q) use ($zoneIds) {
+                $q->whereIn('zones.id', $zoneIds);
+            })->orWhere(function ($q) use ($zoneIds, $table) {
+                $q->whereDoesntHave('zones')
+                    ->whereIn($table . '.zone_id', $zoneIds);
+            });
+        });
+    }
+
+    /**
      * Leaf zone IDs this provider serves (pivot), with legacy zone_id fallback.
      *
      * @return array<int, string>

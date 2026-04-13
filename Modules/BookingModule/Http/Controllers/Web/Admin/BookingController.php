@@ -5053,7 +5053,7 @@ class BookingController extends Controller
         // Get only subscribed providers with contact person info
         $providers = $this->provider
             ->whereIn('id', $subscribedProviderIds)
-            ->coveringLeafZone($zoneId)
+            ->coveringZoneOrDescendants($zoneId)
             ->get(['id', 'company_name', 'contact_person_name', 'contact_person_phone', 'zone_id'])
             ->map(function ($provider) {
                 $companyName = $provider->company_name ?? '';

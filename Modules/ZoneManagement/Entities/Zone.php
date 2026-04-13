@@ -161,4 +161,45 @@ class Zone extends Model
             }]);
         });
     }
+
+    /**
+     * Return the given zone id plus all descendant zone ids (recursive).
+     *
+     * Notes:
+     * - We keep this iterative to avoid deep recursion.
+     * - We query without the translate global scope since we only need ids.
+     *
+     * @return array<int, string>
+     */
+    public static function selfAndDescendantIds(string $zoneId): array
+    {
+        $seen = [];
+        $frontier = [(string) $zoneId];
+
+        while ($frontier !== []) {
+            $frontier = array_values(array_unique(array_filter($frontier, static fn ($v) => $v !== null && $v !== '')));
+            if ($frontier === []) {
+                break;
+            }
+
+            foreach ($frontier as $id) {
+                $seen[$id] = true;
+            }
+
+            $children = static::query()
+                ->withoutGlobalScope('translate')
+                ->whereIn('parent_id', $frontier)
+                ->pluck('id')
+                ->filter()
+                ->map(static fn ($id) => (string) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            // Only continue with not-yet-seen ids
+            $frontier = array_values(array_filter($children, static fn (string $id) => ! isset($seen[$id])));
+        }
+
+        return array_keys($seen);
+    }
 }
