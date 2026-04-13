@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
@@ -181,6 +182,7 @@ class BookingController extends Controller
                     'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                 ]), 422);
             }
+            $previousParentStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
             if ($request['booking_status'] === 'completed') {
                 $booking->reopen_completion_allowed = false;
@@ -195,6 +197,28 @@ class BookingController extends Controller
                 $booking->save();
                 $booking_status_history->save();
             });
+
+            if (BookingRepeat::query()->where('booking_id', $booking->id)->exists()
+                && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+                try {
+                    $fresh = $this->booking->with([
+                        'customer',
+                        'provider.owner',
+                        'service_address',
+                        'detail',
+                        'booking_partial_payments',
+                    ])->find($booking_id);
+                    if ($fresh) {
+                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                            ->sendBookingStatusChange($fresh, $previousParentStatus);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('WhatsApp booking status (API admin) failed', [
+                        'booking_id' => $booking->id,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
 
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }

@@ -14,7 +14,9 @@ use Modules\BusinessSettingsModule\Entities\AdditionalChargeType;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
+use Modules\WhatsAppModule\Entities\WhatsAppBookingAutomationMessageLog;
 use Modules\WhatsAppModule\Entities\WhatsAppMarketingTemplate;
+use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 
 class BookingWhatsAppNotificationService
@@ -506,6 +508,103 @@ class BookingWhatsAppNotificationService
         protected WhatsAppMessagePersistenceService $messagePersistence
     ) {}
 
+    protected function inferRecipientParty(string $logLabel): string
+    {
+        $l = mb_strtolower($logLabel);
+        if (str_contains($l, '(customer)')) {
+            return 'customer';
+        }
+        if (str_contains($l, '(provider)') || str_contains($l, 'previous provider') || str_contains($l, 'new provider')) {
+            return 'provider';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * @param  array<string, mixed>  $logCtx
+     */
+    protected function filterContextForLog(array $logCtx): array
+    {
+        $allowed = ['booking_id', 'booking_repeat_id', 'entity_id', 'segment', 'party', 'message_key'];
+        $out = [];
+        foreach ($allowed as $k) {
+            if (array_key_exists($k, $logCtx)) {
+                $out[$k] = $logCtx[$k];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $logCtx
+     */
+    protected function writeAutomationLog(
+        array $logCtx,
+        string $messageKey,
+        ?string $recipientPhone,
+        string $logLabel,
+        string $result,
+        ?string $errorDetail = null,
+        ?WhatsAppMarketingTemplate $template = null,
+        ?string $waMessageId = null,
+        ?int $localWhatsappMessageId = null,
+    ): void {
+        try {
+            $ctxJson = $this->filterContextForLog($logCtx);
+            WhatsAppBookingAutomationMessageLog::query()->create([
+                'message_key' => $messageKey,
+                'trigger_event' => $logLabel,
+                'template_id' => $template?->id,
+                'template_name' => $template
+                    ? trim($template->name . ' (' . $template->language . ')')
+                    : null,
+                'recipient_party' => $this->inferRecipientParty($logLabel),
+                'recipient_phone' => $recipientPhone,
+                'booking_id' => isset($logCtx['booking_id']) ? (int) $logCtx['booking_id'] : null,
+                'booking_repeat_id' => isset($logCtx['booking_repeat_id']) ? (int) $logCtx['booking_repeat_id'] : null,
+                'wa_message_id' => $waMessageId,
+                'local_whatsapp_message_id' => $localWhatsappMessageId,
+                'result' => $result,
+                'error_detail' => ($errorDetail !== null && $errorDetail !== '') ? mb_substr($errorDetail, 0, 65000) : null,
+                'acting_admin_user_id' => $this->triggerAdminId(),
+                'context_json' => $ctxJson !== [] ? $ctxJson : null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp booking automation log write failed', [
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Log one row per template slot when the master “booking WhatsApp automation” toggle is off,
+     * so the automation log is never silent while booking events still fire.
+     *
+     * @param  array<int, array{key: string, label: string}>  $slots
+     */
+    protected function logAutomationMasterDisabled(Booking $booking, ?BookingRepeat $repeat, array $slots): void
+    {
+        $baseCtx = [
+            'booking_id' => $booking->id,
+        ];
+        if ($repeat !== null) {
+            $baseCtx['booking_repeat_id'] = $repeat->id;
+        }
+        $reason = translate('WhatsApp_booking_automation_reason_master_off');
+        foreach ($slots as $slot) {
+            $this->writeAutomationLog(
+                $baseCtx,
+                $slot['key'],
+                null,
+                $slot['label'],
+                'skipped',
+                $reason
+            );
+        }
+    }
+
     public function sendBookingConfirmation(?Booking $booking): void
     {
         if (!$booking) {
@@ -513,6 +612,11 @@ class BookingWhatsAppNotificationService
         }
         $config = $this->getConfig();
         if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_confirmation_customer', 'label' => 'booking confirm (customer)'],
+                ['key' => 'booking_confirmation_provider', 'label' => 'booking confirm (provider)'],
+            ]);
+
             return;
         }
 
@@ -521,14 +625,14 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add(self::CACHE_CONFIRM_SENT_PREFIX . $booking->id, 1, now()->addYears(10))) {
+            if (Cache::has(self::CACHE_CONFIRM_SENT_PREFIX . $booking->id)) {
                 return;
             }
 
             $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
             $vars = $this->buildReplacements($booking, null);
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-            $this->trySendBookingMetaOnly(
+            $customerOk = $this->trySendBookingMetaOnly(
                 $config,
                 'booking_confirmation_customer',
                 $vars,
@@ -538,7 +642,7 @@ class BookingWhatsAppNotificationService
             );
 
             $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
-            $this->trySendBookingMetaOnly(
+            $providerOk = $this->trySendBookingMetaOnly(
                 $config,
                 'booking_confirmation_provider',
                 $vars,
@@ -546,6 +650,10 @@ class BookingWhatsAppNotificationService
                 'booking confirm (provider)',
                 ['booking_id' => $booking->id]
             );
+
+            if ($customerOk || $providerOk) {
+                Cache::put(self::CACHE_CONFIRM_SENT_PREFIX . $booking->id, 1, now()->addYears(10));
+            }
         } finally {
             $lock->release();
         }
@@ -553,13 +661,19 @@ class BookingWhatsAppNotificationService
 
     public function sendBookingStatusChange(Booking $booking, string $previousBookingStatus): void
     {
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
+        $newStatus = (string) $booking->booking_status;
+        if ($previousBookingStatus === $newStatus) {
             return;
         }
 
-        $newStatus = (string) $booking->booking_status;
-        if ($previousBookingStatus === $newStatus) {
+        $config = $this->getConfig();
+        $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_status_customer_' . $segment, 'label' => 'booking status (customer)'],
+                ['key' => 'booking_status_provider_' . $segment, 'label' => 'booking status (provider)'],
+            ]);
+
             return;
         }
 
@@ -569,16 +683,15 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($transitionKey, 1, now()->addYears(5))) {
+            if (Cache::has($transitionKey)) {
                 return;
             }
 
             $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
             $vars = $this->buildReplacements($booking, $previousBookingStatus);
-            $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
 
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-            $this->deliverStatusTemplateMessage(
+            $cOk = $this->deliverStatusTemplateMessage(
                 $config,
                 $segment,
                 'customer',
@@ -591,7 +704,7 @@ class BookingWhatsAppNotificationService
             );
 
             $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
-            $this->deliverStatusTemplateMessage(
+            $pOk = $this->deliverStatusTemplateMessage(
                 $config,
                 $segment,
                 'provider',
@@ -602,6 +715,10 @@ class BookingWhatsAppNotificationService
                 'booking status',
                 (string) $booking->id
             );
+
+            if ($cOk || $pOk) {
+                Cache::put($transitionKey, 1, now()->addYears(5));
+            }
         } finally {
             $lock->release();
         }
@@ -613,7 +730,13 @@ class BookingWhatsAppNotificationService
     public function sendReopenCaseResolved(Booking $booking): void
     {
         $config = $this->getConfig();
+        $segment = 'reopen_resolved';
         if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_status_customer_' . $segment, 'label' => 'reopen resolved (customer)'],
+                ['key' => 'booking_status_provider_' . $segment, 'label' => 'reopen resolved (provider)'],
+            ]);
+
             return;
         }
 
@@ -623,7 +746,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(5))) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -633,10 +756,9 @@ class BookingWhatsAppNotificationService
                     ? (string) $booking->reopen_resolve_remarks
                     : '—',
             ]);
-            $segment = 'reopen_resolved';
 
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-            $this->deliverStatusTemplateMessage(
+            $cOk = $this->deliverStatusTemplateMessage(
                 $config,
                 $segment,
                 'customer',
@@ -649,7 +771,7 @@ class BookingWhatsAppNotificationService
             );
 
             $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
-            $this->deliverStatusTemplateMessage(
+            $pOk = $this->deliverStatusTemplateMessage(
                 $config,
                 $segment,
                 'provider',
@@ -660,6 +782,10 @@ class BookingWhatsAppNotificationService
                 'reopen resolved',
                 (string) $booking->id
             );
+
+            if ($cOk || $pOk) {
+                Cache::put($dedupKey, 1, now()->addYears(5));
+            }
         } finally {
             $lock->release();
         }
@@ -670,13 +796,33 @@ class BookingWhatsAppNotificationService
      */
     public function sendBookingRepeatStatusChange(BookingRepeat $repeat, string $previousBookingStatus): void
     {
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
+        $newStatus = (string) $repeat->booking_status;
+        if ($previousBookingStatus === $newStatus) {
             return;
         }
 
-        $newStatus = (string) $repeat->booking_status;
-        if ($previousBookingStatus === $newStatus) {
+        $repeat->loadMissing([
+            'booking.customer',
+            'booking.service_address',
+            'booking.detail',
+            'booking.booking_partial_payments',
+            'booking',
+            'detail',
+            'provider.owner',
+        ]);
+        $parent = $repeat->booking;
+        if (!$parent) {
+            return;
+        }
+
+        $config = $this->getConfig();
+        $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($parent, $repeat, [
+                ['key' => 'booking_status_customer_' . $segment, 'label' => 'repeat booking status (customer)'],
+                ['key' => 'booking_status_provider_' . $segment, 'label' => 'repeat booking status (provider)'],
+            ]);
+
             return;
         }
 
@@ -686,28 +832,14 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($transitionKey, 1, now()->addYears(5))) {
-                return;
-            }
-
-            $repeat->loadMissing([
-                'booking.customer',
-                'booking.service_address',
-                'booking.detail',
-                'booking.booking_partial_payments',
-                'detail',
-                'provider.owner',
-            ]);
-            $parent = $repeat->booking;
-            if (!$parent) {
+            if (Cache::has($transitionKey)) {
                 return;
             }
 
             $vars = $this->buildRepeatStatusReplacements($repeat, $parent, $previousBookingStatus);
-            $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
 
             $customerPhone = $this->normalizePhone($parent->customer?->phone, $config);
-            $this->deliverStatusTemplateMessage(
+            $cOk = $this->deliverStatusTemplateMessage(
                 $config,
                 $segment,
                 'customer',
@@ -721,7 +853,7 @@ class BookingWhatsAppNotificationService
 
             $provider = $repeat->provider ?? $parent->provider;
             $providerPhone = $this->resolveProviderPhone($provider, $config);
-            $this->deliverStatusTemplateMessage(
+            $pOk = $this->deliverStatusTemplateMessage(
                 $config,
                 $segment,
                 'provider',
@@ -732,6 +864,10 @@ class BookingWhatsAppNotificationService
                 'repeat booking status',
                 (string) $repeat->id
             );
+
+            if ($cOk || $pOk) {
+                Cache::put($transitionKey, 1, now()->addYears(5));
+            }
         } finally {
             $lock->release();
         }
@@ -809,13 +945,18 @@ class BookingWhatsAppNotificationService
     public function sendBookingScheduleChange(Booking $booking, ?string $previousServiceScheduleRaw): void
     {
         $config = $this->getConfig();
-        if (empty($config['enabled'])) {
-            return;
-        }
-
         $prevFormatted = $this->formatScheduleToken($previousServiceScheduleRaw);
         $newFormatted = $this->formatScheduleToken($booking->service_schedule);
         if ($prevFormatted === $newFormatted) {
+            return;
+        }
+
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_schedule_customer', 'label' => 'booking schedule (customer)'],
+                ['key' => 'booking_schedule_provider', 'label' => 'booking schedule (provider)'],
+            ]);
+
             return;
         }
 
@@ -825,7 +966,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(3))) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -834,7 +975,10 @@ class BookingWhatsAppNotificationService
                 '{previous_service_schedule}' => $prevFormatted,
             ]);
 
-            $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_schedule_customer', 'booking_schedule_provider', 'schedule', $booking->id);
+            $ok = $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_schedule_customer', 'booking_schedule_provider', 'schedule', (string) $booking->id, $booking->id, null);
+            if ($ok) {
+                Cache::put($dedupKey, 1, now()->addYears(3));
+            }
         } finally {
             $lock->release();
         }
@@ -842,20 +986,25 @@ class BookingWhatsAppNotificationService
 
     public function sendBookingRepeatScheduleChange(BookingRepeat $repeat, ?string $previousServiceScheduleRaw): void
     {
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
-            return;
-        }
-
         $repeat->loadMissing(['booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments', 'booking', 'detail', 'provider.owner', 'serviceman.user']);
         $parent = $repeat->booking;
         if (!$parent) {
             return;
         }
 
+        $config = $this->getConfig();
         $prevFormatted = $this->formatScheduleToken($previousServiceScheduleRaw);
         $newFormatted = $this->formatScheduleToken($repeat->service_schedule);
         if ($prevFormatted === $newFormatted) {
+            return;
+        }
+
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($parent, $repeat, [
+                ['key' => 'booking_schedule_customer', 'label' => 'booking repeat_schedule (customer)'],
+                ['key' => 'booking_schedule_provider', 'label' => 'booking repeat_schedule (provider)'],
+            ]);
+
             return;
         }
 
@@ -865,7 +1014,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(3))) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -874,7 +1023,10 @@ class BookingWhatsAppNotificationService
             ]);
 
             $provider = $repeat->provider ?? $parent->provider;
-            $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_schedule_customer', 'booking_schedule_provider', 'repeat_schedule', $repeat->id);
+            $ok = $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_schedule_customer', 'booking_schedule_provider', 'repeat_schedule', (string) $repeat->id, $parent->id, $repeat->id);
+            if ($ok) {
+                Cache::put($dedupKey, 1, now()->addYears(3));
+            }
         } finally {
             $lock->release();
         }
@@ -883,12 +1035,17 @@ class BookingWhatsAppNotificationService
     public function sendBookingPaymentChange(Booking $booking, int $previousIsPaid): void
     {
         $config = $this->getConfig();
-        if (empty($config['enabled'])) {
+        $newIsPaid = (int) ($booking->is_paid ?? 0);
+        if ($previousIsPaid === $newIsPaid) {
             return;
         }
 
-        $newIsPaid = (int) ($booking->is_paid ?? 0);
-        if ($previousIsPaid === $newIsPaid) {
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_payment_customer', 'label' => 'booking payment (customer)'],
+                ['key' => 'booking_payment_provider', 'label' => 'booking payment (provider)'],
+            ]);
+
             return;
         }
 
@@ -898,7 +1055,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(3))) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -908,7 +1065,10 @@ class BookingWhatsAppNotificationService
                 '{payment_status}' => $this->paymentPaidLabel($newIsPaid),
             ]);
 
-            $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_payment_customer', 'booking_payment_provider', 'payment', $booking->id);
+            $ok = $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_payment_customer', 'booking_payment_provider', 'payment', (string) $booking->id, $booking->id, null);
+            if ($ok) {
+                Cache::put($dedupKey, 1, now()->addYears(3));
+            }
         } finally {
             $lock->release();
         }
@@ -916,13 +1076,24 @@ class BookingWhatsAppNotificationService
 
     public function sendBookingRepeatPaymentChange(BookingRepeat $repeat, int $previousIsPaid): void
     {
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
+        $newIsPaid = (int) ($repeat->is_paid ?? 0);
+        if ($previousIsPaid === $newIsPaid) {
             return;
         }
 
-        $newIsPaid = (int) ($repeat->is_paid ?? 0);
-        if ($previousIsPaid === $newIsPaid) {
+        $repeat->loadMissing(['booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments', 'booking', 'detail', 'provider.owner', 'serviceman.user']);
+        $parent = $repeat->booking;
+        if (!$parent) {
+            return;
+        }
+
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($parent, $repeat, [
+                ['key' => 'booking_payment_customer', 'label' => 'booking repeat_payment (customer)'],
+                ['key' => 'booking_payment_provider', 'label' => 'booking repeat_payment (provider)'],
+            ]);
+
             return;
         }
 
@@ -932,13 +1103,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(3))) {
-                return;
-            }
-
-            $repeat->loadMissing(['booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments', 'booking', 'detail', 'provider.owner', 'serviceman.user']);
-            $parent = $repeat->booking;
-            if (!$parent) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -948,7 +1113,10 @@ class BookingWhatsAppNotificationService
             ]);
 
             $provider = $repeat->provider ?? $parent->provider;
-            $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_payment_customer', 'booking_payment_provider', 'repeat_payment', $repeat->id);
+            $ok = $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_payment_customer', 'booking_payment_provider', 'repeat_payment', (string) $repeat->id, $parent->id, $repeat->id);
+            if ($ok) {
+                Cache::put($dedupKey, 1, now()->addYears(3));
+            }
         } finally {
             $lock->release();
         }
@@ -957,13 +1125,18 @@ class BookingWhatsAppNotificationService
     public function sendBookingServicemanChange(Booking $booking, ?string $previousServicemanId): void
     {
         $config = $this->getConfig();
-        if (empty($config['enabled'])) {
-            return;
-        }
-
         $newId = $booking->serviceman_id ? (string) $booking->serviceman_id : '';
         $prevId = $previousServicemanId ? (string) $previousServicemanId : '';
         if ($prevId === $newId) {
+            return;
+        }
+
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_serviceman_customer', 'label' => 'booking serviceman (customer)'],
+                ['key' => 'booking_serviceman_provider', 'label' => 'booking serviceman (provider)'],
+            ]);
+
             return;
         }
 
@@ -973,7 +1146,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(3))) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -989,7 +1162,10 @@ class BookingWhatsAppNotificationService
                 '{serviceman_phone}' => $curPair['phone'],
             ]);
 
-            $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_serviceman_customer', 'booking_serviceman_provider', 'serviceman', $booking->id);
+            $ok = $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_serviceman_customer', 'booking_serviceman_provider', 'serviceman', (string) $booking->id, $booking->id, null);
+            if ($ok) {
+                Cache::put($dedupKey, 1, now()->addYears(3));
+            }
         } finally {
             $lock->release();
         }
@@ -997,14 +1173,25 @@ class BookingWhatsAppNotificationService
 
     public function sendBookingRepeatServicemanChange(BookingRepeat $repeat, ?string $previousServicemanId): void
     {
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
-            return;
-        }
-
         $newId = $repeat->serviceman_id ? (string) $repeat->serviceman_id : '';
         $prevId = $previousServicemanId ? (string) $previousServicemanId : '';
         if ($prevId === $newId) {
+            return;
+        }
+
+        $repeat->loadMissing(['booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments', 'booking', 'detail', 'provider.owner', 'serviceman.user']);
+        $parent = $repeat->booking;
+        if (!$parent) {
+            return;
+        }
+
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($parent, $repeat, [
+                ['key' => 'booking_serviceman_customer', 'label' => 'booking repeat_serviceman (customer)'],
+                ['key' => 'booking_serviceman_provider', 'label' => 'booking repeat_serviceman (provider)'],
+            ]);
+
             return;
         }
 
@@ -1014,13 +1201,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(3))) {
-                return;
-            }
-
-            $repeat->loadMissing(['booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments', 'booking', 'detail', 'provider.owner', 'serviceman.user']);
-            $parent = $repeat->booking;
-            if (!$parent) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -1036,7 +1217,10 @@ class BookingWhatsAppNotificationService
             ]);
 
             $provider = $repeat->provider ?? $parent->provider;
-            $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_serviceman_customer', 'booking_serviceman_provider', 'repeat_serviceman', $repeat->id);
+            $ok = $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_serviceman_customer', 'booking_serviceman_provider', 'repeat_serviceman', (string) $repeat->id, $parent->id, $repeat->id);
+            if ($ok) {
+                Cache::put($dedupKey, 1, now()->addYears(3));
+            }
         } finally {
             $lock->release();
         }
@@ -1044,20 +1228,25 @@ class BookingWhatsAppNotificationService
 
     public function sendBookingVerificationChange(Booking $booking, int $previousIsVerified, string $action): void
     {
+        $newV = (int) ($booking->is_verified ?? 0);
+        $actionKey = strtolower(trim($action));
         $config = $this->getConfig();
         if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_verification_customer', 'label' => 'booking verification (customer)'],
+                ['key' => 'booking_verification_provider', 'label' => 'booking verification (provider)'],
+            ]);
+
             return;
         }
 
-        $newV = (int) ($booking->is_verified ?? 0);
-        $actionKey = strtolower(trim($action));
         $dedupKey = self::CACHE_VERIFICATION_SENT_PREFIX . $booking->id . ':' . $previousIsVerified . '>' . $newV . ':' . $actionKey;
         $lock = Cache::lock(self::CACHE_VERIFICATION_LOCK_PREFIX . $booking->id, 30);
         if (!$lock->get()) {
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(3))) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -1068,7 +1257,10 @@ class BookingWhatsAppNotificationService
                 '{verification_action}' => $this->verificationActionLabel($actionKey),
             ]);
 
-            $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_verification_customer', 'booking_verification_provider', 'verification', $booking->id);
+            $ok = $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_verification_customer', 'booking_verification_provider', 'verification', (string) $booking->id, $booking->id, null);
+            if ($ok) {
+                Cache::put($dedupKey, 1, now()->addYears(3));
+            }
         } finally {
             $lock->release();
         }
@@ -1085,27 +1277,37 @@ class BookingWhatsAppNotificationService
         string $customerKey,
         string $providerKey,
         string $logContext,
-        string $entityId
-    ): void {
+        string $entityId,
+        ?int $bookingIdForLog = null,
+        ?int $bookingRepeatIdForLog = null,
+    ): bool {
+        $ctx = array_filter([
+            'entity_id' => $entityId,
+            'booking_id' => $bookingIdForLog,
+            'booking_repeat_id' => $bookingRepeatIdForLog,
+        ], static fn ($v) => $v !== null && $v !== '');
+
         $customerPhone = $this->normalizePhone($customerPhoneRaw, $config);
-        $this->trySendBookingMetaOnly(
+        $cOk = $this->trySendBookingMetaOnly(
             $config,
             $customerKey,
             $vars,
             $customerPhone,
             'booking ' . $logContext . ' (customer)',
-            ['id' => $entityId]
+            $ctx
         );
 
         $providerPhone = $this->resolveProviderPhone($provider, $config);
-        $this->trySendBookingMetaOnly(
+        $pOk = $this->trySendBookingMetaOnly(
             $config,
             $providerKey,
             $vars,
             $providerPhone,
             'booking ' . $logContext . ' (provider)',
-            ['id' => $entityId]
+            $ctx
         );
+
+        return $cOk || $pOk;
     }
 
     /**
@@ -1189,12 +1391,21 @@ class BookingWhatsAppNotificationService
         }
 
         $config = $this->getConfig();
-        if (empty($config['enabled'])) {
+        $prevId = $previousProvider?->id;
+        if ($prevId !== null && (string) $prevId === (string) $booking->provider_id) {
             return;
         }
 
-        $prevId = $previousProvider?->id;
-        if ($prevId !== null && (string) $prevId === (string) $booking->provider_id) {
+        if (empty($config['enabled'])) {
+            $slots = [
+                ['key' => 'provider_change_customer', 'label' => 'provider change (customer)'],
+            ];
+            if ($previousProvider) {
+                $slots[] = ['key' => 'provider_change_previous_provider', 'label' => 'provider change (previous provider)'];
+            }
+            $slots[] = ['key' => 'provider_change_new_provider', 'label' => 'provider change (new provider)'];
+            $this->logAutomationMasterDisabled($booking, null, $slots);
+
             return;
         }
 
@@ -1205,7 +1416,7 @@ class BookingWhatsAppNotificationService
             return;
         }
         try {
-            if (!Cache::add($dedupKey, 1, now()->addYears(5))) {
+            if (Cache::has($dedupKey)) {
                 return;
             }
 
@@ -1214,7 +1425,7 @@ class BookingWhatsAppNotificationService
             $vars = array_merge($this->buildReplacements($booking, null), $prevExtras);
 
             $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-            $this->trySendBookingMetaOnly(
+            $cOk = $this->trySendBookingMetaOnly(
                 $config,
                 'provider_change_customer',
                 $vars,
@@ -1223,9 +1434,10 @@ class BookingWhatsAppNotificationService
                 ['booking_id' => $booking->id]
             );
 
+            $prevOk = false;
             if ($previousProvider) {
                 $oldPhone = $this->resolveProviderPhone($previousProvider, $config);
-                $this->trySendBookingMetaOnly(
+                $prevOk = $this->trySendBookingMetaOnly(
                     $config,
                     'provider_change_previous_provider',
                     $vars,
@@ -1236,7 +1448,7 @@ class BookingWhatsAppNotificationService
             }
 
             $newProviderPhone = $this->resolveProviderPhone($booking->provider, $config);
-            $this->trySendBookingMetaOnly(
+            $nOk = $this->trySendBookingMetaOnly(
                 $config,
                 'provider_change_new_provider',
                 $vars,
@@ -1244,6 +1456,10 @@ class BookingWhatsAppNotificationService
                 'provider change (new provider)',
                 ['booking_id' => $booking->id]
             );
+
+            if ($cOk || $prevOk || $nOk) {
+                Cache::put($dedupKey, 1, now()->addYears(5));
+            }
         } finally {
             $lock->release();
         }
@@ -1380,6 +1596,7 @@ class BookingWhatsAppNotificationService
         array $bodyParameters,
         string $logLabel,
         array $logCtx,
+        string $messageStorageKey,
         array $headerTextParameters = [],
         ?array $bodyPlan = null,
         ?array $headerTextPlan = null,
@@ -1405,11 +1622,30 @@ class BookingWhatsAppNotificationService
         if ($err) {
             Log::warning('WhatsApp ' . $logLabel . ' failed (Meta template)', array_merge($logCtx, ['error' => $err]));
             $this->ledgerSendFailureDetail = $err;
+            $detail = self::formatMetaFailureForAdmin($err) ?: $err;
+            $this->writeAutomationLog(
+                $logCtx,
+                $messageStorageKey,
+                $phone,
+                $logLabel,
+                'failed',
+                $detail,
+                $template
+            );
 
             return false;
         }
         if (!$waId) {
             $this->ledgerSendFailureDetail = 'missing_wa_message_id';
+            $this->writeAutomationLog(
+                $logCtx,
+                $messageStorageKey,
+                $phone,
+                $logLabel,
+                'failed',
+                'missing_wa_message_id',
+                $template
+            );
 
             return false;
         }
@@ -1439,7 +1675,18 @@ class BookingWhatsAppNotificationService
             }
         }
 
-        $this->tryPersistBookingOutbound($phone, $persistBody, $waId, 'TEXT', null, $actingAdminUserId);
+        $persisted = $this->tryPersistBookingOutbound($phone, $persistBody, $waId, 'TEXT', null, $actingAdminUserId);
+        $this->writeAutomationLog(
+            $logCtx,
+            $messageStorageKey,
+            $phone,
+            $logLabel,
+            'sent',
+            null,
+            $template,
+            $waId,
+            $persisted?->id
+        );
 
         $this->ledgerSendFailureDetail = null;
 
@@ -1543,20 +1790,47 @@ class BookingWhatsAppNotificationService
         ?string $headerMediaFormat = null,
         ?int $actingAdminUserId = null,
     ): bool {
+        $ctx = array_merge($logCtx, ['message_key' => $waStorageKey]);
+
         if (!$this->isBookingTemplateMessageEnabled($config, $waStorageKey)) {
             $this->ledgerSendFailureDetail = __('lang.WhatsApp_booking_message_slot_disabled');
+            $this->writeAutomationLog(
+                $ctx,
+                $waStorageKey,
+                $phone,
+                $logLabel,
+                'skipped',
+                (string) $this->ledgerSendFailureDetail
+            );
 
             return false;
         }
         $tplId = (int) ($config[$waStorageKey . '_wa_tpl_id'] ?? 0);
         if ($tplId <= 0) {
             $this->ledgerSendFailureDetail = __('lang.WhatsApp_ledger_err_not_configured');
+            $this->writeAutomationLog(
+                $ctx,
+                $waStorageKey,
+                $phone,
+                $logLabel,
+                'skipped',
+                (string) $this->ledgerSendFailureDetail
+            );
 
             return false;
         }
         $template = WhatsAppMarketingTemplate::query()->find($tplId);
         if (!$template || strtoupper((string) $template->status) !== 'APPROVED') {
             $this->ledgerSendFailureDetail = __('lang.WhatsApp_ledger_err_template_missing_or_not_approved');
+            $this->writeAutomationLog(
+                $ctx,
+                $waStorageKey,
+                $phone,
+                $logLabel,
+                'failed',
+                (string) $this->ledgerSendFailureDetail,
+                $template
+            );
 
             return false;
         }
@@ -1587,6 +1861,15 @@ class BookingWhatsAppNotificationService
                 'expected' => $expectedBody,
                 'got' => count($paramKeys),
             ]);
+            $this->writeAutomationLog(
+                $ctx,
+                $waStorageKey,
+                $phone,
+                $logLabel,
+                'failed',
+                (string) $this->ledgerSendFailureDetail,
+                $template
+            );
 
             return false;
         }
@@ -1617,6 +1900,15 @@ class BookingWhatsAppNotificationService
                 'expected' => $expectedHeader,
                 'got' => count($headerKeys),
             ]);
+            $this->writeAutomationLog(
+                $ctx,
+                $waStorageKey,
+                $phone,
+                $logLabel,
+                'failed',
+                (string) $this->ledgerSendFailureDetail,
+                $template
+            );
 
             return false;
         }
@@ -1627,7 +1919,8 @@ class BookingWhatsAppNotificationService
             $template,
             $bodyParams,
             $logLabel,
-            $logCtx,
+            $ctx,
+            $waStorageKey,
             $headerParams,
             $bodyPlan,
             $headerTextPlan,
@@ -1669,11 +1962,21 @@ class BookingWhatsAppNotificationService
         ?string $phone,
         string $logLabel,
         array $logCtx
-    ): void {
+    ): bool {
         if (!$phone) {
-            return;
+            $this->writeAutomationLog(
+                array_merge($logCtx, ['message_key' => $messageKey]),
+                $messageKey,
+                null,
+                $logLabel,
+                'skipped',
+                translate('WhatsApp_booking_automation_reason_no_phone')
+            );
+
+            return false;
         }
-        $this->trySendWaTemplate($config, $messageKey, $vars, $phone, $logLabel, $logCtx);
+
+        return $this->trySendWaTemplate($config, $messageKey, $vars, $phone, $logLabel, $logCtx);
     }
 
     /**
@@ -1850,19 +2153,63 @@ class BookingWhatsAppNotificationService
     /**
      * @param  array<string, mixed>  $logCtx
      */
-    protected function sendTextAndRecord(string $phone, string $body, string $logLabel, array $logCtx): void
-    {
+    protected function sendTextAndRecord(
+        string $phone,
+        string $body,
+        string $logLabel,
+        array $logCtx,
+        ?string $messageStorageKey = null,
+        ?WhatsAppMarketingTemplate $templateForLog = null,
+    ): bool {
         $err = null;
         $waId = $this->cloud->sendText($phone, $body, $err);
         if ($err) {
             Log::warning('WhatsApp ' . $logLabel . ' failed', array_merge($logCtx, ['error' => $err]));
+            if ($messageStorageKey !== null && $messageStorageKey !== '') {
+                $this->writeAutomationLog(
+                    $logCtx,
+                    $messageStorageKey,
+                    $phone,
+                    $logLabel,
+                    'failed',
+                    self::formatMetaFailureForAdmin($err) ?: $err,
+                    $templateForLog
+                );
+            }
 
-            return;
+            return false;
         }
         if (!$waId) {
-            return;
+            if ($messageStorageKey !== null && $messageStorageKey !== '') {
+                $this->writeAutomationLog(
+                    $logCtx,
+                    $messageStorageKey,
+                    $phone,
+                    $logLabel,
+                    'failed',
+                    'missing_wa_message_id',
+                    $templateForLog
+                );
+            }
+
+            return false;
         }
-        $this->tryPersistBookingOutbound($phone, $body, $waId, 'TEXT', null, null);
+        $persisted = $this->tryPersistBookingOutbound($phone, $body, $waId, 'TEXT', null, null);
+        if ($messageStorageKey !== null && $messageStorageKey !== '') {
+            $this->writeAutomationLog(
+                $logCtx,
+                $messageStorageKey,
+                $phone,
+                $logLabel,
+                'sent',
+                null,
+                $templateForLog,
+                $waId,
+                $persisted?->id
+            );
+        }
+
+        return true;
     }
 
     protected function tryPersistBookingOutbound(
@@ -1872,10 +2219,11 @@ class BookingWhatsAppNotificationService
         string $messageType = 'TEXT',
         ?string $mediaPath = null,
         ?int $actingAdminUserId = null,
-    ): void {
+    ): ?WhatsAppMessage {
         try {
             $actor = $actingAdminUserId ?? $this->triggerAdminId();
-            $this->messagePersistence->persistOutboundAutomation(
+
+            return $this->messagePersistence->persistOutboundAutomation(
                 $phone,
                 $body,
                 $waId,
@@ -1889,6 +2237,8 @@ class BookingWhatsAppNotificationService
                 'phone' => $phone,
                 'message' => $e->getMessage(),
             ]);
+
+            return null;
         }
     }
 
@@ -2098,24 +2448,72 @@ class BookingWhatsAppNotificationService
         ?BookingRepeat $repeat,
         string $logContext,
         string $entityId
-    ): void {
+    ): bool {
+        $suffix = $party === 'customer' ? 'customer' : 'provider';
+        $fallbackKey = 'booking_status_' . $suffix . '_' . $segment;
+        $ctx = [
+            'booking_id' => $booking->id,
+            'booking_repeat_id' => $repeat?->id,
+            'entity_id' => $entityId,
+            'segment' => $segment,
+            'party' => $party,
+        ];
+        $logLabel = $logContext . ' (' . $party . ')';
+
         if (!$phone) {
-            return;
+            $this->writeAutomationLog(
+                array_merge($ctx, ['message_key' => $fallbackKey]),
+                $fallbackKey,
+                null,
+                $logLabel,
+                'skipped',
+                translate('WhatsApp_booking_automation_reason_no_phone')
+            );
+
+            return false;
         }
 
         $waBinding = $this->resolveWaBindingForStatus($config, $party, $segment);
         if ($waBinding === null) {
-            return;
+            $this->writeAutomationLog(
+                array_merge($ctx, ['message_key' => $fallbackKey]),
+                $fallbackKey,
+                $phone,
+                $logLabel,
+                'skipped',
+                (string) __('lang.WhatsApp_booking_skip_no_template_for_status')
+            );
+
+            return false;
         }
 
         $storageKey = $waBinding['params_storage_key'];
         if (!$this->isBookingTemplateMessageEnabled($config, $storageKey)) {
-            return;
+            $this->writeAutomationLog(
+                array_merge($ctx, ['message_key' => $storageKey]),
+                $storageKey,
+                $phone,
+                $logLabel,
+                'skipped',
+                (string) __('lang.WhatsApp_booking_message_slot_disabled')
+            );
+
+            return false;
         }
 
         $template = WhatsAppMarketingTemplate::query()->find($waBinding['template_id']);
         if (!$template) {
-            return;
+            $this->writeAutomationLog(
+                array_merge($ctx, ['message_key' => $storageKey]),
+                $storageKey,
+                $phone,
+                $logLabel,
+                'failed',
+                'template_row_missing',
+                null
+            );
+
+            return false;
         }
         $attachInvoice = $this->statusInvoiceEnabled($config, $party, $segment);
         $synthesized = $this->synthesizeCaptionFromBookingTemplate($template, $config, $storageKey, $vars);
@@ -2139,8 +2537,8 @@ class BookingWhatsAppNotificationService
                     $storageKey,
                     $vars,
                     $phone,
-                    $logContext . ' (' . $party . ')',
-                    ['entity_id' => $entityId],
+                    $logLabel,
+                    $ctx,
                     $invoiceUrl,
                     'DOCUMENT'
                 );
@@ -2151,7 +2549,7 @@ class BookingWhatsAppNotificationService
                         Storage::disk('public')->deleteDirectory($invoiceParent);
                     }
 
-                    return;
+                    return true;
                 }
 
                 Log::warning('WhatsApp booking template+invoice (document header) send failed; trying direct PDF send', [
@@ -2182,7 +2580,7 @@ class BookingWhatsAppNotificationService
             }
             if ($waId) {
                 $persistType = $archivedPath ? 'DOCUMENT' : 'TEXT';
-                $this->tryPersistBookingOutbound(
+                $persisted = $this->tryPersistBookingOutbound(
                     $phone,
                     $synthesized,
                     $waId,
@@ -2190,35 +2588,58 @@ class BookingWhatsAppNotificationService
                     $archivedPath,
                     null
                 );
+                $this->writeAutomationLog(
+                    $ctx,
+                    $storageKey,
+                    $phone,
+                    $logLabel,
+                    'sent',
+                    null,
+                    $template,
+                    $waId,
+                    $persisted?->id
+                );
 
-                return;
+                return true;
             }
 
             Log::warning('WhatsApp ' . $logContext . ' (' . $party . ') document send failed, retrying plain text', [
                 'entity_id' => $entityId,
                 'error' => $err,
             ]);
-            $this->sendTextAndRecord(
+
+            return $this->sendTextAndRecord(
                 $phone,
                 $synthesized,
-                $logContext . ' (' . $party . ') text fallback',
-                ['entity_id' => $entityId]
+                $logLabel,
+                $ctx,
+                $storageKey,
+                $template
             );
-
-            return;
         }
 
         if ($attachInvoice && !$relativePath) {
             Log::warning('WhatsApp ' . $logContext . ' (' . $party . '): invoice PDF not generated', ['entity_id' => $entityId]);
+            $this->writeAutomationLog(
+                $ctx,
+                $storageKey,
+                $phone,
+                $logLabel,
+                'failed',
+                'invoice_pdf_not_generated',
+                $template
+            );
+
+            return false;
         }
 
-        $this->trySendWaTemplate(
+        return $this->trySendWaTemplate(
             $config,
             $storageKey,
             $vars,
             $phone,
-            $logContext . ' (' . $party . ')',
-            ['entity_id' => $entityId]
+            $logLabel,
+            $ctx
         );
     }
 
