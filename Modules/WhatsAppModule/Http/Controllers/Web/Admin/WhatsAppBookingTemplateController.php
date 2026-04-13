@@ -222,6 +222,9 @@ class WhatsAppBookingTemplateController extends Controller
                     ? array_values($currentCfg[$hp])
                     : [];
             }
+
+            $sendEk = $msgKey . '_send_enabled';
+            $liveValues[$sendEk] = (bool) ($currentCfg[$sendEk] ?? true);
         }
 
         foreach ($segments as $segment) {
@@ -315,6 +318,60 @@ class WhatsAppBookingTemplateController extends Controller
         Toastr::success(translate('successfully_updated'));
 
         return redirect()->route('admin.whatsapp.booking-templates.edit');
+    }
+
+    public function toggleMessageSendEnabled(Request $request): RedirectResponse
+    {
+        $this->authorize('whatsapp_message_template_update');
+
+        $allowedKeys = BookingWhatsAppNotificationService::configurableMessageKeys();
+        $request->validate([
+            'message_key' => ['required', 'string', Rule::in($allowedKeys)],
+            'enabled' => 'required|boolean',
+            'wa_active_main_tab' => 'nullable|string',
+            'wa_active_status_segment' => 'nullable|string',
+        ]);
+
+        $service = app(BookingWhatsAppNotificationService::class);
+        $liveValues = $service->getConfig();
+        $mk = (string) $request->input('message_key');
+        $liveValues[$mk . '_send_enabled'] = $request->boolean('enabled');
+        $liveValues['default_phone_prefix'] = '91';
+        $liveValues['apply_default_phone_prefix'] = true;
+
+        BusinessSettings::updateOrCreate(
+            [
+                'key_name' => BookingWhatsAppNotificationService::SETTINGS_KEY,
+                'settings_type' => BookingWhatsAppNotificationService::SETTINGS_TYPE,
+            ],
+            [
+                'live_values' => $liveValues,
+                'mode' => 'live',
+                'is_active' => 1,
+            ]
+        );
+
+        Toastr::success(translate('successfully_updated'));
+
+        $allowedMain = self::bookingTemplateMainTabKeys();
+        $mainTab = (string) $request->input('wa_active_main_tab', 'new-booking');
+        if (! in_array($mainTab, $allowedMain, true)) {
+            $mainTab = 'new-booking';
+        }
+        $statusSeg = (string) $request->input('wa_active_status_segment', '');
+        $segmentKeys = BookingWhatsAppNotificationService::statusTemplateSegmentKeys();
+        if ($mainTab !== 'status') {
+            $statusSeg = '';
+        } elseif ($statusSeg === '' || ! in_array($statusSeg, $segmentKeys, true)) {
+            $statusSeg = $segmentKeys[0] ?? '';
+        }
+
+        $redirectQuery = ['tab' => $mainTab];
+        if ($mainTab === 'status' && $statusSeg !== '') {
+            $redirectQuery['status'] = $statusSeg;
+        }
+
+        return redirect()->route('admin.whatsapp.booking-templates.edit', $redirectQuery);
     }
 
     /**

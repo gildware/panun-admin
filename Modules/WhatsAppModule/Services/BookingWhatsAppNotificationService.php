@@ -1321,9 +1321,24 @@ class BookingWhatsAppNotificationService
             if (!isset($merged[$hp]) || !is_array($merged[$hp])) {
                 $merged[$hp] = [];
             }
+            $ek = $msgKey . '_send_enabled';
+            if (!array_key_exists($ek, $merged)) {
+                $merged[$ek] = true;
+            }
+            $merged[$ek] = filter_var($merged[$ek], FILTER_VALIDATE_BOOLEAN);
         }
 
         return $merged;
+    }
+
+    /**
+     * Per-template send switch (master {@see getConfig()['enabled']} still applies to automated booking flows).
+     */
+    public function isBookingTemplateMessageEnabled(array $config, string $messageKey): bool
+    {
+        $ek = $messageKey . '_send_enabled';
+
+        return !array_key_exists($ek, $config) || filter_var($config[$ek], FILTER_VALIDATE_BOOLEAN);
     }
 
     protected function triggerAdminId(): ?int
@@ -1528,6 +1543,11 @@ class BookingWhatsAppNotificationService
         ?string $headerMediaFormat = null,
         ?int $actingAdminUserId = null,
     ): bool {
+        if (!$this->isBookingTemplateMessageEnabled($config, $waStorageKey)) {
+            $this->ledgerSendFailureDetail = __('lang.WhatsApp_booking_message_slot_disabled');
+
+            return false;
+        }
         $tplId = (int) ($config[$waStorageKey . '_wa_tpl_id'] ?? 0);
         if ($tplId <= 0) {
             $this->ledgerSendFailureDetail = __('lang.WhatsApp_ledger_err_not_configured');
@@ -2088,12 +2108,15 @@ class BookingWhatsAppNotificationService
             return;
         }
 
+        $storageKey = $waBinding['params_storage_key'];
+        if (!$this->isBookingTemplateMessageEnabled($config, $storageKey)) {
+            return;
+        }
+
         $template = WhatsAppMarketingTemplate::query()->find($waBinding['template_id']);
         if (!$template) {
             return;
         }
-
-        $storageKey = $waBinding['params_storage_key'];
         $attachInvoice = $this->statusInvoiceEnabled($config, $party, $segment);
         $synthesized = $this->synthesizeCaptionFromBookingTemplate($template, $config, $storageKey, $vars);
 

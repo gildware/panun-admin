@@ -208,6 +208,28 @@
                     </div>
                 </div>
             </div>
+            <div class="modal fade" id="waBookingMsgSendConfirmModal" tabindex="-1" aria-labelledby="waBookingMsgSendConfirmModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="waBookingMsgSendConfirmModalLabel">{{ translate('WhatsApp_booking_single_message_modal_title') }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
+                        </div>
+                        <div class="modal-body" id="waBookingMsgSendModalBody"></div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('cancel') }}</button>
+                            <form action="{{ route('admin.whatsapp.booking-templates.toggle-message-send-enabled') }}" method="post" class="d-inline" id="waBookingMsgSendConfirmForm">
+                                @csrf
+                                <input type="hidden" name="message_key" id="waBookingMsgSendModalKey" value="">
+                                <input type="hidden" name="enabled" id="waBookingMsgSendModalValue" value="">
+                                <input type="hidden" name="wa_active_main_tab" id="waBookingMsgSendModalMainTab" value="">
+                                <input type="hidden" name="wa_active_status_segment" id="waBookingMsgSendModalStatusSeg" value="">
+                                <button type="submit" class="btn btn--primary">{{ translate('Yes') }}</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
         @endcan
 
         <form id="wa-booking-templates-form" action="{{ route('admin.whatsapp.booking-templates.update') }}" method="post">
@@ -1277,6 +1299,70 @@
                     bodyEl.textContent = nextOn ? enableText : disableText;
                 }
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            });
+        })();
+
+        (function () {
+            var modalEl = document.getElementById('waBookingMsgSendConfirmModal');
+            if (!modalEl || typeof bootstrap === 'undefined') {
+                return;
+            }
+            var bodyEl = document.getElementById('waBookingMsgSendModalBody');
+            var keyEl = document.getElementById('waBookingMsgSendModalKey');
+            var valEl = document.getElementById('waBookingMsgSendModalValue');
+            var mainTabEl = document.getElementById('waBookingMsgSendModalMainTab');
+            var statusSegEl = document.getElementById('waBookingMsgSendModalStatusSeg');
+            var enableText = {!! json_encode(translate('WhatsApp_booking_single_message_modal_enable_body')) !!};
+            var disableText = {!! json_encode(translate('WhatsApp_booking_single_message_modal_disable_body')) !!};
+
+            function syncTabFieldsForMessageModal() {
+                var mainInput = document.getElementById('waActiveMainTab');
+                var statusInput = document.getElementById('waActiveStatusSegment');
+                var mainActive = document.querySelector('#waBookingTemplateTabs .nav-link.active');
+                if (mainInput && mainActive) {
+                    var mt = mainActive.getAttribute('data-bs-target') || '';
+                    var mm = mt.match(/wa-tpl-pane-([^#]+)/);
+                    if (mm) {
+                        mainInput.value = mm[1];
+                    }
+                }
+                if (statusInput && mainInput && mainInput.value === 'status') {
+                    var subActive = document.querySelector('#waStatusSubTabs .nav-link.active');
+                    if (subActive) {
+                        var st = subActive.getAttribute('data-bs-target') || '';
+                        var sm = st.match(/wa-status-sub-([^#]+)/);
+                        if (sm) {
+                            statusInput.value = sm[1];
+                        }
+                    }
+                } else if (statusInput && mainInput && mainInput.value !== 'status') {
+                    statusInput.value = '';
+                }
+                if (mainTabEl && mainInput) {
+                    mainTabEl.value = mainInput.value;
+                }
+                if (statusSegEl && statusInput) {
+                    statusSegEl.value = statusInput.value;
+                }
+            }
+
+            document.querySelectorAll('.js-wa-booking-msg-send-toggle-open').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    syncTabFieldsForMessageModal();
+                    var key = btn.getAttribute('data-wa-msg-key') || '';
+                    var curOn = btn.getAttribute('data-wa-send-enabled') === '1';
+                    var nextOn = !curOn;
+                    if (keyEl) {
+                        keyEl.value = key;
+                    }
+                    if (valEl) {
+                        valEl.value = nextOn ? '1' : '0';
+                    }
+                    if (bodyEl) {
+                        bodyEl.textContent = nextOn ? enableText : disableText;
+                    }
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                });
             });
         })();
     </script>
