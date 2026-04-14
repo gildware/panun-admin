@@ -223,12 +223,7 @@
                 'formId' => 'reopenResolveForm--' . $booking->id,
                 'formAction' => route('admin.booking.reopen-resolve', $booking->id),
             ])
-            @if((int)($booking->is_repeated ?? 0) === 0
-                && (
-                    $booking->isOpenReopenTicket()
-                    || in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true)
-                )
-            )
+            @if((int)($booking->is_repeated ?? 0) === 0 && booking_admin_can_dispute_and_close($booking))
                 @include('bookingmodule::admin.booking.partials._reopen-dispute-modal')
             @endif
             @php

@@ -67,6 +67,7 @@ class Booking extends Model
         'after_visit_cancel' => 'boolean',
         'reopen_completion_allowed' => 'boolean',
         'reopen_disputed_snapshot' => 'array',
+        'admin_commission_override' => 'float',
     ];
 
     protected $fillable = [
@@ -123,6 +124,7 @@ class Booking extends Model
         'after_visit_cancel',
         'reopen_completion_allowed',
         'reopen_disputed_snapshot',
+        'admin_commission_override',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
