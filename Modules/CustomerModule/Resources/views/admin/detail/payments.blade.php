@@ -65,7 +65,7 @@
                         <h2 class="mb-0">{{ translate('Payment') }}</h2>
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             @can('customer_update')
-                                @if((float) ($pendingBadDebtLossMaking ?? 0) > 0.009)
+                                @if((float) ($pendingCollectionLossMaking ?? 0) > 0.009)
                                     <button type="button" class="btn btn-outline--primary text-capitalize" data-bs-toggle="modal" data-bs-target="#customerPaymentReminderWaModal">
                                         {{ translate('Send_payment_reminder_to_customer') }}
                                     </button>
@@ -97,7 +97,22 @@
                         <div class="col-12 col-md-6 col-xl-3">
                             <div class="statistics-card statistics-card__style2 h-100 border border-warning flow-card" style="background: rgba(255, 193, 7, .08); border-color: rgba(255, 193, 7, .45) !important;">
                                 <h3 title="{{ translate('Customer_pending_bad_debt_loss_making_hint') }}">{{ translate('Customer_pending_bad_debt_loss_making') }}</h3>
-                                <h2 class="{{ ($pendingBadDebtLossMaking ?? 0) > 0.009 ? 'text-warning' : '' }}">{{ with_currency_symbol((float) ($pendingBadDebtLossMaking ?? 0)) }}</h2>
+                                <h2 class="{{ ($lossMakingBadDebtNotDueTotal ?? 0) > 0.009 ? 'text-warning' : '' }}">{{ with_currency_symbol((float) ($lossMakingBadDebtNotDueTotal ?? 0)) }}</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <div class="statistics-card statistics-card__style2 h-100 border border-danger flow-card" style="background: rgba(220, 53, 69, .06); border-color: rgba(220, 53, 69, .35) !important;">
+                                <h3>{{ translate('Customer_compensation_from_company') }}</h3>
+                                <h2 class="{{ ($customerCompFromCompanyTotal ?? 0) > 0.009 ? 'text-danger' : '' }}">{{ with_currency_symbol((float) ($customerCompFromCompanyTotal ?? 0)) }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <div class="statistics-card statistics-card__style2 h-100 border border-warning flow-card" style="background: rgba(255, 193, 7, .08); border-color: rgba(255, 193, 7, .45) !important;">
+                                <h3>{{ translate('Customer_compensation_from_provider') }}</h3>
+                                <h2>{{ with_currency_symbol((float) ($customerCompFromProviderTotal ?? 0)) }}</h2>
                             </div>
                         </div>
                     </div>
@@ -120,15 +135,17 @@
                                 <tr @class(['customer-payment-report-row--loss-making' => !empty($bRow->is_loss_making)])>
                                     <td>
                                         <div class="d-flex flex-wrap align-items-center gap-2">
-                                            <a href="{{ route('admin.booking.details', [$bRow->booking_id]) }}" class="fw-semibold text-decoration-none @if(!empty($bRow->is_loss_making)) text-danger @endif">
+                                            <a href="{{ route('admin.booking.details', [$bRow->booking_id]) }}" class="fw-semibold text-decoration-none @if(!empty($bRow->is_loss_making)) text-danger @elseif(!empty($bRow->is_scaled_loss_recovered)) text-success @endif">
                                                 #{{ $bRow->readable_id }}
                                             </a>
                                             @if(!empty($bRow->is_loss_making))
                                                 <span class="badge bg-danger">{{ translate('Bfs_badge_loss_making_booking') }}</span>
+                                            @elseif(!empty($bRow->is_scaled_loss_recovered))
+                                                <span class="badge bg-success">{{ translate('Bfs_badge_loss_recovered_booking') }}</span>
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="text-end @if(!empty($bRow->is_loss_making)) text-danger fw-semibold @endif">{{ with_currency_symbol((float) $bRow->total_amount) }}</td>
+                                    <td class="text-end @if(!empty($bRow->is_loss_making)) text-danger fw-semibold @elseif(!empty($bRow->is_scaled_loss_recovered)) text-success fw-semibold @endif">{{ with_currency_symbol((float) $bRow->total_amount) }}</td>
                                     <td class="text-end">{{ with_currency_symbol((float) $bRow->paid_to_provider) }}</td>
                                     <td class="text-end">{{ with_currency_symbol((float) $bRow->paid_to_company) }}</td>
                                     <td class="text-end fw-semibold @if((float) $bRow->balance > 0.009) text-warning @elseif(!empty($bRow->is_loss_making)) text-danger @endif">{{ with_currency_symbol((float) $bRow->balance) }}</td>
@@ -139,6 +156,8 @@
                                             @else
                                                 <span class="text-muted">{{ with_currency_symbol(0) }}</span>
                                             @endif
+                                        @elseif(!empty($bRow->is_scaled_loss_recovered))
+                                            <span class="text-muted">{{ with_currency_symbol(0) }}</span>
                                         @else
                                             <span class="text-muted">—</span>
                                         @endif
@@ -275,7 +294,7 @@
                     @endif
 
                     @can('customer_update')
-                        @if((float) ($pendingBadDebtLossMaking ?? 0) > 0.009)
+                        @if((float) ($pendingCollectionLossMaking ?? 0) > 0.009)
                             <div class="modal fade" id="customerPaymentReminderWaModal" tabindex="-1" aria-labelledby="customerPaymentReminderWaModalLabel" aria-hidden="true"
                                  data-preview-url="{{ route('admin.customer.detail.whatsapp.customer_payment_reminder.preview', $customer->id) }}">
                                 <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -326,7 +345,7 @@
     </div>
 
     @can('customer_update')
-        @if((float) ($pendingBadDebtLossMaking ?? 0) > 0.009)
+        @if((float) ($pendingCollectionLossMaking ?? 0) > 0.009)
             @push('script')
                 <script>
                     (function () {

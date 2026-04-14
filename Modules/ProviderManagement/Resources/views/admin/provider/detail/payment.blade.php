@@ -210,6 +210,25 @@
                         </div>
                     </div>
 
+                    {{-- Compensation summary --}}
+                    <div class="row g-3 mb-30">
+                        <div class="col-12">
+                            <h4 class="mb-2">{{ translate('Compensation') }}</h4>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-danger" style="background: rgba(220, 53, 69, .06); border-color: rgba(220, 53, 69, .35) !important;">
+                                <h3>{{ translate('Provider_compensated_to_customers') }}</h3>
+                                <h2 class="text-danger">{{ with_currency_symbol((float) ($providerCompensatedToCustomersTotal ?? 0)) }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-warning" style="background: rgba(255, 193, 7, .08); border-color: rgba(255, 193, 7, .45) !important;">
+                                <h3>{{ translate('Company_compensated_to_provider') }}</h3>
+                                <h2>{{ with_currency_symbol((float) ($companyCompensatedToProviderTotal ?? 0)) }}</h2>
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- Provider receipts: company ledger vs customer (booking reports) --}}
                     <div class="row g-3 mb-30">
                         <div class="col-12">

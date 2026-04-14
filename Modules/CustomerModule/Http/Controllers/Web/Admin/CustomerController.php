@@ -950,12 +950,13 @@ class CustomerController extends Controller
                     $settlement = get_booking_received_and_settlement($bookingRow);
                     $totals->customer_paid_to_company += (float) ($settlement['amount_received_by_company'] ?? 0);
                     $totals->customer_paid_to_provider += (float) ($settlement['amount_received_by_provider'] ?? 0);
-                    $isLossMaking = trim((string) ($bookingRow->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                    $isScaledSettlement = trim((string) ($bookingRow->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                    $isActiveLossMaking = $isScaledSettlement && $bookingRow->isLossMakingFinancialSettlement();
+                    $isScaledLossRecovered = $isScaledSettlement && $bookingRow->isScaledSettlementLossRecovered();
                     $pendingDebitLossMaking = 0.0;
-                    if ($isLossMaking && ! in_array((string) ($bookingRow->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true)) {
-                        $grand = get_booking_total_amount($bookingRow);
-                        $paid = get_booking_total_paid($bookingRow);
-                        $pendingDebitLossMaking = round(max(0.0, $grand - $paid), 2);
+                    if ($isActiveLossMaking && ! in_array((string) ($bookingRow->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true)) {
+                        $preview = app(BookingFinancialSettlementService::class)->buildPreview($bookingRow);
+                        $pendingDebitLossMaking = round((float) ($preview['scaled_bad_debt_balance_not_due'] ?? 0), 2);
                     }
                     $bookingReportRows->push((object) [
                         'booking_id' => $bookingRow->id,
@@ -964,7 +965,8 @@ class CustomerController extends Controller
                         'paid_to_provider' => round((float) ($settlement['amount_received_by_provider'] ?? 0), 2),
                         'paid_to_company' => round((float) ($settlement['amount_received_by_company'] ?? 0), 2),
                         'balance' => round((float) get_booking_invoice_due_amount($bookingRow), 2),
-                        'is_loss_making' => $isLossMaking,
+                        'is_loss_making' => $isActiveLossMaking,
+                        'is_scaled_loss_recovered' => $isScaledLossRecovered,
                         'pending_debit_loss_making' => $pendingDebitLossMaking,
                     ]);
                 }
@@ -1021,7 +1023,19 @@ class CustomerController extends Controller
             );
             $paginatedBookingReport->withQueryString();
 
-            $pendingBadDebtLossMaking = customer_pending_bad_debt_loss_making_bookings_total((string) $id);
+            $pendingCollectionLossMaking = customer_pending_bad_debt_loss_making_bookings_total((string) $id);
+            $lossMakingBadDebtNotDueTotal = customer_loss_making_bad_debt_not_due_total((string) $id);
+
+            $customerCompFromCompanyTotal = (float) \Modules\BookingModule\Entities\BookingCompensation::query()
+                ->where('customer_id', (string) $id)
+                ->where('from_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_COMPANY)
+                ->where('to_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_CUSTOMER)
+                ->sum('amount');
+            $customerCompFromProviderTotal = (float) \Modules\BookingModule\Entities\BookingCompensation::query()
+                ->where('customer_id', (string) $id)
+                ->where('from_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_PROVIDER)
+                ->where('to_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_CUSTOMER)
+                ->sum('amount');
 
             return view('customermodule::admin.detail.payments', compact(
                 'customer',
@@ -1030,7 +1044,10 @@ class CustomerController extends Controller
                 'paginatedTransactions',
                 'paginatedLedger',
                 'paginatedBookingReport',
-                'pendingBadDebtLossMaking'
+                'pendingCollectionLossMaking',
+                'lossMakingBadDebtNotDueTotal',
+                'customerCompFromCompanyTotal',
+                'customerCompFromProviderTotal'
             ));
         }
 

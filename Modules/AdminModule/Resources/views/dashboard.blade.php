@@ -199,6 +199,22 @@
                         </div>
                     </div>
                 </div>
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 mb-4 g-4 dashboard-top-cards">
+                    <div class="col">
+                        <div class="business-summary" style="background: linear-gradient(145deg, #dc2626 0%, #7f1d1d 100%);">
+                            <h2>{{ with_currency_symbol(data_get($data[2], 'compensation_totals.company_to_customers', 0)) }}</h2>
+                            <h3>{{ translate('Company_compensation_to_customers') }}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">volunteer_activism</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="business-summary" style="background: linear-gradient(145deg, #ea580c 0%, #9a3412 100%);">
+                            <h2>{{ with_currency_symbol(data_get($data[2], 'compensation_totals.company_to_providers', 0)) }}</h2>
+                            <h3>{{ translate('Company_compensation_to_providers') }}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">handshake</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="row g-4 mb-4">
                     <div class="col-lg-6 col-12 col-sm-6">
                         <div class="card dashboard-widget-todays-followups">
