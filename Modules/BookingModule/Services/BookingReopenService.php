@@ -38,6 +38,10 @@ class BookingReopenService
             throw new \RuntimeException(translate('Only completed bookings can be reopened this way.'));
         }
 
+        if ($source->isLossMakingFinancialSettlement()) {
+            throw new \RuntimeException(translate('Loss_making_completed_booking_cannot_be_reopened'));
+        }
+
         return DB::transaction(function () use ($source, $actor, $complaintNotes, $targetStatus, $holdReopenReasonId, $newServiceSchedule) {
             $event = BookingReopenEvent::query()->create([
                 'source_booking_id' => $source->id,
@@ -104,6 +108,10 @@ class BookingReopenService
 
         if (($source->booking_status ?? '') !== 'completed') {
             throw new \RuntimeException(translate('Only completed bookings can spawn a follow-up booking this way.'));
+        }
+
+        if ($source->isLossMakingFinancialSettlement()) {
+            throw new \RuntimeException(translate('Loss_making_completed_booking_cannot_be_reopened'));
         }
 
         $newBooking->originated_from_booking_id = $source->id;

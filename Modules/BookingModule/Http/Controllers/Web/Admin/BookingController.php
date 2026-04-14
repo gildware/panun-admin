@@ -123,30 +123,45 @@ class BookingController extends Controller
     }
 
     /**
+     * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat|null  $booking
      * @return array<string, array<int, mixed>>
      */
-    private function adminBookingStatusReasonRules(string $from, string $to): array
+    private function adminBookingStatusReasonRules(string $from, string $to, $booking = null): array
     {
         $from = strtolower(trim($from));
         $to = strtolower(trim($to));
-        if (! booking_admin_status_transition_allowed($from, $to)) {
+        $allowed = $booking !== null
+            && ($booking instanceof \Modules\BookingModule\Entities\Booking || $booking instanceof \Modules\BookingModule\Entities\BookingRepeat)
+            ? booking_admin_status_transition_allowed_for_booking($booking, $from, $to)
+            : booking_admin_status_transition_allowed($from, $to);
+        if (! $allowed) {
             return [];
         }
         if ($to === 'canceled') {
             return [
+                'reason_responsible' => ['required', Rule::in(BookingCancellationReason::responsibleOptions())],
                 'booking_cancellation_reason_id' => [
                     'required',
-                    Rule::exists('booking_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
+                    Rule::exists('booking_cancellation_reasons', 'id')->where(function ($query) {
+                        $query->where('is_active', 1)
+                            ->where('responsible', (string) request()->input('reason_responsible'));
+                    }),
                 ],
                 'status_change_remarks' => 'nullable|string|max:2000',
             ];
         }
         if ($to === 'on_hold') {
             return [
+                'reason_responsible' => ['required', Rule::in(BookingHoldReopenReason::responsibleOptions())],
                 'booking_hold_reopen_reason_id' => [
                     'required',
-                    Rule::exists('booking_hold_reopen_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)->where('kind', BookingHoldReopenReason::KIND_HOLD)),
+                    Rule::exists('booking_hold_reopen_reasons', 'id')->where(function ($query) {
+                        $query->where('is_active', 1)
+                            ->where('kind', BookingHoldReopenReason::KIND_HOLD)
+                            ->where('responsible', (string) request()->input('reason_responsible'));
+                    }),
                 ],
+                'hold_estimated_service_schedule' => ['required', 'date'],
                 'status_change_remarks' => 'nullable|string|max:2000',
             ];
         }
@@ -418,6 +433,13 @@ class BookingController extends Controller
                 Toastr::error(translate('Source_booking_must_remain_completed_for_follow_up'));
 
                 return redirect()->route('admin.booking.create');
+            }
+
+            if ($src->isLossMakingFinancialSettlement()) {
+                session()->forget('reopen_new_booking_draft');
+                Toastr::error(translate('Loss_making_completed_booking_cannot_be_reopened'));
+
+                return redirect()->route('admin.booking.details', [$src->id, 'web_page' => 'details']);
             }
 
             $reopenNewBookingDraft = array_merge($draft, [
@@ -1367,7 +1389,17 @@ class BookingController extends Controller
 
             $data['booking_go_back_url'] = $this->sanitizeBookingGoBackUrl($data['booking_go_back_url'] ?? null)
                 ?? route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
-            
+
+            $reopenPreviewId = $data['reopen_source_booking_id'] ?? null;
+            if ($reopenPreviewId) {
+                $srcPreview = Booking::query()->find($reopenPreviewId);
+                if ($srcPreview && $srcPreview->isLossMakingFinancialSettlement()) {
+                    throw ValidationException::withMessages([
+                        'reopen_source_booking_id' => [translate('Loss_making_completed_booking_cannot_be_reopened')],
+                    ]);
+                }
+            }
+
             // If service location is provider, clear service_address_id
             if ($data['service_location'] === 'provider') {
                 $data['service_address_id'] = null;
@@ -1622,6 +1654,13 @@ class BookingController extends Controller
                 ->exists()) {
                 throw ValidationException::withMessages([
                     'reopen_source_booking_id' => [translate('Invalid_reopen_follow_up_session')],
+                ]);
+            }
+
+            $sourceForFollowUp = Booking::query()->find($reopenSourceId);
+            if ($sourceForFollowUp && $sourceForFollowUp->isLossMakingFinancialSettlement()) {
+                throw ValidationException::withMessages([
+                    'reopen_source_booking_id' => [translate('Loss_making_completed_booking_cannot_be_reopened')],
                 ]);
             }
         }
@@ -2253,6 +2292,7 @@ class BookingController extends Controller
                 'status_histories' => fn ($q) => $q->with(['user', 'cancellationReason', 'holdReopenReason']),
                 'latestParentCancellationStatusHistory.cancellationReason',
                 'latestParentHoldStatusHistory.holdReopenReason',
+                'latestParentHoldStatusHistory.user',
                 'booking_partial_payments.ledgerTransactions',
                 'booking_offline_payments',
                 'followups',
@@ -2264,6 +2304,7 @@ class BookingController extends Controller
                 'spawnedFollowupBookings',
                 'reopenedByUser',
                 'reopenCaseResolvedByUser',
+                'compensations.creator',
             ])
                 ->find($id);
 
@@ -2402,8 +2443,7 @@ class BookingController extends Controller
             $customerName = booking_display_customer_name($booking, $customerAddress);
             $customerPhone = booking_display_customer_phone($booking, $customerAddress);
 
-            $totalPaidFromPartials = (float) $booking->booking_partial_payments->sum('paid_amount');
-            $remainingDueForAddPayment = round(max(0, get_booking_total_amount($booking) - $totalPaidFromPartials), 2);
+            $remainingDueForAddPayment = get_booking_admin_add_payment_remaining_amount($booking);
             $maxRefundAmount = (float) (get_booking_refund_display_totals($booking)['refundable_remaining'] ?? 0);
             if ($this->bookingSuppressesAdminCustomerRefundCard($booking)) {
                 $maxRefundAmount = 0;
@@ -2412,7 +2452,7 @@ class BookingController extends Controller
             $additionalChargesDisplayRows = enrich_booking_additional_charges_breakdown_for_display($booking);
 
             $financialSettlementService = app(BookingFinancialSettlementService::class);
-            $financialSettlementOutcomes = BookingFinancialSettlementService::outcomeOptions();
+            $financialSettlementOutcomes = BookingFinancialSettlementService::outcomeOptionsForSpecialScenariosModal();
             $defaultVisitFeeCompanyPercent = $financialSettlementService->defaultVisitCompanyPercent();
             $bfsDefaultCustomAdminCommission = $financialSettlementService->defaultTierAdminCommissionForBooking($booking);
 
@@ -2434,6 +2474,7 @@ class BookingController extends Controller
                 'customer',
                 'provider',
                 'service_address',
+                'booking_partial_payments',
                 'reopenEvents.actor',
                 'originatedFromBooking',
                 'spawnedFollowupBookings',
@@ -2447,7 +2488,7 @@ class BookingController extends Controller
 
             return view('bookingmodule::admin.booking.history', compact('booking', 'webPage'));
         } elseif ($webPage === 'followups') {
-            $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
+            $booking = $this->booking->with(['followups.createdBy', 'customer', 'provider', 'service_address', 'booking_partial_payments', 'reopenEvents.actor', 'originatedFromBooking', 'spawnedFollowupBookings', 'reopenedByUser', 'reopenCaseResolvedByUser'])->find($id);
             $webPage = 'followups';
             $scheduledNext = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
             $nextFollowupCustomer = $scheduledNext->where('for', 'customer')->first();
@@ -2593,14 +2634,16 @@ class BookingController extends Controller
             return back();
         }
 
-        if (! $booking->isOpenReopenTicket()) {
+        $canDisputeClose = $booking->isOpenReopenTicket()
+            || in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true);
+        if (! $canDisputeClose) {
             Toastr::error(translate('This_booking_is_not_an_open_reopen_ticket'));
 
             return back();
         }
 
         $current = strtolower(trim((string) ($booking->booking_status ?? '')));
-        if (! booking_admin_status_transition_allowed($current, 'completed')) {
+        if (! booking_admin_status_transition_allowed_for_booking($booking, $current, 'completed')) {
             Toastr::error(translate('Resolve_reopen_invalid_status_for_complete'));
 
             return back();
@@ -2684,8 +2727,10 @@ class BookingController extends Controller
 
             return back();
         }
-        if (! $booking->isOpenReopenTicket()) {
-            Toastr::error(translate('This_booking_is_not_an_open_reopen_ticket'));
+        $st = strtolower(trim((string) ($booking->booking_status ?? '')));
+        $canDisputeClose = $booking->isOpenReopenTicket() || in_array($st, ['ongoing', 'on_hold'], true);
+        if (! $canDisputeClose) {
+            Toastr::error(translate('Dispute_and_close_only_for_ongoing_hold_or_reopen'));
 
             return back();
         }
@@ -2713,8 +2758,10 @@ class BookingController extends Controller
 
             return back();
         }
-        if (! $booking->isOpenReopenTicket()) {
-            Toastr::error(translate('This_booking_is_not_an_open_reopen_ticket'));
+        $st = strtolower(trim((string) ($booking->booking_status ?? '')));
+        $canDisputeClose = $booking->isOpenReopenTicket() || in_array($st, ['ongoing', 'on_hold'], true);
+        if (! $canDisputeClose) {
+            Toastr::error(translate('Dispute_and_close_only_for_ongoing_hold_or_reopen'));
 
             return back();
         }
@@ -2728,6 +2775,8 @@ class BookingController extends Controller
 
             return back();
         }
+
+        $totalPaid = round((float) get_booking_total_paid($booking), 2);
 
         $validated = $request->validate([
             'refund_company_amount' => ['required', 'numeric', 'min:0'],
@@ -2756,8 +2805,18 @@ class BookingController extends Controller
         $split = booking_customer_paid_split_by_receiver($booking);
         $companyEligible = round((float) $split['company'] + (float) $split['unassigned'], 2);
         $providerEligible = round((float) $split['provider'], 2);
-        $totalPaid = round((float) get_booking_total_paid($booking), 2);
         $totalRefund = round($refundCompany + $refundProvider, 2);
+
+        if ($refundCompany > $totalPaid + 0.02) {
+            throw ValidationException::withMessages([
+                'refund_company_amount' => [translate('Disputed_refund_amount_cannot_exceed_customer_paid')],
+            ]);
+        }
+        if ($refundProvider > $totalPaid + 0.02) {
+            throw ValidationException::withMessages([
+                'refund_provider_amount' => [translate('Disputed_refund_amount_cannot_exceed_customer_paid')],
+            ]);
+        }
 
         if ($totalRefund < 0.01) {
             throw ValidationException::withMessages([
@@ -3334,7 +3393,7 @@ class BookingController extends Controller
             [
                 'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             ],
-            $this->adminBookingStatusReasonRules($current, $toInput)
+            $this->adminBookingStatusReasonRules($current, $toInput, $booking ?? $repeatBooking)
         ));
 
         $to = $validated['booking_status'];
@@ -3360,14 +3419,28 @@ class BookingController extends Controller
                         'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                     ]), 422);
                 }
+                if ($to === 'canceled' && $booking->isOpenReopenTicket()) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Reopened_booking_cannot_be_cancelled_use_dispute_and_close'),
+                    ]), 422);
+                }
                 [$cId, $hId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $current, $to);
-                $meta = ['cancellation_reason_id' => $cId, 'hold_reopen_reason_id' => $hId, 'remarks' => $remarks];
+                $holdEstimated = ($to === 'on_hold' && isset($validated['hold_estimated_service_schedule']))
+                    ? Carbon::parse($validated['hold_estimated_service_schedule'])->toDateTimeString()
+                    : null;
+                $meta = [
+                    'cancellation_reason_id' => $cId,
+                    'hold_reopen_reason_id' => $hId,
+                    'remarks' => $remarks,
+                    'hold_estimated_service_schedule' => $holdEstimated,
+                ];
 
                 return $this->updateBookingStatus($booking, $to, $request, $meta);
             }
 
             if ($repeatBooking) {
-                if (! booking_admin_status_transition_allowed($current, $to)) {
+                if (! booking_admin_status_transition_allowed_for_booking($repeatBooking, $current, $to)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Invalid_booking_status_transition'),
@@ -3380,7 +3453,15 @@ class BookingController extends Controller
                     ]), 422);
                 }
                 [$cId, $hId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $current, $to);
-                $meta = ['cancellation_reason_id' => $cId, 'hold_reopen_reason_id' => $hId, 'remarks' => $remarks];
+                $holdEstimated = ($to === 'on_hold' && isset($validated['hold_estimated_service_schedule']))
+                    ? Carbon::parse($validated['hold_estimated_service_schedule'])->toDateTimeString()
+                    : null;
+                $meta = [
+                    'cancellation_reason_id' => $cId,
+                    'hold_reopen_reason_id' => $hId,
+                    'remarks' => $remarks,
+                    'hold_estimated_service_schedule' => $holdEstimated,
+                ];
 
                 return $this->updateRepeatBookingStatus($repeatBooking, $to, $request, $meta);
             }
@@ -3395,13 +3476,14 @@ class BookingController extends Controller
     }
 
     /**
-     * @param  array{cancellation_reason_id: ?int, hold_reopen_reason_id: ?int, remarks: ?string}  $meta
+     * @param  array{cancellation_reason_id: ?int, hold_reopen_reason_id: ?int, remarks: ?string, hold_estimated_service_schedule: ?string}  $meta
      */
     private function updateBookingStatus($booking, string $status, Request $request, array $meta = []): JsonResponse
     {
         $cancellationId = $meta['cancellation_reason_id'] ?? null;
         $holdReopenId = $meta['hold_reopen_reason_id'] ?? null;
         $remarks = $meta['remarks'] ?? null;
+        $holdSchedule = $meta['hold_estimated_service_schedule'] ?? null;
 
         $previousParentStatus = (string) $booking->getOriginal('booking_status');
         $booking->booking_status = $status;
@@ -3412,7 +3494,12 @@ class BookingController extends Controller
         if ($booking->isDirty('booking_status')) {
             $hasRepeatSeries = BookingRepeat::query()->where('booking_id', $booking->id)->exists();
 
-            DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks) {
+            DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks, $holdSchedule) {
+                $previousServiceSchedule = $booking->getOriginal('service_schedule');
+                if ($status === 'on_hold' && $holdSchedule !== null) {
+                    $booking->service_schedule = $holdSchedule;
+                }
+
                 if ($booking->repeat) {
                     foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold']) as $repeat) {
                         $repeat->update([
@@ -3431,6 +3518,23 @@ class BookingController extends Controller
 
                 $booking->save();
                 $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, $remarks);
+
+                if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
+                    $bookingScheduleHistory = $this->bookingScheduleHistory->newInstance();
+                    $bookingScheduleHistory->booking_id = $booking->id;
+                    $bookingScheduleHistory->changed_by = $request->user()->id;
+                    $bookingScheduleHistory->schedule = $holdSchedule;
+                    $bookingScheduleHistory->save();
+                    try {
+                        $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
+                        if ($fresh) {
+                            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                                ->sendBookingScheduleChange($fresh, $previousServiceSchedule ? (string) $previousServiceSchedule : null);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('WhatsApp booking schedule (hold) failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+                    }
+                }
             });
 
             if ($hasRepeatSeries) {
@@ -3461,23 +3565,49 @@ class BookingController extends Controller
     }
 
     /**
-     * @param  array{cancellation_reason_id: ?int, hold_reopen_reason_id: ?int, remarks: ?string}  $meta
+     * @param  array{cancellation_reason_id: ?int, hold_reopen_reason_id: ?int, remarks: ?string, hold_estimated_service_schedule: ?string}  $meta
      */
     private function updateRepeatBookingStatus($repeatBooking, string $status, Request $request, array $meta = []): JsonResponse
     {
         $cancellationId = $meta['cancellation_reason_id'] ?? null;
         $holdReopenId = $meta['hold_reopen_reason_id'] ?? null;
         $remarks = $meta['remarks'] ?? null;
+        $holdSchedule = $meta['hold_estimated_service_schedule'] ?? null;
 
         $previousRepeatStatus = (string) $repeatBooking->booking_status;
         $repeatBooking->booking_status = $status;
 
         if ($repeatBooking->isDirty('booking_status')) {
-            DB::transaction(function () use ($repeatBooking, $status, $request, $cancellationId, $holdReopenId, $remarks) {
+            DB::transaction(function () use ($repeatBooking, $status, $request, $cancellationId, $holdReopenId, $remarks, $holdSchedule) {
+                $previousServiceSchedule = $repeatBooking->getOriginal('service_schedule');
+                if ($status === 'on_hold' && $holdSchedule !== null) {
+                    $repeatBooking->service_schedule = $holdSchedule;
+                }
 
                 $repeatBooking->save();
                 sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
                 $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id, $cancellationId, $holdReopenId, $remarks);
+
+                if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
+                    $bookingRepeatScheduleHistory = $this->bookingScheduleHistory->newInstance();
+                    $bookingRepeatScheduleHistory->booking_id = $repeatBooking->booking_id;
+                    $bookingRepeatScheduleHistory->changed_by = $request->user()->id;
+                    $bookingRepeatScheduleHistory->schedule = $holdSchedule;
+                    $bookingRepeatScheduleHistory->booking_repeat_id = $repeatBooking->id;
+                    $bookingRepeatScheduleHistory->save();
+                    try {
+                        $freshRepeat = $this->bookingRepeat->with([
+                            'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
+                            'detail', 'provider.owner', 'serviceman.user', 'booking',
+                        ])->find($repeatBooking->id);
+                        if ($freshRepeat) {
+                            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                                ->sendBookingRepeatScheduleChange($freshRepeat, $previousServiceSchedule ? (string) $previousServiceSchedule : null);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('WhatsApp repeat schedule (hold) failed', ['booking_repeat_id' => $repeatBooking->id, 'message' => $e->getMessage()]);
+                    }
+                }
 
                 $relatedRepeats = $this->bookingRepeat->where('booking_id', $repeatBooking->booking_id)->get();
                 if ($relatedRepeats->every(fn ($repeat) => ! in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing', 'on_hold'], true))) {
@@ -3566,7 +3696,7 @@ class BookingController extends Controller
         $from = (string) $repeatBooking->booking_status;
         $toInput = (string) $request->input('booking_status');
 
-        if (! booking_admin_status_transition_allowed($from, $toInput)) {
+        if (! booking_admin_status_transition_allowed_for_booking($repeatBooking, $from, $toInput)) {
             Toastr::error(translate('Invalid_booking_status_transition'));
 
             return back();
@@ -3576,7 +3706,7 @@ class BookingController extends Controller
             [
                 'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             ],
-            $this->adminBookingStatusReasonRules($from, $toInput)
+            $this->adminBookingStatusReasonRules($from, $toInput, $repeatBooking)
         ))->validate();
 
         [$cancellationId, $holdReopenId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $from, $validated['booking_status']);
@@ -3927,6 +4057,13 @@ class BookingController extends Controller
         $booking = $this->booking->where('id', $bookingId)->first();
 
         if (isset($booking)) {
+            if (! booking_admin_can_reassign_provider($booking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Provider_reassign_not_allowed_after_ongoing'),
+                ]), 422);
+            }
+
             $oldProviderId = $booking->provider_id;
             $booking->provider_id = $request->provider_id;
 
@@ -5526,16 +5663,56 @@ class BookingController extends Controller
 
     /**
      * Admin: add a payment to a booking (e.g. before marking complete).
-     * Fields: amount, received_by (company|provider), transaction_id (required if received_by=company), date (default today).
+     * Fields: amount, received_by (company|provider — who collected cash), transaction_id (required if received_by=company), date (default today).
+     * Loss-making (scaled): also split_amount_provider + split_amount_company = amount — economic split for loss/settlement (provider vs company share of recovery).
      */
     public function addPayment(Request $request, string $id): JsonResponse|RedirectResponse
     {
         $this->authorize('booking_can_manage_status');
         $allowedInflow = AdminCompanyInflowPaymentService::allowedAdvanceMethodKeys();
-        $rules = [
+
+        $preValidator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:0.01',
-            'received_by' => 'required|in:company,provider',
             'date' => 'nullable|date',
+        ]);
+        if ($preValidator->fails()) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($preValidator)), 400);
+            }
+            Toastr::error(implode(' ', $preValidator->errors()->all()));
+
+            return back();
+        }
+
+        $booking = $this->booking->with('booking_partial_payments')->find($id);
+        if (!$booking) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_404, 'Booking not found'), 404);
+            }
+            Toastr::error(translate('Booking not found'));
+            return back();
+        }
+
+        $status = strtolower(trim((string) ($booking->booking_status ?? '')));
+        $isScaledSettlement = $booking->isLossMakingFinancialSettlement();
+        $remainingCap = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        $allowAddPaymentByStatus = $status === 'ongoing'
+            || ($status === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking))
+            || ($isScaledSettlement && $status === 'completed' && $remainingCap > 0.009);
+        if (! $allowAddPaymentByStatus) {
+            $msg = $isScaledSettlement
+                ? translate('Add_payment_only_while_ongoing_or_loss_making_pending')
+                : translate('Add_payment_only_while_booking_ongoing');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['booking_status' => [$msg]]), 400);
+            }
+            Toastr::error($msg);
+
+            return back();
+        }
+
+        $rules = [
+            'received_by' => 'required|in:company,provider',
         ];
         if ($request->input('received_by') === 'company') {
             if ($allowedInflow === []) {
@@ -5559,16 +5736,89 @@ class BookingController extends Controller
                 return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
             }
             Toastr::error(implode(' ', $validator->errors()->all()));
+
             return back();
         }
+        if ($request->input('received_by') === 'company') {
+            $choice = (string) $request->input('advance_payment_method');
+            AdminCompanyInflowPaymentService::validateAdvanceFollowUp($request, $choice);
+        }
 
-        $booking = $this->booking->with('booking_partial_payments')->find($id);
-        if (!$booking) {
-            if ($request->wantsJson()) {
-                return response()->json(response_formatter(DEFAULT_404, 'Booking not found'), 404);
+        $isScaledSettlement = $booking->isLossMakingFinancialSettlement();
+        $splitProvider = 0.0;
+        $splitCompany = 0.0;
+        if ($isScaledSettlement) {
+            $splitValidator = Validator::make($request->all(), [
+                'split_amount_provider' => 'required|numeric|min:0',
+                'split_amount_company' => 'required|numeric|min:0',
+            ]);
+            if ($splitValidator->fails()) {
+                if ($request->wantsJson()) {
+                    return response()->json(response_formatter(DEFAULT_400, null, error_processor($splitValidator)), 400);
+                }
+                Toastr::error(implode(' ', $splitValidator->errors()->all()));
+
+                return back();
             }
-            Toastr::error(translate('Booking not found'));
-            return back();
+            $amountRounded = round((float) $request->input('amount'), 2);
+            $splitProvider = round((float) $request->input('split_amount_provider'), 2);
+            $splitCompany = round((float) $request->input('split_amount_company'), 2);
+            if (round($splitProvider + $splitCompany, 2) !== $amountRounded) {
+                $msg = translate('Bfs_add_payment_split_must_equal_total');
+                if ($request->wantsJson()) {
+                    return response()->json(response_formatter(DEFAULT_400, null, ['split_amount_provider' => [$msg]]), 400);
+                }
+                Toastr::error($msg);
+
+                return back();
+            }
+            if ($splitProvider < 0.01 && $splitCompany < 0.01) {
+                $msg = translate('Bfs_add_payment_split_need_positive_segment');
+                if ($request->wantsJson()) {
+                    return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$msg]]), 400);
+                }
+                Toastr::error($msg);
+
+                return back();
+            }
+            $recoveryCaps = booking_admin_loss_recovery_split_caps($booking);
+            if ($recoveryCaps !== null) {
+                $sumCaps = round($recoveryCaps['provider'] + $recoveryCaps['company'], 2);
+                if ($amountRounded > $sumCaps + 0.02) {
+                    $msg = __('lang.Bfs_add_payment_amount_exceeds_remaining_loss_to_tag', [
+                        'amount' => with_currency_symbol($amountRounded),
+                        'max' => with_currency_symbol($sumCaps),
+                    ]);
+                    if ($request->wantsJson()) {
+                        return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$msg]]), 400);
+                    }
+                    Toastr::error($msg);
+
+                    return back();
+                }
+                if ($splitProvider > $recoveryCaps['provider'] + 0.02) {
+                    $msg = __('lang.Bfs_add_payment_split_exceeds_provider_loss_cap', [
+                        'max' => with_currency_symbol($recoveryCaps['provider']),
+                    ]);
+                    if ($request->wantsJson()) {
+                        return response()->json(response_formatter(DEFAULT_400, null, ['split_amount_provider' => [$msg]]), 400);
+                    }
+                    Toastr::error($msg);
+
+                    return back();
+                }
+                if ($splitCompany > $recoveryCaps['company'] + 0.02) {
+                    $msg = __('lang.Bfs_add_payment_split_exceeds_company_loss_cap', [
+                        'max' => with_currency_symbol($recoveryCaps['company']),
+                    ]);
+                    if ($request->wantsJson()) {
+                        return response()->json(response_formatter(DEFAULT_400, null, ['split_amount_company' => [$msg]]), 400);
+                    }
+                    Toastr::error($msg);
+
+                    return back();
+                }
+            }
         }
 
         $bookingTotal = get_booking_total_amount($booking);
@@ -5609,10 +5859,14 @@ class BookingController extends Controller
             $dueAmount = round(max(0.0, $retainedCap - $totalPaid), 2);
             $payableCapForPartialDue = round((float) $retainedCap, 2);
         } else {
-            $dueAmount = round(max(0, $bookingTotal - $totalPaid), 2);
+            $dueAmount = get_booking_admin_add_payment_remaining_amount($booking);
+            $outcomeTrim = trim((string) ($booking->settlement_outcome ?? ''));
+            $payableCapForPartialDue = $outcomeTrim === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
+                ? round((float) $bookingTotal, 2)
+                : round((float) get_booking_payable_total_for_partial_dues($booking), 2);
         }
 
-        $amount = (float) $request->amount;
+        $amount = round((float) $request->amount, 2);
         if ($amount > $dueAmount) {
             $message = translate('Amount cannot exceed the due amount. Due amount') . ': ' . with_currency_symbol($dueAmount);
             if ($request->wantsJson()) {
@@ -5621,13 +5875,20 @@ class BookingController extends Controller
             Toastr::error($message);
             return back();
         }
-        $receivedBy = $request->received_by;
         $date = $request->date ? \Carbon\Carbon::parse($request->date)->toDateString() : now()->toDateString();
 
+        $receivedBy = (string) $request->input('received_by');
+        $companyInflowForWhatsApp = [
+            'ledger_payment_method' => '',
+            'partial_transaction_id' => '',
+        ];
         if ($receivedBy === 'company') {
             $choice = (string) $request->input('advance_payment_method');
-            AdminCompanyInflowPaymentService::validateAdvanceFollowUp($request, $choice);
             $inflow = AdminCompanyInflowPaymentService::resolveLedgerPayloadForCompanyInflow($request, $choice);
+            $companyInflowForWhatsApp = [
+                'ledger_payment_method' => (string) ($inflow['ledger_payment_method'] ?? ''),
+                'partial_transaction_id' => (string) ($inflow['partial_transaction_id'] ?? ''),
+            ];
         } else {
             $inflow = [
                 'ledger_payment_method' => 'cash_after_service',
@@ -5638,18 +5899,22 @@ class BookingController extends Controller
         }
 
         $newTotalPaidAfterThis = round($totalPaid + $amount, 2);
-        $dueAfterThisPayment = round(max(0, $payableCapForPartialDue - $newTotalPaidAfterThis), 2);
+        $dueAfterThisPayment = round(max(0.0, $payableCapForPartialDue - $newTotalPaidAfterThis), 2);
 
         $partial = null;
-        DB::transaction(function () use ($booking, $amount, $receivedBy, $inflow, $date, $dueAfterThisPayment, &$partial) {
-            $paidWith = 'admin_entry';
-            $partial = $booking->booking_partial_payments()->create([
-                'paid_with' => $paidWith,
+        DB::transaction(function () use ($booking, $amount, $receivedBy, $inflow, $date, $dueAfterThisPayment, $isScaledSettlement, $splitProvider, $splitCompany, &$partial) {
+            $attrs = [
+                'paid_with' => 'admin_entry',
                 'transaction_id' => $receivedBy === 'company' ? ($inflow['partial_transaction_id'] ?? null) : null,
                 'paid_amount' => $amount,
                 'due_amount' => $dueAfterThisPayment,
                 'received_by' => $receivedBy,
-            ]);
+            ];
+            if ($isScaledSettlement) {
+                $attrs['loss_allocation_provider'] = $splitProvider;
+                $attrs['loss_allocation_company'] = $splitCompany;
+            }
+            $partial = $booking->booking_partial_payments()->create($attrs);
 
             if ($receivedBy === 'company') {
                 ledger_record_in([
@@ -5667,11 +5932,29 @@ class BookingController extends Controller
                 record_cross_party_booking_partial_transaction($booking, $amount, (string) $partial->id);
             }
 
-            $totalPaid = get_booking_total_paid($booking->fresh());
-            $bookingTotal = get_booking_total_amount($booking);
-            if ($totalPaid >= $bookingTotal) {
-                $booking->is_paid = 1;
-                $booking->save();
+            $freshBooking = $booking->fresh(['booking_partial_payments']);
+            $totalPaidAfter = get_booking_total_paid($freshBooking);
+            $paidThroughCap = round((float) get_booking_payable_total_for_partial_dues($freshBooking), 2);
+            if ($totalPaidAfter + 0.00001 >= $paidThroughCap) {
+                $freshBooking->is_paid = 1;
+                $freshBooking->save();
+            }
+
+            if (trim((string) ($freshBooking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                $settlementSvc = app(BookingFinancialSettlementService::class);
+                $grand = round(max(0.0, get_booking_total_amount($freshBooking)), 2);
+                if ($grand > 0.009) {
+                    [, $lossTotal] = $settlementSvc->resolveScaledLossBreakdown(
+                        $freshBooking,
+                        is_array($freshBooking->settlement_config) ? $freshBooking->settlement_config : [],
+                        $grand,
+                        $settlementSvc->totalPaidForMainBooking($freshBooking)
+                    );
+                    if ($lossTotal <= 0.009) {
+                        $freshBooking->allow_complete_without_full_payment = false;
+                        $freshBooking->save();
+                    }
+                }
             }
         });
 
@@ -5681,8 +5964,8 @@ class BookingController extends Controller
                 if ($fresh) {
                     app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingPaymentAdded($fresh, $partial, [
                         'date' => $date,
-                        'payment_method' => (string) ($inflow['ledger_payment_method'] ?? ''),
-                        'reference_id' => (string) ($inflow['partial_transaction_id'] ?? ''),
+                        'payment_method' => (string) ($companyInflowForWhatsApp['ledger_payment_method'] ?? ''),
+                        'reference_id' => (string) ($companyInflowForWhatsApp['partial_transaction_id'] ?? ''),
                     ]);
                 }
             }
@@ -5697,6 +5980,45 @@ class BookingController extends Controller
             return response()->json($payload, 200);
         }
         Toastr::success(translate('Payment added successfully.'));
+        return back();
+    }
+
+    /**
+     * Loss-making (scaled): write off remaining loss (discount/waiver), without receiving customer money.
+     * This reduces remaining scaled losses in settlement preview and marks the booking as recovered for reporting.
+     */
+    public function writeOffScaledLoss(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $booking = $this->booking->with(['booking_partial_payments', 'details_amounts'])->findOrFail($id);
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            Toastr::error(translate('Reopen_scenarios_single_booking_only'));
+            return back();
+        }
+        if (! $booking->isLossMakingFinancialSettlement()) {
+            Toastr::error(translate('Invalid_request'));
+            return back();
+        }
+
+        $svc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
+        $preview = $svc->buildPreview($booking);
+        $dueFromCustomer = round(max(0.0, (float) ($preview['amount_to_collect_from_customer'] ?? 0)), 2);
+        if ($dueFromCustomer <= 0.009) {
+            Toastr::success(translate('Update_successfully'));
+            return back();
+        }
+
+        // No split required: this is a write-off/discount (no money received), it clears remaining scaled loss
+        // and settles the remaining invoice recovery amount.
+        $cfg = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+
+        $cfg['scaled_loss_writeoff_amount'] = round(((float) ($cfg['scaled_loss_writeoff_amount'] ?? 0)) + $dueFromCustomer, 2);
+
+        $booking->settlement_config = $cfg === [] ? null : $cfg;
+        $booking->save();
+
+        Toastr::success(translate('Update_successfully'));
         return back();
     }
 
@@ -5760,11 +6082,14 @@ class BookingController extends Controller
      * @param  array<string, float>  $config
      */
     /**
-     * Financial settlement configuration and save-and-complete / save-and-cancel are only allowed while the booking is ongoing.
+     * Financial settlement configuration and save-and-complete / save-and-cancel are allowed while ongoing
+     * or while on hold after visit (same hold status, resumed from ongoing).
      */
     private function financialSettlementJsonErrorUnlessOngoing(Booking $booking): ?JsonResponse
     {
-        if ((string) ($booking->booking_status ?? '') !== 'ongoing') {
+        $st = (string) ($booking->booking_status ?? '');
+        $allowed = $st === 'ongoing' || ($st === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking));
+        if (! $allowed) {
             return response()->json(response_formatter([
                 'response_code' => 'default_400',
                 'message' => translate('Bfs_financial_settlement_only_while_ongoing'),
@@ -6248,6 +6573,268 @@ class BookingController extends Controller
             ? translate('Refund recorded successfully. Booking status updated to Refunded.')
             : translate('Refund recorded successfully. You can record another refund until the balance is zero.');
         Toastr::success($successMessage);
+        return back();
+    }
+
+    /**
+     * Admin: add compensation to a completed booking.
+     *
+     * Types:
+     * - company_to_customer: ledger + transactions (company ↔ customer)
+     * - company_to_provider: ledger + transactions (company ↔ provider)
+     * - provider_to_customer: transactions only (no ledger; customer ↔ provider)
+     */
+    public function addCompensation(Request $request, string $id): RedirectResponse|JsonResponse
+    {
+        $this->authorize('booking_view');
+
+        $validator = Validator::make($request->all(), [
+            'type' => 'required|string|in:company_to_customer,company_to_provider,provider_to_customer',
+            'amount' => 'required|numeric|min:0.01',
+            'transaction_id' => 'required|string|max:100',
+            'reference_note' => 'nullable|string|max:2000',
+            'date' => 'nullable|date',
+        ]);
+        if ($validator->fails()) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+            }
+            Toastr::error(implode(' ', $validator->errors()->all()));
+            return back();
+        }
+
+        /** @var \Modules\BookingModule\Entities\Booking|null $booking */
+        $booking = $this->booking->with(['customer', 'provider.owner.account'])->find($id);
+        if (! $booking) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_404, translate('No_data_available')), 404);
+            }
+            Toastr::error(translate('No_data_available'));
+            return back();
+        }
+
+        if ((string) ($booking->booking_status ?? '') !== 'completed') {
+            $msg = translate('Compensation is only available for completed bookings.');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['type' => [$msg]]), 400);
+            }
+            Toastr::error($msg);
+            return back();
+        }
+
+        $type = (string) $request->type;
+        $amount = round((float) $request->amount, 2);
+        $transactionId = \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) $request->transaction_id));
+        $note = trim((string) $request->input('reference_note', ''));
+        $date = $request->date ? \Carbon\Carbon::parse($request->date)->toDateString() : now()->toDateString();
+
+        $admin_user_id = \Modules\UserManagement\Entities\User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
+
+        DB::transaction(function () use ($booking, $type, $amount, $transactionId, $note, $date, $admin_user_id) {
+            $comp = \Modules\BookingModule\Entities\BookingCompensation::create([
+                'booking_id' => $booking->id,
+                'customer_id' => $booking->customer_id,
+                'provider_id' => $booking->provider_id,
+                'from_party' => str_starts_with($type, 'company_') ? \Modules\BookingModule\Entities\BookingCompensation::PARTY_COMPANY : \Modules\BookingModule\Entities\BookingCompensation::PARTY_PROVIDER,
+                'to_party' => str_ends_with($type, '_customer') ? \Modules\BookingModule\Entities\BookingCompensation::PARTY_CUSTOMER : \Modules\BookingModule\Entities\BookingCompensation::PARTY_PROVIDER,
+                'amount' => $amount,
+                'transaction_id' => $transactionId !== '' ? $transactionId : null,
+                'reference_note' => $note !== '' ? $note : null,
+                'date' => $date,
+                'created_by' => auth()->check() ? auth()->id() : null,
+            ]);
+
+            if ($type === 'company_to_customer') {
+                ledger_record_out([
+                    'amount' => $amount,
+                    'transaction_id' => $transactionId !== '' ? $transactionId : null,
+                    'booking_id' => $booking->id,
+                    'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_COMPENSATION,
+                    'date' => $date,
+                    'reference_note' => $note !== '' ? $note : 'booking_compensation:' . $comp->id,
+                ]);
+
+                $adminAccount = \Modules\TransactionModule\Entities\Account::where('user_id', $admin_user_id)->lockForUpdate()->first();
+                if ($adminAccount && (float) $adminAccount->balance_pending >= $amount) {
+                    $adminAccount->balance_pending -= $amount;
+                    $adminAccount->save();
+                }
+
+                $primary_transaction = \Modules\TransactionModule\Entities\Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_compensation'],
+                    'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_OUT,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'balance' => $adminAccount?->balance_pending ?? 0,
+                    'from_user_id' => $admin_user_id,
+                    'to_user_id' => $admin_user_id,
+                    'from_user_account' => ACCOUNT_STATES[0]['value'],
+                    'to_user_account' => null,
+                    'reference_note' => 'compensation:company_to_customer;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
+                ]);
+
+                $customer = \Modules\UserManagement\Entities\User::lockForUpdate()->find($booking->customer_id);
+                if ($customer) {
+                    $customer->wallet_balance += $amount;
+                    $customer->save();
+                }
+
+                \Modules\TransactionModule\Entities\Transaction::create([
+                    'ref_trx_id' => $primary_transaction->id,
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_compensation'],
+                    'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_OUT,
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'balance' => $customer?->wallet_balance ?? 0,
+                    'from_user_id' => $admin_user_id,
+                    'to_user_id' => $booking->customer_id,
+                    'from_user_account' => null,
+                    'to_user_account' => 'user_wallet',
+                    'reference_note' => 'compensation:company_to_customer;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
+                ]);
+            } elseif ($type === 'company_to_provider') {
+                $providerUserId = $booking->provider?->user_id;
+                if (! $providerUserId) {
+                    throw new \RuntimeException('Provider user not found for this booking.');
+                }
+
+                // Ledger OUT (company ↔ provider)
+                ledger_record_out([
+                    'amount' => $amount,
+                    'transaction_id' => $transactionId !== '' ? $transactionId : null,
+                    'booking_id' => $booking->id,
+                    'provider_id' => $booking->provider_id,
+                    'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_COMPENSATION,
+                    'date' => $date,
+                    'reference_note' => $note !== '' ? $note : 'booking_compensation:' . $comp->id,
+                    'created_by' => auth()->check() ? auth()->id() : null,
+                ]);
+
+                // Mirror recordPaymentToProvider mechanics but with compensation reason & booking_id.
+                $providerAccount = \Modules\TransactionModule\Entities\Account::where('user_id', $providerUserId)->lockForUpdate()->first();
+                $adminAccount = \Modules\TransactionModule\Entities\Account::where('user_id', $admin_user_id)->lockForUpdate()->first();
+                if (! $providerAccount || ! $adminAccount) {
+                    throw new \RuntimeException('Provider or admin account not found.');
+                }
+
+                // Ensure we can represent the payout even when receivable/payable are behind.
+                $shortfall = max(0.0, $amount - (float) $providerAccount->account_receivable);
+                if ($shortfall > 0.009) {
+                    $providerAccount->account_receivable += $shortfall;
+                }
+                $adminLift = max(0.0, $amount - (float) $adminAccount->account_payable);
+                if ($adminLift > 0.009) {
+                    $adminAccount->account_payable += $adminLift;
+                }
+                if ($shortfall > 0.009 || $adminLift > 0.009) {
+                    $providerAccount->save();
+                    $adminAccount->save();
+                }
+
+                $providerAccount->account_receivable -= $amount;
+                $providerAccount->save();
+
+                $primary_transaction = \Modules\TransactionModule\Entities\Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_compensation'],
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'balance' => $providerAccount->account_receivable,
+                    'from_user_id' => $providerUserId,
+                    'to_user_id' => $providerUserId,
+                    'from_user_account' => ACCOUNT_STATES[3]['value'],
+                    'to_user_account' => null,
+                    'reference_note' => 'compensation:company_to_provider;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
+                ]);
+
+                $providerAccount->total_withdrawn += $amount;
+                $providerAccount->save();
+
+                \Modules\TransactionModule\Entities\Transaction::create([
+                    'ref_trx_id' => $primary_transaction['id'],
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_compensation'],
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'balance' => $providerAccount->total_withdrawn,
+                    'from_user_id' => $providerUserId,
+                    'to_user_id' => $admin_user_id,
+                    'from_user_account' => ACCOUNT_STATES[4]['value'],
+                    'to_user_account' => null,
+                    'reference_note' => 'compensation:company_to_provider;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
+                ]);
+
+                $adminAccount->account_payable -= $amount;
+                $adminAccount->save();
+
+                \Modules\TransactionModule\Entities\Transaction::create([
+                    'ref_trx_id' => $primary_transaction['id'],
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_compensation'],
+                    'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_OUT,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'balance' => $adminAccount->account_payable,
+                    'from_user_id' => $providerUserId,
+                    'to_user_id' => $admin_user_id,
+                    'from_user_account' => null,
+                    'to_user_account' => ACCOUNT_STATES[2]['value'],
+                    'reference_note' => 'compensation:company_to_provider;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
+                ]);
+            } else {
+                // provider_to_customer: transactions only (no ledger)
+                $providerUserId = $booking->provider?->user_id;
+                if (! $providerUserId) {
+                    throw new \RuntimeException('Provider user not found for this booking.');
+                }
+
+                $customer = \Modules\UserManagement\Entities\User::lockForUpdate()->find($booking->customer_id);
+                if ($customer) {
+                    $customer->wallet_balance += $amount;
+                    $customer->save();
+                }
+
+                $primary_transaction = \Modules\TransactionModule\Entities\Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_compensation'],
+                    'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_NONE,
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'balance' => 0,
+                    'from_user_id' => $providerUserId,
+                    'to_user_id' => $booking->customer_id,
+                    'from_user_account' => null,
+                    'to_user_account' => 'user_wallet',
+                    'reference_note' => 'compensation:provider_to_customer;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
+                ]);
+
+                // Mirror row to keep "transactions all" listings consistent.
+                \Modules\TransactionModule\Entities\Transaction::create([
+                    'ref_trx_id' => $primary_transaction->id,
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_compensation'],
+                    'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_NONE,
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'balance' => $customer?->wallet_balance ?? 0,
+                    'from_user_id' => $providerUserId,
+                    'to_user_id' => $booking->customer_id,
+                    'from_user_account' => null,
+                    'to_user_account' => 'user_wallet',
+                    'reference_note' => 'compensation:provider_to_customer;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
+                ]);
+            }
+        });
+
+        if ($request->wantsJson()) {
+            return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
+        }
+        Toastr::success(translate('Compensation recorded successfully.'));
         return back();
     }
 

@@ -41,6 +41,8 @@
                     <form method="post" action="{{ route('admin.booking.reopen_scenario.disputed_refund', $booking->id) }}" class="reopen-disputed-form">
                         @csrf
                         <p class="small text-muted mb-2">{{ translate('Disputed_refund_pair_linked_hint') }}</p>
+                        <p class="small text-muted mb-2">{{ translate('Disputed_refund_max_per_field_is_customer_paid') }}
+                            <strong>{{ with_currency_symbol($__rsPaid) }}</strong>.</p>
                         <div class="small mb-2 d-flex flex-wrap gap-3 align-items-baseline">
                             <span><span class="text-muted">{{ translate('Disputed_refund_combined_total') }}:</span> <strong class="js-rs-refund-sum">{{ with_currency_symbol($__rsCompanyPool + $__rsProviderPool) }}</strong></span>
                             <span class="text-muted">/ {{ translate('Customer_paid_total') }}: {{ with_currency_symbol($__rsPaid) }}</span>
@@ -48,7 +50,8 @@
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label small">{{ translate('Refund_paid_from_company_pool') }} <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0" max="{{ $__rsPaid }}" name="refund_company_amount" class="form-control js-rs-refund-co" value="{{ old('refund_company_amount', (string) $__rsCompanyPool) }}" required>
+                                <input type="text" inputmode="decimal" name="refund_company_amount" class="form-control js-rs-refund-co" autocomplete="off"
+                                    value="{{ old('refund_company_amount', number_format($__rsCompanyPool, $__rsCurDec, '.', '')) }}" required>
                                 @error('refund_company_amount')
                                     <span class="text-danger small d-block">{{ $message }}</span>
                                 @enderror
@@ -64,7 +67,8 @@
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label small">{{ translate('Refund_paid_from_provider_pool') }} <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0" max="{{ $__rsPaid }}" name="refund_provider_amount" class="form-control js-rs-refund-pr" value="{{ old('refund_provider_amount', (string) $__rsProviderPool) }}" required>
+                                <input type="text" inputmode="decimal" name="refund_provider_amount" class="form-control js-rs-refund-pr" autocomplete="off"
+                                    value="{{ old('refund_provider_amount', number_format($__rsProviderPool, $__rsCurDec, '.', '')) }}" required>
                                 @error('refund_provider_amount')
                                     <span class="text-danger small d-block">{{ $message }}</span>
                                 @enderror
@@ -140,46 +144,110 @@
                     var num = parts.length > 1 ? parts.join('.') : parts[0];
                     return curPosition === 'left' ? (curSymbol + num) : (num + curSymbol);
                 }
-                /** Keep company + provider refunds from exceeding customer paid; the non-edited side shrinks first. */
+                function parseMoneyInput(str) {
+                    if (str == null) return NaN;
+                    var t = String(str).trim().replace(/,/g, '');
+                    if (t === '' || t === '.') return NaN;
+                    var n = parseFloat(t);
+                    return isNaN(n) ? NaN : n;
+                }
+
+                /** If this field alone exceeds customer paid total, clamp it (allows normal typing until value parses over max). */
+                function clampFieldToCustomerPaidIfOver(inp) {
+                    if (!inp || totalPaid <= 0) return;
+                    var v = parseMoneyInput(inp.value);
+                    if (isNaN(v)) return;
+                    if (v > totalPaid + 1e-9) {
+                        inp.value = formatRefundFieldValue(totalPaid);
+                    }
+                }
+
+                /** Keep company + provider refunds from exceeding customer paid. Do not rewrite the field the user is typing in on every keystroke. */
                 function applyPairedRefundCap(edited) {
                     var inpCo = modal.querySelector('.js-rs-refund-co');
                     var inpPr = modal.querySelector('.js-rs-refund-pr');
                     if (!inpCo || !inpPr) return;
-                    var rCo = parseFloat(inpCo.value);
-                    var rPr = parseFloat(inpPr.value);
+                    if (edited === 'co') clampFieldToCustomerPaidIfOver(inpCo);
+                    else if (edited === 'pr') clampFieldToCustomerPaidIfOver(inpPr);
+                    else {
+                        clampFieldToCustomerPaidIfOver(inpCo);
+                        clampFieldToCustomerPaidIfOver(inpPr);
+                    }
+                    var rCo = parseMoneyInput(inpCo.value);
+                    var rPr = parseMoneyInput(inpPr.value);
                     if (isNaN(rCo)) rCo = 0;
                     if (isNaN(rPr)) rPr = 0;
-                    rCo = round2(Math.min(rCo, totalPaid));
-                    rPr = round2(Math.min(rPr, totalPaid));
+                    rCo = round2(Math.min(Math.max(0, rCo), totalPaid));
+                    rPr = round2(Math.min(Math.max(0, rPr), totalPaid));
                     if (totalPaid <= 0) {
-                        inpCo.value = '0.00';
-                        inpPr.value = '0.00';
+                        inpCo.value = '0';
+                        inpPr.value = '0';
                         return;
                     }
                     if (edited === 'co' && rCo + rPr > totalPaid + 0.005) {
-                        rPr = round2(totalPaid - rCo);
+                        rPr = round2(Math.max(0, totalPaid - rCo));
+                        inpPr.value = formatRefundFieldValue(rPr);
                     } else if (edited === 'pr' && rCo + rPr > totalPaid + 0.005) {
-                        rCo = round2(totalPaid - rPr);
+                        rCo = round2(Math.max(0, totalPaid - rPr));
+                        inpCo.value = formatRefundFieldValue(rCo);
                     } else if (edited === null && rCo + rPr > totalPaid + 0.005) {
                         rPr = round2(Math.max(0, totalPaid - rCo));
                         if (rCo + rPr > totalPaid + 0.005) {
                             rCo = round2(Math.max(0, totalPaid - rPr));
                         }
+                        inpCo.value = formatRefundFieldValue(rCo);
+                        inpPr.value = formatRefundFieldValue(rPr);
                     }
-                    inpCo.value = rCo.toFixed(2);
-                    inpPr.value = rPr.toFixed(2);
                 }
+
+                function formatRefundFieldValue(n) {
+                    var v = round2(n);
+                    if (curDecimals === 0) return String(Math.round(v));
+                    return v.toFixed(curDecimals);
+                }
+
+                function normalizeRefundField(el) {
+                    if (!el) return;
+                    var v = parseMoneyInput(el.value);
+                    if (isNaN(v)) v = 0;
+                    v = round2(Math.min(Math.max(0, v), totalPaid));
+                    el.value = formatRefundFieldValue(v);
+                }
+
+                /** Parsed + capped amounts for live summary (matches paired cap; uses focused field when sum exceeds total). */
+                function getEffectiveRefundAmounts() {
+                    var inpCo = modal.querySelector('.js-rs-refund-co');
+                    var inpPr = modal.querySelector('.js-rs-refund-pr');
+                    var rCo = inpCo ? parseMoneyInput(inpCo.value) : 0;
+                    var rPr = inpPr ? parseMoneyInput(inpPr.value) : 0;
+                    if (isNaN(rCo)) rCo = 0;
+                    if (isNaN(rPr)) rPr = 0;
+                    rCo = round2(Math.min(Math.max(0, rCo), totalPaid));
+                    rPr = round2(Math.min(Math.max(0, rPr), totalPaid));
+                    if (totalPaid <= 0) return { rCo: 0, rPr: 0 };
+                    if (rCo + rPr <= totalPaid + 0.005) return { rCo: rCo, rPr: rPr };
+                    var active = document.activeElement;
+                    if (active === inpCo) {
+                        rPr = round2(Math.max(0, totalPaid - rCo));
+                    } else if (active === inpPr) {
+                        rCo = round2(Math.max(0, totalPaid - rPr));
+                    } else {
+                        rPr = round2(Math.max(0, totalPaid - rCo));
+                        if (rCo + rPr > totalPaid + 0.005) {
+                            rCo = round2(Math.max(0, totalPaid - rPr));
+                        }
+                    }
+                    return { rCo: rCo, rPr: rPr };
+                }
+
                 function recalc() {
                     var box = modal.querySelector('.js-rs-reconcile');
                     if (!box) return;
                     var coPool = parseFloat(box.getAttribute('data-co-pool')) || 0;
                     var prPool = parseFloat(box.getAttribute('data-pr-pool')) || 0;
-                    var inpCo = modal.querySelector('.js-rs-refund-co');
-                    var inpPr = modal.querySelector('.js-rs-refund-pr');
-                    var rCo = inpCo ? parseFloat(inpCo.value) : 0;
-                    var rPr = inpPr ? parseFloat(inpPr.value) : 0;
-                    if (isNaN(rCo)) rCo = 0;
-                    if (isNaN(rPr)) rPr = 0;
+                    var eff = getEffectiveRefundAmounts();
+                    var rCo = eff.rCo;
+                    var rPr = eff.rPr;
                     var sumEl = modal.querySelector('.js-rs-refund-sum');
                     if (sumEl) sumEl.textContent = formatMoney(rCo + rPr);
                     var owesCo = Math.max(0, Math.round((rCo - coPool) * 100) / 100);
@@ -214,9 +282,33 @@
                         recalc();
                     }
                 }
+                function onRefundBlur(e) {
+                    if (!e.target) return;
+                    if (!e.target.classList.contains('js-rs-refund-co') && !e.target.classList.contains('js-rs-refund-pr')) return;
+                    normalizeRefundField(e.target);
+                    applyPairedRefundCap(e.target.classList.contains('js-rs-refund-co') ? 'co' : 'pr');
+                    recalc();
+                }
+                function onRefundFormSubmit() {
+                    var inpCo = modal.querySelector('.js-rs-refund-co');
+                    var inpPr = modal.querySelector('.js-rs-refund-pr');
+                    normalizeRefundField(inpCo);
+                    normalizeRefundField(inpPr);
+                    applyPairedRefundCap(null);
+                    recalc();
+                }
+                var refundForm = modal.querySelector('.reopen-disputed-form');
                 modal.addEventListener('input', onRefundInput);
                 modal.addEventListener('change', onRefundInput);
+                modal.addEventListener('blur', onRefundBlur, true);
+                if (refundForm) {
+                    refundForm.addEventListener('submit', onRefundFormSubmit);
+                }
                 modal.addEventListener('shown.bs.modal', function () {
+                    var inpCo = modal.querySelector('.js-rs-refund-co');
+                    var inpPr = modal.querySelector('.js-rs-refund-pr');
+                    normalizeRefundField(inpCo);
+                    normalizeRefundField(inpPr);
                     applyPairedRefundCap(null);
                     recalc();
                 });

@@ -22,7 +22,7 @@
                         </span>
                         @if($booking->isOpenReopenTicket())
                             <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
-                        @elseif($booking->isReopenedTagged())
+                        @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
                             <span class="badge bg-success">{{ translate('Resolved') }}</span>
                         @endif
                     </div>
@@ -188,10 +188,22 @@
                             </button>
                         @endif
                         @can('booking_can_manage_status')
-                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed')
+                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed' && ! $booking->isLossMakingFinancialSettlement())
                                 <button type="button" class="btn btn--secondary" data-bs-toggle="modal"
                                     data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                                     <span class="material-icons">restore</span>{{ translate('Reopen_or_complaint') }}
+                                </button>
+                            @endif
+                            @if((int)($booking->is_repeated ?? 0) === 0
+                                && $booking->isOpenReopenTicket()
+                                && (
+                                    ($booking->booking_status ?? '') === 'ongoing'
+                                    || (($booking->booking_status ?? '') === 'on_hold')
+                                )
+                            )
+                                <button type="button" class="btn btn--danger" data-bs-toggle="modal"
+                                    data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
+                                    <span class="material-icons">gavel</span>{{ translate('Dispute_and_close') }}
                                 </button>
                             @endif
                             @if($booking->canMarkReopenResolved())
@@ -211,8 +223,13 @@
                 'formId' => 'reopenResolveForm--' . $booking->id,
                 'formAction' => route('admin.booking.reopen-resolve', $booking->id),
             ])
-            @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
-                @include('bookingmodule::admin.booking.partials._reopen-scenarios-modal')
+            @if((int)($booking->is_repeated ?? 0) === 0
+                && (
+                    $booking->isOpenReopenTicket()
+                    || in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true)
+                )
+            )
+                @include('bookingmodule::admin.booking.partials._reopen-dispute-modal')
             @endif
             @php
                 $__reopenErrResolve = $errors->has('reopen_resolve_remarks');
@@ -638,7 +655,7 @@
                                                         </button>
                                                     @endif
                                                 @endcan
-                                                @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
+                                                @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold']))
                                                     @can('booking_can_manage_status')
                                                         <span class="cursor-pointer d-inline-flex align-items-center" role="button" tabindex="0" data-bs-target="#providerModal" data-bs-toggle="modal" title="{{ translate('change_Provider') }}">
                                                             <span class="material-symbols-outlined">manage_history</span>

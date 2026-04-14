@@ -48,6 +48,14 @@
             <div class="col-10">
                 <div class="header-right">
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
+                        @can('booking_view')
+                        <li class="nav-item max-sm-m-0">
+                            <a href="{{ route('admin.booking.create') }}" class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">
+                                <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+                                <span class="d-none d-md-block">{{ translate('Add_New_Booking') }}</span>
+                            </a>
+                        </li>
+                        @endcan
                         <li class="nav-item max-sm-m-0">
                             <button type="button" id="modalOpener" class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-flex gap-1" data-bs-toggle="modal" data-bs-target="#staticBackdrop">
                                 <span class="material-symbols-outlined">search</span>

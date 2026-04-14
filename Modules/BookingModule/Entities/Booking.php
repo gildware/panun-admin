@@ -26,6 +26,7 @@ use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\BookingModule\Entities\BookingCompensation;
 
 class Booking extends Model
 {
@@ -205,6 +206,11 @@ class Booking extends Model
         return $this->hasMany(BookingPartialPayment::class)->latest();
     }
 
+    public function compensations(): HasMany
+    {
+        return $this->hasMany(BookingCompensation::class, 'booking_id')->latest();
+    }
+
     public function booking_details_amounts(): hasOne
     {
         return $this->hasOne(BookingDetailsAmount::class);
@@ -334,6 +340,45 @@ class Booking extends Model
     {
         return $this->originated_from_booking_id !== null
             || $this->last_reopen_event_at !== null;
+    }
+
+    /**
+     * Scaled-to-payments settlement with remaining customer shortfall (loss). Once the booking is fully paid to
+     * the invoice total, this returns false so UI and reopen rules treat the job as financially recovered.
+     */
+    public function isLossMakingFinancialSettlement(): bool
+    {
+        if (trim((string) ($this->settlement_outcome ?? '')) !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            return false;
+        }
+
+        $grand = round(max(0.0, get_booking_total_amount($this)), 2);
+        if ($grand <= 0.009) {
+            return true;
+        }
+
+        $svc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
+        $config = is_array($this->settlement_config) ? $this->settlement_config : [];
+        [, $lossTotal] = $svc->resolveScaledLossBreakdown(
+            $this,
+            $config,
+            $grand,
+            $svc->totalPaidForMainBooking($this)
+        );
+
+        return $lossTotal > 0.009;
+    }
+
+    /**
+     * Scaled settlement on file and no remaining customer shortfall (bad debt / loss total is zero).
+     */
+    public function isScaledSettlementLossRecovered(): bool
+    {
+        if (trim((string) ($this->settlement_outcome ?? '')) !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            return false;
+        }
+
+        return ! $this->isLossMakingFinancialSettlement();
     }
 
     /**
@@ -656,13 +701,23 @@ class Booking extends Model
                 if (!$skipHeavyCompletionAccounting && $model?->provider) {
                     if ($model->booking_partial_payments->isNotEmpty()) {
                         $anyReceivedByProvider = $model->booking_partial_payments->contains(fn ($p) => ($p->received_by ?? '') === 'provider');
+                        $scaledToPayments = trim((string) ($model->settlement_outcome ?? '')) === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
                         if ($model['payment_method'] == 'cash_after_service' && $anyReceivedByProvider) {
-                            $booking_partial_payment = new BookingPartialPayment;
-                            $booking_partial_payment->booking_id = $model->id;
-                            $booking_partial_payment->paid_with = 'cash_after_service';
-                            $booking_partial_payment->paid_amount = $model->booking_partial_payments->first()?->due_amount;
-                            $booking_partial_payment->due_amount = 0;
-                            $booking_partial_payment->save();
+                            // Loss-making (scaled): never fabricate a final "cash after service" partial — the latest
+                            // installment row's due_amount is not cash received and was inflating company/customer totals.
+                            if (! $scaledToPayments) {
+                                $sumPaidBefore = (float) $model->booking_partial_payments->sum('paid_amount');
+                                $grand = round((float) get_booking_total_amount($model), 2);
+                                $remaining = round(max(0.0, $grand - $sumPaidBefore), 2);
+                                if ($remaining > 0.009) {
+                                    $booking_partial_payment = new BookingPartialPayment;
+                                    $booking_partial_payment->booking_id = $model->id;
+                                    $booking_partial_payment->paid_with = 'cash_after_service';
+                                    $booking_partial_payment->paid_amount = $remaining;
+                                    $booking_partial_payment->due_amount = 0;
+                                    $booking_partial_payment->save();
+                                }
+                            }
 
                             completeBookingTransactionForPartialCas($model);
                         } elseif ($model['payment_method'] == 'cash_after_service' && !$anyReceivedByProvider) {

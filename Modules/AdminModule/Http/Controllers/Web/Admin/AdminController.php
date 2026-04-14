@@ -41,6 +41,7 @@ use Modules\TransactionModule\Entities\Transaction;
 use Modules\AdminModule\Entities\RouteSearchHistory;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BookingModule\Entities\BookingCompensation;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
@@ -152,6 +153,21 @@ class AdminController extends Controller
         $data[] = [
             'recent_ledger_transactions' => $recent_ledger_transactions,
             'this_month_ledger_trx_count' => $this_month_ledger_transactions_count
+        ];
+
+        $companyCompensatedToCustomers = (float) BookingCompensation::query()
+            ->where('from_party', BookingCompensation::PARTY_COMPANY)
+            ->where('to_party', BookingCompensation::PARTY_CUSTOMER)
+            ->sum('amount');
+        $companyCompensatedToProviders = (float) BookingCompensation::query()
+            ->where('from_party', BookingCompensation::PARTY_COMPANY)
+            ->where('to_party', BookingCompensation::PARTY_PROVIDER)
+            ->sum('amount');
+        $data[] = [
+            'compensation_totals' => [
+                'company_to_customers' => round($companyCompensatedToCustomers, 2),
+                'company_to_providers' => round($companyCompensatedToProviders, 2),
+            ],
         ];
 
         $bookings = $this->booking->with(['detail.service' => function ($query) {

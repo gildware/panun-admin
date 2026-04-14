@@ -63,6 +63,13 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertArrayHasKey(BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS, $opts);
     }
 
+    public function test_special_scenarios_modal_excludes_standard_outcome(): void
+    {
+        $opts = BookingFinancialSettlementService::outcomeOptionsForSpecialScenariosModal();
+        $this->assertArrayNotHasKey(BookingFinancialSettlementService::OUTCOME_STANDARD, $opts);
+        $this->assertCount(4, $opts);
+    }
+
     public function test_main_booking_for_repeat_uses_loaded_parent(): void
     {
         $parent = new Booking;
@@ -233,6 +240,110 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertArrayHasKey('scaled_net_company_share', $preview);
         $this->assertArrayHasKey('scaled_net_provider_share', $preview);
         $this->assertArrayHasKey('scaled_bad_debt_balance_not_due', $preview);
+        $this->assertSame(0.0, $preview['amount_to_collect_from_customer']);
+    }
+
+    public function test_build_preview_scaled_reflects_additional_partials_beyond_saved_scaled_customer_paid(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 600.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 100.0,
+            'scaled_loss_company_amount' => 250.0,
+            'scaled_loss_provider_amount' => 250.0,
+        ];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 350.0, 'received_by' => 'provider'],
+        ]));
+
+        $preview = $this->service->buildPreview($b);
+
+        $this->assertSame(350.0, $preview['scaled_customer_paid_amount']);
+        $this->assertSame(250.0, $preview['scaled_loss_amount']);
+        $this->assertSame(125.0, $preview['scaled_loss_company_share']);
+        $this->assertSame(125.0, $preview['scaled_loss_provider_share']);
+    }
+
+    public function test_resolve_scaled_loss_uses_installment_loss_recovery_split_when_config_loss_shares_missing(): void
+    {
+        $b = $this->memoryBooking();
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 100.0,
+        ];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) [
+                'paid_amount' => 100.0,
+                'received_by' => 'provider',
+                'loss_allocation_provider' => 100.0,
+                'loss_allocation_company' => 0.0,
+            ],
+        ]));
+
+        [$x, $loss, $y, $z] = $this->service->resolveScaledLossBreakdown($b, $b->settlement_config, 1000.0, 100.0);
+
+        $this->assertSame(100.0, $x);
+        $this->assertSame(900.0, $loss);
+        $this->assertSame(0.0, $y);
+        $this->assertSame(900.0, $z);
+    }
+
+    public function test_resolve_scaled_loss_prefers_installment_recovery_split_over_settlement_config(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 600.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 100.0,
+            'scaled_loss_company_amount' => 250.0,
+            'scaled_loss_provider_amount' => 250.0,
+        ];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 100.0, 'received_by' => 'company'],
+            (object) [
+                'paid_amount' => 200.0,
+                'received_by' => 'provider',
+                'loss_allocation_provider' => 200.0,
+                'loss_allocation_company' => 0.0,
+            ],
+        ]));
+
+        [$x, $loss, $y, $z] = $this->service->resolveScaledLossBreakdown($b, $b->settlement_config, 600.0, 300.0);
+
+        $this->assertSame(300.0, $x);
+        $this->assertSame(300.0, $loss);
+        // Settlement nominal 250/250; ₹200 recovery to provider only → company 250, provider 250−200=50.
+        $this->assertSame(250.0, $y);
+        $this->assertSame(50.0, $z);
+    }
+
+    public function test_scaled_settlement_due_and_payable_cap_use_declared_customer_obligation(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 1600.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 1100.0,
+            'scaled_loss_company_amount' => 0.0,
+            'scaled_loss_provider_amount' => 500.0,
+        ];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 100.0, 'received_by' => 'provider'],
+        ]));
+
+        $this->assertSame(1100.0, get_booking_payable_total_for_partial_dues($b));
+        $this->assertSame(1000.0, get_booking_invoice_due_amount($b));
+    }
+
+    public function test_total_paid_for_main_booking_scaled_is_paid_without_partials_is_zero(): void
+    {
+        $b = $this->memoryBooking();
+        $b->is_paid = 1;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->setRelation('booking_partial_payments', collect());
+
+        $this->assertSame(0.0, $this->service->totalPaidForMainBooking($b));
     }
 
     public function test_build_preview_suggested_refund_when_customer_overpaid_retained(): void
@@ -607,5 +718,35 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $v = customer_pending_bad_debt_loss_making_bookings_total('non-existent-customer-id-xxxxxxxx');
         $this->assertIsFloat($v);
         $this->assertGreaterThanOrEqual(0.0, $v);
+    }
+
+    public function test_customer_loss_making_bad_debt_not_due_total_is_numeric_for_query(): void
+    {
+        $v = customer_loss_making_bad_debt_not_due_total('non-existent-customer-id-xxxxxxxx');
+        $this->assertIsFloat($v);
+        $this->assertGreaterThanOrEqual(0.0, $v);
+    }
+
+    public function test_admin_add_payment_remaining_uses_full_invoice_for_scaled_bookings(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 1600.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = ['scaled_customer_paid_amount' => 1100.0];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 1100.0, 'received_by' => 'provider'],
+        ]));
+
+        $this->assertSame(500.0, get_booking_admin_add_payment_remaining_amount($b));
+    }
+
+    public function test_admin_add_payment_remaining_uses_payable_cap_when_not_scaled(): void
+    {
+        $b = $this->memoryBooking();
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 400.0],
+        ]));
+
+        $this->assertSame(600.0, get_booking_admin_add_payment_remaining_amount($b));
     }
 }

@@ -10,6 +10,14 @@
     <button type="button" class="btn-close provider-cross" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <div class="modal-body p-lg-5 pt-3">
+    @php
+        $canAdminReassignProvider = booking_admin_can_reassign_provider($booking);
+    @endphp
+    @if (! $canAdminReassignProvider)
+        <div class="alert alert-light border fz-12 mb-3 text-start" role="alert">
+            {{ translate('Provider_reassign_not_allowed_after_ongoing') }}
+        </div>
+    @endif
     <div class="d-flex gap-2">
         <form action="#" class="search-form flex-grow-1" autocomplete="off">
             <div class="input-group position-relative search-form__input_group rounded-3">
@@ -79,10 +87,14 @@
                     @if($booking->provider_id && (string) $booking->provider_id === (string) $provider->id)
                         <div class="text-success">{{ translate('Currently Assigned') }}</div>
                     @else
-                        <button type="button" class="btn btn-primary w-100 max-w320 reassign-provider"
-                                data-provider-reassign="{{ $provider->id }}">
-                            {{ $booking->provider_id ? translate('Re Assign') : translate('assign provider') }}
-                        </button>
+                        @if ($canAdminReassignProvider)
+                            <button type="button" class="btn btn-primary w-100 max-w320 reassign-provider"
+                                    data-provider-reassign="{{ $provider->id }}">
+                                {{ $booking->provider_id ? translate('Re Assign') : translate('assign provider') }}
+                            </button>
+                        @else
+                            <span class="text-muted fz-12">{{ translate('not_available') }}</span>
+                        @endif
                     @endif
                 </div>
             </div>

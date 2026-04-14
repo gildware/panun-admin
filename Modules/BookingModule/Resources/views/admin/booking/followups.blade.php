@@ -31,6 +31,8 @@
                 </div>
             </div>
 
+            @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', ['booking' => $booking])
+
             <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
                 <ul class="nav nav--tabs nav--tabs__style2">
                     <li class="nav-item">
