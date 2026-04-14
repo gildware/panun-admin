@@ -891,12 +891,7 @@
                 'formId' => 'reopenResolveForm--' . $booking->id,
                 'formAction' => route('admin.booking.reopen-resolve', $booking->id),
             ])
-            @if((int)($booking->is_repeated ?? 0) === 0
-                && (
-                    $booking->isOpenReopenTicket()
-                    || in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true)
-                )
-            )
+            @if((int)($booking->is_repeated ?? 0) === 0 && booking_admin_can_dispute_and_close($booking))
                 @include('bookingmodule::admin.booking.partials._reopen-dispute-modal')
             @endif
             @php
@@ -1310,7 +1305,8 @@
                             </div>
                             @can('booking_can_manage_status')
                                 @if(!$bookingNotEditable)
-                                    <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
+                                    <div class="flex-grow-1 d-flex align-items-center justify-content-center min-h-0 w-100">
+                                    <div class="d-flex flex-wrap gap-2 justify-content-center w-100" id="booking-status-overview-actions">
                                         @forelse ($__adminNextStatuses as $__nextSt)
                                             @php
                                                 $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
@@ -1340,7 +1336,7 @@
                                             <button type="button" class="booking-status-pill {{ $__pillClass }} booking-status-overview-btn" data-status="{{ $__nextSt }}"
                                                 @if($__btnDisabled) disabled title="{{ translate('Not available for this booking') }}" @endif>{{ $__pillLabel }}</button>
                                         @empty
-                                            <p class="fz-12 text-muted mb-0">{{ translate('No_status_changes_available') }}</p>
+                                            <p class="fz-12 text-muted mb-0 w-100 text-center">{{ translate('No_status_changes_available') }}</p>
                                         @endforelse
                                         @if((int)($booking->is_repeated ?? 0) === 0 && ($__overviewSt === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)))
                                             <button type="button" class="booking-status-pill booking-status-pill--info" data-bs-toggle="modal"
@@ -1348,7 +1344,7 @@
                                                 {{ translate('Configure_special_scenarios') }}
                                             </button>
                                         @endif
-                                        @if((int)($booking->is_repeated ?? 0) === 0 && in_array((string) $__overviewSt, ['ongoing', 'on_hold'], true))
+                                        @if((int)($booking->is_repeated ?? 0) === 0 && ($__overviewSt === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)))
                                             <button type="button" class="booking-status-pill booking-status-pill--danger" data-bs-toggle="modal"
                                                 data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
                                                 {{ translate('Dispute_and_close') }}
@@ -1365,8 +1361,10 @@
                                             </button>
                                         @endif
                                     </div>
+                                    </div>
                                 @elseif($__overviewShowReopenInCard)
-                                    <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
+                                    <div class="flex-grow-1 d-flex align-items-center justify-content-center min-h-0 w-100">
+                                    <div class="d-flex flex-wrap gap-2 justify-content-center w-100" id="booking-status-overview-actions">
                                         <button type="button" class="booking-status-pill booking-status-pill--secondary" data-bs-toggle="modal"
                                             data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                                             {{ translate('Reopen_Booking') }}
@@ -1383,6 +1381,7 @@
                                                 {{ translate('Mark_as_Resolved') }}
                                             </button>
                                         @endif
+                                    </div>
                                     </div>
                                 @else
                                     <div class="flex-grow-1 d-flex align-items-center justify-content-center text-center px-1 min-h-0 w-100">
@@ -2847,6 +2846,11 @@
                                     </div>
                                 </div>
                             @endif
+
+                            @include('bookingmodule::admin.booking.partials.details._booking-commission-override', [
+                                'booking' => $booking,
+                                'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
+                            ])
                 </div>
             </div>
         </div>
@@ -2870,9 +2874,12 @@
                 'booking' => $booking,
                 'financialSettlementOutcomes' => $financialSettlementOutcomes ?? [],
                 'defaultVisitFeeCompanyPercent' => $defaultVisitFeeCompanyPercent ?? 20,
-                'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
                 'bookingCancellationReasons' => $bookingCancellationReasons ?? collect(),
-                'bfsAllowCollectPayment' => (string) ($booking->booking_status ?? '') === 'ongoing',
+                'bfsAllowCollectPayment' => (string) ($booking->booking_status ?? '') === 'ongoing'
+                    || (
+                        strtolower((string) ($booking->booking_status ?? '')) === 'on_hold'
+                        && booking_on_hold_is_after_visit_from_ongoing($booking)
+                    ),
                 'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
                 'bfsAddPayLossCaps' => $bfsAddPayLossCaps,
             ])
@@ -3905,6 +3912,10 @@
                     }
                     if (res && res.message && typeof toastr !== 'undefined') {
                         toastr.success(res.message);
+                    }
+                    if (res && res.booking_partial_payment_id) {
+                        window.bfsModalSessionPartialPaymentIds = window.bfsModalSessionPartialPaymentIds || [];
+                        window.bfsModalSessionPartialPaymentIds.push(String(res.booking_partial_payment_id));
                     }
                     if (typeof window.bfsRunPreviewAfterEmbeddedPayment === 'function') {
                         window.bfsRunPreviewAfterEmbeddedPayment();

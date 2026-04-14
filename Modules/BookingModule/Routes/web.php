@@ -31,6 +31,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('financial-settlement/save/{id}', [BookingController::class, 'financialSettlementSave'])->name('financial_settlement.save');
         Route::post('financial-settlement/save-and-cancel/{id}', [BookingController::class, 'financialSettlementSaveAndCancel'])->name('financial_settlement.save_and_cancel');
         Route::post('financial-settlement/save-and-complete/{id}', [BookingController::class, 'financialSettlementSaveAndComplete'])->name('financial_settlement.save_and_complete');
+        Route::post('financial-settlement/revert-modal-partials/{id}', [BookingController::class, 'revertFinancialSettlementModalPartialPayments'])->name('financial_settlement.revert_modal_partials');
         Route::post('up-coming-booking-cancel/{id}', [BookingController::class, 'upComingBookingCancel'])->name('up_coming_booking_cancel');
         Route::get('configuration', [BookingConfigurationController::class, 'index'])->middleware(['can:booking_configuration_view'])->name('configuration.index');
         Route::post('configuration', [BookingConfigurationController::class, 'store'])->middleware(['can:booking_configuration_add'])->name('configuration.store');
@@ -43,6 +44,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('up-coming-booking-schedule-update/{id}', [BookingController::class, 'upComingBookingScheduleUpdate'])->name('up_coming_booking_schedule_update');
         Route::put('serviceman-update/{id}', [BookingController::class, 'servicemanUpdate'])->name('serviceman_update');
         Route::put('info-update/{id}', [BookingController::class, 'updateBookingInfo'])->name('info-update');
+        Route::put('admin-commission-override/{id}', [BookingController::class, 'updateAdminCommissionOverride'])->name('admin_commission_override.update');
         Route::post('extra-service/{id}', [BookingController::class, 'storeExtraService'])->name('extra-service.store');
         Route::put('additional-charges/{id}', [BookingController::class, 'updateBookingAdditionalCharges'])->name('additional-charges.update');
         Route::delete('extra-service/{id}/{extraId}', [BookingController::class, 'destroyExtraService'])->name('extra-service.destroy');

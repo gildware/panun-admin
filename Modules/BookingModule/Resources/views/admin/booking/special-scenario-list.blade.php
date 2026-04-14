@@ -45,13 +45,6 @@
                                     <span class="count">{{ $scenarioCounts['little_or_no_service'] ?? 0 }}</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $scenario === 'custom_commission' ? 'active' : '' }}"
-                                   href="{{ route('admin.booking.list.special_scenarios', array_merge($queryParams, ['scenario' => 'custom_commission'])) }}">
-                                    {{ translate('Bfs_scenario_tab_custom_commission') }}
-                                    <span class="count">{{ $scenarioCounts['custom_commission'] ?? 0 }}</span>
-                                </a>
-                            </li>
                         </ul>
                     </div>
 

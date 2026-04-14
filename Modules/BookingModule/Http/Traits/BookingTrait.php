@@ -2108,6 +2108,10 @@ trait BookingTrait
         $mainBooking = isset($booking->booking_id)
             ? (\Modules\BookingModule\Entities\Booking::query()->find($booking->booking_id))
             : $booking;
+        if ($mainBooking instanceof Booking && $mainBooking->admin_commission_override !== null) {
+            return app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)
+                ->calculateAdminCommissionDetails($booking, $providerId);
+        }
         $outcome = $mainBooking ? trim((string) ($mainBooking->settlement_outcome ?? '')) : '';
         if ($outcome !== '' && $outcome !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_STANDARD) {
             return app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)
