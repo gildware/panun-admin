@@ -75,38 +75,37 @@ class BookingFinancialSettlementServiceUnitTest extends TestCase
             'scaled_loss_provider_amount' => 350.0,
         ], 1000.0, 999.0);
 
-        $this->assertSame(400.0, $x);
-        $this->assertSame(600.0, $loss);
-        $this->assertSame(250.0, $y);
-        $this->assertSame(350.0, $z);
+        // Effective paid is max(declared, recorded): 999 vs 400 → 999; remaining loss is 1; loss split rescales from config ratio.
+        $this->assertSame(999.0, $x);
+        $this->assertSame(1.0, $loss);
+        $this->assertSame(0.42, $y);
+        $this->assertSame(0.58, $z);
 
         [$x2, $loss2, $y2, $z2] = $this->service->resolveScaledLossBreakdown($b, [], 100.0, 40.0);
         $this->assertSame(40.0, $x2);
         $this->assertSame(60.0, $loss2);
-        $this->assertSame(0.0, $y2);
-        $this->assertSame(0.0, $z2);
+        $this->assertSame(30.0, $y2);
+        $this->assertSame(30.0, $z2);
     }
 
-    public function test_validate_scaled_loss_split_rejects_when_company_plus_provider_not_equal_loss(): void
+    public function test_validate_scaled_loss_split_passes_when_config_loss_shares_rescale_to_current_loss(): void
     {
         $b = new Booking;
         $b->id = '00000000-0000-0000-0000-000000000095';
         $b->total_booking_amount = 1000.0;
         $b->extra_fee = 0.0;
 
-        $bad = $this->service->validateScaledLossSplit($b, [
+        $this->assertNull($this->service->validateScaledLossSplit($b, [
             'scaled_customer_paid_amount' => 400.0,
             'scaled_loss_company_amount' => 100.0,
             'scaled_loss_provider_amount' => 100.0,
-        ]);
-        $this->assertNotNull($bad);
+        ]));
 
-        $good = $this->service->validateScaledLossSplit($b, [
+        $this->assertNull($this->service->validateScaledLossSplit($b, [
             'scaled_customer_paid_amount' => 400.0,
             'scaled_loss_company_amount' => 300.0,
             'scaled_loss_provider_amount' => 300.0,
-        ]);
-        $this->assertNull($good);
+        ]));
     }
 
     public function test_resolve_retained_visit_amount_sums_visit_and_closing_capped_to_grand_total(): void

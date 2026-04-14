@@ -31,7 +31,7 @@ class BookingFinancialSettlementService
     }
 
     /**
-     * Order matches admin UI: standard, then the five business scenarios.
+     * Full list including standard (reports, badges, validation allow-list).
      */
     public static function outcomeOptions(): array
     {
@@ -42,6 +42,17 @@ class BookingFinancialSettlementService
             self::OUTCOME_CUSTOM_COMMISSION => translate('Bfs_label_custom_commission'),
             self::OUTCOME_SCALED_TO_PAYMENTS => translate('Bfs_label_scaled_partial_or_bad_debt'),
         ];
+    }
+
+    /**
+     * Admin “Configure special scenarios” modal only — excludes plain standard (normal commission).
+     */
+    public static function outcomeOptionsForSpecialScenariosModal(): array
+    {
+        $opts = self::outcomeOptions();
+        unset($opts[self::OUTCOME_STANDARD]);
+
+        return $opts;
     }
 
     /**
@@ -299,8 +310,12 @@ class BookingFinancialSettlementService
             $scaledLossBlock = [
                 'scaled_loss_mode' => true,
                 'scaled_total_booking_amount' => round($grandTotal, 2),
-                'scaled_customer_paid_amount' => $sx,
+                // Display should reflect actual customer payments recorded, not the declared scaled cap.
+                'scaled_customer_paid_amount' => round(min($grandTotal, max(0.0, (float) $paid)), 2),
                 'scaled_loss_amount' => $sLoss,
+                'scaled_loss_writeoff_amount' => isset($config['scaled_loss_writeoff_amount']) && is_numeric($config['scaled_loss_writeoff_amount'])
+                    ? round(max(0.0, (float) $config['scaled_loss_writeoff_amount']), 2)
+                    : 0.0,
                 'scaled_loss_company_share' => $sy,
                 'scaled_loss_provider_share' => $sz,
                 'scaled_bad_debt_balance_not_due' => $sLoss,
@@ -371,26 +386,120 @@ class BookingFinancialSettlementService
     }
 
     /**
-     * Loss-making (scaled) scenario: declared customer paid amount and optional loss split (company / provider).
+     * Loss-making (scaled) scenario: declared customer paid amount and loss split (company / provider).
+     *
+     * When settlement config has scaled_loss_* amounts **and** installments record loss recovery splits,
+     * remaining loss is attributed by **subtracting** cumulative recovery from those nominal amounts
+     * (e.g. provider share ₹250 − ₹200 recovery → ₹50), not by re-splitting total loss using allocation ratios.
+     * Otherwise: rescale settlement ratio to current loss; if no settlement loss amounts, use allocation
+     * ratio from installments; else 50/50.
      *
      * @return array{0: float, 1: float, 2: float, 3: float}  [customer_paid_capped, loss_total, loss_company, loss_provider]
      */
     public function resolveScaledLossBreakdown(Booking $booking, array $config, float $grandTotal, float $actualPaid): array
     {
         $grandTotal = max(0.0, round($grandTotal, 2));
-        $x = isset($config['scaled_customer_paid_amount']) && is_numeric($config['scaled_customer_paid_amount'])
-            ? round((float) $config['scaled_customer_paid_amount'], 2)
-            : round($actualPaid, 2);
-        $x = max(0.0, min($x, $grandTotal));
+        $actual = round(max(0.0, $actualPaid), 2);
+        $writeoffRaw = isset($config['scaled_loss_writeoff_amount']) && is_numeric($config['scaled_loss_writeoff_amount'])
+            ? round(max(0.0, (float) $config['scaled_loss_writeoff_amount']), 2)
+            : 0.0;
+
+        $cfgPaid = isset($config['scaled_customer_paid_amount']) && is_numeric($config['scaled_customer_paid_amount'])
+            ? round(max(0.0, (float) $config['scaled_customer_paid_amount']), 2)
+            : null;
+
+        // Effective customer-paid amount for loss math: must reflect **recorded** partials when they exceed the
+        // saved declaration (post-completion recovery). Stored scaled_customer_paid_amount is the original declaration;
+        // additional payments only increase booking_partial_payments, not settlement_config — so take max(declared, actual).
+        // If a prior write-off exists, never let an inflated stored declaration override actual paid for display/math.
+        if ($cfgPaid !== null && $writeoffRaw > 0.009 && $cfgPaid > $actual + 0.02) {
+            $cfgPaid = $actual;
+        }
+
+        if ($cfgPaid !== null) {
+            $x = round(min($grandTotal, max($cfgPaid, $actual)), 2);
+        } else {
+            $x = round(min($grandTotal, $actual), 2);
+        }
+
         $lossTotal = round(max(0.0, $grandTotal - $x), 2);
-        $y = isset($config['scaled_loss_company_amount']) && is_numeric($config['scaled_loss_company_amount'])
+
+        // Discount / write-off: settles remaining customer obligation without receiving payment.
+        if ($writeoffRaw > 0.009) {
+            $lossTotal = round(max(0.0, $lossTotal - $writeoffRaw), 2);
+        }
+
+        $yCfg = isset($config['scaled_loss_company_amount']) && is_numeric($config['scaled_loss_company_amount'])
             ? round(max(0.0, (float) $config['scaled_loss_company_amount']), 2)
             : 0.0;
-        $z = isset($config['scaled_loss_provider_amount']) && is_numeric($config['scaled_loss_provider_amount'])
+        $zCfg = isset($config['scaled_loss_provider_amount']) && is_numeric($config['scaled_loss_provider_amount'])
             ? round(max(0.0, (float) $config['scaled_loss_provider_amount']), 2)
             : 0.0;
 
+        $configLossSum = round($yCfg + $zCfg, 2);
+        [$allocCo, $allocPr] = $this->summedLossRecoveryAllocationFromPartials($booking);
+        $allocSum = round($allocCo + $allocPr, 2);
+
+        if ($lossTotal <= 0.009) {
+            $y = 0.0;
+            $z = 0.0;
+        } elseif ($configLossSum > 0.009 && ($allocCo > 0.009 || $allocPr > 0.009
+                || (!empty($config['scaled_loss_writeoff_company_amount']) || !empty($config['scaled_loss_writeoff_provider_amount'])))) {
+            // Deduct cumulative recovery (paid) and write-offs (discount/waiver) from nominal settlement loss amounts.
+            $wCo = isset($config['scaled_loss_writeoff_company_amount']) && is_numeric($config['scaled_loss_writeoff_company_amount'])
+                ? round(max(0.0, (float) $config['scaled_loss_writeoff_company_amount']), 2)
+                : 0.0;
+            $wPr = isset($config['scaled_loss_writeoff_provider_amount']) && is_numeric($config['scaled_loss_writeoff_provider_amount'])
+                ? round(max(0.0, (float) $config['scaled_loss_writeoff_provider_amount']), 2)
+                : 0.0;
+
+            $rawY = max(0.0, round($yCfg - $allocCo - $wCo, 2));
+            $rawZ = max(0.0, round($zCfg - $allocPr - $wPr, 2));
+            $sumRaw = round($rawY + $rawZ, 2);
+            if ($sumRaw <= 0.009) {
+                $y = round($lossTotal * ($yCfg / $configLossSum), 2);
+                $z = round($lossTotal - $y, 2);
+            } elseif (abs($sumRaw - $lossTotal) <= 0.03) {
+                $y = $rawY;
+                $z = round($lossTotal - $y, 2);
+            } else {
+                $y = round($lossTotal * ($rawY / $sumRaw), 2);
+                $z = round($lossTotal - $y, 2);
+            }
+        } elseif ($configLossSum > 0.009) {
+            // Preserve company vs provider loss **ratio** from settlement; rescale when total loss shrinks after recovery.
+            $y = round($lossTotal * ($yCfg / $configLossSum), 2);
+            $z = round($lossTotal - $y, 2);
+        } elseif ($allocSum > 0.009) {
+            $y = round($lossTotal * ($allocCo / $allocSum), 2);
+            $z = round($lossTotal - $y, 2);
+        } else {
+            $y = round($lossTotal / 2, 2);
+            $z = round($lossTotal - $y, 2);
+        }
+
         return [$x, $lossTotal, $y, $z];
+    }
+
+    /**
+     * Sum economic loss-recovery splits from {@see booking_partial_payment_loss_allocation_split()} across installments.
+     *
+     * @return array{0: float, 1: float} [company_total, provider_total]
+     */
+    public function summedLossRecoveryAllocationFromPartials(Booking $booking): array
+    {
+        $booking->loadMissing('booking_partial_payments');
+        $company = 0.0;
+        $provider = 0.0;
+        foreach ($booking->booking_partial_payments ?? [] as $p) {
+            $alloc = booking_partial_payment_loss_allocation_split($p);
+            if ($alloc !== null) {
+                $company += $alloc['company'];
+                $provider += $alloc['provider'];
+            }
+        }
+
+        return [round($company, 2), round($provider, 2)];
     }
 
     /**
@@ -466,6 +575,10 @@ class BookingFinancialSettlementService
         }
 
         if ((int) ($booking->is_paid ?? 0) === 1) {
+            if (trim((string) ($booking->settlement_outcome ?? '')) === self::OUTCOME_SCALED_TO_PAYMENTS) {
+                return 0.0;
+            }
+
             return round((float) get_booking_total_amount($booking), 2);
         }
 

@@ -3,7 +3,6 @@
 @if((int)($booking->is_repeated ?? 0) === 0)
 @php
     $bfsCurOutcome = trim((string) ($booking->settlement_outcome ?? ''));
-    $bfsStandard = \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_STANDARD;
     $bfsCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
     $bfsDefVisitPaid = array_key_exists('visit_charges_paid', $bfsCfg) ? $bfsCfg['visit_charges_paid'] : (float) ($booking->extra_fee ?? 0);
     $bfsDefClosing = (float) ($bfsCfg['closing_amount_paid'] ?? 0);
@@ -45,7 +44,6 @@
             : 0;
     }
     $bfsPopoverByOutcome = [
-        \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_STANDARD => translate('Bfs_popover_standard'),
         \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL => translate('Bfs_popover_cancel_keep_visit'),
         \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT => translate('Bfs_popover_complete_visit_only'),
         \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION => translate('Bfs_popover_custom_commission'),
@@ -86,7 +84,7 @@
                             <div class="d-flex align-items-start gap-2 p-2 rounded border border-light bg-white">
                                 <div class="form-check flex-grow-1 mb-0 pt-1">
                                     <input class="form-check-input bfs-outcome-radio" type="radio" name="bfs_outcome_radio" id="bfs-outcome-{{ $value }}" value="{{ $value }}"
-                                        @if($bfsCurOutcome === (string) $value || ($bfsCurOutcome === '' && (string) $value === $bfsStandard)) checked @endif>
+                                        @if($bfsCurOutcome !== '' && $bfsCurOutcome === (string) $value) checked @endif>
                                     <label class="form-check-label w-100" for="bfs-outcome-{{ $value }}">
                                         <span class="fw-medium d-block">{{ $label }}</span>
                                     </label>
@@ -194,10 +192,16 @@
                 </div>
 
                 @if(!empty($bfsAllowCollectPayment))
+                @php
+                    $bfsEmbedPayLossCaps = $bfsAddPayLossCaps ?? null;
+                    if ($bfsEmbedPayLossCaps === null && isset($booking) && trim((string) ($booking->settlement_outcome ?? '')) === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                        $bfsEmbedPayLossCaps = booking_admin_loss_recovery_split_caps($booking);
+                    }
+                @endphp
                 <div id="bfs-payment-embed-wrap" class="d-none border rounded p-3 mt-3 bg-white">
                     <h6 class="fw-semibold mb-1" id="bfs-collect-payment-title">{{ translate('Bfs_collect_payment_section_title') }}</h6>
                     <p class="small text-muted mb-3" id="bfs-collect-payment-hint">{{ translate('Bfs_collect_payment_section_hint') }}</p>
-                    <form method="post" action="{{ route('admin.booking.add-payment', [$booking->id]) }}" class="add-payment-form bfs-add-payment-form" data-due-amount="0" data-default-date="{{ date('Y-m-d') }}" id="bfs-add-payment-form" data-bfs-outcome-scaled="{{ \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS }}" novalidate>
+                    <form method="post" action="{{ route('admin.booking.add-payment', [$booking->id]) }}" class="add-payment-form bfs-add-payment-form" data-due-amount="0" data-default-date="{{ date('Y-m-d') }}" id="bfs-add-payment-form" data-bfs-outcome-scaled="{{ \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS }}" data-loss-allocation="{{ $booking->isLossMakingFinancialSettlement() ? '1' : '0' }}" @if(!empty($bfsEmbedPayLossCaps)) data-loss-cap-provider="{{ $bfsEmbedPayLossCaps['provider'] }}" data-loss-cap-company="{{ $bfsEmbedPayLossCaps['company'] }}" @endif novalidate>
                         @csrf
                         <input type="hidden" name="bfs_decided_charges_cap" id="bfs-cap-decided-charges" value="0">
                         <input type="hidden" name="bfs_scaled_loss_cap" id="bfs-cap-scaled-loss" value="0">
@@ -242,6 +246,29 @@
                             <label class="form-label">{{ translate('Date') }}</label>
                             <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}">
                         </div>
+                        @if($booking->isLossMakingFinancialSettlement())
+                            <div class="mb-3 add-payment-loss-allocation-wrap border rounded p-3 bg-light">
+                                <div class="fw-semibold fz-12 mb-2">{{ translate('Bfs_loss_recovery_split_title') }}</div>
+                                <p class="small text-muted mb-2">{{ translate('Bfs_loss_recovery_split_intro') }}</p>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_provider') }} <span class="text-danger">*</span></label>
+                                        @if(!empty($bfsEmbedPayLossCaps))
+                                            <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_provider_loss') }}: <strong>{{ with_currency_symbol($bfsEmbedPayLossCaps['provider']) }}</strong></div>
+                                        @endif
+                                        <input type="number" step="0.01" min="0" @if(!empty($bfsEmbedPayLossCaps)) max="{{ $bfsEmbedPayLossCaps['provider'] }}" @endif name="split_amount_provider" class="form-control add-payment-split-provider" value="0" id="bfs-embed-split-provider">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_company') }} <span class="text-danger">*</span></label>
+                                        @if(!empty($bfsEmbedPayLossCaps))
+                                            <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_company_loss') }}: <strong>{{ with_currency_symbol($bfsEmbedPayLossCaps['company']) }}</strong></div>
+                                        @endif
+                                        <input type="number" step="0.01" min="0" @if(!empty($bfsEmbedPayLossCaps)) max="{{ $bfsEmbedPayLossCaps['company'] }}" @endif name="split_amount_company" class="form-control add-payment-split-company" value="0" id="bfs-embed-split-company">
+                                    </div>
+                                </div>
+                                <p class="small text-muted mt-2 mb-0">{{ translate('Bfs_add_payment_split_sum_hint') }}</p>
+                            </div>
+                        @endif
                         <button type="submit" class="btn btn--primary">{{ translate('Add payment') }}</button>
                     </form>
                 </div>
@@ -344,7 +371,7 @@
 
     function bfsSelectedOutcome() {
         var $r = $('#bookingFinancialSettlementModal input[name="bfs_outcome_radio"]:checked');
-        return ($r.val() || OUTCOMES.STANDARD);
+        return String($r.val() || '').trim();
     }
 
     function bfsDecidedChargesScenarioSelected() {
@@ -653,6 +680,12 @@
         }
         var sym = typeof with_currency_symbol === 'function' ? with_currency_symbol(due) : String(due);
         $('#bfs-embed-due-val').text(sym);
+        var $bfsSp = $('#bfs-embed-split-provider');
+        var $bfsSc = $('#bfs-embed-split-company');
+        if ($bfsSp.length && $bfsSc.length && due > 0.009) {
+            $bfsSp.val(due.toFixed(2));
+            $bfsSc.val('0');
+        }
         if (mode === 'scaled') {
             $('#bfs-cap-decided-charges').val('0');
             $('#bfs-cap-scaled-loss').val('1');
@@ -775,6 +808,13 @@
     }
 
     function bfsRunPreview() {
+        if (!bfsSelectedOutcome()) {
+            $('#bfs-preview-loading').addClass('d-none');
+            $('#bfs-preview-kv').html('<div class="text-muted py-2" id="bfs-preview-placeholder">' + @json(translate('Bfs_preview_select_scenario_first')) + '</div>');
+            bfsLastDecidedPreview = null;
+            bfsUpdatePaymentEmbedVisibility(null);
+            return;
+        }
         const seq = ++bfsPreviewSeq;
         $('#bfs-preview-loading').removeClass('d-none');
         $.post(bfsPreviewUrl, bfsPayload())
@@ -1139,6 +1179,12 @@
     }
 
     $('#bfs-save-btn').on('click', function () {
+        if (!bfsSelectedOutcome()) {
+            if (typeof toastr !== 'undefined') {
+                toastr.error(@json(translate('Bfs_select_scenario_required')));
+            }
+            return;
+        }
         bfsPostSave($(this), bfsSaveUrl, bfsPayload());
     });
 

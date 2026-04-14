@@ -1648,6 +1648,17 @@ class ProviderController extends Controller
                 'provider_account_receivable' => (float) ($provider->owner->account->account_receivable ?? 0),
             ]);
 
+            $providerCompensatedToCustomersTotal = (float) \Modules\BookingModule\Entities\BookingCompensation::query()
+                ->where('provider_id', (string) $providerId)
+                ->where('from_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_PROVIDER)
+                ->where('to_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_CUSTOMER)
+                ->sum('amount');
+            $companyCompensatedToProviderTotal = (float) \Modules\BookingModule\Entities\BookingCompensation::query()
+                ->where('provider_id', (string) $providerId)
+                ->where('from_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_COMPANY)
+                ->where('to_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_PROVIDER)
+                ->sum('amount');
+
             return view('providermanagement::admin.provider.detail.payment', compact(
                 'provider',
                 'webPage',
@@ -1670,7 +1681,9 @@ class ProviderController extends Controller
                 'providerReceivedFromCustomerTotal',
                 'providerReceivedTotalAllSources',
                 'paymentSub',
-                'disputedBookingsPaginated'
+                'disputedBookingsPaginated',
+                'providerCompensatedToCustomersTotal',
+                'companyCompensatedToProviderTotal'
             ));
         }
         return back();
@@ -3080,6 +3093,13 @@ class ProviderController extends Controller
         $bookingRepeat = $this->bookingRepeat->where('id', $request->booking_id)->with('booking')->first();
 
         if ($booking) {
+            if (! booking_admin_can_reassign_provider($booking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Provider_reassign_not_allowed_after_ongoing'),
+                ]), 422);
+            }
+
             $oldProviderId = $booking->provider_id;
             $this->updateBooking($booking, $providerId, $changedBy);
 
@@ -3105,6 +3125,13 @@ class ProviderController extends Controller
 
         if ($bookingRepeat) {
             $bookingRepeat->loadMissing('booking');
+            if (! booking_admin_can_reassign_provider($bookingRepeat)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Provider_reassign_not_allowed_after_ongoing'),
+                ]), 422);
+            }
+
             $oldProviderId = $bookingRepeat->booking?->provider_id;
             $this->updateBookingRepeat($bookingRepeat, $providerId, $changedBy);
 

@@ -20,7 +20,7 @@
             --booking-overview-mid-revenue-h: calc(var(--booking-overview-mid-card-h) + var(--booking-overview-mid-split-shift));
             /* Right: Booking dates + Booking Information + Service location (2 gaps between three cards) */
             --booking-overview-right-dates-shift: 2rem;
-            --booking-overview-right-dates-h: calc(var(--booking-overview-small-card-h) + 1rem - var(--booking-overview-right-dates-shift));
+            --booking-overview-right-dates-h: calc(var(--booking-overview-small-card-h) + 2rem - var(--booking-overview-right-dates-shift));
             --booking-overview-right-service-loc-h: var(--booking-overview-small-card-h);
             --booking-overview-right-info-h: calc(var(--booking-overview-left-stack-h) - 2 * var(--booking-overview-column-gap) - var(--booking-overview-right-dates-h) - var(--booking-overview-right-service-loc-h));
             min-height: var(--booking-overview-left-stack-h);
@@ -107,6 +107,26 @@
             outline: 2px solid var(--bs-primary, #0d6efd);
             outline-offset: 2px;
         }
+        #booking-status-overview-actions .booking-status-pill--primary {
+            color: var(--bs-primary, #0d6efd);
+            border-color: var(--bs-primary, #0d6efd);
+            background-color: color-mix(in srgb, var(--bs-primary, #0d6efd) 14%, transparent);
+        }
+        #booking-status-overview-actions .booking-status-pill--primary:hover:not(:disabled) {
+            color: #fff !important;
+            background-color: var(--bs-primary, #0d6efd);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        #booking-status-overview-actions .booking-status-pill--info {
+            color: var(--bs-info, #0dcaf0);
+            border-color: var(--bs-info, #0dcaf0);
+            background-color: color-mix(in srgb, var(--bs-info, #0dcaf0) 18%, transparent);
+        }
+        #booking-status-overview-actions .booking-status-pill--info:hover:not(:disabled) {
+            color: #052c33 !important;
+            background-color: var(--bs-info, #0dcaf0);
+            border-color: var(--bs-info, #0dcaf0);
+        }
         #booking-status-overview-actions .booking-status-pill--success {
             color: var(--bs-success, #198754);
             border-color: var(--bs-success, #198754);
@@ -160,6 +180,70 @@
             #booking-status-overview-actions .booking-status-pill--secondary {
                 background-color: rgba(108, 117, 125, 0.14);
             }
+            #booking-status-overview-actions .booking-status-pill--primary {
+                background-color: rgba(13, 110, 253, 0.12);
+            }
+            #booking-status-overview-actions .booking-status-pill--info {
+                background-color: rgba(13, 202, 240, 0.18);
+            }
+        }
+
+        /* Service location card: travel note as compact single-line pill */
+        .booking-overview-service-loc-note-pill {
+            display: block;
+            max-width: 100%;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            line-height: 1.2;
+            text-align: center;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+        }
+        .booking-overview-service-loc-note-pill--at-provider-site {
+            background-color: rgba(13, 110, 253, 0.12);
+            color: #084298;
+            border-color: rgba(13, 110, 253, 0.28);
+        }
+        .booking-overview-service-loc-note-pill--at-customer-site {
+            background-color: rgba(25, 135, 84, 0.12);
+            color: #0f5132;
+            border-color: rgba(25, 135, 84, 0.28);
+        }
+
+        /* Overview cards: alternating row backgrounds for key/value readability */
+        .booking-overview-kv-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .booking-overview-kv-rows > .booking-overview-kv-row {
+            padding: 0.4rem 0.55rem;
+        }
+        .booking-overview-kv-rows > .booking-overview-kv-row:nth-child(odd) {
+            background-color: transparent;
+        }
+        .booking-overview-kv-rows > .booking-overview-kv-row:nth-child(even) {
+            background-color: rgba(0, 0, 0, 0.055);
+        }
+
+        /* Top header action row (with Invoice): cancellation / hold / reopen reason summary — not repeated in the Booking Status card below */
+        .booking-status-detail-box {
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.75);
+        }
+        .booking-status-detail-box .booking-status-detail-box__head {
+            padding: 0.35rem 0.55rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            background-color: rgba(0, 0, 0, 0.04);
         }
 
         /* Booking summary: colored row bands (no legend text — colors only) */
@@ -271,10 +355,43 @@
             && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
         $__bfsSplitBookingSummary = $__bfsSplitBookingSummaryCancel || $__bfsSplitBookingSummaryComplete;
         $__bfsScaledLive = null;
+        $bfsAddPayLossCaps = null;
         if ((int) ($booking->is_repeated ?? 0) === 0
             && trim((string) ($booking->settlement_outcome ?? '')) === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
             $__bfsScaledLive = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class)->buildPreview($booking);
+            if ($__bfsScaledLive !== null) {
+                $bfsAddPayLossCaps = [
+                    'provider' => max(0.0, round((float) ($__bfsScaledLive['scaled_loss_provider_share'] ?? 0), 2)),
+                    'company' => max(0.0, round((float) ($__bfsScaledLive['scaled_loss_company_share'] ?? 0), 2)),
+                ];
+            }
         }
+        $__bfsScaledPaymentCard = $__bfsScaledLive !== null
+            && ! in_array((string) ($booking->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true);
+        $paymentDetailsTotalAmount = $__bfsScaledPaymentCard
+            ? round((float) get_booking_total_amount($booking), 2)
+            : (float) $bookingTotalForPayment;
+        $paymentDetailsAmountPaid = $__bfsScaledPaymentCard
+            ? round((float) get_booking_total_paid($booking), 2)
+            : (float) $displayPaidAmount;
+        $adminAddPaymentRemainingCapacity = get_booking_admin_add_payment_remaining_amount($booking);
+        $canAdminRecordFurtherCustomerPayment = ! in_array((string) ($booking->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true)
+            && round($adminAddPaymentRemainingCapacity, 2) > 0.009;
+        $bookingStatusForAddPayment = (string) ($booking->booking_status ?? '');
+        $addPaymentAllowedByStatus = $bookingStatusForAddPayment === 'ongoing'
+            || ($bookingStatusForAddPayment === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking));
+        // Loss-making (scaled) bookings: allow recording additional payments even after completion
+        // (up to invoice recovery cap), so don't require ongoing/on-hold here.
+        $bfsShowRecordPaymentButton = $__bfsScaledLive !== null
+            && (int) ($booking->is_repeated ?? 0) === 0
+            && $canAdminRecordFurtherCustomerPayment;
+        $showAddPaymentOnBookingDetails = $addPaymentAllowedByStatus
+            && $canAdminRecordFurtherCustomerPayment
+            && (
+                (! $bookingNotEditable && ! $paymentFullyCovered)
+                || ($bookingNotEditable && $__bfsScaledLive !== null)
+                || ($__bfsScaledLive !== null && $paymentFullyCovered)
+            );
     @endphp
     <div class="main-content">
         <div class="container-fluid">
@@ -299,29 +416,72 @@
                 @endcan
             </div>
 
+            @php
+                $__overviewMaxBa = (float) (business_config('max_booking_amount', 'booking_setup')->live_values ?? 0);
+                $__overviewStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && (float) $booking->total_booking_amount >= $__overviewMaxBa;
+                $__overviewSt = $booking->booking_status ?? '';
+                $__cancelHist = $booking->latestParentCancellationStatusHistory;
+                $__holdHist = $booking->latestParentHoldStatusHistory;
+                $__reopenEv = $booking->reopenFromCompletedDisplayEvent();
+                $__respLabels = ['customer' => translate('Customer'), 'provider' => translate('Provider'), 'staff' => translate('Staff'), 'no_one' => translate('No_one')];
+                $__overviewShowReopenInCard = (int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'completed' && ! $booking->isLossMakingFinancialSettlement();
+                $__overviewBadge = 'info';
+                if ($__overviewSt === 'ongoing') {
+                    $__overviewBadge = 'warning';
+                } elseif ($__overviewSt === 'on_hold') {
+                    $__overviewBadge = 'secondary';
+                } elseif ($__overviewSt === 'completed') {
+                    $__overviewBadge = 'success';
+                } elseif ($__overviewSt === 'canceled' || $__overviewSt === 'cancelled') {
+                    $__overviewBadge = 'danger';
+                } elseif ($__overviewSt === 'refunded') {
+                    $__overviewBadge = 'success';
+                }
+                $__adminNextStatuses = booking_admin_allowed_next_statuses_for_booking($booking, $__overviewSt);
+                $__headerRefundRemaining = isset($maxRefundAmount) ? round((float) $maxRefundAmount, 2) : 0.0;
+                $__showHeaderPendingRefundBadge = in_array($__overviewSt, ['canceled', 'cancelled'], true)
+                    && $__headerRefundRemaining > 0.009;
+                $__headerStatusNorm = strtolower((string) ($booking->booking_status ?? ''));
+                $__headerMainBadgeClass = match ($__headerStatusNorm) {
+                    'ongoing' => 'warning',
+                    'on_hold' => 'secondary',
+                    'completed' => 'success',
+                    'canceled', 'cancelled' => 'danger',
+                    'refunded' => 'success',
+                    default => 'info',
+                };
+                $__showHeaderBookingCancelledWithRefunded = $__headerStatusNorm === 'refunded';
+                $__bookingStatusDisplayLabel = booking_admin_booking_status_display_label($booking);
+            @endphp
+
             <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
                 <div>
                     <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
                         <h3 class="c1 fw-bold">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
-                        <span class="badge badge-{{
-                            $booking->booking_status == 'ongoing' ? 'warning' :
-                            ($booking->booking_status == 'on_hold' ? 'secondary' :
-                            ($booking->booking_status == 'completed' ? 'success' :
-                            ($booking->booking_status == 'canceled' ? 'danger' :
-                            ($booking->booking_status == 'refunded' ? 'secondary' : 'info'))))
-                        }}">
-                            {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}
+                        @if($__showHeaderBookingCancelledWithRefunded)
+                            <span class="badge bg-danger">{{ translate('Booking_cancelled') }}</span>
+                        @endif
+                        <span class="badge badge-{{ $__headerMainBadgeClass }}">
+                            {{ $__bookingStatusDisplayLabel }}
                         </span>
+                        @if($__showHeaderPendingRefundBadge)
+                            <span class="badge bg-warning text-dark"
+                                title="{{ translate('Remaining_refundable') }}: {{ with_currency_symbol($__headerRefundRemaining) }}">{{ translate('Pending_refund') }}</span>
+                        @endif
                         @if($booking->booking_status === 'completed'
                             && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
-                            <span class="badge bg-secondary">{{ translate('Bfs_badge_loss_making_booking') }}</span>
+                            @if($booking->isScaledSettlementLossRecovered())
+                                <span class="badge bg-success">{{ translate('Bfs_badge_loss_recovered_booking') }}</span>
+                            @else
+                                <span class="badge bg-secondary">{{ translate('Bfs_badge_loss_making_booking') }}</span>
+                            @endif
                         @endif
                         @if(!empty($booking->after_visit_cancel))
                             <span class="badge bg-dark">{{ translate('Bfs_badge_after_visit_cancel') }}</span>
                         @endif
                         @if($booking->isOpenReopenTicket())
                             <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
-                        @elseif($booking->isReopenedTagged())
+                        @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
                             <span class="badge bg-success">{{ translate('Resolved') }}</span>
                         @endif
                     </div>
@@ -475,15 +635,131 @@
                             </div>
                         @endif
 
+                        @if(in_array($__overviewSt, ['canceled', 'cancelled', 'refunded'], true) && $__cancelHist && ($__cancelHist->cancellationReason || filled($__cancelHist->status_change_remarks)))
+                            <div class="booking-status-detail-box fz-12 w-100 align-self-stretch" style="max-width: min(100%, 36rem);">
+                                <div class="booking-status-detail-box__head">
+                                    <span class="title-color fw-semibold text-uppercase fz-11">{{ translate('Booking_cancellation_reasons') }}</span>
+                                </div>
+                                <div class="booking-overview-kv-rows">
+                                    @if($__cancelHist->cancellationReason)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Reason') }}:</span>
+                                            <span class="fz-12 text-break text-end fw-semibold min-w-0">{{ $__cancelHist->cancellationReason->name }}</span>
+                                        </div>
+                                        @if($__cancelHist->cancellationReason->description)
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                                <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Description') }}:</span>
+                                                <span class="fz-12 text-muted text-break text-end min-w-0">{{ $__cancelHist->cancellationReason->description }}</span>
+                                            </div>
+                                        @endif
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Responsible') }}:</span>
+                                            <span class="fz-12 text-break text-end min-w-0">{{ $__respLabels[$__cancelHist->cancellationReason->responsible] ?? $__cancelHist->cancellationReason->responsible }}</span>
+                                        </div>
+                                    @endif
+                                    @if(filled($__cancelHist->status_change_remarks))
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Status_change_remarks') }}:</span>
+                                            <div class="fz-12 text-break text-end min-w-0">{!! nl2br(e($__cancelHist->status_change_remarks)) !!}</div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @elseif(in_array($__overviewSt, ['on_hold', 'ongoing'], true) && $__holdHist && ($__holdHist->holdReopenReason || filled($__holdHist->status_change_remarks)))
+                            <div class="booking-status-detail-box fz-12 w-100 align-self-stretch" style="max-width: min(100%, 36rem);">
+                                <div class="booking-status-detail-box__head">
+                                    <span class="title-color fw-semibold text-uppercase fz-11">{{ $__overviewSt === 'on_hold' ? translate('Booking_hold_reasons') : translate('Last_on_hold_reason') }}</span>
+                                </div>
+                                <div class="booking-overview-kv-rows">
+                                    @if($__holdHist->holdReopenReason)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Reason') }}:</span>
+                                            <span class="fz-12 text-break text-end fw-semibold min-w-0">{{ $__holdHist->holdReopenReason->name }}</span>
+                                        </div>
+                                        @if($__holdHist->holdReopenReason->description)
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                                <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Description') }}:</span>
+                                                <span class="fz-12 text-muted text-break text-end min-w-0">{{ $__holdHist->holdReopenReason->description }}</span>
+                                            </div>
+                                        @endif
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Responsible') }}:</span>
+                                            <span class="fz-12 text-break text-end min-w-0">{{ $__respLabels[$__holdHist->holdReopenReason->responsible] ?? $__holdHist->holdReopenReason->responsible }}</span>
+                                        </div>
+                                    @endif
+                                    @if($__holdHist->changed_by)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Put_on_hold_by') }}:</span>
+                                            <span class="fz-12 text-break text-end min-w-0">
+                                                @if($__holdHist->user)
+                                                    {{ trim(($__holdHist->user->first_name ?? '') . ' ' . ($__holdHist->user->last_name ?? '')) }}
+                                                    @if(filled($__holdHist->user->email ?? null) || filled($__holdHist->user->phone ?? null))
+                                                        — {{ $__holdHist->user->email ?? $__holdHist->user->phone }}
+                                                    @endif
+                                                @else
+                                                    #{{ $__holdHist->changed_by }}
+                                                @endif
+                                            </span>
+                                        </div>
+                                    @endif
+                                    @if(filled($__holdHist->status_change_remarks))
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Status_change_remarks') }}:</span>
+                                            <div class="fz-12 text-break text-end min-w-0">{!! nl2br(e($__holdHist->status_change_remarks)) !!}</div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @elseif($__reopenEv && ($__reopenEv->holdReopenReason || filled($__reopenEv->complaint_notes)))
+                            <div class="booking-status-detail-box fz-12 w-100 align-self-stretch" style="max-width: min(100%, 36rem);">
+                                <div class="booking-status-detail-box__head">
+                                    <span class="title-color fw-semibold text-uppercase fz-11">{{ translate('Booking_reopen_from_completed_reasons') }}</span>
+                                </div>
+                                <div class="booking-overview-kv-rows">
+                                    @if($__reopenEv->holdReopenReason)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Reason') }}:</span>
+                                            <span class="fz-12 text-break text-end fw-semibold min-w-0">{{ $__reopenEv->holdReopenReason->name }}</span>
+                                        </div>
+                                        @if($__reopenEv->holdReopenReason->description)
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                                <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Description') }}:</span>
+                                                <span class="fz-12 text-muted text-break text-end min-w-0">{{ $__reopenEv->holdReopenReason->description }}</span>
+                                            </div>
+                                        @endif
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Responsible') }}:</span>
+                                            <span class="fz-12 text-break text-end min-w-0">{{ $__respLabels[$__reopenEv->holdReopenReason->responsible] ?? $__reopenEv->holdReopenReason->responsible }}</span>
+                                        </div>
+                                    @endif
+                                    @if(filled($__reopenEv->complaint_notes))
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Complaint_or_notes') }}:</span>
+                                            <div class="fz-12 text-break text-end min-w-0">{!! nl2br(e($__reopenEv->complaint_notes)) !!}</div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
                         <a href="{{ route('admin.booking.invoice', [$booking->id]) }}" class="btn btn-primary"
                             target="_blank">
                             <span class="material-icons">description</span>{{ translate('Invoice') }}
                         </a>
                         @can('booking_can_manage_status')
-                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed')
+                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed' && ! $booking->isLossMakingFinancialSettlement())
                                 <button type="button" class="btn btn--secondary" data-bs-toggle="modal"
                                     data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                                     <span class="material-icons">restore</span>{{ translate('Reopen_or_complaint') }}
+                                </button>
+                            @endif
+                            @if((int)($booking->is_repeated ?? 0) === 0
+                                && $booking->isOpenReopenTicket()
+                                && in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true)
+                            )
+                                <button type="button" class="btn btn--danger" data-bs-toggle="modal"
+                                    data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
+                                    <span class="material-icons">gavel</span>{{ translate('Dispute_and_close') }}
                                 </button>
                             @endif
                             @if($booking->canMarkReopenResolved())
@@ -615,8 +891,13 @@
                 'formId' => 'reopenResolveForm--' . $booking->id,
                 'formAction' => route('admin.booking.reopen-resolve', $booking->id),
             ])
-            @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
-                @include('bookingmodule::admin.booking.partials._reopen-scenarios-modal')
+            @if((int)($booking->is_repeated ?? 0) === 0
+                && (
+                    $booking->isOpenReopenTicket()
+                    || in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true)
+                )
+            )
+                @include('bookingmodule::admin.booking.partials._reopen-dispute-modal')
             @endif
             @php
                 $__reopenErrResolve = $errors->has('reopen_resolve_remarks');
@@ -796,6 +1077,68 @@
             @endif
             @endcan
 
+            @include('bookingmodule::admin.booking.partials.details._special-financial-settlement-banner', [
+                'booking' => $booking,
+                'bfsIncludeSettlementModal' => (int) ($booking->is_repeated ?? 0) === 0
+                    && (($booking->booking_status ?? '') === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking))
+                    && ! $bookingNotEditable,
+                // Loss-making (scaled) bookings: show Record payment button when add-payment modal is available.
+                'bfsAddPaymentModalOnPage' => $bfsShowRecordPaymentButton,
+            ])
+
+            @if((int) ($booking->is_repeated ?? 0) === 0 && $booking->isLossMakingFinancialSettlement())
+                @php
+                    $svc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
+                    $preview = $svc->buildPreview($booking);
+                    $lossCapPr = round(max(0.0, (float) ($preview['scaled_loss_provider_share'] ?? 0)), 2);
+                    $lossCapCo = round(max(0.0, (float) ($preview['scaled_loss_company_share'] ?? 0)), 2);
+                    $lossRemain = round($lossCapPr + $lossCapCo, 2);
+                @endphp
+                <div class="modal fade" id="lossWriteoffModal-{{ $booking->id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form method="post" action="{{ route('admin.booking.loss_writeoff', $booking->id) }}">
+                                @csrf
+                                <div class="modal-header">
+                                    <h5 class="modal-title">{{ translate('Settle_remaining_amount_as_discount') }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="alert alert-light border small">
+                                        <div class="d-flex justify-content-between">
+                                            <span class="text-muted">{{ translate('Due_Balance') }} ({{ translate('Invoice') }})</span>
+                                            <strong>{{ with_currency_symbol($adminAddPaymentRemainingCapacity) }}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between mt-1">
+                                            <span class="text-muted">{{ translate('Bfs_preview_scaled_loss_amount') }}</span>
+                                            <strong>{{ with_currency_symbol($lossRemain) }}</strong>
+                                        </div>
+                                        @if(!empty($preview['scaled_loss_writeoff_amount']))
+                                            <div class="d-flex justify-content-between mt-1">
+                                                <span class="text-muted">{{ translate('Settlement_amount') }}</span>
+                                                <strong>{{ with_currency_symbol((float) $preview['scaled_loss_writeoff_amount']) }}</strong>
+                                            </div>
+                                        @endif
+                                        <div class="text-muted mt-2">
+                                            {{ translate('This will not record a customer payment. It writes off the remaining loss so the booking shows as recovered for reporting.') }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                    <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                @push('script')
+                    <script>
+                        // No client-side split needed for write-off modal.
+                    </script>
+                @endpush
+            @endif
+
             <div class="d-flex flex-wrap justify-content-between align-items-center flex-xxl-nowrap gap-3 mb-4">
                 <ul class="nav nav--tabs nav--tabs__style2">
                     <li class="nav-item">
@@ -852,29 +1195,6 @@
 
             </div>
 
-            @php
-                $__overviewMaxBa = $maxBookingAmount ?? (business_config('max_booking_amount', 'booking_setup')->live_values ?? 0);
-                $__overviewStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && (float) $booking->total_booking_amount >= (float) $__overviewMaxBa;
-                $__overviewSt = $booking->booking_status ?? '';
-                $__cancelHist = $booking->latestParentCancellationStatusHistory;
-                $__holdHist = $booking->latestParentHoldStatusHistory;
-                $__reopenEv = $booking->reopenFromCompletedDisplayEvent();
-                $__respLabels = ['customer' => translate('Customer'), 'provider' => translate('Provider'), 'staff' => translate('Staff'), 'no_one' => translate('No_one')];
-                $__overviewShowReopenInCard = (int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'completed';
-                $__overviewBadge = 'info';
-                if ($__overviewSt === 'ongoing') {
-                    $__overviewBadge = 'warning';
-                } elseif ($__overviewSt === 'on_hold') {
-                    $__overviewBadge = 'secondary';
-                } elseif ($__overviewSt === 'completed') {
-                    $__overviewBadge = 'success';
-                } elseif ($__overviewSt === 'canceled' || $__overviewSt === 'cancelled') {
-                    $__overviewBadge = 'danger';
-                } elseif ($__overviewSt === 'refunded') {
-                    $__overviewBadge = 'secondary';
-                }
-                $__adminNextStatuses = booking_admin_allowed_next_statuses_for_booking($booking, $__overviewSt);
-            @endphp
             <div class="row mb-3 g-3 align-items-stretch">
                 <div class="col-xl-4 col-md-6 d-flex">
                     <div class="card h-100 w-100">
@@ -886,20 +1206,20 @@
                                 </h6>
                                 <span class="fz-12 fw-semibold text-uppercase c1 flex-shrink-0">{{ translate('Provider') }}</span>
                             </div>
-                            <div class="d-flex flex-column gap-2 flex-grow-1 fz-12">
+                            <div class="booking-overview-kv-rows flex-grow-1 fz-12">
                                 @if($booking->provider)
-                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                         <span class="title-color flex-shrink-0">{{ translate('company_name') }}:</span>
                                         <span class="text-break text-end fw-semibold">{{ $booking->provider->company_name ?? '—' }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                         <span class="title-color flex-shrink-0">{{ translate('Phone') }}:</span>
                                         <span class="text-break text-end">
                                             <a href="tel:{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '' }}" class="text-muted">{{ $booking->provider->contact_person_phone ?? $booking->provider->company_phone ?? '—' }}</a>
                                         </span>
                                     </div>
                                 @endif
-                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                     <span class="title-color flex-shrink-0">{{ translate('Date_&_Time') }}:</span>
                                     <span class="text-break text-end fw-semibold">
                                         @if($nextFollowupProvider ?? null)
@@ -926,13 +1246,13 @@
                                 </h6>
                                 <span class="fz-12 fw-semibold text-uppercase c1 flex-shrink-0">{{ translate('Customer') }}</span>
                             </div>
-                            <div class="d-flex flex-column gap-2 flex-grow-1 fz-12">
+                            <div class="booking-overview-kv-rows flex-grow-1 fz-12">
                                 @if(($customerName ?? '') || ($customerPhone ?? ''))
-                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                         <span class="title-color flex-shrink-0">{{ translate('Name') }}:</span>
                                         <span class="text-break text-end fw-semibold">{{ ($customerName ?? '') ?: '—' }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                         <span class="title-color flex-shrink-0">{{ translate('Phone') }}:</span>
                                         <span class="text-break text-end">
                                             @if($customerPhone ?? null)
@@ -943,7 +1263,7 @@
                                         </span>
                                     </div>
                                 @endif
-                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                     <span class="title-color flex-shrink-0">{{ translate('Date_&_Time') }}:</span>
                                     <span class="text-break text-end fw-semibold">
                                         @if($nextFollowupCustomer ?? null)
@@ -969,59 +1289,25 @@
                                     {{ translate('Booking_Status') }}
                                 </h6>
                                 <div class="d-flex flex-column align-items-end gap-1 text-end flex-shrink-0">
-                                    <span class="badge badge-{{ $__overviewBadge }} text-capitalize px-2 py-1 fz-12" id="booking-status-overview-badge">
-                                        {{ ucwords(str_replace('_', ' ', $__overviewSt)) }}
-                                    </span>
+                                    <div class="d-flex flex-wrap gap-1 justify-content-end align-items-center">
+                                        @if($__showHeaderBookingCancelledWithRefunded)
+                                            <span class="badge bg-danger fz-12">{{ translate('Booking_cancelled') }}</span>
+                                        @endif
+                                        <span class="badge badge-{{ $__overviewBadge }} text-capitalize px-2 py-1 fz-12" id="booking-status-overview-badge">
+                                            {{ $__bookingStatusDisplayLabel }}
+                                        </span>
+                                        @if($__showHeaderPendingRefundBadge)
+                                            <span class="badge bg-warning text-dark fz-12"
+                                                title="{{ translate('Remaining_refundable') }}: {{ with_currency_symbol($__headerRefundRemaining) }}">{{ translate('Pending_refund') }}</span>
+                                        @endif
+                                    </div>
                                     @if($booking->isOpenReopenTicket())
                                         <span class="badge bg-warning text-dark fz-12">{{ translate('Reopened') }}</span>
-                                    @elseif($booking->isReopenedTagged())
+                                    @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
                                         <span class="badge bg-success fz-12">{{ translate('Resolved') }}</span>
                                     @endif
                                 </div>
                             </div>
-                            @if(in_array($__overviewSt, ['canceled', 'cancelled', 'refunded'], true) && $__cancelHist && ($__cancelHist->cancellationReason || filled($__cancelHist->status_change_remarks)))
-                                <div class="fz-12 border-top pt-2 mt-2 flex-shrink-0">
-                                    <div class="title-color fw-semibold text-uppercase fz-11 mb-1">{{ translate('Booking_cancellation_reasons') }}</div>
-                                    @if($__cancelHist->cancellationReason)
-                                        <div class="fw-semibold text-break">{{ $__cancelHist->cancellationReason->name }}</div>
-                                        @if($__cancelHist->cancellationReason->description)
-                                            <div class="text-muted small text-break mt-1">{{ $__cancelHist->cancellationReason->description }}</div>
-                                        @endif
-                                        <div class="small mt-1"><span class="title-color">{{ translate('Responsible') }}:</span> {{ $__respLabels[$__cancelHist->cancellationReason->responsible] ?? $__cancelHist->cancellationReason->responsible }}</div>
-                                    @endif
-                                    @if(filled($__cancelHist->status_change_remarks))
-                                        <div class="small mt-2 pt-2 border-top border-light"><span class="title-color fw-semibold">{{ translate('Status_change_remarks') }}:</span><br><span class="text-break">{!! nl2br(e($__cancelHist->status_change_remarks)) !!}</span></div>
-                                    @endif
-                                </div>
-                            @elseif(in_array($__overviewSt, ['on_hold', 'ongoing'], true) && $__holdHist && ($__holdHist->holdReopenReason || filled($__holdHist->status_change_remarks)))
-                                <div class="fz-12 border-top pt-2 mt-2 flex-shrink-0">
-                                    <div class="title-color fw-semibold text-uppercase fz-11 mb-1">{{ $__overviewSt === 'on_hold' ? translate('Booking_hold_reasons') : translate('Last_on_hold_reason') }}</div>
-                                    @if($__holdHist->holdReopenReason)
-                                        <div class="fw-semibold text-break">{{ $__holdHist->holdReopenReason->name }}</div>
-                                        @if($__holdHist->holdReopenReason->description)
-                                            <div class="text-muted small text-break mt-1">{{ $__holdHist->holdReopenReason->description }}</div>
-                                        @endif
-                                        <div class="small mt-1"><span class="title-color">{{ translate('Responsible') }}:</span> {{ $__respLabels[$__holdHist->holdReopenReason->responsible] ?? $__holdHist->holdReopenReason->responsible }}</div>
-                                    @endif
-                                    @if(filled($__holdHist->status_change_remarks))
-                                        <div class="small mt-2 pt-2 border-top border-light"><span class="title-color fw-semibold">{{ translate('Status_change_remarks') }}:</span><br><span class="text-break">{!! nl2br(e($__holdHist->status_change_remarks)) !!}</span></div>
-                                    @endif
-                                </div>
-                            @elseif($__reopenEv && ($__reopenEv->holdReopenReason || filled($__reopenEv->complaint_notes)))
-                                <div class="fz-12 border-top pt-2 mt-2 flex-shrink-0">
-                                    <div class="title-color fw-semibold text-uppercase fz-11 mb-1">{{ translate('Booking_reopen_from_completed_reasons') }}</div>
-                                    @if($__reopenEv->holdReopenReason)
-                                        <div class="fw-semibold text-break">{{ $__reopenEv->holdReopenReason->name }}</div>
-                                        @if($__reopenEv->holdReopenReason->description)
-                                            <div class="text-muted small text-break mt-1">{{ $__reopenEv->holdReopenReason->description }}</div>
-                                        @endif
-                                        <div class="small mt-1"><span class="title-color">{{ translate('Responsible') }}:</span> {{ $__respLabels[$__reopenEv->holdReopenReason->responsible] ?? $__reopenEv->holdReopenReason->responsible }}</div>
-                                    @endif
-                                    @if(filled($__reopenEv->complaint_notes))
-                                        <div class="small mt-2 pt-2 border-top border-light"><span class="title-color fw-semibold">{{ translate('Complaint_or_notes') }}:</span><br><span class="text-break">{!! nl2br(e($__reopenEv->complaint_notes)) !!}</span></div>
-                                    @endif
-                                </div>
-                            @endif
                             @can('booking_can_manage_status')
                                 @if(!$bookingNotEditable)
                                     <div class="d-flex flex-wrap gap-2 mt-auto" id="booking-status-overview-actions">
@@ -1035,17 +1321,19 @@
                                                 $__pillClass = match ($__nextSt) {
                                                     'accepted' => 'booking-status-pill--success',
                                                     'pending' => 'booking-status-pill--secondary',
-                                                    'ongoing' => 'booking-status-pill--warning',
-                                                    'on_hold' => 'booking-status-pill--secondary',
+                                                    'ongoing' => 'booking-status-pill--primary',
+                                                    'on_hold' => 'booking-status-pill--warning',
                                                     'completed' => 'booking-status-pill--success',
+                                                    'canceled', 'cancelled' => 'booking-status-pill--danger',
                                                     default => 'booking-status-pill--secondary',
                                                 };
                                                 $__pillLabel = match ($__nextSt) {
                                                     'accepted' => translate('Accept_Booking'),
                                                     'pending' => translate('Mark_as_Pending'),
                                                     'ongoing' => translate('Mark_as_Ongoing'),
-                                                    'on_hold' => translate('Put_on_hold'),
+                                                    'on_hold' => $__overviewSt === 'ongoing' ? translate('Hold_after_visit') : translate('Put_on_hold'),
                                                     'completed' => translate('Complete_Booking'),
+                                                    'canceled', 'cancelled' => translate('Cancel_Booking'),
                                                     default => ucwords(str_replace('_', ' ', $__nextSt)),
                                                 };
                                             @endphp
@@ -1054,10 +1342,16 @@
                                         @empty
                                             <p class="fz-12 text-muted mb-0">{{ translate('No_status_changes_available') }}</p>
                                         @endforelse
-                                        @if((int)($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'ongoing')
-                                            <button type="button" class="booking-status-pill booking-status-pill--secondary" data-bs-toggle="modal"
+                                        @if((int)($booking->is_repeated ?? 0) === 0 && ($__overviewSt === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)))
+                                            <button type="button" class="booking-status-pill booking-status-pill--info" data-bs-toggle="modal"
                                                 data-bs-target="#bookingFinancialSettlementModal">
                                                 {{ translate('Configure_special_scenarios') }}
+                                            </button>
+                                        @endif
+                                        @if((int)($booking->is_repeated ?? 0) === 0 && in_array((string) $__overviewSt, ['ongoing', 'on_hold'], true))
+                                            <button type="button" class="booking-status-pill booking-status-pill--danger" data-bs-toggle="modal"
+                                                data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
+                                                {{ translate('Dispute_and_close') }}
                                             </button>
                                         @endif
                                         @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
@@ -1091,80 +1385,15 @@
                                         @endif
                                     </div>
                                 @else
-                                    <p class="fz-12 text-muted mb-0 mt-auto">{{ translate('Status is fixed for this booking.') }}</p>
+                                    <div class="flex-grow-1 d-flex align-items-center justify-content-center text-center px-1 min-h-0 w-100">
+                                        <p class="fz-12 text-muted mb-0">{{ translate('Status is fixed for this booking.') }}</p>
+                                    </div>
                                 @endif
                             @else
-                                <p class="fz-12 text-muted mb-0 mt-auto">{{ translate('You do not have permission to change booking status.') }}</p>
+                                <div class="flex-grow-1 d-flex align-items-center justify-content-center text-center px-1 min-h-0 w-100">
+                                    <p class="fz-12 text-muted mb-0">{{ translate('You do not have permission to change booking status.') }}</p>
+                                </div>
                             @endcan
-                            @if ((int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'ongoing')
-                                @can('booking_can_manage_status')
-                                    @if (! empty($booking->settlement_snapshot) && is_array($booking->settlement_snapshot))
-                                    <div class="border-top pt-3 mt-3 flex-shrink-0 w-100">
-                                            @php
-                                                $__bfsOutcome = (string) ($booking->settlement_outcome ?? '');
-                                                $__bfsDecidedCharges = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
-                                                    || $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
-                                                $__bfsScaledOutcome = $__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
-                                                $__bfsScaledLossRows = null;
-                                                if ($__bfsScaledOutcome && $__bfsScaledLive !== null) {
-                                                    $__bfsScaledLossRows = [
-                                                        (float) ($__bfsScaledLive['scaled_customer_paid_amount'] ?? 0),
-                                                        (float) ($__bfsScaledLive['scaled_loss_amount'] ?? 0),
-                                                        (float) ($__bfsScaledLive['scaled_loss_company_share'] ?? 0),
-                                                        (float) ($__bfsScaledLive['scaled_loss_provider_share'] ?? 0),
-                                                    ];
-                                                }
-                                            @endphp
-                                            <hr class="my-3">
-                                            <dl class="row small mb-0">
-                                                <dt class="col-sm-5">{{ translate('Scenario') }}</dt>
-                                                <dd class="col-sm-7">
-                                                    @if ($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL)
-                                                        {{ translate('Bfs_label_cancel_keep_visit') }}
-                                                    @elseif ($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT)
-                                                        {{ translate('Bfs_label_complete_visit_only') }}
-                                                    @elseif ($__bfsOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
-                                                        {{ translate('Bfs_label_scaled_partial_or_bad_debt') }}
-                                                    @else
-                                                        <span class="text-capitalize">{{ str_replace('_', ' ', (string) ($booking->settlement_outcome ?? translate('Standard_settlement'))) }}</span>
-                                                    @endif
-                                                </dd>
-                                                @if ($__bfsDecidedCharges)
-                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_visiting_charges') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['visit_charges_paid'] ?? 0) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_closing_amount') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($booking->settlement_snapshot['closing_amount_paid'] ?? 0) }}</dd>
-                                                @endif
-                                                @if ($__bfsScaledLossRows !== null)
-                                                    @php [$__sx, $__sloss, $__sy, $__sz] = $__bfsScaledLossRows; @endphp
-                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_total_booking') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol(get_booking_total_amount($booking)) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Bfs_scaled_amount_paid_by_customer') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sx) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Bfs_preview_scaled_loss_amount') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sloss) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Loss_to_company') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sy) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Loss_to_provider') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($__sz) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Bfs_gross_company_commission_full_booking') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($__bfsScaledLive['company_commission'] ?? 0) }}</dd>
-                                                    <dt class="col-sm-5">{{ translate('Bfs_gross_provider_share_full_booking') }}</dt>
-                                                    <dd class="col-sm-7">{{ with_currency_symbol($__bfsScaledLive['scaled_gross_provider_share'] ?? 0) }}</dd>
-                                                @endif
-                                                <dt class="col-sm-5">{{ $__bfsScaledOutcome ? translate('Net_company_share_after_loss') : translate('Company_commission') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol((float) data_get($__bfsScaledLive, 'company_commission_after_promos', (float) data_get($booking->settlement_snapshot, 'company_commission_after_promos', 0))) }}</dd>
-                                                <dt class="col-sm-5">{{ $__bfsScaledOutcome ? translate('Net_provider_share_after_loss') : translate('Provider_earning') }}</dt>
-                                                <dd class="col-sm-7">{{ with_currency_symbol((float) data_get($__bfsScaledLive, 'provider_earning', (float) data_get($booking->settlement_snapshot, 'provider_earning', 0))) }}</dd>
-                                                @if (! empty($booking->settlement_remarks))
-                                                    <dt class="col-sm-5">{{ translate('Notes') }}</dt>
-                                                    <dd class="col-sm-7">{{ $booking->settlement_remarks }}</dd>
-                                                @endif
-                                            </dl>
-                                    </div>
-                                    @endif
-                                @endcan
-                            @endif
                         </div>
                     </div>
                 </div>
@@ -1176,11 +1405,20 @@
                 if ($dueBalanceDisplay > 0 && in_array($booking->booking_status, ['pending', 'accepted', 'ongoing'], true) && $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) > 0) {
                     $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
                 }
+                if ($__bfsScaledPaymentCard) {
+                    $dueBalanceDisplay = round(max(0.0, (float) get_booking_total_amount($booking) - (float) get_booking_total_paid($booking)), 2);
+                }
                 $__bfsPaymentCardVisitRetainedCanceled = (string) ($booking->booking_status ?? '') === 'canceled'
                     && (
                         !empty($booking->after_visit_cancel)
                         || (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
                     );
+                $__paymentRefundBreakdown = get_booking_refund_display_totals($booking);
+                $__paymentRefundMaxEligible = round((float) ($__paymentRefundBreakdown['max_eligible'] ?? 0), 2);
+                $__paymentRefundRemaining = isset($maxRefundAmount) ? round((float) $maxRefundAmount, 2) : round((float) ($__paymentRefundBreakdown['refundable_remaining'] ?? 0), 2);
+                $__paymentRefundRefunded = round((float) ($__paymentRefundBreakdown['refunded_total'] ?? 0), 2);
+                $__showPaymentRefundRows = $__paymentRefundMaxEligible > 0.009;
+                $__paymentAmountPaidByCustomer = round((float) get_booking_total_paid($booking), 2);
                 if ($__bfsPaymentCardVisitRetainedCanceled) {
                     $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
                     $paidPartials = round((float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount'), 2);
@@ -1197,9 +1435,25 @@
                         $adminPaymentStatusLabel = translate('Unpaid');
                         $adminPaymentStatusBadgeClass = 'danger';
                     }
-                } elseif (in_array($booking->booking_status, ['canceled', 'refunded'])) {
-                    $adminPaymentStatusLabel = translate('Refunded');
-                    $adminPaymentStatusBadgeClass = 'secondary';
+                } elseif ($__showPaymentRefundRows) {
+                    if ($__paymentRefundRemaining > 0.009 && in_array((string) ($booking->booking_status ?? ''), ['canceled', 'cancelled'], true)) {
+                        $adminPaymentStatusLabel = translate('Pending_refund');
+                        $adminPaymentStatusBadgeClass = 'warning';
+                    } else {
+                        $adminPaymentStatusLabel = translate('Refunded');
+                        $adminPaymentStatusBadgeClass = 'success';
+                    }
+                } elseif (in_array((string) ($booking->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true)) {
+                    if ($paymentFullyCovered) {
+                        $adminPaymentStatusLabel = translate('Paid');
+                        $adminPaymentStatusBadgeClass = 'success';
+                    } elseif ($booking->booking_partial_payments->isNotEmpty() && $totalPaidFromPartials > 0) {
+                        $adminPaymentStatusLabel = translate('Partially paid');
+                        $adminPaymentStatusBadgeClass = 'info';
+                    } else {
+                        $adminPaymentStatusLabel = translate('Unpaid');
+                        $adminPaymentStatusBadgeClass = 'danger';
+                    }
                 } elseif ($paymentFullyCovered) {
                     $adminPaymentStatusLabel = translate('Paid');
                     $adminPaymentStatusBadgeClass = 'success';
@@ -1209,6 +1463,14 @@
                 } else {
                     $adminPaymentStatusLabel = translate('Unpaid');
                     $adminPaymentStatusBadgeClass = 'danger';
+                }
+                if ($__bfsScaledPaymentCard) {
+                    $grandInv = round((float) get_booking_total_amount($booking), 2);
+                    $paidAct = round((float) get_booking_total_paid($booking), 2);
+                    if ($paidAct + 0.005 < $grandInv) {
+                        $adminPaymentStatusLabel = translate('Partially paid');
+                        $adminPaymentStatusBadgeClass = 'info';
+                    }
                 }
             @endphp
             <div class="row g-3 mb-3 align-items-stretch booking-details-overview-row">
@@ -1280,7 +1542,7 @@
                                                     </button>
                                                 @endif
                                             @endcan
-                                            @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
+                                            @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold']))
                                                 @can('booking_can_manage_status')
                                                     <span class="cursor-pointer d-inline-flex align-items-center" role="button" tabindex="0" data-bs-target="#providerModal" data-bs-toggle="modal" title="{{ translate('change_Provider') }}">
                                                         <span class="material-symbols-outlined fz-18">manage_history</span>
@@ -1385,39 +1647,58 @@
                                         {{ translate('view_all') }}
                                     </button>
                                 </div>
-                                <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
-                                    <div class="d-flex justify-content-between align-items-center gap-2 mb-0">
+                                <div class="booking-overview-kv-rows flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-center gap-2 mb-0">
                                         <span class="title-color flex-shrink-0">{{ translate('Payment_Status') }}</span>
                                         <span class="badge badge-{{ $adminPaymentStatusBadgeClass }} mb-0 fz-12 flex-shrink-0" id="payment_status__span">{{ $adminPaymentStatusLabel }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
-                                        <span class="title-color flex-shrink-0">{{ translate('Total_Amount') }}</span>
-                                        <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($bookingTotalForPayment) }}</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
-                                        <span class="title-color flex-shrink-0">{{ $showAsAmountPaidLabel ? translate('Amount_Paid') : translate('Advance_Paid') }}</span>
-                                        <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($displayPaidAmount) }}</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
-                                        <span class="title-color flex-shrink-0">{{ translate('Due_Balance') }}</span>
-                                        <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($dueBalanceDisplay) }}</span>
-                                    </div>
-                                    @if ($__bfsScaledLive !== null)
-                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                    @if ($__showPaymentRefundRows)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Amount_paid_by_customer') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__paymentAmountPaidByCustomer) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Refundable_amount') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__paymentRefundMaxEligible) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Refunded_amount') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__paymentRefundRefunded) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Refund_balance_remaining') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__paymentRefundRemaining) }}</span>
+                                        </div>
+                                    @else
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Total_Amount') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($paymentDetailsTotalAmount) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ $showAsAmountPaidLabel ? translate('Amount_Paid') : translate('Advance_Paid') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($paymentDetailsAmountPaid) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Due_Balance') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($dueBalanceDisplay) }}</span>
+                                        </div>
+                                    @endif
+                                    @if ($__bfsScaledLive !== null && ! $__showPaymentRefundRows)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Bfs_bad_debt_balance_not_due') }}</span>
                                             <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol((float) ($__bfsScaledLive['scaled_bad_debt_balance_not_due'] ?? 0)) }}</span>
                                         </div>
-                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Loss_to_company') }}</span>
                                             <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol((float) ($__bfsScaledLive['scaled_loss_company_share'] ?? 0)) }}</span>
                                         </div>
-                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Loss_to_provider') }}</span>
                                             <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol((float) ($__bfsScaledLive['scaled_loss_provider_share'] ?? 0)) }}</span>
                                         </div>
                                     @endif
                                     @if($booking->payment_method == 'offline_payment' && $booking->booking_offline_payments->isNotEmpty())
-                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Request Verify Status') }}</span>
                                             <span class="text-end min-w-0">
                                             @if($booking->booking_offline_payments?->first()?->payment_status == 'pending')
@@ -1433,19 +1714,19 @@
                                         </div>
                                     @endif
                                     @if ($booking->is_verified == '0' && $booking->payment_method == 'cash_after_service' && $booking->total_booking_amount >= $maxBookingAmount)
-                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Request Verify Status:') }}</span>
                                             <span class="c1 text-capitalize text-end min-w-0">{{ translate('Pending') }}</span>
                                         </div>
                                     @elseif($booking->is_verified == '2' &&  $booking->payment_method == 'cash_after_service' && $booking->total_booking_amount >= $maxBookingAmount)
-                                        <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Request Verify Status:') }}</span>
                                             <span class="text-danger text-capitalize text-end min-w-0" id="booking_status__span">{{ translate('Denied') }}</span>
                                         </div>
                                     @endif
                                 </div>
                                 @can('booking_can_manage_status')
-                                    @if(!in_array($booking->booking_status, ['canceled', 'refunded']) && !$bookingNotEditable && !$paymentFullyCovered)
+                                    @if($showAddPaymentOnBookingDetails)
                                         <div class="flex-shrink-0 pt-2 border-top mt-2">
                                             <button type="button" class="btn btn--primary w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal-{{ $booking->id }}">{{ translate('Add payment') }}</button>
                                         </div>
@@ -1457,7 +1738,7 @@
                             <div class="modal-dialog modal-lg modal-dialog-scrollable">
                                 <div class="modal-content">
                                     <div class="modal-header">
-                                        <h5 class="modal-title" id="bookingPaymentHistoryModalLabel-{{ $booking->id }}">{{ translate('Installment_payments') }}</h5>
+                                        <h5 class="modal-title" id="bookingPaymentHistoryModalLabel-{{ $booking->id }}">{{ translate('Payment_and_refund_history') }}</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
                                     </div>
                                     <div class="modal-body">
@@ -1472,9 +1753,20 @@
                                                     return round((float) ($pp->paid_amount ?? 0), 2) != 0.0;
                                                 })
                                                 ->values();
-                                            $installmentPayableCap = get_booking_payable_total_for_partial_dues($booking);
+                                            $installmentPayableCap = $__bfsScaledLive !== null
+                                                ? round((float) get_booking_total_amount($booking), 2)
+                                                : get_booking_payable_total_for_partial_dues($booking);
                                             $installmentRunningPaid = 0.0;
+                                            $refundLedgerRowsForPaymentModal = \Modules\TransactionModule\Entities\LedgerTransaction::query()
+                                                ->where('booking_id', $booking->id)
+                                                ->where('reason', \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
+                                                ->where('type', \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT)
+                                                ->orderBy('created_at')
+                                                ->orderBy('id')
+                                                ->with('creator')
+                                                ->get();
                                         @endphp
+                                        <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Installment_payments') }}</p>
                                         <div class="table-responsive">
                                             <table class="table table-sm table-bordered align-middle fz-12 mb-0">
                                                 <thead class="table-light">
@@ -1519,6 +1811,37 @@
                                                 </tbody>
                                             </table>
                                         </div>
+                                        @if($refundLedgerRowsForPaymentModal->isNotEmpty() || (!empty($__showPaymentRefundRows) && $__showPaymentRefundRows))
+                                            <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold mt-4">{{ translate('Refunds_to_customer') }}</p>
+                                            @if($refundLedgerRowsForPaymentModal->isNotEmpty())
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered align-middle fz-12 mb-0">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th class="text-nowrap">#</th>
+                                                                <th class="text-nowrap">{{ translate('Date_time_added') }}</th>
+                                                                <th class="text-nowrap">{{ translate('Amount') }}</th>
+                                                                <th class="text-nowrap">{{ translate('transaction_id') }}</th>
+                                                                <th class="text-nowrap">{{ translate('Reference_Note') }}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach($refundLedgerRowsForPaymentModal as $idx => $lt)
+                                                                <tr>
+                                                                    <td>{{ $idx + 1 }}</td>
+                                                                    <td class="text-nowrap">{{ $lt->created_at ? $lt->created_at->format('d M Y, H:i:s') : '—' }}</td>
+                                                                    <td class="text-end fw-medium text-danger">-{{ with_currency_symbol((float) ($lt->amount ?? 0)) }}</td>
+                                                                    <td class="text-break">{{ $lt->transaction_id ? $lt->transaction_id : '—' }}</td>
+                                                                    <td class="text-break">{{ filled($lt->reference_note) ? Str::limit((string) $lt->reference_note, 120) : '—' }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            @else
+                                                <p class="text-muted fz-12 mb-0">{{ translate('No_refund_transactions_recorded_yet') }}</p>
+                                            @endif
+                                        @endif
                                     </div>
                                     <div class="modal-footer">
                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Close') }}</button>
@@ -1534,8 +1857,10 @@
                                         {{ translate('Revenue_&_Settlement') }}
                                     </h6>
                                 </div>
-                                <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
-                                    <div class="d-flex justify-content-between align-items-center p-2 rounded c1-light-bg">
+                                <div class="d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12 gap-2">
+                                    @if(booking_should_show_admin_revenue_settlement_breakdown($booking))
+                                    <div class="booking-overview-kv-rows flex-shrink-0">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-center">
                                         <span class="title-color">
                                             @if ($__bfsScaledLive !== null && (float) ($revenueSettlement['company_share'] ?? 0) < -0.009)
                                                 {{ translate('Company_loss') }} ({{ translate('Net') }})
@@ -1545,7 +1870,7 @@
                                         </span>
                                         <strong @class(['text-primary' => (float) ($revenueSettlement['company_share'] ?? 0) >= -0.009, 'text-danger' => (float) ($revenueSettlement['company_share'] ?? 0) < -0.009])>{{ with_currency_symbol($revenueSettlement['company_share']) }}</strong>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-center p-2 rounded c1-light-bg">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-center">
                                         <span class="title-color">
                                             @if ($__bfsScaledLive !== null && (float) ($revenueSettlement['provider_share'] ?? 0) < -0.009)
                                                 {{ translate('Provider_loss') }} ({{ translate('Net') }})
@@ -1555,15 +1880,14 @@
                                         </span>
                                         <strong @class(['text-danger' => (float) ($revenueSettlement['provider_share'] ?? 0) < -0.009])>{{ with_currency_symbol($revenueSettlement['provider_share']) }}</strong>
                                     </div>
-                                    <div class="text-muted border-top pt-2">
-                                        <div class="d-flex justify-content-between mb-1">
-                                            <span>{{ translate('Received_by_company') }}:</span>
-                                            <span>{{ with_currency_symbol($revenueSettlement['amount_received_by_company']) }}</span>
-                                        </div>
-                                        <div class="d-flex justify-content-between mb-1">
-                                            <span>{{ translate('Received_by_provider') }}:</span>
-                                            <span>{{ with_currency_symbol($revenueSettlement['amount_received_by_provider']) }}</span>
-                                        </div>
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
+                                        <span>{{ translate('Received_by_company') }}:</span>
+                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($revenueSettlement['amount_received_by_company']) }}</span>
+                                    </div>
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
+                                        <span>{{ translate('Received_by_provider') }}:</span>
+                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($revenueSettlement['amount_received_by_provider']) }}</span>
+                                    </div>
                                     </div>
                                     @if(!empty($revenueSettlement['net_revenue_zeroed_after_refund']))
                                         <div class="alert alert-secondary mb-0 py-2 px-2 fz-12">
@@ -1596,16 +1920,21 @@
                                             {{ $revenueSettlement['total_paid'] >= $bookingTotalForPayment ? translate('Settled') : translate('Unpaid_or_partially_paid') }}
                                         </div>
                                     @endif
+                                    @else
+                                        <div class="alert alert-light border mb-0 fz-12 text-muted">
+                                            {{ translate('No_revenue_cancelled_before_service') }}
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
                     </div>
                     @can('booking_can_manage_status')
-                        @if(!$bookingNotEditable && !$paymentFullyCovered)
+                        @if($showAddPaymentOnBookingDetails || $bfsShowRecordPaymentButton)
                             <div class="modal fade" id="addPaymentModal-{{ $booking->id }}" tabindex="-1">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
-                                        <form method="post" action="{{ route('admin.booking.add-payment', $booking->id) }}" class="add-payment-form" data-due-amount="{{ $remainingDueForAddPayment }}" novalidate>
+                                        <form method="post" action="{{ route('admin.booking.add-payment', $booking->id) }}" class="add-payment-form" data-due-amount="{{ $adminAddPaymentRemainingCapacity }}" data-loss-allocation="{{ $booking->isLossMakingFinancialSettlement() ? '1' : '0' }}" @if($bfsAddPayLossCaps !== null) data-loss-cap-provider="{{ $bfsAddPayLossCaps['provider'] }}" data-loss-cap-company="{{ $bfsAddPayLossCaps['company'] }}" @endif novalidate>
                                             @csrf
                                             <div class="modal-header">
                                                 <h5 class="modal-title">{{ translate('Add payment') }}</h5>
@@ -1613,9 +1942,14 @@
                                             </div>
                                             <div class="modal-body">
                                                 <div class="alert alert-danger d-none add-payment-modal-errors mb-3" role="alert"></div>
+                                                @if($__bfsScaledLive !== null && $paymentFullyCovered && round($adminAddPaymentRemainingCapacity, 2) > 0.009)
+                                                    <div class="alert alert-info fz-12 mb-3 py-2">
+                                                        {{ translate('Bfs_add_payment_invoice_recovery_hint') }}
+                                                    </div>
+                                                @endif
                                                 <div class="mb-3">
-                                                    <label class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span> <small class="text-muted">({{ translate('Due amount') }}: {{ with_currency_symbol($remainingDueForAddPayment) }})</small></label>
-                                                    <input type="number" step="0.01" min="0.01" max="{{ $remainingDueForAddPayment }}" name="amount" class="form-control add-payment-amount" required placeholder="{{ translate('Max') }} {{ with_currency_symbol($remainingDueForAddPayment) }}">
+                                                    <label class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span> <small class="text-muted">({{ translate('Due amount') }}: {{ with_currency_symbol($adminAddPaymentRemainingCapacity) }})</small></label>
+                                                    <input type="number" step="0.01" min="0.01" max="{{ $adminAddPaymentRemainingCapacity }}" name="amount" class="form-control add-payment-amount" required placeholder="{{ translate('Max') }} {{ with_currency_symbol($adminAddPaymentRemainingCapacity) }}">
                                                 </div>
                                                 <div class="mb-3">
                                                     <label class="form-label d-block">{{ translate('Received by') }} <span class="text-danger">*</span></label>
@@ -1649,6 +1983,38 @@
                                                     <label class="form-label">{{ translate('Date') }}</label>
                                                     <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}">
                                                 </div>
+                                                @if($booking->isLossMakingFinancialSettlement())
+                                                    <div class="mb-0 add-payment-loss-allocation-wrap border rounded p-3 bg-light">
+                                                        <div class="fw-semibold fz-12 mb-2">{{ translate('Bfs_loss_recovery_split_title') }}</div>
+                                                        <p class="small text-muted mb-2">{{ translate('Bfs_loss_recovery_split_intro') }}</p>
+                                                        @if($bfsAddPayLossCaps !== null)
+                                                            <button type="button" class="btn btn-sm btn-outline--primary mb-2 w-100 js-settle-remaining-loss">
+                                                                {{ translate('Settle_remaining_amount') }}
+                                                            </button>
+                                                        @endif
+                                                        <div class="row g-2">
+                                                            <div class="col-md-6">
+                                                                <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_provider') }} <span class="text-danger">*</span></label>
+                                                                @if($bfsAddPayLossCaps !== null)
+                                                                    <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_provider_loss') }}: <strong>{{ with_currency_symbol($bfsAddPayLossCaps['provider']) }}</strong></div>
+                                                                @endif
+                                                                <input type="text" inputmode="decimal" autocomplete="off" name="split_amount_provider"
+                                                                    class="form-control add-payment-split-provider"
+                                                                    value="{{ old('split_amount_provider', '0') }}">
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_company') }} <span class="text-danger">*</span></label>
+                                                                @if($bfsAddPayLossCaps !== null)
+                                                                    <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_company_loss') }}: <strong>{{ with_currency_symbol($bfsAddPayLossCaps['company']) }}</strong></div>
+                                                                @endif
+                                                                <input type="text" inputmode="decimal" autocomplete="off" name="split_amount_company"
+                                                                    class="form-control add-payment-split-company"
+                                                                    value="{{ old('split_amount_company', '0') }}">
+                                                            </div>
+                                                        </div>
+                                                        <p class="small text-muted mt-2 mb-0">{{ translate('Bfs_add_payment_split_sum_hint') }}</p>
+                                                    </div>
+                                                @endif
                                             </div>
                                             <div class="modal-footer">
                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
@@ -1671,12 +2037,12 @@
                                         {{ translate('Booking_Dates') }}
                                     </h6>
                                 </div>
-                                <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
+                                <div class="booking-overview-kv-rows flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
                                     @php
                                         $serviceScheduleLocalValue = \Carbon\Carbon::parse($booking->service_schedule)->format('Y-m-d\TH:i');
                                         $scheduleHistoriesCount = (int) ($booking?->schedule_histories?->count() ?? 0);
                                     @endphp
-                                    <div class="d-flex justify-content-between align-items-start gap-2 mb-0 flex-wrap">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2 mb-0 flex-wrap">
                                         <span class="title-color flex-shrink-0">{{ translate('Schedule_Date') }}</span>
                                         <div class="min-w-0 text-end flex-grow-1" style="max-width: min(100%, 22rem);">
                                             @can('booking_can_manage_status')
@@ -1721,11 +2087,11 @@
                                             @endcan
                                         </div>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                         <span class="title-color flex-shrink-0">{{ translate('Booking_Placed_On') }}</span>
                                         <span class="fw-semibold text-end text-break min-w-0">{{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</span>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                         <span class="title-color flex-shrink-0">{{ translate('Booking_Otp') }}</span>
                                         <span class="c1 fw-semibold text-capitalize text-end text-break min-w-0" id="booking-overview-booking-otp">{{ $booking?->booking_otp !== null && $booking?->booking_otp !== '' ? $booking->booking_otp : '—' }}</span>
                                     </div>
@@ -1749,10 +2115,10 @@
                                     @endif
                                 @endcan
                             </div>
-                            <div class="d-flex flex-column gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
-                                <div>
-                                    <span class="title-color">{{ translate('Assignee') }}:</span>
-                                    <span id="booking-assignee-display">
+                            <div class="booking-overview-kv-rows flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
+                                <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                    <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Assignee') }}:</span>
+                                    <span id="booking-assignee-display" class="fz-12 text-break text-end min-w-0">
                                         @if($booking->assignee_id && $booking->assignee)
                                             {{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}
                                             ({{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }})
@@ -1762,9 +2128,9 @@
                                         @endif
                                     </span>
                                 </div>
-                                <div>
-                                    <span class="title-color">{{ translate('Source') }}:</span>
-                                    <span id="booking-source-display">
+                                <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                    <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Source') }}:</span>
+                                    <span id="booking-source-display" class="fz-12 text-break text-end min-w-0">
                                         @switch(strtolower((string)($booking->booking_source ?? 'app')))
                                             @case('app'){{ translate('App') }}@break
                                             @case('call'){{ translate('Call') }}@break
@@ -1774,9 +2140,9 @@
                                         @endswitch
                                     </span>
                                 </div>
-                                <div>
-                                    <span class="title-color">{{ translate('Service_Additional_Details') }}:</span>
-                                    <span id="booking-service-description-display" class="text-break">
+                                <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                    <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Service_Additional_Details') }}:</span>
+                                    <span id="booking-service-description-display" class="fz-12 text-break text-end min-w-0">
                                         {{ $booking->service_description ?: translate('Not_specified') }}
                                     </span>
                                 </div>
@@ -1815,31 +2181,52 @@
                                         @endif
                                     @endif
                                 </div>
-                                <div class="flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
-                                    <p class="fw-semibold fz-12 mb-1">{{ translate('Zone') }}:</p>
-                                    <p class="mb-2 fz-12 text-break">
-                                        @if($booking?->zone?->name)
-                                            {{ $booking->zone->name }}@if($booking->zone?->parentZone?->name) ({{ $booking->zone->parentZone->name }})@endif
-                                        @else
-                                            {{ translate('not_available') }}
-                                        @endif
-                                    </p>
+                                <div class="flex-grow-1 booking-overview-min-h-0 overflow-y-auto d-flex flex-column">
+                                    <div class="booking-overview-kv-rows pb-1">
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                        <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Zone') }}:</span>
+                                        <span class="fz-12 text-break text-end">
+                                            @if($booking?->zone?->name)
+                                                {{ $booking->zone->name }}@if($booking->zone?->parentZone?->name) ({{ $booking->zone->parentZone->name }})@endif
+                                            @else
+                                                {{ translate('not_available') }}
+                                            @endif
+                                        </span>
+                                    </div>
                                 @if($booking->service_location == 'provider')
-                                    <p class="fz-12 mb-2 text-muted lh-sm">{{ translate('Customer has to go to the Provider Location to receive the service') }}</p>
                                     @if($booking->provider_id != null)
                                         @if($booking->provider)
-                                            <p class="fw-semibold fz-12 mb-1">{{ translate('Service Location') }}:</p>
-                                            <p class="mb-0 fz-12 text-break" title="{{ $booking?->provider?->company_address }}">{{ Str::limit($booking?->provider?->company_address ?? translate('not_available'), 280) }}</p>
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                                <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Service Location') }}:</span>
+                                                <span class="mb-0 fz-12 text-break text-end" title="{{ $booking?->provider?->company_address }}">{{ Str::limit($booking?->provider?->company_address ?? translate('not_available'), 280) }}</span>
+                                            </div>
                                         @else
-                                            <p class="mb-0 fz-12">{{ translate('Provider Unavailable') }}</p>
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                                <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Service Location') }}:</span>
+                                                <span class="mb-0 fz-12 text-end">{{ translate('Provider Unavailable') }}</span>
+                                            </div>
                                         @endif
                                     @else
-                                        <p class="mb-0 fz-12">{{ translate('The Service Location will be available after this booking accepts or assign to a provider') }}</p>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Service Location') }}:</span>
+                                            <span class="mb-0 fz-12 text-break text-end">{{ translate('The Service Location will be available after this booking accepts or assign to a provider') }}</span>
+                                        </div>
                                     @endif
                                 @else
-                                    <p class="fz-12 mb-2 text-muted lh-sm">{{ translate('Provider has to go to the Customer Location to provide the service') }}</p>
-                                    <p class="fw-semibold fz-12 mb-1">{{ translate('Service Location') }}:</p>
-                                    <p class="mb-0 fz-12 text-break" title="{{ $booking?->service_address?->address }}">{{ Str::limit($booking?->service_address?->address ?? translate('not_available'), 280) }}</p>
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                        <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Service Location') }}:</span>
+                                        <span class="mb-0 fz-12 text-break text-end" title="{{ $booking?->service_address?->address }}">{{ Str::limit($booking?->service_address?->address ?? translate('not_available'), 280) }}</span>
+                                    </div>
+                                @endif
+                                    </div>
+                                @if($booking->service_location == 'provider')
+                                    <div class="d-flex justify-content-center mt-2 px-1 flex-shrink-0 w-100 min-w-0">
+                                        <span class="booking-overview-service-loc-note-pill booking-overview-service-loc-note-pill--at-provider-site" title="{{ translate('Customer has to go to the Provider Location to receive the service') }}">{{ translate('Customer has to go to the Provider Location to receive the service') }}</span>
+                                    </div>
+                                @else
+                                    <div class="d-flex justify-content-center mt-2 px-1 flex-shrink-0 w-100 min-w-0">
+                                        <span class="booking-overview-service-loc-note-pill booking-overview-service-loc-note-pill--at-customer-site" title="{{ translate('Provider has to go to the Customer Location to provide the service') }}">{{ translate('Provider has to go to the Customer Location to provide the service') }}</span>
+                                    </div>
                                 @endif
                                 </div>
                             </div>
@@ -2320,8 +2707,9 @@
                                                 'accepted' => translate('Accept_Booking'),
                                                 'pending' => translate('Mark_as_Pending'),
                                                 'ongoing' => translate('Mark_as_Ongoing'),
-                                                'on_hold' => translate('Put_on_hold'),
+                                                'on_hold' => ($booking->booking_status ?? '') === 'ongoing' ? translate('Hold_after_visit') : translate('Put_on_hold'),
                                                 'completed' => translate('Complete_Booking'),
+                                                'canceled', 'cancelled' => translate('Cancel_Booking'),
                                                 default => ucwords(str_replace('_', ' ', $__selSt)),
                                             };
                                         @endphp
@@ -2445,6 +2833,10 @@
                                 </div>
                             @endif
 
+                            @if(($booking->booking_status ?? '') === 'completed')
+                                @include('bookingmodule::admin.booking.partials.details._compensation-box', ['booking' => $booking])
+                            @endif
+
                             @if ($booking->evidence_photos)
                                 <div class="mt-3 c1-light-bg radius-10 py-3 px-3">
                                     <h4 class="mb-2 h6">{{ translate('uploaded_Images') }}</h4>
@@ -2472,15 +2864,17 @@
 
     @include('bookingmodule::admin.booking.partials._booking-status-reason-modal')
     @can('booking_can_manage_status')
-        @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'ongoing' && ! $bookingNotEditable)
+        @if((int)($booking->is_repeated ?? 0) === 0 && ! $bookingNotEditable
+            && (($booking->booking_status ?? '') === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)))
             @include('bookingmodule::admin.booking.partials._financial-settlement-modal', [
                 'booking' => $booking,
                 'financialSettlementOutcomes' => $financialSettlementOutcomes ?? [],
                 'defaultVisitFeeCompanyPercent' => $defaultVisitFeeCompanyPercent ?? 20,
                 'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
                 'bookingCancellationReasons' => $bookingCancellationReasons ?? collect(),
-                'bfsAllowCollectPayment' => ! in_array((string) $booking->booking_status, ['canceled', 'refunded'], true) && ! $bookingNotEditable,
+                'bfsAllowCollectPayment' => (string) ($booking->booking_status ?? '') === 'ongoing',
                 'advancePaymentMethodGroups' => $advancePaymentMethodGroups ?? [],
+                'bfsAddPayLossCaps' => $bfsAddPayLossCaps,
             ])
         @endif
     @endcan
@@ -2869,8 +3263,8 @@
                         location.reload();
                     }, 600);
                 },
-                error: function () {
-                    toastr.error('{{ translate('Failed to load') }}');
+                error: function (xhr) {
+                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to load') }}');
                 }
             });
         }
@@ -3196,6 +3590,7 @@
             var $form = $(this).find('.add-payment-form');
             if ($form.length) {
                 toggleAddPaymentTransactionField($form);
+                applyLossSplitAutofill($form, null);
             }
         });
 
@@ -3210,6 +3605,158 @@
             var $form = $(this).find('.add-payment-form');
             $form.find('.add-payment-modal-errors').addClass('d-none').empty();
             $form.find('button[type="submit"]').prop('disabled', false);
+        });
+
+        function apRound2(x) {
+            return Math.round((parseFloat(x) || 0) * 100) / 100;
+        }
+
+        function apParseUserNumber(str) {
+            if (str === undefined || str === null) return NaN;
+            var t = String(str).trim().replace(/,/g, '');
+            if (t === '' || t === '.' || t === '-' || t.endsWith('.')) return NaN;
+            var n = parseFloat(t);
+            return isNaN(n) ? NaN : n;
+        }
+
+        function apReadCap($form, attrName) {
+            var v = $form.attr(attrName);
+            if (v === undefined || v === null || v === '') return null;
+            var n = parseFloat(String(v));
+            return isNaN(n) ? null : apRound2(Math.max(0, n));
+        }
+
+        function apClamp(n, min, max) {
+            var x = apRound2(n);
+            if (x < min) x = min;
+            if (max !== null && x > max) x = max;
+            return apRound2(x);
+        }
+
+        function applyLossSplitAutofill($form, edited) {
+            if (!$form || !$form.length) return;
+            if ($form.attr('data-loss-allocation') !== '1') return;
+            var $sp = $form.find('[name="split_amount_provider"]');
+            var $sc = $form.find('[name="split_amount_company"]');
+            if (!$sp.length || !$sc.length) return;
+
+            var amount = parseFloat($form.find('.add-payment-amount').val());
+            if (isNaN(amount) || amount <= 0) {
+                return;
+            }
+            amount = apRound2(amount);
+
+            var capPv = apReadCap($form, 'data-loss-cap-provider');
+            var capCv = apReadCap($form, 'data-loss-cap-company');
+
+            var curSp = apParseUserNumber($sp.val());
+            var curSc = apParseUserNumber($sc.val());
+            if (isNaN(curSp)) curSp = 0;
+            if (isNaN(curSc)) curSc = 0;
+
+            // If no explicit edit target, auto-fill by remaining-loss ratio (caps).
+            if (edited === null) {
+                // Only auto-fill when user hasn't edited split for this amount.
+                if ($form.data('lossSplitUserEdited') === true) {
+                    return;
+                }
+                var denom = (capPv !== null ? capPv : 0) + (capCv !== null ? capCv : 0);
+                var ratioP = denom > 0.0001 ? ((capPv !== null ? capPv : 0) / denom) : 0.5;
+                var sp0 = apRound2(amount * ratioP);
+                var sc0 = apRound2(amount - sp0);
+                if (capPv !== null) sp0 = apClamp(sp0, 0, capPv);
+                if (capCv !== null) sc0 = apClamp(sc0, 0, capCv);
+                // Rebalance if clamped.
+                if (apRound2(sp0 + sc0) !== amount) {
+                    if (capPv !== null && sp0 >= capPv - 0.0001) {
+                        sc0 = apClamp(amount - sp0, 0, capCv);
+                    } else {
+                        sp0 = apClamp(amount - sc0, 0, capPv);
+                    }
+                }
+                $sp.val(String(sp0));
+                $sc.val(String(sc0));
+                return;
+            }
+
+            if (edited === 'provider') {
+                $form.data('lossSplitUserEdited', true);
+                var rawSp = apParseUserNumber($sp.val());
+                if (isNaN(rawSp)) return;
+                var sp1 = apClamp(rawSp, 0, capPv);
+                var sc1 = apClamp(amount - sp1, 0, capCv);
+                // If company side clamped, push back into provider within its cap.
+                if (apRound2(sp1 + sc1) !== amount) {
+                    sp1 = apClamp(amount - sc1, 0, capPv);
+                }
+                // Don't rewrite the field the user is typing unless we must clamp.
+                if (document.activeElement !== $sp.get(0) && Math.abs(sp1 - rawSp) > 0.0001) {
+                    $sp.val(String(sp1));
+                }
+                $sc.val(String(sc1));
+            } else if (edited === 'company') {
+                $form.data('lossSplitUserEdited', true);
+                var rawSc = apParseUserNumber($sc.val());
+                if (isNaN(rawSc)) return;
+                var sc2 = apClamp(rawSc, 0, capCv);
+                var sp2 = apClamp(amount - sc2, 0, capPv);
+                if (apRound2(sp2 + sc2) !== amount) {
+                    sc2 = apClamp(amount - sp2, 0, capCv);
+                }
+                $sp.val(String(sp2));
+                if (document.activeElement !== $sc.get(0) && Math.abs(sc2 - rawSc) > 0.0001) {
+                    $sc.val(String(sc2));
+                }
+            }
+        }
+
+        // Auto-fill split once amount is entered (loss-making mode).
+        $(document).on('input', '.add-payment-form .add-payment-amount', function () {
+            var $form = $(this).closest('.add-payment-form');
+            // New amount entered: allow auto-fill again until user edits split.
+            $form.data('lossSplitUserEdited', false);
+            applyLossSplitAutofill($form, null);
+        });
+
+        // Keep provider/company split linked: changing one updates the other to (amount - edited).
+        $(document).on('input', '.add-payment-form [name="split_amount_provider"]', function () {
+            var $form = $(this).closest('.add-payment-form');
+            applyLossSplitAutofill($form, 'provider');
+        });
+        $(document).on('input', '.add-payment-form [name="split_amount_company"]', function () {
+            var $form = $(this).closest('.add-payment-form');
+            applyLossSplitAutofill($form, 'company');
+        });
+
+        // Normalize on blur (no typing interference).
+        $(document).on('blur', '.add-payment-form [name="split_amount_provider"], .add-payment-form [name="split_amount_company"]', function () {
+            var $form = $(this).closest('.add-payment-form');
+            if ($form.attr('data-loss-allocation') !== '1') return;
+            var n = apParseUserNumber($(this).val());
+            if (isNaN(n)) {
+                $(this).val('0');
+            } else {
+                $(this).val(String(apRound2(Math.max(0, n)).toFixed(2)));
+            }
+            applyLossSplitAutofill($form, $(this).attr('name') === 'split_amount_provider' ? 'provider' : 'company');
+        });
+
+        // One-click: settle remaining loss (fills amount and splits to clear remaining loss caps).
+        $(document).on('click', '.add-payment-form .js-settle-remaining-loss', function () {
+            var $form = $(this).closest('.add-payment-form');
+            if ($form.attr('data-loss-allocation') !== '1') return;
+            var capPv = apReadCap($form, 'data-loss-cap-provider') || 0;
+            var capCv = apReadCap($form, 'data-loss-cap-company') || 0;
+            var target = apRound2(capPv + capCv);
+            var dueAmount = parseFloat($form.attr('data-due-amount')) || 0;
+            if (dueAmount > 0) {
+                target = apRound2(Math.min(target, dueAmount));
+            }
+            $form.find('.add-payment-amount').val(String(target)).trigger('input');
+            $form.data('lossSplitUserEdited', true);
+            $form.find('[name="split_amount_provider"]').val(String(apRound2(Math.min(capPv, target))));
+            $form.find('[name="split_amount_company"]').val(String(apRound2(Math.max(0, target - Math.min(capPv, target)))));
+            applyLossSplitAutofill($form, 'provider');
         });
 
         $(document).on('submit', '.add-payment-form', function(e) {
@@ -3250,6 +3797,37 @@
                 return false;
             }
 
+            if ($form.attr('data-loss-allocation') === '1') {
+                var sp = parseFloat($form.find('[name="split_amount_provider"]').val()) || 0;
+                var sc = parseFloat($form.find('[name="split_amount_company"]').val()) || 0;
+                if (Math.abs(sp + sc - amount) > 0.02) {
+                    $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Bfs_add_payment_split_must_equal_total') }}</li></ul>');
+                    return false;
+                }
+                if (sp < 0.01 && sc < 0.01) {
+                    $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Bfs_add_payment_split_need_positive_segment') }}</li></ul>');
+                    return false;
+                }
+                var maxPS = $form.attr('data-loss-cap-provider');
+                var maxCS = $form.attr('data-loss-cap-company');
+                if (maxPS !== undefined && maxPS !== '' && maxCS !== undefined && maxCS !== '') {
+                    var capPv = parseFloat(maxPS);
+                    var capCv = parseFloat(maxCS);
+                    if (!isNaN(capPv) && !isNaN(capCv) && amount > capPv + capCv + 0.02) {
+                        $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Bfs_add_payment_split_exceeds_sum_caps_js') }}</li></ul>');
+                        return false;
+                    }
+                    if (!isNaN(capPv) && sp > capPv + 0.02) {
+                        $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Bfs_add_payment_split_exceeds_provider_loss_js') }}</li></ul>');
+                        return false;
+                    }
+                    if (!isNaN(capCv) && sc > capCv + 0.02) {
+                        $errBox.removeClass('d-none').html('<ul class="mb-0 ps-3"><li>{{ translate('Bfs_add_payment_split_exceeds_company_loss_js') }}</li></ul>');
+                        return false;
+                    }
+                }
+            }
+
             var receivedBy = $form.find('input[name="received_by"]:checked').val();
             var $cwWrap = $form.find('.add-payment-company-inflow-wrap');
             if (receivedBy === 'company') {
@@ -3259,7 +3837,6 @@
                 if ($sc.length) {
                     pkApmUpdateHidden($sc);
                 }
-                // Do not call pkApmSync here — it re-renders dynamic fields and clears typed transaction/offline inputs.
                 pkApmBackfillCompanyInflowNoteIntoAdvanceFields($form);
                 var hv = ($cwWrap.find('.pk-apm-hidden').first().val() || '').trim();
                 if (!hv) {
@@ -3319,6 +3896,10 @@
                     }
                     $form.find('input[name="received_by"][value="provider"]').prop('checked', true);
                     $form.find('input[name="received_by"][value="company"]').prop('checked', false);
+                    if ($form.find('[name="split_amount_provider"]').length) {
+                        $form.find('[name="split_amount_provider"]').val('0');
+                        $form.find('[name="split_amount_company"]').val('0');
+                    }
                     if (typeof toggleAddPaymentTransactionField === 'function') {
                         toggleAddPaymentTransactionField($form);
                     }
@@ -4136,8 +4717,8 @@
                     }, 600);
                 },
                 complete: function() {},
-                error: function() {
-                    toastr.error('{{ translate('Failed to load') }}');
+                error: function(xhr) {
+                    toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to load') }}');
                 }
             });
         }

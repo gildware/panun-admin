@@ -6,6 +6,7 @@ use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingPartialPayment;
+use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Illuminate\Support\Collection;
@@ -41,6 +42,26 @@ if (!function_exists('get_booking_total_amount')) {
     }
 }
 
+if (!function_exists('get_booking_scaled_customer_collection_cap')) {
+    /**
+     * Loss-making (scaled_to_payments): effective customer-paid amount (min invoice total, max(declared, recorded partials))
+     * for installments and due balance — same first value as {@see BookingFinancialSettlementService::resolveScaledLossBreakdown()}.
+     */
+    function get_booking_scaled_customer_collection_cap(Booking $booking): ?float
+    {
+        if (trim((string) ($booking->settlement_outcome ?? '')) !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            return null;
+        }
+        $svc = app(BookingFinancialSettlementService::class);
+        $grand = round(max(0.0, get_booking_total_amount($booking)), 2);
+        $paidActual = $svc->totalPaidForMainBooking($booking);
+        $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+        [$sx] = $svc->resolveScaledLossBreakdown($booking, $config, $grand, $paidActual);
+
+        return round(max(0.0, $sx), 2);
+    }
+}
+
 if (!function_exists('get_booking_invoice_due_amount')) {
     /**
      * Remaining amount due on an invoice (payable total minus partial payments), with legacy additional_charge for non–cash-after-service.
@@ -64,6 +85,22 @@ if (!function_exists('get_booking_invoice_due_amount')) {
             }
 
             return $due;
+        }
+
+        if ($booking instanceof Booking) {
+            $scaledCap = get_booking_scaled_customer_collection_cap($booking);
+            if ($scaledCap !== null) {
+                $booking->loadMissing('booking_partial_payments');
+                $paid = (float) $booking->booking_partial_payments->sum('paid_amount');
+                $due = round(max(0.0, $scaledCap - $paid), 2);
+                if ($due > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
+                    && ($booking->payment_method ?? '') !== 'cash_after_service'
+                    && (float) ($booking->additional_charge ?? 0) > 0) {
+                    $due = round($due + (float) $booking->additional_charge, 2);
+                }
+
+                return $due;
+            }
         }
 
         // Standard outcome: do not show invoice "due" vs full grand total once the booking is
@@ -91,9 +128,9 @@ if (!function_exists('get_booking_invoice_due_amount')) {
 
 if (!function_exists('customer_pending_bad_debt_loss_making_bookings_total')) {
     /**
-     * Remaining amount the customer still owes on loss-making (scaled-to-payments) bookings:
-     * full booking payable total minus recorded payments. Parent bookings only (settlement lives on the main row).
-     * Canceled / refunded bookings are excluded.
+     * Remaining amount still to collect from the customer on loss-making (scaled-to-payments) bookings:
+     * settlement customer-obligation cap minus recorded partials (not full invoice total).
+     * Parent bookings only (settlement lives on the main row). Canceled / refunded bookings are excluded.
      */
     function customer_pending_bad_debt_loss_making_bookings_total(string $customerId): float
     {
@@ -106,9 +143,38 @@ if (!function_exists('customer_pending_bad_debt_loss_making_bookings_total')) {
 
         $sum = 0.0;
         foreach ($bookings as $booking) {
-            $grand = get_booking_total_amount($booking);
+            $cap = get_booking_scaled_customer_collection_cap($booking);
+            if ($cap === null) {
+                continue;
+            }
             $paid = get_booking_total_paid($booking);
-            $sum += round(max(0.0, $grand - $paid), 2);
+            $sum += round(max(0.0, $cap - $paid), 2);
+        }
+
+        return round($sum, 2);
+    }
+}
+
+if (!function_exists('customer_loss_making_bad_debt_not_due_total')) {
+    /**
+     * Sum of {@see BookingFinancialSettlementService::buildPreview()} `scaled_bad_debt_balance_not_due` per loss-making
+     * booking (invoice total minus declared customer obligation). For customer profile KPI cards — not the same as
+     * {@see customer_pending_bad_debt_loss_making_bookings_total()} (collectible remainder toward the declared cap).
+     */
+    function customer_loss_making_bad_debt_not_due_total(string $customerId): float
+    {
+        $bookings = Booking::query()
+            ->where('customer_id', $customerId)
+            ->where('settlement_outcome', BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
+            ->whereNotIn('booking_status', ['canceled', 'cancelled', 'refunded'])
+            ->with(['booking_partial_payments', 'extra_services'])
+            ->get();
+
+        $svc = app(BookingFinancialSettlementService::class);
+        $sum = 0.0;
+        foreach ($bookings as $booking) {
+            $preview = $svc->buildPreview($booking);
+            $sum += (float) ($preview['scaled_bad_debt_balance_not_due'] ?? 0);
         }
 
         return round($sum, 2);
@@ -139,7 +205,7 @@ if (!function_exists('sum_customer_bookings_payable_grand_total')) {
 if (!function_exists('get_booking_payable_total_for_partial_dues')) {
     /**
      * Total customer payment obligation used for installment rows: "due after this payment" and {@see BookingPartialPayment::due_amount}.
-     * Aligns with invoice grand total (or retained visit amount when that settlement mode applies), without legacy additional_charge bumps.
+     * Aligns with invoice grand total (or retained visit amount when that settlement mode applies), or scaled settlement obligation for loss-making bookings.
      */
     function get_booking_payable_total_for_partial_dues($booking): float
     {
@@ -150,7 +216,42 @@ if (!function_exists('get_booking_payable_total_for_partial_dues')) {
             return round((float) app(BookingFinancialSettlementService::class)->resolveRetainedVisitAmount($booking, $config), 2);
         }
 
+        if ($booking instanceof Booking) {
+            $scaledCap = get_booking_scaled_customer_collection_cap($booking);
+            if ($scaledCap !== null) {
+                return $scaledCap;
+            }
+        }
+
         return round(get_booking_total_amount($booking), 2);
+    }
+}
+
+if (!function_exists('get_booking_admin_add_payment_remaining_amount')) {
+    /**
+     * Upper bound for a single admin {@see \Modules\BookingModule\Http\Controllers\Web\Admin\BookingController::addPayment}
+     * line item (when not using BFS cap override fields on the same request).
+     *
+     * Loss-making (scaled): allow recording up to the **full invoice** remainder so post-completion recovery is possible;
+     * installment `due_amount` then tracks remaining **invoice** balance. Other bookings: payable cap (invoice or retained) minus paid.
+     */
+    function get_booking_admin_add_payment_remaining_amount(Booking $booking): float
+    {
+        $totalPaid = round((float) get_booking_total_paid($booking), 2);
+        if (trim((string) ($booking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            $grand = round((float) get_booking_total_amount($booking), 2);
+            $cfg = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+            $writeoff = isset($cfg['scaled_loss_writeoff_amount']) && is_numeric($cfg['scaled_loss_writeoff_amount'])
+                ? round(max(0.0, (float) $cfg['scaled_loss_writeoff_amount']), 2)
+                : 0.0;
+
+            // Loss-making (scaled): "write-off" settles remaining invoice without customer payment.
+            return round(max(0.0, $grand - $totalPaid - $writeoff), 2);
+        }
+
+        $cap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+
+        return round(max(0.0, $cap - $totalPaid), 2);
     }
 }
 
@@ -559,6 +660,54 @@ if (!function_exists('booking_reopen_disputed_refund_settlement_adjustment')) {
     }
 }
 
+if (!function_exists('booking_partial_payment_loss_allocation_split')) {
+    /**
+     * Optional economic split for loss-making recovery payments: how much of paid_amount reduces provider vs company loss.
+     * When set, {@see get_booking_received_and_settlement()} uses these instead of attributing the full paid_amount to received_by.
+     *
+     * @return array{provider: float, company: float}|null
+     */
+    function booking_partial_payment_loss_allocation_split(object $p): ?array
+    {
+        $lp = $p->loss_allocation_provider ?? null;
+        $lc = $p->loss_allocation_company ?? null;
+        if ($lp === null && $lc === null) {
+            return null;
+        }
+        $paid = round((float) ($p->paid_amount ?? 0), 2);
+        if ($paid <= 0) {
+            return null;
+        }
+        $prov = round((float) $lp, 2);
+        $co = round((float) $lc, 2);
+        if (abs($prov + $co - $paid) > 0.02) {
+            return null;
+        }
+
+        return ['provider' => $prov, 'company' => $co];
+    }
+}
+
+if (!function_exists('booking_admin_loss_recovery_split_caps')) {
+    /**
+     * Remaining scaled loss per side (from live settlement preview) — caps for admin add-payment loss recovery fields.
+     *
+     * @return array{provider: float, company: float}|null
+     */
+    function booking_admin_loss_recovery_split_caps(Booking $booking): ?array
+    {
+        if (trim((string) ($booking->settlement_outcome ?? '')) !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            return null;
+        }
+        $preview = app(BookingFinancialSettlementService::class)->buildPreview($booking);
+
+        return [
+            'provider' => max(0.0, round((float) ($preview['scaled_loss_provider_share'] ?? 0), 2)),
+            'company' => max(0.0, round((float) ($preview['scaled_loss_company_share'] ?? 0), 2)),
+        ];
+    }
+}
+
 if (!function_exists('get_booking_received_and_settlement')) {
     /**
      * For admin booking details: amounts received by company vs provider, and settlement (pay provider / provider owes).
@@ -585,12 +734,24 @@ if (!function_exists('get_booking_received_and_settlement')) {
             : ($booking->is_paid ? get_booking_total_amount($booking) : 0);
 
         if ($partials->isNotEmpty()) {
-            // received_by null/empty = company (advance at add-booking is always received by company)
-            $amountReceivedByCompany = (float) $partials->filter(function ($p) {
+            $amountReceivedByCompany = 0.0;
+            $amountReceivedByProvider = 0.0;
+            foreach ($partials as $p) {
+                $paid = (float) $p->paid_amount;
+                $alloc = booking_partial_payment_loss_allocation_split($p);
+                if ($alloc !== null) {
+                    $amountReceivedByProvider += $alloc['provider'];
+                    $amountReceivedByCompany += $alloc['company'];
+
+                    continue;
+                }
                 $by = $p->received_by ?? '';
-                return $by === 'company' || $by === '';
-            })->sum('paid_amount');
-            $amountReceivedByProvider = (float) $partials->where('received_by', 'provider')->sum('paid_amount');
+                if ($by === 'company' || $by === '') {
+                    $amountReceivedByCompany += $paid;
+                } elseif ($by === 'provider') {
+                    $amountReceivedByProvider += $paid;
+                }
+            }
             if ($amountReceivedByCompany == 0 && $amountReceivedByProvider == 0 && $totalPaid > 0) {
                 $amountReceivedByCompany = $booking->payment_method !== 'cash_after_service' ? $totalPaid : 0;
                 $amountReceivedByProvider = $booking->payment_method === 'cash_after_service' ? $totalPaid : 0;
@@ -686,6 +847,122 @@ if (!function_exists('booking_has_special_financial_settlement')) {
     }
 }
 
+if (!function_exists('booking_should_show_admin_revenue_settlement_breakdown')) {
+    /**
+     * Admin booking details "Revenue & Settlement": show commission-style splits only when there is a real
+     * settlement basis (after-visit cancel, special financial settlement, or non-terminal status).
+     * For cancel/refund before service, {@see get_booking_received_and_settlement()} still derives hypothetical
+     * shares from the catalog total — hide that block so we do not imply earned revenue.
+     */
+    function booking_should_show_admin_revenue_settlement_breakdown($booking): bool
+    {
+        if ($booking instanceof BookingRepeat) {
+            $main = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
+            $booking = $main;
+        }
+        if (!$booking instanceof Booking) {
+            return true;
+        }
+        $st = (string) ($booking->booking_status ?? '');
+        if (! in_array($st, ['canceled', 'cancelled', 'refunded'], true)) {
+            return true;
+        }
+        if (! empty($booking->after_visit_cancel)) {
+            return true;
+        }
+        if (booking_has_special_financial_settlement($booking)) {
+            return true;
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('booking_on_hold_is_after_visit_from_ongoing')) {
+    /**
+     * True when the booking is on hold and the latest transition to on_hold was from ongoing
+     * (job was in progress — hold after visit / after starting work), not from accepted-only, etc.
+     *
+     * @param  Booking|BookingRepeat  $booking
+     */
+    function booking_on_hold_is_after_visit_from_ongoing($booking): bool
+    {
+        if (! $booking instanceof Booking && ! $booking instanceof BookingRepeat) {
+            return false;
+        }
+        if ((string) ($booking->booking_status ?? '') !== 'on_hold') {
+            return false;
+        }
+        $q = BookingStatusHistory::query()->orderBy('created_at')->orderBy('id');
+        if ($booking instanceof Booking) {
+            $q->where('booking_id', $booking->id)->whereNull('booking_repeat_id');
+        } else {
+            $q->where('booking_repeat_id', $booking->id);
+        }
+        $rows = $q->get(['booking_status']);
+        if ($rows->count() < 2) {
+            return false;
+        }
+        $last = $rows->last();
+        if ((string) ($last->booking_status ?? '') !== 'on_hold') {
+            return false;
+        }
+        $prev = $rows->get($rows->count() - 2);
+
+        return $prev && (string) ($prev->booking_status ?? '') === 'ongoing';
+    }
+}
+
+if (! function_exists('booking_admin_can_reassign_provider')) {
+    /**
+     * Admin may change provider only before the booking has ever been set to ongoing.
+     * After service is ongoing (current or past in status history), reassign is blocked; close the booking and book again.
+     *
+     * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat  $booking
+     */
+    function booking_admin_can_reassign_provider($booking): bool
+    {
+        if ($booking instanceof BookingRepeat) {
+            $main = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
+            if (! $main instanceof Booking) {
+                return false;
+            }
+            $currentSt = strtolower((string) ($booking->booking_status ?? ''));
+        } elseif ($booking instanceof Booking) {
+            $main = $booking;
+            $currentSt = strtolower((string) ($main->booking_status ?? ''));
+        } else {
+            return false;
+        }
+
+        if (in_array($currentSt, ['completed', 'canceled', 'cancelled', 'refunded'], true)) {
+            return false;
+        }
+        if ($currentSt === 'ongoing') {
+            return false;
+        }
+
+        return ! BookingStatusHistory::query()
+            ->where('booking_id', $main->id)
+            ->where('booking_status', 'ongoing')
+            ->exists();
+    }
+}
+
+if (!function_exists('booking_admin_booking_status_display_label')) {
+    /**
+     * Admin UI label for {@see Booking::booking_status}: use "Hold after visit" when hold followed ongoing.
+     */
+    function booking_admin_booking_status_display_label(Booking $booking): string
+    {
+        if (booking_on_hold_is_after_visit_from_ongoing($booking)) {
+            return translate('Hold_after_visit');
+        }
+
+        return ucwords(str_replace('_', ' ', (string) ($booking->booking_status ?? '')));
+    }
+}
+
 if (!function_exists('booking_special_financial_settlement_provider_owes_company')) {
     /**
      * Amount the provider must remit to the company when they hold customer cash but company share
@@ -752,15 +1029,28 @@ if (!function_exists('get_booking_total_paid')) {
         if ($booking instanceof BookingRepeat) {
             return $booking->is_paid ? round((float) $booking->total_booking_amount, 2) : 0;
         }
-        $model = Booking::find($booking->id);
-        if (!$model) {
-            return 0;
+        if (! $booking instanceof Booking) {
+            return 0.0;
+        }
+        $model = $booking->exists
+            ? Booking::query()->with('booking_partial_payments')->find($booking->id)
+            : $booking;
+        if (! $model) {
+            return 0.0;
         }
         $partials = $model->booking_partial_payments;
         if ($partials->isNotEmpty()) {
             return round((float) $partials->sum('paid_amount'), 2);
         }
-        return $model->is_paid ? round((float) $model->total_booking_amount, 2) : 0;
+        if ((int) ($model->is_paid ?? 0) === 1) {
+            if (trim((string) ($model->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                return 0.0;
+            }
+
+            return round((float) get_booking_total_amount($model), 2);
+        }
+
+        return 0.0;
     }
 }
 
@@ -1284,12 +1574,22 @@ if (!function_exists('provider_payment_tab_receipts_for_main_booking')) {
         $amountReceivedByCompany = 0.0;
         $amountReceivedByProvider = 0.0;
         if ($partials->isNotEmpty()) {
-            $amountReceivedByCompany = (float) $partials->filter(function ($p) {
-                $by = $p->received_by ?? '';
+            foreach ($partials as $p) {
+                $paid = (float) $p->paid_amount;
+                $alloc = booking_partial_payment_loss_allocation_split($p);
+                if ($alloc !== null) {
+                    $amountReceivedByProvider += $alloc['provider'];
+                    $amountReceivedByCompany += $alloc['company'];
 
-                return $by === 'company' || $by === '';
-            })->sum('paid_amount');
-            $amountReceivedByProvider = (float) $partials->where('received_by', 'provider')->sum('paid_amount');
+                    continue;
+                }
+                $by = $p->received_by ?? '';
+                if ($by === 'company' || $by === '') {
+                    $amountReceivedByCompany += $paid;
+                } elseif ($by === 'provider') {
+                    $amountReceivedByProvider += $paid;
+                }
+            }
             if ($amountReceivedByCompany == 0 && $amountReceivedByProvider == 0 && $totalPaid > 0) {
                 $amountReceivedByCompany = ($main->payment_method ?? '') !== 'cash_after_service' ? $totalPaid : 0.0;
                 $amountReceivedByProvider = ($main->payment_method ?? '') === 'cash_after_service' ? $totalPaid : 0.0;

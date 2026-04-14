@@ -20,6 +20,7 @@ class LedgerTransaction extends Model
 
     public const REASON_REFUND = 'refund';
     public const REASON_PROVIDER_PAYOUT = 'provider_payout';
+    public const REASON_COMPENSATION = 'compensation';
 
     public const RECEIVED_BY_COMPANY = 'company';
     public const RECEIVED_BY_PROVIDER = 'provider';

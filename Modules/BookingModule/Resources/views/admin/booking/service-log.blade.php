@@ -439,8 +439,9 @@
                                                         'accepted' => translate('Accept_Booking'),
                                                         'pending' => translate('Mark_as_Pending'),
                                                         'ongoing' => translate('Mark_as_Ongoing'),
-                                                        'on_hold' => translate('Put_on_hold'),
+                                                        'on_hold' => ($booking->booking_status ?? '') === 'ongoing' ? translate('Hold_after_visit') : translate('Put_on_hold'),
                                                         'completed' => translate('Complete_Booking'),
+                                                        'canceled', 'cancelled' => translate('Cancel_Booking'),
                                                         default => ucwords(str_replace('_', ' ', $__selSt)),
                                                     };
                                                 @endphp
@@ -541,7 +542,7 @@
                                                 </div>
                                                 <ul
                                                     class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                    @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
+                                                    @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold']))
                                                         <li>
                                                             <div class="d-flex align-items-center gap-2"
                                                                 data-bs-target="#providerModal" data-bs-toggle="modal">

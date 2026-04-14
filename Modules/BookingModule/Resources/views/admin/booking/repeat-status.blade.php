@@ -480,7 +480,7 @@
                                                             </form>
                                                         </div>
                                                     </li>
-                                                    @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
+                                                    @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold']))
                                                         @can('booking_can_manage_status')
                                                             <li>
                                                                 <div class="d-flex align-items-center gap-2"

@@ -315,7 +315,7 @@
                                                         {{ $booking->readable_id }}</a>
                                                         @if($booking->isOpenReopenTicket())
                                                             <span class="badge bg-warning text-dark ms-1">{{ translate('Reopened') }}</span>
-                                                        @elseif($booking->isReopenedTagged())
+                                                        @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
                                                             <span class="badge bg-success ms-1">{{ translate('Resolved') }}</span>
                                                         @endif
                                                     @endif

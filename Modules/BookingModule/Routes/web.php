@@ -63,7 +63,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::any('switch-payment-method/{id}', [BookingController::class, 'switchPaymentMethod'])->name('switch-payment-method');
         Route::any('offline-payment/verify', [BookingController::class, 'verifyOfflinePayment'])->name('offline-payment.verify');
         Route::post('add-payment/{id}', [BookingController::class, 'addPayment'])->name('add-payment');
+        Route::post('loss-writeoff/{id}', [BookingController::class, 'writeOffScaledLoss'])->name('loss_writeoff');
         Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
+        Route::post('compensation/{id}', [BookingController::class, 'addCompensation'])->name('compensation');
         Route::post('reopen/{id}', [BookingController::class, 'reopenFromCompleted'])->name('reopen');
         Route::post('reopen-resolve/{id}', [BookingController::class, 'resolveReopenTicket'])->name('reopen-resolve');
         Route::post('reopen-resolve-complete/{id}', [BookingController::class, 'resolveReopenAndComplete'])->name('reopen-resolve-complete');

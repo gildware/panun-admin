@@ -20,6 +20,8 @@ class BookingPartialPayment extends Model
         'paid_amount',
         'due_amount',
         'received_by', // company | provider - who received this payment
+        'loss_allocation_provider',
+        'loss_allocation_company',
     ];
 
     protected static function newFactory()
