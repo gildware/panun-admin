@@ -50,7 +50,7 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame(BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS, $tabs['loss_making']);
         $this->assertSame(BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL, $tabs['cancelled_after_visit']);
         $this->assertSame(BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT, $tabs['little_or_no_service']);
-        $this->assertSame(BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION, $tabs['custom_commission']);
+        $this->assertArrayNotHasKey('custom_commission', $tabs);
     }
 
     public function test_outcome_options_contains_each_constant_key(): void
@@ -67,7 +67,8 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
     {
         $opts = BookingFinancialSettlementService::outcomeOptionsForSpecialScenariosModal();
         $this->assertArrayNotHasKey(BookingFinancialSettlementService::OUTCOME_STANDARD, $opts);
-        $this->assertCount(4, $opts);
+        $this->assertArrayNotHasKey(BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION, $opts);
+        $this->assertCount(3, $opts);
     }
 
     public function test_main_booking_for_repeat_uses_loaded_parent(): void
@@ -167,15 +168,26 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame(53.33, $pr);
     }
 
-    public function test_custom_commission_negative_in_config_clamped_to_zero(): void
+    public function test_booking_commission_override_negative_clamped_to_zero(): void
     {
         $b = $this->memoryBooking();
-        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION;
-        $b->settlement_config = ['custom_admin_commission' => -20.0];
+        $b->settlement_outcome = null;
+        $b->admin_commission_override = -20.0;
 
         $d = $this->service->calculateAdminCommissionDetails($b, null);
         $this->assertSame(0.0, $d['adminCommission']);
         $this->assertSame(0.0, $d['adminCommissionWithoutCost']);
+    }
+
+    public function test_legacy_custom_commission_outcome_uses_config_when_no_override(): void
+    {
+        $b = $this->memoryBooking();
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION;
+        $b->settlement_config = ['custom_admin_commission' => 99.0];
+        $b->admin_commission_override = null;
+
+        $d = $this->service->calculateAdminCommissionDetails($b, null);
+        $this->assertSame(99.0, $d['adminCommission']);
     }
 
     public function test_scaled_commission_zero_when_grand_total_zero(): void

@@ -53,6 +53,14 @@ if (! function_exists('booking_admin_allowed_next_statuses_for_booking')) {
             $next = ['ongoing'];
         }
 
+        // Hold before visit: do not offer "Accept booking" (transition back to accepted).
+        if ($current === 'on_hold'
+            && ($booking instanceof \Modules\BookingModule\Entities\Booking
+                || $booking instanceof \Modules\BookingModule\Entities\BookingRepeat)
+            && ! booking_on_hold_is_after_visit_from_ongoing($booking)) {
+            $next = array_values(array_filter($next, fn ($s) => $s !== 'accepted'));
+        }
+
         // Open reopen ticket: hide Completed until unlock and disallow plain "Cancel booking".
         // Cancellation must be done via the reopen flow (Dispute and close → refund split + cancel).
         if ($booking instanceof \Modules\BookingModule\Entities\Booking && $booking->adminMustConfigureReopenBeforeComplete()) {
@@ -90,5 +98,28 @@ if (! function_exists('booking_admin_status_transition_allowed_for_booking')) {
         $allowed = booking_admin_allowed_next_statuses_for_booking($booking, $from);
 
         return in_array($to, $allowed, true);
+    }
+}
+
+if (! function_exists('booking_admin_can_dispute_and_close')) {
+    /**
+     * Admin "Dispute and close" is only for ongoing, hold-after-visit, or an open reopen ticket.
+     */
+    function booking_admin_can_dispute_and_close($booking): bool
+    {
+        if (! $booking instanceof \Modules\BookingModule\Entities\Booking) {
+            return false;
+        }
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            return false;
+        }
+        if ($booking->isOpenReopenTicket()) {
+            return true;
+        }
+        if (strtolower(trim((string) ($booking->booking_status ?? ''))) === 'ongoing') {
+            return true;
+        }
+
+        return booking_on_hold_is_after_visit_from_ongoing($booking);
     }
 }

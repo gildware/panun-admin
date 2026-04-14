@@ -1,4 +1,4 @@
-{{-- Single booking only; expects: $booking, $financialSettlementOutcomes, $defaultVisitFeeCompanyPercent, $bfsDefaultCustomAdminCommission (tier default for custom commission prefill), $bookingCancellationReasons (optional) --}}
+{{-- Single booking only; expects: $booking, $financialSettlementOutcomes, $defaultVisitFeeCompanyPercent, $bookingCancellationReasons (optional) --}}
 @can('booking_can_manage_status')
 @if((int)($booking->is_repeated ?? 0) === 0)
 @php
@@ -46,18 +46,8 @@
     $bfsPopoverByOutcome = [
         \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL => translate('Bfs_popover_cancel_keep_visit'),
         \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT => translate('Bfs_popover_complete_visit_only'),
-        \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION => translate('Bfs_popover_custom_commission'),
         \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS => translate('Bfs_popover_scaled'),
     ];
-    $bfsTierDefaultCommission = round((float) ($bfsDefaultCustomAdminCommission ?? 0), 2);
-    $bfsCustomCommissionInput = old('custom_admin_commission');
-    if ($bfsCustomCommissionInput === null || $bfsCustomCommissionInput === '') {
-        if (array_key_exists('custom_admin_commission', $bfsCfg) && is_numeric($bfsCfg['custom_admin_commission'])) {
-            $bfsCustomCommissionInput = round((float) $bfsCfg['custom_admin_commission'], 2);
-        } else {
-            $bfsCustomCommissionInput = $bfsTierDefaultCommission;
-        }
-    }
     $bfsDefScaledPaid = array_key_exists('scaled_customer_paid_amount', $bfsCfg) && is_numeric($bfsCfg['scaled_customer_paid_amount'])
         ? round((float) $bfsCfg['scaled_customer_paid_amount'], 2)
         : round((float) get_booking_total_paid($booking), 2);
@@ -98,13 +88,6 @@
                             </div>
                         @endforeach
                     </div>
-                </div>
-
-                <div id="bfs-fields-custom" class="d-none border rounded p-3 mb-3 bg-light">
-                    <label class="form-label">{{ translate('Company_commission_amount') }}</label>
-                    <input type="number" step="0.01" min="0" class="form-control bfs-preview-trigger" id="bfs-custom-commission"
-                           value="{{ $bfsCustomCommissionInput }}" data-bfs-tier-default="{{ $bfsTierDefaultCommission }}">
-                    <p class="small text-muted mb-0 mt-2">{{ translate('Bfs_custom_commission_prefill_hint') }}</p>
                 </div>
 
                 <div id="bfs-fields-decided-charges" class="d-none border rounded p-3 mb-3 bg-light">
@@ -284,6 +267,26 @@
     </div>
 </div>
 
+{{-- Nested confirmation (same pattern as admin confirmChangeModal); shown when closing settlement modal after embedded add-payment without saving. --}}
+<div class="modal fade" id="bfsUnsavedPaymentConfirmModal" tabindex="-1" role="dialog" aria-labelledby="bfsUnsavedPaymentConfirmModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+            </div>
+            <div class="modal-body mb-30 pb-0 text-center">
+                <img width="80" src="{{ asset('assets/admin-module/img/icons/status-on.png') }}" alt="" class="mb-20" aria-hidden="true">
+                <h3 class="mb-3" id="bfsUnsavedPaymentConfirmModalLabel">{{ translate('Are_you_sure') }}</h3>
+                <p class="mb-0 text-start text-break">{{ translate('Bfs_close_modal_unsaved_embedded_payment_confirm') }}</p>
+                <div class="btn--container mt-30 justify-content-center gap-2">
+                    <button type="button" class="btn btn--secondary min-w-120 rounded" data-bs-dismiss="modal">{{ translate('No') }}</button>
+                    <button type="button" class="btn btn--primary min-w-120 rounded" id="bfs-unsaved-payment-confirm-proceed">{{ translate('Bfs_close_modal_confirm_remove_embedded_payment') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     .bfs-preview-kv .bfs-kv-row {
         display: flex;
@@ -307,6 +310,7 @@
     const bfsSaveUrl = @json(route('admin.booking.financial_settlement.save', [$booking->id]));
     const bfsSaveCancelUrl = @json(route('admin.booking.financial_settlement.save_and_cancel', [$booking->id]));
     const bfsSaveCompleteUrl = @json(route('admin.booking.financial_settlement.save_and_complete', [$booking->id]));
+    const bfsRevertModalPartialsUrl = @json(route('admin.booking.financial_settlement.revert_modal_partials', [$booking->id]));
     const bfsCsrf = $('meta[name="csrf-token"]').attr('content');
     const bfsPopovers = @json($bfsPopoverByOutcome);
     const bfsPopoverTitle = @json(translate('Scenario_info'));
@@ -319,7 +323,6 @@
     const OUTCOMES = {
         STANDARD: @json(\Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_STANDARD),
         VISIT_SPLIT: @json(\Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT),
-        CUSTOM: @json(\Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION),
         SCALED: @json(\Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS),
         VISIT_CANCEL: @json(\Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL),
     };
@@ -348,6 +351,7 @@
         saveCancelBlockedDue: @json(translate('Bfs_save_cancel_disabled_due')),
         saveCompleteBlockedDue: @json(translate('Bfs_save_complete_disabled_due')),
         saveCompleteScaledBlockedGap: @json(translate('Bfs_save_complete_scaled_blocked_gap')),
+        closeModalRevertPaymentFailed: @json(translate('Bfs_close_modal_revert_embedded_payment_failed')),
         collectPaymentHintDefault: @json(translate('Bfs_collect_payment_section_hint')),
         collectPaymentHintScaled: @json(translate('Bfs_collect_payment_section_hint_scaled')),
         collectPaymentTitleDefault: @json(translate('Bfs_collect_payment_section_title')),
@@ -368,6 +372,8 @@
     let bfsLastDecidedPreview = null;
     let bfsScaledLossSync = false;
     let bfsScaledPaidSplitTimer = null;
+    window.bfsModalSessionPartialPaymentIds = window.bfsModalSessionPartialPaymentIds || [];
+    let bfsModalSkipCloseGuard = false;
 
     function bfsSelectedOutcome() {
         var $r = $('#bookingFinancialSettlementModal input[name="bfs_outcome_radio"]:checked');
@@ -422,7 +428,7 @@
 
     function bfsToggleFields() {
         const v = bfsSelectedOutcome();
-        $('#bfs-fields-custom, #bfs-fields-decided-charges, #bfs-fields-scaled').addClass('d-none');
+        $('#bfs-fields-decided-charges, #bfs-fields-scaled').addClass('d-none');
         $('#bfs-decided-subtitle-cancel, #bfs-decided-subtitle-complete').addClass('d-none');
         if (v === OUTCOMES.VISIT_SPLIT || v === OUTCOMES.VISIT_CANCEL) {
             $('#bfs-fields-decided-charges').removeClass('d-none');
@@ -438,9 +444,6 @@
         } else {
             $('#bfs-notes-wrap').removeClass('d-none');
             $('#bfs-cancel-reason-wrap').addClass('d-none');
-        }
-        if (v === OUTCOMES.CUSTOM) {
-            $('#bfs-fields-custom').removeClass('d-none');
         }
         if (v === OUTCOMES.SCALED) {
             $('#bfs-fields-scaled').removeClass('d-none');
@@ -488,9 +491,6 @@
                     base.closing_provider_share = cPr;
                 }
             }
-        }
-        if (v === OUTCOMES.CUSTOM) {
-            base.custom_admin_commission = $('#bfs-custom-commission').val() || null;
         }
         if (v === OUTCOMES.SCALED) {
             base.scaled_customer_paid_amount = $('#bfs-scaled-customer-paid').val() || null;
@@ -952,14 +952,6 @@
 
     $(document).on('change', '.bfs-outcome-radio', function () {
         bfsToggleFields();
-        if (bfsSelectedOutcome() === OUTCOMES.CUSTOM) {
-            var $cc = $('#bfs-custom-commission');
-            var tierDef = $cc.data('bfs-tier-default');
-            var cur = ($cc.val() || '').trim();
-            if (cur === '' && tierDef !== undefined && tierDef !== null && tierDef !== '') {
-                $cc.val(tierDef);
-            }
-        }
         if (bfsSelectedOutcome() === OUTCOMES.SCALED) {
             clearTimeout(bfsScaledPaidSplitTimer);
             bfsApplyScaledLossHalfHalf();
@@ -1117,6 +1109,7 @@
     });
 
     $('#bookingFinancialSettlementModal').on('shown.bs.modal', function () {
+        window.bfsModalSessionPartialPaymentIds = [];
         bfsClosingSharesUserEdited = !!bfsHasSavedClosingShares;
         bfsVisitSharesUserEdited = !!bfsHasSavedVisitAmounts;
         bfsLastDecidedPreview = null;
@@ -1141,7 +1134,90 @@
             }
         }
     });
+    $('#bookingFinancialSettlementModal').on('hide.bs.modal', function (e) {
+        if (bfsModalSkipCloseGuard) {
+            return;
+        }
+        var ids = window.bfsModalSessionPartialPaymentIds || [];
+        if (!ids.length) {
+            return;
+        }
+        e.preventDefault();
+        var confirmEl = document.getElementById('bfsUnsavedPaymentConfirmModal');
+        if (!confirmEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+            return;
+        }
+        var confirmInst = bootstrap.Modal.getOrCreateInstance(confirmEl, { backdrop: 'static', keyboard: true });
+        confirmInst.show();
+    });
+
+    function bfsRevertEmbeddedPaymentsThenCloseSettlementModal() {
+        var ids = window.bfsModalSessionPartialPaymentIds || [];
+        if (!ids.length) {
+            return;
+        }
+        var $proceed = $('#bfs-unsaved-payment-confirm-proceed');
+        $proceed.prop('disabled', true);
+        $.ajax({
+            url: bfsRevertModalPartialsUrl,
+            method: 'POST',
+            data: {
+                _token: bfsCsrf,
+                partial_payment_ids: ids,
+            },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+        }).done(function () {
+            window.bfsModalSessionPartialPaymentIds = [];
+            var confirmEl = document.getElementById('bfsUnsavedPaymentConfirmModal');
+            if (confirmEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                var cInst = bootstrap.Modal.getInstance(confirmEl);
+                if (cInst) {
+                    cInst.hide();
+                }
+            }
+            bfsModalSkipCloseGuard = true;
+            var el = document.getElementById('bookingFinancialSettlementModal');
+            if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                var inst = bootstrap.Modal.getInstance(el);
+                if (inst) {
+                    inst.hide();
+                }
+            }
+            if (typeof window.bfsRunPreviewAfterEmbeddedPayment === 'function') {
+                window.bfsRunPreviewAfterEmbeddedPayment();
+            }
+        }).fail(function (xhr) {
+            var msg = L.closeModalRevertPaymentFailed;
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                msg = xhr.responseJSON.message;
+            } else if (xhr.responseJSON && xhr.responseJSON.errors) {
+                var ev = xhr.responseJSON.errors;
+                var fv = Object.values(ev)[0];
+                if (Array.isArray(fv) && fv[0]) {
+                    msg = fv[0];
+                }
+            }
+            if (typeof toastr !== 'undefined') {
+                toastr.error(msg);
+            }
+        }).always(function () {
+            $proceed.prop('disabled', false);
+        });
+    }
+
+    $(document).on('click', '#bfs-unsaved-payment-confirm-proceed', function () {
+        bfsRevertEmbeddedPaymentsThenCloseSettlementModal();
+    });
+
+    $('#bfsUnsavedPaymentConfirmModal').on('hidden.bs.modal', function () {
+        $('#bfs-unsaved-payment-confirm-proceed').prop('disabled', false);
+    });
+
     $('#bookingFinancialSettlementModal').on('hidden.bs.modal', function () {
+        bfsModalSkipCloseGuard = false;
         bfsDisposePopovers();
         clearTimeout(bfsPreviewTimer);
         clearTimeout(bfsScaledPaidSplitTimer);
@@ -1156,6 +1232,7 @@
         $btn.prop('disabled', true);
         $.post(url, payload)
             .done(function (res) {
+                window.bfsModalSessionPartialPaymentIds = [];
                 if (typeof toastr !== 'undefined') {
                     toastr.success(res.message || @json(translate('Saved')));
                 }

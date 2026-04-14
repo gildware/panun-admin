@@ -39,6 +39,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Entities\SubscriptionBookingType;
 use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
@@ -56,6 +57,7 @@ use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\TransactionModule\Entities\LedgerTransaction;
+use Modules\TransactionModule\Entities\Transaction;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 use Modules\LeadManagement\Entities\Lead;
@@ -2727,8 +2729,7 @@ class BookingController extends Controller
 
             return back();
         }
-        $st = strtolower(trim((string) ($booking->booking_status ?? '')));
-        $canDisputeClose = $booking->isOpenReopenTicket() || in_array($st, ['ongoing', 'on_hold'], true);
+        $canDisputeClose = booking_admin_can_dispute_and_close($booking);
         if (! $canDisputeClose) {
             Toastr::error(translate('Dispute_and_close_only_for_ongoing_hold_or_reopen'));
 
@@ -2758,8 +2759,7 @@ class BookingController extends Controller
 
             return back();
         }
-        $st = strtolower(trim((string) ($booking->booking_status ?? '')));
-        $canDisputeClose = $booking->isOpenReopenTicket() || in_array($st, ['ongoing', 'on_hold'], true);
+        $canDisputeClose = booking_admin_can_dispute_and_close($booking);
         if (! $canDisputeClose) {
             Toastr::error(translate('Dispute_and_close_only_for_ongoing_hold_or_reopen'));
 
@@ -4244,6 +4244,58 @@ class BookingController extends Controller
         $booking->save();
 
         Toastr::success(translate('Booking_information_updated_successfully'));
+        return redirect()->back();
+    }
+
+    /**
+     * Fixed company (admin) commission for this booking only; replaces tier rules everywhere commission is derived.
+     */
+    public function updateAdminCommissionOverride(string $id, Request $request): RedirectResponse
+    {
+        $this->authorize('booking_edit');
+
+        $booking = $this->booking->findOrFail($id);
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            Toastr::error(translate('Financial_settlement_applies_to_single_bookings_only'));
+
+            return redirect()->back();
+        }
+        if (SubscriptionBookingType::where('booking_id', $booking->id)->where('type', 'subscription')->exists()) {
+            Toastr::error(translate('Booking_commission_override_not_for_subscription'));
+
+            return redirect()->back();
+        }
+
+        if ($request->input('revert_to_tier_commission') === '1') {
+            $request->validate([
+                'revert_to_tier_commission' => ['required', 'in:1'],
+            ]);
+            if ($booking->admin_commission_override === null) {
+                Toastr::info(translate('Booking_commission_override_nothing_to_revert'));
+
+                return redirect()->back();
+            }
+            $booking->admin_commission_override = null;
+        } else {
+            $request->validate([
+                'admin_commission_override' => ['required', 'numeric', 'min:0'],
+            ]);
+            $booking->admin_commission_override = round(max(0.0, (float) $request->input('admin_commission_override')), 2);
+        }
+
+        if (trim((string) ($booking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION) {
+            $booking->settlement_outcome = null;
+            $cfg = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+            unset($cfg['custom_admin_commission']);
+            $booking->settlement_config = $cfg === [] ? null : $cfg;
+            $booking->settlement_snapshot = null;
+        }
+
+        $booking->save();
+        $booking->resyncStoredCommissionAndSettlementSnapshot();
+
+        Toastr::success(translate('Update_successfully'));
+
         return redirect()->back();
     }
 
@@ -5976,11 +6028,141 @@ class BookingController extends Controller
         if ($request->wantsJson()) {
             $payload = response_formatter(DEFAULT_UPDATE_200, null);
             $payload['message'] = translate('Payment added successfully.');
+            if ($partial) {
+                $payload['booking_partial_payment_id'] = (string) $partial->id;
+            }
 
             return response()->json($payload, 200);
         }
         Toastr::success(translate('Payment added successfully.'));
         return back();
+    }
+
+    /**
+     * Undo admin partial payment rows recorded from the Special financial settlement modal when the modal is closed without saving settlement.
+     *
+     * @return JsonResponse
+     */
+    public function revertFinancialSettlementModalPartialPayments(Request $request, string $id)
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $validated = $request->validate([
+            'partial_payment_ids' => 'required|array|min:1',
+            'partial_payment_ids.*' => 'required|uuid',
+        ]);
+
+        $booking = $this->booking->with('booking_partial_payments')->find($id);
+        if (! $booking) {
+            return response()->json(response_formatter(DEFAULT_404, null, ['booking' => [translate('Booking not found')]]), 404);
+        }
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            return response()->json(response_formatter(DEFAULT_400, null, ['booking' => [translate('Financial_settlement_applies_to_single_bookings_only')]]), 400);
+        }
+
+        $status = strtolower(trim((string) ($booking->booking_status ?? '')));
+        $isScaledSettlement = $booking->isLossMakingFinancialSettlement();
+        $remainingCap = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        $allowAddPaymentByStatus = $status === 'ongoing'
+            || ($status === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking))
+            || ($isScaledSettlement && $status === 'completed' && $remainingCap > 0.009);
+        if (! $allowAddPaymentByStatus) {
+            $msg = $isScaledSettlement
+                ? translate('Add_payment_only_while_ongoing_or_loss_making_pending')
+                : translate('Add_payment_only_while_booking_ongoing');
+
+            return response()->json(response_formatter(DEFAULT_400, null, ['booking_status' => [$msg]]), 400);
+        }
+
+        $ids = array_values(array_unique($validated['partial_payment_ids']));
+        $deletionService = app(AdminBookingDeletionService::class);
+
+        DB::transaction(function () use ($booking, $ids, $deletionService) {
+            foreach ($ids as $partialId) {
+                $partial = BookingPartialPayment::query()
+                    ->where('booking_id', $booking->id)
+                    ->whereKey($partialId)
+                    ->first();
+                if (! $partial) {
+                    throw ValidationException::withMessages([
+                        'partial_payment_ids' => [translate('Invalid_request')],
+                    ]);
+                }
+                if (($partial->paid_with ?? '') !== 'admin_entry') {
+                    throw ValidationException::withMessages([
+                        'partial_payment_ids' => [translate('Invalid_request')],
+                    ]);
+                }
+
+                $crossParty = Transaction::query()
+                    ->where('booking_id', $booking->id)
+                    ->where('reference_note', 'booking_partial_payment:'.$partial->id)
+                    ->get();
+                if ($crossParty->isNotEmpty()) {
+                    $deletionService->reverseAccountsAndDeleteTransactions($crossParty);
+                }
+
+                LedgerTransaction::query()
+                    ->where('booking_id', $booking->id)
+                    ->where('booking_partial_payment_id', $partial->id)
+                    ->delete();
+
+                $partial->delete();
+            }
+
+            $booking->load('booking_partial_payments');
+            $this->reconcileBookingPartialPaymentDueAmounts($booking);
+
+            $booking->refresh(['booking_partial_payments']);
+            $cap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+            $totalPaid = round((float) get_booking_total_paid($booking), 2);
+            if ($totalPaid + 0.00001 < $cap) {
+                $booking->is_paid = 0;
+                $booking->save();
+            }
+
+            if (trim((string) ($booking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                $settlementSvc = app(BookingFinancialSettlementService::class);
+                $grand = round(max(0.0, get_booking_total_amount($booking)), 2);
+                if ($grand > 0.009) {
+                    [, $lossTotal] = $settlementSvc->resolveScaledLossBreakdown(
+                        $booking,
+                        is_array($booking->settlement_config) ? $booking->settlement_config : [],
+                        $grand,
+                        $settlementSvc->totalPaidForMainBooking($booking)
+                    );
+                    if ($lossTotal > 0.009) {
+                        $booking->allow_complete_without_full_payment = true;
+                        $booking->save();
+                    }
+                }
+            }
+        });
+
+        $payload = response_formatter(DEFAULT_UPDATE_200, null);
+        $payload['message'] = translate('Update_successfully');
+
+        return response()->json($payload, 200);
+    }
+
+    /**
+     * After add/remove partial rows, rewrite each row's {@see BookingPartialPayment::due_amount} to cap minus cumulative paid (same rule as {@see BookingController::addPayment}).
+     */
+    private function reconcileBookingPartialPaymentDueAmounts(Booking $booking): void
+    {
+        $booking->load('booking_partial_payments');
+        $cap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+        $sorted = $booking->booking_partial_payments->sortBy('created_at')->values();
+        $cum = 0.0;
+        foreach ($sorted as $p) {
+            $paid = round((float) $p->paid_amount, 2);
+            $cum = round($cum + $paid, 2);
+            $due = round(max(0.0, $cap - $cum), 2);
+            if (abs((float) $p->due_amount - $due) > 0.001) {
+                $p->due_amount = $due;
+                $p->save();
+            }
+        }
     }
 
     /**
@@ -6037,7 +6219,6 @@ class BookingController extends Controller
         return [
             BookingFinancialSettlementService::OUTCOME_STANDARD,
             BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT,
-            BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION,
             BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS,
             BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL,
         ];
@@ -6213,14 +6394,6 @@ class BookingController extends Controller
                 'message' => translate('Bfs_use_save_and_complete_for_visit_only'),
             ]), 422);
         }
-        if ($outcome === BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION
-            && ! isset($validated['custom_admin_commission'])) {
-            return response()->json(response_formatter([
-                'response_code' => 'default_400',
-                'message' => translate('Custom_company_commission_amount_is_required'),
-            ]), 422);
-        }
-
         $config = $this->financialSettlementConfigFromValidated($validated);
 
         $booking->loadMissing('booking_partial_payments');

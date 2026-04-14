@@ -50,7 +50,7 @@ class BookingFinancialSettlementService
     public static function outcomeOptionsForSpecialScenariosModal(): array
     {
         $opts = self::outcomeOptions();
-        unset($opts[self::OUTCOME_STANDARD]);
+        unset($opts[self::OUTCOME_STANDARD], $opts[self::OUTCOME_CUSTOM_COMMISSION]);
 
         return $opts;
     }
@@ -67,7 +67,6 @@ class BookingFinancialSettlementService
             'loss_making' => self::OUTCOME_SCALED_TO_PAYMENTS,
             'cancelled_after_visit' => self::OUTCOME_VISIT_RETAINED_CANCEL,
             'little_or_no_service' => self::OUTCOME_VISIT_FEE_SPLIT,
-            'custom_commission' => self::OUTCOME_CUSTOM_COMMISSION,
         ];
     }
 
@@ -146,6 +145,16 @@ class BookingFinancialSettlementService
             $promotionalCostByAdmin += (float) ($bookingDetailsAmount['discount_by_admin'] ?? 0)
                 + (float) ($bookingDetailsAmount['coupon_discount_by_admin'] ?? 0)
                 + (float) ($bookingDetailsAmount['campaign_discount_by_admin'] ?? 0);
+        }
+
+        if ($main->admin_commission_override !== null) {
+            $adminCommission = round(max(0.0, (float) $main->admin_commission_override), 2);
+            $adminCommissionWithoutCost = max(0.0, $adminCommission - $promotionalCostByAdmin);
+
+            return [
+                'adminCommission' => $adminCommission,
+                'adminCommissionWithoutCost' => $adminCommissionWithoutCost,
+            ];
         }
 
         if ($outcome === self::OUTCOME_STANDARD) {

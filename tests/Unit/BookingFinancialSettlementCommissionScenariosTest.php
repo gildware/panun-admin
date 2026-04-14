@@ -34,11 +34,11 @@ class BookingFinancialSettlementCommissionScenariosTest extends TestCase
         return $b;
     }
 
-    public function test_custom_commission_uses_settlement_config_amount(): void
+    public function test_booking_commission_override_column_used_for_admin_commission(): void
     {
         $b = $this->baseInMemoryBooking();
-        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION;
-        $b->settlement_config = ['custom_admin_commission' => 123.45];
+        $b->settlement_outcome = null;
+        $b->admin_commission_override = 123.45;
 
         $d = $this->service->calculateAdminCommissionDetails($b, null);
         $this->assertSame(123.45, $d['adminCommission']);
