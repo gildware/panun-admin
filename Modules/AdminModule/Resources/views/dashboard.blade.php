@@ -201,6 +201,20 @@
                 </div>
                 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 mb-4 g-4 dashboard-top-cards">
                     <div class="col">
+                        <div class="business-summary" style="background: linear-gradient(145deg, #dc2626 0%, #991b1b 100%);">
+                            <h2>{{ with_currency_symbol(data_get($data[0], 'top_cards.total_write_off_company', 0)) }}</h2>
+                            <h3>{{ translate('Dashboard_write_off_company_total') }}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">percent</span>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="business-summary" style="background: linear-gradient(145deg, #b45309 0%, #7c2d12 100%);">
+                            <h2>{{ with_currency_symbol(data_get($data[0], 'top_cards.total_write_off_provider', 0)) }}</h2>
+                            <h3>{{ translate('Dashboard_write_off_provider_total') }}</h3>
+                            <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">percent</span>
+                        </div>
+                    </div>
+                    <div class="col">
                         <div class="business-summary" style="background: linear-gradient(145deg, #dc2626 0%, #7f1d1d 100%);">
                             <h2>{{ with_currency_symbol(data_get($data[2], 'compensation_totals.company_to_customers', 0)) }}</h2>
                             <h3>{{ translate('Company_compensation_to_customers') }}</h3>

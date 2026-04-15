@@ -2026,7 +2026,9 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
      *     settlement_net: float,
      *     total_amount_received_by_company: float,
      *     total_loss_in_all_bookings: float,
-     *     total_bad_debt_with_customers: float
+ *     total_bad_debt_with_customers: float,
+ *     total_write_off_company: float,
+ *     total_write_off_provider: float
      * }
      * total_amount_received_by_company: company-ledger net cash position — sum of all IN minus sum of all OUT on rows
      *     included in {@see LedgerTransaction::scopeWhereCompanyCounterpartyOnly()} (same scope as the admin ledger screen).
@@ -2083,8 +2085,10 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
         $scaledParentsDone = [];
         $totalScaledLossAmount = 0.0;
         $totalCompanyLossShare = 0.0;
+        $totalWriteOffCompany = 0.0;
+        $totalWriteOffProvider = 0.0;
 
-        $accumulateScaledLossForMain = function (Booking $main) use ($svc, &$scaledParentsDone, &$totalScaledLossAmount, &$totalCompanyLossShare): void {
+        $accumulateScaledLossForMain = function (Booking $main) use ($svc, &$scaledParentsDone, &$totalScaledLossAmount, &$totalCompanyLossShare, &$totalWriteOffCompany, &$totalWriteOffProvider): void {
             $idStr = (string) $main->id;
             if (isset($scaledParentsDone[$idStr])) {
                 return;
@@ -2099,6 +2103,11 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
             $p = $svc->buildPreview($main);
             $totalScaledLossAmount += (float) ($p['scaled_loss_amount'] ?? 0);
             $totalCompanyLossShare += (float) ($p['scaled_loss_company_share'] ?? 0);
+            $cfg = is_array($main->settlement_config) ? $main->settlement_config : [];
+            $totalWriteOffCompany += isset($cfg['scaled_loss_writeoff_company_amount']) && is_numeric($cfg['scaled_loss_writeoff_company_amount'])
+                ? (float) $cfg['scaled_loss_writeoff_company_amount'] : 0.0;
+            $totalWriteOffProvider += isset($cfg['scaled_loss_writeoff_provider_amount']) && is_numeric($cfg['scaled_loss_writeoff_provider_amount'])
+                ? (float) $cfg['scaled_loss_writeoff_provider_amount'] : 0.0;
         };
 
         foreach ($oneTimeBookings as $b) {
@@ -2125,6 +2134,8 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
             'total_amount_received_by_company' => round($totalCompanyReceived, 2),
             'total_loss_in_all_bookings' => round($totalScaledLossAmount, 2),
             'total_bad_debt_with_customers' => round($totalCompanyLossShare, 2),
+            'total_write_off_company' => round($totalWriteOffCompany, 2),
+            'total_write_off_provider' => round($totalWriteOffProvider, 2),
         ];
     }
 }
