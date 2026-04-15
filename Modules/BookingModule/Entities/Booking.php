@@ -390,6 +390,10 @@ class Booking extends Model
         if ((int) ($this->is_repeated ?? 0) !== 0) {
             return false;
         }
+        // Disputed-close bookings are final; do not allow reopening again.
+        if (!empty($this->reopen_disputed_snapshot) && is_array($this->reopen_disputed_snapshot)) {
+            return false;
+        }
         if (($this->booking_status ?? '') !== 'completed') {
             return false;
         }
@@ -754,7 +758,9 @@ class Booking extends Model
                         if ($runLegacyPartialCompletion && $model['payment_method'] == 'cash_after_service' && $anyReceivedByProvider) {
                             // Loss-making (scaled): never fabricate a final "cash after service" partial — the latest
                             // installment row's due_amount is not cash received and was inflating company/customer totals.
-                            if (! $scaledToPayments) {
+                            // Disputed reopen close: snapshot + refunds are canonical — never fabricate a remainder vs invoice.
+                            $disputedSnapshot = ! empty($model->reopen_disputed_snapshot) && is_array($model->reopen_disputed_snapshot);
+                            if (! $scaledToPayments && ! $disputedSnapshot) {
                                 $sumPaidBefore = (float) $model->booking_partial_payments->sum('paid_amount');
                                 $grand = round((float) get_booking_total_amount($model), 2);
                                 $remaining = round(max(0.0, $grand - $sumPaidBefore), 2);

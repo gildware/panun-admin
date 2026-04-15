@@ -2472,6 +2472,27 @@ class BookingController extends Controller
 
             $financialSettlementService = app(BookingFinancialSettlementService::class);
             $financialSettlementOutcomes = BookingFinancialSettlementService::outcomeOptionsForSpecialScenariosModal();
+            // Reopened bookings: only allow "loss making / scaled to payments" in the special settlement modal.
+            if ($booking->isOpenReopenTicket()) {
+                $scaled = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                $financialSettlementOutcomes = array_key_exists($scaled, $financialSettlementOutcomes)
+                    ? [$scaled => $financialSettlementOutcomes[$scaled]]
+                    : [$scaled => translate('Customer did not pay full amount (Loss Making Booking)')];
+            } elseif (BookingFinancialSettlementService::shouldHideDecidedVisitChargeOutcomesForConfigurableBooking($booking)) {
+                unset(
+                    $financialSettlementOutcomes[BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL],
+                    $financialSettlementOutcomes[BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT]
+                );
+                $currentOutcome = trim((string) ($booking->settlement_outcome ?? ''));
+                if ($currentOutcome !== ''
+                    && BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges($currentOutcome)
+                    && ! isset($financialSettlementOutcomes[$currentOutcome])) {
+                    $allLabels = BookingFinancialSettlementService::outcomeOptions();
+                    if (isset($allLabels[$currentOutcome])) {
+                        $financialSettlementOutcomes[$currentOutcome] = $allLabels[$currentOutcome];
+                    }
+                }
+            }
             $defaultVisitFeeCompanyPercent = $financialSettlementService->defaultVisitCompanyPercent();
             $bfsDefaultCustomAdminCommission = $financialSettlementService->defaultTierAdminCommissionForBooking($booking);
             $allowDeleteAdminBookingPartialPayments = $this->bookingAllowsAdminPartialPaymentDeletion($booking);
@@ -2663,7 +2684,11 @@ class BookingController extends Controller
         }
 
         $current = strtolower(trim((string) ($booking->booking_status ?? '')));
-        if (! booking_admin_status_transition_allowed_for_booking($booking, $current, 'completed')) {
+        // Resolve reopen flow: allow completing directly when work is finished.
+        // This is intentionally independent from the "reopen completion lock" (which only blocks plain status transitions).
+        $isOngoing = $current === 'ongoing';
+        $isHoldAfterVisit = $current === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking);
+        if (! $isOngoing && ! $isHoldAfterVisit) {
             Toastr::error(translate('Resolve_reopen_invalid_status_for_complete'));
 
             return back();
@@ -2788,7 +2813,7 @@ class BookingController extends Controller
 
             return back();
         }
-        if ($this->bookingSuppressesAdminCustomerRefundCard($booking)) {
+        if ($this->bookingSuppressesAdminCustomerRefundCard($booking, true)) {
             Toastr::error(translate('Bfs_refund_not_available_after_visit_cancel'));
 
             return back();
@@ -2850,14 +2875,23 @@ class BookingController extends Controller
         $providerOwesCompanyRefundPool = max(0.0, round($refundCompany - $companyEligible, 2));
         $companyOwesProviderRefundPool = max(0.0, round($refundProvider - $providerEligible, 2));
 
-        $detailRows = $booking->details_amounts->filter(fn ($r) => $r->booking_repeat_id === null);
-        $baseAdminCommission = round((float) $detailRows->sum('admin_commission'), 2);
-        $baseProviderEarning = round((float) $detailRows->sum('provider_earning'), 2);
+        $svcFull = round(max(0.0, (float) get_booking_commissionable_amount($booking)), 2);
+        $spFull = round(max(0.0, (float) get_booking_spare_parts_amount($booking)), 2);
+        $fullTier = booking_reopen_disputed_tier_split_for_amounts($booking, $svcFull, $spFull);
+        $baseAdminCommission = $fullTier['admin_commission'];
+        $baseProviderEarning = $fullTier['provider_earning'];
         $retainedFromCustomer = max(0.0, round($totalPaid - $totalRefund, 2));
-        $netRatio = $totalPaid > 0.0001 ? min(1.0, $retainedFromCustomer / $totalPaid) : 0.0;
-        $finalAdminCommission = round($baseAdminCommission * $netRatio, 2);
-        $finalProviderEarning = round($baseProviderEarning * $netRatio, 2);
-        $providerTotalRemittanceToCompany = round($providerOwesCompanyRefundPool + $finalAdminCommission, 2);
+        $onRetained = booking_reopen_disputed_commission_on_customer_retained($booking, $retainedFromCustomer, $totalPaid);
+        $finalAdminCommission = $onRetained['admin_commission'];
+        $finalProviderEarning = $onRetained['provider_earning'];
+        $netRatio = $onRetained['scale_factor'];
+
+        $companyCashAfterRefund = max(0.0, round($companyEligible - $refundCompany, 2));
+        $providerCashAfterRefund = max(0.0, round($providerEligible - $refundProvider, 2));
+        $adminShortfallVsCompanyPool = max(0.0, round($finalAdminCommission - $companyCashAfterRefund, 2));
+        $providerEarningShortfallVsPool = max(0.0, round($finalProviderEarning - $providerCashAfterRefund, 2));
+        $providerTotalRemittanceToCompany = round($providerOwesCompanyRefundPool + $adminShortfallVsCompanyPool, 2);
+        $companyPaysProviderTotal = round($companyOwesProviderRefundPool + $providerEarningShortfallVsPool, 2);
 
         $remarks = trim((string) $validated['reopen_dispute_remarks']);
         if ($remarks === '') {
@@ -2882,6 +2916,11 @@ class BookingController extends Controller
             'provider_owes_company' => $providerOwesCompanyRefundPool,
             'provider_total_remittance_to_company' => $providerTotalRemittanceToCompany,
             'company_owes_provider' => $companyOwesProviderRefundPool,
+            'company_cash_after_refund' => $companyCashAfterRefund,
+            'provider_cash_after_refund' => $providerCashAfterRefund,
+            'admin_commission_shortfall_vs_company_pool' => $adminShortfallVsCompanyPool,
+            'provider_earning_shortfall_vs_pool' => $providerEarningShortfallVsPool,
+            'company_pays_provider_total' => $companyPaysProviderTotal,
             'retained_from_customer' => $retainedFromCustomer,
             'net_commission_ratio' => $netRatio,
             'base_admin_commission_before_dispute' => $baseAdminCommission,
@@ -2912,7 +2951,7 @@ class BookingController extends Controller
                 $finalAdminCommission,
                 $finalProviderEarning,
                 $providerTotalRemittanceToCompany,
-                $companyOwesProviderRefundPool
+                $companyPaysProviderTotal
             ) {
                 if ($refundCompany >= 0.01) {
                     ledger_record_out([
@@ -2943,7 +2982,7 @@ class BookingController extends Controller
                     (string) $booking->id,
                     $booking->provider_id ? (string) $booking->provider_id : null,
                     $providerTotalRemittanceToCompany,
-                    $companyOwesProviderRefundPool
+                    $companyPaysProviderTotal
                 );
 
                 $this->distributeDisputedRefundNetAcrossDetailsAmounts($booking, $finalAdminCommission, $finalProviderEarning);
@@ -2967,10 +3006,19 @@ class BookingController extends Controller
                 $booking->reopen_resolved_by = $resolverUserId;
                 $booking->reopen_resolve_remarks = $remarks;
 
-                if ($totalRefund + 0.005 >= $totalPaid) {
-                    $booking->booking_status = 'refunded';
+                // UX: keep booking_status about job outcome; refund depth is tags.
+                // If the job had been completed before reopen, stay "completed".
+                // If dispute started from ongoing (never completed): partial refund → completed; full refund → canceled.
+                $wasEverCompleted = \Modules\BookingModule\Entities\BookingStatusHistory::query()
+                    ->where('booking_id', $booking->id)
+                    ->where('booking_status', 'completed')
+                    ->whereNull('booking_repeat_id')
+                    ->exists();
+                if ($wasEverCompleted) {
+                    $booking->booking_status = 'completed';
                 } else {
-                    $booking->booking_status = 'canceled';
+                    $isFullRefund = $totalPaid > 0.009 && $totalRefund + 0.005 >= $totalPaid;
+                    $booking->booking_status = $isFullRefund ? 'canceled' : 'completed';
                 }
 
                 $booking->save();
@@ -5341,122 +5389,133 @@ class BookingController extends Controller
             }
         }
 
-        $bookingDetailIds = $request->input('booking_detail_ids', []);
-        $zoneId = $request['zone_id'];
-        $useDetailIds = !empty($bookingDetailIds) && count($bookingDetailIds) === count($request['service_ids']);
+        DB::transaction(function () use ($request) {
+            $bookingDetailIds = $request->input('booking_detail_ids', []);
+            $zoneId = $request['zone_id'];
+            $useDetailIds = !empty($bookingDetailIds) && count($bookingDetailIds) === count($request['service_ids']);
 
-        if ($useDetailIds) {
-            foreach ($request['service_ids'] as $key => $service_id) {
-                $variant_key = $request['variant_keys'][$key] ?? null;
-                $quantity = (int)($request['qty'][$key] ?? 0);
-                $detail_id = isset($bookingDetailIds[$key]) && $bookingDetailIds[$key] !== '' && $bookingDetailIds[$key] !== null
-                    ? $bookingDetailIds[$key]
-                    : null;
+            if ($useDetailIds) {
+                foreach ($request['service_ids'] as $key => $service_id) {
+                    $variant_key = $request['variant_keys'][$key] ?? null;
+                    $quantity = (int) ($request['qty'][$key] ?? 0);
+                    $detail_id = isset($bookingDetailIds[$key]) && $bookingDetailIds[$key] !== '' && $bookingDetailIds[$key] !== null
+                        ? $bookingDetailIds[$key]
+                        : null;
 
-                if ($detail_id) {
-                    $detail = $this->bookingDetails->where('id', $detail_id)->where('booking_id', $request['booking_id'])->first();
-                    if (!$detail) {
+                    if ($detail_id) {
+                        $detail = $this->bookingDetails->where('id', $detail_id)->where('booking_id', $request['booking_id'])->first();
+                        if (! $detail) {
+                            continue;
+                        }
+                        if ($quantity === 0) {
+                            $request->merge([
+                                'service_id' => $detail->service_id,
+                                'variant_key' => $detail->variant_key,
+                                'quantity' => 0,
+                            ]);
+                            $this->remove_service_from_booking($request);
+                            continue;
+                        }
+                        $serviceOrVariantChanged = $detail->service_id !== $service_id || $detail->variant_key !== $variant_key;
+                        if ($serviceOrVariantChanged) {
+                            $this->updateDetailServiceAndVariation($detail, $service_id, $variant_key, $quantity, $zoneId);
+                            continue;
+                        }
+                        if ((int) $detail->quantity !== $quantity) {
+                            $request->merge([
+                                'service_id' => $service_id,
+                                'variant_key' => $variant_key,
+                                'old_quantity' => $detail->quantity,
+                                'new_quantity' => $quantity,
+                            ]);
+                            if ((int) $detail->quantity < $quantity) {
+                                $this->increase_service_quantity_from_booking($request);
+                            } else {
+                                $this->decrease_service_quantity_from_booking($request);
+                            }
+                        }
                         continue;
                     }
-                    if ($quantity === 0) {
-                        $request->merge([
-                            'service_id' => $detail->service_id,
-                            'variant_key' => $detail->variant_key,
-                            'quantity' => 0,
-                        ]);
-                        $this->remove_service_from_booking($request);
-                        continue;
-                    }
-                    $serviceOrVariantChanged = $detail->service_id !== $service_id || $detail->variant_key !== $variant_key;
-                    if ($serviceOrVariantChanged) {
-                        $this->updateDetailServiceAndVariation($detail, $service_id, $variant_key, $quantity, $zoneId);
-                        continue;
-                    }
-                    if ($detail->quantity !== $quantity) {
+
+                    if ($quantity > 0) {
                         $request->merge([
                             'service_id' => $service_id,
                             'variant_key' => $variant_key,
-                            'old_quantity' => $detail->quantity,
-                            'new_quantity' => $quantity,
+                            'quantity' => $quantity,
                         ]);
-                        if ($detail->quantity < $quantity) {
-                            $this->increase_service_quantity_from_booking($request);
-                        } else {
-                            $this->decrease_service_quantity_from_booking($request);
-                        }
-                    }
-                    continue;
-                }
-
-                if ($quantity > 0) {
-                    $request->merge([
-                        'service_id' => $service_id,
-                        'variant_key' => $variant_key,
-                        'quantity' => $quantity,
-                    ]);
-                    $this->addNewBookingService($request);
-                }
-            }
-        } else {
-            $service_info = [];
-            foreach ($request['service_ids'] as $key => $sid) {
-                $vk = $request['variant_keys'][$key] ?? null;
-                $qty = $request['qty'][$key] ?? 0;
-                $service_info[] = ['service_id' => $sid, 'variant_key' => $vk, 'quantity' => $qty];
-            }
-            $request->merge(['service_info' => collect($service_info)]);
-            $existing_services = $this->bookingDetails->where('booking_id', $request['booking_id'])->get();
-            foreach ($existing_services as $item) {
-                if (!$request['service_info']->where('service_id', $item->service_id)->where('variant_key', $item->variant_key)->first()) {
-                    $request['service_info']->push([
-                        'service_id' => $item->service_id,
-                        'variant_key' => $item->variant_key,
-                        'quantity' => 0,
-                    ]);
-                }
-            }
-            foreach ($request['service_info'] as $item) {
-                $existing_service = $this->bookingDetails
-                    ->where('booking_id', $request['booking_id'])
-                    ->where('service_id', $item['service_id'])
-                    ->where('variant_key', $item['variant_key'])
-                    ->first();
-                if (!$existing_service) {
-                    if ((int)$item['quantity'] > 0) {
-                        $request->merge(['service_id' => $item['service_id'], 'variant_key' => $item['variant_key'], 'quantity' => $item['quantity']]);
                         $this->addNewBookingService($request);
                     }
-                } elseif ((int)$item['quantity'] === 0) {
-                    $request->merge(['service_id' => $item['service_id'], 'variant_key' => $item['variant_key'], 'quantity' => 0]);
-                    $this->remove_service_from_booking($request);
-                } elseif ($existing_service->quantity < (int)$item['quantity']) {
-                    $request->merge([
-                        'service_id' => $item['service_id'],
-                        'variant_key' => $item['variant_key'],
-                        'old_quantity' => $existing_service->quantity,
-                        'new_quantity' => (int)$item['quantity'],
-                    ]);
-                    $this->increase_service_quantity_from_booking($request);
-                } elseif ($existing_service->quantity > (int)$item['quantity']) {
-                    $request->merge([
-                        'service_id' => $item['service_id'],
-                        'variant_key' => $item['variant_key'],
-                        'old_quantity' => $existing_service->quantity,
-                        'new_quantity' => (int)$item['quantity'],
-                    ]);
-                    $this->decrease_service_quantity_from_booking($request);
+                }
+            } else {
+                $service_info = [];
+                foreach ($request['service_ids'] as $key => $sid) {
+                    $vk = $request['variant_keys'][$key] ?? null;
+                    $qty = $request['qty'][$key] ?? 0;
+                    $service_info[] = ['service_id' => $sid, 'variant_key' => $vk, 'quantity' => $qty];
+                }
+                $request->merge(['service_info' => collect($service_info)]);
+                $existing_services = $this->bookingDetails->where('booking_id', $request['booking_id'])->get();
+                foreach ($existing_services as $item) {
+                    if (! $request['service_info']->where('service_id', $item->service_id)->where('variant_key', $item->variant_key)->first()) {
+                        $request['service_info']->push([
+                            'service_id' => $item->service_id,
+                            'variant_key' => $item->variant_key,
+                            'quantity' => 0,
+                        ]);
+                    }
+                }
+                foreach ($request['service_info'] as $item) {
+                    $existing_service = $this->bookingDetails
+                        ->where('booking_id', $request['booking_id'])
+                        ->where('service_id', $item['service_id'])
+                        ->where('variant_key', $item['variant_key'])
+                        ->first();
+                    if (! $existing_service) {
+                        if ((int) $item['quantity'] > 0) {
+                            $request->merge(['service_id' => $item['service_id'], 'variant_key' => $item['variant_key'], 'quantity' => $item['quantity']]);
+                            $this->addNewBookingService($request);
+                        }
+                    } elseif ((int) $item['quantity'] === 0) {
+                        $request->merge(['service_id' => $item['service_id'], 'variant_key' => $item['variant_key'], 'quantity' => 0]);
+                        $this->remove_service_from_booking($request);
+                    } elseif ((int) $existing_service->quantity < (int) $item['quantity']) {
+                        $request->merge([
+                            'service_id' => $item['service_id'],
+                            'variant_key' => $item['variant_key'],
+                            'old_quantity' => $existing_service->quantity,
+                            'new_quantity' => (int) $item['quantity'],
+                        ]);
+                        $this->increase_service_quantity_from_booking($request);
+                    } elseif ((int) $existing_service->quantity > (int) $item['quantity']) {
+                        $request->merge([
+                            'service_id' => $item['service_id'],
+                            'variant_key' => $item['variant_key'],
+                            'old_quantity' => $existing_service->quantity,
+                            'new_quantity' => (int) $item['quantity'],
+                        ]);
+                        $this->decrease_service_quantity_from_booking($request);
+                    }
                 }
             }
-        }
 
-        DB::transaction(function () use ($request) {
             $this->syncAdminBookingLinePricingFromAdminForm($request);
-        });
 
-        $bookingAfter = $this->booking->find($request['booking_id']);
-        if ($bookingAfter && !(int) ($bookingAfter->is_repeated ?? 0)) {
-            recalculate_and_apply_booking_additional_charges($bookingAfter);
-        }
+            $bookingAfter = $this->booking->find($request['booking_id']);
+            if ($bookingAfter && !(int) ($bookingAfter->is_repeated ?? 0)) {
+                recalculate_and_apply_booking_additional_charges($bookingAfter);
+                $bookingAfter->refresh();
+            }
+
+            if ($bookingAfter) {
+                $newTotal = round((float) get_booking_total_amount($bookingAfter), 2);
+                $totalPaid = round((float) get_booking_total_paid($bookingAfter), 2);
+                if ($newTotal + 0.009 < $totalPaid) {
+                    throw ValidationException::withMessages([
+                        'qty' => [translate('Booking_total_cannot_be_less_than_paid_amount')],
+                    ]);
+                }
+            }
+        });
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
@@ -5682,6 +5741,17 @@ class BookingController extends Controller
             }
         }
 
+        $mainBookingCheck = isset($mainBooking) && $mainBooking ? $mainBooking : $this->booking->find($request['booking_id']);
+        if ($mainBookingCheck) {
+            $newTotal = round((float) get_booking_total_amount($mainBookingCheck), 2);
+            $totalPaid = round((float) get_booking_total_paid($mainBookingCheck), 2);
+            if ($newTotal + 0.009 < $totalPaid) {
+                throw ValidationException::withMessages([
+                    'qty' => [translate('Booking_total_cannot_be_less_than_paid_amount')],
+                ]);
+            }
+        }
+
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
     }
@@ -5765,6 +5835,16 @@ class BookingController extends Controller
                 return response()->json(response_formatter(DEFAULT_404, 'Booking not found'), 404);
             }
             Toastr::error(translate('Booking not found'));
+            return back();
+        }
+
+        if (! empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)) {
+            $msg = translate('Add_payment_blocked_after_disputed_close');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['booking' => [$msg]]), 400);
+            }
+            Toastr::error($msg);
+
             return back();
         }
 
@@ -6363,13 +6443,69 @@ class BookingController extends Controller
     }
 
     /**
-     * After “Cancel After Visit Decided Charges,” the admin “Refund customer” card is hidden and the refund action is blocked;
-     * settlement already defined what stays with the business vs the customer.
+     * Blocks preview / save when "decided charges" outcomes are not allowed (provider already received customer money).
+     *
+     * @return JsonResponse|null 422 JSON when blocked; otherwise null.
      */
-    protected function bookingSuppressesAdminCustomerRefundCard(Booking $booking): bool
+    protected function financialSettlementDecidedChargesBlockedIfApplicable(Booking $booking, string $outcome): ?JsonResponse
     {
-        return (bool) ($booking->after_visit_cancel ?? false)
+        if (! BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges($outcome)) {
+            return null;
+        }
+        if (! BookingFinancialSettlementService::shouldHideDecidedVisitChargeOutcomesForConfigurableBooking($booking)) {
+            return null;
+        }
+
+        return response()->json(response_formatter([
+            'response_code' => 'default_400',
+            'message' => translate('Bfs_decided_charges_unavailable_provider_received'),
+        ]), 422);
+    }
+
+    /**
+     * Blocks loss-making (scaled) settlement when due balance is zero and the booking is not already on scaled.
+     *
+     * @return JsonResponse|null 422 JSON when blocked; otherwise null.
+     */
+    protected function financialSettlementScaledLossBlockedIfDueZero(Booking $booking, string $outcome): ?JsonResponse
+    {
+        if ($outcome !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            return null;
+        }
+        if (! BookingFinancialSettlementService::scaledLossMakingSelectionUnavailableDueToZeroDue($booking)) {
+            return null;
+        }
+
+        return response()->json(response_formatter([
+            'response_code' => 'default_400',
+            'message' => translate('Bfs_scaled_disabled_when_due_zero'),
+        ]), 422);
+    }
+
+    /**
+     * For cancel-after-visit / visit-retained settlements, the admin refund card is shown only when the customer
+     * paid **more** than the decided retained amount (overpayment). Otherwise the refund UI is hidden — the
+     * settlement defines what was retained.
+     *
+     * @param  bool  $strictVisitRetainedBlock  When true, always block (e.g. dispute-and-close flows that must not
+     *                                            mix with this refund path).
+     */
+    protected function bookingSuppressesAdminCustomerRefundCard(Booking $booking, bool $strictVisitRetainedBlock = false): bool
+    {
+        $isVisitRetainedFlow = (bool) ($booking->after_visit_cancel ?? false)
             || (string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+        if (! $isVisitRetainedFlow) {
+            return false;
+        }
+        if ($strictVisitRetainedBlock) {
+            return true;
+        }
+        $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+        $retained = app(BookingFinancialSettlementService::class)->resolveRetainedVisitAmount($booking, $config);
+        $paid = round((float) get_booking_total_paid($booking), 2);
+        $overpayment = round(max(0.0, $paid - $retained), 2);
+
+        return $overpayment <= 0.009;
     }
 
     private function financialSettlementValidOutcomes(): array
@@ -6528,6 +6664,12 @@ class BookingController extends Controller
         $validated = $request->validate($this->financialSettlementPreviewValidationRules());
 
         $outcome = $validated['settlement_outcome'];
+        if ($r = $this->financialSettlementDecidedChargesBlockedIfApplicable($booking, $outcome)) {
+            return $r;
+        }
+        if ($r = $this->financialSettlementScaledLossBlockedIfDueZero($booking, $outcome)) {
+            return $r;
+        }
         $this->assertDecidedChargesRetainedStrictlyBelowBookingTotal($booking, $outcome, $validated);
 
         $config = $this->financialSettlementConfigFromValidated($validated);
@@ -6583,6 +6725,9 @@ class BookingController extends Controller
                 'message' => translate('Bfs_use_save_and_complete_for_visit_only'),
             ]), 422);
         }
+        if ($r = $this->financialSettlementScaledLossBlockedIfDueZero($booking, $outcome)) {
+            return $r;
+        }
         $config = $this->financialSettlementConfigFromValidated($validated);
 
         $booking->loadMissing('booking_partial_payments');
@@ -6636,6 +6781,10 @@ class BookingController extends Controller
                 Rule::exists('booking_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
             ],
         ]));
+
+        if ($r = $this->financialSettlementDecidedChargesBlockedIfApplicable($booking, $validated['settlement_outcome'])) {
+            return $r;
+        }
 
         $this->assertDecidedChargesRetainedStrictlyBelowBookingTotal($booking, $validated['settlement_outcome'], $validated);
 
@@ -6707,6 +6856,16 @@ class BookingController extends Controller
         ]));
 
         $outcome = $validated['settlement_outcome'];
+        if ($outcome === BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT) {
+            if ($r = $this->financialSettlementDecidedChargesBlockedIfApplicable($booking, $outcome)) {
+                return $r;
+            }
+        }
+        if ($outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            if ($r = $this->financialSettlementScaledLossBlockedIfDueZero($booking, $outcome)) {
+                return $r;
+            }
+        }
         $this->assertDecidedChargesRetainedStrictlyBelowBookingTotal($booking, $outcome, $validated);
 
         $config = $this->financialSettlementConfigFromValidated($validated);
@@ -6920,23 +7079,19 @@ class BookingController extends Controller
             $afterTotals = get_booking_refund_display_totals($booking);
             $fullyRefundedAfter = round((float) ($afterTotals['refundable_remaining'] ?? 0), 2) <= 0;
 
-            if ($fullyRefundedAfter) {
-                if ((string) $booking->booking_status !== 'refunded') {
-                    $booking->booking_status = 'refunded';
-                    $booking->save();
-                    $this->logBookingStatusHistory(null, 'refunded', request()->user()->id, $booking->id);
-                }
-            } else {
+            // UX: keep booking_status representing the job lifecycle (canceled stays canceled).
+            // Refund depth (partial/full) is displayed via refund tags, not by switching status to "refunded".
+            if (! in_array((string) $booking->booking_status, ['canceled', 'cancelled'], true)) {
                 $booking->booking_status = 'canceled';
-                $booking->save();
             }
+            $booking->save();
         });
 
         if ($request->wantsJson()) {
             return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
         }
         $successMessage = $fullyRefundedAfter
-            ? translate('Refund recorded successfully. Booking status updated to Refunded.')
+            ? translate('Refund recorded successfully.')
             : translate('Refund recorded successfully. You can record another refund until the balance is zero.');
         Toastr::success($successMessage);
         return back();

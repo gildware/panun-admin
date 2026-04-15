@@ -42,6 +42,22 @@ if (!function_exists('get_booking_total_amount')) {
     }
 }
 
+if (!function_exists('get_booking_total_amount_for_display')) {
+    /**
+     * Display-only "total amount" for booking pages/invoices.
+     * For disputed reopen close, the effective total becomes the customer retained amount after refunds.
+     */
+    function get_booking_total_amount_for_display($booking): float
+    {
+        if ($booking instanceof Booking && !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)) {
+            $snap = $booking->reopen_disputed_snapshot;
+            return round((float) ($snap['retained_from_customer'] ?? $snap['final_net_to_customer'] ?? 0), 2);
+        }
+
+        return get_booking_total_amount($booking);
+    }
+}
+
 if (!function_exists('get_booking_scaled_customer_collection_cap')) {
     /**
      * Loss-making (scaled_to_payments): effective customer-paid amount (min invoice total, max(declared, recorded partials))
@@ -68,6 +84,9 @@ if (!function_exists('get_booking_invoice_due_amount')) {
      */
     function get_booking_invoice_due_amount($booking): float
     {
+        if ($booking instanceof Booking && !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)) {
+            return 0.0;
+        }
         if ($booking instanceof Booking
             && BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges((string) ($booking->settlement_outcome ?? ''))) {
             $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
@@ -237,6 +256,10 @@ if (!function_exists('get_booking_admin_add_payment_remaining_amount')) {
      */
     function get_booking_admin_add_payment_remaining_amount(Booking $booking): float
     {
+        if (! empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)) {
+            return 0.0;
+        }
+
         $totalPaid = round((float) get_booking_total_paid($booking), 2);
         if (trim((string) ($booking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
             $grand = round((float) get_booking_total_amount($booking), 2);
@@ -513,6 +536,18 @@ if (!function_exists('get_commission_breakdown_for_booking')) {
      */
     function get_commission_breakdown_for_booking($booking): array
     {
+        if ($booking instanceof Booking && !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)) {
+            $snap = $booking->reopen_disputed_snapshot;
+
+            return [
+                'commission' => round((float) ($snap['final_admin_commission'] ?? 0), 2),
+                'commission_without_cost' => round((float) ($snap['final_admin_commission'] ?? 0), 2),
+                'booking_amount_without_commission' => round((float) ($snap['final_provider_earning'] ?? 0), 2),
+                'promotional_cost_by_admin' => 0,
+                'promotional_cost_by_provider' => 0,
+            ];
+        }
+
         $bookingId = $booking instanceof \Modules\BookingModule\Entities\BookingRepeat ? $booking->booking_id : $booking->id;
         $subscriptionType = \Modules\BookingModule\Entities\SubscriptionBookingType::where('booking_id', $bookingId)->where('type', 'subscription')->first();
         if ($subscriptionType) {
@@ -721,6 +756,27 @@ if (!function_exists('get_booking_received_and_settlement')) {
      */
     function get_booking_received_and_settlement($booking): array
     {
+        // Disputed reopen close: snapshot is the source of truth for all financial display numbers.
+        // This must override the original commission breakdown / receipt splits everywhere (admin + provider UIs + reports).
+        if ($booking instanceof Booking) {
+            $snap = !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)
+                ? $booking->reopen_disputed_snapshot
+                : null;
+            if (is_array($snap)) {
+                return [
+                    'company_share' => round((float) ($snap['final_admin_commission'] ?? 0), 2),
+                    'provider_share' => round((float) ($snap['final_provider_earning'] ?? 0), 2),
+                    'amount_received_by_company' => round((float) ($snap['company_cash_after_refund'] ?? 0), 2),
+                    'amount_received_by_provider' => round((float) ($snap['provider_cash_after_refund'] ?? 0), 2),
+                    'total_paid' => round((float) ($snap['customer_paid_total'] ?? 0), 2),
+                    // Reconciliation totals (who remits / pays after refunds).
+                    'pay_to_provider' => round((float) ($snap['company_pays_provider_total'] ?? ($snap['company_owes_provider'] ?? 0)), 2),
+                    'provider_owes_company' => round((float) ($snap['provider_total_remittance_to_company'] ?? ($snap['provider_owes_company'] ?? 0)), 2),
+                    'net_revenue_zeroed_after_refund' => false,
+                ];
+            }
+        }
+
         $breakdown = get_commission_breakdown_for_booking($booking);
         $companyShare = (float) $breakdown['commission_without_cost'];
         $providerShare = (float) $breakdown['booking_amount_without_commission'];
@@ -829,6 +885,89 @@ if (!function_exists('get_booking_received_and_settlement')) {
             'pay_to_provider' => $payToProvider,
             'provider_owes_company' => $providerOwesCompany,
             'net_revenue_zeroed_after_refund' => false,
+        ];
+    }
+}
+
+if (!function_exists('booking_reopen_disputed_tier_split_for_amounts')) {
+    /**
+     * Admin vs provider split using the same tier engine as {@see calculate_commission_for_booking} / booking details
+     * ({@see commission_calc_line_preview}), for the given service and spare **line subtotals**.
+     *
+     * @return array{admin_commission: float, provider_earning: float}
+     */
+    function booking_reopen_disputed_tier_split_for_amounts(Booking $booking, float $serviceAmount, float $spareAmount): array
+    {
+        $setup = resolve_commission_tier_setup_for_booking($booking, $booking->provider_id);
+        $serviceAmount = round(max(0.0, $serviceAmount), 2);
+        $spareAmount = round(max(0.0, $spareAmount), 2);
+        $p1 = commission_calc_line_preview($serviceAmount, $setup['service']);
+        $p2 = commission_calc_line_preview($spareAmount, $setup['spare_parts']);
+
+        return [
+            'admin_commission' => round((float) ($p1['admin_commission'] ?? 0) + (float) ($p2['admin_commission'] ?? 0), 2),
+            'provider_earning' => round((float) ($p1['provider_earning'] ?? 0) + (float) ($p2['provider_earning'] ?? 0), 2),
+        ];
+    }
+}
+
+if (!function_exists('booking_reopen_disputed_commission_on_customer_retained')) {
+    /**
+     * Disputed reopen: treat "retained from customer after refunds" as the new effective booking total and compute
+     * admin vs provider using the same tier engine as the booking, on **scaled service + spare subtotals** so that
+     * admin + provider = retained.
+     *
+     * Scaling basis is the original booking economic base (service + spare), NOT customer paid, so partial payment
+     * scenarios (e.g. paid 300 on total 700) still recompute commission correctly on retained cash.
+     *
+     * @return array{admin_commission: float, provider_earning: float, scale_factor: float, full_tier_admin: float, full_tier_provider: float}
+     */
+    function booking_reopen_disputed_commission_on_customer_retained(Booking $booking, float $retainedFromCustomer, float $totalCustomerPaid): array
+    {
+        $paid = round(max(0.0, $totalCustomerPaid), 2);
+        $retained = round(max(0.0, $retainedFromCustomer), 2);
+        $svcFull = round(max(0.0, (float) get_booking_commissionable_amount($booking)), 2);
+        $spFull = round(max(0.0, (float) get_booking_spare_parts_amount($booking)), 2);
+        $base = round($svcFull + $spFull, 2);
+        $full = booking_reopen_disputed_tier_split_for_amounts($booking, $svcFull, $spFull);
+        $aFull = round((float) ($full['admin_commission'] ?? 0), 2);
+        $pFull = round((float) ($full['provider_earning'] ?? 0), 2);
+
+        $scaleFactor = $base > 0.0001 ? min(1.0, $retained / $base) : 0.0;
+
+        if ($retained <= 0.0001) {
+            return [
+                'admin_commission' => 0.0,
+                'provider_earning' => 0.0,
+                'scale_factor' => round($scaleFactor, 6),
+                'full_tier_admin' => $aFull,
+                'full_tier_provider' => $pFull,
+            ];
+        }
+
+        if ($base <= 0.0001) {
+            // Nothing commissionable recorded; if customer retained cash, treat it all as provider earning.
+            return [
+                'admin_commission' => 0.0,
+                'provider_earning' => $retained,
+                'scale_factor' => round($scaleFactor, 6),
+                'full_tier_admin' => $aFull,
+                'full_tier_provider' => $pFull,
+            ];
+        }
+
+        $svc = round($svcFull * $scaleFactor, 2);
+        $sp = round($spFull * $scaleFactor, 2);
+        $scaled = booking_reopen_disputed_tier_split_for_amounts($booking, $svc, $sp);
+        $admin = round((float) ($scaled['admin_commission'] ?? 0), 2);
+        $provider = round((float) ($scaled['provider_earning'] ?? 0), 2);
+
+        return [
+            'admin_commission' => $admin,
+            'provider_earning' => $provider,
+            'scale_factor' => round($scaleFactor, 6),
+            'full_tier_admin' => $aFull,
+            'full_tier_provider' => $pFull,
         ];
     }
 }
@@ -964,6 +1103,7 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
 if (!function_exists('booking_admin_booking_status_display_label')) {
     /**
      * Admin UI label for {@see Booking::booking_status}: use "Hold after visit" when hold followed ongoing.
+     * Disputed state is shown as a separate tag (see booking admin status tags partial), not appended here.
      */
     function booking_admin_booking_status_display_label(Booking $booking): string
     {
@@ -971,7 +1111,162 @@ if (!function_exists('booking_admin_booking_status_display_label')) {
             return translate('Hold_after_visit');
         }
 
-        return ucwords(str_replace('_', ' ', (string) ($booking->booking_status ?? '')));
+        $st = (string) ($booking->booking_status ?? '');
+        $base = ucwords(str_replace('_', ' ', $st));
+        if ($st === 'canceled' || $st === 'cancelled') {
+            $base = translate('Booking_cancelled');
+        }
+
+        return $base;
+    }
+}
+
+if (!function_exists('booking_admin_is_cancel_before_visit')) {
+    /**
+     * True when booking is canceled before service went ongoing (no after-visit special settlement).
+     */
+    function booking_admin_is_cancel_before_visit(Booking $booking): bool
+    {
+        $st = strtolower((string) ($booking->booking_status ?? ''));
+        if (! in_array($st, ['canceled', 'cancelled', 'refunded'], true)) {
+            return false;
+        }
+        if ((bool) ($booking->after_visit_cancel ?? false)) {
+            return false;
+        }
+        $out = trim((string) ($booking->settlement_outcome ?? ''));
+        if ($out === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL
+            || $out === BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+if (!function_exists('booking_admin_has_disputed_reopen_snapshot')) {
+    function booking_admin_has_disputed_reopen_snapshot(Booking $booking): bool
+    {
+        $snap = $booking->reopen_disputed_snapshot ?? null;
+
+        return is_array($snap) && ($snap['type'] ?? null) === 'reopen_disputed_refund';
+    }
+}
+
+if (!function_exists('booking_admin_should_show_cancel_after_visit_tag')) {
+    /**
+     * Cancel-after-visit decided charges (retain visit fee) — not plain before-visit cancel.
+     */
+    function booking_admin_should_show_cancel_after_visit_tag(Booking $booking): bool
+    {
+        $st = strtolower((string) ($booking->booking_status ?? ''));
+        if (! in_array($st, ['canceled', 'cancelled', 'refunded'], true)) {
+            return false;
+        }
+        if ((bool) ($booking->after_visit_cancel ?? false)) {
+            return true;
+        }
+
+        return trim((string) ($booking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+    }
+}
+
+if (!function_exists('booking_admin_should_show_complete_no_service_tag')) {
+    /**
+     * "Complete with little / no real service" (visit fee split) after booking is closed completed.
+     */
+    function booking_admin_should_show_complete_no_service_tag(Booking $booking): bool
+    {
+        if ((string) ($booking->booking_status ?? '') !== 'completed') {
+            return false;
+        }
+
+        return trim((string) ($booking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+    }
+}
+
+if (!function_exists('booking_admin_refund_display_totals')) {
+    /**
+     * Refund amounts for admin status tags (includes completed + ledger refunds, not only canceled/refunded).
+     *
+     * @return array{refunded_total: float, refundable_remaining: float, max_eligible: float, show: bool, source: string}
+     */
+    function booking_admin_refund_display_totals(Booking $booking): array
+    {
+        $st = (string) ($booking->booking_status ?? '');
+        $bid = (string) ($booking->id ?? '');
+        $refundedLedger = $bid !== '' ? booking_ledger_refund_out_total($bid) : 0.0;
+
+        if (in_array($st, ['canceled', 'cancelled', 'refunded'], true)) {
+            $t = get_booking_refund_display_totals($booking);
+
+            return array_merge($t, ['source' => 'cancel_or_refunded_status']);
+        }
+
+        if ($st === 'completed') {
+            $totalPaid = round((float) get_booking_total_paid($booking), 2);
+            $refundedTotal = round((float) $refundedLedger, 2);
+            $remaining = max(0.0, round($totalPaid - $refundedTotal, 2));
+            $show = ($totalPaid > 0.009 && $remaining > 0.009) || ($refundedTotal > 0.009);
+
+            if (! $show) {
+                return [
+                    'refunded_total' => 0.0,
+                    'refundable_remaining' => 0.0,
+                    'max_eligible' => 0.0,
+                    'show' => false,
+                    'source' => 'none',
+                ];
+            }
+
+            return [
+                'refunded_total' => $refundedTotal,
+                'refundable_remaining' => $remaining,
+                'max_eligible' => $totalPaid,
+                'show' => true,
+                'source' => 'completed_with_refund',
+            ];
+        }
+
+        return [
+            'refunded_total' => 0.0,
+            'refundable_remaining' => 0.0,
+            'max_eligible' => 0.0,
+            'show' => false,
+            'source' => 'none',
+        ];
+    }
+}
+
+if (!function_exists('booking_admin_classify_refund_ui_tag')) {
+    /**
+     * Single refund tag for admin UI: pending | full (Refunded) | partial — mutually exclusive priority.
+     *
+     * @return 'pending'|'full'|'partial'|null
+     */
+    function booking_admin_classify_refund_ui_tag(Booking $booking): ?string
+    {
+        $t = booking_admin_refund_display_totals($booking);
+        $refunded = round((float) ($t['refunded_total'] ?? 0), 2);
+        $remaining = round((float) ($t['refundable_remaining'] ?? 0), 2);
+        $maxEl = round((float) ($t['max_eligible'] ?? 0), 2);
+        $st = (string) ($booking->booking_status ?? '');
+
+        if (! ($t['show'] ?? false) && $refunded <= 0.009) {
+            return null;
+        }
+        // Pending refund tag is only meaningful for canceled bookings where admin still must pay the customer.
+        if (in_array($st, ['canceled', 'cancelled'], true) && $remaining > 0.009) {
+            return 'pending';
+        }
+        if ($refunded <= 0.009) {
+            return null;
+        }
+        if ($maxEl > 0.009 && $refunded + 0.005 >= $maxEl) {
+            return 'full';
+        }
+
+        return 'partial';
     }
 }
 
@@ -2227,7 +2522,8 @@ if (!function_exists('booking_ledger_refund_out_total')) {
 if (!function_exists('booking_refund_max_eligible_total')) {
     /**
      * Maximum total refund to the customer (admin manual refund cap), aligned with admin booking details / refund action.
-     * Zero when the refund card is suppressed (after-visit retained) or status is not canceled/refunded.
+     * For cancel-after-visit / visit-retained decided charges, cap is **overpayment** (paid minus retained obligation).
+     * Zero when status is not canceled/refunded or when there is no overpayment in that scenario.
      */
     function booking_refund_max_eligible_total($booking): float
     {
@@ -2239,7 +2535,13 @@ if (!function_exists('booking_refund_max_eligible_total')) {
         }
         if ((bool) ($booking->after_visit_cancel ?? false)
             || (string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
-            return 0.0;
+            // Cancel-after-visit decided charges: customer obligation is the retained visit+closing total.
+            // Only **overpayment** beyond that can be refunded via the admin refund action.
+            $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+            $retained = app(BookingFinancialSettlementService::class)->resolveRetainedVisitAmount($booking, $config);
+            $paid = round((float) get_booking_total_paid($booking), 2);
+
+            return round(max(0.0, $paid - $retained), 2);
         }
 
         return round((float) get_booking_total_paid($booking), 2);
@@ -2367,12 +2669,20 @@ if (!function_exists('booking_can_be_completed')) {
         if ($booking instanceof BookingRepeat) {
             $parent = $booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first();
             if ($parent && (
-                (string) ($parent->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
+                (bool) ($parent->reopen_completion_allowed ?? false)
+                || (!empty($parent->reopen_disputed_snapshot) && is_array($parent->reopen_disputed_snapshot))
+                || (string) ($parent->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
                 || (bool) ($parent->allow_complete_without_full_payment ?? false)
             )) {
                 return true;
             }
         } elseif ($booking instanceof Booking) {
+            if ((bool) ($booking->reopen_completion_allowed ?? false)) {
+                return true;
+            }
+            if (!empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)) {
+                return true;
+            }
             if ((string) ($booking->settlement_outcome ?? '') === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
                 return true;
             }

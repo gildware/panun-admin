@@ -4,23 +4,23 @@
     $__rsPaid = round((float) get_booking_total_paid($booking), 2);
     $__rsCompanyPool = round((float) ($__rsSplit['company'] ?? 0) + (float) ($__rsSplit['unassigned'] ?? 0), 2);
     $__rsProviderPool = round((float) ($__rsSplit['provider'] ?? 0), 2);
-    $__rsDetailRows = $booking->relationLoaded('details_amounts')
-        ? $booking->details_amounts->filter(fn ($r) => $r->booking_repeat_id === null)
-        : \Modules\BookingModule\Entities\BookingDetailsAmount::query()
-            ->where('booking_id', $booking->id)
-            ->whereNull('booking_repeat_id')
-            ->get();
-    $__rsBaseAdmin = round((float) $__rsDetailRows->sum('admin_commission'), 2);
-    $__rsBaseProvider = round((float) $__rsDetailRows->sum('provider_earning'), 2);
+    $__rsSvcFull = round(max(0.0, (float) get_booking_commissionable_amount($booking)), 2);
+    $__rsSpareFull = round(max(0.0, (float) get_booking_spare_parts_amount($booking)), 2);
+    $__rsFullTier = booking_reopen_disputed_tier_split_for_amounts($booking, $__rsSvcFull, $__rsSpareFull);
     $__rsDefaultRetained = max(0, round($__rsPaid - $__rsCompanyPool - $__rsProviderPool, 2));
+    $__rsTierSetup = resolve_commission_tier_setup_for_booking($booking, $booking->provider_id);
+    $__rsOnRetained = booking_reopen_disputed_commission_on_customer_retained($booking, $__rsDefaultRetained, $__rsPaid);
+    $__rsFinalAdmin = (float) ($__rsOnRetained['admin_commission'] ?? 0);
+    $__rsFinalPr = (float) ($__rsOnRetained['provider_earning'] ?? 0);
     $__rsCurPos = business_config('currency_symbol_position', 'business_information')['live_values'] ?? 'right';
     $__rsCurDec = (int) (business_config('currency_decimal_point', 'business_information')['live_values'] ?? 2);
 @endphp
 @can('booking_can_manage_status')
     <div class="modal fade" id="reopenDisputeModal--{{ $booking->id }}" tabindex="-1" aria-hidden="true"
         data-rs-total-paid="{{ $__rsPaid }}"
-        data-rs-base-admin="{{ $__rsBaseAdmin }}"
-        data-rs-base-provider="{{ $__rsBaseProvider }}"
+        data-rs-svc-full="{{ $__rsSvcFull }}"
+        data-rs-spare-full="{{ $__rsSpareFull }}"
+        data-rs-tier-setup='@json($__rsTierSetup)'
         data-rs-cur-symbol="{{ e(currency_symbol()) }}"
         data-rs-cur-pos="{{ e($__rsCurPos) }}"
         data-rs-cur-decimals="{{ $__rsCurDec }}">
@@ -92,12 +92,12 @@
                             <div class="col-md-4">
                                 <label class="form-label small">{{ translate('Final_admin_commission_net_basis') }} <span class="text-danger">*</span></label>
                                 <input type="number" step="0.01" min="0" class="form-control js-rs-final-admin bg-light" readonly tabindex="-1"
-                                    value="{{ $__rsBaseAdmin }}">
+                                    value="{{ number_format($__rsFinalAdmin, $__rsCurDec, '.', '') }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small">{{ translate('Final_provider_earning_net_basis') }} <span class="text-danger">*</span></label>
                                 <input type="number" step="0.01" min="0" class="form-control js-rs-final-pr bg-light" readonly tabindex="-1"
-                                    value="{{ $__rsBaseProvider }}">
+                                    value="{{ number_format($__rsFinalPr, $__rsCurDec, '.', '') }}">
                             </div>
                         </div>
                         <div class="alert alert-light border small mb-2 js-rs-reconcile" data-co-pool="{{ $__rsCompanyPool }}" data-pr-pool="{{ $__rsProviderPool }}">
@@ -127,8 +127,15 @@
                 var modal = document.getElementById('reopenDisputeModal--{{ $booking->id }}');
                 if (!modal) return;
                 var totalPaid = parseFloat(modal.getAttribute('data-rs-total-paid')) || 0;
-                var baseAdmin = parseFloat(modal.getAttribute('data-rs-base-admin')) || 0;
-                var baseProvider = parseFloat(modal.getAttribute('data-rs-base-provider')) || 0;
+                var svcFull = parseFloat(modal.getAttribute('data-rs-svc-full')) || 0;
+                var spareFull = parseFloat(modal.getAttribute('data-rs-spare-full')) || 0;
+                var tierSetupRaw = modal.getAttribute('data-rs-tier-setup');
+                var tierSetup = null;
+                try {
+                    tierSetup = tierSetupRaw ? JSON.parse(tierSetupRaw) : null;
+                } catch (e) {
+                    tierSetup = null;
+                }
                 var curSymbol = modal.getAttribute('data-rs-cur-symbol') || '';
                 var curPosition = (modal.getAttribute('data-rs-cur-pos') || 'right').toLowerCase();
                 var curDecimals = parseInt(modal.getAttribute('data-rs-cur-decimals'), 10);
@@ -214,7 +221,79 @@
                     el.value = formatRefundFieldValue(v);
                 }
 
-                /** Parsed + capped amounts for live summary (matches paired cap; uses focused field when sum exceeds total). */
+                /**
+                 * Mirrors PHP commission_calc_line_preview (non-additive fixed; tier match by band).
+                 * Returns: { admin_commission: number, provider_earning: number }
+                 */
+                function commissionCalcLinePreview(lineAmount, group, additiveFixedFee) {
+                    if (!group || typeof group !== 'object') {
+                        return { admin_commission: 0, provider_earning: Math.max(0, round2(lineAmount)) };
+                    }
+                    additiveFixedFee = !!additiveFixedFee;
+                    lineAmount = Math.max(0, round2(parseFloat(lineAmount) || 0));
+                    if ((group.mode || '') === 'fixed') {
+                        var fixed = Math.max(0, parseFloat(group.fixed_amount) || 0);
+                        var adm = additiveFixedFee ? fixed : Math.min(fixed, lineAmount);
+                        var prov = additiveFixedFee ? lineAmount : Math.max(0, lineAmount - adm);
+                        return { admin_commission: round2(adm), provider_earning: round2(prov) };
+                    }
+                    var tiers = Array.isArray(group.tiers) ? group.tiers.slice() : [];
+                    var normalized = [];
+                    for (var i = 0; i < tiers.length; i++) {
+                        var t = tiers[i];
+                        if (!t || typeof t !== 'object') continue;
+                        var toRaw = t.to;
+                        var to = (toRaw === null || toRaw === '') ? null : parseFloat(toRaw);
+                        if (to !== null && isNaN(to)) to = null;
+                        normalized.push({
+                            from: Math.max(0, parseFloat(t.from) || 0),
+                            to: to,
+                            amount_type: (t.amount_type || '') === 'fixed' ? 'fixed' : 'percentage',
+                            amount: Math.max(0, parseFloat(t.amount) || 0)
+                        });
+                    }
+                    normalized.sort(function (a, b) { return a.from - b.from; });
+                    var matched = null;
+                    for (var j = 0; j < normalized.length; j++) {
+                        var u = normalized[j];
+                        if (lineAmount < u.from) continue;
+                        if (u.to !== null && lineAmount > u.to) continue;
+                        matched = u;
+                        break;
+                    }
+                    if (!matched) {
+                        return { admin_commission: 0, provider_earning: round2(lineAmount) };
+                    }
+                    var admin = 0;
+                    if (matched.amount_type === 'percentage') admin = lineAmount * (matched.amount / 100.0);
+                    else {
+                        var amt = matched.amount;
+                        admin = additiveFixedFee ? amt : Math.min(amt, lineAmount);
+                    }
+                    var provider = additiveFixedFee && matched.amount_type === 'fixed'
+                        ? round2(lineAmount)
+                        : Math.max(0, lineAmount - admin);
+                    return { admin_commission: round2(admin), provider_earning: round2(provider) };
+                }
+
+                /** Retained becomes the new effective total; compute tier split on scaled service+spare so fa+fp=retained. */
+                function commissionTargetsForRetained(retained) {
+                    var r = Math.max(0, round2(parseFloat(retained) || 0));
+                    if (r <= 0.0001) return { fa: 0, fp: 0 };
+                    if (!tierSetup || !tierSetup.service || !tierSetup.spare_parts) return { fa: 0, fp: r };
+                    var base = round2(Math.max(0, svcFull) + Math.max(0, spareFull));
+                    if (base <= 0.0001) return { fa: 0, fp: r };
+                    var factor = Math.min(1, r / base);
+                    var svc = round2(Math.max(0, svcFull) * factor);
+                    var sp = round2(Math.max(0, spareFull) * factor);
+                    var p1 = commissionCalcLinePreview(svc, tierSetup.service, false);
+                    var p2 = commissionCalcLinePreview(sp, tierSetup.spare_parts, false);
+                    return {
+                        fa: round2((parseFloat(p1.admin_commission) || 0) + (parseFloat(p2.admin_commission) || 0)),
+                        fp: round2((parseFloat(p1.provider_earning) || 0) + (parseFloat(p2.provider_earning) || 0))
+                    };
+                }
+
                 function getEffectiveRefundAmounts() {
                     var inpCo = modal.querySelector('.js-rs-refund-co');
                     var inpPr = modal.querySelector('.js-rs-refund-pr');
@@ -257,20 +336,25 @@
                     if (elCo) elCo.textContent = owesCo.toFixed(2);
                     if (elPr) elPr.textContent = owesPr.toFixed(2);
                     var retained = Math.max(0, Math.round((totalPaid - rCo - rPr) * 100) / 100);
-                    var ratio = totalPaid > 0.0001 ? Math.min(1, retained / totalPaid) : 0;
-                    var fa = Math.round(baseAdmin * ratio * 100) / 100;
-                    var fp = Math.round(baseProvider * ratio * 100) / 100;
+                    var split = commissionTargetsForRetained(retained);
+                    var fa = split.fa;
+                    var fp = split.fp;
+                    var coAfter = Math.max(0, Math.round((coPool - rCo) * 100) / 100);
+                    var prAfter = Math.max(0, Math.round((prPool - rPr) * 100) / 100);
+                    var shortAdmin = Math.max(0, Math.round((fa - coAfter) * 100) / 100);
+                    var shortProvider = Math.max(0, Math.round((fp - prAfter) * 100) / 100);
                     var elRet = modal.querySelector('.js-rs-retained');
                     var elFa = modal.querySelector('.js-rs-final-admin');
                     var elFp = modal.querySelector('.js-rs-final-pr');
                     if (elRet) elRet.value = retained.toFixed(2);
                     if (elFa) elFa.value = fa.toFixed(2);
                     if (elFp) elFp.value = fp.toFixed(2);
-                    var providerRemitTotal = Math.round((owesCo + fa) * 100) / 100;
+                    var providerRemitTotal = Math.round((owesCo + shortAdmin) * 100) / 100;
+                    var companyPayTotal = Math.round((owesPr + shortProvider) * 100) / 100;
                     var elRemitTot = modal.querySelector('.js-rs-provider-remit-total');
                     var elCoPayTot = modal.querySelector('.js-rs-company-pay-pr-total');
                     if (elRemitTot) elRemitTot.textContent = formatMoney(providerRemitTotal);
-                    if (elCoPayTot) elCoPayTot.textContent = formatMoney(owesPr);
+                    if (elCoPayTot) elCoPayTot.textContent = formatMoney(companyPayTotal);
                 }
                 function onRefundInput(e) {
                     if (!e.target) return;

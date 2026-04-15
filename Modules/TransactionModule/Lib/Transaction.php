@@ -2691,8 +2691,9 @@ if (!function_exists('shiftRefundSubscriptionTransaction')) {
 /**
  * After a disputed reopen refund, post inter-party reconciliation.
  * $providerOwesCompany should be the full amount the provider must remit to the company: refund leg above the
- * company pool plus net admin commission on retained customer funds (same basis as reopen_disputed_snapshot).
- * $companyOwesProvider is the refund leg above the provider pool only.
+ * company pool plus max(0, final admin commission (full tier) − company customer-cash retained after refund).
+ * $companyOwesProvider is the refund leg above the provider pool plus max(0, final provider earning (full tier) −
+ * provider customer-cash retained after refund).
  */
 if (!function_exists('record_reopen_disputed_refund_reconciliation')) {
     function record_reopen_disputed_refund_reconciliation(

@@ -6,7 +6,6 @@
         'on_hold' => 'secondary',
         'completed' => 'success',
         'canceled', 'cancelled' => 'danger',
-        'refunded' => 'success',
         default => 'info',
     };
     $__label = booking_admin_booking_status_display_label($booking);
