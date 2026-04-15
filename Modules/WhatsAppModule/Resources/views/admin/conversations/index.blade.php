@@ -25,38 +25,71 @@
                 overflow-x: hidden;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
-                padding-bottom: 120px;
+                padding-bottom: 20px;
             }
             .main-area > footer.footer {
                 flex-shrink: 0;
             }
-            /* Space below the split row inside the scrollable page (min ~100px before end of scroll). */
+            /* Space below the split row (chats + conversation) inside the scrollable page. */
             .wa-whatsapp-chats-split-page .wa-chats-split-layout {
-                --wa-chats-pane-bottom-gap: 100px;
+                --wa-chats-pane-bottom-gap: 20px;
                 margin-bottom: var(--wa-chats-pane-bottom-gap);
             }
             @media (min-width: 768px) {
                 /*
-                 * Pane height: use vh inside scrollable main-content (not 100dvh of viewport alone).
+                 * Fixed 900px row: clip overflow; columns/cards must not grow with content.
+                 * Scroll lives only inside .wa-active-chat-list-scroll and #whatsapp-chat-messages.
                  */
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout {
-                    --wa-chats-pane-h: min(820px, calc(72vh - 2rem));
+                    --wa-chats-pane-h: 900px;
+                    display: flex;
+                    flex-direction: row;
+                    flex-wrap: nowrap;
+                    align-items: stretch;
                     height: var(--wa-chats-pane-h);
                     min-height: var(--wa-chats-pane-h);
                     max-height: var(--wa-chats-pane-h);
-                    align-items: stretch;
+                    overflow: hidden;
                 }
-                .wa-chats-split-layout > .wa-chats-split-col {
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout > .wa-chats-split-col {
                     display: flex;
                     flex-direction: column;
                     align-self: stretch;
+                    min-width: 0;
                     min-height: 0;
+                    max-height: 100%;
+                    overflow: hidden;
                 }
-                .wa-chats-split-layout > .wa-chats-split-col > .card {
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout > .wa-chats-split-col > .card {
                     flex: 1 1 auto;
+                    min-width: 0;
                     min-height: 0;
                     height: 100%;
                     max-height: 100%;
+                    overflow: hidden;
+                }
+                /*
+                 * height:0 + flex:1 is the standard pattern so flex children scroll instead of
+                 * expanding the parent (min-height:auto would follow content size).
+                 */
+                .wa-whatsapp-chats-split-page .wa-active-chat-list-scroll {
+                    flex: 1 1 0%;
+                    height: 0;
+                    min-height: 0;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .wa-whatsapp-chats-split-page .wa-chat-main-panel #whatsapp-chat-panel {
+                    flex: 1 1 0%;
+                    height: 0;
+                    min-height: 0;
+                    overflow: hidden;
+                }
+                .wa-whatsapp-chats-split-page .wa-chat-main-panel #whatsapp-chat-messages {
+                    flex: 1 1 0%;
+                    height: 0;
+                    min-height: 0;
                 }
             }
             .wa-active-chat-list-scroll {
@@ -200,8 +233,21 @@
             .wa-chat-main-panel #whatsapp-chat-messages {
                 flex: 1 1 0;
                 min-height: 0;
+                overflow-x: hidden;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
+                display: flex;
+                flex-direction: column;
+            }
+            /* Newest messages sit at the bottom when the thread is short (same as typical chat apps). */
+            .wa-chat-main-panel #whatsapp-chat-messages > .wa-chat-messages-inner {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+                min-height: 100%;
+                width: 100%;
+                box-sizing: border-box;
+                padding-bottom: 0.25rem;
             }
             .wa-chat-main-panel #whatsapp-chat-panel > .card-footer {
                 flex: 0 0 auto;
@@ -874,7 +920,9 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div id="whatsapp-chat-messages" class="card-body flex-grow-1 wa-min-h-0"></div>
+                                <div id="whatsapp-chat-messages" class="card-body flex-grow-1 wa-min-h-0 p-0">
+                                    <div class="wa-chat-messages-inner px-3 pt-2"></div>
+                                </div>
                                 <?php if(auth()->check() && auth()->user()->can('whatsapp_chat_reply')): ?>
                                     <div class="card-footer border-top">
                                         <div id="wa-session-window-banner" class="alert alert-warning py-2 px-3 mb-2 d-none small" role="status"></div>
@@ -2059,18 +2107,33 @@
         waRebuildWabaTemplateFields();
     }
 
+    function waChatMessagesInner(panel) {
+        if (!panel) {
+            return null;
+        }
+        var inner = panel.querySelector('.wa-chat-messages-inner');
+        if (!inner) {
+            inner = document.createElement('div');
+            inner.className = 'wa-chat-messages-inner px-3 pt-2';
+            panel.textContent = '';
+            panel.appendChild(inner);
+        }
+        return inner;
+    }
+
     function loadMessages(phone, isPoll) {
         var panel = document.getElementById('whatsapp-chat-messages');
         if (!panel) {
             return;
         }
+        var inner = waChatMessagesInner(panel);
         var wasNearBottom = true;
         if (isPoll && panel) {
             var threshold = 100;
             wasNearBottom = (panel.scrollHeight - panel.scrollTop - panel.clientHeight) <= threshold;
         }
-        if (!isPoll) {
-            panel.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
+        if (!isPoll && inner) {
+            inner.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
         }
         var url = messagesUrl + '?phone=' + encodeURIComponent(phone) + '&full=1&mark_seen=1';
         if (stickyFocusMessageId) {
@@ -2260,7 +2323,9 @@
                     }
                     html += '</div>';
                 });
-                panel.innerHTML = html || '<p class="text-muted text-center py-4">No messages yet</p>';
+                if (inner) {
+                    inner.innerHTML = html || '<p class="text-muted text-center py-4">No messages yet</p>';
+                }
                 // Bind video preview buttons
                 panel.querySelectorAll('.whatsapp-video-thumb').forEach(function(btn) {
                     btn.addEventListener('click', function (e) {
@@ -2519,7 +2584,10 @@
             })
             .catch(function() {
                 if (!isPoll) {
-                    panel.innerHTML = '<p class="text-danger text-center py-4">Failed to load messages</p>';
+                    var inEl = waChatMessagesInner(panel);
+                    if (inEl) {
+                        inEl.innerHTML = '<p class="text-danger text-center py-4">Failed to load messages</p>';
+                    }
                 }
             });
     }
@@ -3276,6 +3344,7 @@
 
         // Optimistic UI: show message immediately with \"Sending…\" status.
         var panel = document.getElementById('whatsapp-chat-messages');
+        var innerPanel = waChatMessagesInner(panel);
         var time = waFormatChatMessageDateTimeNow();
         var safeBody = body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
         var tempId = 'wa-temp-' + Date.now();
@@ -3308,7 +3377,9 @@
                 }
                 inner += '</div>';
                 wrap.innerHTML = inner;
-                panel.appendChild(wrap);
+                if (innerPanel) {
+                    innerPanel.appendChild(wrap);
+                }
                 if (!statusSpan) {
                     statusSpan = wrap.querySelector('[data-temp-status=\"' + tempId + '\"]');
                 }
@@ -3322,10 +3393,14 @@
                     optReplyBlock +
                     '<div class=\"mt-1\">' + safeBody + '</div>' +
                 '</div>';
-            panel.appendChild(wrapper);
+            if (innerPanel) {
+                innerPanel.appendChild(wrapper);
+            }
             statusSpan = wrapper.querySelector('[data-temp-status=\"' + tempId + '\"]');
         }
-        panel.scrollTop = panel.scrollHeight;
+        if (panel) {
+            panel.scrollTop = panel.scrollHeight;
+        }
 
         var btn = this.querySelector('button[type=\"submit\"]');
         btn.disabled = true;
