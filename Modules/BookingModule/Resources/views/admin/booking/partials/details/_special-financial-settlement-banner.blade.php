@@ -75,10 +75,10 @@
                     @endif
                     @can('booking_can_manage_status')
                         @if ($bfsScaledOutcome && $bfsScaledWriteoff > 0.009)
-                            <form method="post" action="{{ route('admin.booking.loss_writeoff.revert', $booking->id) }}" class="d-inline">
-                                @csrf
-                                <button type="submit" class="btn btn-outline-danger btn-sm text-nowrap">{{ translate('Revert_write_off') }}</button>
-                            </form>
+                            <button type="button" class="btn btn-outline-danger btn-sm text-nowrap"
+                                data-bs-toggle="modal" data-bs-target="#bfsWriteoffRevertConfirmModal-{{ $booking->id }}">
+                                {{ translate('Revert_write_off') }}
+                            </button>
                         @endif
                         @if ($canConfigureSettlement && $bfsIncludeSettlementModal)
                             <button type="button" class="btn btn--primary btn-sm text-nowrap" data-bs-toggle="modal"
@@ -214,4 +214,27 @@
             @endif
         </div>
     </div>
+
+    @if ($bfsScaledOutcome && $bfsScaledWriteoff > 0.009)
+        <div class="modal fade" id="bfsWriteoffRevertConfirmModal-{{ $booking->id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ translate('Revert_write_off') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0 text-muted">{{ translate('Revert_write_off_confirm') }}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                        <form method="post" action="{{ route('admin.booking.loss_writeoff.revert', $booking->id) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-danger">{{ translate('Revert_write_off') }}</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 @endif
