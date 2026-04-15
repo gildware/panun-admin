@@ -186,13 +186,14 @@
                                     <tr>
                                         <th>{{translate('SL')}}</th>
                                         <th>{{translate('Booking_ID')}}</th>
+                                        <th>{{ translate('Booking_Status') }}</th>
+                                        <th>{{ translate('Tag') }}</th>
                                         <th>{{ translate('Where_Service_will_be_Provided') }}</th>
                                         <th>{{translate('Customer_Info')}}</th>
                                         <th>{{translate('Total_Amount')}}</th>
                                         <th>{{translate('Payment_Status')}}</th>
                                         <th>{{translate('Schedule_Date')}}</th>
                                         <th>{{translate('Booking_Date')}}</th>
-                                        <th>{{translate('status')}}</th>
                                         <th>{{translate('Action')}}</th>
                                     </tr>
                                     </thead>
@@ -221,6 +222,12 @@
                                                     <a href="{{ route('provider.booking.details', [$booking->id, 'web_page' => 'details']) }}">
                                                         {{ $booking->readable_id }}</a>
                                                 @endif
+                                            </td>
+                                            <td>
+                                                @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
+                                            </td>
+                                            <td class="text-nowrap">
+                                                @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
                                             </td>
                                             <td>
                                                 @if($booking->service_location == 'provider')
@@ -262,11 +269,6 @@
                                                 @endif
                                             </td>
                                             <td>{{date('d-M-Y h:ia',strtotime($booking->created_at))}}</td>
-                                            <td>
-                                                <span class="badge badge badge-success">
-                                                    {{ucfirst($booking->booking_status)}}
-                                                </span>
-                                            </td>
                                             <td>
                                                 <div class="table-actions gap-2">
                                                     @if($booking->is_repeated)

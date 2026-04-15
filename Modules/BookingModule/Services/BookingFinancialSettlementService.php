@@ -31,6 +31,18 @@ class BookingFinancialSettlementService
     }
 
     /**
+     * "Configure special scenarios" outcomes: per-booking commission override and compensation must stay off (settlement defines economics).
+     */
+    public static function specialScenarioOutcomeDisablesCommissionOverrideAndCompensation(?string $outcome): bool
+    {
+        $o = trim((string) ($outcome ?? ''));
+
+        return $o === self::OUTCOME_VISIT_RETAINED_CANCEL
+            || $o === self::OUTCOME_VISIT_FEE_SPLIT
+            || $o === self::OUTCOME_SCALED_TO_PAYMENTS;
+    }
+
+    /**
      * Full list including standard (reports, badges, validation allow-list).
      */
     public static function outcomeOptions(): array

@@ -93,6 +93,8 @@
                                             <tr>
                                                 <th>{{ translate('SL') }}</th>
                                                 <th>{{ translate('Booking_ID') }}</th>
+                                                <th>{{ translate('Booking_Status') }}</th>
+                                                <th>{{ translate('Tag') }}</th>
                                                 <th>{{ translate('Follow_up_for') }}</th>
                                                 <th>{{ translate('Customer_Info') }}</th>
                                                 <th>{{ translate('Provider_Info') }}</th>
@@ -108,7 +110,20 @@
                                                     <td>
                                                         @if($followup->booking)
                                                             <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}" class="text-primary text-decoration-none">{{ $followup->booking->readable_id }}</a>
-                                                            @include('bookingmodule::admin.booking.partials._booking-settlement-list-badge', ['booking' => $followup->booking])
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        @if($followup->booking)
+                                                            @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $followup->booking])
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                    <td class="text-nowrap">
+                                                        @if($followup->booking)
+                                                            @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $followup->booking])
                                                         @else
                                                             —
                                                         @endif

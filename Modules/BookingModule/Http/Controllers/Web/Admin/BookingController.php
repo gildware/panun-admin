@@ -444,6 +444,13 @@ class BookingController extends Controller
                 return redirect()->route('admin.booking.details', [$src->id, 'web_page' => 'details']);
             }
 
+            if ($src->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
+                session()->forget('reopen_new_booking_draft');
+                Toastr::error(translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened'));
+
+                return redirect()->route('admin.booking.details', [$src->id, 'web_page' => 'details']);
+            }
+
             $reopenNewBookingDraft = array_merge($draft, [
                 'source_readable_id' => $src->readable_id,
             ]);
@@ -1400,6 +1407,11 @@ class BookingController extends Controller
                         'reopen_source_booking_id' => [translate('Loss_making_completed_booking_cannot_be_reopened')],
                     ]);
                 }
+                if ($srcPreview && $srcPreview->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
+                    throw ValidationException::withMessages([
+                        'reopen_source_booking_id' => [translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened')],
+                    ]);
+                }
             }
 
             // If service location is provider, clear service_address_id
@@ -1663,6 +1675,11 @@ class BookingController extends Controller
             if ($sourceForFollowUp && $sourceForFollowUp->isLossMakingFinancialSettlement()) {
                 throw ValidationException::withMessages([
                     'reopen_source_booking_id' => [translate('Loss_making_completed_booking_cannot_be_reopened')],
+                ]);
+            }
+            if ($sourceForFollowUp && $sourceForFollowUp->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
+                throw ValidationException::withMessages([
+                    'reopen_source_booking_id' => [translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened')],
                 ]);
             }
         }
@@ -2457,12 +2474,13 @@ class BookingController extends Controller
             $financialSettlementOutcomes = BookingFinancialSettlementService::outcomeOptionsForSpecialScenariosModal();
             $defaultVisitFeeCompanyPercent = $financialSettlementService->defaultVisitCompanyPercent();
             $bfsDefaultCustomAdminCommission = $financialSettlementService->defaultTierAdminCommissionForBooking($booking);
+            $allowDeleteAdminBookingPartialPayments = $this->bookingAllowsAdminPartialPaymentDeletion($booking);
 
             try {
                 $advancePaymentMethodGroups = $this->getAdminAdvancePaymentMethodGroupsForCreate();
 
                 return view('bookingmodule::admin.booking.details', array_merge(
-                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups'),
+                    compact('zoneCenter', 'currentZone', 'centerLat', 'centerLng', 'area', 'booking', 'servicemen', 'webPage', 'customerAddress', 'services', 'zones', 'category', 'subCategory', 'bookingEditCategories', 'providers', 'sort_by', 'assignees', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone', 'remainingDueForAddPayment', 'maxRefundAmount', 'additionalChargesDisplayRows', 'financialSettlementOutcomes', 'defaultVisitFeeCompanyPercent', 'bfsDefaultCustomAdminCommission', 'advancePaymentMethodGroups', 'allowDeleteAdminBookingPartialPayments'),
                     $this->bookingConfigurationReasonVariables()
                 ));
             } catch (Throwable $e) {
@@ -4257,6 +4275,11 @@ class BookingController extends Controller
         $booking = $this->booking->findOrFail($id);
         if ((int) ($booking->is_repeated ?? 0) !== 0) {
             Toastr::error(translate('Financial_settlement_applies_to_single_bookings_only'));
+
+            return redirect()->back();
+        }
+        if ($booking->blocksAdminCommissionOverrideAndCompensation()) {
+            Toastr::error(translate('Bfs_commission_override_and_compensation_not_for_special_settlement'));
 
             return redirect()->back();
         }
@@ -6075,6 +6098,95 @@ class BookingController extends Controller
         }
 
         $ids = array_values(array_unique($validated['partial_payment_ids']));
+
+        try {
+            $this->deleteAdminEntryPartialPaymentsForBooking($booking, $ids);
+        } catch (ValidationException $e) {
+            return response()->json(response_formatter(DEFAULT_400, null, $e->errors()), 400);
+        }
+
+        $payload = response_formatter(DEFAULT_UPDATE_200, null);
+        $payload['message'] = translate('Update_successfully');
+
+        return response()->json($payload, 200);
+    }
+
+    /**
+     * Admin: remove a mistaken "Add payment" / installment row ({@see BookingPartialPayment} with {@code paid_with} admin_entry).
+     * Reverses linked cross-party {@see Transaction} rows (when the provider received cash), deletes company ledger IN rows, rewrites installment due_amount, and refreshes is_paid / loss-making flags.
+     */
+    public function deleteAdminPartialPayment(Request $request, string $id): JsonResponse|RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $validated = $request->validate([
+            'partial_payment_id' => 'required|uuid',
+        ]);
+
+        $booking = $this->booking->with('booking_partial_payments')->find($id);
+        if (! $booking) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_404, null, ['booking' => [translate('Booking not found')]]), 404);
+            }
+            Toastr::error(translate('Booking not found'));
+
+            return back();
+        }
+
+        if (! $this->bookingAllowsAdminPartialPaymentDeletion($booking)) {
+            $msg = translate('Delete_payment_entry_not_allowed_for_this_booking');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['booking' => [$msg]]), 400);
+            }
+            Toastr::error($msg);
+
+            return back();
+        }
+
+        try {
+            $this->deleteAdminEntryPartialPaymentsForBooking($booking, [(string) $validated['partial_payment_id']]);
+        } catch (ValidationException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, $e->errors()), 400);
+            }
+            Toastr::error(collect($e->errors())->flatten()->implode(' '));
+
+            return back();
+        }
+
+        if ($request->wantsJson()) {
+            $payload = response_formatter(DEFAULT_UPDATE_200, null);
+            $payload['message'] = translate('Payment_entry_deleted_successfully');
+
+            return response()->json($payload, 200);
+        }
+
+        Toastr::success(translate('Payment_entry_deleted_successfully'));
+
+        return back();
+    }
+
+    /**
+     * Parent bookings only; not canceled / refunded repeat children.
+     */
+    private function bookingAllowsAdminPartialPaymentDeletion(Booking $booking): bool
+    {
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            return false;
+        }
+        $status = strtolower(trim((string) ($booking->booking_status ?? '')));
+
+        return ! in_array($status, ['canceled', 'cancelled', 'refunded'], true);
+    }
+
+    /**
+     * @param  list<string>  $partialPaymentIds
+     *
+     * @throws ValidationException
+     */
+    private function deleteAdminEntryPartialPaymentsForBooking(Booking $booking, array $partialPaymentIds): void
+    {
+        $ids = array_values(array_unique($partialPaymentIds));
         $deletionService = app(AdminBookingDeletionService::class);
 
         DB::transaction(function () use ($booking, $ids, $deletionService) {
@@ -6085,12 +6197,12 @@ class BookingController extends Controller
                     ->first();
                 if (! $partial) {
                     throw ValidationException::withMessages([
-                        'partial_payment_ids' => [translate('Invalid_request')],
+                        'partial_payment_id' => [translate('Invalid_request')],
                     ]);
                 }
                 if (($partial->paid_with ?? '') !== 'admin_entry') {
                     throw ValidationException::withMessages([
-                        'partial_payment_ids' => [translate('Invalid_request')],
+                        'partial_payment_id' => [translate('Only_admin_entered_installments_can_be_deleted')],
                     ]);
                 }
 
@@ -6138,11 +6250,6 @@ class BookingController extends Controller
                 }
             }
         });
-
-        $payload = response_formatter(DEFAULT_UPDATE_200, null);
-        $payload['message'] = translate('Update_successfully');
-
-        return response()->json($payload, 200);
     }
 
     /**
@@ -6296,6 +6403,35 @@ class BookingController extends Controller
     }
 
     /**
+     * Decided-charges scenarios (after-visit cancel, visit-only complete) are only valid when the retained
+     * amount (visit + optional closing) is strictly below the booking invoice total.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function assertDecidedChargesRetainedStrictlyBelowBookingTotal(Booking $booking, string $outcome, array $validated): void
+    {
+        if (! BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges($outcome)) {
+            return;
+        }
+
+        $visit = isset($validated['visit_charges_paid']) && $validated['visit_charges_paid'] !== null && $validated['visit_charges_paid'] !== ''
+            ? round(max(0.0, (float) $validated['visit_charges_paid']), 2)
+            : 0.0;
+        $closing = isset($validated['closing_amount_paid']) && $validated['closing_amount_paid'] !== null && $validated['closing_amount_paid'] !== ''
+            ? round(max(0.0, (float) $validated['closing_amount_paid']), 2)
+            : 0.0;
+        $retained = round($visit + $closing, 2);
+        $grand = round(max(0.0, (float) get_booking_total_amount($booking)), 2);
+
+        if ($retained >= $grand) {
+            throw ValidationException::withMessages([
+                'visit_charges_paid' => [translate('Bfs_decided_charges_sum_must_be_below_booking_total')],
+                'closing_amount_paid' => [translate('Bfs_decided_charges_sum_must_be_below_booking_total')],
+            ]);
+        }
+    }
+
+    /**
      * @return array<string, string>
      */
     private function financialSettlementPreviewValidationRules(): array
@@ -6340,9 +6476,11 @@ class BookingController extends Controller
 
         $validated = $request->validate($this->financialSettlementPreviewValidationRules());
 
+        $outcome = $validated['settlement_outcome'];
+        $this->assertDecidedChargesRetainedStrictlyBelowBookingTotal($booking, $outcome, $validated);
+
         $config = $this->financialSettlementConfigFromValidated($validated);
 
-        $outcome = $validated['settlement_outcome'];
         $bookingForScaled = $this->booking->with('booking_partial_payments')->findOrFail($id);
         $this->assertFinancialSettlementScaledLossSplitValid($bookingForScaled, $outcome, $config);
 
@@ -6448,6 +6586,8 @@ class BookingController extends Controller
             ],
         ]));
 
+        $this->assertDecidedChargesRetainedStrictlyBelowBookingTotal($booking, $validated['settlement_outcome'], $validated);
+
         $config = $this->financialSettlementConfigFromValidated($validated);
         $service = app(BookingFinancialSettlementService::class);
 
@@ -6515,9 +6655,11 @@ class BookingController extends Controller
             'settlement_remarks' => 'nullable|string|max:2000',
         ]));
 
+        $outcome = $validated['settlement_outcome'];
+        $this->assertDecidedChargesRetainedStrictlyBelowBookingTotal($booking, $outcome, $validated);
+
         $config = $this->financialSettlementConfigFromValidated($validated);
         $service = app(BookingFinancialSettlementService::class);
-        $outcome = $validated['settlement_outcome'];
 
         $remarks = isset($validated['settlement_remarks']) && is_string($validated['settlement_remarks'])
             ? trim($validated['settlement_remarks']) : null;
@@ -6792,6 +6934,16 @@ class BookingController extends Controller
                 return response()->json(response_formatter(DEFAULT_400, null, ['type' => [$msg]]), 400);
             }
             Toastr::error($msg);
+            return back();
+        }
+
+        if ($booking->blocksAdminCommissionOverrideAndCompensation()) {
+            $msg = translate('Bfs_commission_override_and_compensation_not_for_special_settlement');
+            if ($request->wantsJson()) {
+                return response()->json(response_formatter(DEFAULT_400, null, ['type' => [$msg]]), 400);
+            }
+            Toastr::error($msg);
+
             return back();
         }
 

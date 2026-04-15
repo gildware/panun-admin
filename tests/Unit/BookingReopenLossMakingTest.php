@@ -69,4 +69,37 @@ class BookingReopenLossMakingTest extends TestCase
 
         app(BookingReopenService::class)->linkNewBookingFromReopenedCompleted($source, $newBooking, $actor, '', null);
     }
+
+    public function test_reopen_in_place_rejects_visit_fee_split_settlement_booking(): void
+    {
+        $booking = new Booking;
+        $booking->is_repeated = 0;
+        $booking->booking_status = 'completed';
+        $booking->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+
+        $actor = new User;
+        $actor->id = '00000000-0000-0000-0000-000000000001';
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage(translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened'));
+
+        app(BookingReopenService::class)->reopenInPlace($booking, $actor, '', 'accepted', null, null);
+    }
+
+    public function test_link_follow_up_rejects_visit_fee_split_source(): void
+    {
+        $source = new Booking;
+        $source->is_repeated = 0;
+        $source->booking_status = 'completed';
+        $source->settlement_outcome = BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+
+        $newBooking = new Booking;
+        $actor = new User;
+        $actor->id = '00000000-0000-0000-0000-000000000001';
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage(translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened'));
+
+        app(BookingReopenService::class)->linkNewBookingFromReopenedCompleted($source, $newBooking, $actor, '', null);
+    }
 }

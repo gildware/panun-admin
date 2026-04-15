@@ -67,6 +67,8 @@
                             <tr>
                                         <th>{{translate('SL')}}</th>
                                         <th>{{translate('Booking_ID')}}</th>
+                                        <th>{{ translate('Booking_Status') }}</th>
+                                        <th>{{ translate('Tag') }}</th>
                                         <th>{{ translate('Assignee') }}</th>
                                         <th>{{ translate('Fup_Customer') }}</th>
                                         <th>{{ translate('Fup_Provider') }}</th>
@@ -77,7 +79,7 @@
                                         <th>{{translate('Payment_Status')}}</th>
                                         <th>{{translate('Schedule_Date')}}</th>
                                         <th>{{translate('Booking_Date')}}</th>
-                                        <th>{{translate('Status')}}</th>
+                                        <th>{{translate('Verification')}}</th>
                                         <th>{{translate('Action')}}</th>
                                     </tr>
                                     </thead>
@@ -88,7 +90,12 @@
                                             <td>
                                                 <a href="{{route('admin.booking.details', [$booking->id,'web_page'=>'details'])}}">
                                                     {{$booking->readable_id}}</a>
-                                                @include('bookingmodule::admin.booking.partials._booking-settlement-list-badge', ['booking' => $booking])
+                                            </td>
+                                            <td>
+                                                @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
+                                            </td>
+                                            <td class="text-nowrap">
+                                                @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
                                             </td>
                                             <td>
                                                 @if($booking->assignee)
