@@ -194,13 +194,24 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        /* Match conversations index: message scroll area up to 1000px, shrink on short viewports */
+        /* Match conversations index split: message scroll area fixed at 800px */
         .wa-chat-standalone-messages {
-            --wa-chat-msg-h: min(1000px, calc(100dvh - 280px));
+            --wa-chat-msg-h: max(320px, min(800px, calc(100dvh - 16rem)));
             min-height: var(--wa-chat-msg-h);
             max-height: var(--wa-chat-msg-h);
+            overflow-x: hidden;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+        }
+        .wa-chat-standalone-messages > .wa-chat-messages-inner {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            min-height: 100%;
+            width: 100%;
+            box-sizing: border-box;
         }
     </style>
 @endpush
@@ -347,6 +358,7 @@
                 <div class="col-lg-8">
                     <div class="card card-body">
                         <div class="chat-messages wa-chat-standalone-messages mb-3">
+                            <div class="wa-chat-messages-inner">
                             @foreach($messages as $msg)
                                 @php
                                     $isOut = strtoupper($msg->direction ?? '') === 'OUT';
@@ -466,6 +478,7 @@
                             @if($messages->isEmpty())
                                 <p class="text-muted text-center py-4">{{ translate('No messages yet') }}</p>
                             @endif
+                            </div>
                         </div>
 
                         @can('whatsapp_chat_reply')
@@ -589,7 +602,13 @@
 
 @push('script')
     <script>
-        document.querySelector('.chat-messages')?.scrollTo(0, 1e9);
+        (function () {
+            var cm = document.querySelector('.wa-chat-standalone-messages');
+            if (!cm) return;
+            requestAnimationFrame(function () {
+                cm.scrollTop = cm.scrollHeight;
+            });
+        })();
         (function () {
             var waConvTemplates = @json($waQuickTplPayloadChat);
             var waAgentName = @json($waAgentDisplayNameForTemplates ?? '');

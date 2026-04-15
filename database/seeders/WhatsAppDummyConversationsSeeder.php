@@ -24,6 +24,9 @@ class WhatsAppDummyConversationsSeeder extends Seeder
 {
     private const PHONE_PREFIX = '+19990000';
 
+    /** Dummy threads use +199900000001 … +19990000{count padded to 4}. */
+    private const DEMO_CHAT_COUNT = 100;
+
     public function run(): void
     {
         if (!Schema::hasTable('whatsapp_messages') || !Schema::hasTable('whatsapp_users')) {
@@ -32,14 +35,10 @@ class WhatsAppDummyConversationsSeeder extends Seeder
             return;
         }
 
-        $dummyPhones = [
-            self::PHONE_PREFIX . '0001',
-            self::PHONE_PREFIX . '0002',
-            self::PHONE_PREFIX . '0003',
-            self::PHONE_PREFIX . '0004',
-            self::PHONE_PREFIX . '0005',
-            self::PHONE_PREFIX . '0006',
-        ];
+        $dummyPhones = [];
+        for ($n = 1; $n <= self::DEMO_CHAT_COUNT; $n++) {
+            $dummyPhones[] = self::PHONE_PREFIX . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        }
 
         $this->purgeDummyThreads($dummyPhones);
 
@@ -130,12 +129,17 @@ class WhatsAppDummyConversationsSeeder extends Seeder
             ],
         ];
 
+        $curatedCount = count($threads);
+        $threads = array_merge($threads, $this->buildExtraDemoThreads($dummyPhones, $adminIds, $statusByName, $curatedCount));
+
         $tz = (string) config('whatsappmodule.message_timezone', config('app.timezone'));
         $base = Carbon::now($tz);
 
         foreach ($threads as $idx => $def) {
             $phone = $def['phone'];
-            $t0 = $base->copy()->subHours(6 - $idx)->subMinutes($idx * 7);
+            $t0 = $idx < $curatedCount
+                ? $base->copy()->subHours(6 - $idx)->subMinutes($idx * 7)
+                : $base->copy()->subMinutes(min($idx * 13, 60 * 24 * 14));
 
             WhatsAppUser::query()->updateOrCreate(
                 ['phone' => $phone],
@@ -193,6 +197,85 @@ class WhatsAppDummyConversationsSeeder extends Seeder
 
         WhatsAppActiveChatsListCache::forgetAll();
         $this->command?->info('Seeded ' . count($threads) . ' dummy WhatsApp conversation threads.');
+    }
+
+    /**
+     * @param list<string> $dummyPhones
+     * @param list<string> $adminIds
+     * @param array<string, WhatsAppChatStatus|null> $statusByName
+     * @return list<array<string, mixed>>
+     */
+    private function buildExtraDemoThreads(array $dummyPhones, array $adminIds, array $statusByName, int $curatedCount): array
+    {
+        $extra = [];
+        $statusPool = array_values(array_filter([
+            $statusByName['Open'] ?? null,
+            $statusByName['Pending reply'] ?? null,
+            $statusByName['Escalated'] ?? null,
+            $statusByName['Closed'] ?? null,
+        ]));
+        if ($statusPool === []) {
+            $statusPool = [null];
+        }
+        $tagKeyPools = [
+            ['new_lead'],
+            ['follow_up'],
+            ['billing'],
+            ['vip', 'new_lead'],
+            ['urgent'],
+            ['billing', 'follow_up'],
+            [],
+        ];
+        $services = ['Plumbing', 'AC', 'Electrician', 'Painting', 'Cleaning', 'Carpentry', 'Appliances', 'Handyman', 'Geyser', 'Pest control', 'Deep clean', 'Moving help'];
+        $ins = [
+            'Hi, can I get a quote for tomorrow?',
+            'Is same-day service available in DHA?',
+            'Please reschedule my booking to evening.',
+            'The technician did not arrive on time.',
+            'I want to cancel and get a refund.',
+            'What documents do I need for provider onboarding?',
+        ];
+        $outReplies = [
+            'Thanks — checking availability and I will reply shortly.',
+            'I have noted that — our team will confirm within 30 minutes.',
+            'Understood. I am updating dispatch now.',
+            'Sorry for the inconvenience — I am escalating this now.',
+        ];
+        $adminCount = max(1, count($adminIds));
+
+        for ($i = $curatedCount; $i < self::DEMO_CHAT_COUNT; $i++) {
+            $useAi = $i % 4 === 0;
+            $handled = $useAi ? 'AI' : $adminIds[$i % $adminCount];
+            $status = $statusPool[$i % count($statusPool)];
+            $tag_keys = $tagKeyPools[$i % count($tagKeyPools)];
+            $isProvider = $i % 17 === 0;
+            $name = $isProvider
+                ? 'Demo Provider — #' . ($i + 1)
+                : 'Demo Customer — ' . $services[$i % count($services)] . ' #' . ($i + 1);
+            $human = $i % 11 === 0;
+
+            $in = $ins[$i % count($ins)];
+            $outText = $outReplies[$i % count($outReplies)];
+            $messages = [
+                ['IN', $in, null, true],
+                ['OUT', $outText, $i % 3 === 0 ? 'read' : ($i % 3 === 1 ? 'delivered' : 'sent'), true],
+            ];
+            if ($i % 5 !== 0) {
+                $messages[] = ['IN', 'Ok, thanks.', null, $i % 2 === 0];
+            }
+
+            $extra[] = [
+                'phone' => $dummyPhones[$i],
+                'name' => $name,
+                'handled_by' => $handled,
+                'status' => $status,
+                'tag_keys' => $tag_keys,
+                'human_support' => $human,
+                'messages' => $messages,
+            ];
+        }
+
+        return $extra;
     }
 
     private function purgeDummyThreads(array $phones): void
