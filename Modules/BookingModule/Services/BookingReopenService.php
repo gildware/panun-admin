@@ -42,6 +42,10 @@ class BookingReopenService
             throw new \RuntimeException(translate('Loss_making_completed_booking_cannot_be_reopened'));
         }
 
+        if ($source->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
+            throw new \RuntimeException(translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened'));
+        }
+
         return DB::transaction(function () use ($source, $actor, $complaintNotes, $targetStatus, $holdReopenReasonId, $newServiceSchedule) {
             $event = BookingReopenEvent::query()->create([
                 'source_booking_id' => $source->id,
@@ -112,6 +116,10 @@ class BookingReopenService
 
         if ($source->isLossMakingFinancialSettlement()) {
             throw new \RuntimeException(translate('Loss_making_completed_booking_cannot_be_reopened'));
+        }
+
+        if ($source->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
+            throw new \RuntimeException(translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened'));
         }
 
         $newBooking->originated_from_booking_id = $source->id;

@@ -207,6 +207,8 @@
                                     <tr>
                                         <th>{{translate('SL')}}</th>
                                         <th>{{translate('Booking_ID')}}</th>
+                                        <th>{{translate('Booking_Status')}}</th>
+                                        <th>{{translate('Tag')}}</th>
                                         <th>{{translate('Customer_Info')}}</th>
                                         <th>{{translate('Booking_Amount')}}</th>
                                         <th>{{translate('Service_Discount')}}</th>
@@ -223,6 +225,12 @@
                                                 <a href="{{route('provider.booking.details', [$booking->id,'web_page'=>'details'])}}">
                                                     {{$booking['readable_id']}}
                                                 </a>
+                                            </td>
+                                            <td>
+                                                @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
+                                            </td>
+                                            <td class="text-nowrap">
+                                                @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
                                             </td>
                                             <td>
                                                 @if(isset($booking->customer))
@@ -257,7 +265,7 @@
                                             </td>
                                         </tr>
                                     @empty
-                                        <tr><td class="text-center" colspan="9">{{translate('Data_not_available')}}</td></tr>
+                                        <tr><td class="text-center" colspan="99">{{translate('Data_not_available')}}</td></tr>
                                     @endforelse
                                     </tbody>
                                 </table>

@@ -1,26 +1,26 @@
-{{-- Booking scenario tags for list views; expects $booking (Booking). --}}
+{{-- Booking scenario tags for list views; expects $booking (Booking). Optional bookingListTagStacked: omit mt-1 (parent uses gap). --}}
 @php
+    $bfsListTagGapClass = !empty($bookingListTagStacked) ? '' : 'mt-1';
     $bfsListOutcome = trim((string) ($booking->settlement_outcome ?? ''));
+    $bfsListStatusNorm = strtolower((string) ($booking->booking_status ?? ''));
+    $bfsListIsClosed = in_array($bfsListStatusNorm, ['completed', 'canceled', 'cancelled', 'refunded'], true);
     $hasDisputedSnapshot = !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot);
     $isCaseClosed = !empty($booking->reopen_resolved_at);
     $isRefunded = (string) ($booking->booking_status ?? '') === 'refunded';
 @endphp
 @if($hasDisputedSnapshot)
-    <span class="badge bg-danger text-wrap text-start mt-1 d-inline-block lh-sm"
-          style="max-width: min(100%, 14rem); white-space: normal;"
+    <span class="badge bg-danger text-nowrap text-start {{ $bfsListTagGapClass }} d-inline-block lh-sm"
           title="{{ translate('Disputed_bookings_tab_hint') }}">{{ translate('Booking_tag_disputed') }}</span>
 @endif
 @if($isRefunded)
-    <span class="badge bg-info text-dark text-wrap text-start mt-1 d-inline-block lh-sm"
-          style="max-width: min(100%, 14rem); white-space: normal;"
+    <span class="badge bg-info text-dark text-nowrap text-start {{ $bfsListTagGapClass }} d-inline-block lh-sm"
           title="{{ translate('Refunded') }}">{{ translate('Refunded') }}</span>
 @endif
 @if($isCaseClosed)
-    <span class="badge bg-success text-wrap text-start mt-1 d-inline-block lh-sm"
-          style="max-width: min(100%, 14rem); white-space: normal;"
+    <span class="badge bg-success text-nowrap text-start {{ $bfsListTagGapClass }} d-inline-block lh-sm"
           title="{{ translate('Reopen_case_resolved') }}">{{ translate('Booking_tag_case_closed') }}</span>
 @endif
-@if($bfsListOutcome !== '')
+@if($bfsListOutcome !== '' && ! ($bfsListOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT && ! $bfsListIsClosed))
     @php
         [$bfsBadgeClass, $bfsBadgeShort, $bfsBadgeFull] = match (true) {
             $bfsListOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL => [
@@ -57,7 +57,6 @@
             default => ['bg-dark', str_replace('_', ' ', $bfsListOutcome), str_replace('_', ' ', $bfsListOutcome)],
         };
     @endphp
-    <span class="badge {{ $bfsBadgeClass }} text-wrap text-start mt-1 d-inline-block lh-sm"
-          style="max-width: min(100%, 14rem); white-space: normal;"
+    <span class="badge {{ $bfsBadgeClass }} text-nowrap text-start {{ $bfsListTagGapClass }} d-inline-block lh-sm"
           title="{{ $bfsBadgeFull }}">{{ $bfsBadgeShort }}</span>
 @endif

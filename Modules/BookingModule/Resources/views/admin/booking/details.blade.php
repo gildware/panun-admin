@@ -310,6 +310,7 @@
 
 @section('content')
     @php
+        $allowDeleteAdminBookingPartialPayments = $allowDeleteAdminBookingPartialPayments ?? false;
         $bookingDetail = $booking->detail ?? collect();
         $totalPaidFromPartials = (float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount');
         $bookingTotalForPayment = get_booking_payable_total_for_partial_dues($booking);
@@ -424,7 +425,7 @@
                 $__holdHist = $booking->latestParentHoldStatusHistory;
                 $__reopenEv = $booking->reopenFromCompletedDisplayEvent();
                 $__respLabels = ['customer' => translate('Customer'), 'provider' => translate('Provider'), 'staff' => translate('Staff'), 'no_one' => translate('No_one')];
-                $__overviewShowReopenInCard = (int) ($booking->is_repeated ?? 0) === 0 && $__overviewSt === 'completed' && ! $booking->isLossMakingFinancialSettlement();
+                $__overviewShowReopenInCard = $booking->adminEligibleForReopenFromCompleted();
                 $__overviewBadge = 'info';
                 if ($__overviewSt === 'ongoing') {
                     $__overviewBadge = 'warning';
@@ -475,6 +476,11 @@
                             @else
                                 <span class="badge bg-secondary">{{ translate('Bfs_badge_loss_making_booking') }}</span>
                             @endif
+                        @endif
+                        @if(in_array($__headerStatusNorm, ['completed', 'canceled', 'cancelled', 'refunded'], true)
+                            && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT)
+                            <span class="badge bg-success"
+                                title="{{ translate('Bfs_label_complete_visit_only') }}">{{ translate('Bfs_list_badge_little_or_no_service') }}</span>
                         @endif
                         @if(!empty($booking->after_visit_cancel))
                             <span class="badge bg-dark">{{ translate('Bfs_badge_after_visit_cancel') }}</span>
@@ -747,7 +753,7 @@
                             <span class="material-icons">description</span>{{ translate('Invoice') }}
                         </a>
                         @can('booking_can_manage_status')
-                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed' && ! $booking->isLossMakingFinancialSettlement())
+                            @if($booking->adminEligibleForReopenFromCompleted())
                                 <button type="button" class="btn btn--secondary" data-bs-toggle="modal"
                                     data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                                     <span class="material-icons">restore</span>{{ translate('Reopen_or_complaint') }}
@@ -1764,6 +1770,9 @@
                                                 ->orderBy('id')
                                                 ->with('creator')
                                                 ->get();
+                                            $showInstallmentPaymentDeleteColumn = $allowDeleteAdminBookingPartialPayments
+                                                && auth()->check()
+                                                && auth()->user()->can('booking_can_manage_status');
                                         @endphp
                                         <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Installment_payments') }}</p>
                                         <div class="table-responsive">
@@ -1777,6 +1786,9 @@
                                                         <th class="text-nowrap">{{ translate('Payment_Method') }}</th>
                                                         <th class="text-nowrap">{{ translate('transaction_id') }}</th>
                                                         <th class="text-nowrap">{{ translate('Due_after_this_payment') }}</th>
+                                                        @if($showInstallmentPaymentDeleteColumn)
+                                                            <th class="text-nowrap text-end">{{ translate('Action') }}</th>
+                                                        @endif
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1801,10 +1813,25 @@
                                                             <td class="text-break">{{ $pp->paymentMethodLabelForAdmin($booking) }}</td>
                                                             <td class="text-break">{{ $pp->transaction_id ?: '—' }}</td>
                                                             <td class="text-end">{{ with_currency_symbol($dueAfterThisInstallment) }}</td>
+                                                            @if($showInstallmentPaymentDeleteColumn)
+                                                                <td class="text-end text-nowrap">
+                                                                    @if(($pp->paid_with ?? '') === 'admin_entry')
+                                                                        <button type="button"
+                                                                            class="btn btn-outline-danger btn-sm py-0 px-2 fz-11"
+                                                                            title="{{ translate('Delete_payment_entry') }}"
+                                                                            data-bs-toggle="modal"
+                                                                            data-bs-target="#deleteAdminPartialPaymentConfirm-{{ $booking->id }}"
+                                                                            data-partial-payment-id="{{ $pp->id }}"
+                                                                            data-amount-line="{{ e(translate('Amount')) }}: {{ e(with_currency_symbol($pp->paid_amount)) }}">{{ translate('Delete') }}</button>
+                                                                    @else
+                                                                        <span class="text-muted">—</span>
+                                                                    @endif
+                                                                </td>
+                                                            @endif
                                                         </tr>
                                                     @empty
                                                         <tr>
-                                                            <td colspan="7" class="text-center text-muted py-3">{{ translate('No data available') }}</td>
+                                                            <td colspan="{{ $showInstallmentPaymentDeleteColumn ? 8 : 7 }}" class="text-center text-muted py-3">{{ translate('No data available') }}</td>
                                                         </tr>
                                                     @endforelse
                                                 </tbody>
@@ -1848,6 +1875,53 @@
                                 </div>
                             </div>
                         </div>
+                        @if($showInstallmentPaymentDeleteColumn)
+                            <div class="modal fade" id="deleteAdminPartialPaymentConfirm-{{ $booking->id }}" tabindex="-1" aria-labelledby="deleteAdminPartialPaymentConfirmLabel-{{ $booking->id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow">
+                                        <div class="modal-header border-bottom-0 pb-0">
+                                            <h5 class="modal-title d-flex align-items-center gap-2 text-danger fz-16 mb-0" id="deleteAdminPartialPaymentConfirmLabel-{{ $booking->id }}">
+                                                <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                                                {{ translate('Delete_payment_entry') }}
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                        </div>
+                                        <div class="modal-body pt-2">
+                                            <div class="alert alert-warning mb-3 fz-12" role="alert">
+                                                {{ translate('Delete_payment_entry_confirm') }}
+                                            </div>
+                                            <p class="text-muted fz-12 mb-0 fw-medium" id="deletePartialPaymentSummaryLine-{{ $booking->id }}"></p>
+                                        </div>
+                                        <div class="modal-footer border-top-0 pt-0">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                            <form method="post" action="{{ route('admin.booking.partial_payment.delete', $booking->id) }}" class="d-inline" id="deleteAdminPartialPaymentForm-{{ $booking->id }}">
+                                                @csrf
+                                                <input type="hidden" name="partial_payment_id" id="deletePartialPaymentIdField-{{ $booking->id }}" value="">
+                                                <button type="submit" class="btn btn-danger">{{ translate('Yes, Delete') }}</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <script>
+                                (function () {
+                                    var confirmEl = document.getElementById('deleteAdminPartialPaymentConfirm-{{ $booking->id }}');
+                                    if (!confirmEl) return;
+                                    confirmEl.addEventListener('show.bs.modal', function (event) {
+                                        var trigger = event.relatedTarget;
+                                        var idField = document.getElementById('deletePartialPaymentIdField-{{ $booking->id }}');
+                                        var summary = document.getElementById('deletePartialPaymentSummaryLine-{{ $booking->id }}');
+                                        if (!trigger || !idField) return;
+                                        var pid = trigger.getAttribute('data-partial-payment-id') || '';
+                                        var amountLine = trigger.getAttribute('data-amount-line') || '';
+                                        idField.value = pid;
+                                        if (summary) {
+                                            summary.textContent = amountLine;
+                                        }
+                                    });
+                                })();
+                            </script>
+                        @endif
                         <div class="card border-primary mb-0 w-100 d-flex flex-column overflow-hidden booking-overview-mid-card--revenue">
                             <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
                                 <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
@@ -1986,29 +2060,24 @@
                                                     <div class="mb-0 add-payment-loss-allocation-wrap border rounded p-3 bg-light">
                                                         <div class="fw-semibold fz-12 mb-2">{{ translate('Bfs_loss_recovery_split_title') }}</div>
                                                         <p class="small text-muted mb-2">{{ translate('Bfs_loss_recovery_split_intro') }}</p>
-                                                        @if($bfsAddPayLossCaps !== null)
-                                                            <button type="button" class="btn btn-sm btn-outline--primary mb-2 w-100 js-settle-remaining-loss">
-                                                                {{ translate('Settle_remaining_amount') }}
-                                                            </button>
-                                                        @endif
                                                         <div class="row g-2">
                                                             <div class="col-md-6">
                                                                 <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_provider') }} <span class="text-danger">*</span></label>
-                                                                @if($bfsAddPayLossCaps !== null)
-                                                                    <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_provider_loss') }}: <strong>{{ with_currency_symbol($bfsAddPayLossCaps['provider']) }}</strong></div>
-                                                                @endif
                                                                 <input type="text" inputmode="decimal" autocomplete="off" name="split_amount_provider"
                                                                     class="form-control add-payment-split-provider"
                                                                     value="{{ old('split_amount_provider', '0') }}">
+                                                                @if($bfsAddPayLossCaps !== null)
+                                                                    <div class="small text-muted mt-1 mb-0">{{ translate('Bfs_add_payment_split_max_to_provider_loss') }} {{ with_currency_symbol($bfsAddPayLossCaps['provider']) }}</div>
+                                                                @endif
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_company') }} <span class="text-danger">*</span></label>
-                                                                @if($bfsAddPayLossCaps !== null)
-                                                                    <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_company_loss') }}: <strong>{{ with_currency_symbol($bfsAddPayLossCaps['company']) }}</strong></div>
-                                                                @endif
                                                                 <input type="text" inputmode="decimal" autocomplete="off" name="split_amount_company"
                                                                     class="form-control add-payment-split-company"
                                                                     value="{{ old('split_amount_company', '0') }}">
+                                                                @if($bfsAddPayLossCaps !== null)
+                                                                    <div class="small text-muted mt-1 mb-0">{{ translate('Bfs_add_payment_split_max_to_company_loss') }} {{ with_currency_symbol($bfsAddPayLossCaps['company']) }}</div>
+                                                                @endif
                                                             </div>
                                                         </div>
                                                         <p class="small text-muted mt-2 mb-0">{{ translate('Bfs_add_payment_split_sum_hint') }}</p>
@@ -2832,7 +2901,7 @@
                                 </div>
                             @endif
 
-                            @if(($booking->booking_status ?? '') === 'completed')
+                            @if(($booking->booking_status ?? '') === 'completed' && ! $booking->blocksAdminCommissionOverrideAndCompensation())
                                 @include('bookingmodule::admin.booking.partials.details._compensation-box', ['booking' => $booking])
                             @endif
 
@@ -2847,10 +2916,12 @@
                                 </div>
                             @endif
 
-                            @include('bookingmodule::admin.booking.partials.details._booking-commission-override', [
-                                'booking' => $booking,
-                                'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
-                            ])
+                            @if(! $booking->blocksAdminCommissionOverrideAndCompensation())
+                                @include('bookingmodule::admin.booking.partials.details._booking-commission-override', [
+                                    'booking' => $booking,
+                                    'bfsDefaultCustomAdminCommission' => $bfsDefaultCustomAdminCommission ?? 0,
+                                ])
+                            @endif
                 </div>
             </div>
         </div>
@@ -3746,24 +3817,6 @@
                 $(this).val(String(apRound2(Math.max(0, n)).toFixed(2)));
             }
             applyLossSplitAutofill($form, $(this).attr('name') === 'split_amount_provider' ? 'provider' : 'company');
-        });
-
-        // One-click: settle remaining loss (fills amount and splits to clear remaining loss caps).
-        $(document).on('click', '.add-payment-form .js-settle-remaining-loss', function () {
-            var $form = $(this).closest('.add-payment-form');
-            if ($form.attr('data-loss-allocation') !== '1') return;
-            var capPv = apReadCap($form, 'data-loss-cap-provider') || 0;
-            var capCv = apReadCap($form, 'data-loss-cap-company') || 0;
-            var target = apRound2(capPv + capCv);
-            var dueAmount = parseFloat($form.attr('data-due-amount')) || 0;
-            if (dueAmount > 0) {
-                target = apRound2(Math.min(target, dueAmount));
-            }
-            $form.find('.add-payment-amount').val(String(target)).trigger('input');
-            $form.data('lossSplitUserEdited', true);
-            $form.find('[name="split_amount_provider"]').val(String(apRound2(Math.min(capPv, target))));
-            $form.find('[name="split_amount_company"]').val(String(apRound2(Math.max(0, target - Math.min(capPv, target)))));
-            applyLossSplitAutofill($form, 'provider');
         });
 
         $(document).on('submit', '.add-payment-form', function(e) {

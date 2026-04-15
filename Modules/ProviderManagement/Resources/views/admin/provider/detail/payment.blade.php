@@ -38,6 +38,21 @@
         .popover.pk-payment-widget-popover .popover-body {
             text-align: start;
         }
+        .pk-payment-report-grid {
+            table-layout: fixed;
+        }
+        .pk-payment-report-grid th,
+        .pk-payment-report-grid td {
+            width: 200px;
+            min-width: 200px;
+            max-width: 200px;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        .pk-payment-report-grid thead th {
+            text-align: center !important;
+            vertical-align: middle;
+        }
     </style>
 @endpush
 
@@ -152,13 +167,17 @@
                                 @endif
                                 @can('provider_update')
                                     @if($companyPaysProvider && $addPaymentFormMax > 0.009)
-                                        <button type="button" class="btn btn--primary text-capitalize w-100 btn--lg mw-75 mt-2" data-bs-toggle="modal" data-bs-target="#addPaymentToProviderModal">
-                                            {{ translate('Add_Payment_to_Provider') }}
-                                        </button>
+                                        <div class="d-flex justify-content-center mt-2">
+                                            <button type="button" class="btn btn--primary text-capitalize btn--lg px-4 px-md-5" data-bs-toggle="modal" data-bs-target="#addPaymentToProviderModal">
+                                                {{ translate('Add_Payment_to_Provider') }}
+                                            </button>
+                                        </div>
                                     @elseif($providerPaysCompany && $collectFormMax > 0.009)
-                                        <button type="button" class="btn btn--primary text-capitalize w-100 btn--lg mw-75 mt-2" data-bs-toggle="modal" data-bs-target="#collectAmountFromProviderModal">
-                                            {{ translate('Collect_Amount') }}
-                                        </button>
+                                        <div class="d-flex justify-content-center mt-2">
+                                            <button type="button" class="btn btn--primary text-capitalize btn--lg px-4 px-md-5" data-bs-toggle="modal" data-bs-target="#collectAmountFromProviderModal">
+                                                {{ translate('Collect_Amount') }}
+                                            </button>
+                                        </div>
                                     @endif
                                 @endcan
                             </div>
@@ -263,40 +282,6 @@
                         </div>
                     </div>
 
-                    {{-- Pending Withdrawn, Already Withdrawn, Withdrawable Amount --}}
-                    <div class="row g-3 mb-30">
-                        <div class="col-12">
-                            <h4 class="mb-2">{{ translate('Withdrawal_Summary') }}</h4>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="statistics-card statistics-card__style2 statistics-card__pending-withdraw h-100 pk-payment-widget-card">
-                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-pending-withdrawn" data-pk-popover-title="{{ translate('Pending_Withdrawn') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
-                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
-                                </button>
-                                <h3 class="pe-4">{{ translate('Pending_Withdrawn') }}</h3>
-                                <h2>{{ with_currency_symbol($provider->owner->account->balance_pending ?? 0) }}</h2>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="statistics-card statistics-card__style2 statistics-card__already-withdraw h-100 pk-payment-widget-card">
-                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-already-withdrawn" data-pk-popover-title="{{ translate('Already_Withdrawn') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
-                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
-                                </button>
-                                <h3 class="pe-4">{{ translate('Already_Withdrawn') }}</h3>
-                                <h2>{{ with_currency_symbol($provider->owner->account->total_withdrawn ?? 0) }}</h2>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="statistics-card statistics-card__style2 statistics-card__withdrawable-amount h-100 pk-payment-widget-card">
-                                <button type="button" class="btn btn-link pk-payment-widget-info-btn position-absolute top-0 end-0 mt-1 me-1 text-muted" data-pk-popover-src="pk-pop-body-withdrawable" data-pk-popover-title="{{ translate('Withdrawable_Amount') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
-                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
-                                </button>
-                                <h3 class="pe-4">{{ translate('Withdrawable_Amount') }}</h3>
-                                <h2>{{ with_currency_symbol($provider->owner->account->account_receivable ?? 0) }}</h2>
-                            </div>
-                        </div>
-                    </div>
-
                     {{-- Hidden HTML sources for widget popovers (Bootstrap reads innerHTML once at init) --}}
                     <div id="pk-pop-body-net-payable" class="d-none" aria-hidden="true">
                         <div class="small text-body">
@@ -371,15 +356,6 @@
                     </div>
                     <div id="pk-pop-body-received-total" class="d-none" aria-hidden="true">
                         <p class="small text-body mb-0">{{ translate('Provider_payment_total_received_hint') }}</p>
-                    </div>
-                    <div id="pk-pop-body-pending-withdrawn" class="d-none" aria-hidden="true">
-                        <p class="small text-body mb-0">{{ translate('Payment_widget_hint_pending_withdrawn') }}</p>
-                    </div>
-                    <div id="pk-pop-body-already-withdrawn" class="d-none" aria-hidden="true">
-                        <p class="small text-body mb-0">{{ translate('Payment_widget_hint_already_withdrawn') }}</p>
-                    </div>
-                    <div id="pk-pop-body-withdrawable" class="d-none" aria-hidden="true">
-                        <p class="small text-body mb-0">{{ translate('Payment_widget_hint_withdrawable_receivable') }}</p>
                     </div>
                     <div id="pk-pop-body-ledger-section" class="d-none" aria-hidden="true">
                         <p class="small text-body mb-0">{{ translate('Payment_widget_hint_ledger_section') }}</p>
@@ -548,20 +524,20 @@
                     {{-- 2. Booking Earning Report (below, max 20 per page) --}}
                     <h4 class="mb-3">{{ translate('Booking_Earning_Report') }}</h4>
                     <div class="table-responsive mb-4">
-                        <table class="table table-bordered table-hover align-middle">
+                        <table class="table table-bordered table-hover align-middle pk-payment-report-grid">
                             <thead class="table-light">
                                 <tr>
-                                    <th>{{ translate('Booking_ID') }}</th>
-                                    <th class="text-end">{{ translate('Total_Amount') }}</th>
-                                    <th class="text-end">{{ translate('Service_Charges') }}</th>
-                                    <th class="text-end">{{ translate('Extra_Service_Charges') }}</th>
-                                    <th class="text-end">{{ translate('Parts_Charges') }}</th>
-                                    <th class="text-end">{{ translate('Provider_Earning') }}</th>
-                                    <th class="text-end">{{ translate('Admin_Commission') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_received_by_company') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_received_by_provider') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_provider_owes_company') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_company_owes_provider') }}</th>
+                                    <th class="text-center">{{ translate('Booking_ID') }}</th>
+                                    <th class="text-center">{{ translate('Total_Amount') }}</th>
+                                    <th class="text-center">{{ translate('Service_Charges') }}</th>
+                                    <th class="text-center">{{ translate('Extra_Service_Charges') }}</th>
+                                    <th class="text-center">{{ translate('Parts_Charges') }}</th>
+                                    <th class="text-center">{{ translate('Provider_Earning') }}</th>
+                                    <th class="text-center">{{ translate('Admin_Commission') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_received_by_company') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_received_by_provider') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_provider_owes_company') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_company_owes_provider') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -591,6 +567,23 @@
                                     </tr>
                                 @endforelse
                             </tbody>
+                            @if($bookingEarningReportPaginated->total() > 0)
+                            <tfoot class="table-light">
+                                <tr class="fw-semibold">
+                                    <th scope="row">{{ translate('total') }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['total_amount'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['service_charges'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['extra_service_charges'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['parts_charges'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['provider_earning'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['admin_commission'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['amount_received_by_company'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['amount_received_by_provider'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['provider_owes_company'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($bookingEarningReportTotals['company_owes_provider'] ?? 0) }}</th>
+                                </tr>
+                            </tfoot>
+                            @endif
                         </table>
                     </div>
                     @if($bookingEarningReportPaginated->hasPages())
@@ -603,21 +596,21 @@
                     @if($paymentSubActive === 'special_earning')
                     <h4 class="mb-3 mt-4">{{ translate('Special_Booking_Earning_Report') }}</h4>
                     <div class="table-responsive mb-4">
-                        <table class="table table-bordered table-hover align-middle">
+                        <table class="table table-bordered table-hover align-middle pk-payment-report-grid">
                             <thead class="table-light">
                                 <tr>
-                                    <th>{{ translate('Booking_ID') }}</th>
-                                    <th class="text-end">{{ translate('Total_Amount') }}</th>
-                                    <th class="text-end">{{ translate('Bfs_preview_visiting_charges') }}</th>
-                                    <th class="text-end">{{ translate('Bfs_preview_closing_amount') }}</th>
-                                    <th class="text-end">{{ translate('Provider_Earning') }}</th>
-                                    <th class="text-end">{{ translate('Admin_Commission') }}</th>
-                                    <th class="text-end">{{ translate('Company_loss_absorbed_line') }}</th>
-                                    <th class="text-end">{{ translate('Provider_loss_absorbed_line') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_received_by_company') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_received_by_provider') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_provider_owes_company') }}</th>
-                                    <th class="text-end">{{ translate('Earning_report_company_owes_provider') }}</th>
+                                    <th class="text-center">{{ translate('Booking_ID') }}</th>
+                                    <th class="text-center">{{ translate('Total_Amount') }}</th>
+                                    <th class="text-center">{{ translate('Bfs_preview_visiting_charges') }}</th>
+                                    <th class="text-center">{{ translate('Bfs_preview_closing_amount') }}</th>
+                                    <th class="text-center">{{ translate('Provider_Earning') }}</th>
+                                    <th class="text-center">{{ translate('Admin_Commission') }}</th>
+                                    <th class="text-center">{{ translate('Company_loss_absorbed_line') }}</th>
+                                    <th class="text-center">{{ translate('Provider_loss_absorbed_line') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_received_by_company') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_received_by_provider') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_provider_owes_company') }}</th>
+                                    <th class="text-center">{{ translate('Earning_report_company_owes_provider') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -660,6 +653,24 @@
                                     </tr>
                                 @endforelse
                             </tbody>
+                            @if($specialBookingEarningReportPaginated->total() > 0)
+                            <tfoot class="table-light">
+                                <tr class="fw-semibold">
+                                    <th scope="row">{{ translate('total') }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['total_amount'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['visiting_charges'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['closing_amount'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['provider_earning'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['admin_commission'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['scaled_company_loss_line'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['scaled_provider_loss_line'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['amount_received_by_company'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['amount_received_by_provider'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['provider_owes_company'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['company_owes_provider'] ?? 0) }}</th>
+                                </tr>
+                            </tfoot>
+                            @endif
                         </table>
                     </div>
                     @if($specialBookingEarningReportPaginated->hasPages())
@@ -674,20 +685,20 @@
                     <p class="text-muted small mb-2">{{ translate('Disputed_bookings_tab_hint') }}</p>
                     <p class="fw-semibold small mb-3">{{ translate('Reopen_disputed_settlement_snapshot') }}</p>
                     <div class="table-responsive mb-4">
-                        <table class="table table-bordered table-hover table-sm align-middle">
+                        <table class="table table-bordered table-hover table-sm align-middle pk-payment-report-grid">
                             <thead class="table-light">
                                 <tr>
-                                    <th>{{ translate('Booking_ID') }}</th>
-                                    <th>{{ translate('status') }}</th>
-                                    <th class="text-end">{{ translate('Total_Amount') }}</th>
-                                    <th class="text-end text-nowrap">{{ translate('Refund_paid_from_company_pool') }}</th>
-                                    <th class="text-end text-nowrap">{{ translate('Refund_paid_from_provider_pool') }}</th>
-                                    <th class="text-end text-nowrap">{{ translate('Provider_owes_company_refund_above_pool') }}</th>
-                                    <th class="text-end text-nowrap">{{ translate('Company_owes_provider_refund_above_pool') }}</th>
-                                    <th class="text-end text-nowrap">{{ translate('Final_amount_retained_from_customer_after_refunds') }}</th>
-                                    <th class="text-end text-nowrap">{{ translate('Final_admin_commission_net_basis') }}</th>
-                                    <th class="text-end text-nowrap">{{ translate('Final_provider_earning_net_basis') }}</th>
-                                    <th>{{ translate('Disputed_recorded_at') }}</th>
+                                    <th class="text-center">{{ translate('Booking_ID') }}</th>
+                                    <th class="text-center">{{ translate('status') }}</th>
+                                    <th class="text-center">{{ translate('Total_Amount') }}</th>
+                                    <th class="text-center">{{ translate('Refund_paid_from_company_pool') }}</th>
+                                    <th class="text-center">{{ translate('Refund_paid_from_provider_pool') }}</th>
+                                    <th class="text-center">{{ translate('Provider_owes_company_refund_above_pool') }}</th>
+                                    <th class="text-center">{{ translate('Company_owes_provider_refund_above_pool') }}</th>
+                                    <th class="text-center">{{ translate('Final_amount_retained_from_customer_after_refunds') }}</th>
+                                    <th class="text-center">{{ translate('Final_admin_commission_net_basis') }}</th>
+                                    <th class="text-center">{{ translate('Final_provider_earning_net_basis') }}</th>
+                                    <th class="text-center">{{ translate('Disputed_recorded_at') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -702,14 +713,14 @@
                                         </td>
                                         <td><span class="text-capitalize">{{ str_replace('_', ' ', (string) $disputedBooking->booking_status) }}</span></td>
                                         <td class="text-end">{{ with_currency_symbol((float) ($disputedBooking->total_booking_amount ?? 0)) }}</td>
-                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['refund_company_amount'] ?? 0)) }}</td>
-                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['refund_provider_amount'] ?? 0)) }}</td>
-                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['provider_owes_company'] ?? 0)) }}</td>
-                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['company_owes_provider'] ?? 0)) }}</td>
-                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['retained_from_customer'] ?? $snap['final_net_to_customer'] ?? 0)) }}</td>
-                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['final_admin_commission'] ?? 0)) }}</td>
-                                        <td class="text-end text-nowrap">{{ with_currency_symbol((float) ($snap['final_provider_earning'] ?? 0)) }}</td>
-                                        <td class="text-nowrap">{{ $disputedAt ? $disputedAt->format('d M Y H:i') : '—' }}</td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($snap['refund_company_amount'] ?? 0)) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($snap['refund_provider_amount'] ?? 0)) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($snap['provider_owes_company'] ?? 0)) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($snap['company_owes_provider'] ?? 0)) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($snap['retained_from_customer'] ?? $snap['final_net_to_customer'] ?? 0)) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($snap['final_admin_commission'] ?? 0)) }}</td>
+                                        <td class="text-end">{{ with_currency_symbol((float) ($snap['final_provider_earning'] ?? 0)) }}</td>
+                                        <td>{{ $disputedAt ? $disputedAt->format('d M Y H:i') : '—' }}</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -717,6 +728,23 @@
                                     </tr>
                                 @endforelse
                             </tbody>
+                            @if($disputedBookingsPaginated->total() > 0 && !empty($disputedBookingsTotals))
+                            <tfoot class="table-light">
+                                <tr class="fw-semibold">
+                                    <th scope="row">{{ translate('total') }}</th>
+                                    <th class="fw-normal">—</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['total_booking_amount'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['refund_company_amount'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['refund_provider_amount'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['provider_owes_company'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['company_owes_provider'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['retained_from_customer'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['final_admin_commission'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($disputedBookingsTotals['final_provider_earning'] ?? 0) }}</th>
+                                    <th class="fw-normal">—</th>
+                                </tr>
+                            </tfoot>
+                            @endif
                         </table>
                     </div>
                     @if($disputedBookingsPaginated->hasPages())

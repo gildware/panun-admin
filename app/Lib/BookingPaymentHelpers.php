@@ -662,8 +662,9 @@ if (!function_exists('booking_reopen_disputed_refund_settlement_adjustment')) {
 
 if (!function_exists('booking_partial_payment_loss_allocation_split')) {
     /**
-     * Optional economic split for loss-making recovery payments: how much of paid_amount reduces provider vs company loss.
-     * When set, {@see get_booking_received_and_settlement()} uses these instead of attributing the full paid_amount to received_by.
+     * Optional economic split for loss-making recovery payments: how much of paid_amount reduces provider vs company
+     * loss in {@see BookingFinancialSettlementService::resolveScaledLossBreakdown()} / admin caps — not who physically
+     * held the cash. Receipt columns use `received_by` on the partial only.
      *
      * @return array{provider: float, company: float}|null
      */
@@ -711,6 +712,8 @@ if (!function_exists('booking_admin_loss_recovery_split_caps')) {
 if (!function_exists('get_booking_received_and_settlement')) {
     /**
      * For admin booking details: amounts received by company vs provider, and settlement (pay provider / provider owes).
+     * `amount_received_by_*` sums partial `paid_amount` by `received_by` only. Loss recovery splits (`loss_allocation_*`)
+     * do not change those receipt totals; they feed scaled loss recovery math elsewhere.
      * Company keeps commission; rest goes to provider. So: pay_to_provider = company received - commission (when company has provider's share).
      * provider_owes_company = provider received - provider_share (when provider has company's commission).
      *
@@ -722,29 +725,35 @@ if (!function_exists('get_booking_received_and_settlement')) {
         $companyShare = (float) $breakdown['commission_without_cost'];
         $providerShare = (float) $breakdown['booking_amount_without_commission'];
 
-        $bookingForPartials = $booking instanceof \Modules\BookingModule\Entities\BookingRepeat ? $booking->booking : $booking;
+        $bookingForPartials = $booking instanceof BookingRepeat
+            ? ($booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first())
+            : $booking;
         $partials = $bookingForPartials && $bookingForPartials->relationLoaded('booking_partial_payments')
             ? $bookingForPartials->booking_partial_payments
             : ($bookingForPartials ? $bookingForPartials->booking_partial_payments()->get() : collect());
         if (!$partials) {
             $partials = collect();
         }
-        $totalPaid = $partials->isNotEmpty()
-            ? (float) $partials->sum('paid_amount')
-            : ($booking->is_paid ? get_booking_total_amount($booking) : 0);
+        $scaledMain = $bookingForPartials instanceof Booking
+            && trim((string) ($bookingForPartials->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+
+        if ($partials->isNotEmpty()) {
+            $totalPaid = (float) $partials->sum('paid_amount');
+        } elseif ($scaledMain && $bookingForPartials instanceof Booking) {
+            // Loss-making (scaled): recorded customer cash is only from partial rows; {@see BookingFinancialSettlementService::totalPaidForMainBooking}
+            // returns 0 when there are no partials (even if is_paid=1 / complete-without-full-payment). Do not attribute full invoice to provider.
+            $totalPaid = round((float) app(BookingFinancialSettlementService::class)->totalPaidForMainBooking($bookingForPartials), 2);
+        } else {
+            $totalPaid = ($booking->is_paid ? get_booking_total_amount($booking) : 0);
+        }
 
         if ($partials->isNotEmpty()) {
             $amountReceivedByCompany = 0.0;
             $amountReceivedByProvider = 0.0;
             foreach ($partials as $p) {
                 $paid = (float) $p->paid_amount;
-                $alloc = booking_partial_payment_loss_allocation_split($p);
-                if ($alloc !== null) {
-                    $amountReceivedByProvider += $alloc['provider'];
-                    $amountReceivedByCompany += $alloc['company'];
-
-                    continue;
-                }
+                // Cash receipt columns follow `received_by` only. Loss recovery splits (`loss_allocation_*`) are for
+                // scaled loss math / recovery caps — not "who held the money" (see {@see booking_partial_payment_loss_allocation_split}).
                 $by = $p->received_by ?? '';
                 if ($by === 'company' || $by === '') {
                     $amountReceivedByCompany += $paid;
@@ -752,10 +761,13 @@ if (!function_exists('get_booking_received_and_settlement')) {
                     $amountReceivedByProvider += $paid;
                 }
             }
-            if ($amountReceivedByCompany == 0 && $amountReceivedByProvider == 0 && $totalPaid > 0) {
+            if ($amountReceivedByCompany == 0 && $amountReceivedByProvider == 0 && $totalPaid > 0 && ! $scaledMain) {
                 $amountReceivedByCompany = $booking->payment_method !== 'cash_after_service' ? $totalPaid : 0;
                 $amountReceivedByProvider = $booking->payment_method === 'cash_after_service' ? $totalPaid : 0;
             }
+        } elseif ($scaledMain && $bookingForPartials instanceof Booking) {
+            $amountReceivedByCompany = 0.0;
+            $amountReceivedByProvider = 0.0;
         } else {
             $amountReceivedByCompany = ($booking->is_paid && $booking->payment_method !== 'cash_after_service') ? $totalPaid : 0;
             $amountReceivedByProvider = ($booking->is_paid && $booking->payment_method === 'cash_after_service') ? $totalPaid : 0;
@@ -1567,22 +1579,21 @@ if (!function_exists('provider_payment_tab_receipts_for_main_booking')) {
     {
         $main->loadMissing('booking_partial_payments');
         $partials = $main->booking_partial_payments ?? collect();
-        $totalPaid = $partials->isNotEmpty()
-            ? (float) $partials->sum('paid_amount')
-            : ((bool) ($main->is_paid ?? false) ? get_booking_total_amount($main) : 0.0);
+        $scaledMain = trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+
+        if ($partials->isNotEmpty()) {
+            $totalPaid = (float) $partials->sum('paid_amount');
+        } elseif ($scaledMain) {
+            $totalPaid = round((float) app(BookingFinancialSettlementService::class)->totalPaidForMainBooking($main), 2);
+        } else {
+            $totalPaid = (bool) ($main->is_paid ?? false) ? (float) get_booking_total_amount($main) : 0.0;
+        }
 
         $amountReceivedByCompany = 0.0;
         $amountReceivedByProvider = 0.0;
         if ($partials->isNotEmpty()) {
             foreach ($partials as $p) {
                 $paid = (float) $p->paid_amount;
-                $alloc = booking_partial_payment_loss_allocation_split($p);
-                if ($alloc !== null) {
-                    $amountReceivedByProvider += $alloc['provider'];
-                    $amountReceivedByCompany += $alloc['company'];
-
-                    continue;
-                }
                 $by = $p->received_by ?? '';
                 if ($by === 'company' || $by === '') {
                     $amountReceivedByCompany += $paid;
@@ -1590,10 +1601,13 @@ if (!function_exists('provider_payment_tab_receipts_for_main_booking')) {
                     $amountReceivedByProvider += $paid;
                 }
             }
-            if ($amountReceivedByCompany == 0 && $amountReceivedByProvider == 0 && $totalPaid > 0) {
+            if ($amountReceivedByCompany == 0 && $amountReceivedByProvider == 0 && $totalPaid > 0 && ! $scaledMain) {
                 $amountReceivedByCompany = ($main->payment_method ?? '') !== 'cash_after_service' ? $totalPaid : 0.0;
                 $amountReceivedByProvider = ($main->payment_method ?? '') === 'cash_after_service' ? $totalPaid : 0.0;
             }
+        } elseif ($scaledMain) {
+            $amountReceivedByCompany = 0.0;
+            $amountReceivedByProvider = 0.0;
         } else {
             $amountReceivedByCompany = ((bool) ($main->is_paid ?? false) && ($main->payment_method ?? '') !== 'cash_after_service') ? $totalPaid : 0.0;
             $amountReceivedByProvider = ((bool) ($main->is_paid ?? false) && ($main->payment_method ?? '') === 'cash_after_service') ? $totalPaid : 0.0;
@@ -1753,7 +1767,8 @@ if (!function_exists('aggregate_provider_booking_settlement_net_for_completed_jo
     /**
      * Company↔provider settlement net from completed jobs (positive = company owes provider), using the same
      * pay-to-provider / provider-owes logic as booking details (including loss-making net shares on the main row).
-     * Repeat rows are grouped by parent so parent receipts are not multiplied.
+     * Repeat rows are grouped by parent so parent receipts are not multiplied. Loss-making (scaled) parents use
+     * {@see get_booking_received_and_settlement()} on the parent so customer recovery updates match booking details.
      *
      * @param  iterable<int, Booking>  $oneTimeBookings
      * @param  iterable<int, BookingRepeat>  $repeats
@@ -1761,7 +1776,6 @@ if (!function_exists('aggregate_provider_booking_settlement_net_for_completed_jo
      */
     function aggregate_provider_booking_settlement_net_for_completed_jobs(iterable $oneTimeBookings, iterable $repeats): array
     {
-        $svc = app(BookingFinancialSettlementService::class);
         $oneTimeCol = collect($oneTimeBookings);
         $repeatsCol = collect($repeats);
 
@@ -1788,6 +1802,16 @@ if (!function_exists('aggregate_provider_booking_settlement_net_for_completed_jo
             }
             if (booking_should_zero_net_revenue_settlement_display($main)) {
                 $legs = ['pay_to_provider' => 0.0, 'provider_owes_company' => 0.0];
+            } elseif (trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                // Loss-making (scaled): same legs as booking details — net company/provider shares use current paid +
+                // {@see BookingFinancialSettlementService::resolveScaledLossBreakdown()}. Summing gross commission
+                // across repeat lines ignores revised loss after customer recovery and left net balance stale.
+                $main->loadMissing('booking_partial_payments');
+                $settled = get_booking_received_and_settlement($main);
+                $legs = [
+                    'pay_to_provider' => (float) ($settled['pay_to_provider'] ?? 0),
+                    'provider_owes_company' => (float) ($settled['provider_owes_company'] ?? 0),
+                ];
             } else {
                 $receipts = provider_payment_tab_receipts_for_main_booking($main);
                 $totalCommission = 0.0;

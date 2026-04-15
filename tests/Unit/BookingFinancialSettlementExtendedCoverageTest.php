@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Tests\TestCase;
@@ -723,6 +724,90 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame(round((float) $s['amount_received_by_provider'], 2), $cols['amount_received_by_provider']);
         $this->assertSame(round((float) $s['provider_owes_company'], 2), $cols['provider_owes_company']);
         $this->assertSame(round((float) $s['pay_to_provider'], 2), $cols['company_owes_provider']);
+    }
+
+    public function test_scaled_loss_making_no_partials_does_not_attribute_full_invoice_to_provider(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 800.0;
+        $b->extra_fee = 0.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 0.0,
+            'scaled_loss_company_amount' => 300.0,
+            'scaled_loss_provider_amount' => 500.0,
+        ];
+        $b->is_paid = 1;
+        $b->payment_method = 'cash_after_service';
+        $b->setRelation('booking_partial_payments', collect());
+
+        $s = get_booking_received_and_settlement($b);
+        $this->assertSame(0.0, $s['amount_received_by_provider']);
+        $this->assertSame(0.0, $s['amount_received_by_company']);
+        $this->assertSame(0.0, $s['total_paid']);
+
+        $r = provider_payment_tab_receipts_for_main_booking($b);
+        $this->assertSame(0.0, $r['provider']);
+        $this->assertSame(0.0, $r['company']);
+        $this->assertSame(0.0, $r['total_paid']);
+    }
+
+    public function test_scaled_pay_to_provider_reduces_when_provider_collects_company_recovery_slice(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 800.0;
+        $b->extra_fee = 0.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 0.0,
+            'scaled_loss_company_amount' => 300.0,
+            'scaled_loss_provider_amount' => 500.0,
+        ];
+        $b->is_paid = 0;
+        $b->payment_method = 'cash_after_service';
+        $b->setRelation('booking_partial_payments', collect([
+            new BookingPartialPayment([
+                'paid_amount' => 400.0,
+                'received_by' => 'provider',
+                'loss_allocation_provider' => 200.0,
+                'loss_allocation_company' => 200.0,
+            ]),
+        ]));
+
+        $s = get_booking_received_and_settlement($b);
+        $this->assertSame(0.0, $s['amount_received_by_company']);
+        $this->assertSame(400.0, $s['amount_received_by_provider']);
+        $this->assertSame(0.0, $s['pay_to_provider']);
+        $this->assertSame(0.0, $s['provider_owes_company']);
+    }
+
+    public function test_scaled_pay_to_provider_increases_when_company_collects_provider_recovery_slice(): void
+    {
+        $b = $this->memoryBooking();
+        $b->total_booking_amount = 800.0;
+        $b->extra_fee = 0.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 0.0,
+            'scaled_loss_company_amount' => 300.0,
+            'scaled_loss_provider_amount' => 500.0,
+        ];
+        $b->is_paid = 0;
+        $b->payment_method = 'cash_after_service';
+        $b->setRelation('booking_partial_payments', collect([
+            new BookingPartialPayment([
+                'paid_amount' => 400.0,
+                'received_by' => 'company',
+                'loss_allocation_provider' => 200.0,
+                'loss_allocation_company' => 200.0,
+            ]),
+        ]));
+
+        $s = get_booking_received_and_settlement($b);
+        $this->assertSame(400.0, $s['amount_received_by_company']);
+        $this->assertSame(0.0, $s['amount_received_by_provider']);
+        $this->assertSame(400.0, $s['pay_to_provider']);
+        $this->assertSame(0.0, $s['provider_owes_company']);
     }
 
     public function test_customer_pending_bad_debt_loss_making_is_numeric_for_query(): void

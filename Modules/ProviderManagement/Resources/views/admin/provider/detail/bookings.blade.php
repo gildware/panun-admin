@@ -87,8 +87,9 @@
                                     <thead>
                                     <tr>
                                         <th>{{translate('Booking_ID')}}</th>
+                                        <th>{{translate('Booking_Status')}}</th>
+                                        <th>{{translate('Tag')}}</th>
                                         <th>{{translate('Customer_Info')}}</th>
-                                        <th>{{translate('Status')}}</th>
                                         <th>{{translate('Service_Charges')}}</th>
                                         <th>{{translate('Parts_Charges')}}</th>
                                         <th>{{translate('Total_Booking_Amount')}}</th>
@@ -107,12 +108,17 @@
                                             $serviceCharges = round(max(0, $grandTotal - $partsCharges), 2);
                                             $commissionDetails = $booking->calculateCommissionDetails($booking, $booking->provider_id);
                                             $adminCommission = (float) ($commissionDetails['adminCommission'] ?? 0);
-                                            $statusBadge = $booking->booking_status == 'ongoing' ? 'warning' : ($booking->booking_status == 'completed' ? 'success' : ($booking->booking_status == 'canceled' ? 'danger' : ($booking->booking_status == 'refunded' ? 'secondary' : 'info')));
                                         @endphp
                                         <tr>
                                             <td>
                                                 <a href="{{route('admin.booking.details', [$booking->id,'web_page'=>'details'])}}">
                                                     {{$booking->readable_id}}</a>
+                                            </td>
+                                            <td>
+                                                @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
+                                            </td>
+                                            <td class="text-nowrap">
+                                                @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
                                             </td>
                                             <td>
                                                 @if(isset($booking->customer))
@@ -125,11 +131,6 @@
                                                 @else
                                                     <span class="opacity-50">{{translate('Customer_not_available')}}</span>
                                                 @endif
-                                            </td>
-                                            <td>
-                                                <span class="badge badge badge-{{ $statusBadge }} radius-50">
-                                                    {{ ucwords($booking->booking_status) }}
-                                                </span>
                                             </td>
                                             <td>{{ with_currency_symbol($serviceCharges) }}</td>
                                             <td>{{ with_currency_symbol($partsCharges) }}</td>
