@@ -129,6 +129,8 @@ class AdminController extends Controller
             'total_amount_received_by_company' => $financialSummary['total_amount_received_by_company'],
             'total_loss_in_all_bookings' => $financialSummary['total_loss_in_all_bookings'],
             'total_bad_debt_with_customers' => $financialSummary['total_bad_debt_with_customers'],
+            'total_write_off_company' => $financialSummary['total_write_off_company'] ?? 0,
+            'total_write_off_provider' => $financialSummary['total_write_off_provider'] ?? 0,
             'total_customer' => $this->user->where(['user_type' => 'customer'])->count(),
             'total_provider' => $this->provider->where(['is_approved' => 1])->count(),
             'total_services' => $this->service->count()

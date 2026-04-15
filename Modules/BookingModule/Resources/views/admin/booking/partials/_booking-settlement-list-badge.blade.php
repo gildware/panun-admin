@@ -4,6 +4,11 @@
     $bfsListOutcome = trim((string) ($booking->settlement_outcome ?? ''));
     $bfsListStatusNorm = strtolower((string) ($booking->booking_status ?? ''));
     $bfsListIsClosed = in_array($bfsListStatusNorm, ['completed', 'canceled', 'cancelled', 'refunded'], true);
+    $bfsCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
+    $bfsHasWriteoff = $bfsListOutcome === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
+        && isset($bfsCfg['scaled_loss_writeoff_amount'])
+        && is_numeric($bfsCfg['scaled_loss_writeoff_amount'])
+        && (float) $bfsCfg['scaled_loss_writeoff_amount'] > 0.009;
     $hasDisputedSnapshot = !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot);
     $isCaseClosed = !empty($booking->reopen_resolved_at);
     $isRefunded = (string) ($booking->booking_status ?? '') === 'refunded';
@@ -59,4 +64,17 @@
     @endphp
     <span class="badge {{ $bfsBadgeClass }} text-nowrap text-start {{ $bfsListTagGapClass }} d-inline-block lh-sm"
           title="{{ $bfsBadgeFull }}">{{ $bfsBadgeShort }}</span>
+@endif
+@if($bfsHasWriteoff)
+    @php
+        $bfsWriteCo = isset($bfsCfg['scaled_loss_writeoff_company_amount']) && is_numeric($bfsCfg['scaled_loss_writeoff_company_amount'])
+            ? (float) $bfsCfg['scaled_loss_writeoff_company_amount'] : 0.0;
+        $bfsWritePr = isset($bfsCfg['scaled_loss_writeoff_provider_amount']) && is_numeric($bfsCfg['scaled_loss_writeoff_provider_amount'])
+            ? (float) $bfsCfg['scaled_loss_writeoff_provider_amount'] : 0.0;
+        $bfsWriteTitle = translate('Write_off_amount') . ': ' . with_currency_symbol((float) $bfsCfg['scaled_loss_writeoff_amount'])
+            . ' — ' . translate('Write_off_company_amount') . ': ' . with_currency_symbol($bfsWriteCo)
+            . ', ' . translate('Write_off_provider_amount') . ': ' . with_currency_symbol($bfsWritePr);
+    @endphp
+    <span class="badge bg-danger text-nowrap text-start {{ $bfsListTagGapClass }} d-inline-block lh-sm"
+          title="{{ $bfsWriteTitle }}">{{ translate('Settled') }}</span>
 @endif

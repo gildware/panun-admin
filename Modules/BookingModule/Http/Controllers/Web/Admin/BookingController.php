@@ -6292,8 +6292,13 @@ class BookingController extends Controller
 
         $svc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
         $preview = $svc->buildPreview($booking);
-        $dueFromCustomer = round(max(0.0, (float) ($preview['amount_to_collect_from_customer'] ?? 0)), 2);
-        if ($dueFromCustomer <= 0.009) {
+        // The modal's "Due Balance (Invoice)" uses the admin add-payment remaining capacity (invoice remainder),
+        // which can differ from preview amount_to_collect_from_customer for scaled settlement.
+        $dueFromCustomer = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        $lossCapPr = round(max(0.0, (float) ($preview['scaled_loss_provider_share'] ?? 0)), 2);
+        $lossCapCo = round(max(0.0, (float) ($preview['scaled_loss_company_share'] ?? 0)), 2);
+        $lossRemain = round($lossCapPr + $lossCapCo, 2);
+        if ($dueFromCustomer <= 0.009 || $lossRemain <= 0.009) {
             Toastr::success(translate('Update_successfully'));
             return back();
         }
@@ -6302,9 +6307,55 @@ class BookingController extends Controller
         // and settles the remaining invoice recovery amount.
         $cfg = is_array($booking->settlement_config) ? $booking->settlement_config : [];
 
+        // Write off the remaining invoice balance (no payment received) and zero the remaining scaled loss shares.
+        // Track both total and per-side write-off amounts for accurate remaining-loss math when partial recovery exists.
         $cfg['scaled_loss_writeoff_amount'] = round(((float) ($cfg['scaled_loss_writeoff_amount'] ?? 0)) + $dueFromCustomer, 2);
+        $cfg['scaled_loss_writeoff_company_amount'] = round(((float) ($cfg['scaled_loss_writeoff_company_amount'] ?? 0)) + $lossCapCo, 2);
+        $cfg['scaled_loss_writeoff_provider_amount'] = round(((float) ($cfg['scaled_loss_writeoff_provider_amount'] ?? 0)) + $lossCapPr, 2);
 
         $booking->settlement_config = $cfg === [] ? null : $cfg;
+        // When scaled loss is fully written off, completion no longer needs special allowance.
+        $booking->allow_complete_without_full_payment = false;
+        $booking->save();
+
+        Toastr::success(translate('Update_successfully'));
+        return back();
+    }
+
+    /**
+     * Loss-making (scaled): revert write-off (discount/waiver) fields from settlement_config.
+     * Restores remaining invoice due and scaled loss preview to their pre-writeoff state (based on recorded partials).
+     */
+    public function revertWriteOffScaledLoss(Request $request, string $id): RedirectResponse
+    {
+        $this->authorize('booking_can_manage_status');
+
+        $booking = $this->booking->with(['booking_partial_payments'])->findOrFail($id);
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            Toastr::error(translate('Reopen_scenarios_single_booking_only'));
+            return back();
+        }
+        if (trim((string) ($booking->settlement_outcome ?? '')) !== BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            Toastr::error(translate('Invalid_request'));
+            return back();
+        }
+
+        $cfg = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+        $hasAny = isset($cfg['scaled_loss_writeoff_amount']) || isset($cfg['scaled_loss_writeoff_company_amount']) || isset($cfg['scaled_loss_writeoff_provider_amount']);
+        if (! $hasAny) {
+            Toastr::success(translate('Update_successfully'));
+            return back();
+        }
+
+        unset($cfg['scaled_loss_writeoff_amount'], $cfg['scaled_loss_writeoff_company_amount'], $cfg['scaled_loss_writeoff_provider_amount']);
+        $booking->settlement_config = $cfg === [] ? null : $cfg;
+
+        // Recompute scaled remaining loss to restore allow_complete_without_full_payment flag.
+        $svc = app(BookingFinancialSettlementService::class);
+        $grand = round(max(0.0, get_booking_total_amount($booking)), 2);
+        $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+        [, $lossTotal] = $svc->resolveScaledLossBreakdown($booking, $config, $grand, $svc->totalPaidForMainBooking($booking));
+        $booking->allow_complete_without_full_payment = $lossTotal > 0.009;
         $booking->save();
 
         Toastr::success(translate('Update_successfully'));

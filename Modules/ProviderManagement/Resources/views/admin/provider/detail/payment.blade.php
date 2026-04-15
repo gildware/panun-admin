@@ -607,6 +607,9 @@
                                     <th class="text-center">{{ translate('Admin_Commission') }}</th>
                                     <th class="text-center">{{ translate('Company_loss_absorbed_line') }}</th>
                                     <th class="text-center">{{ translate('Provider_loss_absorbed_line') }}</th>
+                                    <th class="text-center">{{ translate('Write_off_amount') }}</th>
+                                    <th class="text-center">{{ translate('Write_off_company_amount') }}</th>
+                                    <th class="text-center">{{ translate('Write_off_provider_amount') }}</th>
                                     <th class="text-center">{{ translate('Earning_report_received_by_company') }}</th>
                                     <th class="text-center">{{ translate('Earning_report_received_by_provider') }}</th>
                                     <th class="text-center">{{ translate('Earning_report_provider_owes_company') }}</th>
@@ -642,6 +645,27 @@
                                                 —
                                             @endif
                                         </td>
+                                        <td class="text-end">
+                                            @if(!empty($row->scaled_loss_making_split) && (float) ($row->scaled_writeoff_line ?? 0) > 0.009)
+                                                {{ with_currency_symbol($row->scaled_writeoff_line ?? 0) }}
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            @if(!empty($row->scaled_loss_making_split) && (float) ($row->scaled_writeoff_company_line ?? 0) > 0.009)
+                                                {{ with_currency_symbol($row->scaled_writeoff_company_line ?? 0) }}
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            @if(!empty($row->scaled_loss_making_split) && (float) ($row->scaled_writeoff_provider_line ?? 0) > 0.009)
+                                                {{ with_currency_symbol($row->scaled_writeoff_provider_line ?? 0) }}
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
                                         <td class="text-end">{{ with_currency_symbol($row->amount_received_by_company ?? 0) }}</td>
                                         <td class="text-end">{{ with_currency_symbol($row->amount_received_by_provider ?? 0) }}</td>
                                         <td class="text-end">{{ with_currency_symbol($row->provider_owes_company ?? 0) }}</td>
@@ -664,6 +688,9 @@
                                     <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['admin_commission'] ?? 0) }}</th>
                                     <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['scaled_company_loss_line'] ?? 0) }}</th>
                                     <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['scaled_provider_loss_line'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['scaled_writeoff_line'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['scaled_writeoff_company_line'] ?? 0) }}</th>
+                                    <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['scaled_writeoff_provider_line'] ?? 0) }}</th>
                                     <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['amount_received_by_company'] ?? 0) }}</th>
                                     <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['amount_received_by_provider'] ?? 0) }}</th>
                                     <th class="text-end fw-normal">{{ with_currency_symbol($specialBookingEarningReportTotals['provider_owes_company'] ?? 0) }}</th>

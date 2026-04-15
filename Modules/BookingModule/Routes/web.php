@@ -67,6 +67,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('add-payment/{id}', [BookingController::class, 'addPayment'])->name('add-payment');
         Route::post('partial-payment/delete/{id}', [BookingController::class, 'deleteAdminPartialPayment'])->name('partial_payment.delete');
         Route::post('loss-writeoff/{id}', [BookingController::class, 'writeOffScaledLoss'])->name('loss_writeoff');
+        Route::post('loss-writeoff/{id}/revert', [BookingController::class, 'revertWriteOffScaledLoss'])->name('loss_writeoff.revert');
         Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
         Route::post('compensation/{id}', [BookingController::class, 'addCompensation'])->name('compensation');
         Route::post('reopen/{id}', [BookingController::class, 'reopenFromCompleted'])->name('reopen');
