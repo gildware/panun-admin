@@ -254,17 +254,9 @@
                                         <tr>
                                             <th>{{ translate('SL') }}</th>
                                             <th>{{ translate('Booking_ID') }}</th>
-                                            @if(request('booking_status') === 'reopened')
-                                                <th>{{ translate('Reopened_from') }}</th>
-                                            @else
-                                                <th>{{ translate('Lead_ID') }}</th>
-                                            @endif
-                                            <th>{{ translate('Assignee') }}</th>
-                                            <th>{{ translate('Fup_Customer') }}</th>
-                                            <th>{{ translate('Fup_Provider') }}</th>
-                                            <th>{{ translate('Source') }}</th>
+                                            <th>{{ translate('Booking_Status') }}</th>
+                                            <th>{{ translate('Tag') }}</th>
                                             <th>{{ translate('Booking_Date') }}</th>
-                                            <th>{{ translate('Where_Service_will_be_Provided') }}</th>
                                             <th>{{ translate('Schedule_Date') }}</th>
                                             <th>{{ translate('Customer_Info') }}</th>
                                             <th>{{ translate('Provider_Info') }}</th>
@@ -278,6 +270,15 @@
                                             @elseif($bookingListReasonTab === 'reopened')
                                                 <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
                                             @endif
+                                            @if(request('booking_status') === 'reopened')
+                                                <th>{{ translate('Reopened_from') }}</th>
+                                            @else
+                                                <th>{{ translate('Lead_ID') }}</th>
+                                            @endif
+                                            <th>{{ translate('Assignee') }}</th>
+                                            <th>{{ translate('Fup_Customer') }}</th>
+                                            <th>{{ translate('Fup_Provider') }}</th>
+                                            <th>{{ translate('Source') }}</th>
                                             <th>{{ translate('Action') }}</th>
                                         </tr>
                                     </thead>
@@ -313,72 +314,13 @@
                                                     @else
                                                     <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">
                                                         {{ $booking->readable_id }}</a>
-                                                        @if($booking->isOpenReopenTicket())
-                                                            <span class="badge bg-warning text-dark ms-1">{{ translate('Reopened') }}</span>
-                                                        @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
-                                                            <span class="badge bg-success ms-1">{{ translate('Resolved') }}</span>
-                                                        @endif
-                                                    @endif
-                                                    @include('bookingmodule::admin.booking.partials._booking-settlement-list-badge', ['booking' => $booking])
-                                                </td>
-                                                @if(request('booking_status') === 'reopened')
-                                                    <td>
-                                                        @if(!empty($booking->originated_from_booking_id))
-                                                            @php
-                                                                $reopenParent = $booking->originatedFromBooking;
-                                                            @endphp
-                                                            @if($reopenParent)
-                                                                <a href="{{ route('admin.booking.details', [$reopenParent->id, 'web_page' => 'details']) }}">
-                                                                    #{{ $reopenParent->readable_id ?? $booking->originated_from_booking_id }}
-                                                                </a>
-                                                            @else
-                                                                <span class="text-muted">{{ $booking->originated_from_booking_id }}</span>
-                                                            @endif
-                                                        @else
-                                                            <span class="text-muted">{{ translate('Reopened_from_self') }}</span>
-                                                        @endif
-                                                    </td>
-                                                @else
-                                                    <td>
-                                                        @if(!empty($booking->lead_id))
-                                                            <a href="{{ route('admin.lead.show', $booking->lead_id) }}">
-                                                                #{{ $booking->lead_id }}
-                                                            </a>
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                @endif
-                                                <td>
-                                                    @if($booking->assignee)
-                                                        <div>{{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}</div>
-                                                        <div class="text-muted small">
-                                                            {{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }}
-                                                            @if($booking->assignee->email)
-                                                                — {{ $booking->assignee->email }}
-                                                            @elseif($booking->assignee->phone)
-                                                                — {{ $booking->assignee->phone }}
-                                                            @endif
-                                                        </div>
-                                                    @else
-                                                        <span class="text-muted small">{{ translate('Unassigned') }}</span>
                                                     @endif
                                                 </td>
-                                                @php
-                                                    $scheduled = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
-                                                    $nextFuCustomer = $scheduled->where('for', 'customer')->first();
-                                                    $nextFuProvider = $scheduled->where('for', 'provider')->first();
-                                                @endphp
-                                                <td>{{ $nextFuCustomer && $nextFuCustomer->date ? \Carbon\Carbon::parse($nextFuCustomer->date)->format('d-M-Y') : '—' }}</td>
-                                                <td>{{ $nextFuProvider && $nextFuProvider->date ? \Carbon\Carbon::parse($nextFuProvider->date)->format('d-M-Y') : '—' }}</td>
                                                 <td>
-                                                    @switch(strtolower((string)($booking->booking_source ?? 'app')))
-                                                        @case('app'){{ translate('App') }}@break
-                                                        @case('call'){{ translate('Call') }}@break
-                                                        @case('whatsapp'){{ translate('Whatsapp') }}@break
-                                                        @case('social_media'){{ translate('Social_Media') }}@break
-                                                        @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
-                                                    @endswitch
+                                                    @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
+                                                </td>
+                                                <td class="text-nowrap">
+                                                    @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
                                                 </td>
                                                 <td
                                                     @if($booking->is_repeated)
@@ -391,13 +333,6 @@
                                                 >
                                                     <div>{{ date('d-M-Y', strtotime($booking->created_at)) }}</div>
                                                     <div>{{ date('h:ia', strtotime($booking->created_at)) }}</div>
-                                                </td>
-                                                <td>
-                                                    @if($booking->service_location == 'provider')
-                                                        {{ translate('Provider Location') }}
-                                                    @else
-                                                        {{ translate('Customer Location') }}
-                                                    @endif
                                                 </td>
                                                 <td
                                                     @if($booking->is_repeated)
@@ -540,6 +475,65 @@
                                                         @endif
                                                     </td>
                                                 @endif
+                                                @if(request('booking_status') === 'reopened')
+                                                    <td>
+                                                        @if(!empty($booking->originated_from_booking_id))
+                                                            @php
+                                                                $reopenParent = $booking->originatedFromBooking;
+                                                            @endphp
+                                                            @if($reopenParent)
+                                                                <a href="{{ route('admin.booking.details', [$reopenParent->id, 'web_page' => 'details']) }}">
+                                                                    #{{ $reopenParent->readable_id ?? $booking->originated_from_booking_id }}
+                                                                </a>
+                                                            @else
+                                                                <span class="text-muted">{{ $booking->originated_from_booking_id }}</span>
+                                                            @endif
+                                                        @else
+                                                            <span class="text-muted">{{ translate('Reopened_from_self') }}</span>
+                                                        @endif
+                                                    </td>
+                                                @else
+                                                    <td>
+                                                        @if(!empty($booking->lead_id))
+                                                            <a href="{{ route('admin.lead.show', $booking->lead_id) }}">
+                                                                #{{ $booking->lead_id }}
+                                                            </a>
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                @endif
+                                                <td>
+                                                    @if($booking->assignee)
+                                                        <div>{{ $booking->assignee->first_name }} {{ $booking->assignee->last_name }}</div>
+                                                        <div class="text-muted small">
+                                                            {{ $booking->assignee->user_type === 'super-admin' ? translate('Admin') : translate('Employee') }}
+                                                            @if($booking->assignee->email)
+                                                                — {{ $booking->assignee->email }}
+                                                            @elseif($booking->assignee->phone)
+                                                                — {{ $booking->assignee->phone }}
+                                                            @endif
+                                                        </div>
+                                                    @else
+                                                        <span class="text-muted small">{{ translate('Unassigned') }}</span>
+                                                    @endif
+                                                </td>
+                                                @php
+                                                    $scheduled = ($booking->followups ?? collect())->where('status', 'scheduled')->sortBy('date');
+                                                    $nextFuCustomer = $scheduled->where('for', 'customer')->first();
+                                                    $nextFuProvider = $scheduled->where('for', 'provider')->first();
+                                                @endphp
+                                                <td>{{ $nextFuCustomer && $nextFuCustomer->date ? \Carbon\Carbon::parse($nextFuCustomer->date)->format('d-M-Y') : '—' }}</td>
+                                                <td>{{ $nextFuProvider && $nextFuProvider->date ? \Carbon\Carbon::parse($nextFuProvider->date)->format('d-M-Y') : '—' }}</td>
+                                                <td>
+                                                    @switch(strtolower((string)($booking->booking_source ?? 'app')))
+                                                        @case('app'){{ translate('App') }}@break
+                                                        @case('call'){{ translate('Call') }}@break
+                                                        @case('whatsapp'){{ translate('Whatsapp') }}@break
+                                                        @case('social_media'){{ translate('Social_Media') }}@break
+                                                        @default{{ ucfirst(strtolower((string)($booking->booking_source ?? 'app'))) }}
+                                                    @endswitch
+                                                </td>
                                                 <td>
                                                     <div class="table-actions d-flex gap-2">
                                                         @if($booking->is_repeated)
@@ -631,7 +625,7 @@
                                             </tr>
                                         @empty
                                             <tr class="text-center">
-                                                <td colspan="8">{{translate('no data available')}}</td>
+                                                <td colspan="99">{{translate('no data available')}}</td>
                                             </tr>
                                         @endforelse
                                     </tbody>

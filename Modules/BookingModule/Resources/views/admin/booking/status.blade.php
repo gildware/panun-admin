@@ -188,7 +188,7 @@
                             </button>
                         @endif
                         @can('booking_can_manage_status')
-                            @if((int)($booking->is_repeated ?? 0) === 0 && ($booking->booking_status ?? '') === 'completed' && ! $booking->isLossMakingFinancialSettlement())
+                            @if($booking->adminEligibleForReopenFromCompleted())
                                 <button type="button" class="btn btn--secondary" data-bs-toggle="modal"
                                     data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                                     <span class="material-icons">restore</span>{{ translate('Reopen_or_complaint') }}

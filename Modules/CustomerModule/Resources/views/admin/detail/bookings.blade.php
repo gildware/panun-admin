@@ -67,9 +67,10 @@
                                     <thead class="align-middle">
                                     <tr>
                                         <th>{{translate('Booking_ID')}}</th>
+                                        <th>{{translate('Booking_Status')}}</th>
+                                        <th>{{translate('Tag')}}</th>
                                         <th>{{translate('Provider_Info')}}</th>
                                         <th>{{translate('Total_Amount')}}</th>
-                                        <th>{{translate('Booking_Status')}}</th>
                                         <th>{{translate('Payment_Status')}}</th>
                                         <th>{{translate('Schedule_Time')}}</th>
                                         <th>{{translate('Booking_Date')}}</th>
@@ -79,14 +80,19 @@
                                     <tbody>
                                     @foreach($bookings as $booking)
                                         <tr>
-                                            <td>{{$booking->readable_id}}</td>
+                                            <td>
+                                                <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}" class="text-decoration-none fw-semibold">{{ $booking->readable_id }}</a>
+                                            </td>
+                                            <td>
+                                                @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
+                                            </td>
+                                            <td class="text-nowrap">
+                                                @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
+                                            </td>
                                             <td>
                                                 {{Str::limit(($booking->provider) ? ($booking?->provider->company_name) : translate('No provider accepted yet'), 30)}}
                                             </td>
                                             <td>{{with_currency_symbol(get_customer_booking_list_display_total($booking))}}</td>
-                                            <td>
-                                                {{translate($booking->booking_status)}}
-                                            </td>
                                             <td>
                                                 <span
                                                     class="badge badge badge-{{$booking->is_paid == 1 ? 'success' : 'danger'}} radius-50">

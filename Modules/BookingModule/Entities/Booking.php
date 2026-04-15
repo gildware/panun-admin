@@ -372,6 +372,48 @@ class Booking extends Model
     }
 
     /**
+     * After-visit cancel or visit-only decided charges: must not be reopened in place or used as a follow-up booking source.
+     */
+    public function blocksAdminReopenDueToDecidedChargesSpecialSettlement(): bool
+    {
+        $o = trim((string) ($this->settlement_outcome ?? ''));
+
+        return $o === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT
+            || $o === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+    }
+
+    /**
+     * Admin "Reopen" / follow-up-from-completed (non-repeat, completed, not loss-making scaled, not decided-charges special settlement).
+     */
+    public function adminEligibleForReopenFromCompleted(): bool
+    {
+        if ((int) ($this->is_repeated ?? 0) !== 0) {
+            return false;
+        }
+        if (($this->booking_status ?? '') !== 'completed') {
+            return false;
+        }
+        if ($this->isLossMakingFinancialSettlement()) {
+            return false;
+        }
+        if ($this->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Hide admin per-booking commission override and compensation when a modal special financial scenario is on file.
+     */
+    public function blocksAdminCommissionOverrideAndCompensation(): bool
+    {
+        return \Modules\BookingModule\Services\BookingFinancialSettlementService::specialScenarioOutcomeDisablesCommissionOverrideAndCompensation(
+            (string) ($this->settlement_outcome ?? '')
+        );
+    }
+
+    /**
      * Scaled settlement on file and no remaining customer shortfall (bad debt / loss total is zero).
      */
     public function isScaledSettlementLossRecovered(): bool
@@ -704,7 +746,12 @@ class Booking extends Model
                     if ($model->booking_partial_payments->isNotEmpty()) {
                         $anyReceivedByProvider = $model->booking_partial_payments->contains(fn ($p) => ($p->received_by ?? '') === 'provider');
                         $scaledToPayments = trim((string) ($model->settlement_outcome ?? '')) === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
-                        if ($model['payment_method'] == 'cash_after_service' && $anyReceivedByProvider) {
+                        // Visit fee split: retained customer total is below catalog grand — never synthesize a CAS "remainder"
+                        // partial or run legacy completion against full booking totals (admin partials + ledger are canonical).
+                        $runLegacyPartialCompletion = trim((string) ($model->settlement_outcome ?? ''))
+                            !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+
+                        if ($runLegacyPartialCompletion && $model['payment_method'] == 'cash_after_service' && $anyReceivedByProvider) {
                             // Loss-making (scaled): never fabricate a final "cash after service" partial — the latest
                             // installment row's due_amount is not cash received and was inflating company/customer totals.
                             if (! $scaledToPayments) {
@@ -722,9 +769,9 @@ class Booking extends Model
                             }
 
                             completeBookingTransactionForPartialCas($model);
-                        } elseif ($model['payment_method'] == 'cash_after_service' && !$anyReceivedByProvider) {
+                        } elseif ($runLegacyPartialCompletion && $model['payment_method'] == 'cash_after_service' && !$anyReceivedByProvider) {
                             completeBookingTransactionForPartialDigital($model);
-                        } elseif ($model['payment_method'] != 'wallet_payment') {
+                        } elseif ($runLegacyPartialCompletion && $model['payment_method'] != 'wallet_payment') {
                             completeBookingTransactionForPartialDigital($model);
                         }
 

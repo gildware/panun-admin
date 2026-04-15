@@ -1565,6 +1565,55 @@ class ProviderController extends Controller
             );
             $providerReceivedTotalAllSources = round($providerReceivedFromCompanyTotal + $providerReceivedFromCustomerTotal, 2);
 
+            $sumMoneyColumns = static function (\Illuminate\Support\Collection $collection, array $keys): array {
+                $out = [];
+                foreach ($keys as $key) {
+                    $out[$key] = round((float) $collection->sum(fn ($r) => (float) ($r->{$key} ?? 0)), 2);
+                }
+
+                return $out;
+            };
+
+            $bookingEarningReportTotals = $sumMoneyColumns($bookingEarningReport, [
+                'total_amount',
+                'service_charges',
+                'extra_service_charges',
+                'parts_charges',
+                'provider_earning',
+                'admin_commission',
+                'amount_received_by_company',
+                'amount_received_by_provider',
+                'provider_owes_company',
+                'company_owes_provider',
+            ]);
+
+            $specialBookingEarningReportTotals = $sumMoneyColumns($specialBookingEarningReport, [
+                'total_amount',
+                'provider_earning',
+                'admin_commission',
+                'scaled_company_loss_line',
+                'scaled_provider_loss_line',
+                'amount_received_by_company',
+                'amount_received_by_provider',
+                'provider_owes_company',
+                'company_owes_provider',
+            ]);
+            // Visiting/closing are full-booking amounts repeated on each repeat row; sum once per booking_id.
+            $specialVisitTotal = 0.0;
+            $specialCloseTotal = 0.0;
+            $specialVisitCloseSeenBookingId = [];
+            foreach ($specialBookingEarningReport as $specialRow) {
+                $bid = (string) ($specialRow->booking_id ?? '');
+                if ($bid === '' || isset($specialVisitCloseSeenBookingId[$bid])) {
+                    continue;
+                }
+                $specialVisitCloseSeenBookingId[$bid] = true;
+                $specialVisitTotal += (float) ($specialRow->visiting_charges ?? 0);
+                $specialCloseTotal += (float) ($specialRow->closing_amount ?? 0);
+            }
+            $specialBookingEarningReportTotals['visiting_charges'] = round($specialVisitTotal, 2);
+            $specialBookingEarningReportTotals['closing_amount'] = round($specialCloseTotal, 2);
+
             $bookingReportPerPage = 20;
             $bookingReportPage = (int) $request->get('booking_page', 1);
             $bookingEarningReportPaginated = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -1622,6 +1671,7 @@ class ProviderController extends Controller
                 $paymentSub = 'ledger';
             }
 
+            $disputedBookingsTotals = [];
             if ($paymentSub === 'disputed') {
                 $disputedBookingsPaginated = Booking::query()
                     ->where('provider_id', $providerId)
@@ -1631,6 +1681,34 @@ class ProviderController extends Controller
                     ->orderByDesc('updated_at')
                     ->paginate(20, ['*'], 'disputed_page');
                 $disputedBookingsPaginated->withQueryString();
+
+                $disputedBookingsTotals = [
+                    'total_booking_amount' => 0.0,
+                    'refund_company_amount' => 0.0,
+                    'refund_provider_amount' => 0.0,
+                    'provider_owes_company' => 0.0,
+                    'company_owes_provider' => 0.0,
+                    'retained_from_customer' => 0.0,
+                    'final_admin_commission' => 0.0,
+                    'final_provider_earning' => 0.0,
+                ];
+                foreach (Booking::query()
+                    ->where('provider_id', $providerId)
+                    ->whereNotNull('reopen_disputed_snapshot')
+                    ->cursor() as $disputedRow) {
+                    $snap = is_array($disputedRow->reopen_disputed_snapshot ?? null) ? $disputedRow->reopen_disputed_snapshot : [];
+                    $disputedBookingsTotals['total_booking_amount'] += (float) ($disputedRow->total_booking_amount ?? 0);
+                    $disputedBookingsTotals['refund_company_amount'] += (float) ($snap['refund_company_amount'] ?? 0);
+                    $disputedBookingsTotals['refund_provider_amount'] += (float) ($snap['refund_provider_amount'] ?? 0);
+                    $disputedBookingsTotals['provider_owes_company'] += (float) ($snap['provider_owes_company'] ?? 0);
+                    $disputedBookingsTotals['company_owes_provider'] += (float) ($snap['company_owes_provider'] ?? 0);
+                    $disputedBookingsTotals['retained_from_customer'] += (float) ($snap['retained_from_customer'] ?? $snap['final_net_to_customer'] ?? 0);
+                    $disputedBookingsTotals['final_admin_commission'] += (float) ($snap['final_admin_commission'] ?? 0);
+                    $disputedBookingsTotals['final_provider_earning'] += (float) ($snap['final_provider_earning'] ?? 0);
+                }
+                foreach (array_keys($disputedBookingsTotals) as $k) {
+                    $disputedBookingsTotals[$k] = round($disputedBookingsTotals[$k], 2);
+                }
             } else {
                 $disputedBookingsPaginated = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20, 1, [
                     'path' => $request->url(),
@@ -1673,7 +1751,9 @@ class ProviderController extends Controller
                 'providerPaymentLedgerContext',
                 'customerRefundDueTotal',
                 'bookingEarningReportPaginated',
+                'bookingEarningReportTotals',
                 'specialBookingEarningReportPaginated',
+                'specialBookingEarningReportTotals',
                 'providerLedger',
                 'providerPaymentEvents',
                 'advancePaymentMethodGroups',
@@ -1682,6 +1762,7 @@ class ProviderController extends Controller
                 'providerReceivedTotalAllSources',
                 'paymentSub',
                 'disputedBookingsPaginated',
+                'disputedBookingsTotals',
                 'providerCompensatedToCustomersTotal',
                 'companyCompensatedToProviderTotal'
             ));

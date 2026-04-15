@@ -236,17 +236,17 @@
                                 <div class="row g-2">
                                     <div class="col-md-6">
                                         <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_provider') }} <span class="text-danger">*</span></label>
-                                        @if(!empty($bfsEmbedPayLossCaps))
-                                            <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_provider_loss') }}: <strong>{{ with_currency_symbol($bfsEmbedPayLossCaps['provider']) }}</strong></div>
-                                        @endif
                                         <input type="number" step="0.01" min="0" @if(!empty($bfsEmbedPayLossCaps)) max="{{ $bfsEmbedPayLossCaps['provider'] }}" @endif name="split_amount_provider" class="form-control add-payment-split-provider" value="0" id="bfs-embed-split-provider">
+                                        @if(!empty($bfsEmbedPayLossCaps))
+                                            <div class="small text-muted mt-1 mb-0">{{ translate('Bfs_add_payment_split_max_to_provider_loss') }} {{ with_currency_symbol($bfsEmbedPayLossCaps['provider']) }}</div>
+                                        @endif
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label mb-1">{{ translate('Bfs_add_payment_split_company') }} <span class="text-danger">*</span></label>
-                                        @if(!empty($bfsEmbedPayLossCaps))
-                                            <div class="small text-muted mb-1">{{ translate('Bfs_add_payment_split_max_to_company_loss') }}: <strong>{{ with_currency_symbol($bfsEmbedPayLossCaps['company']) }}</strong></div>
-                                        @endif
                                         <input type="number" step="0.01" min="0" @if(!empty($bfsEmbedPayLossCaps)) max="{{ $bfsEmbedPayLossCaps['company'] }}" @endif name="split_amount_company" class="form-control add-payment-split-company" value="0" id="bfs-embed-split-company">
+                                        @if(!empty($bfsEmbedPayLossCaps))
+                                            <div class="small text-muted mt-1 mb-0">{{ translate('Bfs_add_payment_split_max_to_company_loss') }} {{ with_currency_symbol($bfsEmbedPayLossCaps['company']) }}</div>
+                                        @endif
                                     </div>
                                 </div>
                                 <p class="small text-muted mt-2 mb-0">{{ translate('Bfs_add_payment_split_sum_hint') }}</p>

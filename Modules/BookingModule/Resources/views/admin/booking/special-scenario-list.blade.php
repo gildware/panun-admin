@@ -70,6 +70,7 @@
                                             <th>{{ translate('SL') }}</th>
                                             <th>{{ translate('Booking_ID') }}</th>
                                             <th>{{ translate('Booking_Status') }}</th>
+                                            <th>{{ translate('Tag') }}</th>
                                             <th>{{ translate('Customer_Info') }}</th>
                                             <th>{{ translate('Provider_Info') }}</th>
                                             <th>{{ translate('Schedule_Date') }}</th>
@@ -86,12 +87,12 @@
                                                     <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}">
                                                         {{ $booking->readable_id }}
                                                     </a>
-                                                    @include('bookingmodule::admin.booking.partials._booking-settlement-list-badge', ['booking' => $booking])
                                                 </td>
                                                 <td>
-                                                    <span class="badge badge-{{ $booking->booking_status === 'ongoing' ? 'warning' : ($booking->booking_status === 'completed' ? 'success' : ($booking->booking_status === 'canceled' ? 'danger' : 'secondary')) }}">
-                                                        {{ ucwords(str_replace('_', ' ', $booking->booking_status)) }}
-                                                    </span>
+                                                    @include('bookingmodule::admin.booking.partials._booking-list-status-badge', ['booking' => $booking])
+                                                </td>
+                                                <td class="text-nowrap">
+                                                    @include('bookingmodule::admin.booking.partials._booking-list-tags-cell', ['booking' => $booking])
                                                 </td>
                                                 <td>
                                                     <div>
@@ -129,7 +130,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="9" class="text-center">{{ translate('no data available') }}</td>
+                                                <td colspan="99" class="text-center">{{ translate('no data available') }}</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
