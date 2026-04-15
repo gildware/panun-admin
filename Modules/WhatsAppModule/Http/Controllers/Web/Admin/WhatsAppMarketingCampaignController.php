@@ -153,7 +153,7 @@ class WhatsAppMarketingCampaignController extends Controller
 
         Toastr::success(translate('Updated_successfully'));
 
-        return redirect()->route('admin.whatsapp.marketing.campaigns.show', ['id' => $campaign->id, 'tab' => 'failed']);
+        return redirect()->route('admin.whatsapp.marketing.campaigns.show', ['channel' => 'whatsapp', 'id' => $campaign->id, 'tab' => 'failed']);
     }
 
     public function exportCsv(int $id): StreamedResponse
@@ -191,6 +191,6 @@ class WhatsAppMarketingCampaignController extends Controller
         $campaign = WhatsAppMarketingCampaign::query()->findOrFail($id);
         session(['marketing_duplicate_campaign_id' => $campaign->id]);
 
-        return redirect()->route('admin.whatsapp.marketing.bulk.create');
+        return redirect()->route('admin.whatsapp.marketing.bulk.create', ['channel' => 'whatsapp']);
     }
 }

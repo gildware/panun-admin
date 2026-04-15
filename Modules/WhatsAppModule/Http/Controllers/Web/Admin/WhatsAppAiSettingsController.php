@@ -16,6 +16,7 @@ use Modules\WhatsAppModule\Services\WhatsAppAiPromptBuilder;
 use Modules\WhatsAppModule\Services\WhatsAppAiSettingsService;
 use Modules\WhatsAppModule\Services\WhatsAppAiToolExecutor;
 use Modules\WhatsAppModule\Services\WhatsAppTemplateButtonValidator;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 class WhatsAppAiSettingsController extends Controller
 {
@@ -167,7 +168,16 @@ class WhatsAppAiSettingsController extends Controller
             }
         }
 
-        return redirect()->route('admin.whatsapp.ai-settings.edit', $params);
+        return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel($params));
+    }
+
+    /**
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    private function withSocialInboxChannel(array $query): array
+    {
+        return array_merge(['channel' => SocialInboxChannel::current()], $query);
     }
 
     private function normalizeMessageConfigSubtab(mixed $value): ?string
@@ -190,7 +200,7 @@ class WhatsAppAiSettingsController extends Controller
                 'forbidden_policy' => 'nullable|string|max:65000',
             ]);
             if ($validator->fails()) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', ['tab' => 'access'])
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'access']))
                     ->withErrors($validator)
                     ->withInput();
             }
@@ -235,7 +245,7 @@ class WhatsAppAiSettingsController extends Controller
                 'prompt_addendum' => 'nullable|string|max:65000',
             ]);
             if ($validator->fails()) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', ['tab' => 'prompt'])
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'prompt']))
                     ->withErrors($validator)
                     ->withInput();
             }
@@ -259,7 +269,7 @@ class WhatsAppAiSettingsController extends Controller
                 'db_queue_connection' => 'nullable|string|max:64',
             ]);
             if ($validator->fails()) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', ['tab' => 'ai_config'])
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'ai_config']))
                     ->withErrors($validator)
                     ->withInput();
             }
@@ -293,7 +303,7 @@ class WhatsAppAiSettingsController extends Controller
                 'db_support_phone_display' => 'nullable|string|max:512',
             ]);
             if ($opValidator->fails()) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', ['tab' => 'business_config', 'edit' => 1])
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'business_config', 'edit' => 1]))
                     ->withErrors($opValidator)
                     ->withInput();
             }
@@ -302,7 +312,7 @@ class WhatsAppAiSettingsController extends Controller
             sort($days);
             $days = array_values(array_filter($days, static fn (int $d): bool => $d >= 1 && $d <= 7));
             if ($days === []) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', ['tab' => 'business_config', 'edit' => 1])
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'business_config', 'edit' => 1]))
                     ->withErrors(['db_support_days' => __('whatsapp_ai.support_days_required')])
                     ->withInput();
             }
@@ -314,7 +324,7 @@ class WhatsAppAiSettingsController extends Controller
                 return $h * 60 + $m;
             };
             if ($toMinutes($start) >= $toMinutes($end)) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', ['tab' => 'business_config', 'edit' => 1])
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'business_config', 'edit' => 1]))
                     ->withErrors(['db_support_hours_end' => __('whatsapp_ai.support_hours_end_after_start')])
                     ->withInput();
             }
@@ -335,7 +345,7 @@ class WhatsAppAiSettingsController extends Controller
             }
             $validator = Validator::make($request->all(), $rules);
             if ($validator->fails()) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', ['tab' => 'business_config', 'edit' => 1])
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'business_config', 'edit' => 1]))
                     ->withErrors($validator)
                     ->withInput();
             }
@@ -395,10 +405,10 @@ class WhatsAppAiSettingsController extends Controller
                 'db_non_text_inbound_message' => 'nullable|string|max:16000',
             ], $buttonRowRules));
             if ($validator->fails()) {
-                return redirect()->route('admin.whatsapp.ai-settings.edit', [
+                return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel([
                     'tab' => 'message_config',
                     'msg_subtab' => $this->normalizeMessageConfigSubtab($request->input('msg_subtab')) ?? 'greeting',
-                ])
+                ]))
                     ->withErrors($validator)
                     ->withInput();
             }
@@ -416,10 +426,10 @@ class WhatsAppAiSettingsController extends Controller
                 if ($built['error'] !== null) {
                     Toastr::error(translate($built['error']));
 
-                    return redirect()->route('admin.whatsapp.ai-settings.edit', [
+                    return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel([
                         'tab' => 'message_config',
                         'msg_subtab' => $this->normalizeMessageConfigSubtab($request->input('msg_subtab')) ?? 'greeting',
-                    ])
+                    ]))
                         ->withInput();
                 }
                 $row->{$col} = $built['buttons'] === [] ? null : $built['buttons'];

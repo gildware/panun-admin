@@ -624,7 +624,7 @@ class BookingController extends Controller
         if (!$wa) {
             Toastr::error(translate('Not_found'));
 
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'bookings']);
         }
 
         $customer = User::findByContactPhone((string) $wa->phone);
@@ -736,7 +736,7 @@ class BookingController extends Controller
         } elseif ($context === 'lead' && $leadIdQ > 0) {
             $prefill['booking_go_back_url'] = route('admin.lead.show', $leadIdQ);
         } else {
-            $prefill['booking_go_back_url'] = route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+            $prefill['booking_go_back_url'] = route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'bookings']);
         }
 
         $prefill = array_filter(

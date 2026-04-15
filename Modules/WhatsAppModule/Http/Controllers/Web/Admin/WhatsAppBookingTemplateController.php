@@ -16,6 +16,7 @@ use Modules\WhatsAppModule\Entities\WhatsAppMarketingTemplate;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 class WhatsAppBookingTemplateController extends Controller
 {
@@ -369,7 +370,7 @@ class WhatsAppBookingTemplateController extends Controller
             $statusSeg = $segmentKeys[0] ?? '';
         }
 
-        $redirectQuery = ['tab' => $mainTab];
+        $redirectQuery = ['channel' => SocialInboxChannel::current(), 'tab' => $mainTab];
         if ($mainTab === 'booking-messages') {
             $redirectQuery['bmsg'] = $bookingMsgSeg;
             if ($bookingMsgSeg === 'status' && $statusSeg !== '') {
@@ -415,7 +416,7 @@ class WhatsAppBookingTemplateController extends Controller
 
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.booking-templates.edit');
+        return redirect()->route('admin.whatsapp.booking-templates.edit', ['channel' => SocialInboxChannel::current()]);
     }
 
     public function toggleMessageSendEnabled(Request $request): RedirectResponse
@@ -473,7 +474,7 @@ class WhatsAppBookingTemplateController extends Controller
             $statusSeg = $segmentKeys[0] ?? '';
         }
 
-        $redirectQuery = ['tab' => $mainTab];
+        $redirectQuery = ['channel' => SocialInboxChannel::current(), 'tab' => $mainTab];
         if ($mainTab === 'booking-messages') {
             $redirectQuery['bmsg'] = $bookingMsgSeg;
             if ($bookingMsgSeg === 'status' && $statusSeg !== '') {

@@ -1,5 +1,7 @@
 @extends('adminmodule::layouts.master')
 
+@php($waMktCh = 'whatsapp')
+
 @section('title', $campaign->name)
 
 @section('content')
@@ -13,13 +15,13 @@
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     @can('whatsapp_marketing_campaign_view')
-                        <a href="{{ route('admin.whatsapp.marketing.campaigns.export', $campaign->id) }}"
+                        <a href="{{ route('admin.whatsapp.marketing.campaigns.export', ['channel' => $waMktCh, 'id' => $campaign->id]) }}"
                            class="btn btn--secondary btn-sm">
                             <span class="material-icons">file_download</span> {{ translate('Export_CSV') }}
                         </a>
                     @endcan
                     @can('whatsapp_marketing_campaign_update')
-                        <form action="{{ route('admin.whatsapp.marketing.campaigns.retry-failed', $campaign->id) }}"
+                        <form action="{{ route('admin.whatsapp.marketing.campaigns.retry-failed', ['channel' => $waMktCh, 'id' => $campaign->id]) }}"
                               method="post" class="d-inline">
                             @csrf
                             <button type="submit" class="btn btn--primary btn-sm">
@@ -28,12 +30,12 @@
                         </form>
                     @endcan
                     @can('whatsapp_marketing_bulk_view')
-                        <a href="{{ route('admin.whatsapp.marketing.campaigns.duplicate', $campaign->id) }}"
+                        <a href="{{ route('admin.whatsapp.marketing.campaigns.duplicate', ['channel' => $waMktCh, 'id' => $campaign->id]) }}"
                            class="btn btn-outline-primary btn-sm">
                             {{ translate('Duplicate_Campaign') }}
                         </a>
                     @endcan
-                    <a href="{{ route('admin.whatsapp.marketing.campaigns.index') }}"
+                    <a href="{{ route('admin.whatsapp.marketing.campaigns.index', ['channel' => $waMktCh]) }}"
                        class="btn btn-outline-secondary btn-sm">{{ translate('back') }}</a>
                 </div>
             </div>
@@ -52,7 +54,7 @@
                     @endphp
                     @foreach($tabs as $key => $label)
                         <li class="nav-item">
-                            <a href="{{ route('admin.whatsapp.marketing.campaigns.show', ['id' => $campaign->id, 'tab' => $key, 'search' => request('search')]) }}"
+                            <a href="{{ route('admin.whatsapp.marketing.campaigns.show', ['channel' => $waMktCh, 'id' => $campaign->id, 'tab' => $key, 'search' => request('search')]) }}"
                                class="nav-link {{ $tab === $key ? 'active' : '' }}">{{ $label }}</a>
                         </li>
                     @endforeach
@@ -120,7 +122,7 @@
             @else
                 <div class="card mb-3">
                     <div class="card-body">
-                        <form method="get" action="{{ route('admin.whatsapp.marketing.campaigns.show', $campaign->id) }}"
+                        <form method="get" action="{{ route('admin.whatsapp.marketing.campaigns.show', ['channel' => $waMktCh, 'id' => $campaign->id]) }}"
                               class="search-form search-form_style-two d-flex flex-wrap gap-2 align-items-end">
                             <input type="hidden" name="tab" value="{{ $tab }}">
                             <div class="form-floating flex-grow-1" style="min-width: 220px;">

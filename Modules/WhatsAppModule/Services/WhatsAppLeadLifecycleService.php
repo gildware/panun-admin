@@ -7,6 +7,7 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 /**
  * CRM lead creation / typing for WhatsApp traffic (shared by internal API, webhooks, AI tools).
@@ -17,6 +18,12 @@ class WhatsAppLeadLifecycleService
     {
         if (!$phone) {
             return null;
+        }
+
+        if (SocialInboxChannel::current() !== SocialInboxChannel::WHATSAPP) {
+            $t = preg_replace('/[^\w\-:+]+/', '', (string) $phone) ?? '';
+
+            return $t !== '' ? substr($t, 0, 64) : null;
         }
 
         $digits = preg_replace('/\D+/', '', $phone) ?? '';

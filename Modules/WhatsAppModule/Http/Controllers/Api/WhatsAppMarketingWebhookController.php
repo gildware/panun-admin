@@ -12,6 +12,7 @@ use Modules\WhatsAppModule\Jobs\ProcessWhatsAppAiSupportJob;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Modules\WhatsAppModule\Services\WhatsAppAiRuntimeResolver;
 use Modules\WhatsAppModule\Services\WhatsAppGraphInboundHandler;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 class WhatsAppMarketingWebhookController extends Controller
 {
@@ -70,7 +71,9 @@ class WhatsAppMarketingWebhookController extends Controller
         }
 
         try {
-            $this->processPayload($payload);
+            SocialInboxChannel::using(SocialInboxChannel::WHATSAPP, function () use ($payload) {
+                $this->processPayload($payload);
+            });
         } catch (\Throwable $e) {
             Log::warning('WhatsApp marketing webhook processing error', ['error' => $e->getMessage()]);
         }

@@ -340,6 +340,6 @@ class WhatsAppMarketingBulkSendController extends Controller
 
         Toastr::success(translate('Campaign_created_successfully'));
 
-        return redirect()->route('admin.whatsapp.marketing.campaigns.index');
+        return redirect()->route('admin.whatsapp.marketing.campaigns.index', ['channel' => 'whatsapp']);
     }
 }

@@ -1,5 +1,7 @@
 @extends('adminmodule::layouts.master')
 
+@php($waMktCh = 'whatsapp')
+
 @section('title', translate('campaigns'))
 
 @section('content')
@@ -8,7 +10,7 @@
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                 <h2 class="page-title">{{ translate('WhatsApp_Marketing') }} — {{ translate('campaigns') }}</h2>
                 @can('whatsapp_marketing_bulk_view')
-                    <a href="{{ route('admin.whatsapp.marketing.bulk.create') }}" class="btn btn--primary">
+                    <a href="{{ route('admin.whatsapp.marketing.bulk.create', ['channel' => $waMktCh]) }}" class="btn btn--primary">
                         <span class="material-icons">add</span>
                         {{ translate('Send_Bulk_Message') }}
                     </a>
@@ -51,7 +53,7 @@
                                     <td>{{ $c->created_at?->format('Y-m-d H:i') }}</td>
                                     <td class="text-end">
                                         @can('whatsapp_marketing_campaign_view')
-                                            <a href="{{ route('admin.whatsapp.marketing.campaigns.show', $c->id) }}"
+                                            <a href="{{ route('admin.whatsapp.marketing.campaigns.show', ['channel' => $waMktCh, 'id' => $c->id]) }}"
                                                class="btn btn-sm btn--primary">{{ translate('View') }}</a>
                                         @endcan
                                     </td>

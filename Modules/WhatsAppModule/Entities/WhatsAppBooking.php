@@ -3,6 +3,8 @@
 namespace Modules\WhatsAppModule\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\WhatsAppModule\Entities\Concerns\HasSocialInboxChannelScope;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\LeadManagement\Entities\Lead;
 
@@ -12,6 +14,8 @@ use Modules\LeadManagement\Entities\Lead;
  */
 class WhatsAppBooking extends Model
 {
+    use HasSocialInboxChannelScope;
+
     public function getTable()
     {
         return config('whatsappmodule.tables.bookings', 'whatsapp_bookings');
@@ -26,6 +30,7 @@ class WhatsAppBooking extends Model
     public const STATUS_CANCELLED = 'CANCELLED';
 
     protected $fillable = [
+        'channel',
         'booking_id',
         'phone',
         'name',
@@ -49,6 +54,15 @@ class WhatsAppBooking extends Model
         'updated_at' => 'datetime',
         'admin_prefill_json' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (WhatsAppBooking $model) {
+            if (empty($model->channel)) {
+                $model->channel = SocialInboxChannel::current();
+            }
+        });
+    }
 
     public function lead(): BelongsTo
     {

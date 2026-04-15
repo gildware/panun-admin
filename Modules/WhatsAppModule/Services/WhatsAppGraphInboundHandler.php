@@ -4,6 +4,8 @@ namespace Modules\WhatsAppModule\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
+use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
 /**
  * Maps Meta Cloud API inbound message payloads into persisted rows (shared webhook path).
@@ -38,8 +40,14 @@ class WhatsAppGraphInboundHandler
         }
 
         $waId = isset($msg['id']) && is_string($msg['id']) ? $msg['id'] : null;
-        if ($waId && WhatsAppMessage::where('wa_message_id', $waId)->exists()) {
-            return WhatsAppMessage::where('wa_message_id', $waId)->first();
+        if ($waId) {
+            $dup = WhatsAppMessage::withoutGlobalScopes()
+                ->where('wa_message_id', $waId)
+                ->where('channel', SocialInboxChannel::WHATSAPP)
+                ->first();
+            if ($dup) {
+                return $dup;
+            }
         }
 
         $text = '';
@@ -127,7 +135,10 @@ class WhatsAppGraphInboundHandler
         }
         $emoji = trim((string) ($reaction['emoji'] ?? ''));
 
-        $target = WhatsAppMessage::query()->where('wa_message_id', $targetId)->first();
+        $target = WhatsAppMessage::withoutGlobalScopes()
+            ->where('wa_message_id', $targetId)
+            ->where('channel', SocialInboxChannel::WHATSAPP)
+            ->first();
         if (!$target) {
             return;
         }
@@ -145,7 +156,7 @@ class WhatsAppGraphInboundHandler
         }
         $target->save();
 
-        Cache::forget('whatsapp_active_chats_list');
-        Cache::forget('whatsapp_chat_full_v2_' . md5((string) $target->phone));
+        WhatsAppActiveChatsListCache::forgetAll();
+        WhatsAppActiveChatsListCache::forgetChatFull((string) $target->phone);
     }
 }

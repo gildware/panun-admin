@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Modules\WhatsAppModule\Entities\WhatsAppChatStatus;
 use Modules\WhatsAppModule\Entities\WhatsAppChatTag;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
+use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
 class WhatsAppChatConfigController extends Controller
 {
@@ -36,10 +38,10 @@ class WhatsAppChatConfigController extends Controller
             'sort_order' => (int) ($data['status_sort_order'] ?? 0),
         ]);
 
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
     public function updateStatus(Request $request, WhatsAppChatStatus $status): RedirectResponse
@@ -58,10 +60,10 @@ class WhatsAppChatConfigController extends Controller
             'sort_order' => (int) ($data['status_sort_order'] ?? 0),
         ]);
 
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
     public function destroyStatus(WhatsAppChatStatus $status): RedirectResponse
@@ -71,14 +73,14 @@ class WhatsAppChatConfigController extends Controller
         if ($status->threadMetas()->exists()) {
             Toastr::error(translate('whatsapp_chat_status_in_use'));
 
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
         }
 
         $status->delete();
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
     public function storeTag(Request $request): RedirectResponse
@@ -101,10 +103,10 @@ class WhatsAppChatConfigController extends Controller
             'sort_order' => (int) ($data['tag_sort_order'] ?? 0),
         ]);
 
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
     public function updateTag(Request $request, WhatsAppChatTag $tag): RedirectResponse
@@ -123,10 +125,10 @@ class WhatsAppChatConfigController extends Controller
             'sort_order' => (int) ($data['tag_sort_order'] ?? 0),
         ]);
 
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
     public function destroyTag(WhatsAppChatTag $tag): RedirectResponse
@@ -134,9 +136,9 @@ class WhatsAppChatConfigController extends Controller
         $this->authorize('whatsapp_message_template_update');
 
         $tag->delete();
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 }

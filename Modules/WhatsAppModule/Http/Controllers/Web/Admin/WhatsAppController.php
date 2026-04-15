@@ -29,7 +29,11 @@ use Modules\WhatsAppModule\Entities\WhatsAppChatThreadMeta;
 use Modules\WhatsAppModule\Entities\WhatsAppConversation;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
+use Carbon\Carbon;
+use Modules\WhatsAppModule\Services\MetaSocialOutboundService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
+use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 use Modules\WhatsAppModule\Support\WhatsAppMessageTime;
 
 class WhatsAppController extends Controller
@@ -82,59 +86,66 @@ class WhatsAppController extends Controller
         if ($tab === 'chats' || $tab === 'human_support') {
             try {
                 $humanSupportTab = $tab === 'human_support';
-                $handlerFilter = $request->get('handler', 'all'); // all | ai | <admin-id> — default 'all' so first load shows all chats
+                $handlerFilters = $this->normalizeWaHandlerFilters($request);
+                /** @deprecated Single-param UI; derived for header quick-select */
+                $handlerFilter = $handlerFilters === [] ? 'all' : (count($handlerFilters) === 1 ? $handlerFilters[0] : 'all');
 
-                if ($humanSupportTab) {
-                    $chats = $this->getHumanSupportChatsList();
-                    $chatHandlers = [
-                        ['key' => 'all', 'label' => translate('Human support requests')],
-                    ];
-                    $handlerFilter = 'all';
-                } else {
-                    $allChats = $this->getActiveChatsList();
+                $baseChats = $humanSupportTab
+                    ? $this->getHumanSupportChatsList()
+                    : $this->getActiveChatsList();
 
-                    // Build handler options: All, AI, then one per admin id present
-                    $handledByKeys = $allChats
-                        ->pluck('handled_by_key')
-                        ->unique()
-                        ->filter()
-                        ->values();
+                $handledByKeys = $baseChats
+                    ->pluck('handled_by_key')
+                    ->unique()
+                    ->filter()
+                    ->values();
 
-                    $chatHandlers = [];
-                    $chatHandlers[] = ['key' => 'all', 'label' => translate('All Chats')];
+                $chatHandlers = [];
+                $chatHandlers[] = [
+                    'key' => 'all',
+                    'label' => $humanSupportTab ? translate('Human support requests') : translate('All Chats'),
+                ];
 
-                    if ($handledByKeys->contains('AI')) {
-                        $chatHandlers[] = ['key' => 'ai', 'label' => translate('Handled by AI')];
+                if ($handledByKeys->contains('AI')) {
+                    $chatHandlers[] = ['key' => 'ai', 'label' => translate('Handled by AI')];
+                }
+
+                $adminIds = $handledByKeys->reject(function ($v) {
+                    return $v === 'AI';
+                })->values();
+
+                if ($adminIds->isNotEmpty()) {
+                    $admins = DB::table('users')
+                        ->whereIn('id', $adminIds)
+                        ->get(['id', 'first_name', 'last_name']);
+                    foreach ($admins as $admin) {
+                        $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
+                        $chatHandlers[] = [
+                            'key' => (string) $admin->id,
+                            'label' => translate('Handled by') . ' ' . ($fullName ?: $admin->id),
+                        ];
                     }
+                }
 
-                    $adminIds = $handledByKeys->reject(function ($v) {
-                        return $v === 'AI';
-                    })->values();
-
-                    if ($adminIds->isNotEmpty()) {
-                        $admins = DB::table('users')
-                            ->whereIn('id', $adminIds)
-                            ->get(['id', 'first_name', 'last_name']);
-                        foreach ($admins as $admin) {
-                            $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
-                            $chatHandlers[] = [
-                                'key' => (string) $admin->id,
-                                'label' => translate('Handled by') . ' ' . ($fullName ?: $admin->id),
-                            ];
-                        }
+                $chats = $baseChats->filter(function ($chat) use ($handlerFilters) {
+                    if ($handlerFilters === []) {
+                        return true;
                     }
-
-                    // Apply filter
-                    $chats = $allChats->filter(function ($chat) use ($handlerFilter) {
-                        if ($handlerFilter === 'all') {
+                    foreach ($handlerFilters as $hf) {
+                        if ($hf === 'ai' && ($chat->handled_by_key ?? '') === 'AI') {
                             return true;
                         }
-                        if ($handlerFilter === 'ai') {
-                            return $chat->handled_by_key === 'AI';
+                        if ($hf !== 'ai' && (string) ($chat->handled_by_key ?? '') === (string) $hf) {
+                            return true;
                         }
-                        return $chat->handled_by_key === $handlerFilter;
-                    })->values();
-                }
+                    }
+
+                    return false;
+                })->values();
+
+                $chats = $this->applyWhatsAppConversationFacetFilters($chats, $request);
+                $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
+                $chats = $this->applyWhatsAppSystemLinkAndDateFilters($chats, $request);
             } catch (\Throwable $e) {
                 Toastr::error('Could not load chats. ' . $e->getMessage());
                 $chats = collect();
@@ -143,8 +154,33 @@ class WhatsAppController extends Controller
                     ['key' => 'ai', 'label' => translate('Handled by AI')],
                 ];
                 $handlerFilter = 'all';
+                $handlerFilters = [];
                 $humanSupportTab = $tab === 'human_support';
             }
+
+            $chatStatusesForFilter = collect();
+            $chatTagsForFilter = collect();
+            if ($this->chatConfigurationTablesPresent()) {
+                $chatStatusesForFilter = WhatsAppChatStatus::query()
+                    ->orderBy('bucket')
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get(['id', 'name', 'bucket']);
+                $chatTagsForFilter = WhatsAppChatTag::query()
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get(['id', 'name', 'color']);
+            }
+            $chatStatusIdsFilter = $this->normalizeWaIntIdArray($request, 'chat_status_ids', $request->get('chat_status_id'));
+            $chatTagIdsFilter = $request->get('chat_tag_ids', []);
+            if (!is_array($chatTagIdsFilter)) {
+                $chatTagIdsFilter = $chatTagIdsFilter !== null && $chatTagIdsFilter !== '' ? [(int) $chatTagIdsFilter] : [];
+            }
+            $chatTagIdsFilter = array_values(array_unique(array_filter(array_map('intval', $chatTagIdsFilter), static fn (int $id): bool => $id > 0)));
+            $unreadStateFilter = $this->normalizeWaUnreadStateFilter($request);
+            $chatStatusFilterId = $chatStatusIdsFilter[0] ?? null;
+            $systemKindsFilter = $this->normalizeWaSystemKindsFilter($request);
+
             $conversationQuickTemplates = $this->conversationQuickTemplatesForChat();
             $waAgentDisplayNameForTemplates = auth()->check()
                 ? $this->waAgentDisplayNameForTemplates(auth()->user())
@@ -163,10 +199,18 @@ class WhatsAppController extends Controller
                 'chats',
                 'chatHandlers',
                 'handlerFilter',
+                'handlerFilters',
                 'humanSupportTab',
                 'conversationQuickTemplates',
                 'waAgentDisplayNameForTemplates',
-                'waQuickTplPayload'
+                'waQuickTplPayload',
+                'chatStatusesForFilter',
+                'chatTagsForFilter',
+                'chatStatusFilterId',
+                'chatStatusIdsFilter',
+                'chatTagIdsFilter',
+                'unreadStateFilter',
+                'systemKindsFilter'
             ));
         }
 
@@ -302,7 +346,7 @@ class WhatsAppController extends Controller
             ));
         }
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chats']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chats']);
     }
 
     /**
@@ -383,20 +427,20 @@ class WhatsAppController extends Controller
         if (!$wa) {
             Toastr::error(translate('Not_found'));
 
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'bookings']);
         }
 
         $linked = trim((string) ($wa->system_booking_id ?? ''));
         if ($linked !== '') {
             Toastr::error(translate('WhatsApp_booking_cannot_cancel_already_linked'));
 
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'bookings']);
         }
 
         if ((string) ($wa->status ?? '') === WhatsAppBooking::STATUS_CANCELLED) {
             Toastr::warning(translate('WhatsApp_booking_already_cancelled'));
 
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'bookings']);
         }
 
         $wa->status = WhatsAppBooking::STATUS_CANCELLED;
@@ -407,7 +451,7 @@ class WhatsAppController extends Controller
 
         Toastr::success(translate('WhatsApp_booking_cancelled'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'bookings']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'bookings']);
     }
 
     /**
@@ -420,7 +464,7 @@ class WhatsAppController extends Controller
         $phone = $request->get('phone');
         if (empty($phone)) {
             Toastr::warning('Phone is required.');
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chats']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chats']);
         }
 
         try {
@@ -432,7 +476,7 @@ class WhatsAppController extends Controller
             $waCustomerNameForTemplates = $this->resolveContactNameForTemplates($waUserChat, $systemLinkChat);
         } catch (\Throwable $e) {
             Toastr::error('Could not load chat.');
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chats']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chats']);
         }
 
         try {
@@ -444,7 +488,7 @@ class WhatsAppController extends Controller
                 ->update([
                     'admin_seen_at' => now(),
                 ]);
-            Cache::forget('whatsapp_active_chats_list');
+            WhatsAppActiveChatsListCache::forgetAll();
         } catch (\Throwable $e) {
             // non-fatal: header unread may lag until next poll
         }
@@ -564,13 +608,14 @@ class WhatsAppController extends Controller
             $waUser->human_support_requested_at = null;
             $waUser->save();
 
-            Cache::forget('whatsapp_active_chats_list');
-            Cache::forget('whatsapp_chat_full_v2_' . md5($threadPhone));
+            WhatsAppActiveChatsListCache::forgetAll();
+            WhatsAppActiveChatsListCache::forgetChatFull($threadPhone);
         }
 
         return response()->json([
             'ok' => true,
             'redirect_url' => route('admin.whatsapp.conversations.index', [
+                'channel' => SocialInboxChannel::current(),
                 'tab' => 'chats',
                 'phone' => $threadPhone,
             ]),
@@ -600,8 +645,15 @@ class WhatsAppController extends Controller
         $whatsappGraph = null;
 
         $rawPhone = trim((string) $request->input('phone'));
-        $graphTo = $this->whatsAppCloud->normalizeRecipientPhone($rawPhone);
-        if ($graphTo === null) {
+        $inboxChannel = SocialInboxChannel::current();
+        if (str_starts_with($rawPhone, 'FB_')) {
+            $graphTo = substr($rawPhone, 3);
+        } elseif (str_starts_with($rawPhone, 'IG_')) {
+            $graphTo = substr($rawPhone, 3);
+        } else {
+            $graphTo = $this->whatsAppCloud->normalizeRecipientPhone($rawPhone);
+        }
+        if ($graphTo === null || $graphTo === '') {
             $whatsAppError = 'invalid_phone';
             Toastr::error(translate('Invalid_whatsapp_phone'));
             if ($request->wantsJson()) {
@@ -613,7 +665,7 @@ class WhatsAppController extends Controller
                 ]);
             }
 
-            return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $rawPhone]);
+            return redirect()->route('admin.whatsapp.conversations.chat', ['channel' => SocialInboxChannel::current(), 'phone' => $rawPhone]);
         }
 
         // Keep message rows on the same `phone` string as existing DB thread (full value from list `data-phone`),
@@ -621,7 +673,7 @@ class WhatsAppController extends Controller
         $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
         $messagesTable = config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $replyToWa = trim((string) $request->input('reply_to_wa_message_id', ''));
-        if ($replyToWa !== '' && !DB::table($messagesTable)->where('phone', $threadPhone)->where('wa_message_id', $replyToWa)->exists()) {
+        if ($replyToWa !== '' && !DB::table($messagesTable)->where('phone', $threadPhone)->where('channel', $inboxChannel)->where('wa_message_id', $replyToWa)->exists()) {
             $replyToWa = '';
         }
         $replyGraphId = $replyToWa !== '' ? $replyToWa : null;
@@ -641,7 +693,7 @@ class WhatsAppController extends Controller
                 ], 422);
             }
 
-            return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $threadPhone]);
+            return redirect()->route('admin.whatsapp.conversations.chat', ['channel' => SocialInboxChannel::current(), 'phone' => $threadPhone]);
         }
 
         try {
@@ -668,7 +720,14 @@ class WhatsAppController extends Controller
                 }
                 $message->save();
 
-                $waId = $this->whatsAppCloud->sendOutbound($graphTo, $body, null, $whatsAppError, $whatsappGraph, $replyGraphId);
+                $metaOut = app(MetaSocialOutboundService::class);
+                if ($inboxChannel === SocialInboxChannel::WHATSAPP) {
+                    $waId = $this->whatsAppCloud->sendOutbound($graphTo, $body, null, $whatsAppError, $whatsappGraph, $replyGraphId);
+                } elseif ($inboxChannel === SocialInboxChannel::FACEBOOK) {
+                    $waId = $metaOut->sendMessengerText($graphTo, $body, $whatsAppError, $whatsappGraph);
+                } else {
+                    $waId = $metaOut->sendInstagramText($graphTo, $body, $whatsAppError, $whatsappGraph);
+                }
                 $sentToWhatsApp = $waId !== null;
                 if ($waId !== null) {
                     $message->wa_message_id = $waId;
@@ -680,6 +739,19 @@ class WhatsAppController extends Controller
                     $this->markWhatsAppMessageSendFailed($message, $whatsAppError, $whatsappGraph);
                 }
             } else {
+                if ($inboxChannel !== SocialInboxChannel::WHATSAPP) {
+                    Toastr::error('Attachments are only available for the WhatsApp channel.');
+                    if ($request->wantsJson()) {
+                        return response()->json([
+                            'message' => 'OK',
+                            'whatsapp_sent' => false,
+                            'whatsapp_error' => 'attachments_not_supported_for_channel',
+                            'whatsapp_graph' => ['stage' => 'validate'],
+                        ], 422);
+                    }
+
+                    return redirect()->route('admin.whatsapp.conversations.chat', ['channel' => SocialInboxChannel::current(), 'phone' => $threadPhone]);
+                }
                 // One WhatsAppMessage per attachment; caption only on the first media message
                 foreach ($files as $index => $file) {
                     $path = $file->store('whatsapp_attachments', 'public');
@@ -715,20 +787,28 @@ class WhatsAppController extends Controller
             }
 
             if ($request->user()) {
-                $waUser = WhatsAppUser::firstOrNew(['phone' => $threadPhone]);
+                $waUser = WhatsAppUser::firstOrNew([
+                    'phone' => $threadPhone,
+                    'channel' => $inboxChannel,
+                ]);
                 $waUser->handled_by = (string) $request->user()->id;
                 $waUser->human_support_requested_at = null;
                 $waUser->save();
             }
 
-            Cache::forget('whatsapp_active_chats_list');
+            WhatsAppActiveChatsListCache::forgetAll();
             foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {
-                Cache::forget('whatsapp_chat_full_v2_' . md5($p));
+                WhatsAppActiveChatsListCache::forgetChatFull($p);
             }
             if ($sentToWhatsApp) {
-                Toastr::success('Reply sent to WhatsApp.');
+                $sentLabel = match ($inboxChannel) {
+                    SocialInboxChannel::FACEBOOK => 'Facebook Messenger',
+                    SocialInboxChannel::INSTAGRAM => 'Instagram',
+                    default => 'WhatsApp',
+                };
+                Toastr::success('Reply sent to '.$sentLabel.'.');
             } else {
-                Toastr::warning('Reply saved, but WhatsApp API failed.');
+                Toastr::warning('Reply saved, but the messaging API failed.');
             }
         } catch (\Throwable $e) {
             Toastr::error('Failed to send reply.');
@@ -744,7 +824,7 @@ class WhatsAppController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $threadPhone]);
+        return redirect()->route('admin.whatsapp.conversations.chat', ['channel' => SocialInboxChannel::current(), 'phone' => $threadPhone]);
     }
 
     /**
@@ -753,6 +833,10 @@ class WhatsAppController extends Controller
     public function sendMessageReaction(Request $request): JsonResponse
     {
         $this->authorize('whatsapp_chat_reply');
+
+        if (SocialInboxChannel::current() !== SocialInboxChannel::WHATSAPP) {
+            return response()->json(['ok' => false, 'error' => 'reactions_whatsapp_only'], 501);
+        }
 
         $data = $request->validate([
             'phone' => 'required|string|max:50',
@@ -814,9 +898,9 @@ class WhatsAppController extends Controller
         }
         $target->save();
 
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {
-            Cache::forget('whatsapp_chat_full_v2_' . md5($p));
+            WhatsAppActiveChatsListCache::forgetChatFull($p);
         }
 
         return response()->json([
@@ -857,8 +941,9 @@ class WhatsAppController extends Controller
     {
         $raw = trim($rawSubmitted);
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        $ch = SocialInboxChannel::current();
         foreach (array_unique(array_filter([$raw, $normalizedDigits])) as $candidate) {
-            if (DB::table($table)->where('phone', $candidate)->exists()) {
+            if (DB::table($table)->where('phone', $candidate)->where('channel', $ch)->exists()) {
                 return $candidate;
             }
         }
@@ -879,6 +964,7 @@ class WhatsAppController extends Controller
         try {
             return DB::table($table)
                 ->whereIn('phone', $keys)
+                ->where('channel', SocialInboxChannel::current())
                 ->whereRaw("UPPER(COALESCE(direction, '')) = 'IN'")
                 ->exists();
         } catch (\Throwable $e) {
@@ -897,6 +983,7 @@ class WhatsAppController extends Controller
         try {
             $lastIn = DB::table($table)
                 ->where('phone', $threadPhone)
+                ->where('channel', SocialInboxChannel::current())
                 ->whereRaw("UPPER(COALESCE(direction, '')) = 'IN'")
                 ->orderByDesc('created_at')
                 ->value('created_at');
@@ -932,6 +1019,13 @@ class WhatsAppController extends Controller
     public function chatWabaTemplates(Request $request): JsonResponse
     {
         $this->authorize('whatsapp_chat_view');
+
+        if (SocialInboxChannel::current() !== SocialInboxChannel::WHATSAPP) {
+            return response()->json([
+                'ok' => true,
+                'templates' => [],
+            ]);
+        }
 
         $err = null;
         [$raw] = $this->whatsAppCloud->fetchMessageTemplates($err);
@@ -1021,6 +1115,14 @@ class WhatsAppController extends Controller
     public function sendChatTemplate(Request $request): JsonResponse
     {
         $this->authorize('whatsapp_chat_reply');
+
+        if (SocialInboxChannel::current() !== SocialInboxChannel::WHATSAPP) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'not_supported',
+                'user_message' => translate('whatsapp_template_not_found_or_inactive'),
+            ], 422);
+        }
 
         $data = $request->validate([
             'phone' => 'required|string|max:50',
@@ -1193,9 +1295,9 @@ class WhatsAppController extends Controller
                 $waUser->save();
             }
 
-            Cache::forget('whatsapp_active_chats_list');
+            WhatsAppActiveChatsListCache::forgetAll();
             foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {
-                Cache::forget('whatsapp_chat_full_v2_' . md5($p));
+                WhatsAppActiveChatsListCache::forgetChatFull($p);
             }
         } catch (\Throwable $e) {
             \Log::warning('WhatsApp chat template persist failed', [
@@ -1232,7 +1334,7 @@ class WhatsAppController extends Controller
         $focusMessageId = (int) $request->get('focus_message_id', 0);
         $hasFocus = $focusMessageId > 0;
 
-        $cacheKey = 'whatsapp_chat_full_v2_' . md5($phone);
+        $cacheKey = WhatsAppActiveChatsListCache::chatFullCacheKey($phone);
         $ttlChat = config('whatsappmodule.cache_ttl_chat', 20);
         $markSeen = $request->boolean('mark_seen');
         if ($request->boolean('full') && !$markSeen && $ttlChat > 0 && !$hasFocus) {
@@ -1360,7 +1462,7 @@ class WhatsAppController extends Controller
                         'admin_seen_at' => now(),
                     ]);
                 // Clear active chats cache so unread counts refresh.
-                Cache::forget('whatsapp_active_chats_list');
+                WhatsAppActiveChatsListCache::forgetAll();
             } catch (\Throwable $e) {
                 \Log::warning('Failed to mark whatsapp messages as admin seen', [
                     'phone' => $phone,
@@ -1494,7 +1596,7 @@ class WhatsAppController extends Controller
 
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $phone]);
+        return redirect()->route('admin.whatsapp.conversations.chat', ['channel' => SocialInboxChannel::current(), 'phone' => $phone]);
     }
 
     /**
@@ -1533,7 +1635,7 @@ class WhatsAppController extends Controller
 
         Toastr::success(translate('successfully_updated'));
 
-        return redirect()->route('admin.whatsapp.conversations.chat', ['phone' => $phone]);
+        return redirect()->route('admin.whatsapp.conversations.chat', ['channel' => SocialInboxChannel::current(), 'phone' => $phone]);
     }
 
     /**
@@ -1865,6 +1967,9 @@ class WhatsAppController extends Controller
 
         $rawPhone = trim((string) $data['phone']);
         $graphTo = $this->whatsAppCloud->normalizeRecipientPhone($rawPhone);
+        if ($graphTo === null && (str_starts_with($rawPhone, 'FB_') || str_starts_with($rawPhone, 'IG_'))) {
+            $graphTo = $rawPhone;
+        }
         if ($graphTo === null) {
             return response()->json([
                 'ok' => false,
@@ -1875,7 +1980,10 @@ class WhatsAppController extends Controller
         // Same thread key as whatsapp_messages / sendReply so handled_by applies to the open conversation.
         $threadPhone = $this->resolveWhatsappThreadPhoneKey($rawPhone, $graphTo);
 
-        $waUser = WhatsAppUser::firstOrNew(['phone' => $threadPhone]);
+        $waUser = WhatsAppUser::firstOrNew([
+            'phone' => $threadPhone,
+            'channel' => SocialInboxChannel::current(),
+        ]);
 
         if ($data['mode'] === 'ai') {
             $waUser->handled_by = 'AI';
@@ -1886,9 +1994,9 @@ class WhatsAppController extends Controller
         $waUser->human_support_requested_at = null;
         $waUser->save();
 
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {
-            Cache::forget('whatsapp_chat_full_v2_' . md5($p));
+            WhatsAppActiveChatsListCache::forgetChatFull($p);
         }
 
         $handler = [
@@ -1938,8 +2046,9 @@ class WhatsAppController extends Controller
         $usersTable = config('whatsappmodule.tables.users', 'whatsapp_users');
 
         try {
-            DB::transaction(function () use ($phoneKeys, $messagesTable, $conversationTable, $usersTable) {
-                $messages = DB::table($messagesTable)->whereIn('phone', $phoneKeys)->get(['id', 'media_path']);
+            $ch = SocialInboxChannel::current();
+            DB::transaction(function () use ($phoneKeys, $messagesTable, $conversationTable, $usersTable, $ch) {
+                $messages = DB::table($messagesTable)->whereIn('phone', $phoneKeys)->where('channel', $ch)->get(['id', 'media_path']);
                 $ids = $messages->pluck('id')->all();
 
                 foreach ($messages as $row) {
@@ -1965,12 +2074,13 @@ class WhatsAppController extends Controller
                         ->delete();
                 }
 
-                DB::table($messagesTable)->whereIn('phone', $phoneKeys)->delete();
-                DB::table($conversationTable)->whereIn('phone', $phoneKeys)->delete();
+                DB::table($messagesTable)->whereIn('phone', $phoneKeys)->where('channel', $ch)->delete();
+                DB::table($conversationTable)->whereIn('phone', $phoneKeys)->where('channel', $ch)->delete();
 
                 // Reset who handles the chat and human-support queue so admin UI and webhooks match a new thread.
                 DB::table($usersTable)
                     ->whereIn('phone', $phoneKeys)
+                    ->where('channel', $ch)
                     ->update([
                         'handled_by' => 'AI',
                         'human_support_requested_at' => null,
@@ -1987,9 +2097,9 @@ class WhatsAppController extends Controller
             return redirect()->back();
         }
 
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         foreach ($phoneKeys as $p) {
-            Cache::forget('whatsapp_chat_full_v2_' . md5($p));
+            WhatsAppActiveChatsListCache::forgetChatFull($p);
         }
 
         if ($request->wantsJson()) {
@@ -1998,7 +2108,7 @@ class WhatsAppController extends Controller
 
         Toastr::success(translate('whatsapp_chat_history_deleted'));
 
-        return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'chats']);
+        return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chats']);
     }
 
     /**
@@ -2008,7 +2118,7 @@ class WhatsAppController extends Controller
     private function getActiveChatsList(): \Illuminate\Support\Collection
     {
         $ttl = config('whatsappmodule.cache_ttl', 30);
-        $cacheKey = 'whatsapp_active_chats_list';
+        $cacheKey = WhatsAppActiveChatsListCache::listCacheKey();
 
         if ($ttl > 0) {
             $cached = Cache::get($cacheKey);
@@ -2019,6 +2129,7 @@ class WhatsAppController extends Controller
 
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $cutoff = now()->subDays(30)->format('Y-m-d H:i:s');
+        $ch = SocialInboxChannel::current();
         $rows = DB::select("
             SELECT m.phone,
                    m.direction,
@@ -2031,18 +2142,21 @@ class WhatsAppController extends Controller
                 SELECT phone, MAX(created_at) AS max_created
                 FROM {$table}
                 WHERE created_at >= ?
+                  AND channel = ?
                 GROUP BY phone
-            ) t ON m.phone = t.phone AND m.created_at = t.max_created
+            ) t ON m.phone = t.phone AND m.created_at = t.max_created AND m.channel = ?
             LEFT JOIN (
                 SELECT phone, COUNT(*) AS unread_count
                 FROM {$table}
                 WHERE direction = 'IN'
                   AND (admin_seen_at IS NULL)
+                  AND channel = ?
                 GROUP BY phone
             ) unread ON unread.phone = m.phone
+            WHERE m.channel = ?
             ORDER BY m.created_at DESC
             LIMIT 100
-        ", [$cutoff]);
+        ", [$cutoff, $ch, $ch, $ch, $ch]);
         $result = collect($rows);
 
         $phones = $result->pluck('phone')->unique()->filter()->values()->all();
@@ -2097,6 +2211,7 @@ class WhatsAppController extends Controller
             return $row;
         });
 
+        $result = $this->hydrateWhatsAppActiveChatThreadTimestamps($result);
         $result = $this->attachChatMetaToPhoneRows($result);
 
         if ($ttl > 0) {
@@ -2104,6 +2219,57 @@ class WhatsAppController extends Controller
         }
 
         return $result;
+    }
+
+    /**
+     * Last inbound message time and first message time per phone (admin filters).
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function hydrateWhatsAppActiveChatThreadTimestamps(\Illuminate\Support\Collection $rows): \Illuminate\Support\Collection
+    {
+        if ($rows->isEmpty()) {
+            return $rows;
+        }
+        $phones = $rows->pluck('phone')->unique()->filter()->values()->all();
+        if ($phones === []) {
+            return $rows;
+        }
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        $inboundByPhone = [];
+        $startByPhone = [];
+        try {
+            foreach (DB::table($table)
+                ->selectRaw('phone, MAX(created_at) as last_inbound_at')
+                ->whereIn('phone', $phones)
+                ->where('channel', SocialInboxChannel::current())
+                ->where('direction', 'IN')
+                ->groupBy('phone')
+                ->get() as $r) {
+                $inboundByPhone[(string) $r->phone] = $r->last_inbound_at;
+            }
+            foreach (DB::table($table)
+                ->selectRaw('phone, MIN(created_at) as thread_started_at')
+                ->whereIn('phone', $phones)
+                ->where('channel', SocialInboxChannel::current())
+                ->groupBy('phone')
+                ->get() as $r) {
+                $startByPhone[(string) $r->phone] = $r->thread_started_at;
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('WhatsApp hydrateWhatsAppActiveChatThreadTimestamps failed.', ['error' => $e->getMessage()]);
+        }
+
+        return $rows->map(function ($row) use ($inboundByPhone, $startByPhone) {
+            $p = (string) ($row->phone ?? '');
+            if ($p !== '') {
+                $row->last_inbound_at = $inboundByPhone[$p] ?? null;
+                $row->thread_started_at = $startByPhone[$p] ?? null;
+            }
+
+            return $row;
+        });
     }
 
     /**
@@ -2141,7 +2307,7 @@ class WhatsAppController extends Controller
             }
         }
 
-        return $this->attachChatMetaToPhoneRows(
+        $merged = $this->hydrateWhatsAppActiveChatThreadTimestamps(
             $pendingUsers->map(function ($u) use ($activeByPhone, $adminNamesById) {
                 $phone = $u->phone;
                 $base = $activeByPhone->get($phone);
@@ -2178,6 +2344,8 @@ class WhatsAppController extends Controller
                 return $row;
             })->values()
         );
+
+        return $this->attachChatMetaToPhoneRows($merged);
     }
 
     private function resolveBookingLinkForPhone(string $phone): ?string
@@ -2580,6 +2748,285 @@ class WhatsAppController extends Controller
         return false;
     }
 
+    /**
+     * @return array<int, string> assignee keys: "ai" or admin user id as string
+     */
+    private function normalizeWaHandlerFilters(Request $request): array
+    {
+        $raw = $request->get('handlers');
+        if (is_array($raw)) {
+            $out = [];
+            foreach ($raw as $v) {
+                if ($v === null || $v === '') {
+                    continue;
+                }
+                $s = trim((string) $v);
+                if ($s === '' || strcasecmp($s, 'all') === 0) {
+                    continue;
+                }
+                $out[] = strcasecmp($s, 'ai') === 0 ? 'ai' : $s;
+            }
+
+            return array_values(array_unique($out));
+        }
+
+        $single = trim((string) $request->get('handler', ''));
+        if ($single === '' || strcasecmp($single, 'all') === 0) {
+            return [];
+        }
+        if (strcasecmp($single, 'ai') === 0) {
+            return ['ai'];
+        }
+
+        return [$single];
+    }
+
+    /**
+     * Normalize repeated query params (e.g. chat_status_ids[]) plus legacy single (e.g. chat_status_id).
+     *
+     * @param  mixed  $legacySingle
+     * @return array<int, int>
+     */
+    private function normalizeWaIntIdArray(Request $request, string $arrayKey, $legacySingle): array
+    {
+        $raw = $request->get($arrayKey);
+        $ids = [];
+        if (is_array($raw)) {
+            foreach ($raw as $v) {
+                $i = (int) $v;
+                if ($i > 0) {
+                    $ids[] = $i;
+                }
+            }
+        }
+        if ($ids === [] && $legacySingle !== null && $legacySingle !== '') {
+            $i = (int) $legacySingle;
+            if ($i > 0) {
+                $ids[] = $i;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @return array<int, string> e.g. ["unread","read"]
+     */
+    private function normalizeWaUnreadStateFilter(Request $request): array
+    {
+        $raw = $request->get('unread_state');
+        if (!is_array($raw)) {
+            $one = $raw !== null && $raw !== '' ? strtolower(trim((string) $raw)) : '';
+
+            return in_array($one, ['unread', 'read'], true) ? [$one] : [];
+        }
+        $out = [];
+        foreach ($raw as $v) {
+            $s = strtolower(trim((string) $v));
+            if (in_array($s, ['unread', 'read'], true)) {
+                $out[] = $s;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>  $chats
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function applyWhatsAppUnreadStateFilter(\Illuminate\Support\Collection $chats, Request $request): \Illuminate\Support\Collection
+    {
+        $states = $this->normalizeWaUnreadStateFilter($request);
+        if ($states === []) {
+            return $chats;
+        }
+        $wantUnread = in_array('unread', $states, true);
+        $wantRead = in_array('read', $states, true);
+        if ($wantUnread && $wantRead) {
+            return $chats;
+        }
+
+        return $chats->filter(function ($chat) use ($wantUnread) {
+            $n = (int) ($chat->unread_count ?? 0);
+
+            return $wantUnread ? $n > 0 : $n === 0;
+        })->values();
+    }
+
+    /**
+     * Narrow the left-rail chat list by configured thread status and/or tags (GET query).
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $chats
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function applyWhatsAppConversationFacetFilters(\Illuminate\Support\Collection $chats, Request $request): \Illuminate\Support\Collection
+    {
+        if (!$this->chatConfigurationTablesPresent()) {
+            return $chats;
+        }
+
+        $statusIds = $this->normalizeWaIntIdArray($request, 'chat_status_ids', $request->get('chat_status_id'));
+        if ($statusIds !== []) {
+            $chats = $chats->filter(function ($chat) use ($statusIds) {
+                $st = $chat->chat_status ?? null;
+                $id = is_array($st) ? (int) ($st['id'] ?? 0) : 0;
+
+                return in_array($id, $statusIds, true);
+            })->values();
+        }
+
+        $tagIds = $request->get('chat_tag_ids', []);
+        if (!is_array($tagIds)) {
+            $tagIds = $tagIds !== null && $tagIds !== '' ? [(int) $tagIds] : [];
+        }
+        $tagIds = array_values(array_unique(array_filter(array_map('intval', $tagIds), static fn (int $id): bool => $id > 0)));
+        if ($tagIds !== []) {
+            $chats = $chats->filter(function ($chat) use ($tagIds) {
+                $tags = $chat->chat_tags ?? [];
+                if (!is_array($tags) || $tags === []) {
+                    return false;
+                }
+                $have = collect($tags)->map(static fn ($t) => (int) ($t['id'] ?? 0))->filter()->all();
+
+                return count(array_intersect($have, $tagIds)) > 0;
+            })->values();
+        }
+
+        return $chats;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normalizeWaSystemKindsFilter(Request $request): array
+    {
+        $raw = $request->get('system_kinds');
+        if (!is_array($raw)) {
+            $raw = $raw !== null && $raw !== '' ? [$raw] : [];
+        }
+        $allowed = ['none', 'customer', 'provider', 'both'];
+        $out = [];
+        foreach ($raw as $v) {
+            $s = strtolower(trim((string) $v));
+            if (in_array($s, $allowed, true)) {
+                $out[] = $s;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    private function parseWaFilterDateBoundary(Request $request, string $key, bool $endOfDay): ?Carbon
+    {
+        $raw = trim((string) $request->query($key, ''));
+        if ($raw === '') {
+            return null;
+        }
+        try {
+            $c = Carbon::createFromFormat('Y-m-d', $raw, config('app.timezone'));
+
+            return $endOfDay ? $c->copy()->endOfDay() : $c->copy()->startOfDay();
+        } catch (\Throwable $e) {
+            try {
+                $c = Carbon::parse($raw, config('app.timezone'));
+
+                return $endOfDay ? $c->copy()->endOfDay() : $c->copy()->startOfDay();
+            } catch (\Throwable $e2) {
+                return null;
+            }
+        }
+    }
+
+    private function waCarbonFromDbDateTime(mixed $value): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        try {
+            return Carbon::parse($value, config('app.timezone'));
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function waChatSystemLinkAsArray(object $chat): array
+    {
+        $sl = $chat->system_link ?? null;
+        if (is_array($sl)) {
+            return $sl;
+        }
+        if (is_object($sl)) {
+            $decoded = json_decode(json_encode($sl), true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
+    }
+
+    /**
+     * CRM link kind: none | customer | provider | both.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $chats
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function applyWhatsAppSystemLinkAndDateFilters(\Illuminate\Support\Collection $chats, Request $request): \Illuminate\Support\Collection
+    {
+        $kinds = $this->normalizeWaSystemKindsFilter($request);
+        if ($kinds !== []) {
+            $chats = $chats->filter(function ($chat) use ($kinds) {
+                $sl = $this->waChatSystemLinkAsArray($chat);
+                $kind = strtolower((string) ($sl['kind'] ?? 'none'));
+
+                return in_array($kind, $kinds, true);
+            })->values();
+        }
+
+        $lmFrom = $this->parseWaFilterDateBoundary($request, 'last_inbound_from', false);
+        $lmTo = $this->parseWaFilterDateBoundary($request, 'last_inbound_to', true);
+        if ($lmFrom !== null || $lmTo !== null) {
+            $chats = $chats->filter(function ($chat) use ($lmFrom, $lmTo) {
+                $t = $this->waCarbonFromDbDateTime($chat->last_inbound_at ?? null);
+                if ($t === null) {
+                    return false;
+                }
+                if ($lmFrom !== null && $t->lt($lmFrom)) {
+                    return false;
+                }
+                if ($lmTo !== null && $t->gt($lmTo)) {
+                    return false;
+                }
+
+                return true;
+            })->values();
+        }
+
+        $csFrom = $this->parseWaFilterDateBoundary($request, 'chat_started_from', false);
+        $csTo = $this->parseWaFilterDateBoundary($request, 'chat_started_to', true);
+        if ($csFrom !== null || $csTo !== null) {
+            $chats = $chats->filter(function ($chat) use ($csFrom, $csTo) {
+                $t = $this->waCarbonFromDbDateTime($chat->thread_started_at ?? null);
+                if ($t === null) {
+                    return false;
+                }
+                if ($csFrom !== null && $t->lt($csFrom)) {
+                    return false;
+                }
+                if ($csTo !== null && $t->gt($csTo)) {
+                    return false;
+                }
+
+                return true;
+            })->values();
+        }
+
+        return $chats;
+    }
+
     private function chatConfigurationTablesPresent(): bool
     {
         return Schema::hasTable('whatsapp_chat_statuses')
@@ -2590,9 +3037,9 @@ class WhatsAppController extends Controller
 
     private function forgetWhatsappChatCaches(?string $phone = null): void
     {
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         if ($phone !== null && $phone !== '') {
-            Cache::forget('whatsapp_chat_full_v2_' . md5($phone));
+            WhatsAppActiveChatsListCache::forgetChatFull($phone);
         }
     }
 
@@ -2700,9 +3147,15 @@ class WhatsAppController extends Controller
             ->get()
             ->keyBy('phone');
 
+        $ch = SocialInboxChannel::current();
         $pivotTags = DB::table('whatsapp_chat_thread_tags as tt')
+            ->join('whatsapp_chat_thread_meta as tm', function ($join) {
+                $join->on('tt.phone', '=', 'tm.phone');
+            })
             ->join('whatsapp_chat_tags as t', 'tt.whatsapp_chat_tag_id', '=', 't.id')
             ->whereIn('tt.phone', $phones)
+            ->where('tm.channel', $ch)
+            ->whereColumn('t.channel', 'tm.channel')
             ->orderBy('t.sort_order')
             ->orderBy('t.id')
             ->get(['tt.phone', 't.id', 't.name', 't.color']);

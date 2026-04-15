@@ -121,7 +121,7 @@
                         @can('whatsapp_chat_view')
                         <li>
                             <div class="whatsapp-header-messages pe--12">
-                                <a href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats']) }}"
+                                <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']) }}"
                                    class="header-icon count-btn wa-header-icon-link"
                                    data-bs-toggle="tooltip"
                                    data-bs-placement="bottom"

@@ -77,6 +77,23 @@ return [
         'token' => env('INTERNAL_WHATSAPP_API_TOKEN'),
     ],
 
+    /** Facebook Page Messenger + Instagram DM webhooks / outbound (Graph). Often same Meta app as WhatsApp. */
+    'meta_social' => [
+        'app_secret' => env('META_SOCIAL_APP_SECRET', env('WHATSAPP_APP_SECRET')),
+        'webhook_verify_token' => env('META_SOCIAL_WEBHOOK_VERIFY_TOKEN'),
+    ],
+
+    'facebook_messenger' => [
+        'page_access_token' => env('MESSENGER_PAGE_ACCESS_TOKEN'),
+        'graph_version' => env('MESSENGER_GRAPH_VERSION', 'v19.0'),
+    ],
+
+    'instagram_dm' => [
+        'access_token' => env('INSTAGRAM_DM_ACCESS_TOKEN', env('MESSENGER_PAGE_ACCESS_TOKEN')),
+        'instagram_user_id' => env('INSTAGRAM_BUSINESS_ACCOUNT_ID'),
+        'graph_version' => env('INSTAGRAM_DM_GRAPH_VERSION', 'v19.0'),
+    ],
+
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
         /** Default model for admin AI content generation (WhatsApp uses WHATSAPP_GEMINI_MODEL). */
