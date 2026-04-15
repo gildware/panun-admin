@@ -182,6 +182,12 @@ class BookingController extends Controller
                     'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                 ]), 422);
             }
+            if ($request['booking_status'] === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
+                ]), 422);
+            }
             $previousParentStatus = (string) $booking->booking_status;
             $booking->booking_status = $request['booking_status'];
             if ($request['booking_status'] === 'completed') {

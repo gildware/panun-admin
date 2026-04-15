@@ -11,20 +11,25 @@
 
             <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
                 <div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h3 class="c1">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
-                        <span class="badge badge-{{
-                            $booking->booking_status == 'ongoing' ? 'warning' :
-                            ($booking->booking_status == 'completed' ? 'success' :
-                            ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
-                        }}">
-                            {{ ucwords($booking->booking_status) }}
-                        </span>
-                        @if($booking->isOpenReopenTicket())
-                            <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
-                        @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
-                            <span class="badge bg-success">{{ translate('Resolved') }}</span>
-                        @endif
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <h3 class="c1 mb-0">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                            <span class="badge badge-{{
+                                $booking->booking_status == 'ongoing' ? 'warning' :
+                                ($booking->booking_status == 'completed' ? 'success' :
+                                ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
+                            }}">{{ ucwords($booking->booking_status) }}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                            @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'header', 'bookingListTagStacked' => true])
+                            @if($booking->isOpenReopenTicket())
+                                <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
+                            @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
+                                <span class="badge bg-success">{{ translate('Resolved') }}</span>
+                            @endif
+                        </div>
                     </div>
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>

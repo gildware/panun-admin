@@ -101,6 +101,65 @@ if (! function_exists('booking_admin_status_transition_allowed_for_booking')) {
     }
 }
 
+if (! function_exists('booking_service_schedule_calendar_allows_mark_ongoing')) {
+    /**
+     * Whether the scheduled service calendar day allows marking the visit as ongoing.
+     * Time-of-day is ignored: any time on the scheduled date (in app timezone) is allowed; earlier calendar days are not.
+     *
+     * @param  mixed  $serviceSchedule  Stored booking/repeat schedule (datetime string or null).
+     */
+    function booking_service_schedule_calendar_allows_mark_ongoing($serviceSchedule): bool
+    {
+        if ($serviceSchedule === null || $serviceSchedule === '') {
+            return true;
+        }
+        try {
+            $schedDay = \Carbon\Carbon::parse($serviceSchedule)->startOfDay();
+            $today = now()->startOfDay();
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        return ! $today->lt($schedDay);
+    }
+}
+
+if (! function_exists('booking_can_mark_ongoing_by_service_schedule')) {
+    /**
+     * Server-side guard for transitions to "ongoing": not before the scheduled service date (calendar day).
+     *
+     * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat  $model
+     * @param  list<string>|null  $repeatStatusesChecked  For repeated parent bookings, which repeat rows must pass the date check
+     *                                                     (should match the statuses your update loop touches; default matches admin bulk update).
+     */
+    function booking_can_mark_ongoing_by_service_schedule($model, ?array $repeatStatusesChecked = null): bool
+    {
+        if ($model instanceof \Modules\BookingModule\Entities\BookingRepeat) {
+            return booking_service_schedule_calendar_allows_mark_ongoing($model->service_schedule ?? null);
+        }
+        if ($model instanceof \Modules\BookingModule\Entities\Booking) {
+            if ((int) ($model->is_repeated ?? 0) !== 0) {
+                $statuses = $repeatStatusesChecked ?? ['pending', 'accepted', 'ongoing', 'on_hold'];
+                $repeats = $model->repeat()->whereIn('booking_status', $statuses)->get();
+                if ($repeats->isEmpty()) {
+                    return booking_service_schedule_calendar_allows_mark_ongoing($model->service_schedule ?? null);
+                }
+                foreach ($repeats as $repeat) {
+                    if (! booking_service_schedule_calendar_allows_mark_ongoing($repeat->service_schedule ?? null)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            return booking_service_schedule_calendar_allows_mark_ongoing($model->service_schedule ?? null);
+        }
+
+        return true;
+    }
+}
+
 if (! function_exists('booking_admin_can_dispute_and_close')) {
     /**
      * Admin "Dispute and close" is only for ongoing, hold-after-visit, or an open reopen ticket.

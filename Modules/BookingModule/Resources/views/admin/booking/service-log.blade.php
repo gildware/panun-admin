@@ -399,7 +399,7 @@
                                                         @csrf
                                                         <div class="modal-body">
                                                             <input type="datetime-local" class="form-control h-45" name="service_schedule"
-                                                                   value="{{$upComing['service_schedule']}}" min="<?php echo date('Y-m-d\TH:i'); ?>">
+                                                                   value="{{$upComing['service_schedule']}}">
                                                             <div class="pt-3 text-end">
                                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{translate('Close')}}</button>
                                                                 <button type="submit" class="btn btn--primary">{{translate('Save changes')}}</button>
@@ -432,6 +432,9 @@
                                             @foreach ($__slStatusNext as $__selSt)
                                                 @php
                                                     $__slOptDisabled = $__slStatusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                                    if ($__selSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                                                        $__slOptDisabled = true;
+                                                    }
                                                     if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
                                                         $__slOptDisabled = true;
                                                     }

@@ -4,7 +4,8 @@
         $__reopenResolveCur = strtolower(trim((string) ($booking->booking_status ?? '')));
         $__reopenResolveIsOngoing = $__reopenResolveCur === 'ongoing';
         $__reopenResolveIsHoldAfterVisit = $__reopenResolveCur === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking);
-        $__reopenResolveStatusOk = $__reopenResolveIsOngoing || $__reopenResolveIsHoldAfterVisit;
+        $__reopenResolveIsAcceptedOrPending = in_array($__reopenResolveCur, ['accepted', 'pending'], true);
+        $__reopenResolveStatusOk = $__reopenResolveIsOngoing || $__reopenResolveIsHoldAfterVisit || $__reopenResolveIsAcceptedOrPending;
         $__reopenResolveDueRemaining = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
         $__reopenResolveHasDue = $__reopenResolveDueRemaining > 0.009;
         $__reopenResolveCanComplete = $__reopenResolveStatusOk

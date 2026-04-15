@@ -97,6 +97,13 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_EDITED), 200);
             }
 
+            if ($request->booking_status === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking, ['pending', 'accepted', 'ongoing'])) {
+                return response()->json(response_formatter([
+                    'response_code' => 'booking_ongoing_schedule_date_200',
+                    'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
+                ]), 200);
+            }
+
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidencePhotos;
             if ($bookingStatus == 'completed' && $request->boolean('payment_received_confirmed')) {
@@ -159,6 +166,13 @@ class BookingController extends Controller
                         $evidencePhotos[] = ['image'=>$imageName, 'storage'=> getDisk()];
                     }
                 }
+            }
+
+            if ($request->booking_status === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'booking_ongoing_schedule_date_200',
+                    'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
+                ]), 200);
             }
 
             $previousRepeatStatus = (string) $booking->booking_status;

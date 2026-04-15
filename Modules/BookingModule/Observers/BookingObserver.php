@@ -50,9 +50,25 @@ class BookingObserver
             return;
         }
 
+        $wa = app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class);
+
+        // Disputed reopen close: status may move to completed/canceled while the dedicated WhatsApp slot
+        // is "Disputed close" (not the generic destination-status template). Avoid double-sending the
+        // generic status-change message alongside the disputed-close automation.
+        $snapBefore = $before['reopen_disputed_snapshot'] ?? null;
+        $snapAfter = $booking->reopen_disputed_snapshot ?? null;
+        $snapBecameDisputedRefund = (! is_array($snapBefore) || $snapBefore === [])
+            && is_array($snapAfter)
+            && (($snapAfter['type'] ?? null) === 'reopen_disputed_refund');
+
         try {
-            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                ->sendBookingStatusChange($booking, $previousStatus);
+            if ($snapBecameDisputedRefund) {
+                $wa->sendDisputedReopenRefundRecorded($booking, $previousStatus);
+
+                return;
+            }
+
+            $wa->sendBookingStatusChange($booking, $previousStatus);
         } catch (\Throwable $e) {
             Log::warning('Booking WhatsApp status notification failed', [
                 'booking_id' => $booking->id,
