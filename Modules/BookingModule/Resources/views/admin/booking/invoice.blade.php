@@ -225,7 +225,7 @@ h1, h2,h3,h4, h5, h6 {
                         <td class="border-bottom">
                             <div class="text-right">
                                 <div>{{translate('Invoice of')}} ({{currency_code()}})</div>
-                                <h5 style="font-size:20px; font-weight: 700;margin:0;color:#007bff">{{with_currency_symbol(get_booking_total_amount($booking))}}</h5>
+                                <h5 style="font-size:20px; font-weight: 700;margin:0;color:#007bff">{{with_currency_symbol(get_booking_total_amount_for_display($booking))}}</h5>
                             </div>
                         </td>
                     </tr>
@@ -333,7 +333,7 @@ h1, h2,h3,h4, h5, h6 {
                             $invServiceAmountExclVat = $invDetailSubTotal + $invExtraServicesServiceTotal;
                             $invBookingHasTax = (float) ($booking->total_tax_amount ?? 0) > 0;
                             $invAcDisplayRows = enrich_booking_additional_charges_breakdown_for_display($booking);
-                            $invGrandTotal = round(get_booking_total_amount($booking), 2);
+                            $invGrandTotal = round(get_booking_total_amount_for_display($booking), 2);
                             $invDisplayServiceDiscount = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking), 2);
                             $invSettlement = get_booking_received_and_settlement($booking);
                             $invDueAmount = get_booking_invoice_due_amount($booking);

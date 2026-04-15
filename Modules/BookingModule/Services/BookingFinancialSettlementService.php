@@ -68,6 +68,67 @@ class BookingFinancialSettlementService
     }
 
     /**
+     * True if any recorded partial payment (positive amount) is attributed to the provider as payee.
+     */
+    public static function bookingHasAnyCustomerPaymentReceivedByProvider(Booking $booking): bool
+    {
+        $booking->loadMissing('booking_partial_payments');
+        foreach ($booking->booking_partial_payments as $p) {
+            if (round((float) ($p->paid_amount ?? 0), 2) <= 0) {
+                continue;
+            }
+            if ((string) ($p->received_by ?? '') === 'provider') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * While the booking can still be configured (ongoing or on-hold-after-visit) and the provider has received
+     * any customer payment, hide "decided charges" outcomes in the special settlement modal — those scenarios
+     * are not offered in that situation.
+     */
+    public static function shouldHideDecidedVisitChargeOutcomesForConfigurableBooking(Booking $booking): bool
+    {
+        $st = (string) ($booking->booking_status ?? '');
+        $configurable = $st === 'ongoing'
+            || ($st === 'on_hold' && function_exists('booking_on_hold_is_after_visit_from_ongoing') && booking_on_hold_is_after_visit_from_ongoing($booking));
+        if (! $configurable) {
+            return false;
+        }
+
+        return self::bookingHasAnyCustomerPaymentReceivedByProvider($booking);
+    }
+
+    /**
+     * When the booking is still in a configurable settlement state (ongoing / on-hold-after-visit) and there is no
+     * remaining amount due from the customer, do not allow **newly** selecting loss-making (scaled) settlement —
+     * it only applies when due is greater than zero. If this booking is already on scaled, editing/saving remains allowed.
+     */
+    public static function scaledLossMakingSelectionUnavailableDueToZeroDue(Booking $booking): bool
+    {
+        $due = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        if ($due > 0.009) {
+            return false;
+        }
+
+        $st = (string) ($booking->booking_status ?? '');
+        $configurable = $st === 'ongoing'
+            || ($st === 'on_hold' && function_exists('booking_on_hold_is_after_visit_from_ongoing') && booking_on_hold_is_after_visit_from_ongoing($booking));
+        if (! $configurable) {
+            return false;
+        }
+
+        if (trim((string) ($booking->settlement_outcome ?? '')) === self::OUTCOME_SCALED_TO_PAYMENTS) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Admin “Special Scenario Bookings” tabs: query key => settlement_outcome (null = all non-empty special outcomes).
      *
      * @return array<string, string|null>

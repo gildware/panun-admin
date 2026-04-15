@@ -4,7 +4,7 @@
     $__bcoTierDefault = round((float) ($bfsDefaultCustomAdminCommission ?? 0), 2);
     $__bcoHasOverride = $booking->admin_commission_override !== null;
 @endphp
-@if((int)($booking->is_repeated ?? 0) === 0 && ! $__bcoIsSubscription)
+@if((int)($booking->is_repeated ?? 0) === 0 && ! $__bcoIsSubscription && (string) ($booking->booking_status ?? '') === 'completed')
     @can('booking_edit')
         <div class="card mt-3 border-0 shadow-sm">
             <div class="card-body py-3 px-3">

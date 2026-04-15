@@ -145,16 +145,20 @@
                         <dt class="col-sm-4 col-md-3">{{ translate('Write_off_provider_amount') }}</dt>
                         <dd class="col-sm-8 col-md-9">{{ with_currency_symbol($bfsScaledWriteoffPr) }}</dd>
                     @endif
-                    <dt class="col-sm-4 col-md-3">{{ translate('Bfs_gross_company_commission_full_booking') }}</dt>
-                    <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) ($bfsScaledLive['company_commission'] ?? 0)) }}</dd>
-                    <dt class="col-sm-4 col-md-3">{{ translate('Bfs_gross_provider_share_full_booking') }}</dt>
-                    <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) ($bfsScaledLive['scaled_gross_provider_share'] ?? 0)) }}</dd>
+                    @if($bookingNotEditable)
+                        <dt class="col-sm-4 col-md-3">{{ translate('Bfs_gross_company_commission_full_booking') }}</dt>
+                        <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) ($bfsScaledLive['company_commission'] ?? 0)) }}</dd>
+                        <dt class="col-sm-4 col-md-3">{{ translate('Bfs_gross_provider_share_full_booking') }}</dt>
+                        <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) ($bfsScaledLive['scaled_gross_provider_share'] ?? 0)) }}</dd>
+                    @endif
                 @endif
 
-                <dt class="col-sm-4 col-md-3">{{ $bfsScaledOutcome ? translate('Net_company_share_after_loss') : translate('Company_commission') }}</dt>
-                <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) data_get($bfsScaledLive, 'company_commission_after_promos', (float) data_get($snap, 'company_commission_after_promos', 0))) }}</dd>
-                <dt class="col-sm-4 col-md-3">{{ $bfsScaledOutcome ? translate('Net_provider_share_after_loss') : translate('Provider_earning') }}</dt>
-                <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) data_get($bfsScaledLive, 'provider_earning', (float) data_get($snap, 'provider_earning', 0))) }}</dd>
+                @if($bookingNotEditable)
+                    <dt class="col-sm-4 col-md-3">{{ $bfsScaledOutcome ? translate('Net_company_share_after_loss') : translate('Company_commission') }}</dt>
+                    <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) data_get($bfsScaledLive, 'company_commission_after_promos', (float) data_get($snap, 'company_commission_after_promos', 0))) }}</dd>
+                    <dt class="col-sm-4 col-md-3">{{ $bfsScaledOutcome ? translate('Net_provider_share_after_loss') : translate('Provider_earning') }}</dt>
+                    <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) data_get($bfsScaledLive, 'provider_earning', (float) data_get($snap, 'provider_earning', 0))) }}</dd>
+                @endif
 
                 @if (! empty($booking->settlement_remarks))
                     <dt class="col-sm-4 col-md-3">{{ translate('Notes') }}</dt>

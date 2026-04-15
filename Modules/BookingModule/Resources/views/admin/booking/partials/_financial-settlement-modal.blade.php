@@ -70,13 +70,26 @@
                 <div class="mb-3">
                     <label class="form-label fw-semibold mb-2">{{ translate('Scenario') }}</label>
                     <div class="d-flex flex-column gap-2" id="bfs-scenario-radios">
+                        @php
+                            $bfsScaledOutcomeVal = \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                            $bfsDisableScaledWhenDueZero = $booking instanceof \Modules\BookingModule\Entities\Booking
+                                && \Modules\BookingModule\Services\BookingFinancialSettlementService::scaledLossMakingSelectionUnavailableDueToZeroDue($booking);
+                        @endphp
                         @foreach($financialSettlementOutcomes ?? [] as $value => $label)
+                            @php
+                                $bfsIsScaled = (string) $value === (string) $bfsScaledOutcomeVal;
+                                $bfsOutcomeDisabled = $bfsIsScaled && $bfsDisableScaledWhenDueZero;
+                            @endphp
                             <div class="d-flex align-items-start gap-2 p-2 rounded border border-light bg-white">
                                 <div class="form-check flex-grow-1 mb-0 pt-1">
                                     <input class="form-check-input bfs-outcome-radio" type="radio" name="bfs_outcome_radio" id="bfs-outcome-{{ $value }}" value="{{ $value }}"
-                                        @if($bfsCurOutcome !== '' && $bfsCurOutcome === (string) $value) checked @endif>
+                                        @if($bfsCurOutcome !== '' && $bfsCurOutcome === (string) $value) checked @endif
+                                        @if($bfsOutcomeDisabled) disabled title="{{ translate('Bfs_scaled_disabled_when_due_zero') }}" @endif>
                                     <label class="form-check-label w-100" for="bfs-outcome-{{ $value }}">
                                         <span class="fw-medium d-block">{{ $label }}</span>
+                                        @if($bfsOutcomeDisabled)
+                                            <span class="small text-muted d-block mt-1">{{ translate('Bfs_scaled_disabled_when_due_zero') }}</span>
+                                        @endif
                                     </label>
                                 </div>
                                 <button type="button" class="btn btn-link text-info p-0 mt-1 flex-shrink-0 bfs-info-btn lh-1"

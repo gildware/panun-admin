@@ -68,7 +68,7 @@
                                     <h4 class="mb-2">{{translate('Payment_Method')}}</h4>
                                     <h5 class="c1 mb-2"><span>{{ format_booking_payment_method_for_admin_display($booking) }}</span></h5>
                                     <p>
-                                        <span>{{translate('Amount')}} : </span> {{with_currency_symbol(get_booking_total_amount($booking))}}
+                                        <span>{{translate('Amount')}} : </span> {{with_currency_symbol(get_booking_total_amount_for_display($booking))}}
                                     </p>
                                     @if($booking->payment_method == 'offline_payment')
                                         <h4 class="mb-2">{{translate('Payment_Info')}}</h4>
@@ -266,7 +266,7 @@
                                             <tr>
                                                 <td><strong>{{translate('Grand_Total')}}</strong></td>
                                                 <td>
-                                                    <strong>{{with_currency_symbol(get_booking_total_amount($booking))}}</strong>
+                                                    <strong>{{with_currency_symbol(get_booking_total_amount_for_display($booking))}}</strong>
                                                 </td>
                                             </tr>
 

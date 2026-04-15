@@ -1,5 +1,17 @@
 {{-- Resolve reopen: complete booking + close reopen case (notes required, confirm on submit) --}}
 @can('booking_can_manage_status')
+    @php
+        $__reopenResolveCur = strtolower(trim((string) ($booking->booking_status ?? '')));
+        $__reopenResolveIsOngoing = $__reopenResolveCur === 'ongoing';
+        $__reopenResolveIsHoldAfterVisit = $__reopenResolveCur === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking);
+        $__reopenResolveStatusOk = $__reopenResolveIsOngoing || $__reopenResolveIsHoldAfterVisit;
+        $__reopenResolveDueRemaining = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        $__reopenResolveHasDue = $__reopenResolveDueRemaining > 0.009;
+        $__reopenResolveCanComplete = $__reopenResolveStatusOk
+            && ! $__reopenResolveHasDue
+            && booking_can_be_completed($booking)
+            && (string) ($booking->settlement_outcome ?? '') !== \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+    @endphp
     <div class="modal fade" id="reopenResolveCompleteModal--{{ $booking->id }}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -12,6 +24,15 @@
                     </div>
                     <div class="modal-body">
                         <p class="text-muted small mb-3">{{ translate('Resolve_reopen_complete_help') }}</p>
+                        @if(! $__reopenResolveStatusOk)
+                            <div class="alert alert-warning mb-3">
+                                {{ translate('Resolve_reopen_invalid_status_for_complete') }}
+                            </div>
+                        @elseif($__reopenResolveHasDue)
+                            <div class="alert alert-warning mb-3">
+                                {{ translate('Resolve_reopen_add_payment_first') }}
+                            </div>
+                        @endif
                         <label class="form-label" for="reopen_resolve_complete_remarks--{{ $booking->id }}">{{ translate('Reopen_resolve_remarks') }} <span class="text-danger">*</span></label>
                         <textarea id="reopen_resolve_complete_remarks--{{ $booking->id }}" name="reopen_resolve_complete_remarks" class="form-control" rows="4" required minlength="1" maxlength="5000"
                             placeholder="{{ translate('Reopen_resolve_remarks_placeholder') }}">{{ old('reopen_resolve_complete_remarks') }}</textarea>
@@ -21,7 +42,9 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
-                        <button type="submit" class="btn btn--primary">{{ translate('Confirm') }}</button>
+                        <button type="submit" class="btn btn--primary" @if(! $__reopenResolveCanComplete) disabled title="{{ translate('Not available for this booking') }}" @endif>
+                            {{ translate('Confirm') }}
+                        </button>
                     </div>
                 </form>
             </div>
