@@ -333,9 +333,10 @@
                 (string) ($booking->booking_status ?? '') === 'completed'
                 && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT
             );
+        $__bfsPendingRefundAmount = 0.0;
         if ($__bfsDecidedChargesPaidDisplayCap && round($bookingTotalForPayment, 2) > 0
-            && round($totalPaidFromPartials, 2) >= round($bookingTotalForPayment, 2)) {
-            $displayPaidAmount = round((float) $bookingTotalForPayment, 2);
+            && round($totalPaidFromPartials, 2) > round($bookingTotalForPayment, 2)) {
+            $__bfsPendingRefundAmount = round(max(0.0, (float) $totalPaidFromPartials - (float) $bookingTotalForPayment), 2);
         }
         $showAsAmountPaidLabel = $booking->booking_status == 'completed' || $paymentFullyCovered;
         $advanceOffline = ($booking->booking_partial_payments ?? collect())->where('paid_with', 'offline')->first();
@@ -440,8 +441,6 @@
                 }
                 $__adminNextStatuses = booking_admin_allowed_next_statuses_for_booking($booking, $__overviewSt);
                 $__headerRefundRemaining = isset($maxRefundAmount) ? round((float) $maxRefundAmount, 2) : 0.0;
-                $__showHeaderPendingRefundBadge = in_array($__overviewSt, ['canceled', 'cancelled'], true)
-                    && $__headerRefundRemaining > 0.009;
                 $__headerStatusNorm = strtolower((string) ($booking->booking_status ?? ''));
                 $__headerMainBadgeClass = match ($__headerStatusNorm) {
                     'ongoing' => 'warning',
@@ -451,55 +450,38 @@
                     'refunded' => 'success',
                     default => 'info',
                 };
+                $__headerHasDisputedSnapshot = !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot);
                 $__showHeaderBookingCancelledWithRefunded = $__headerStatusNorm === 'refunded';
                 $__bookingStatusDisplayLabel = booking_admin_booking_status_display_label($booking);
+                $__disputedSnap = $__headerHasDisputedSnapshot ? (array) $booking->reopen_disputed_snapshot : null;
+                $__dsCustomerPaid = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['customer_paid_total'] ?? 0), 2) : 0.0;
+                $__dsRefundCompany = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['refund_company_amount'] ?? 0), 2) : 0.0;
+                $__dsRefundProvider = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['refund_provider_amount'] ?? 0), 2) : 0.0;
+                $__dsRefundTotal = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['refund_total'] ?? ($__dsRefundCompany + $__dsRefundProvider)), 2) : 0.0;
+                $__dsRetained = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['retained_from_customer'] ?? $__disputedSnap['final_net_to_customer'] ?? 0), 2) : 0.0;
+                $__dsFinalAdmin = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['final_admin_commission'] ?? 0), 2) : 0.0;
+                $__dsFinalProvider = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['final_provider_earning'] ?? 0), 2) : 0.0;
+                $__dsCompanyAfter = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['company_cash_after_refund'] ?? 0), 2) : 0.0;
+                $__dsProviderAfter = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['provider_cash_after_refund'] ?? 0), 2) : 0.0;
+                $__dsProviderPaysCompany = $__headerHasDisputedSnapshot
+                    ? round((float) ($__disputedSnap['provider_total_remittance_to_company'] ?? 0), 2)
+                    : 0.0;
+                $__dsCompanyPaysProvider = $__headerHasDisputedSnapshot
+                    ? round((float) ($__disputedSnap['company_pays_provider_total'] ?? ($__disputedSnap['company_owes_provider'] ?? 0)), 2)
+                    : 0.0;
             @endphp
 
             <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
                 <div>
                     <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
                         <h3 class="c1 fw-bold">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
-                        @if($__showHeaderBookingCancelledWithRefunded)
+                        @if($__showHeaderBookingCancelledWithRefunded && empty($__headerHasDisputedSnapshot))
                             <span class="badge bg-danger">{{ translate('Booking_cancelled') }}</span>
                         @endif
                         <span class="badge badge-{{ $__headerMainBadgeClass }}">
                             {{ $__bookingStatusDisplayLabel }}
                         </span>
-                        @if($__showHeaderPendingRefundBadge)
-                            <span class="badge bg-warning text-dark"
-                                title="{{ translate('Remaining_refundable') }}: {{ with_currency_symbol($__headerRefundRemaining) }}">{{ translate('Pending_refund') }}</span>
-                        @endif
-                        @if($booking->booking_status === 'completed'
-                            && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS)
-                            @if($booking->isScaledSettlementLossRecovered())
-                                <span class="badge bg-success">{{ translate('Bfs_badge_loss_recovered_booking') }}</span>
-                            @else
-                                <span class="badge bg-secondary">{{ translate('Bfs_badge_loss_making_booking') }}</span>
-                            @endif
-                        @endif
-                        @php
-                            $__headerBfsCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
-                            $__headerHasWriteoff = (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
-                                && isset($__headerBfsCfg['scaled_loss_writeoff_amount'])
-                                && is_numeric($__headerBfsCfg['scaled_loss_writeoff_amount'])
-                                && (float) $__headerBfsCfg['scaled_loss_writeoff_amount'] > 0.009;
-                        @endphp
-                        @if($__headerHasWriteoff)
-                            <span class="badge bg-danger" title="{{ translate('Settle_remaining_amount_as_discount') }}">{{ translate('Settled') }}</span>
-                        @endif
-                        @if(in_array($__headerStatusNorm, ['completed', 'canceled', 'cancelled', 'refunded'], true)
-                            && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT)
-                            <span class="badge bg-success"
-                                title="{{ translate('Bfs_label_complete_visit_only') }}">{{ translate('Bfs_list_badge_little_or_no_service') }}</span>
-                        @endif
-                        @if(!empty($booking->after_visit_cancel))
-                            <span class="badge bg-dark">{{ translate('Bfs_badge_after_visit_cancel') }}</span>
-                        @endif
-                        @if($booking->isOpenReopenTicket())
-                            <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
-                        @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
-                            <span class="badge bg-success">{{ translate('Resolved') }}</span>
-                        @endif
+                        @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'header'])
                     </div>
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
@@ -789,6 +771,35 @@
                 </div>
             </div>
 
+            @if($__headerHasDisputedSnapshot)
+                <div class="alert alert-secondary mb-3" role="alert">
+                    <div class="fw-semibold mb-2 d-flex flex-wrap gap-2 align-items-center">
+                        <span>{{ translate('Reopen_disputed_settlement_snapshot') }}</span>
+                        @if(!empty($__disputedSnap['submitted_at']))
+                            <span class="text-muted fw-normal">— {{ \Carbon\Carbon::parse($__disputedSnap['submitted_at'])->format('d-M-Y H:i') }}</span>
+                        @endif
+                    </div>
+                    <div class="row g-2 small">
+                        <div class="col-md-4">{{ translate('Customer_paid_total') }}: <strong>{{ with_currency_symbol($__dsCustomerPaid) }}</strong></div>
+                        <div class="col-md-4">{{ translate('Refund_paid_from_company_pool') }}: <strong class="text-danger">-{{ with_currency_symbol($__dsRefundCompany) }}</strong></div>
+                        <div class="col-md-4">{{ translate('Refund_paid_from_provider_pool') }}: <strong class="text-danger">-{{ with_currency_symbol($__dsRefundProvider) }}</strong></div>
+                        <div class="col-md-4">{{ translate('Final_amount_retained_from_customer_after_refunds') }}: <strong>{{ with_currency_symbol($__dsRetained) }}</strong></div>
+                        <div class="col-md-4">{{ translate('Final_admin_commission_net_basis') }}: <strong>{{ with_currency_symbol($__dsFinalAdmin) }}</strong></div>
+                        <div class="col-md-4">{{ translate('Final_provider_earning_net_basis') }}: <strong>{{ with_currency_symbol($__dsFinalProvider) }}</strong></div>
+                        <div class="col-md-6 text-muted">{{ translate('Received_by_company') }} ({{ translate('After_refund') }}): <strong class="text-dark">{{ with_currency_symbol($__dsCompanyAfter) }}</strong></div>
+                        <div class="col-md-6 text-muted">{{ translate('Received_by_provider') }} ({{ translate('After_refund') }}): <strong class="text-dark">{{ with_currency_symbol($__dsProviderAfter) }}</strong></div>
+                        <div class="col-md-6 border-top pt-2 mt-1">
+                            <span class="text-muted">{{ translate('Disputed_total_provider_pays_company') }}:</span>
+                            <strong class="float-end">{{ with_currency_symbol($__dsProviderPaysCompany) }}</strong>
+                        </div>
+                        <div class="col-md-6 border-top pt-2 mt-1">
+                            <span class="text-muted">{{ translate('Disputed_total_company_pays_provider') }}:</span>
+                            <strong class="float-end">{{ with_currency_symbol($__dsCompanyPaysProvider) }}</strong>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             @if($booking->reopenEvents->isNotEmpty() || !empty($booking->originated_from_booking_id) || $booking->spawnedFollowupBookings->isNotEmpty())
                 <div class="card mb-3 border-warning">
                     <div class="card-header bg-soft-warning border-warning">
@@ -806,6 +817,9 @@
                                     ? (float) $snap['provider_total_remittance_to_company']
                                     : round($__snapPoolOwesCo + $__snapFinAdmin, 2);
                                 $__snapCompanyPaysPr = (float) ($snap['company_owes_provider'] ?? 0);
+                                $__snapCompanyPaysPrTotal = isset($snap['company_pays_provider_total'])
+                                    ? (float) $snap['company_pays_provider_total']
+                                    : $__snapCompanyPaysPr;
                             @endphp
                             <div class="alert alert-secondary py-2 mb-3 small">
                                 <div class="fw-semibold mb-1">{{ translate('Reopen_disputed_settlement_snapshot') }}</div>
@@ -823,8 +837,8 @@
                                             <strong>{{ with_currency_symbol($__snapProviderRemitTotal) }}</strong>
                                         </div>
                                         <div class="d-flex flex-wrap justify-content-between gap-2 mt-1">
-                                            <span>{{ translate('Disputed_total_company_pays_provider') }}:</span>
-                                            <strong>{{ with_currency_symbol($__snapCompanyPaysPr) }}</strong>
+                                            <span>{{ translate('Disputed_total_company_pays_provider') }} <span class="text-muted">({{ translate('Disputed_company_pays_provider_formula_hint') }})</span>:</span>
+                                            <strong>{{ with_currency_symbol($__snapCompanyPaysPrTotal) }}</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -907,6 +921,7 @@
                 'formId' => 'reopenResolveForm--' . $booking->id,
                 'formAction' => route('admin.booking.reopen-resolve', $booking->id),
             ])
+            @include('bookingmodule::admin.booking.partials._reopen-resolve-complete-modal')
             @if((int)($booking->is_repeated ?? 0) === 0 && booking_admin_can_dispute_and_close($booking))
                 @include('bookingmodule::admin.booking.partials._reopen-dispute-modal')
             @endif
@@ -1306,22 +1321,14 @@
                                 </h6>
                                 <div class="d-flex flex-column align-items-end gap-1 text-end flex-shrink-0">
                                     <div class="d-flex flex-wrap gap-1 justify-content-end align-items-center">
-                                        @if($__showHeaderBookingCancelledWithRefunded)
+                                        @if($__showHeaderBookingCancelledWithRefunded && empty($__headerHasDisputedSnapshot))
                                             <span class="badge bg-danger fz-12">{{ translate('Booking_cancelled') }}</span>
                                         @endif
                                         <span class="badge badge-{{ $__overviewBadge }} text-capitalize px-2 py-1 fz-12" id="booking-status-overview-badge">
                                             {{ $__bookingStatusDisplayLabel }}
                                         </span>
-                                        @if($__showHeaderPendingRefundBadge)
-                                            <span class="badge bg-warning text-dark fz-12"
-                                                title="{{ translate('Remaining_refundable') }}: {{ with_currency_symbol($__headerRefundRemaining) }}">{{ translate('Pending_refund') }}</span>
-                                        @endif
+                                        @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'compact'])
                                     </div>
-                                    @if($booking->isOpenReopenTicket())
-                                        <span class="badge bg-warning text-dark fz-12">{{ translate('Reopened') }}</span>
-                                    @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
-                                        <span class="badge bg-success fz-12">{{ translate('Resolved') }}</span>
-                                    @endif
                                 </div>
                             </div>
                             @can('booking_can_manage_status')
@@ -1365,20 +1372,25 @@
                                                 {{ translate('Configure_special_scenarios') }}
                                             </button>
                                         @endif
-                                        @if((int)($booking->is_repeated ?? 0) === 0 && ($__overviewSt === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)))
+                                        @php
+                                            $__isSingle = (int) ($booking->is_repeated ?? 0) === 0;
+                                            $__isOngoingOrHoldAfterVisit = $__overviewSt === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking);
+                                            $__canDisputeCloseBtn = $__isSingle && $__isOngoingOrHoldAfterVisit;
+                                            $__showResolveBookingBtn = $__isSingle && $booking->isOpenReopenTicket();
+                                            $__resolveDueRemaining = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+                                            $__resolveDueOutstanding = $__resolveDueRemaining > 0.009;
+                                        @endphp
+                                        @if($__canDisputeCloseBtn)
                                             <button type="button" class="booking-status-pill booking-status-pill--danger" data-bs-toggle="modal"
                                                 data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
                                                 {{ translate('Dispute_and_close') }}
                                             </button>
                                         @endif
-                                        @if((int)($booking->is_repeated ?? 0) === 0 && $booking->isOpenReopenTicket())
+                                        @if($__showResolveBookingBtn)
                                             <button type="button" class="booking-status-pill booking-status-pill--success" data-bs-toggle="modal"
-                                                data-bs-target="#reopenResolveCompleteModal--{{ $booking->id }}">
+                                                data-bs-target="#reopenResolveCompleteModal--{{ $booking->id }}"
+                                                @if($__resolveDueOutstanding) disabled title="{{ translate('Resolve_reopen_add_payment_first') }}" @endif>
                                                 {{ translate('Resolve_booking') }}
-                                            </button>
-                                            <button type="button" class="booking-status-pill booking-status-pill--danger" data-bs-toggle="modal"
-                                                data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
-                                                {{ translate('Dispute_and_close') }}
                                             </button>
                                         @endif
                                     </div>
@@ -1439,7 +1451,11 @@
                 $__paymentRefundRefunded = round((float) ($__paymentRefundBreakdown['refunded_total'] ?? 0), 2);
                 $__showPaymentRefundRows = $__paymentRefundMaxEligible > 0.009;
                 $__paymentAmountPaidByCustomer = round((float) get_booking_total_paid($booking), 2);
-                if ($__bfsPaymentCardVisitRetainedCanceled) {
+                if ($__headerHasDisputedSnapshot) {
+                    // Disputed close snapshot finalizes refunds; never show "Pending refund" for these.
+                    $adminPaymentStatusLabel = translate('Refunded');
+                    $adminPaymentStatusBadgeClass = 'success';
+                } elseif ($__bfsPaymentCardVisitRetainedCanceled) {
                     $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
                     $paidPartials = round((float) ($booking->booking_partial_payments ?? collect())->sum('paid_amount'), 2);
                     if ($payableCap <= 0) {
@@ -1670,9 +1686,37 @@
                                 <div class="booking-overview-kv-rows flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12">
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-center gap-2 mb-0">
                                         <span class="title-color flex-shrink-0">{{ translate('Payment_Status') }}</span>
-                                        <span class="badge badge-{{ $adminPaymentStatusBadgeClass }} mb-0 fz-12 flex-shrink-0" id="payment_status__span">{{ $adminPaymentStatusLabel }}</span>
+                                        <span class="d-flex flex-wrap justify-content-end align-items-center gap-1">
+                                            <span class="badge badge-{{ $__headerHasDisputedSnapshot ? 'secondary' : $adminPaymentStatusBadgeClass }} mb-0 fz-12 flex-shrink-0" id="payment_status__span">
+                                                {{ $__headerHasDisputedSnapshot ? translate('Reopen_disputed_settlement_snapshot') : $adminPaymentStatusLabel }}
+                                            </span>
+                                            @if($__headerHasDisputedSnapshot && $__dsRefundTotal > 0.009)
+                                                <span class="badge bg-info text-white mb-0 fz-12 flex-shrink-0">
+                                                    {{ $__dsRetained <= 0.0001 ? translate('Booking_tag_refund_full') : translate('Booking_tag_refund_partial') }}
+                                                </span>
+                                            @elseif (!empty($__bfsPendingRefundAmount) && (float) $__bfsPendingRefundAmount > 0.009)
+                                                <span class="badge bg-warning text-dark mb-0 fz-12 flex-shrink-0">{{ translate('Pending_refund') }}</span>
+                                            @endif
+                                        </span>
                                     </div>
-                                    @if ($__showPaymentRefundRows)
+                                    @if($__headerHasDisputedSnapshot)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Customer_paid_total') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__dsCustomerPaid) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Refunded_amount') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0 text-danger">-{{ with_currency_symbol($__dsRefundTotal) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Final_amount_retained_from_customer_after_refunds') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__dsRetained) }}</span>
+                                        </div>
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                            <span class="title-color flex-shrink-0">{{ translate('Due_Balance') }}</span>
+                                            <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol(0) }}</span>
+                                        </div>
+                                    @elseif ($__showPaymentRefundRows)
                                         <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Amount_paid_by_customer') }}</span>
                                             <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__paymentAmountPaidByCustomer) }}</span>
@@ -1698,6 +1742,12 @@
                                             <span class="title-color flex-shrink-0">{{ $showAsAmountPaidLabel ? translate('Amount_Paid') : translate('Advance_Paid') }}</span>
                                             <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($paymentDetailsAmountPaid) }}</span>
                                         </div>
+                                        @if (!$__headerHasDisputedSnapshot && !empty($__bfsPendingRefundAmount) && (float) $__bfsPendingRefundAmount > 0.009)
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
+                                                <span class="title-color flex-shrink-0">{{ translate('Pending_refund') }}</span>
+                                                <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($__bfsPendingRefundAmount) }}</span>
+                                            </div>
+                                        @endif
                                         <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2 mb-0">
                                             <span class="title-color flex-shrink-0">{{ translate('Due_Balance') }}</span>
                                             <span class="c1 fw-semibold text-end text-break min-w-0">{{ with_currency_symbol($dueBalanceDisplay) }}</span>
@@ -1946,35 +1996,52 @@
                                     </h6>
                                 </div>
                                 <div class="d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-y-auto pb-1 fz-12 gap-2">
+                                    @php
+                                        $__rev = $revenueSettlement ?? [];
+                                        $__revDisputedOverride = false;
+                                        if (!empty($__headerHasDisputedSnapshot) && $__headerHasDisputedSnapshot) {
+                                            $__revDisputedOverride = true;
+                                            $__rev = array_merge($__rev, [
+                                                'company_share' => $__dsFinalAdmin,
+                                                'provider_share' => $__dsFinalProvider,
+                                                'amount_received_by_company' => $__dsCompanyAfter,
+                                                'amount_received_by_provider' => $__dsProviderAfter,
+                                                'total_paid' => $__dsCustomerPaid,
+                                                // For disputed close we show the reconciliation totals instead of legacy settlement transfers.
+                                                'pay_to_provider' => $__dsCompanyPaysProvider,
+                                                'provider_owes_company' => $__dsProviderPaysCompany,
+                                            ]);
+                                        }
+                                    @endphp
                                     @if(booking_should_show_admin_revenue_settlement_breakdown($booking))
                                     <div class="booking-overview-kv-rows flex-shrink-0">
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-center">
                                         <span class="title-color">
-                                            @if ($__bfsScaledLive !== null && (float) ($revenueSettlement['company_share'] ?? 0) < -0.009)
+                                            @if ($__bfsScaledLive !== null && (float) ($__rev['company_share'] ?? 0) < -0.009)
                                                 {{ translate('Company_loss') }} ({{ translate('Net') }})
                                             @else
                                                 {{ translate('Company_share') }} ({{ translate('Commission') }})
                                             @endif
                                         </span>
-                                        <strong @class(['text-primary' => (float) ($revenueSettlement['company_share'] ?? 0) >= -0.009, 'text-danger' => (float) ($revenueSettlement['company_share'] ?? 0) < -0.009])>{{ with_currency_symbol($revenueSettlement['company_share']) }}</strong>
+                                        <strong @class(['text-primary' => (float) ($__rev['company_share'] ?? 0) >= -0.009, 'text-danger' => (float) ($__rev['company_share'] ?? 0) < -0.009])>{{ with_currency_symbol($__rev['company_share'] ?? 0) }}</strong>
                                     </div>
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-center">
                                         <span class="title-color">
-                                            @if ($__bfsScaledLive !== null && (float) ($revenueSettlement['provider_share'] ?? 0) < -0.009)
+                                            @if ($__bfsScaledLive !== null && (float) ($__rev['provider_share'] ?? 0) < -0.009)
                                                 {{ translate('Provider_loss') }} ({{ translate('Net') }})
                                             @else
                                                 {{ translate('Provider_share') }}
                                             @endif
                                         </span>
-                                        <strong @class(['text-danger' => (float) ($revenueSettlement['provider_share'] ?? 0) < -0.009])>{{ with_currency_symbol($revenueSettlement['provider_share']) }}</strong>
+                                        <strong @class(['text-danger' => (float) ($__rev['provider_share'] ?? 0) < -0.009])>{{ with_currency_symbol($__rev['provider_share'] ?? 0) }}</strong>
                                     </div>
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
                                         <span>{{ translate('Received_by_company') }}:</span>
-                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($revenueSettlement['amount_received_by_company']) }}</span>
+                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__rev['amount_received_by_company'] ?? 0) }}</span>
                                     </div>
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
                                         <span>{{ translate('Received_by_provider') }}:</span>
-                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($revenueSettlement['amount_received_by_provider']) }}</span>
+                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__rev['amount_received_by_provider'] ?? 0) }}</span>
                                     </div>
                                     @if($__bfsScaledLive !== null && !empty($__bfsScaledLive['scaled_loss_writeoff_amount']) && (float) $__bfsScaledLive['scaled_loss_writeoff_amount'] > 0.009)
                                     <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
@@ -1998,35 +2065,35 @@
                                     </div>
                                     @endif
                                     </div>
-                                    @if(!empty($revenueSettlement['net_revenue_zeroed_after_refund']))
+                                    @if(!empty($__rev['net_revenue_zeroed_after_refund']))
                                         <div class="alert alert-secondary mb-0 py-2 px-2 fz-12">
                                             {{ translate('Net_settlement_zero_after_full_refund_hint') }}
                                         </div>
-                                        @if((float) ($revenueSettlement['pay_to_provider'] ?? 0) > 0.009)
+                                        @if((float) ($__rev['pay_to_provider'] ?? 0) > 0.009)
                                             <div class="alert alert-info mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center mt-2">
                                                 <span>{{ translate('Pay_to_provider') }} <span class="text-muted">({{ translate('Reopen_disputed_settlement_snapshot') }})</span>:</span>
-                                                <strong>{{ with_currency_symbol($revenueSettlement['pay_to_provider']) }}</strong>
+                                                <strong>{{ with_currency_symbol($__rev['pay_to_provider'] ?? 0) }}</strong>
                                             </div>
                                         @endif
-                                        @if((float) ($revenueSettlement['provider_owes_company'] ?? 0) > 0.009)
+                                        @if((float) ($__rev['provider_owes_company'] ?? 0) > 0.009)
                                             <div class="alert alert-warning mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center mt-2">
                                                 <span>{{ translate('Provider_owes_you') }} <span class="text-muted">({{ translate('Reopen_disputed_settlement_snapshot') }})</span>:</span>
-                                                <strong>{{ with_currency_symbol($revenueSettlement['provider_owes_company']) }}</strong>
+                                                <strong>{{ with_currency_symbol($__rev['provider_owes_company'] ?? 0) }}</strong>
                                             </div>
                                         @endif
-                                    @elseif($revenueSettlement['pay_to_provider'] > 0)
+                                    @elseif(($__rev['pay_to_provider'] ?? 0) > 0)
                                         <div class="alert alert-info mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center">
-                                            <span>{{ translate('Pay_to_provider') }}:</span>
-                                            <strong>{{ with_currency_symbol($revenueSettlement['pay_to_provider']) }}</strong>
+                                            <span>{{ translate('Pay_to_provider') }}{{ $__revDisputedOverride ? ' ' . translate('Reopen_disputed_settlement_snapshot') : '' }}:</span>
+                                            <strong>{{ with_currency_symbol($__rev['pay_to_provider'] ?? 0) }}</strong>
                                         </div>
-                                    @elseif($revenueSettlement['provider_owes_company'] > 0)
+                                    @elseif(($__rev['provider_owes_company'] ?? 0) > 0)
                                         <div class="alert alert-warning mb-0 py-2 px-2 fz-12 d-flex justify-content-between align-items-center">
-                                            <span>{{ translate('Provider_owes_you') }}:</span>
-                                            <strong>{{ with_currency_symbol($revenueSettlement['provider_owes_company']) }}</strong>
+                                            <span>{{ translate('Provider_owes_you') }}{{ $__revDisputedOverride ? ' ' . translate('Reopen_disputed_settlement_snapshot') : '' }}:</span>
+                                            <strong>{{ with_currency_symbol($__rev['provider_owes_company'] ?? 0) }}</strong>
                                         </div>
                                     @else
                                         <div class="alert alert-secondary mb-0 py-2 px-2 fz-12">
-                                            {{ $revenueSettlement['total_paid'] >= $bookingTotalForPayment ? translate('Settled') : translate('Unpaid_or_partially_paid') }}
+                                            {{ (float) ($__rev['total_paid'] ?? 0) >= (float) $bookingTotalForPayment ? translate('Settled') : translate('Unpaid_or_partially_paid') }}
                                         </div>
                                     @endif
                                     @else
