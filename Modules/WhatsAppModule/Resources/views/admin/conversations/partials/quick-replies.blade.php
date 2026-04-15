@@ -1,4 +1,5 @@
 {{-- Conversation quick-reply templates (chips + reply-box search in chat UI) --}}
+@php($siInboxCh = request()->route('channel') ?? 'whatsapp')
 @php($conversationTemplates = $conversationTemplates ?? collect())
 
 <div class="card card-body mb-3">
@@ -39,7 +40,7 @@
                             <td class="fw-semibold">{{ $tpl->title }}</td>
                             <td class="text-muted small text-break">{{ \Illuminate\Support\Str::limit($tpl->body, 120) }}</td>
                             <td class="text-center">
-                                <form method="post" action="{{ route('admin.whatsapp.conversation-templates.toggle-active', $tpl) }}" class="d-inline">
+                                <form method="post" action="{{ route('admin.whatsapp.conversation-templates.toggle-active', ['channel' => $siInboxCh, 'template' => $tpl]) }}" class="d-inline">
                                     @csrf
                                     <div class="form-check form-switch d-flex justify-content-center mb-0">
                                         <input class="form-check-input" type="checkbox" role="switch"
@@ -55,7 +56,7 @@
                                         data-tpl-id="{{ $tpl->id }}">
                                     {{ translate('edit') }}
                                 </button>
-                                <form action="{{ route('admin.whatsapp.conversation-templates.destroy', $tpl) }}" method="post" class="d-inline"
+                                <form action="{{ route('admin.whatsapp.conversation-templates.destroy', ['channel' => $siInboxCh, 'template' => $tpl]) }}" method="post" class="d-inline"
                                       onsubmit="return confirm({{ json_encode(translate('are_you_sure')) }});">
                                     @csrf
                                     @method('delete')
@@ -79,7 +80,7 @@
                         <h5 class="modal-title" id="waConvTplModalTitle">{{ translate('WhatsApp_conversation_template_add') }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
                     </div>
-                    <form id="waConvTplForm" method="post" action="{{ route('admin.whatsapp.conversation-templates.store') }}">
+                    <form id="waConvTplForm" method="post" action="{{ route('admin.whatsapp.conversation-templates.store', ['channel' => $siInboxCh]) }}">
                         @csrf
                         <input type="hidden" name="_method" id="waConvTplSpoofMethod" value="" disabled autocomplete="off">
                         <input type="hidden" name="ct_edit_template_id" id="waConvTplEditId" value="{{ old('ct_edit_template_id', '') }}">
@@ -162,8 +163,8 @@
             var modalEl = document.getElementById('waConvTplModal');
             if (!form || !modalEl) return;
 
-            var storeUrl = @json(route('admin.whatsapp.conversation-templates.store'));
-            var updateBase = @json(url('admin/whatsapp/conversation-templates'));
+            var storeUrl = @json(route('admin.whatsapp.conversation-templates.store', ['channel' => $siInboxCh]));
+            var updateBase = @json(url('/admin/social-inbox/'.$siInboxCh.'/conversation-templates'));
             var jsonEl = document.getElementById('wa-conv-tpl-json');
             var payloads = [];
             try {

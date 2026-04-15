@@ -1,6 +1,6 @@
 @extends('adminmodule::layouts.master')
 
-@section('title', translate('WhatsApp'))
+@section('title', translate('social_inbox_page_title'))
 
 @push('css_or_js')
     <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/select2/select2.min.css') }}"/>
@@ -11,12 +11,71 @@
                 outline-offset: 3px;
                 box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
             }
+            /* Split layout: list + chat share one viewport-based height; scroll inside panes (no dead gap under list). */
+            .wa-min-h-0 {
+                min-height: 0;
+            }
+            /*
+             * .main-area is flex column + 100vh; first child must shrink/scroll so <footer> stays visible.
+             */
+            .wa-whatsapp-chats-split-page.main-content {
+                flex: 1 1 auto;
+                min-height: 0;
+                max-height: 100%;
+                overflow-x: hidden;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 120px;
+            }
+            .main-area > footer.footer {
+                flex-shrink: 0;
+            }
+            /* Space below the split row inside the scrollable page (min ~100px before end of scroll). */
+            .wa-whatsapp-chats-split-page .wa-chats-split-layout {
+                --wa-chats-pane-bottom-gap: 100px;
+                margin-bottom: var(--wa-chats-pane-bottom-gap);
+            }
+            @media (min-width: 768px) {
+                /*
+                 * Pane height: use vh inside scrollable main-content (not 100dvh of viewport alone).
+                 */
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout {
+                    --wa-chats-pane-h: min(820px, calc(72vh - 2rem));
+                    height: var(--wa-chats-pane-h);
+                    min-height: var(--wa-chats-pane-h);
+                    max-height: var(--wa-chats-pane-h);
+                    align-items: stretch;
+                }
+                .wa-chats-split-layout > .wa-chats-split-col {
+                    display: flex;
+                    flex-direction: column;
+                    align-self: stretch;
+                    min-height: 0;
+                }
+                .wa-chats-split-layout > .wa-chats-split-col > .card {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    height: 100%;
+                    max-height: 100%;
+                }
+            }
+            .wa-active-chat-list-scroll {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .wa-chats-filter-select2 {
+                min-height: 2.75rem;
+            }
+            #wa-chats-filters-offcanvas .select2-container {
+                width: 100% !important;
+            }
             .whatsapp-active-list-container .card-header {
                 min-width: 0;
             }
-            .whatsapp-active-list-container #chat-handler-filter {
-                max-width: 100%;
-                min-width: 0;
+            .whatsapp-active-list-container .wa-chat-list-filter-btn {
+                white-space: nowrap;
             }
             .wa-sys-pill {
                 display: inline-flex;
@@ -129,11 +188,45 @@
                     max-width: min(100%, 560px);
                 }
             }
+            /*
+             * Session-closed UI (banner + WABA template) must not grow the split row: messages shrink + scroll;
+             * footer blocks scroll internally if needed.
+             */
+            .wa-chat-main-panel #whatsapp-chat-panel {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow: hidden;
+            }
             .wa-chat-main-panel #whatsapp-chat-messages {
-                max-height: min(60vh, 720px);
+                flex: 1 1 0;
+                min-height: 0;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .wa-chat-main-panel #whatsapp-chat-panel > .card-footer {
+                flex: 0 0 auto;
+            }
+            .wa-chat-main-panel #wa-session-window-banner {
+                max-height: 7.5rem;
+                overflow-y: auto;
+            }
+            .wa-chat-main-panel #wa-waba-template-panel {
+                max-height: min(14rem, 32vh);
+                overflow-y: auto;
+            }
+            /* Empty state fills the same vertical space as the open chat panel (no extra min-height mismatch). */
+            .wa-chat-main-panel #whatsapp-chat-placeholder {
+                flex: 1 1 auto;
+                min-height: 0;
             }
             .wa-chat-column {
-                min-width: 300px;
+                min-width: 0;
+                flex: 1 1 0%;
+            }
+            @media (min-width: 768px) {
+                .wa-chat-column {
+                    min-width: 280px;
+                }
             }
             .wa-tpl-suggest {
                 position: absolute;
@@ -333,6 +426,7 @@
             }
         </style>
     <?php endif; ?>
+        @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
 @endpush
 
 @section('content')
@@ -345,13 +439,15 @@
             }
             return strlen($digits) > 10 ? substr($digits, -10) : $digits;
         };
+        $waInboxCh = request()->route('channel') ?? 'whatsapp';
+        $socialInboxChannel = $waInboxCh;
     @endphp
-    <div class="main-content">
+    <div class="main-content social-inbox-page social-inbox-page--{{ $socialInboxChannel }} {{ in_array(($tab ?? ''), ['chats', 'human_support'], true) ? 'wa-whatsapp-chats-split-page' : '' }}">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3">
                 <h2 class="page-title d-flex gap-3 align-items-center">
                     <span class="material-icons">chat</span>
-                    {{ translate('WhatsApp') }}
+                    {{ translate('social_inbox_page_title') }}
                 </h2>
             </div>
 
@@ -359,44 +455,44 @@
                 <ul class="nav nav--tabs">
                     <li class="nav-item">
                         <a class="nav-link {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats']) }}">
+                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'chats']) }}">
                             {{ translate('Active Chats') }}
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'human_support']) }}">
+                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'human_support']) }}">
                             {{ translate('Human support') }}
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ ($tab ?? '') === 'leads' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'leads']) }}">
+                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'leads']) }}">
                             {{ translate('Provider Leads') }}
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ ($tab ?? '') === 'bookings' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'bookings']) }}">
+                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'bookings']) }}">
                             {{ translate('Bookings') }}
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ ($tab ?? '') === 'users' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'users']) }}">
+                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'users']) }}">
                             {{ translate('WhatsApp Users') }}
                         </a>
                     </li>
                     @can('whatsapp_message_template_update')
                         <li class="nav-item">
                             <a class="nav-link {{ ($tab ?? '') === 'quick_replies' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'quick_replies']) }}">
+                               href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'quick_replies']) }}">
                                 {{ translate('WhatsApp_quick_replies_tab') }}
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ ($tab ?? '') === 'chat_config' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chat_config']) }}">
+                               href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'chat_config']) }}">
                                 {{ translate('whatsapp_chat_configuration') }}
                             </a>
                         </li>
@@ -406,55 +502,238 @@
 
             @php
                 $waSearchableTabs = ['chats', 'human_support', 'leads', 'bookings', 'users', 'quick_replies', 'chat_config'];
+                $waFacetCount = 0;
+                if (in_array($tab ?? '', ['chats', 'human_support'], true)) {
+                    $_hf = $handlerFilters ?? [];
+                    $_st = $chatStatusIdsFilter ?? [];
+                    $_ur = array_unique($unreadStateFilter ?? []);
+                    $_sk = $systemKindsFilter ?? [];
+                    $waFacetCount = (int) (count($_hf) > 0)
+                        + (int) (count($_st) > 0)
+                        + (int) (count($chatTagIdsFilter ?? []) > 0)
+                        + (int) (count($_ur) === 1)
+                        + (int) (count($_sk) > 0)
+                        + (int) (request()->filled('last_inbound_from') || request()->filled('last_inbound_to'))
+                        + (int) (request()->filled('chat_started_from') || request()->filled('chat_started_to'));
+                }
             @endphp
             @if(in_array($tab ?? '', $waSearchableTabs, true))
                 <div class="card card-body mb-3 py-3">
-                    <label for="wa-global-search" class="form-label mb-1">{{ translate('Search here') }}</label>
-                    <div class="position-relative">
-                        <input type="search"
-                               id="wa-global-search"
-                               class="form-control"
-                               placeholder="{{ translate('Search name, number, or message') }}…"
-                               autocomplete="off"
-                               aria-autocomplete="list"
-                               aria-controls="wa-global-search-dropdown">
-                        <div id="wa-global-search-dropdown"
-                             class="list-group position-absolute w-100 shadow-sm mt-1 rounded border bg-white"
-                             style="z-index: 25; max-height: 420px; overflow-y: auto; display: none;"
-                             role="listbox"></div>
+                    <label for="wa-global-search" class="form-label mb-2">{{ translate('Search here') }}</label>
+                    <div class="d-flex flex-nowrap align-items-start justify-content-between w-100 wa-global-search-toolbar"
+                         style="gap: clamp(0.5rem, 2vw, 1rem);">
+                        <div class="position-relative min-w-0 flex-grow-1" style="max-width: 100%;">
+                            <input type="search"
+                                   id="wa-global-search"
+                                   class="form-control"
+                                   placeholder="{{ translate('Search name, number, or message') }}…"
+                                   autocomplete="off"
+                                   aria-autocomplete="list"
+                                   aria-controls="wa-global-search-dropdown">
+                            <div id="wa-global-search-dropdown"
+                                 class="list-group position-absolute w-100 shadow-sm mt-1 rounded border bg-white"
+                                 style="z-index: 25; max-height: 420px; overflow-y: auto; display: none;"
+                                 role="listbox"></div>
+                        </div>
                     </div>
                 </div>
                 @if(in_array($tab ?? '', ['chats', 'human_support'], true))
                     <input type="hidden" id="wa-initial-open-phone" value="{{ e(request()->query('phone', '')) }}">
                     <input type="hidden" id="wa-initial-focus-message-id" value="{{ e(request()->query('focus_message_id', '')) }}">
+
+                    @php
+                        $chatStatusesForFilter = $chatStatusesForFilter ?? collect();
+                        $chatTagsForFilter = $chatTagsForFilter ?? collect();
+                        $chatTagIdsFilter = $chatTagIdsFilter ?? [];
+                        $chatStatusIdsFilter = $chatStatusIdsFilter ?? [];
+                        $handlerFilters = $handlerFilters ?? [];
+                        $unreadStateFilter = $unreadStateFilter ?? [];
+                        $systemKindsFilter = $systemKindsFilter ?? [];
+                    @endphp
+
+                    <div class="offcanvas offcanvas-end border-start shadow-sm"
+                         tabindex="-1"
+                         id="wa-chats-filters-offcanvas"
+                         aria-labelledby="wa-chats-filters-offcanvas-label"
+                         style="width: min(100vw, 440px); max-width: 100%;">
+                        <div class="offcanvas-header border-bottom">
+                            <h5 class="offcanvas-title mb-0" id="wa-chats-filters-offcanvas-label">{{ translate('Filters') }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                        </div>
+                        <div class="offcanvas-body d-flex flex-column">
+                            <form method="get" action="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp']) }}" class="d-flex flex-column flex-grow-1 gap-3">
+                                <input type="hidden" name="tab" value="{{ $tab ?? 'chats' }}">
+
+                                <div>
+                                    <label class="form-label fw-semibold" for="wa-filter-assignee">{{ translate('Assignee') }}</label>
+                                    <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_assignee_hint') }}</p>
+                                    <select class="form-select wa-chats-filter-select2"
+                                            id="wa-filter-assignee"
+                                            name="handlers[]"
+                                            multiple
+                                            data-placeholder="{{ translate('All') }}"
+                                            data-allow-clear="1">
+                                        @foreach(($chatHandlers ?? []) as $h)
+                                            @if(($h['key'] ?? '') === 'all')
+                                                @continue
+                                            @endif
+                                            <option value="{{ e($h['key']) }}" {{ in_array((string) ($h['key'] ?? ''), $handlerFilters, true) ? 'selected' : '' }}>
+                                                {{ $h['label'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="form-label fw-semibold" for="wa-filter-system">{{ translate('whatsapp_chat_filters_system_label') }}</label>
+                                    <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_system_hint') }}</p>
+                                    <select class="form-select wa-chats-filter-select2"
+                                            id="wa-filter-system"
+                                            name="system_kinds[]"
+                                            multiple
+                                            data-placeholder="{{ translate('All') }}"
+                                            data-allow-clear="1">
+                                        <option value="none" {{ in_array('none', $systemKindsFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_filter_system_none') }}</option>
+                                        <option value="customer" {{ in_array('customer', $systemKindsFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_filter_system_customer') }}</option>
+                                        <option value="provider" {{ in_array('provider', $systemKindsFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_filter_system_provider') }}</option>
+                                        <option value="both" {{ in_array('both', $systemKindsFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_filter_system_both') }}</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <span class="form-label fw-semibold d-block">{{ translate('whatsapp_chat_filters_last_inbound') }}</span>
+                                    <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_last_inbound_hint') }}</p>
+                                    <div class="row g-2">
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-label small mb-0" for="wa-filter-last-in-from">{{ translate('whatsapp_date_from') }}</label>
+                                            <input type="date"
+                                                   class="form-control form-control-sm"
+                                                   id="wa-filter-last-in-from"
+                                                   name="last_inbound_from"
+                                                   value="{{ e(request('last_inbound_from', '')) }}">
+                                        </div>
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-label small mb-0" for="wa-filter-last-in-to">{{ translate('whatsapp_date_to') }}</label>
+                                            <input type="date"
+                                                   class="form-control form-control-sm"
+                                                   id="wa-filter-last-in-to"
+                                                   name="last_inbound_to"
+                                                   value="{{ e(request('last_inbound_to', '')) }}">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span class="form-label fw-semibold d-block">{{ translate('whatsapp_chat_filters_chat_started') }}</span>
+                                    <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_chat_started_hint') }}</p>
+                                    <div class="row g-2">
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-label small mb-0" for="wa-filter-started-from">{{ translate('whatsapp_date_from') }}</label>
+                                            <input type="date"
+                                                   class="form-control form-control-sm"
+                                                   id="wa-filter-started-from"
+                                                   name="chat_started_from"
+                                                   value="{{ e(request('chat_started_from', '')) }}">
+                                        </div>
+                                        <div class="col-12 col-sm-6">
+                                            <label class="form-label small mb-0" for="wa-filter-started-to">{{ translate('whatsapp_date_to') }}</label>
+                                            <input type="date"
+                                                   class="form-control form-control-sm"
+                                                   id="wa-filter-started-to"
+                                                   name="chat_started_to"
+                                                   value="{{ e(request('chat_started_to', '')) }}">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                @if($chatStatusesForFilter->isNotEmpty())
+                                    <div>
+                                        <label class="form-label fw-semibold" for="wa-filter-status">{{ translate('whatsapp_chat_status') }}</label>
+                                        <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_status_hint') }}</p>
+                                        <select class="form-select wa-chats-filter-select2"
+                                                id="wa-filter-status"
+                                                name="chat_status_ids[]"
+                                                multiple
+                                                data-placeholder="{{ translate('All') }}"
+                                                data-allow-clear="1">
+                                            @foreach($chatStatusesForFilter as $st)
+                                                <option value="{{ (int) $st->id }}"
+                                                    {{ in_array((int) $st->id, $chatStatusIdsFilter, true) ? 'selected' : '' }}>
+                                                    {{ e($st->name) }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
+
+                                <div>
+                                    <label class="form-label fw-semibold" for="wa-filter-unread">{{ translate('whatsapp_chat_filters_read_state') }}</label>
+                                    <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_read_hint') }}</p>
+                                    <select class="form-select wa-chats-filter-select2"
+                                            id="wa-filter-unread"
+                                            name="unread_state[]"
+                                            multiple
+                                            data-placeholder="{{ translate('All') }}"
+                                            data-allow-clear="1">
+                                        <option value="unread" {{ in_array('unread', $unreadStateFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_filter_has_unread') }}</option>
+                                        <option value="read" {{ in_array('read', $unreadStateFilter, true) ? 'selected' : '' }}>{{ translate('whatsapp_filter_no_unread') }}</option>
+                                    </select>
+                                </div>
+
+                                @if($chatTagsForFilter->isNotEmpty())
+                                    <div class="flex-grow-1 d-flex flex-column min-h-0">
+                                        <label class="form-label fw-semibold" for="wa-filter-tags">{{ translate('whatsapp_chat_tags_label') }}</label>
+                                        <p class="small text-muted mb-2">{{ translate('whatsapp_chat_filters_tags_hint') }}</p>
+                                        <select class="form-select wa-chats-filter-select2"
+                                                id="wa-filter-tags"
+                                                name="chat_tag_ids[]"
+                                                multiple
+                                                data-placeholder="{{ translate('All') }}"
+                                                data-allow-clear="1">
+                                            @foreach($chatTagsForFilter as $tg)
+                                                @php $tid = (int) $tg->id; @endphp
+                                                <option value="{{ $tid }}" {{ in_array($tid, $chatTagIdsFilter, true) ? 'selected' : '' }}>
+                                                    {{ e($tg->name) }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
+
+                                @if($chatStatusesForFilter->isEmpty() && $chatTagsForFilter->isEmpty())
+                                    <p class="text-muted small mb-0">{{ translate('whatsapp_chat_filters_unconfigured') }}</p>
+                                @endif
+
+                                <div class="mt-auto d-flex flex-wrap gap-2 pt-2 border-top">
+                                    <button type="submit" class="btn btn--primary">{{ translate('apply') }}</button>
+                                    <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => $tab ?? 'chats']) }}"
+                                       class="btn btn-outline-secondary">{{ translate('Clear_all_Filter') }}</a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 @endif
             @endif
 
             {{-- Tab: Active Chats / Human support — left: scrollable list, right: open chat --}}
             <?php if (($tab ?? '') === 'chats' || ($tab ?? '') === 'human_support'): ?>
-                <div class="row g-3">
-                    <div class="col-12 col-md-4 col-lg-3 col-xl-4 whatsapp-active-list-container">
-                        <div class="card h-100 d-flex flex-column">
-                            <div class="card-header py-2 d-flex align-items-center gap-2 min-w-0">
-                                <strong class="flex-shrink-0">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
-                                <?php $handlerFilter = $handlerFilter ?? 'all'; ?>
-                                <?php if (empty($humanSupportTab ?? false) && !empty($chatHandlers ?? null)) { ?>
-                                    <div class="flex-grow-1 min-w-0">
-                                        <select id="chat-handler-filter"
-                                                class="form-select form-select-sm w-100"
-                                                style="padding-right: 1.75rem;"
-                                                onchange="if(this.value){ window.location.href = this.value; }">
-                                            @foreach($chatHandlers as $h)
-                                                <option value="{{ route('admin.whatsapp.conversations.index', ['tab' => ($tab ?? 'chats'), 'handler' => $h['key']]) }}"
-                                                    {{ $handlerFilter === $h['key'] ? 'selected' : '' }}>
-                                                    {{ $h['label'] }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                <?php } ?>
+                <div class="row g-3 align-items-stretch wa-chats-split-layout">
+                    <div class="col-12 col-md-5 col-lg-4 col-xl-4 whatsapp-active-list-container wa-chats-split-col">
+                        <div class="card h-100 d-flex flex-column wa-min-h-0">
+                            <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2 min-w-0 flex-wrap">
+                                <strong class="flex-shrink-0 me-1">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
+                                <button type="button"
+                                        class="btn btn-outline-primary btn-sm wa-chat-list-filter-btn d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                        data-bs-toggle="offcanvas"
+                                        data-bs-target="#wa-chats-filters-offcanvas"
+                                        aria-controls="wa-chats-filters-offcanvas">
+                                    {{ translate('Filters') }}
+                                    @if(($waFacetCount ?? 0) > 0)
+                                        <span class="badge bg-primary rounded-pill">{{ $waFacetCount }}</span>
+                                    @endif
+                                </button>
                             </div>
-                            <div class="card-body p-0 overflow-auto flex-grow-1" style="max-height: 65vh;">
+                            <div class="card-body p-0 wa-active-chat-list-scroll">
                                 <?php $chatCollection = $chats ?? collect(); ?>
                                 <div id="wa-active-chat-items">
                                 <?php if ($chatCollection->isNotEmpty()): ?>
@@ -557,12 +836,12 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-8 col-lg-9 col-xl-8 wa-chat-column">
-                        <div class="card h-100 d-flex flex-column wa-chat-main-panel">
-                            <div id="whatsapp-chat-placeholder" class="card-body d-flex align-items-center justify-content-center flex-grow-1 text-muted" style="min-height: 400px;">
+                    <div class="col-12 col-md-7 col-lg-8 col-xl-8 wa-chat-column wa-chats-split-col">
+                        <div class="card h-100 d-flex flex-column wa-chat-main-panel wa-min-h-0">
+                            <div id="whatsapp-chat-placeholder" class="card-body d-flex align-items-center justify-content-center flex-grow-1 text-muted wa-min-h-0">
                                 <span>{{ translate('Select a chat') }}</span>
                             </div>
-                            <div id="whatsapp-chat-panel" class="d-none flex-column h-100">
+                            <div id="whatsapp-chat-panel" class="d-none flex-column flex-grow-1 w-100 wa-min-h-0">
                                 <div class="card-header wa-conversation-header">
                                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                                         <div class="d-flex flex-wrap align-items-center gap-2 min-w-0 flex-grow-1">
@@ -595,7 +874,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div id="whatsapp-chat-messages" class="card-body overflow-auto flex-grow-1" style="min-height: 320px;"></div>
+                                <div id="whatsapp-chat-messages" class="card-body flex-grow-1 wa-min-h-0"></div>
                                 <?php if(auth()->check() && auth()->user()->can('whatsapp_chat_reply')): ?>
                                     <div class="card-footer border-top">
                                         <div id="wa-session-window-banner" class="alert alert-warning py-2 px-3 mb-2 d-none small" role="status"></div>
@@ -738,6 +1017,29 @@
                 @push('script')
                 <script>
 (function() {
+    (function initWaChatsFilterSelect2() {
+        var oc = document.getElementById('wa-chats-filters-offcanvas');
+        if (!oc || typeof jQuery === 'undefined' || !jQuery.fn.select2) {
+            return;
+        }
+        function bindWaFilterSelect2() {
+            jQuery('.wa-chats-filter-select2').each(function () {
+                var $el = jQuery(this);
+                if ($el.data('select2')) {
+                    return;
+                }
+                var ph = $el.attr('data-placeholder') || '';
+                var ac = $el.attr('data-allow-clear') === '1' || $el.attr('data-allow-clear') === 'true';
+                $el.select2({
+                    width: '100%',
+                    dropdownParent: jQuery('#wa-chats-filters-offcanvas'),
+                    placeholder: ph,
+                    allowClear: ac
+                });
+            });
+        }
+        oc.addEventListener('shown.bs.offcanvas', bindWaFilterSelect2);
+    })();
     var waConvTemplates = @json($waQuickTplPayload ?? []);
     var waAgentName = @json($waAgentDisplayNameForTemplates ?? '');
     var waCustomerName = '';
@@ -745,11 +1047,11 @@
     var waTplChipMax = 5;
     var waTplSuggestSelected = -1;
     var waTplSuggestMatches = [];
-    var messagesUrl = '{{ route("admin.whatsapp.conversations.chat.messages") }}';
-    var replyUrl = '{{ route("admin.whatsapp.conversations.reply") }}';
-    var reactionUrl = '{{ route("admin.whatsapp.conversations.reaction") }}';
-    var handoffUrl = '{{ route("admin.whatsapp.conversations.handoff") }}';
-    var deleteHistoryUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_delete') ? route('admin.whatsapp.conversations.delete-history') : '');
+    var messagesUrl = '{{ route("admin.whatsapp.conversations.chat.messages", ['channel' => $waInboxCh]) }}';
+    var replyUrl = '{{ route("admin.whatsapp.conversations.reply", ['channel' => $waInboxCh]) }}';
+    var reactionUrl = '{{ route("admin.whatsapp.conversations.reaction", ['channel' => $waInboxCh]) }}';
+    var handoffUrl = '{{ route("admin.whatsapp.conversations.handoff", ['channel' => $waInboxCh]) }}';
+    var deleteHistoryUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_delete') ? route('admin.whatsapp.conversations.delete-history', ['channel' => $waInboxCh]) : '');
     var canDeleteChatHistory = @json((bool) (auth()->check() && auth()->user()->can('whatsapp_chat_delete')));
     var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     var currentAdminId = '{{ (string) auth()->id() }}';
@@ -779,9 +1081,9 @@
     var strForwardSent = {!! json_encode(translate('WhatsApp_forward_sent')) !!};
     var strForwardSentMultiple = {!! json_encode(translate('WhatsApp_forward_sent_multiple')) !!};
     var strForwardSelectedCount = {!! json_encode(translate('WhatsApp_forward_selected_count')) !!};
-    var activeChatsForForwardUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.active-chats-forward') : '');
-    var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates') : '');
-    var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template') : '');
+    var activeChatsForForwardUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.active-chats-forward', ['channel' => $waInboxCh]) : '');
+    var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates', ['channel' => $waInboxCh]) : '');
+    var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]) : '');
     var strSessionBanner = {!! json_encode(translate('whatsapp_session_window_banner')) !!};
     var strSessionTextareaPh = {!! json_encode(translate('whatsapp_session_window_textarea_placeholder')) !!};
     var strTplLoadFailed = {!! json_encode(translate('whatsapp_waba_templates_load_failed')) !!};
@@ -794,8 +1096,8 @@
     var waSessionWindowOpen = true;
     var waWabaTemplatesList = null;
     var waWabaTemplatesLoading = false;
-    var threadStatusUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-status') : '');
-    var threadTagsUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-tags') : '');
+    var threadStatusUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-status', ['channel' => $waInboxCh]) : '');
+    var threadTagsUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.thread-tags', ['channel' => $waInboxCh]) : '');
     var strChatStatus = {!! json_encode(translate('whatsapp_chat_status')) !!};
     var strManageTags = {!! json_encode(translate('whatsapp_manage_tags')) !!};
     var strSave = {!! json_encode(translate('save')) !!};
@@ -2241,7 +2543,9 @@
             }
             n = n.parentElement;
         }
-        return listContainer.querySelector('.card-body.overflow-auto') || listContainer.querySelector('.card-body');
+        return listContainer.querySelector('.wa-active-chat-list-scroll')
+            || listContainer.querySelector('.card-body.overflow-auto')
+            || listContainer.querySelector('.card-body');
     }
 
     /** Refresh list items without replacing the scrollable .card-body (avoids scroll jump). Fallback: full replace + restore scroll. */
@@ -3346,7 +3650,7 @@
                     <div class="modal fade" id="waCancelWhatsappBookingModal" tabindex="-1" aria-labelledby="waCancelWhatsappBookingModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
                             <div class="modal-content">
-                                <form method="post" action="{{ route('admin.whatsapp.conversations.bookings.cancel') }}" id="waCancelWhatsappBookingForm">
+                                <form method="post" action="{{ route('admin.whatsapp.conversations.bookings.cancel', ['channel' => request()->route('channel') ?? 'whatsapp']) }}" id="waCancelWhatsappBookingForm">
                                     @csrf
                                     <input type="hidden" name="booking_id" id="waCancelWhatsappBookingId" value="">
                                     <div class="modal-header">
@@ -3452,7 +3756,7 @@
                                     <td><span class="badge bg-secondary">{{ $waUser->type ?? '—' }}</span></td>
                                     <td>{{ $waUser->created_at?->format('M j, H:i') ?? '—' }}</td>
                                     <td class="text-end">
-                                        <a href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats', 'phone' => $waUser->phone]) }}" class="btn btn-sm btn--primary">{{ translate('View chat') }}</a>
+                                        <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'chats', 'phone' => $waUser->phone]) }}" class="btn btn-sm btn--primary">{{ translate('View chat') }}</a>
                                         <button type="button"
                                                 class="btn btn-sm btn-success wa-user-leads text-white"
                                                 data-phone="{{ e($waUser->phone) }}">
@@ -3513,7 +3817,7 @@
     var body = document.getElementById('waUserDetailsBody');
     var leadsModal = document.getElementById('waUserLeadsModal');
     var leadsBody = document.getElementById('waUserLeadsBody');
-    var detailsUrl = '{{ route("admin.whatsapp.users.details") }}';
+    var detailsUrl = '{{ route("admin.whatsapp.users.details", ['channel' => request()->route('channel') ?? 'whatsapp']) }}';
     var strWaCustomerM = {!! json_encode(translate('whatsapp_system_customer')) !!};
     var strWaProviderM = {!! json_encode(translate('whatsapp_system_provider')) !!};
     var strWaNoneM = {!! json_encode(translate('whatsapp_not_in_system')) !!};
@@ -3720,8 +4024,8 @@
         @push('script')
             <script>
                 (function () {
-                    var waConvBaseUrl = @json(route('admin.whatsapp.conversations.index'));
-                    var searchUrl = @json(route('admin.whatsapp.conversations.search'));
+                    var waConvBaseUrl = @json(route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp']));
+                    var searchUrl = @json(route('admin.whatsapp.conversations.search', ['channel' => request()->route('channel') ?? 'whatsapp']));
                     var waNavTabsForSearch = @json($waNavTabsForSearch);
                     var strPages = {!! json_encode(translate('Pages')) !!};
                     var strOpenTabHint = {!! json_encode(translate('Open')) !!};

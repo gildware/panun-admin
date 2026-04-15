@@ -98,7 +98,7 @@ class LedgerPaymentWhatsAppService
         $chatPhoneKey = app(WhatsAppMessagePersistenceService::class)->resolveAdminChatPhoneKey($rawChat);
         $canViewChat = auth()->user()?->can('whatsapp_chat_view') ?? false;
         $chatUrl = ($sent && $chatPhoneKey !== null && $canViewChat)
-            ? route('admin.whatsapp.conversations.chat', ['phone' => $chatPhoneKey])
+            ? route('admin.whatsapp.conversations.chat', ['channel' => 'whatsapp', 'phone' => $chatPhoneKey])
             : null;
 
         return [

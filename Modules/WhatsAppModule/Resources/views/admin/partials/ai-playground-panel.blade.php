@@ -1,8 +1,9 @@
 @php
+    $siInboxCh = request()->route('channel') ?? 'whatsapp';
     $geminiReady = !empty($runtime['gemini_key_set'] ?? false) && !empty($runtime['ai_support_enabled'] ?? false);
-    $threadUrl = route('admin.whatsapp.ai-playground.thread');
-    $runUrl = route('admin.whatsapp.ai-playground.run');
-    $resetUrl = route('admin.whatsapp.ai-playground.reset');
+    $threadUrl = route('admin.whatsapp.ai-playground.thread', ['channel' => $siInboxCh]);
+    $runUrl = route('admin.whatsapp.ai-playground.run', ['channel' => $siInboxCh]);
+    $resetUrl = route('admin.whatsapp.ai-playground.reset', ['channel' => $siInboxCh]);
 @endphp
 
 <div class="card border-0 shadow-sm mb-4 wa-playground-card">
@@ -25,7 +26,7 @@
             </div>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="wa-play-load">{{ __('whatsapp_ai.playground_reload_thread') }}</button>
             <button type="button" class="btn btn-outline-danger btn-sm" id="wa-play-reset">{{ __('whatsapp_ai.playground_reset_thread') }}</button>
-            <a class="btn btn-sm btn-outline-primary" href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'executions']) }}">{{ __('whatsapp_ai.playground_view_executions') }}</a>
+            <a class="btn btn-sm btn-outline-primary" href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'executions']) }}">{{ __('whatsapp_ai.playground_view_executions') }}</a>
         </div>
 
         <div class="wa-play-window">

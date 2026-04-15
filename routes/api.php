@@ -2,10 +2,14 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Internal\WhatsAppSyncController;
+use Modules\WhatsAppModule\Http\Controllers\Api\MetaSocialMessagingWebhookController;
 use Modules\WhatsAppModule\Http\Controllers\Api\WhatsAppMarketingWebhookController;
 
 Route::get('webhooks/whatsapp-marketing', [WhatsAppMarketingWebhookController::class, 'verify']);
 Route::post('webhooks/whatsapp-marketing', [WhatsAppMarketingWebhookController::class, 'handle']);
+
+Route::get('webhooks/meta-social', [MetaSocialMessagingWebhookController::class, 'verify']);
+Route::post('webhooks/meta-social', [MetaSocialMessagingWebhookController::class, 'handle']);
 
 Route::prefix('internal/whatsapp')
     ->middleware([\App\Http\Middleware\InternalWhatsAppToken::class])

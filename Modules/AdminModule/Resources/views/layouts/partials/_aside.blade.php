@@ -83,22 +83,36 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
             @endcanany
 
             @canany(['whatsapp_chat_view', 'whatsapp_message_template_view'])
-                <li class="nav-category" title="{{ translate('WhatsApp') }}">
-                    {{ translate('WhatsApp') }}
+                <li class="nav-category" title="{{ translate('WhatsApp_and_social_media') }}">
+                    {{ translate('WhatsApp_and_social_media') }}
                 </li>
                 @can('whatsapp_chat_view')
                     <li>
-                        <a href="{{ route('admin.whatsapp.conversations.index') }}"
-                           class="{{ request()->is('admin/whatsapp/conversations*') || request()->is('admin/whatsapp/users/*') ? 'active-menu' : '' }}">
-                            <span class="material-icons" title="{{ translate('WhatsApp') }}">chat</span>
-                            <span class="link-title">{{ translate('WhatsApp') }} {{ translate('Conversations') }}</span>
+                        <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']) }}"
+                           class="{{ request()->is('admin/social-inbox/whatsapp/*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" style="color:#25D366" title="{{ translate('WhatsApp') }}">forum</span>
+                            <span class="link-title">{{ translate('WhatsApp') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'instagram', 'tab' => 'chats']) }}"
+                           class="{{ request()->is('admin/social-inbox/instagram/*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" style="color:#E4405F" title="{{ translate('Instagram') }}">photo_camera</span>
+                            <span class="link-title">{{ translate('Instagram') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'facebook', 'tab' => 'chats']) }}"
+                           class="{{ request()->is('admin/social-inbox/facebook/*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" style="color:#0084FF" title="{{ translate('Facebook_Messenger') }}">chat_bubble</span>
+                            <span class="link-title">{{ translate('Facebook') }}</span>
                         </a>
                     </li>
                 @endcan
                 @can('whatsapp_message_template_view')
                     <li>
-                        <a href="{{ route('admin.whatsapp.booking-templates.edit') }}"
-                           class="{{ request()->is('admin/whatsapp/booking-message-templates*') ? 'active-menu' : '' }}">
+                        <a href="{{ route('admin.whatsapp.booking-templates.edit', ['channel' => 'whatsapp']) }}"
+                           class="{{ request()->is('admin/social-inbox/*/booking-message-templates*') ? 'active-menu' : '' }}">
                             <span class="material-icons" title="{{ translate('Message_templates') }}">description</span>
                             <span class="link-title">{{ translate('Message_templates') }}</span>
                         </a>
@@ -106,8 +120,8 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 @endcan
                 @can('whatsapp_chat_view')
                     <li>
-                        <a href="{{ route('admin.whatsapp.ai-settings.edit') }}"
-                           class="{{ request()->is('admin/whatsapp/ai-support') ? 'active-menu' : '' }}">
+                        <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => 'whatsapp']) }}"
+                           class="{{ request()->is('admin/social-inbox/*/ai-support*') ? 'active-menu' : '' }}">
                             <span class="material-icons" title="{{ __('whatsapp_ai.page_title') }}">smart_toy</span>
                             <span class="link-title">{{ __('whatsapp_ai.page_title') }}</span>
                         </a>
@@ -119,41 +133,41 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 <li class="nav-category" title="{{ translate('WhatsApp_Marketing') }}">
                     {{ translate('WhatsApp_Marketing') }}
                 </li>
-                <li class="has-sub-item {{ request()->is('admin/whatsapp/marketing*') ? 'sub-menu-opened' : '' }}">
+                <li class="has-sub-item {{ request()->is('admin/social-inbox/*/marketing*') ? 'sub-menu-opened' : '' }}">
                     <a href="#"
-                       class="{{ request()->is('admin/whatsapp/marketing*') ? 'active-menu' : '' }}">
+                       class="{{ request()->is('admin/social-inbox/*/marketing*') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="{{ translate('WhatsApp_Marketing') }}">campaign</span>
                         <span class="link-title">{{ translate('WhatsApp_Marketing') }}</span>
                     </a>
                     <ul class="nav sub-menu">
                         @can('whatsapp_marketing_bulk_view')
                             <li>
-                                <a href="{{ route('admin.whatsapp.marketing.bulk.create') }}"
-                                   class="{{ request()->is('admin/whatsapp/marketing/send') ? 'active-menu' : '' }}">
+                                <a href="{{ route('admin.whatsapp.marketing.bulk.create', ['channel' => 'whatsapp']) }}"
+                                   class="{{ request()->is('admin/social-inbox/*/marketing/send') ? 'active-menu' : '' }}">
                                     <span class="link-title">{{ translate('Send_Bulk_Message') }}</span>
                                 </a>
                             </li>
                         @endcan
                         @can('whatsapp_marketing_campaign_view')
                             <li>
-                                <a href="{{ route('admin.whatsapp.marketing.campaigns.index') }}"
-                                   class="{{ request()->is('admin/whatsapp/marketing/campaigns*') ? 'active-menu' : '' }}">
+                                <a href="{{ route('admin.whatsapp.marketing.campaigns.index', ['channel' => 'whatsapp']) }}"
+                                   class="{{ request()->is('admin/social-inbox/*/marketing/campaigns*') ? 'active-menu' : '' }}">
                                     <span class="link-title">{{ translate('campaigns') }}</span>
                                 </a>
                             </li>
                         @endcan
                         @can('whatsapp_marketing_template_view')
                             <li>
-                                <a href="{{ route('admin.whatsapp.marketing.templates.index') }}"
-                                   class="{{ request()->is('admin/whatsapp/marketing/templates*') ? 'active-menu' : '' }}">
+                                <a href="{{ route('admin.whatsapp.marketing.templates.index', ['channel' => 'whatsapp']) }}"
+                                   class="{{ request()->is('admin/social-inbox/*/marketing/templates*') ? 'active-menu' : '' }}">
                                     <span class="link-title">{{ translate('Templates') }}</span>
                                 </a>
                             </li>
                         @endcan
                         @can('whatsapp_marketing_report_view')
                             <li>
-                                <a href="{{ route('admin.whatsapp.marketing.reports.index') }}"
-                                   class="{{ request()->is('admin/whatsapp/marketing/reports*') ? 'active-menu' : '' }}">
+                                <a href="{{ route('admin.whatsapp.marketing.reports.index', ['channel' => 'whatsapp']) }}"
+                                   class="{{ request()->is('admin/social-inbox/*/marketing/reports*') ? 'active-menu' : '' }}">
                                     <span class="link-title">{{ translate('Reports') }}</span>
                                 </a>
                             </li>

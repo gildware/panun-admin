@@ -3,6 +3,7 @@
 @section('title', translate('WhatsApp') . ' — ' . translate('Message_templates'))
 
 @push('css_or_js')
+    @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
     <style>
         .wa-template-tabs-scroll {
             overflow-x: auto;
@@ -244,6 +245,11 @@
 @endpush
 
 @section('content')
+    @php
+        $siInboxCh = request()->route('channel') ?? 'whatsapp';
+        $__waMasterOn = !empty($config['enabled'] ?? false);
+    @endphp
+    <div class="main-content social-inbox-page social-inbox-page--{{ $siInboxCh }}">
     <div class="container-fluid">
         <div class="row mb-3 align-items-center">
             <div class="col min-w-0">
@@ -251,13 +257,12 @@
             </div>
             <div class="col-auto flex-shrink-0 text-end">
                 <div class="d-flex flex-row flex-nowrap align-items-center justify-content-end gap-2">
-                    <a href="{{ route('admin.whatsapp.booking-templates.automation-log') }}"
+                    <a href="{{ route('admin.whatsapp.booking-templates.automation-log', ['channel' => $siInboxCh]) }}"
                        class="btn btn-sm btn--primary d-inline-flex align-items-center gap-1 flex-shrink-0"
                        target="_blank" rel="noopener">
                         <span class="material-icons" style="font-size: 1.1rem;" aria-hidden="true">receipt_long</span>
                         {{ translate('WhatsApp_booking_automation_log_open') }}
                     </a>
-                    @php $__waMasterOn = !empty($config['enabled']); @endphp
                     @can('whatsapp_message_template_update')
                         <button type="button"
                                 class="wa-pill-toggle-btn d-inline-flex align-items-center"
@@ -296,7 +301,7 @@
                         <div class="modal-body" id="waBookingEnabledModalBody"></div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('cancel') }}</button>
-                            <form action="{{ route('admin.whatsapp.booking-templates.toggle-enabled') }}" method="post" class="d-inline">
+                            <form action="{{ route('admin.whatsapp.booking-templates.toggle-enabled', ['channel' => $siInboxCh]) }}" method="post" class="d-inline">
                                 @csrf
                                 <input type="hidden" name="enabled" id="waBookingEnabledModalValue" value="">
                                 <button type="submit" class="btn btn--primary">{{ translate('Yes') }}</button>
@@ -315,7 +320,7 @@
                         <div class="modal-body" id="waBookingMsgSendModalBody"></div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('cancel') }}</button>
-                            <form action="{{ route('admin.whatsapp.booking-templates.toggle-message-send-enabled') }}" method="post" class="d-inline" id="waBookingMsgSendConfirmForm">
+                            <form action="{{ route('admin.whatsapp.booking-templates.toggle-message-send-enabled', ['channel' => $siInboxCh]) }}" method="post" class="d-inline" id="waBookingMsgSendConfirmForm">
                                 @csrf
                                 <input type="hidden" name="message_key" id="waBookingMsgSendModalKey" value="">
                                 <input type="hidden" name="enabled" id="waBookingMsgSendModalValue" value="">
@@ -331,7 +336,7 @@
             </div>
         @endcan
 
-        <form id="wa-booking-templates-form" action="{{ route('admin.whatsapp.booking-templates.update') }}" method="post">
+        <form id="wa-booking-templates-form" action="{{ route('admin.whatsapp.booking-templates.update', ['channel' => $siInboxCh]) }}" method="post">
             @csrf
             <input type="hidden" name="wa_active_main_tab" id="waActiveMainTab" value="{{ $waActiveMainTab }}">
             <input type="hidden" name="wa_active_booking_messages_segment" id="waActiveBookingMessagesSegment" value="{{ $waActiveBookingMessagesSegment }}">
@@ -632,8 +637,9 @@
             </div>
 
             <button type="submit" class="btn btn--primary">{{ translate('update') }}</button>
-            <a href="{{ route('admin.whatsapp.conversations.index') }}" class="btn btn-secondary">{{ translate('cancel') }}</a>
+            <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => $siInboxCh, 'tab' => 'chats']) }}" class="btn btn-secondary">{{ translate('cancel') }}</a>
         </form>
+    </div>
     </div>
 @endsection
 

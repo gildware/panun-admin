@@ -729,7 +729,7 @@ class LeadController extends Controller
         if (!$lead) {
             toastr()->error(translate('Not_found'));
 
-            return redirect()->route('admin.whatsapp.conversations.index', ['tab' => 'leads']);
+            return redirect()->route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'leads']);
         }
 
         $remarks = 'WhatsApp provider lead ref: ' . $lead_id . "\n";
@@ -1311,6 +1311,7 @@ class LeadController extends Controller
             $threadPhone = $this->resolveWhatsAppThreadPhoneForLead($lead);
             if ($threadPhone) {
                 $whatsappChatUrl = route('admin.whatsapp.conversations.index', [
+                    'channel' => 'whatsapp',
                     'tab' => 'chats',
                     'phone' => $threadPhone,
                 ]);

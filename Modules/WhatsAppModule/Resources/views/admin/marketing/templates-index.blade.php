@@ -1,5 +1,7 @@
 @extends('adminmodule::layouts.master')
 
+@php($waMktCh = 'whatsapp')
+
 @section('title', translate('Templates'))
 
 @section('content')
@@ -14,7 +16,7 @@
                             <span class="material-icons">open_in_new</span>
                             {{ translate('Create_Template') }}
                         </a>
-                        <form action="{{ route('admin.whatsapp.marketing.templates.sync') }}" method="post" class="m-0">
+                        <form action="{{ route('admin.whatsapp.marketing.templates.sync', ['channel' => $waMktCh]) }}" method="post" class="m-0">
                             @csrf
                             <button type="submit" class="btn btn--secondary">
                                 <span class="material-icons">sync</span>
@@ -78,7 +80,7 @@
                                     <td colspan="6" class="p-0 border-0">
                                         <div class="collapse wa-mkt-tpl-preview-collapse"
                                              id="{{ $waMktPreviewCollapseId }}"
-                                             data-preview-url="{{ route('admin.whatsapp.marketing.templates.preview', $tpl) }}">
+                                             data-preview-url="{{ route('admin.whatsapp.marketing.templates.preview', ['channel' => $waMktCh, 'template' => $tpl]) }}">
                                             <div class="px-3 py-3 bg-body-secondary border-bottom">
                                                 <div class="wa-mkt-tpl-preview-host"></div>
                                             </div>

@@ -1,4 +1,5 @@
 {{-- Chat statuses & tags: simple lists + modals for add/edit --}}
+@php($siInboxCh = request()->route('channel') ?? 'whatsapp')
 @if(\Illuminate\Support\Facades\Schema::hasTable('whatsapp_chat_statuses'))
     @php($statuses = $chatStatusesForConfig ?? collect())
     @php($tags = $chatTagsForConfig ?? collect())
@@ -47,14 +48,14 @@
                                             class="btn btn-sm btn-outline-primary wa-chat-status-edit"
                                             data-bs-toggle="modal"
                                             data-bs-target="#waChatStatusEditModal"
-                                            data-update-url="{{ route('admin.whatsapp.chat-config.statuses.update', $st) }}"
+                                            data-update-url="{{ route('admin.whatsapp.chat-config.statuses.update', ['channel' => $siInboxCh, 'status' => $st]) }}"
                                             data-name="{{ e($st->name) }}"
                                             data-bucket="{{ e($st->bucket) }}"
                                             data-sort="{{ (int) $st->sort_order }}">
                                         {{ translate('edit') }}
                                     </button>
                                     <form method="post"
-                                          action="{{ route('admin.whatsapp.chat-config.statuses.destroy', $st) }}"
+                                          action="{{ route('admin.whatsapp.chat-config.statuses.destroy', ['channel' => $siInboxCh, 'status' => $st]) }}"
                                           class="d-inline"
                                           onsubmit="return confirm({{ json_encode(translate('are_you_sure')) }});">
                                         @csrf
@@ -112,14 +113,14 @@
                                                 class="btn btn-sm btn-outline-primary wa-chat-tag-edit"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#waChatTagEditModal"
-                                                data-update-url="{{ route('admin.whatsapp.chat-config.tags.update', $tg) }}"
+                                                data-update-url="{{ route('admin.whatsapp.chat-config.tags.update', ['channel' => $siInboxCh, 'tag' => $tg]) }}"
                                                 data-name="{{ e($tg->name) }}"
                                                 data-color="{{ e($tc) }}"
                                                 data-sort="{{ (int) $tg->sort_order }}">
                                             {{ translate('edit') }}
                                         </button>
                                         <form method="post"
-                                              action="{{ route('admin.whatsapp.chat-config.tags.destroy', $tg) }}"
+                                              action="{{ route('admin.whatsapp.chat-config.tags.destroy', ['channel' => $siInboxCh, 'tag' => $tg]) }}"
                                               class="d-inline"
                                               onsubmit="return confirm({{ json_encode(translate('are_you_sure')) }});">
                                             @csrf
@@ -144,7 +145,7 @@
     <div class="modal fade" id="waChatStatusAddModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form method="post" action="{{ route('admin.whatsapp.chat-config.statuses.store') }}" id="waChatStatusAddForm">
+                <form method="post" action="{{ route('admin.whatsapp.chat-config.statuses.store', ['channel' => $siInboxCh]) }}" id="waChatStatusAddForm">
                     @csrf
                     <div class="modal-header">
                         <h5 class="modal-title">{{ translate('add_new') }} — {{ translate('whatsapp_chat_statuses') }}</h5>
@@ -218,7 +219,7 @@
         <div class="modal fade" id="waChatTagAddModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
-                    <form method="post" action="{{ route('admin.whatsapp.chat-config.tags.store') }}" id="waChatTagAddForm">
+                    <form method="post" action="{{ route('admin.whatsapp.chat-config.tags.store', ['channel' => $siInboxCh]) }}" id="waChatTagAddForm">
                         @csrf
                         <div class="modal-header">
                             <h5 class="modal-title">{{ translate('add_new') }} — {{ translate('whatsapp_chat_tags') }}</h5>

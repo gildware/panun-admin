@@ -2,7 +2,10 @@
 
 @section('title', __('whatsapp_ai.page_title'))
 
+@php($siInboxCh = request()->route('channel') ?? 'whatsapp')
+
 @push('css_or_js')
+    @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
     <style>
         .wa-ai-pre {
             white-space: pre-wrap;
@@ -142,7 +145,7 @@
 @endpush
 
 @section('content')
-    <div class="main-content">
+    <div class="main-content social-inbox-page social-inbox-page--{{ $siInboxCh }}">
         <div class="container-fluid">
             <div class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                 <div>
@@ -172,7 +175,7 @@
                     @foreach($waAiTabs as $t)
                         <li class="nav-item">
                             <a class="nav-link {{ $tab === $t['id'] ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => $t['id']]) }}">
+                               href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => $t['id']]) }}">
                                 {{ $t['label'] }}
                             </a>
                         </li>
@@ -215,11 +218,11 @@
                     <div class="card-header bg-body border-bottom py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <strong>{{ __('whatsapp_ai.summary_runtime_heading') }}</strong>
                         <div class="d-flex flex-wrap gap-2 align-items-center small">
-                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'ai_config']) }}">{{ __('whatsapp_ai.summary_link_ai_config') }}</a>
+                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'ai_config']) }}">{{ __('whatsapp_ai.summary_link_ai_config') }}</a>
                             <span class="text-muted" aria-hidden="true">·</span>
-                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'business_config']) }}">{{ __('whatsapp_ai.summary_link_business_config') }}</a>
+                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'business_config']) }}">{{ __('whatsapp_ai.summary_link_business_config') }}</a>
                             <span class="text-muted" aria-hidden="true">·</span>
-                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'message_config']) }}">{{ __('whatsapp_ai.summary_link_message_config') }}</a>
+                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'message_config']) }}">{{ __('whatsapp_ai.summary_link_message_config') }}</a>
                         </div>
                     </div>
                     <div class="card-body py-3">
@@ -269,7 +272,7 @@
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-body border-bottom py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <strong>{{ __('whatsapp_ai.summary_prompt_heading') }}</strong>
-                        <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'prompt']) }}" class="small">{{ __('whatsapp_ai.summary_link_prompts') }}</a>
+                        <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'prompt']) }}" class="small">{{ __('whatsapp_ai.summary_link_prompts') }}</a>
                     </div>
                     <div class="card-body">
                         @if($sum['prompt_mode'] === 'full_custom')
@@ -326,7 +329,7 @@
                             <strong>{{ __('whatsapp_ai.summary_tools_heading') }}</strong>
                             <span class="text-muted small ms-2">{{ trans_choice('whatsapp_ai.summary_tools_enabled_count', count($sum['enabled_tools'])) }}</span>
                         </div>
-                        <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'tools']) }}" class="small">{{ __('whatsapp_ai.summary_link_tools') }}</a>
+                        <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'tools']) }}" class="small">{{ __('whatsapp_ai.summary_link_tools') }}</a>
                     </div>
                     <div class="card-body">
                         @if(count($sum['enabled_tools']) === 0)
@@ -476,7 +479,7 @@
                         </div>
                         <div class="card-body">
                             <p class="text-muted small mb-3">{{ __('whatsapp_ai.ai_config_form_help') }}</p>
-                            <form action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="row g-3">
+                            <form action="{{ route('admin.whatsapp.ai-settings.update', ['channel' => $siInboxCh]) }}" method="post" class="row g-3">
                                 @csrf
                                 <input type="hidden" name="return_tab" value="ai_config">
                                 <input type="hidden" name="save_ai_config" value="1">
@@ -570,7 +573,7 @@
                     </div>
                 </div>
                 @can('whatsapp_chat_assign')
-                    <form action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="card border-0 shadow-sm">
+                    <form action="{{ route('admin.whatsapp.ai-settings.update', ['channel' => $siInboxCh]) }}" method="post" class="card border-0 shadow-sm">
                         @csrf
                         <input type="hidden" name="return_tab" value="access">
                         <input type="hidden" name="save_access" value="1">
@@ -606,7 +609,7 @@
             @if($tab === 'tools')
                 <p class="text-muted small mb-3">{{ __('whatsapp_ai.tools_intro') }}</p>
                 @can('whatsapp_chat_assign')
-                    <form action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="card border-0 shadow-sm">
+                    <form action="{{ route('admin.whatsapp.ai-settings.update', ['channel' => $siInboxCh]) }}" method="post" class="card border-0 shadow-sm">
                         @csrf
                         <input type="hidden" name="return_tab" value="tools">
                         <input type="hidden" name="save_tools" value="1">
@@ -716,7 +719,7 @@
                 </div>
 
                 @can('whatsapp_chat_assign')
-                    <form action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="card border-0 shadow-sm">
+                    <form action="{{ route('admin.whatsapp.ai-settings.update', ['channel' => $siInboxCh]) }}" method="post" class="card border-0 shadow-sm">
                         @csrf
                         <input type="hidden" name="return_tab" value="prompt">
                         <input type="hidden" name="save_prompt" value="1">
@@ -777,7 +780,7 @@
                         $effStart = old('db_support_hours_start', $settings->db_support_hours_start ?? config('whatsappmodule.support_work_hours_start'));
                         $effEnd = old('db_support_hours_end', $settings->db_support_hours_end ?? config('whatsappmodule.support_work_hours_end'));
                     @endphp
-                    <form id="wa-bc-form" action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="mb-3">
+                    <form id="wa-bc-form" action="{{ route('admin.whatsapp.ai-settings.update', ['channel' => $siInboxCh]) }}" method="post" class="mb-3">
                         @csrf
                         <input type="hidden" name="return_tab" value="business_config">
                         <input type="hidden" name="save_business_config" value="1">
@@ -785,7 +788,7 @@
                         <div class="d-flex flex-wrap align-items-start gap-2 mb-3">
                             <p class="text-muted small mb-0 flex-grow-1 min-w-0">{{ __('whatsapp_ai.business_config_intro') }}</p>
                             <div class="d-flex flex-wrap gap-2 ms-auto shrink-0 align-items-center justify-content-end">
-                                <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'business_config']) }}" class="btn btn-sm btn-outline-secondary">{{ __('whatsapp_ai.cancel_edit') }}</a>
+                                <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'business_config']) }}" class="btn btn-sm btn-outline-secondary">{{ __('whatsapp_ai.cancel_edit') }}</a>
                                 <button type="submit" class="btn btn-sm btn--primary">{{ __('whatsapp_ai.save_business_config') }}</button>
                             </div>
                         </div>
@@ -955,7 +958,7 @@
                     @else
                         <div class="d-flex flex-wrap align-items-start gap-2 mb-3">
                             <p class="text-muted small mb-0 flex-grow-1 min-w-0">{{ __('whatsapp_ai.business_config_intro') }}</p>
-                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'business_config', 'edit' => 1]) }}" class="btn btn-sm btn--primary ms-auto shrink-0">{{ __('whatsapp_ai.edit_configuration') }}</a>
+                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'business_config', 'edit' => 1]) }}" class="btn btn-sm btn--primary ms-auto shrink-0">{{ __('whatsapp_ai.edit_configuration') }}</a>
                         </div>
                         @include('whatsappmodule::admin.partials.business-config-readonly')
                     @endif
@@ -969,7 +972,7 @@
             @if($tab === 'message_config')
                 <p class="text-muted small mb-3">{{ __('whatsapp_ai.message_config_intro') }}</p>
                 @can('whatsapp_chat_assign')
-                    <form action="{{ route('admin.whatsapp.ai-settings.update') }}" method="post" class="card border-0 shadow-sm mb-3">
+                    <form action="{{ route('admin.whatsapp.ai-settings.update', ['channel' => $siInboxCh]) }}" method="post" class="card border-0 shadow-sm mb-3">
                         @csrf
                         <input type="hidden" name="return_tab" value="message_config">
                         <input type="hidden" name="save_message_config" value="1">
@@ -1012,7 +1015,7 @@
                                 <strong>{{ __('whatsapp_ai.execution_detail') }}</strong>
                                 <span class="text-muted small ms-2">#{{ $executionDetail->id }}</span>
                             </div>
-                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'executions']) }}" class="btn btn-sm btn-outline-secondary">{{ __('whatsapp_ai.back_to_list') }}</a>
+                            <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'executions']) }}" class="btn btn-sm btn-outline-secondary">{{ __('whatsapp_ai.back_to_list') }}</a>
                         </div>
                         <div class="card-body">
                             <div class="row g-3 mb-4">
@@ -1126,7 +1129,7 @@
                                                 <td class="small">{{ \Illuminate\Support\Str::limit($ex->summary ?? '—', 56) }}</td>
                                                 <td class="small text-muted">{{ $dur }}</td>
                                                 <td class="pe-4 text-nowrap">
-                                                    <a href="{{ route('admin.whatsapp.ai-settings.edit', ['tab' => 'executions', 'id' => $ex->id]) }}" class="btn btn-sm btn-outline-primary">{{ __('whatsapp_ai.view_steps') }}</a>
+                                                    <a href="{{ route('admin.whatsapp.ai-settings.edit', ['channel' => $siInboxCh, 'tab' => 'executions', 'id' => $ex->id]) }}" class="btn btn-sm btn-outline-primary">{{ __('whatsapp_ai.view_steps') }}</a>
                                                 </td>
                                             </tr>
                                         @endforeach

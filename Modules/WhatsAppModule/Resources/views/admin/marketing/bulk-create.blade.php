@@ -1,5 +1,7 @@
 @extends('adminmodule::layouts.master')
 
+@php($waMktCh = 'whatsapp')
+
 @section('title', translate('Send_Bulk_Message'))
 
 @push('css_or_js')
@@ -28,7 +30,7 @@
                 <p class="text-muted mb-0">Panun Kaergar</p>
             </div>
 
-            <form id="bulk_marketing_form" action="{{ route('admin.whatsapp.marketing.bulk.store') }}" method="post"
+            <form id="bulk_marketing_form" action="{{ route('admin.whatsapp.marketing.bulk.store', ['channel' => $waMktCh]) }}" method="post"
                   enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="recipient_adjustments" id="recipient_adjustments" value="">
@@ -119,7 +121,7 @@
                             <div class="col-12 d-none" id="csv_wrap">
                                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                                     <label class="form-label mb-0" for="contacts_csv">{{ translate('CSV_file') }} *</label>
-                                    <a href="{{ route('admin.whatsapp.marketing.bulk.sample-csv') }}"
+                                    <a href="{{ route('admin.whatsapp.marketing.bulk.sample-csv', ['channel' => $waMktCh]) }}"
                                        class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
                                         <span class="material-icons fz-18">download</span>
                                         {{ translate('Download_sample_CSV') }}
@@ -249,7 +251,7 @@
 
                 <div class="d-flex flex-wrap gap-2">
                     <button type="submit" class="btn btn--primary">{{ translate('submit') }}</button>
-                    <a href="{{ route('admin.whatsapp.marketing.campaigns.index') }}" class="btn btn--secondary">{{ translate('cancel') }}</a>
+                    <a href="{{ route('admin.whatsapp.marketing.campaigns.index', ['channel' => $waMktCh]) }}" class="btn btn--secondary">{{ translate('cancel') }}</a>
                 </div>
             </form>
         </div>
@@ -262,8 +264,8 @@
 
         window.waMarketingAudienceCounts = @json($audienceCounts);
         window.waMarketingCategoryCounts = @json($categoryRecipientCounts);
-        window.waPreviewRecipientsUrl = @json(route('admin.whatsapp.marketing.bulk.preview-recipients'));
-        window.waPreviewCsvUrl = @json(route('admin.whatsapp.marketing.bulk.preview-csv'));
+        window.waPreviewRecipientsUrl = @json(route('admin.whatsapp.marketing.bulk.preview-recipients', ['channel' => $waMktCh]));
+        window.waPreviewCsvUrl = @json(route('admin.whatsapp.marketing.bulk.preview-csv', ['channel' => $waMktCh]));
 
         const marketingT = {
             select: @json(translate('Select')),

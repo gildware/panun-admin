@@ -3,16 +3,21 @@
 namespace Modules\WhatsAppModule\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\WhatsAppModule\Entities\Concerns\HasSocialInboxChannelScope;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 class WhatsAppAiSetting extends Model
 {
+    use HasSocialInboxChannelScope;
+
     protected $table = 'whatsapp_ai_settings';
 
-    public $incrementing = false;
+    public $incrementing = true;
 
     protected $keyType = 'int';
 
     protected $fillable = [
+        'channel',
         'use_full_custom_prompt',
         'assistant_persona',
         'custom_system_prompt',
@@ -63,13 +68,14 @@ class WhatsAppAiSetting extends Model
 
     public static function singleton(): self
     {
-        $row = static::query()->find(1);
+        $ch = SocialInboxChannel::current();
+        $row = static::query()->where('channel', $ch)->orderBy('id')->first();
         if ($row) {
             return $row;
         }
 
         return static::query()->create([
-            'id' => 1,
+            'channel' => $ch,
             'use_full_custom_prompt' => false,
         ]);
     }
