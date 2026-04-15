@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingCompensation;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BusinessSettingsModule\Entities\AdditionalChargeType;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\Serviceman;
@@ -54,17 +56,13 @@ class BookingWhatsAppNotificationService
 
     public const CACHE_PAYMENT_SENT_PREFIX = 'wa:bpy:sent:';
 
-    public const CACHE_SERVICEMAN_LOCK_PREFIX = 'wa:lock:bsm:';
-
-    public const CACHE_SERVICEMAN_SENT_PREFIX = 'wa:bsm:sent:';
-
-    public const CACHE_VERIFICATION_LOCK_PREFIX = 'wa:lock:bver:';
-
-    public const CACHE_VERIFICATION_SENT_PREFIX = 'wa:bver:sent:';
-
     public const CACHE_REOPEN_RESOLVED_LOCK_PREFIX = 'wa:lock:brv:';
 
     public const CACHE_REOPEN_RESOLVED_SENT_PREFIX = 'wa:brv:sent:';
+
+    public const CACHE_DISPUTED_REOPEN_REFUND_LOCK_PREFIX = 'wa:lock:bdr:';
+
+    public const CACHE_DISPUTED_REOPEN_REFUND_SENT_PREFIX = 'wa:bdr:sent:';
 
     private const WHATSAPP_DOC_CAPTION_MAX = 1024;
 
@@ -114,6 +112,40 @@ class BookingWhatsAppNotificationService
         '{amount_sent_to_provider}' => 'Amount just sent to provider (ledger OUT)',
         '{remaining_balance_to_collect}' => 'Same as {balance_after_payment_collected} (backward compatible)',
         '{remaining_balance_to_send}' => 'Remaining amount to pay to provider after this payout',
+        '{disputed_refund_total}' => 'Disputed close — total refund recorded to customer (company + provider legs)',
+        '{disputed_refund_company}' => 'Disputed close — refund amount recorded against the company pool',
+        '{disputed_refund_provider}' => 'Disputed close — refund amount recorded against the provider pool',
+        '{disputed_customer_retained}' => 'Disputed close — customer cash retained after refunds (net kept on booking)',
+        '{booking_final_amount}' => 'Total booking order amount at send time (same basis as total bill; use in reopen resolved / settlement copy)',
+        '{settlement_outcome_label}' => 'Special financial settlement outcome label (e.g. loss-making / scaled, visit retained)',
+        '{settlement_remarks}' => 'Admin remarks saved with special settlement configuration',
+        '{scaled_loss_total}' => 'Loss-making (scaled): total economic loss amount from settlement snapshot',
+        '{scaled_loss_company_share}' => 'Loss-making: company share of scaled loss',
+        '{scaled_loss_provider_share}' => 'Loss-making: provider share of scaled loss',
+        '{scaled_net_company_share}' => 'Loss-making: net company commission share after scaled loss',
+        '{scaled_net_provider_share}' => 'Loss-making: net provider earning share after scaled loss',
+        '{scaled_customer_paid_amount}' => 'Loss-making: customer paid amount (capped) from settlement snapshot',
+        '{booking_customer_still_due}' => 'Amount still due from customer on this booking (admin settlement / due basis)',
+        '{disputed_provider_owes_company}' => 'Disputed close: refund pool amount attributed as provider owes company',
+        '{disputed_company_owes_provider}' => 'Disputed close: refund pool amount attributed as company owes provider',
+        '{disputed_company_cash_after_refund}' => 'Disputed close: company-collected cash after refund legs',
+        '{disputed_provider_cash_after_refund}' => 'Disputed close: provider-collected cash after refund legs',
+        '{disputed_final_admin_commission}' => 'Disputed close: final net company commission after dispute distribution',
+        '{disputed_final_provider_earning}' => 'Disputed close: final net provider earning after dispute distribution',
+        '{disputed_company_pays_provider_total}' => 'Disputed close: total company pays provider (net settlement)',
+        '{disputed_provider_remittance_total}' => 'Disputed close: total provider remittance to company',
+        '{compensation_amount}' => 'Compensation: amount for this compensation row (when compensation message is sent)',
+        '{compensation_from_party_label}' => 'Compensation: payer (Company / Provider)',
+        '{compensation_to_party_label}' => 'Compensation: recipient (Customer / Provider)',
+        '{compensation_direction}' => 'Compensation: human-readable direction (e.g. Company → Customer)',
+        '{compensation_reference_note}' => 'Compensation: admin reference note',
+        '{compensation_date}' => 'Compensation: recorded date',
+        '{compensation_transaction_id}' => 'Compensation: transaction / reference id',
+        '{refund_amount}' => 'Refund: amount recorded in this step (customer refund)',
+        '{refund_date}' => 'Refund: recorded date',
+        '{refund_transaction_id}' => 'Refund: transaction / reference id',
+        '{refund_reference_note}' => 'Refund: admin reference note (if any)',
+        '{refund_remaining}' => 'Refund: remaining refundable balance on the booking after this refund',
     ];
 
     /**
@@ -146,13 +178,13 @@ class BookingWhatsAppNotificationService
         '{payment_date}' => "Modules: Booking — payments.\nWhen: “Add payment” message templates.\nContains: The payment date recorded in the Add payment modal.",
         '{payment_method}' => "Modules: Booking — payments.\nWhen: “Add payment” templates.\nContains: The payment method label used for ledger recording (cash/bank/etc.).",
         '{payment_reference}' => "Modules: Booking — payments.\nWhen: “Add payment” templates.\nContains: Transaction / reference id if recorded; otherwise blank/—.",
-        '{serviceman_name}' => "Modules: Booking — serviceman assignment.\nWhen: Serviceman tab and any template naming the assigned technician.\nContains: Current serviceman display name.",
-        '{serviceman_phone}' => "Modules: Booking — serviceman assignment.\nWhen: Templates that should show how to contact the assigned serviceman.\nContains: Serviceman phone string.",
-        '{previous_serviceman_name}' => "Modules: Booking — serviceman change.\nWhen: Serviceman tab (previous vs current assignee).\nContains: Name before the last assignment change.",
-        '{previous_serviceman_phone}' => "Modules: Booking — serviceman change.\nWhen: Serviceman tab.\nContains: Phone before the last assignment change.",
-        '{verification_status}' => "Modules: Booking — verification.\nWhen: Verification tab (approved/denied etc.).\nContains: Current booking verification state label.",
-        '{previous_verification_status}' => "Modules: Booking — verification.\nWhen: Verification tab for before/after wording.\nContains: Verification state before the last change.",
-        '{verification_action}' => "Modules: Booking — verification.\nWhen: Verification tab; describes what just happened.\nContains: Last action token such as approve, deny, or cancel.",
+        '{serviceman_name}' => "Modules: Booking — assigned technician.\nWhen: Any booking template that names the assigned serviceman.\nContains: Current serviceman display name.",
+        '{serviceman_phone}' => "Modules: Booking — assigned technician.\nWhen: Templates that should show how to contact the assigned serviceman.\nContains: Serviceman phone string.",
+        '{previous_serviceman_name}' => "Modules: Booking.\nWhen: Rarely used; placeholder for a prior assignee name if your copy needs it.\nContains: Otherwise typically em dash in general automations.",
+        '{previous_serviceman_phone}' => "Modules: Booking.\nWhen: Rarely used; placeholder for a prior assignee phone if your copy needs it.\nContains: Otherwise typically em dash in general automations.",
+        '{verification_status}' => "Modules: Booking — verification.\nWhen: Templates that mention current booking verification state.\nContains: Current booking verification state label.",
+        '{previous_verification_status}' => "Modules: Booking — verification.\nWhen: Templates that compare before/after verification state.\nContains: Often em dash unless a dedicated flow sets it.",
+        '{verification_action}' => "Modules: Booking — verification.\nWhen: Templates describing the last verification action.\nContains: Action label such as approve, deny, or cancel when applicable.",
         '{reopen_resolve_remarks}' => "Modules: Booking — reopen resolved.\nWhen: “Reopen resolved” status segment only.\nContains: Admin/staff remarks entered when the reopen case is marked resolved.",
         '{booking_cancellation_reason}' => "Modules: Booking.\nWhen: Cancellation or status flows that capture a reason.\nContains: Last cancellation reason text from the booking.",
         '{on_hold_reason}' => "Modules: Booking.\nWhen: On-hold / hold-related status messaging.\nContains: Reason from the latest hold action.",
@@ -168,6 +200,40 @@ class BookingWhatsAppNotificationService
         '{amount_sent_to_provider}' => "Modules: Payments / ledger.\nWhen: After a payout to provider (money out).\nContains: Amount paid out in this step (formatted).",
         '{remaining_balance_to_collect}' => "Modules: Payments / ledger.\nWhen: After partial collection — remaining collectable balance.\nContains: Same as {balance_after_payment_collected}.",
         '{remaining_balance_to_send}' => "Modules: Payments / ledger.\nWhen: After partial payout — how much remains to send to provider.\nContains: Remaining payout due (formatted).",
+        '{disputed_refund_total}' => "Modules: Booking — disputed reopen close.\nWhen: “Disputed close” status segment only (ledger refund legs recorded).\nContains: Total refunded back to the customer for this disputed close (formatted).",
+        '{disputed_refund_company}' => "Modules: Booking — disputed reopen close.\nWhen: “Disputed close” segment only.\nContains: Refund amount attributed to the company-collected pool (formatted).",
+        '{disputed_refund_provider}' => "Modules: Booking — disputed reopen close.\nWhen: “Disputed close” segment only.\nContains: Refund amount attributed to the provider-collected pool (formatted).",
+        '{disputed_customer_retained}' => "Modules: Booking — disputed reopen close.\nWhen: “Disputed close” segment only.\nContains: Net customer cash retained on the booking after refunds (formatted).",
+        '{booking_final_amount}' => "Modules: Booking — amounts.\nWhen: Status templates after totals change, reopen resolved, loss-making completion.\nContains: Full booking total at send time (formatted), same numeric basis as {total_bill}.",
+        '{settlement_outcome_label}' => "Modules: Booking — special settlement.\nWhen: Bookings with visit-fee split, scaled loss-making, or retained-cancel outcomes.\nContains: Translated settlement outcome label from admin configuration.",
+        '{settlement_remarks}' => "Modules: Booking — special settlement.\nWhen: Same as settlement outcome.\nContains: Free-text remarks saved with the settlement.",
+        '{scaled_loss_total}' => "Modules: Booking — loss-making (scaled).\nWhen: “Loss-making” status segment or whenever settlement snapshot includes scaled loss.\nContains: Total scaled loss amount (formatted).",
+        '{scaled_loss_company_share}' => "Modules: Booking — loss-making (scaled).\nWhen: Loss-making / scaled settlement messaging.\nContains: Company’s share of the scaled loss (formatted).",
+        '{scaled_loss_provider_share}' => "Modules: Booking — loss-making (scaled).\nWhen: Loss-making / scaled settlement messaging.\nContains: Provider’s share of the scaled loss (formatted).",
+        '{scaled_net_company_share}' => "Modules: Booking — loss-making (scaled).\nWhen: After loss allocation in settlement snapshot.\nContains: Net company commission after scaled loss (formatted).",
+        '{scaled_net_provider_share}' => "Modules: Booking — loss-making (scaled).\nWhen: After loss allocation in settlement snapshot.\nContains: Net provider earning after scaled loss (formatted).",
+        '{scaled_customer_paid_amount}' => "Modules: Booking — loss-making (scaled).\nWhen: Settlement snapshot present.\nContains: Recorded customer paid amount used in scaled preview (formatted).",
+        '{booking_customer_still_due}' => "Modules: Booking — collections.\nWhen: Any status; strongest meaning on pending/ongoing with amount due.\nContains: Amount still to collect from the customer for this booking (formatted).",
+        '{disputed_provider_owes_company}' => "Modules: Booking — disputed reopen close.\nWhen: After disputed refund snapshot is stored.\nContains: Provider-side pool attributed as owed to company (formatted).",
+        '{disputed_company_owes_provider}' => "Modules: Booking — disputed reopen close.\nWhen: After disputed refund snapshot.\nContains: Company-side pool attributed as owed to provider (formatted).",
+        '{disputed_company_cash_after_refund}' => "Modules: Booking — disputed reopen close.\nContains: Company cash pool after refund legs (formatted).",
+        '{disputed_provider_cash_after_refund}' => "Modules: Booking — disputed reopen close.\nContains: Provider cash pool after refund legs (formatted).",
+        '{disputed_final_admin_commission}' => "Modules: Booking — disputed reopen close.\nContains: Final net company commission after dispute distribution (formatted).",
+        '{disputed_final_provider_earning}' => "Modules: Booking — disputed reopen close.\nContains: Final net provider earning after dispute distribution (formatted).",
+        '{disputed_company_pays_provider_total}' => "Modules: Booking — disputed reopen close.\nContains: Total the company pays the provider in net settlement (formatted).",
+        '{disputed_provider_remittance_total}' => "Modules: Booking — disputed reopen close.\nContains: Total provider remittance due to company (formatted).",
+        '{compensation_amount}' => "Modules: Booking — compensation.\nWhen: “Compensation” automation only.\nContains: Amount for this compensation record (formatted).",
+        '{compensation_from_party_label}' => "Modules: Booking — compensation.\nContains: Payer label: Company, Provider, or Customer.",
+        '{compensation_to_party_label}' => "Modules: Booking — compensation.\nContains: Recipient label.",
+        '{compensation_direction}' => "Modules: Booking — compensation.\nContains: Short direction string (e.g. Company → Customer).",
+        '{compensation_reference_note}' => "Modules: Booking — compensation.\nContains: Optional admin note on the compensation row.",
+        '{compensation_date}' => "Modules: Booking — compensation.\nContains: Date string for the compensation.",
+        '{compensation_transaction_id}' => "Modules: Booking — compensation.\nContains: Transaction / reference id entered by admin.",
+        '{refund_amount}' => "Modules: Booking — customer refund.\nWhen: “Refund to customer” automation after admin records a refund on a canceled/refunded booking.\nContains: Amount refunded in this step (formatted).",
+        '{refund_date}' => "Modules: Booking — customer refund.\nWhen: Refund automation.\nContains: Date string used for the ledger refund row.",
+        '{refund_transaction_id}' => "Modules: Booking — customer refund.\nContains: Transaction / reference id entered when recording the refund.",
+        '{refund_reference_note}' => "Modules: Booking — customer refund.\nContains: Optional admin note on the refund.",
+        '{refund_remaining}' => "Modules: Booking — customer refund.\nContains: Remaining amount still refundable to the customer after this refund (formatted; 0 when fully refunded).",
     ];
 
     /**
@@ -220,6 +286,40 @@ class BookingWhatsAppNotificationService
         '{amount_sent_to_provider}' => '8,000.00',
         '{remaining_balance_to_collect}' => '7,500.00',
         '{remaining_balance_to_send}' => '2,000.00',
+        '{disputed_refund_total}' => '2,500.00',
+        '{disputed_refund_company}' => '1,500.00',
+        '{disputed_refund_provider}' => '1,000.00',
+        '{disputed_customer_retained}' => '2,000.00',
+        '{booking_final_amount}' => '4,500.00',
+        '{settlement_outcome_label}' => 'Scaled / partial pay (loss-making)',
+        '{settlement_remarks}' => 'Customer paid partial; loss split per policy.',
+        '{scaled_loss_total}' => '1,200.00',
+        '{scaled_loss_company_share}' => '480.00',
+        '{scaled_loss_provider_share}' => '720.00',
+        '{scaled_net_company_share}' => '620.00',
+        '{scaled_net_provider_share}' => '2,180.00',
+        '{scaled_customer_paid_amount}' => '3,300.00',
+        '{booking_customer_still_due}' => '800.00',
+        '{disputed_provider_owes_company}' => '400.00',
+        '{disputed_company_owes_provider}' => '250.00',
+        '{disputed_company_cash_after_refund}' => '900.00',
+        '{disputed_provider_cash_after_refund}' => '600.00',
+        '{disputed_final_admin_commission}' => '1,100.00',
+        '{disputed_final_provider_earning}' => '2,400.00',
+        '{disputed_company_pays_provider_total}' => '300.00',
+        '{disputed_provider_remittance_total}' => '500.00',
+        '{compensation_amount}' => '150.00',
+        '{compensation_from_party_label}' => 'Company',
+        '{compensation_to_party_label}' => 'Customer',
+        '{compensation_direction}' => 'Company → Customer',
+        '{compensation_reference_note}' => 'Goodwill gesture',
+        '{compensation_date}' => '2026-04-15',
+        '{compensation_transaction_id}' => 'CMP-991',
+        '{refund_amount}' => '1,200.00',
+        '{refund_date}' => '2026-04-16',
+        '{refund_transaction_id}' => 'RFN-20441',
+        '{refund_reference_note}' => 'UPI reversal to customer',
+        '{refund_remaining}' => '0.00',
     ];
 
     /**
@@ -259,6 +359,329 @@ class BookingWhatsAppNotificationService
         $out = [];
         foreach (array_keys(self::allPlaceholderHintsForAdmin()) as $token) {
             $out[$token] = self::dropdownModuleLangKeyForToken($token);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function additionalChargePlaceholderKeysOrdered(): array
+    {
+        $adminKeys = array_keys(self::allPlaceholderHintsForAdmin());
+
+        return array_values(array_filter($adminKeys, static fn (string $k) => str_starts_with($k, '{additional_charge_')));
+    }
+
+    /**
+     * @param  list<string>  $tokens
+     * @return list<string>
+     */
+    private static function orderPlaceholderKeysLikeAdmin(array $tokens): array
+    {
+        $unique = array_values(array_unique(array_values($tokens)));
+        if ($unique === []) {
+            return [];
+        }
+        $flip = array_flip($unique);
+        $out = [];
+        foreach (array_keys(self::allPlaceholderHintsForAdmin()) as $k) {
+            if (isset($flip[$k])) {
+                $out[] = $k;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Core booking row tokens populated by {@see self::buildReplacements()} for normal booking automations
+     * (excludes “previous …” transition tokens and ledger-only keys).
+     *
+     * @return list<string>
+     */
+    private static function bookingAutomationCoreTokenKeys(): array
+    {
+        return [
+            '{service_name}',
+            '{customer_address}',
+            '{customer_name}',
+            '{customer_phone}',
+            '{provider_name}',
+            '{provider_phone}',
+            '{booking_id}',
+            '{booking_datetime}',
+            '{service_where}',
+            '{total_bill}',
+            '{amount_paid}',
+            '{due_amount}',
+            '{booking_status}',
+            '{serviceman_name}',
+            '{serviceman_phone}',
+        ];
+    }
+
+    /**
+     * Reason / lifecycle fields (cancellation, hold, reopen) plus settlement & loss-making amounts
+     * offered on every booking-status tab so admins can reference them when relevant.
+     *
+     * @return list<string>
+     */
+    private static function bookingStatusLifecycleAndFinancialTokenKeys(): array
+    {
+        return [
+            '{booking_cancellation_reason}',
+            '{on_hold_reason}',
+            '{on_hold_reason_remarks}',
+            '{reopen_from_completed_reason}',
+            '{reopen_resolve_remarks}',
+            '{booking_final_amount}',
+            '{settlement_outcome_label}',
+            '{settlement_remarks}',
+            '{scaled_loss_total}',
+            '{scaled_loss_company_share}',
+            '{scaled_loss_provider_share}',
+            '{scaled_net_company_share}',
+            '{scaled_net_provider_share}',
+            '{scaled_customer_paid_amount}',
+            '{booking_customer_still_due}',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function bookingStatusDisputedScenarioTokenKeys(): array
+    {
+        return [
+            '{disputed_refund_total}',
+            '{disputed_refund_company}',
+            '{disputed_refund_provider}',
+            '{disputed_customer_retained}',
+            '{disputed_provider_owes_company}',
+            '{disputed_company_owes_provider}',
+            '{disputed_company_cash_after_refund}',
+            '{disputed_provider_cash_after_refund}',
+            '{disputed_final_admin_commission}',
+            '{disputed_final_provider_earning}',
+            '{disputed_company_pays_provider_total}',
+            '{disputed_provider_remittance_total}',
+        ];
+    }
+
+    /**
+     * Tokens for one booking-status sub-tab (same set for customer vs provider column).
+     *
+     * @return list<string>
+     */
+    private static function bookingStatusSlotTokenKeysForSegment(string $segment): array
+    {
+        $base = array_merge(self::bookingAutomationCoreTokenKeys(), ['{previous_booking_status}']);
+        $flow = self::bookingStatusLifecycleAndFinancialTokenKeys();
+        if ($segment === 'disputed_close') {
+            $flow = array_merge($flow, self::bookingStatusDisputedScenarioTokenKeys());
+        }
+
+        return array_merge($base, $flow);
+    }
+
+    /**
+     * Union of all per-segment status tokens for the general “booking status changed” fallback rows.
+     *
+     * @return list<string>
+     */
+    private static function bookingStatusFallbackUnionTokenKeys(): array
+    {
+        $u = [];
+        foreach (self::statusTemplateSegmentKeys() as $segment) {
+            $u = array_merge($u, self::bookingStatusSlotTokenKeysForSegment($segment));
+        }
+
+        return array_values(array_unique($u));
+    }
+
+    /**
+     * Ordered token keys for the admin “Available variable” dropdown for one Meta template slot.
+     * Matches what the corresponding automation populates (plus additional-charge lines on booking rows).
+     *
+     * @return list<string>
+     */
+    public static function placeholderTokenKeysForMessageSlot(string $fieldKey): array
+    {
+        $ac = self::additionalChargePlaceholderKeysOrdered();
+        $core = self::bookingAutomationCoreTokenKeys();
+        $allOrdered = array_keys(self::allPlaceholderHintsForAdmin());
+
+        if ($fieldKey === 'booking_confirmation_customer' || $fieldKey === 'booking_confirmation_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac));
+        }
+
+        if ($fieldKey === 'booking_status_customer' || $fieldKey === 'booking_status_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge(self::bookingStatusFallbackUnionTokenKeys(), $ac));
+        }
+
+        if (preg_match('/^booking_status_(customer|provider)_(.+)$/', $fieldKey, $m)) {
+            $segment = $m[2];
+            if (in_array($segment, self::statusTemplateSegmentKeys(), true)) {
+                return self::orderPlaceholderKeysLikeAdmin(array_merge(
+                    self::bookingStatusSlotTokenKeysForSegment($segment),
+                    $ac
+                ));
+            }
+        }
+
+        if ($fieldKey === 'provider_change_customer' || $fieldKey === 'provider_change_new_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac, [
+                '{previous_provider_name}',
+                '{previous_provider_phone}',
+            ]));
+        }
+
+        if ($fieldKey === 'provider_change_previous_provider') {
+            return self::orderPlaceholderKeysLikeAdmin([
+                '{booking_id}',
+                '{customer_name}',
+                '{customer_phone}',
+                '{service_name}',
+                '{booking_datetime}',
+                '{provider_name}',
+                '{provider_phone}',
+            ]);
+        }
+
+        if ($fieldKey === 'booking_schedule_customer' || $fieldKey === 'booking_schedule_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac, ['{previous_service_schedule}']));
+        }
+
+        if ($fieldKey === 'booking_payment_added_customer' || $fieldKey === 'booking_payment_added_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac, [
+                '{amount_added}',
+                '{payment_received_by}',
+                '{payment_date}',
+                '{payment_method}',
+                '{payment_reference}',
+            ]));
+        }
+
+        if ($fieldKey === 'booking_refund_to_customer') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac, [
+                '{refund_amount}',
+                '{refund_date}',
+                '{refund_transaction_id}',
+                '{refund_reference_note}',
+                '{refund_remaining}',
+            ]));
+        }
+
+        if ($fieldKey === 'booking_compensation_customer' || $fieldKey === 'booking_compensation_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac, [
+                '{compensation_amount}',
+                '{compensation_from_party_label}',
+                '{compensation_to_party_label}',
+                '{compensation_direction}',
+                '{compensation_reference_note}',
+                '{compensation_date}',
+                '{compensation_transaction_id}',
+            ]));
+        }
+
+        if ($fieldKey === 'ledger_provider_payment_reminder') {
+            return self::orderPlaceholderKeysLikeAdmin([
+                '{provider_name}',
+                '{provider_phone}',
+                '{provider_pending_balance}',
+                '{provider_due_balance}',
+            ]);
+        }
+
+        if ($fieldKey === 'ledger_customer_payment_reminder') {
+            return self::orderPlaceholderKeysLikeAdmin([
+                '{customer_name}',
+                '{customer_phone}',
+                '{customer_pending_balance}',
+            ]);
+        }
+
+        if ($fieldKey === 'ledger_payment_received_from_provider') {
+            return self::orderPlaceholderKeysLikeAdmin([
+                '{provider_name}',
+                '{provider_phone}',
+                '{provider_pending_balance}',
+                '{provider_due_balance}',
+                '{amount_received_from_provider}',
+                '{amount_collected_from_provider}',
+                '{balance_after_payment_collected}',
+                '{booking_settlement_net_after_collect}',
+                '{remaining_balance_to_collect}',
+            ]);
+        }
+
+        if ($fieldKey === 'ledger_payment_sent_to_provider') {
+            return self::orderPlaceholderKeysLikeAdmin([
+                '{provider_name}',
+                '{provider_phone}',
+                '{amount_sent_to_provider}',
+                '{remaining_balance_to_send}',
+            ]);
+        }
+
+        if ($fieldKey === 'booking_serviceman_customer' || $fieldKey === 'booking_serviceman_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac, [
+                '{previous_serviceman_name}',
+                '{previous_serviceman_phone}',
+            ]));
+        }
+
+        if ($fieldKey === 'booking_verification_customer' || $fieldKey === 'booking_verification_provider') {
+            return self::orderPlaceholderKeysLikeAdmin(array_merge($core, $ac, [
+                '{verification_status}',
+                '{previous_verification_status}',
+                '{verification_action}',
+            ]));
+        }
+
+        return $allOrdered;
+    }
+
+    /**
+     * Map each booking WhatsApp template slot key → ordered variable tokens for the admin UI.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function placeholderKeysByAllBookingMessageSlots(): array
+    {
+        $out = [];
+        $fixed = [
+            'booking_confirmation_customer',
+            'booking_confirmation_provider',
+            'booking_status_customer',
+            'booking_status_provider',
+            'provider_change_customer',
+            'provider_change_previous_provider',
+            'provider_change_new_provider',
+            'booking_schedule_customer',
+            'booking_schedule_provider',
+            'booking_payment_added_customer',
+            'booking_payment_added_provider',
+            'booking_refund_to_customer',
+            'booking_compensation_customer',
+            'booking_compensation_provider',
+            'ledger_provider_payment_reminder',
+            'ledger_customer_payment_reminder',
+            'ledger_payment_received_from_provider',
+            'ledger_payment_sent_to_provider',
+            'booking_serviceman_customer',
+            'booking_serviceman_provider',
+            'booking_verification_customer',
+            'booking_verification_provider',
+        ];
+        foreach ($fixed as $k) {
+            $out[$k] = self::placeholderTokenKeysForMessageSlot($k);
+        }
+        foreach (self::statusTemplateSegmentKeys() as $segment) {
+            $out['booking_status_customer_'.$segment] = self::placeholderTokenKeysForMessageSlot('booking_status_customer_'.$segment);
+            $out['booking_status_provider_'.$segment] = self::placeholderTokenKeysForMessageSlot('booking_status_provider_'.$segment);
         }
 
         return $out;
@@ -306,13 +729,13 @@ class BookingWhatsAppNotificationService
         ];
 
         if ($token === '{customer_pending_balance}') {
-            return 'Audience: Customer-focused ledger/reminder templates (amount the customer still owes in that settlement context). Use the Customer template column on the Ledger payment tabs.';
+            return 'Audience: Customer-focused ledger/reminder templates (amount the customer still owes in that settlement context). Use the Customer template column on the Ledger reminders tab.';
         }
         if (in_array($token, $providerLedgerTokens, true)) {
-            return 'Audience: Provider-focused ledger templates — reminders, collection receipts, and balances after money-in from the provider. Map under the Provider template column on Ledger payment tabs.';
+            return 'Audience: Provider-focused templates for settlement collection — map on Payments & refunds → Collect from provider (automatic when staff records collection), or use the same tokens in manual copy.';
         }
         if (in_array($token, $payoutLedgerTokens, true)) {
-            return 'Audience: Provider-focused ledger templates when you notify about payouts (money sent to the provider). Map under the Provider template column on Ledger payment tabs.';
+            return 'Audience: Provider-focused payout confirmation — map on Payments & refunds → Pay provider (automatic when staff records a payout).';
         }
         if (str_starts_with($token, '{additional_charge_')) {
             return 'Audience: Booking templates (Customer or Provider columns) whenever that recipient should see this extra fee line. Not for pure ledger settlement messages — use ledger tokens there.';
@@ -331,6 +754,24 @@ class BookingWhatsAppNotificationService
         $bookingPaymentTokens = ['{amount_added}', '{payment_received_by}', '{payment_date}', '{payment_method}', '{payment_reference}', '{amount_paid}', '{due_amount}', '{total_bill}'];
         if (in_array($token, $bookingPaymentTokens, true)) {
             return 'Audience: Booking payment templates — use Customer template column for the customer, Provider template column for the provider, depending on who receives the WhatsApp.';
+        }
+
+        $refundTokens = ['{refund_amount}', '{refund_date}', '{refund_transaction_id}', '{refund_reference_note}', '{refund_remaining}'];
+        if (in_array($token, $refundTokens, true)) {
+            return 'Audience: Customer template on WhatsApp booking templates → Payments & refunds → Refund to customer.';
+        }
+
+        $compensationOnlyTokens = [
+            '{compensation_amount}',
+            '{compensation_from_party_label}',
+            '{compensation_to_party_label}',
+            '{compensation_direction}',
+            '{compensation_reference_note}',
+            '{compensation_date}',
+            '{compensation_transaction_id}',
+        ];
+        if (in_array($token, $compensationOnlyTokens, true)) {
+            return 'Audience: Payments & refunds → Compensation — map on the Customer slot when the recipient is the customer, and on the Provider slot when the recipient is the provider.';
         }
 
         return 'Audience: Choose Customer template to message the customer, or Provider template to message the provider. The token value comes from the same booking (or ledger event for ledger tokens); only the recipient changes.';
@@ -423,6 +864,24 @@ class BookingWhatsAppNotificationService
             'refunded',
             'reopened',
             'reopen_resolved',
+            'disputed_close',
+            'loss_making',
+        ];
+    }
+
+    /**
+     * Sub-tabs under the admin “Payments & refunds” booking WhatsApp pane (URL query payment_sub=).
+     *
+     * @return list<string>
+     */
+    public static function paymentTemplateSubTabKeys(): array
+    {
+        return [
+            'add-payment',
+            'collect-provider',
+            'pay-provider',
+            'refund-customer',
+            'compensation',
         ];
     }
 
@@ -445,6 +904,7 @@ class BookingWhatsAppNotificationService
             'booking_schedule_provider',
             'booking_payment_added_customer',
             'booking_payment_added_provider',
+            'booking_refund_to_customer',
             'ledger_provider_payment_reminder',
             'ledger_customer_payment_reminder',
             'ledger_payment_received_from_provider',
@@ -453,6 +913,8 @@ class BookingWhatsAppNotificationService
             'booking_serviceman_provider',
             'booking_verification_customer',
             'booking_verification_provider',
+            'booking_compensation_customer',
+            'booking_compensation_provider',
         ];
         foreach (self::statusTemplateSegmentKeys() as $segment) {
             $keys[] = 'booking_status_customer_' . $segment;
@@ -473,8 +935,12 @@ class BookingWhatsAppNotificationService
         $statusProviderDefault = "Booking update\n\nBooking *{booking_id}* status changed:\n{previous_booking_status} → *{booking_status}*\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\nCheck your app for full details.";
         $reopenedCustomer = "Booking reopened\n\nBooking *{booking_id}* was completed and has been *reopened*.\nNew status: *{booking_status}*\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\n\n*Provider*\n{provider_name}\nPhone: {provider_phone}\n\nWe will follow up on your case.";
         $reopenedProvider = "Booking reopened\n\nBooking *{booking_id}* status is now *{booking_status}* (reopened from completed).\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
-        $resolvedCustomer = "Reopen case resolved\n\nBooking *{booking_id}* — your reopen request is marked *resolved*.\n\nRemarks: {reopen_resolve_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
-        $resolvedProvider = "Reopen case resolved\n\nBooking *{booking_id}* reopen case marked resolved.\n\nRemarks: {reopen_resolve_remarks}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
+        $resolvedCustomer = "Reopen case resolved\n\nBooking *{booking_id}* — your reopen request is marked *resolved*.\n\nRemarks: {reopen_resolve_remarks}\n\nFinal order total: {booking_final_amount} (paid {amount_paid}, due {due_amount})\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $resolvedProvider = "Reopen case resolved\n\nBooking *{booking_id}* reopen case marked resolved.\n\nRemarks: {reopen_resolve_remarks}\n\nFinal order total: {booking_final_amount} (paid {amount_paid}, due {due_amount})\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
+        $lossMakingCustomer = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* is *completed* with a scaled / partial settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\nOutcome: {settlement_outcome_label}\nNotes: {settlement_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $lossMakingProvider = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* completed with scaled settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $disputedCloseCustomer = "Disputed booking closed\n\nBooking *{booking_id}* — refunds are recorded and the case is closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nRefunds: *{disputed_refund_total}* (company pool {disputed_refund_company}, provider pool {disputed_refund_provider})\nRetained on booking: *{disputed_customer_retained}*\n\nFinal split — company commission: {disputed_final_admin_commission}, provider earning: {disputed_final_provider_earning}\nSettlement movement — company pays provider: {disputed_company_pays_provider_total}, provider remits: {disputed_provider_remittance_total}\n\nRemarks: {reopen_resolve_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $disputedCloseProvider = "Disputed booking closed\n\nBooking *{booking_id}* — refund legs recorded; case closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nRefunds: *{disputed_refund_total}* (company {disputed_refund_company}, provider {disputed_refund_provider})\nCustomer retained: *{disputed_customer_retained}*\n\nFinal split — company: {disputed_final_admin_commission}, provider: {disputed_final_provider_earning}\nNet settlement — company pays provider: {disputed_company_pays_provider_total}, provider remits: {disputed_provider_remittance_total}\n\nRemarks: {reopen_resolve_remarks}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
 
         $perStatus = [];
         foreach (self::statusTemplateSegmentKeys() as $segment) {
@@ -487,6 +953,18 @@ class BookingWhatsAppNotificationService
             if ($segment === 'reopen_resolved') {
                 $perStatus['booking_status_customer_reopen_resolved'] = $resolvedCustomer;
                 $perStatus['booking_status_provider_reopen_resolved'] = $resolvedProvider;
+
+                continue;
+            }
+            if ($segment === 'disputed_close') {
+                $perStatus['booking_status_customer_disputed_close'] = $disputedCloseCustomer;
+                $perStatus['booking_status_provider_disputed_close'] = $disputedCloseProvider;
+
+                continue;
+            }
+            if ($segment === 'loss_making') {
+                $perStatus['booking_status_customer_loss_making'] = $lossMakingCustomer;
+                $perStatus['booking_status_provider_loss_making'] = $lossMakingProvider;
 
                 continue;
             }
@@ -506,6 +984,7 @@ class BookingWhatsAppNotificationService
             'booking_schedule_provider' => "Schedule update\n\nBooking *{booking_id}* rescheduled.\n\nBefore: {previous_service_schedule}\nNow: {booking_datetime}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
             'booking_payment_added_customer' => "Payment received\n\nBooking *{booking_id}*\nAmount added: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
             'booking_payment_added_provider' => "Payment added\n\nBooking *{booking_id}*\nAmount: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nCustomer: {customer_name} ({customer_phone})\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
+            'booking_refund_to_customer' => "Refund update\n\nBooking *{booking_id}*\nWe recorded a refund of *{refund_amount}* on {refund_date}.\nReference: {refund_transaction_id}\nNote: {refund_reference_note}\n\nRemaining refundable (if any): {refund_remaining}\n\nService: {service_name}",
             'ledger_provider_payment_reminder' => "Payment reminder\n\nHello {provider_name},\n\nPending balance: {provider_pending_balance}\n\nPlease settle at your earliest convenience.",
             'ledger_customer_payment_reminder' => "Payment reminder\n\nHello {customer_name},\n\nOutstanding amount: {customer_pending_balance}\n\nPlease complete your payment.",
             'ledger_payment_received_from_provider' => "Payment received\n\nThank you {provider_name}. Collected: {amount_collected_from_provider}.\n\nStill to collect (settlement): {balance_after_payment_collected}\nNet after this payment: {booking_settlement_net_after_collect}",
@@ -514,6 +993,8 @@ class BookingWhatsAppNotificationService
             'booking_serviceman_provider' => "Serviceman update\n\nBooking *{booking_id}*\n\nServiceman: {previous_serviceman_name} → *{serviceman_name}*\nPhone: {serviceman_phone}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
             'booking_verification_customer' => "Booking verification\n\nBooking *{booking_id}* — action: *{verification_action}*\n\nStatus was: {previous_verification_status}\nNow: {verification_status}\n\nService: {service_name}\nWhen: {booking_datetime}",
             'booking_verification_provider' => "Booking verification\n\nBooking *{booking_id}* — *{verification_action}*\n\nVerification: {previous_verification_status} → {verification_status}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
+            'booking_compensation_customer' => "Compensation recorded\n\nBooking *{booking_id}*\nAmount: *{compensation_amount}*\n{compensation_direction}\nDate: {compensation_date}\nRef: {compensation_transaction_id}\nNote: {compensation_reference_note}\n\nService: {service_name}",
+            'booking_compensation_provider' => "Compensation recorded\n\nBooking *{booking_id}*\nAmount: *{compensation_amount}*\n{compensation_direction}\nDate: {compensation_date}\nRef: {compensation_transaction_id}\nNote: {compensation_reference_note}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
         ], $perStatus);
     }
 
@@ -681,7 +1162,7 @@ class BookingWhatsAppNotificationService
         }
 
         $config = $this->getConfig();
-        $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
+        $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus, $booking);
         if (empty($config['enabled'])) {
             $this->logAutomationMasterDisabled($booking, null, [
                 ['key' => 'booking_status_customer_' . $segment, 'label' => 'booking status (customer)'],
@@ -822,6 +1303,82 @@ class BookingWhatsAppNotificationService
     }
 
     /**
+     * When a disputed reopen is closed with recorded refund legs + snapshot (booking_status may also change).
+     */
+    public function sendDisputedReopenRefundRecorded(Booking $booking, string $previousBookingStatus): void
+    {
+        $snap = $booking->reopen_disputed_snapshot ?? null;
+        if (! is_array($snap) || (($snap['type'] ?? null) !== 'reopen_disputed_refund')) {
+            return;
+        }
+
+        $config = $this->getConfig();
+        $segment = 'disputed_close';
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_status_customer_' . $segment, 'label' => 'disputed close (customer)'],
+                ['key' => 'booking_status_provider_' . $segment, 'label' => 'disputed close (provider)'],
+            ]);
+
+            return;
+        }
+
+        $fingerprint = (string) ($snap['submitted_at'] ?? '');
+        if ($fingerprint === '') {
+            $fingerprint = substr(sha1(json_encode($snap)), 0, 16);
+        }
+        $dedupKey = self::CACHE_DISPUTED_REOPEN_REFUND_SENT_PREFIX . $booking->id . ':' . $fingerprint;
+        $lock = Cache::lock(self::CACHE_DISPUTED_REOPEN_REFUND_LOCK_PREFIX . $booking->id, 30);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            if (Cache::has($dedupKey)) {
+                return;
+            }
+
+            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+            $vars = array_merge($this->buildReplacements($booking, $previousBookingStatus), [
+                '{reopen_resolve_remarks}' => trim((string) ($booking->reopen_resolve_remarks ?? '')) !== ''
+                    ? (string) $booking->reopen_resolve_remarks
+                    : '—',
+            ], $this->buildDisputedReopenRefundPlaceholderExtras($snap));
+
+            $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
+            $cOk = $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'customer',
+                $vars,
+                $customerPhone,
+                $booking,
+                null,
+                'disputed close',
+                (string) $booking->id
+            );
+
+            $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
+            $pOk = $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'provider',
+                $vars,
+                $providerPhone,
+                $booking,
+                null,
+                'disputed close',
+                (string) $booking->id
+            );
+
+            if ($cOk || $pOk) {
+                Cache::put($dedupKey, 1, now()->addSeconds(15));
+            }
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
      * Status templates for one repeat occurrence (readable id, schedule, amounts from the repeat row).
      */
     public function sendBookingRepeatStatusChange(BookingRepeat $repeat, string $previousBookingStatus): void
@@ -846,7 +1403,7 @@ class BookingWhatsAppNotificationService
         }
 
         $config = $this->getConfig();
-        $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus);
+        $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus, $parent);
         if (empty($config['enabled'])) {
             $this->logAutomationMasterDisabled($parent, $repeat, [
                 ['key' => 'booking_status_customer_' . $segment, 'label' => 'repeat booking status (customer)'],
@@ -1101,6 +1658,153 @@ class BookingWhatsAppNotificationService
         // Removed: “Payment status changed” automation is no longer used.
     }
 
+    protected function compensationPartyLabel(string $party): string
+    {
+        return match ($party) {
+            BookingCompensation::PARTY_COMPANY => translate('Company'),
+            BookingCompensation::PARTY_PROVIDER => translate('Provider'),
+            BookingCompensation::PARTY_CUSTOMER => translate('Customer'),
+            default => $party !== '' ? ucfirst($party) : '—',
+        };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function buildCompensationPlaceholderRow(BookingCompensation $comp): array
+    {
+        $from = $this->compensationPartyLabel((string) $comp->from_party);
+        $to = $this->compensationPartyLabel((string) $comp->to_party);
+        $dateStr = $comp->date ? $comp->date->toDateString() : now()->toDateString();
+        $refNote = trim((string) ($comp->reference_note ?? ''));
+        $tx = trim((string) ($comp->transaction_id ?? ''));
+
+        return [
+            '{compensation_amount}' => $this->formatMoneyAmountForMessages((float) ($comp->amount ?? 0)),
+            '{compensation_from_party_label}' => $from,
+            '{compensation_to_party_label}' => $to,
+            '{compensation_direction}' => $from.' → '.$to,
+            '{compensation_reference_note}' => $refNote !== '' ? $refNote : '—',
+            '{compensation_date}' => $dateStr,
+            '{compensation_transaction_id}' => $tx !== '' ? $tx : '—',
+        ];
+    }
+
+    /**
+     * After admin records a customer refund on a canceled / eligible booking.
+     *
+     * @param  array{date?: string, transaction_id?: string, reference_note?: string}  $meta
+     */
+    public function sendBookingRefundToCustomer(Booking $booking, float $amount, array $meta = []): void
+    {
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_refund_to_customer', 'label' => 'booking refund to customer (customer)'],
+            ]);
+
+            return;
+        }
+
+        $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+
+        $totalsAfter = get_booking_refund_display_totals($booking);
+        $remaining = round((float) ($totalsAfter['refundable_remaining'] ?? 0), 2);
+
+        $date = trim((string) ($meta['date'] ?? ''));
+        if ($date === '') {
+            $date = now()->toDateString();
+        }
+        $tx = trim((string) ($meta['transaction_id'] ?? ''));
+        if ($tx === '') {
+            $tx = '—';
+        }
+        $note = trim((string) ($meta['reference_note'] ?? ''));
+        if ($note === '') {
+            $note = '—';
+        }
+
+        $vars = array_merge($this->buildReplacements($booking, null), [
+            '{refund_amount}' => $this->formatMoneyAmountForMessages($amount),
+            '{refund_date}' => $date,
+            '{refund_transaction_id}' => $tx,
+            '{refund_reference_note}' => $note,
+            '{refund_remaining}' => $this->formatMoneyAmountForMessages($remaining),
+        ]);
+
+        $this->trySendBookingMetaOnly(
+            $config,
+            'booking_refund_to_customer',
+            $vars,
+            $booking->customer?->phone,
+            'booking refund to customer (customer)',
+            [
+                'booking_id' => (string) $booking->id,
+                'entity_id' => (string) $booking->id.'|'.$date.'|'.$tx,
+            ]
+        );
+    }
+
+    /**
+     * After {@see BookingCompensation} is created from the booking compensation modal.
+     *
+     * @param  'company_to_customer'|'company_to_provider'|'provider_to_customer'  $compensationType
+     */
+    public function sendBookingCompensationRecorded(Booking $booking, BookingCompensation $comp, string $compensationType): void
+    {
+        $compensationType = match ($compensationType) {
+            'company_to_customer', 'company_to_provider', 'provider_to_customer' => $compensationType,
+            default => '',
+        };
+        if ($compensationType === '') {
+            return;
+        }
+
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            if ($compensationType === 'company_to_provider') {
+                $this->logAutomationMasterDisabled($booking, null, [
+                    ['key' => 'booking_compensation_provider', 'label' => 'booking compensation (provider)'],
+                ]);
+            } else {
+                $this->logAutomationMasterDisabled($booking, null, [
+                    ['key' => 'booking_compensation_customer', 'label' => 'booking compensation (customer)'],
+                ]);
+            }
+
+            return;
+        }
+
+        $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+        $vars = array_merge($this->buildReplacements($booking, null), $this->buildCompensationPlaceholderRow($comp));
+        $ctx = [
+            'booking_id' => (string) $booking->id,
+            'entity_id' => (string) $comp->id,
+        ];
+
+        if ($compensationType === 'company_to_provider') {
+            $this->trySendBookingMetaOnly(
+                $config,
+                'booking_compensation_provider',
+                $vars,
+                $this->resolveProviderPhone($booking->provider, $config),
+                'booking compensation to provider (provider)',
+                $ctx
+            );
+
+            return;
+        }
+
+        $this->trySendBookingMetaOnly(
+            $config,
+            'booking_compensation_customer',
+            $vars,
+            $booking->customer?->phone,
+            'booking compensation to customer (customer)',
+            $ctx
+        );
+    }
+
     /**
      * Triggered when a payment is added from booking details (Add payment modal).
      *
@@ -1171,146 +1875,17 @@ class BookingWhatsAppNotificationService
 
     public function sendBookingServicemanChange(Booking $booking, ?string $previousServicemanId): void
     {
-        $config = $this->getConfig();
-        $newId = $booking->serviceman_id ? (string) $booking->serviceman_id : '';
-        $prevId = $previousServicemanId ? (string) $previousServicemanId : '';
-        if ($prevId === $newId) {
-            return;
-        }
-
-        if (empty($config['enabled'])) {
-            $this->logAutomationMasterDisabled($booking, null, [
-                ['key' => 'booking_serviceman_customer', 'label' => 'booking serviceman (customer)'],
-                ['key' => 'booking_serviceman_provider', 'label' => 'booking serviceman (provider)'],
-            ]);
-
-            return;
-        }
-
-        $dedupKey = self::CACHE_SERVICEMAN_SENT_PREFIX . $booking->id . ':' . ($prevId ?: 'none') . '>' . ($newId ?: 'none');
-        $lock = Cache::lock(self::CACHE_SERVICEMAN_LOCK_PREFIX . $booking->id, 30);
-        if (!$lock->get()) {
-            return;
-        }
-        try {
-            if (Cache::has($dedupKey)) {
-                return;
-            }
-
-            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user']);
-            $prevSm = $prevId !== '' ? Serviceman::with('user')->find($prevId) : null;
-            $prevPair = $this->servicemanDisplayPair($prevSm);
-            $curPair = $this->servicemanDisplayPair($booking->serviceman);
-
-            $vars = array_merge($this->buildReplacements($booking, null), [
-                '{previous_serviceman_name}' => $prevPair['name'],
-                '{previous_serviceman_phone}' => $prevPair['phone'],
-                '{serviceman_name}' => $curPair['name'],
-                '{serviceman_phone}' => $curPair['phone'],
-            ]);
-
-            $ok = $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_serviceman_customer', 'booking_serviceman_provider', 'serviceman', (string) $booking->id, $booking->id, null);
-            if ($ok) {
-                Cache::put($dedupKey, 1, now()->addYears(3));
-            }
-        } finally {
-            $lock->release();
-        }
+        // Serviceman-assignment WhatsApp automation removed.
     }
 
     public function sendBookingRepeatServicemanChange(BookingRepeat $repeat, ?string $previousServicemanId): void
     {
-        $newId = $repeat->serviceman_id ? (string) $repeat->serviceman_id : '';
-        $prevId = $previousServicemanId ? (string) $previousServicemanId : '';
-        if ($prevId === $newId) {
-            return;
-        }
-
-        $repeat->loadMissing(['booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments', 'booking', 'detail', 'provider.owner', 'serviceman.user']);
-        $parent = $repeat->booking;
-        if (!$parent) {
-            return;
-        }
-
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
-            $this->logAutomationMasterDisabled($parent, $repeat, [
-                ['key' => 'booking_serviceman_customer', 'label' => 'booking repeat_serviceman (customer)'],
-                ['key' => 'booking_serviceman_provider', 'label' => 'booking repeat_serviceman (provider)'],
-            ]);
-
-            return;
-        }
-
-        $dedupKey = self::CACHE_SERVICEMAN_SENT_PREFIX . 'repeat:' . $repeat->id . ':' . ($prevId ?: 'none') . '>' . ($newId ?: 'none');
-        $lock = Cache::lock(self::CACHE_SERVICEMAN_LOCK_PREFIX . 'repeat:' . $repeat->id, 30);
-        if (!$lock->get()) {
-            return;
-        }
-        try {
-            if (Cache::has($dedupKey)) {
-                return;
-            }
-
-            $prevSm = $prevId !== '' ? Serviceman::with('user')->find($prevId) : null;
-            $prevPair = $this->servicemanDisplayPair($prevSm);
-            $curPair = $this->servicemanDisplayPair($repeat->serviceman);
-
-            $vars = array_merge($this->buildRepeatRowReplacements($repeat, $parent), [
-                '{previous_serviceman_name}' => $prevPair['name'],
-                '{previous_serviceman_phone}' => $prevPair['phone'],
-                '{serviceman_name}' => $curPair['name'],
-                '{serviceman_phone}' => $curPair['phone'],
-            ]);
-
-            $provider = $repeat->provider ?? $parent->provider;
-            $ok = $this->sendTemplatePair($config, $vars, $parent->customer?->phone, $provider, 'booking_serviceman_customer', 'booking_serviceman_provider', 'repeat_serviceman', (string) $repeat->id, $parent->id, $repeat->id);
-            if ($ok) {
-                Cache::put($dedupKey, 1, now()->addYears(3));
-            }
-        } finally {
-            $lock->release();
-        }
+        // Serviceman-assignment WhatsApp automation removed.
     }
 
     public function sendBookingVerificationChange(Booking $booking, int $previousIsVerified, string $action): void
     {
-        $newV = (int) ($booking->is_verified ?? 0);
-        $actionKey = strtolower(trim($action));
-        $config = $this->getConfig();
-        if (empty($config['enabled'])) {
-            $this->logAutomationMasterDisabled($booking, null, [
-                ['key' => 'booking_verification_customer', 'label' => 'booking verification (customer)'],
-                ['key' => 'booking_verification_provider', 'label' => 'booking verification (provider)'],
-            ]);
-
-            return;
-        }
-
-        $dedupKey = self::CACHE_VERIFICATION_SENT_PREFIX . $booking->id . ':' . $previousIsVerified . '>' . $newV . ':' . $actionKey;
-        $lock = Cache::lock(self::CACHE_VERIFICATION_LOCK_PREFIX . $booking->id, 30);
-        if (!$lock->get()) {
-            return;
-        }
-        try {
-            if (Cache::has($dedupKey)) {
-                return;
-            }
-
-            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
-            $vars = array_merge($this->buildReplacements($booking, null), [
-                '{previous_verification_status}' => $this->verificationStateLabel($previousIsVerified),
-                '{verification_status}' => $this->verificationStateLabel($newV),
-                '{verification_action}' => $this->verificationActionLabel($actionKey),
-            ]);
-
-            $ok = $this->sendTemplatePair($config, $vars, $booking->customer?->phone, $booking->provider, 'booking_verification_customer', 'booking_verification_provider', 'verification', (string) $booking->id, $booking->id, null);
-            if ($ok) {
-                Cache::put($dedupKey, 1, now()->addYears(3));
-            }
-        } finally {
-            $lock->release();
-        }
+        // Booking-verification WhatsApp automation removed.
     }
 
     /**
@@ -1377,6 +1952,102 @@ class BookingWhatsAppNotificationService
     protected function formatScheduleToken(?string $raw): string
     {
         return $this->formatServiceDateTimeForMessages($raw);
+    }
+
+    protected function formatMoneyAmountForMessages(float $amount): string
+    {
+        $rounded = round($amount, 2);
+
+        return function_exists('with_currency_symbol') ? with_currency_symbol($rounded) : (string) $rounded;
+    }
+
+    /**
+     * @param  array<string, mixed>  $snapshot
+     * @return array<string, string>
+     */
+    protected function buildDisputedReopenRefundPlaceholderExtras(array $snapshot): array
+    {
+        $total = round((float) ($snapshot['refund_total'] ?? 0), 2);
+        $company = round((float) ($snapshot['refund_company_amount'] ?? 0), 2);
+        $provider = round((float) ($snapshot['refund_provider_amount'] ?? 0), 2);
+        $retained = round((float) ($snapshot['retained_from_customer'] ?? 0), 2);
+        $provOwes = round((float) ($snapshot['provider_owes_company'] ?? 0), 2);
+        $coOwesPr = round((float) ($snapshot['company_owes_provider'] ?? 0), 2);
+        $coCash = round((float) ($snapshot['company_cash_after_refund'] ?? 0), 2);
+        $prCash = round((float) ($snapshot['provider_cash_after_refund'] ?? 0), 2);
+        $finCo = round((float) ($snapshot['final_admin_commission'] ?? 0), 2);
+        $finPr = round((float) ($snapshot['final_provider_earning'] ?? 0), 2);
+        $coPaysPr = round((float) ($snapshot['company_pays_provider_total'] ?? 0), 2);
+        $prRemit = round((float) ($snapshot['provider_total_remittance_to_company'] ?? 0), 2);
+
+        return [
+            '{disputed_refund_total}' => $this->formatMoneyAmountForMessages($total),
+            '{disputed_refund_company}' => $this->formatMoneyAmountForMessages($company),
+            '{disputed_refund_provider}' => $this->formatMoneyAmountForMessages($provider),
+            '{disputed_customer_retained}' => $this->formatMoneyAmountForMessages($retained),
+            '{disputed_provider_owes_company}' => $this->formatMoneyAmountForMessages($provOwes),
+            '{disputed_company_owes_provider}' => $this->formatMoneyAmountForMessages($coOwesPr),
+            '{disputed_company_cash_after_refund}' => $this->formatMoneyAmountForMessages($coCash),
+            '{disputed_provider_cash_after_refund}' => $this->formatMoneyAmountForMessages($prCash),
+            '{disputed_final_admin_commission}' => $this->formatMoneyAmountForMessages($finCo),
+            '{disputed_final_provider_earning}' => $this->formatMoneyAmountForMessages($finPr),
+            '{disputed_company_pays_provider_total}' => $this->formatMoneyAmountForMessages($coPaysPr),
+            '{disputed_provider_remittance_total}' => $this->formatMoneyAmountForMessages($prRemit),
+        ];
+    }
+
+    /**
+     * Settlement snapshot, disputed snapshot, and other scenario fields merged into template vars.
+     *
+     * @return array<string, string>
+     */
+    protected function mergeBookingContextFinancialPlaceholders(Booking $booking): array
+    {
+        $booking->loadMissing(['settlement_snapshot', 'reopen_disputed_snapshot']);
+        $totalBill = (float) get_booking_total_amount($booking);
+        $amountPaid = (float) get_booking_total_paid($booking);
+        $due = max(0.0, round($totalBill - $amountPaid, 2));
+        $stillDue = $due;
+        if (function_exists('get_booking_admin_add_payment_remaining_amount')) {
+            $stillDue = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        }
+
+        $outcome = trim((string) ($booking->settlement_outcome ?? ''));
+        $outcomeLabel = '—';
+        if ($outcome !== '') {
+            $opts = BookingFinancialSettlementService::outcomeOptions();
+            $outcomeLabel = $opts[$outcome] ?? ucwords(str_replace('_', ' ', $outcome));
+        }
+
+        $settleRemarks = trim((string) ($booking->settlement_remarks ?? ''));
+        $snap = is_array($booking->settlement_snapshot) ? $booking->settlement_snapshot : [];
+        $hasScaled = (($snap['scaled_loss_mode'] ?? false) === true)
+            || $outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+
+        $dash = fn (float $v): string => abs($v) <= 0.009 ? '—' : $this->formatMoneyAmountForMessages($v);
+        $num = static fn (mixed $v): float => round((float) ($v ?? 0), 2);
+
+        $out = [
+            '{booking_final_amount}' => function_exists('with_currency_symbol') ? with_currency_symbol($totalBill) : (string) $totalBill,
+            '{settlement_outcome_label}' => $outcomeLabel,
+            '{settlement_remarks}' => $settleRemarks !== '' ? $settleRemarks : '—',
+            '{scaled_loss_total}' => $hasScaled ? $dash($num($snap['scaled_loss_amount'] ?? 0)) : '—',
+            '{scaled_loss_company_share}' => $hasScaled ? $dash($num($snap['scaled_loss_company_share'] ?? 0)) : '—',
+            '{scaled_loss_provider_share}' => $hasScaled ? $dash($num($snap['scaled_loss_provider_share'] ?? 0)) : '—',
+            '{scaled_net_company_share}' => $hasScaled ? $dash($num($snap['scaled_net_company_share'] ?? 0)) : '—',
+            '{scaled_net_provider_share}' => $hasScaled ? $dash($num($snap['scaled_net_provider_share'] ?? 0)) : '—',
+            '{scaled_customer_paid_amount}' => $hasScaled ? $dash($num($snap['scaled_customer_paid_amount'] ?? $amountPaid)) : '—',
+            '{booking_customer_still_due}' => $stillDue > 0.009
+                ? (function_exists('with_currency_symbol') ? with_currency_symbol($stillDue) : (string) $stillDue)
+                : '—',
+        ];
+
+        $ds = $booking->reopen_disputed_snapshot;
+        if (is_array($ds) && (($ds['type'] ?? '') === 'reopen_disputed_refund')) {
+            $out = array_merge($out, $this->buildDisputedReopenRefundPlaceholderExtras($ds));
+        }
+
+        return $out;
     }
 
     protected function paymentPaidLabel(int $isPaid): string
@@ -2488,7 +3159,7 @@ class BookingWhatsAppNotificationService
             '{verification_status}' => $this->verificationStateLabel((int) ($booking->is_verified ?? 0)),
             '{previous_verification_status}' => '—',
             '{verification_action}' => '—',
-            '{reopen_resolve_remarks}' => '—',
+            '{reopen_resolve_remarks}' => (($t = trim((string) ($booking->reopen_resolve_remarks ?? ''))) !== '' ? $t : '—'),
             '{booking_cancellation_reason}' => $cancellationReasonText,
             '{on_hold_reason}' => $onHoldReasonText,
             '{on_hold_reason_remarks}' => $onHoldRemarksText,
@@ -2507,15 +3178,22 @@ class BookingWhatsAppNotificationService
             $acReplacements[$tokenKey] = function_exists('with_currency_symbol') ? with_currency_symbol($amt) : (string) $amt;
         }
 
-        return array_merge($base, $acReplacements);
+        return array_merge($base, $acReplacements, $this->mergeBookingContextFinancialPlaceholders($booking));
     }
 
-    protected function resolveStatusTemplateSegment(string $previousBookingStatus, string $newStatus): string
+    protected function resolveStatusTemplateSegment(string $previousBookingStatus, string $newStatus, ?Booking $booking = null): string
     {
         $prev = strtolower(trim($previousBookingStatus));
         $new = strtolower(trim($newStatus));
         if ($prev === 'completed' && in_array($new, ['pending', 'accepted'], true)) {
             return 'reopened';
+        }
+
+        if ($new === 'completed' && $booking !== null) {
+            $booking->loadMissing([]);
+            if (trim((string) ($booking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                return 'loss_making';
+            }
         }
 
         $allowed = array_column(BOOKING_STATUSES, 'key');

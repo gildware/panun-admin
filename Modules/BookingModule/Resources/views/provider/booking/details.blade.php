@@ -425,8 +425,7 @@
                                            name="service_schedule"
                                            value="{{$booking->service_schedule}}"
                                            id="service_schedule"
-                                           data-original="{{ $booking->service_schedule }}"
-                                           min="<?php echo date('Y-m-d\TH:i'); ?>">
+                                           data-original="{{ $booking->service_schedule }}">
                                 @endif
                             </div>
 
@@ -1204,25 +1203,6 @@
             var original = $input.data('original');
 
             if (!service_schedule) {
-                $input.val(original);
-                return;
-            }
-
-            // Normalize formats (replace space with 'T' for parsing)
-            var newDate = new Date(service_schedule);
-            var originalDate = new Date(original.replace(" ", "T"));
-            var now = new Date();
-
-            // Compare with current time
-            if (newDate < now) {
-                toastr.error("Reschedule cannot be earlier than the current time");
-                $input.val(original);
-                return;
-            }
-
-            // Compare with original schedule
-            if (newDate < originalDate) {
-                toastr.error("Reschedule cannot be earlier than the original schedule");
                 $input.val(original);
                 return;
             }

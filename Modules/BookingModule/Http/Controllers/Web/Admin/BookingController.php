@@ -2686,9 +2686,11 @@ class BookingController extends Controller
         $current = strtolower(trim((string) ($booking->booking_status ?? '')));
         // Resolve reopen flow: allow completing directly when work is finished.
         // This is intentionally independent from the "reopen completion lock" (which only blocks plain status transitions).
+        // Reopened bookings can sit in pending/accepted; allow resolving+completing from those too.
         $isOngoing = $current === 'ongoing';
         $isHoldAfterVisit = $current === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking);
-        if (! $isOngoing && ! $isHoldAfterVisit) {
+        $isAcceptedOrPending = in_array($current, ['accepted', 'pending'], true);
+        if (! $isOngoing && ! $isHoldAfterVisit && ! $isAcceptedOrPending) {
             Toastr::error(translate('Resolve_reopen_invalid_status_for_complete'));
 
             return back();
@@ -3040,14 +3042,6 @@ class BookingController extends Controller
         }
 
         $booking->refresh();
-        try {
-            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendReopenCaseResolved($booking);
-        } catch (\Throwable $e) {
-            Log::warning('WhatsApp reopen disputed resolved notification failed', [
-                'booking_id' => $booking->id,
-                'message' => $e->getMessage(),
-            ]);
-        }
 
         Toastr::success(translate('Disputed_reopen_recorded'));
 
@@ -3485,6 +3479,12 @@ class BookingController extends Controller
                         'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                     ]), 422);
                 }
+                if ($to === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
+                    ]), 422);
+                }
                 if ($to === 'canceled' && $booking->isOpenReopenTicket()) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
@@ -3516,6 +3516,12 @@ class BookingController extends Controller
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
                         'message' => translate('Booking cannot be completed until full payment is received.'),
+                    ]), 422);
+                }
+                if ($to === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($repeatBooking)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
                     ]), 422);
                 }
                 [$cId, $hId, $remarks] = $this->extractStatusChangeReasonMeta($validated, $current, $to);
@@ -3764,6 +3770,11 @@ class BookingController extends Controller
 
         if (! booking_admin_status_transition_allowed_for_booking($repeatBooking, $from, $toInput)) {
             Toastr::error(translate('Invalid_booking_status_transition'));
+
+            return back();
+        }
+        if ($toInput === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($repeatBooking)) {
+            Toastr::error(translate('Booking_ongoing_only_on_or_after_schedule_date'));
 
             return back();
         }
@@ -5851,7 +5862,7 @@ class BookingController extends Controller
         $status = strtolower(trim((string) ($booking->booking_status ?? '')));
         $isScaledSettlement = $booking->isLossMakingFinancialSettlement();
         $remainingCap = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
-        $allowAddPaymentByStatus = $status === 'ongoing'
+        $allowAddPaymentByStatus = in_array($status, ['pending', 'accepted', 'ongoing'], true)
             || ($status === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking))
             || ($isScaledSettlement && $status === 'completed' && $remainingCap > 0.009);
         if (! $allowAddPaymentByStatus) {
@@ -7087,6 +7098,21 @@ class BookingController extends Controller
             $booking->save();
         });
 
+        try {
+            if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+                $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
+                if ($fresh) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingRefundToCustomer($fresh, $amount, [
+                        'date' => $date,
+                        'transaction_id' => $transactionId,
+                        'reference_note' => $refundNote,
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp booking refund notification failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
+        }
+
         if ($request->wantsJson()) {
             return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
         }
@@ -7161,7 +7187,7 @@ class BookingController extends Controller
 
         $admin_user_id = \Modules\UserManagement\Entities\User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
 
-        DB::transaction(function () use ($booking, $type, $amount, $transactionId, $note, $date, $admin_user_id) {
+        $comp = DB::transaction(function () use ($booking, $type, $amount, $transactionId, $note, $date, $admin_user_id) {
             $comp = \Modules\BookingModule\Entities\BookingCompensation::create([
                 'booking_id' => $booking->id,
                 'customer_id' => $booking->customer_id,
@@ -7360,7 +7386,22 @@ class BookingController extends Controller
                     'reference_note' => 'compensation:provider_to_customer;trx:' . ($transactionId ?: '—') . ';row:' . $comp->id,
                 ]);
             }
+
+            return $comp;
         });
+
+        if ($comp instanceof \Modules\BookingModule\Entities\BookingCompensation) {
+            try {
+                app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                    ->sendBookingCompensationRecorded($booking->fresh(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']), $comp, $type);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('WhatsApp booking compensation notification failed', [
+                    'booking_id' => $booking->id,
+                    'compensation_id' => $comp->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
 
         if ($request->wantsJson()) {
             return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);

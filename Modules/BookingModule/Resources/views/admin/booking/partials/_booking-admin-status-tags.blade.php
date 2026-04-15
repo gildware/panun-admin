@@ -7,6 +7,7 @@
     $bfsRefundTag = booking_admin_classify_refund_ui_tag($booking);
     $bfsRefundTotals = booking_admin_refund_display_totals($booking);
     $bfsHasDisputed = booking_admin_has_disputed_reopen_snapshot($booking);
+    $bfsHasCompensated = booking_admin_has_compensation($booking);
     $bfsIsCaseClosed = !empty($booking->reopen_resolved_at);
     $bfsShowCancelAfterVisit = booking_admin_should_show_cancel_after_visit_tag($booking);
     $bfsShowCompleteNoService = booking_admin_should_show_complete_no_service_tag($booking);
@@ -39,6 +40,10 @@
 @if($bfsHasDisputed)
     <span class="badge bg-danger text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"
           title="{{ translate('Disputed_bookings_tab_hint') }}">{{ translate('Booking_tag_disputed') }}</span>
+@endif
+@if($bfsHasCompensated)
+    <span class="badge bg-primary text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"
+          title="{{ translate('Booking_tag_compensated') }}">{{ translate('Booking_tag_compensated') }}</span>
 @endif
 @if($bfsShowCancelAfterVisit)
     <span class="badge bg-danger text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"

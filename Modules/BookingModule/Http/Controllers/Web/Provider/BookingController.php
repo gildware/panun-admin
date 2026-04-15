@@ -646,6 +646,13 @@ class BookingController extends Controller
                 return response()->json(BOOKING_ALREADY_EDITED, 200);
             }
 
+            if ($request['booking_status'] === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking, ['pending', 'accepted', 'ongoing'])) {
+                return response()->json(response_formatter([
+                    'response_code' => 'booking_ongoing_schedule_date_200',
+                    'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
+                ]), 200);
+            }
+
             $booking->booking_status = $request['booking_status'];
             $booking->provider_id = $request->user()->provider->id;
 
@@ -686,6 +693,12 @@ class BookingController extends Controller
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
         }
         if (isset($repeatBooking)){
+            if ($request['booking_status'] === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($repeatBooking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'booking_ongoing_schedule_date_200',
+                    'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
+                ]), 200);
+            }
             $previousRepeatStatus = (string) $repeatBooking->booking_status;
             $repeatBooking->booking_status = $request['booking_status'];
 

@@ -11,6 +11,9 @@
                         </div>
                         <div class="modal-body">
                             <p class="text-muted small mb-3">{{ translate('Reopen_after_completion_help') }}</p>
+                            <div class="alert alert-warning small mb-3">
+                                {{ translate('Reopen_custom_commission_resets_to_default_hint') }}
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">{{ translate('Status_after_reopen') }}</label>
                                 <select name="target_status" class="form-select">

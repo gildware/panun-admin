@@ -512,6 +512,9 @@
                                             @foreach ($__rebookStatusNext as $__selSt)
                                                 @php
                                                     $__rebookOptDisabled = $__rebookStatusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                                    if ($__selSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                                                        $__rebookOptDisabled = true;
+                                                    }
                                                     if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
                                                         $__rebookOptDisabled = true;
                                                     }
@@ -539,7 +542,6 @@
                                                value="{{ $booking->service_schedule }}"
                                                id="service_schedule"
                                                data-original="{{ $booking->service_schedule }}"
-                                               min="<?php echo date('Y-m-d\TH:i'); ?>"
                                                onchange="service_schedule_update()">
                                     @endcan
                                 @endif
@@ -1427,25 +1429,6 @@
             var original = $input.data('original');
 
             if (!service_schedule) {
-                $input.val(original);
-                return;
-            }
-
-            // Normalize formats (replace space with 'T' for parsing)
-            var newDate = new Date(service_schedule);
-            var originalDate = new Date(original.replace(" ", "T"));
-            var now = new Date();
-
-            // Compare with current time
-            if (newDate < now) {
-                toastr.error("Reschedule cannot be earlier than the current time");
-                $input.val(original);
-                return;
-            }
-
-            // Compare with original schedule
-            if (newDate < originalDate) {
-                toastr.error("Reschedule cannot be earlier than the original schedule");
                 $input.val(original);
                 return;
             }

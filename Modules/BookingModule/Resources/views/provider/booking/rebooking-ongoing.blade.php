@@ -410,7 +410,6 @@
                                            value="{{ $booking->service_schedule }}"
                                            id="service_schedule"
                                            data-original="{{ $booking->service_schedule }}"
-                                           min="<?php echo date('Y-m-d\TH:i'); ?>"
                                            onchange="service_schedule_update()">
                                 @endif
                             </div>
@@ -990,24 +989,6 @@
                 return;
             }
 
-            // Normalize formats (replace space with 'T' for parsing)
-            var newDate = new Date(service_schedule);
-            var originalDate = new Date(original.replace(" ", "T"));
-            var now = new Date();
-
-            // Compare with current time
-            if (newDate < now) {
-                toastr.error("Reschedule cannot be earlier than the current time");
-                $input.val(original);
-                return;
-            }
-
-            // Compare with original schedule
-            if (newDate < originalDate) {
-                toastr.error("Reschedule cannot be earlier than the original schedule");
-                $input.val(original);
-                return;
-            }
             var route = '{{ route('provider.booking.schedule_update', [$booking->id]) }}' + '?service_schedule=' + service_schedule;
 
             update_booking_details(route, '{{ translate('want_to_update_the_booking_schedule') }}', 'service_schedule', service_schedule);
