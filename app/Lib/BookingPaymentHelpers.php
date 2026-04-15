@@ -1153,6 +1153,20 @@ if (!function_exists('booking_admin_has_disputed_reopen_snapshot')) {
     }
 }
 
+if (!function_exists('booking_admin_has_compensation')) {
+    /**
+     * True when any compensation entry exists for this booking.
+     */
+    function booking_admin_has_compensation(Booking $booking): bool
+    {
+        if ($booking->relationLoaded('compensations')) {
+            return $booking->compensations->isNotEmpty();
+        }
+
+        return $booking->compensations()->exists();
+    }
+}
+
 if (!function_exists('booking_admin_should_show_cancel_after_visit_tag')) {
     /**
      * Cancel-after-visit decided charges (retain visit fee) — not plain before-visit cancel.

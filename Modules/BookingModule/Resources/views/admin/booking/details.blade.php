@@ -380,7 +380,8 @@
         $canAdminRecordFurtherCustomerPayment = ! in_array((string) ($booking->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true)
             && round($adminAddPaymentRemainingCapacity, 2) > 0.009;
         $bookingStatusForAddPayment = (string) ($booking->booking_status ?? '');
-        $addPaymentAllowedByStatus = $bookingStatusForAddPayment === 'ongoing'
+        // Reopened bookings can be in pending/accepted; allow admin to record payments there too.
+        $addPaymentAllowedByStatus = in_array($bookingStatusForAddPayment, ['pending', 'accepted', 'ongoing'], true)
             || ($bookingStatusForAddPayment === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking));
         // Loss-making (scaled) bookings: allow recording additional payments even after completion
         // (up to invoice recovery cap), so don't require ongoing/on-hold here.
@@ -473,15 +474,19 @@
 
             <div class="pb-3 d-flex justify-content-between align-items-center gap-3 flex-wrap">
                 <div>
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h3 class="c1 fw-bold">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
-                        @if($__showHeaderBookingCancelledWithRefunded && empty($__headerHasDisputedSnapshot))
-                            <span class="badge bg-danger">{{ translate('Booking_cancelled') }}</span>
-                        @endif
-                        <span class="badge badge-{{ $__headerMainBadgeClass }}">
-                            {{ $__bookingStatusDisplayLabel }}
-                        </span>
-                        @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'header'])
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <h3 class="c1 fw-bold mb-0">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
+                            @if($__showHeaderBookingCancelledWithRefunded && empty($__headerHasDisputedSnapshot))
+                                <span class="badge bg-danger">{{ translate('Booking_cancelled') }}</span>
+                            @endif
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                            <span class="badge badge-{{ $__headerMainBadgeClass }}">{{ $__bookingStatusDisplayLabel }}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                            @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'header', 'bookingListTagStacked' => true])
+                        </div>
                     </div>
                     <p class="opacity-75 fz-12">{{ translate('Booking_Placed') }}
                         : {{ date('d-M-Y h:ia', strtotime($booking->created_at)) }}</p>
@@ -1319,15 +1324,17 @@
                                     <span class="material-icons title-color fz-16">flag</span>
                                     {{ translate('Booking_Status') }}
                                 </h6>
-                                <div class="d-flex flex-column align-items-end gap-1 text-end flex-shrink-0">
-                                    <div class="d-flex flex-wrap gap-1 justify-content-end align-items-center">
+                                <div class="d-flex flex-column gap-1 flex-grow-1">
+                                    <div class="d-flex flex-wrap gap-1 justify-content-center align-items-center w-100">
                                         @if($__showHeaderBookingCancelledWithRefunded && empty($__headerHasDisputedSnapshot))
                                             <span class="badge bg-danger fz-12">{{ translate('Booking_cancelled') }}</span>
                                         @endif
                                         <span class="badge badge-{{ $__overviewBadge }} text-capitalize px-2 py-1 fz-12" id="booking-status-overview-badge">
                                             {{ $__bookingStatusDisplayLabel }}
                                         </span>
-                                        @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'compact'])
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-1 justify-content-center align-items-center w-100">
+                                        @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'compact', 'bookingListTagStacked' => true])
                                     </div>
                                 </div>
                             </div>
@@ -1339,8 +1346,15 @@
                                             @php
                                                 $__cashBlockTargets = ['pending', 'ongoing', 'completed'];
                                                 $__btnDisabled = $__overviewStatusCashBlock && in_array($__nextSt, $__cashBlockTargets, true);
+                                                if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                                                    $__btnDisabled = true;
+                                                }
                                                 if ($__nextSt === 'completed' && ! booking_can_be_completed($booking)) {
                                                     $__btnDisabled = true;
+                                                }
+                                                $__btnDisabledTitle = translate('Not available for this booking');
+                                                if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                                                    $__btnDisabledTitle = translate('Booking_ongoing_only_on_or_after_schedule_date');
                                                 }
                                                 $__pillClass = match ($__nextSt) {
                                                     'accepted' => 'booking-status-pill--success',
@@ -1362,7 +1376,7 @@
                                                 };
                                             @endphp
                                             <button type="button" class="booking-status-pill {{ $__pillClass }} booking-status-overview-btn" data-status="{{ $__nextSt }}"
-                                                @if($__btnDisabled) disabled title="{{ translate('Not available for this booking') }}" @endif>{{ $__pillLabel }}</button>
+                                                @if($__btnDisabled) disabled title="{{ $__btnDisabledTitle }}" @endif>{{ $__pillLabel }}</button>
                                         @empty
                                             <p class="fz-12 text-muted mb-0 w-100 text-center">{{ translate('No_status_changes_available') }}</p>
                                         @endforelse
@@ -2259,7 +2273,6 @@
                                                                value="{{ $serviceScheduleLocalValue }}"
                                                                id="service_schedule"
                                                                data-original="{{ $serviceScheduleLocalValue }}"
-                                                               min="{{ date('Y-m-d\TH:i') }}"
                                                                onchange="service_schedule_update()">
                                                     </div>
                                                 @else
@@ -2893,6 +2906,9 @@
                                     @foreach ($__statusSelectNext as $__selSt)
                                         @php
                                             $__optDisabled = $__statusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                            if ($__selSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                                                $__optDisabled = true;
+                                            }
                                             if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
                                                 $__optDisabled = true;
                                             }
@@ -3734,25 +3750,6 @@
             var original = $input.data('original');
 
             if (!service_schedule) {
-                $input.val(original);
-                return;
-            }
-
-            // Normalize formats (replace space with 'T' for parsing)
-            var newDate = new Date(service_schedule);
-            var originalDate = new Date(String(original).replace(" ", "T"));
-            var now = new Date();
-
-            // Compare with current time
-            if (newDate < now) {
-                toastr.error("Reschedule cannot be earlier than the current time");
-                $input.val(original);
-                return;
-            }
-
-            // Compare with original schedule
-            if (newDate < originalDate) {
-                toastr.error("Reschedule cannot be earlier than the original schedule");
                 $input.val(original);
                 return;
             }

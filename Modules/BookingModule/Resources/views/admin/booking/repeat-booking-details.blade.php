@@ -556,6 +556,9 @@
                                             @foreach ($__repeatStatusNext as $__selSt)
                                                 @php
                                                     $__repeatOptDisabled = $__repeatStatusCashBlock && in_array($__selSt, ['pending', 'ongoing', 'completed'], true);
+                                                    if ($__selSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
+                                                        $__repeatOptDisabled = true;
+                                                    }
                                                     if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
                                                         $__repeatOptDisabled = true;
                                                     }

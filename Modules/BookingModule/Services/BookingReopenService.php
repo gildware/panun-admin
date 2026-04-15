@@ -8,6 +8,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingReopenEvent;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Services\FeedbackScoreConfigService;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
@@ -65,12 +66,23 @@ class BookingReopenService
             $source->booking_status = $targetStatus;
             $source->serviceman_id = null;
 
+            // Reopen must revert any per-booking custom commission so default commission rules apply again.
+            $source->admin_commission_override = null;
+            if (trim((string) ($source->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION) {
+                $source->settlement_outcome = null;
+                $cfg = is_array($source->settlement_config) ? $source->settlement_config : [];
+                unset($cfg['custom_admin_commission']);
+                $source->settlement_config = $cfg === [] ? null : $cfg;
+                $source->settlement_snapshot = null;
+            }
+
             if ($newServiceSchedule !== null && $newServiceSchedule !== '') {
                 $parsed = Carbon::parse($newServiceSchedule)->toDateTimeString();
                 $source->service_schedule = $parsed;
             }
 
             $source->save();
+            $source->resyncStoredCommissionAndSettlementSnapshot();
 
             if ($newServiceSchedule !== null && $newServiceSchedule !== '' && $source->wasChanged('service_schedule')) {
                 $history = new BookingScheduleHistory();

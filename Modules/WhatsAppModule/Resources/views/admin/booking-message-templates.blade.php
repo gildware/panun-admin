@@ -35,7 +35,6 @@
         .wa-booking-meta-wrap .select2-container--open {
             z-index: 2005;
         }
-        #waBookingTplVarsCollapse .select2-dropdown.select2-wa-booking-var-dd,
         body > .select2-container .select2-dropdown.select2-wa-booking-var-dd {
             z-index: 2010 !important;
         }
@@ -151,43 +150,135 @@
             color: var(--bs-secondary-color, #6c757d);
             margin-bottom: 0.1rem;
         }
+
+        /*
+         * Pill ON/OFF toggles (master + per-slot). Admin theme can override plain `background`;
+         * use background-color + !important so green/red always show (match reference: green ON, red OFF).
+         */
+        .wa-pill-toggle-btn {
+            border: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+            line-height: 1;
+            cursor: pointer;
+            border-radius: 9999px;
+            box-shadow: none !important;
+        }
+        .wa-pill-toggle-btn:focus-visible {
+            outline: 2px solid var(--bs-primary);
+            outline-offset: 3px;
+        }
+        .wa-pill-toggle {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        main.main-area .wa-pill-toggle__track {
+            position: relative;
+            display: block;
+            width: 4.05rem;
+            min-width: 4.05rem;
+            height: 1.82rem;
+            border-radius: 9999px;
+            box-sizing: border-box;
+            overflow: hidden;
+            transition: background-color 0.2s ease;
+            /* default OFF color if modifier missing */
+            background-color: #e53935 !important;
+        }
+        main.main-area .wa-pill-toggle.wa-pill-toggle--on .wa-pill-toggle__track {
+            background-color: #25d366 !important;
+        }
+        main.main-area .wa-pill-toggle.wa-pill-toggle--off .wa-pill-toggle__track {
+            background-color: #e53935 !important;
+        }
+        main.main-area .wa-pill-toggle__knob {
+            position: absolute;
+            top: 50%;
+            margin-top: -0.66rem;
+            width: 1.32rem;
+            height: 1.32rem;
+            border-radius: 50%;
+            background-color: #ffffff !important;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+            transition: left 0.2s ease;
+            z-index: 2;
+        }
+        main.main-area .wa-pill-toggle--on .wa-pill-toggle__knob {
+            left: calc(100% - 1.32rem - 0.18rem);
+            right: auto;
+        }
+        main.main-area .wa-pill-toggle--off .wa-pill-toggle__knob {
+            left: 0.18rem;
+            right: auto;
+        }
+        main.main-area .wa-pill-toggle__label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff;
+            text-transform: uppercase;
+            z-index: 1;
+            user-select: none;
+            pointer-events: none;
+            line-height: 1;
+        }
+        main.main-area .wa-pill-toggle__label--on {
+            left: 0.42rem;
+            opacity: 0;
+        }
+        main.main-area .wa-pill-toggle--on .wa-pill-toggle__label--on {
+            opacity: 1;
+        }
+        main.main-area .wa-pill-toggle__label--off {
+            right: 0.38rem;
+            opacity: 0;
+        }
+        main.main-area .wa-pill-toggle--off .wa-pill-toggle__label--off {
+            opacity: 1;
+        }
     </style>
 @endpush
 
 @section('content')
     <div class="container-fluid">
-        <div class="row mb-3 align-items-start">
+        <div class="row mb-3 align-items-center">
             <div class="col min-w-0">
-                <h2 class="h4 mb-1">{{ translate('Message_templates') }}</h2>
-                <p class="text-muted mb-0">{{ translate('WhatsApp_booking_template_help_meta_only') }}</p>
-                <a href="{{ route('admin.whatsapp.booking-templates.automation-log') }}"
-                   class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 mt-2"
-                   target="_blank" rel="noopener">
-                    <span class="material-icons" style="font-size: 1.1rem;" aria-hidden="true">receipt_long</span>
-                    {{ translate('WhatsApp_booking_automation_log_open') }}
-                </a>
+                <h2 class="h4 mb-0">{{ translate('Message_templates') }}</h2>
             </div>
-            <div class="col-auto flex-shrink-0 text-end mt-1 mt-md-0">
-                <div class="d-flex flex-column align-items-end gap-1">
-                    <span class="small text-muted text-end" style="max-width: 18rem;">{{ translate('Send_booking_WhatsApp_messages') }}</span>
+            <div class="col-auto flex-shrink-0 text-end">
+                <div class="d-flex flex-row flex-nowrap align-items-center justify-content-end gap-2">
+                    <a href="{{ route('admin.whatsapp.booking-templates.automation-log') }}"
+                       class="btn btn-sm btn--primary d-inline-flex align-items-center gap-1 flex-shrink-0"
+                       target="_blank" rel="noopener">
+                        <span class="material-icons" style="font-size: 1.1rem;" aria-hidden="true">receipt_long</span>
+                        {{ translate('WhatsApp_booking_automation_log_open') }}
+                    </a>
+                    @php $__waMasterOn = !empty($config['enabled']); @endphp
                     @can('whatsapp_message_template_update')
                         <button type="button"
-                                class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
+                                class="wa-pill-toggle-btn d-inline-flex align-items-center"
                                 id="waBookingEnabledOpenModal"
-                                aria-haspopup="dialog">
-                            <span class="form-check form-switch mb-0">
-                                <input class="form-check-input flex-shrink-0" type="checkbox" role="switch" disabled
-                                       style="opacity: 1; cursor: inherit;"
-                                       {{ !empty($config['enabled']) ? 'checked' : '' }}
-                                       aria-hidden="true" tabindex="-1">
-                            </span>
-                            <span class="badge {{ !empty($config['enabled']) ? 'bg-success' : 'bg-secondary' }}">
-                                {{ !empty($config['enabled']) ? translate('on') : translate('WhatsApp_off') }}
+                                aria-haspopup="dialog"
+                                aria-label="{{ translate('WhatsApp_booking_messages_modal_title') }}">
+                            <span class="wa-pill-toggle {{ $__waMasterOn ? 'wa-pill-toggle--on' : 'wa-pill-toggle--off' }}" aria-hidden="true">
+                                <span class="wa-pill-toggle__track">
+                                    <span class="wa-pill-toggle__label wa-pill-toggle__label--on">{{ translate('on') }}</span>
+                                    <span class="wa-pill-toggle__label wa-pill-toggle__label--off">{{ translate('WhatsApp_off') }}</span>
+                                    <span class="wa-pill-toggle__knob"></span>
+                                </span>
                             </span>
                         </button>
                     @else
-                        <span class="badge {{ !empty($config['enabled']) ? 'bg-success' : 'bg-secondary' }}">
-                            {{ !empty($config['enabled']) ? translate('on') : translate('WhatsApp_off') }}
+                        <span class="wa-pill-toggle {{ $__waMasterOn ? 'wa-pill-toggle--on' : 'wa-pill-toggle--off' }}" role="img" aria-label="{{ $__waMasterOn ? translate('on') : translate('WhatsApp_off') }}">
+                            <span class="wa-pill-toggle__track">
+                                <span class="wa-pill-toggle__label wa-pill-toggle__label--on">{{ translate('on') }}</span>
+                                <span class="wa-pill-toggle__label wa-pill-toggle__label--off">{{ translate('WhatsApp_off') }}</span>
+                                <span class="wa-pill-toggle__knob"></span>
+                            </span>
                         </span>
                     @endcan
                 </div>
@@ -229,7 +320,9 @@
                                 <input type="hidden" name="message_key" id="waBookingMsgSendModalKey" value="">
                                 <input type="hidden" name="enabled" id="waBookingMsgSendModalValue" value="">
                                 <input type="hidden" name="wa_active_main_tab" id="waBookingMsgSendModalMainTab" value="">
+                                <input type="hidden" name="wa_active_booking_messages_segment" id="waBookingMsgSendModalBookingMsgSeg" value="">
                                 <input type="hidden" name="wa_active_status_segment" id="waBookingMsgSendModalStatusSeg" value="">
+                                <input type="hidden" name="wa_active_payment_sub_tab" id="waBookingMsgSendModalPaymentSub" value="">
                                 <button type="submit" class="btn btn--primary">{{ translate('Yes') }}</button>
                             </form>
                         </div>
@@ -241,43 +334,19 @@
         <form id="wa-booking-templates-form" action="{{ route('admin.whatsapp.booking-templates.update') }}" method="post">
             @csrf
             <input type="hidden" name="wa_active_main_tab" id="waActiveMainTab" value="{{ $waActiveMainTab }}">
+            <input type="hidden" name="wa_active_booking_messages_segment" id="waActiveBookingMessagesSegment" value="{{ $waActiveBookingMessagesSegment }}">
             <input type="hidden" name="wa_active_status_segment" id="waActiveStatusSegment" value="{{ $waActiveStatusSegment }}">
-
-            <div class="accordion mb-3" id="waBookingTplVarsAccordion">
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="waBookingTplVarsHeading">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#waBookingTplVarsCollapse" aria-expanded="false"
-                                aria-controls="waBookingTplVarsCollapse">
-                            {{ translate('Available_variables') }}
-                        </button>
-                    </h2>
-                    <div id="waBookingTplVarsCollapse" class="accordion-collapse collapse" aria-labelledby="waBookingTplVarsHeading"
-                         data-bs-parent="#waBookingTplVarsAccordion">
-                        <div class="accordion-body">
-                            <p class="small text-muted mb-2">{{ translate('WhatsApp_booking_variables_reference_hint') }}</p>
-                            <p class="small text-muted mb-0">{{ translate('WhatsApp_booking_copy_token_hint') }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <input type="hidden" name="wa_active_payment_sub_tab" id="waActivePaymentSubTab" value="{{ $waActivePaymentSubTab }}">
 
             <div class="card mb-3">
                 <div class="card-body">
                     <div class="wa-template-tabs-scroll">
                     <ul class="nav nav--tabs flex-nowrap" id="waBookingTemplateTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <a class="nav-link {{ $waActiveMainTab === 'new-booking' ? 'active' : '' }}" id="wa-tpl-tab-new-booking" data-bs-toggle="tab"
-                               data-bs-target="#wa-tpl-pane-new-booking" href="#wa-tpl-pane-new-booking"
-                               role="tab" aria-controls="wa-tpl-pane-new-booking" aria-selected="{{ $waActiveMainTab === 'new-booking' ? 'true' : 'false' }}">
-                                {{ translate('WhatsApp_tab_new_booking') }}
-                            </a>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <a class="nav-link {{ $waActiveMainTab === 'status' ? 'active' : '' }}" id="wa-tpl-tab-status" data-bs-toggle="tab"
-                               data-bs-target="#wa-tpl-pane-status" href="#wa-tpl-pane-status"
-                               role="tab" aria-controls="wa-tpl-pane-status" aria-selected="{{ $waActiveMainTab === 'status' ? 'true' : 'false' }}">
-                                {{ translate('WhatsApp_tab_booking_status_changed') }}
+                            <a class="nav-link {{ $waActiveMainTab === 'booking-messages' ? 'active' : '' }}" id="wa-tpl-tab-booking-messages" data-bs-toggle="tab"
+                               data-bs-target="#wa-tpl-pane-booking-messages" href="#wa-tpl-pane-booking-messages"
+                               role="tab" aria-controls="wa-tpl-pane-booking-messages" aria-selected="{{ $waActiveMainTab === 'booking-messages' ? 'true' : 'false' }}">
+                                {{ translate('WhatsApp_tab_booking_messages') }}
                             </a>
                         </li>
                         <li class="nav-item" role="presentation">
@@ -308,201 +377,253 @@
                                 {{ translate('WhatsApp_tab_ledger_payment_messages') }}
                             </a>
                         </li>
-                        <li class="nav-item" role="presentation">
-                            <a class="nav-link {{ $waActiveMainTab === 'serviceman' ? 'active' : '' }}" id="wa-tpl-tab-serviceman" data-bs-toggle="tab"
-                               data-bs-target="#wa-tpl-pane-serviceman" href="#wa-tpl-pane-serviceman"
-                               role="tab" aria-controls="wa-tpl-pane-serviceman" aria-selected="{{ $waActiveMainTab === 'serviceman' ? 'true' : 'false' }}">
-                                {{ translate('WhatsApp_tab_serviceman_change') }}
-                            </a>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <a class="nav-link {{ $waActiveMainTab === 'verification' ? 'active' : '' }}" id="wa-tpl-tab-verification" data-bs-toggle="tab"
-                               data-bs-target="#wa-tpl-pane-verification" href="#wa-tpl-pane-verification"
-                               role="tab" aria-controls="wa-tpl-pane-verification" aria-selected="{{ $waActiveMainTab === 'verification' ? 'true' : 'false' }}">
-                                {{ translate('WhatsApp_tab_verification_change') }}
-                            </a>
-                        </li>
                     </ul>
                     </div>
 
                     <div class="tab-content" id="waBookingTemplateTabContent">
-                        <div class="tab-pane fade {{ $waActiveMainTab === 'new-booking' ? 'show active' : '' }}" id="wa-tpl-pane-new-booking" role="tabpanel"
-                             aria-labelledby="wa-tpl-tab-new-booking" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_new_booking_hint_meta') }}</p>
-                            <div class="row g-3">
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Customer_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_confirmation_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_confirmation_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade {{ $waActiveMainTab === 'status' ? 'show active' : '' }}" id="wa-tpl-pane-status" role="tabpanel"
-                             aria-labelledby="wa-tpl-tab-status" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_status_change_hint_meta') }}</p>
-
+                        <div class="tab-pane fade {{ $waActiveMainTab === 'booking-messages' ? 'show active' : '' }}" id="wa-tpl-pane-booking-messages" role="tabpanel"
+                             aria-labelledby="wa-tpl-tab-booking-messages" tabindex="0">
                             <div class="wa-template-tabs-scroll">
-                                <ul class="nav nav-pills flex-nowrap mb-2" id="waStatusSubTabs" role="tablist">
-                                    @foreach($statusTemplateSegments as $i => $segment)
-                                        <li class="nav-item" role="presentation">
-                                            <button type="button" class="nav-link {{ $waActiveMainTab === 'status' && $waActiveStatusSegment === $segment ? 'active' : '' }}"
-                                                    id="wa-status-sub-tab-{{ $segment }}"
-                                                    data-bs-toggle="tab" data-bs-target="#wa-status-sub-{{ $segment }}"
-                                                    role="tab" aria-controls="wa-status-sub-{{ $segment }}"
-                                                    aria-selected="{{ $waActiveMainTab === 'status' && $waActiveStatusSegment === $segment ? 'true' : 'false' }}">
-                                                {{ translate('Booking_status_tpl_' . $segment) }}
-                                            </button>
-                                        </li>
-                                    @endforeach
+                                <ul class="nav nav--tabs flex-nowrap" id="waBookingMessagesSubTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link {{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'new-booking' ? 'active' : '' }}"
+                                           id="wa-bmsg-sub-tab-new-booking"
+                                           data-bs-toggle="tab" data-bs-target="#wa-bmsg-sub-new-booking" href="#wa-bmsg-sub-new-booking"
+                                           role="tab" aria-controls="wa-bmsg-sub-new-booking"
+                                           aria-selected="{{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'new-booking' ? 'true' : 'false' }}">
+                                            {{ translate('WhatsApp_tab_booking_created_by_admin') }}
+                                        </a>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link {{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'status' ? 'active' : '' }}"
+                                           id="wa-bmsg-sub-tab-status"
+                                           data-bs-toggle="tab" data-bs-target="#wa-bmsg-sub-status" href="#wa-bmsg-sub-status"
+                                           role="tab" aria-controls="wa-bmsg-sub-status"
+                                           aria-selected="{{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'status' ? 'true' : 'false' }}">
+                                            {{ translate('WhatsApp_tab_booking_status_changed') }}
+                                        </a>
+                                    </li>
                                 </ul>
                             </div>
 
-                            <div class="tab-content" id="waStatusSubTabContent">
-                                @foreach($statusTemplateSegments as $i => $segment)
-                                    @php
-                                        $ck = 'booking_status_customer_' . $segment;
-                                        $pk = 'booking_status_provider_' . $segment;
-                                        $ick = 'booking_status_invoice_customer_' . $segment;
-                                        $ipk = 'booking_status_invoice_provider_' . $segment;
-                                    @endphp
-                                    <div class="tab-pane fade {{ $waActiveMainTab === 'status' && $waActiveStatusSegment === $segment ? 'show active' : '' }}" id="wa-status-sub-{{ $segment }}"
-                                         role="tabpanel" aria-labelledby="wa-status-sub-tab-{{ $segment }}" tabindex="0">
-                                        <div class="row g-3">
-                                            <div class="col-md-6 min-w-0">
-                                                <div class="form-label">{{ translate('Customer_template') }}</div>
-                                                @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => $ck, 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => true])
-                                                <div class="form-check mt-2">
-                                                    <input class="form-check-input" type="checkbox" name="{{ $ick }}" id="{{ $ick }}" value="1"
-                                                           @checked((bool) old($ick, $config[$ick] ?? false))>
-                                                    <label class="form-check-label small" for="{{ $ick }}">{{ translate('WhatsApp_send_booking_invoice_with_message') }} ({{ translate('Customer') }})</label>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6 min-w-0">
-                                                <div class="form-label">{{ translate('Provider_template') }}</div>
-                                                @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => $pk, 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => true])
-                                                <div class="form-check mt-2">
-                                                    <input class="form-check-input" type="checkbox" name="{{ $ipk }}" id="{{ $ipk }}" value="1"
-                                                           @checked((bool) old($ipk, $config[$ipk] ?? false))>
-                                                    <label class="form-check-label small" for="{{ $ipk }}">{{ translate('WhatsApp_send_booking_invoice_with_message') }} ({{ translate('Provider') }})</label>
-                                                </div>
-                                            </div>
+                            <div class="tab-content" id="waBookingMessagesSubTabContent">
+                                <div class="tab-pane fade {{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'new-booking' ? 'show active' : '' }}" id="wa-bmsg-sub-new-booking"
+                                     role="tabpanel" aria-labelledby="wa-bmsg-sub-tab-new-booking" tabindex="0">
+                                    <div class="row g-3">
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_confirmation_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Customer_template')])
+                                        </div>
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_confirmation_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Provider_template')])
                                         </div>
                                     </div>
-                                @endforeach
-                            </div>
-
-                            <div class="mt-4 border rounded p-3 bg-light">
-                                <div class="fw-semibold mb-1">{{ translate('WhatsApp_status_fallback_templates') }}</div>
-                                <p class="text-muted small mb-3">{{ translate('WhatsApp_template_status_change_per_status_hint') }}</p>
-                                <p class="text-muted small mb-3">{{ translate('WhatsApp_status_fallback_templates_help_meta') }}</p>
-                                <div class="row g-3">
-                                    <div class="col-md-6 min-w-0">
-                                        <div class="form-label">{{ translate('Customer_template') }}</div>
-                                        @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_status_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                </div>
+                                <div class="tab-pane fade {{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'status' ? 'show active' : '' }}" id="wa-bmsg-sub-status"
+                                     role="tabpanel" aria-labelledby="wa-bmsg-sub-tab-status" tabindex="0">
+                                    <div class="wa-template-tabs-scroll">
+                                        <ul class="nav nav--tabs flex-nowrap" id="waStatusSubTabs" role="tablist">
+                                            @foreach($statusTemplateSegments as $i => $segment)
+                                                <li class="nav-item" role="presentation">
+                                                    <a class="nav-link {{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'status' && $waActiveStatusSegment === $segment ? 'active' : '' }}"
+                                                       id="wa-status-sub-tab-{{ $segment }}"
+                                                       data-bs-toggle="tab" data-bs-target="#wa-status-sub-{{ $segment }}" href="#wa-status-sub-{{ $segment }}"
+                                                       role="tab" aria-controls="wa-status-sub-{{ $segment }}"
+                                                       aria-selected="{{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'status' && $waActiveStatusSegment === $segment ? 'true' : 'false' }}">
+                                                        {{ translate('Booking_status_tpl_' . $segment) }}
+                                                    </a>
+                                                </li>
+                                            @endforeach
+                                        </ul>
                                     </div>
-                                    <div class="col-md-6 min-w-0">
-                                        <div class="form-label">{{ translate('Provider_template') }}</div>
-                                        @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_status_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+
+                                    <div class="tab-content" id="waStatusSubTabContent">
+                                        @foreach($statusTemplateSegments as $i => $segment)
+                                            @php
+                                                $ck = 'booking_status_customer_' . $segment;
+                                                $pk = 'booking_status_provider_' . $segment;
+                                                $ick = 'booking_status_invoice_customer_' . $segment;
+                                                $ipk = 'booking_status_invoice_provider_' . $segment;
+                                                $statusCustSendOn = (bool) old($ck . '_send_enabled', $config[$ck . '_send_enabled'] ?? true);
+                                                $statusProvSendOn = (bool) old($pk . '_send_enabled', $config[$pk . '_send_enabled'] ?? true);
+                                            @endphp
+                                            <div class="tab-pane fade {{ $waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'status' && $waActiveStatusSegment === $segment ? 'show active' : '' }}" id="wa-status-sub-{{ $segment }}"
+                                                 role="tabpanel" aria-labelledby="wa-status-sub-tab-{{ $segment }}" tabindex="0">
+                                                <div class="row g-3">
+                                                    <div class="col-12 min-w-0">
+                                                        @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => $ck, 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => true, 'slotTitle' => translate('Customer_template')])
+                                                        @if($statusCustSendOn)
+                                                            <div class="form-check mt-2">
+                                                                <input class="form-check-input" type="checkbox" name="{{ $ick }}" id="{{ $ick }}" value="1"
+                                                                       @checked((bool) old($ick, $config[$ick] ?? false))>
+                                                                <label class="form-check-label small" for="{{ $ick }}">{{ translate('WhatsApp_send_booking_invoice_with_message') }} ({{ translate('Customer') }})</label>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                    <div class="col-12 min-w-0">
+                                                        @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => $pk, 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => true, 'slotTitle' => translate('Provider_template')])
+                                                        @if($statusProvSendOn)
+                                                            <div class="form-check mt-2">
+                                                                <input class="form-check-input" type="checkbox" name="{{ $ipk }}" id="{{ $ipk }}" value="1"
+                                                                       @checked((bool) old($ipk, $config[$ipk] ?? false))>
+                                                                <label class="form-check-label small" for="{{ $ipk }}">{{ translate('WhatsApp_send_booking_invoice_with_message') }} ({{ translate('Provider') }})</label>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                    <div class="mt-4 border rounded p-3 bg-light">
+                                        <div class="fw-semibold mb-3">{{ translate('WhatsApp_status_fallback_templates') }}</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 min-w-0">
+                                                @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_status_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Customer_template')])
+                                            </div>
+                                            <div class="col-12 min-w-0">
+                                                @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_status_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Provider_template')])
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade {{ $waActiveMainTab === 'provider-change' ? 'show active' : '' }}" id="wa-tpl-pane-provider-change" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-provider-change" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_provider_change_hint_meta') }}</p>
                             <div class="row g-3">
-                                <div class="col-lg-4 col-md-12 min-w-0">
-                                    <div class="form-label">{{ translate('Customer_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'provider_change_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="col-12 min-w-0">
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'provider_change_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Customer_template')])
                                 </div>
-                                <div class="col-lg-4 col-md-12 min-w-0">
-                                    <div class="form-label">{{ translate('Previous_provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'provider_change_previous_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="col-12 min-w-0">
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'provider_change_previous_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Previous_provider_template')])
                                 </div>
-                                <div class="col-lg-4 col-md-12 min-w-0">
-                                    <div class="form-label">{{ translate('New_assigned_provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'provider_change_new_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="col-12 min-w-0">
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'provider_change_new_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('New_assigned_provider_template')])
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade {{ $waActiveMainTab === 'schedule' ? 'show active' : '' }}" id="wa-tpl-pane-schedule" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-schedule" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_schedule_change_hint_meta') }}</p>
                             <div class="row g-3">
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Customer_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_schedule_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="col-12 min-w-0">
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_schedule_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Customer_template')])
                                 </div>
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_schedule_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="col-12 min-w-0">
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_schedule_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Provider_template')])
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade {{ $waActiveMainTab === 'payment' ? 'show active' : '' }}" id="wa-tpl-pane-payment" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-payment" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_payment_added_hint_meta') }}</p>
-                            <div class="row g-3">
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Customer_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_added_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                            <div class="wa-template-tabs-scroll">
+                                <ul class="nav nav--tabs flex-nowrap" id="waPaymentSubTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'add-payment' ? 'active' : '' }}"
+                                           id="wa-payment-sub-tab-add-payment"
+                                           data-bs-toggle="tab" data-bs-target="#wa-payment-sub-add-payment" href="#wa-payment-sub-add-payment"
+                                           role="tab" aria-controls="wa-payment-sub-add-payment"
+                                           aria-selected="{{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'add-payment' ? 'true' : 'false' }}">
+                                            {{ translate('WhatsApp_payment_sub_add_booking_payment') }}
+                                        </a>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'collect-provider' ? 'active' : '' }}"
+                                           id="wa-payment-sub-tab-collect-provider"
+                                           data-bs-toggle="tab" data-bs-target="#wa-payment-sub-collect-provider" href="#wa-payment-sub-collect-provider"
+                                           role="tab" aria-controls="wa-payment-sub-collect-provider"
+                                           aria-selected="{{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'collect-provider' ? 'true' : 'false' }}">
+                                            {{ translate('WhatsApp_payment_sub_collect_from_provider') }}
+                                        </a>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'pay-provider' ? 'active' : '' }}"
+                                           id="wa-payment-sub-tab-pay-provider"
+                                           data-bs-toggle="tab" data-bs-target="#wa-payment-sub-pay-provider" href="#wa-payment-sub-pay-provider"
+                                           role="tab" aria-controls="wa-payment-sub-pay-provider"
+                                           aria-selected="{{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'pay-provider' ? 'true' : 'false' }}">
+                                            {{ translate('WhatsApp_payment_sub_pay_to_provider') }}
+                                        </a>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'refund-customer' ? 'active' : '' }}"
+                                           id="wa-payment-sub-tab-refund-customer"
+                                           data-bs-toggle="tab" data-bs-target="#wa-payment-sub-refund-customer" href="#wa-payment-sub-refund-customer"
+                                           role="tab" aria-controls="wa-payment-sub-refund-customer"
+                                           aria-selected="{{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'refund-customer' ? 'true' : 'false' }}">
+                                            {{ translate('WhatsApp_payment_sub_refund_customer') }}
+                                        </a>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'compensation' ? 'active' : '' }}"
+                                           id="wa-payment-sub-tab-compensation"
+                                           data-bs-toggle="tab" data-bs-target="#wa-payment-sub-compensation" href="#wa-payment-sub-compensation"
+                                           role="tab" aria-controls="wa-payment-sub-compensation"
+                                           aria-selected="{{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'compensation' ? 'true' : 'false' }}">
+                                            {{ translate('WhatsApp_payment_sub_compensation') }}
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="tab-content" id="waPaymentSubTabContent">
+                                <div class="tab-pane fade {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'add-payment' ? 'show active' : '' }}" id="wa-payment-sub-add-payment"
+                                     role="tabpanel" aria-labelledby="wa-payment-sub-tab-add-payment" tabindex="0">
+                                    <div class="row g-3">
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_added_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Customer_template')])
+                                        </div>
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_added_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Provider_template')])
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_payment_added_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="tab-pane fade {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'collect-provider' ? 'show active' : '' }}" id="wa-payment-sub-collect-provider"
+                                     role="tabpanel" aria-labelledby="wa-payment-sub-tab-collect-provider" tabindex="0">
+                                    <div class="row g-3">
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_payment_received_from_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('WhatsApp_ledger_tpl_payment_received_from_provider')])
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'pay-provider' ? 'show active' : '' }}" id="wa-payment-sub-pay-provider"
+                                     role="tabpanel" aria-labelledby="wa-payment-sub-tab-pay-provider" tabindex="0">
+                                    <div class="row g-3">
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_payment_sent_to_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('WhatsApp_ledger_tpl_payment_sent_to_provider')])
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'refund-customer' ? 'show active' : '' }}" id="wa-payment-sub-refund-customer"
+                                     role="tabpanel" aria-labelledby="wa-payment-sub-tab-refund-customer" tabindex="0">
+                                    <div class="row g-3">
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_refund_to_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Customer_template')])
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade {{ $waActiveMainTab === 'payment' && $waActivePaymentSubTab === 'compensation' ? 'show active' : '' }}" id="wa-payment-sub-compensation"
+                                     role="tabpanel" aria-labelledby="wa-payment-sub-tab-compensation" tabindex="0">
+                                    <p class="small text-muted mb-3">{{ translate('WhatsApp_section_booking_compensation_hint') }}</p>
+                                    <div class="row g-3">
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_compensation_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Customer_template')])
+                                        </div>
+                                        <div class="col-12 min-w-0">
+                                            @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_compensation_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('Provider_template')])
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div class="tab-pane fade {{ $waActiveMainTab === 'ledger-payments' ? 'show active' : '' }}" id="wa-tpl-pane-ledger-payments" role="tabpanel"
                              aria-labelledby="wa-tpl-tab-ledger-payments" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_ledger_payment_messages_hint_meta') }}</p>
+                            <p class="small text-muted mb-3">{{ translate('WhatsApp_template_ledger_payment_reminders_hint') }}</p>
                             <div class="row g-3">
-                                <div class="col-lg-6 min-w-0">
-                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_provider_payment_reminder') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_provider_payment_reminder', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="col-12 min-w-0">
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_provider_payment_reminder', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('WhatsApp_ledger_tpl_provider_payment_reminder')])
                                 </div>
-                                <div class="col-lg-6 min-w-0">
-                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_customer_payment_reminder') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_customer_payment_reminder', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                                <div class="col-lg-6 min-w-0">
-                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_payment_received_from_provider') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_payment_received_from_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                                <div class="col-lg-6 min-w-0">
-                                    <div class="form-label">{{ translate('WhatsApp_ledger_tpl_payment_sent_to_provider') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_payment_sent_to_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade {{ $waActiveMainTab === 'serviceman' ? 'show active' : '' }}" id="wa-tpl-pane-serviceman" role="tabpanel"
-                             aria-labelledby="wa-tpl-tab-serviceman" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_serviceman_change_hint_meta') }}</p>
-                            <div class="row g-3">
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Customer_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_serviceman_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_serviceman_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tab-pane fade {{ $waActiveMainTab === 'verification' ? 'show active' : '' }}" id="wa-tpl-pane-verification" role="tabpanel"
-                             aria-labelledby="wa-tpl-tab-verification" tabindex="0">
-                            <p class="text-muted small mb-3">{{ translate('WhatsApp_template_verification_change_hint_meta') }}</p>
-                            <div class="row g-3">
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Customer_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_verification_customer', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
-                                </div>
-                                <div class="col-md-6 min-w-0">
-                                    <div class="form-label">{{ translate('Provider_template') }}</div>
-                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'booking_verification_provider', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false])
+                                <div class="col-12 min-w-0">
+                                    @include('whatsappmodule::admin.partials.booking-wa-meta-fields', ['fieldKey' => 'ledger_customer_payment_reminder', 'waTemplates' => $waTemplates, 'config' => $config, 'invoiceHint' => false, 'slotTitle' => translate('WhatsApp_ledger_tpl_customer_payment_reminder')])
                                 </div>
                             </div>
                         </div>
@@ -523,6 +644,7 @@
     <script>
         var waBookingMetaTemplates = @json($waTemplatesJson ?? []);
         var waBookingPlaceholderTokens = @json(array_keys($placeholders));
+        var waBookingPlaceholderKeysByField = @json($placeholderKeysByField ?? []);
         var waBookingPlaceholderHints = @json($placeholderHints ?? []);
         var waBookingPlaceholderGuides = @json($placeholderGuides ?? []);
         var waBookingPlaceholderModules = @json($placeholderDropdownModules ?? []);
@@ -719,7 +841,34 @@
             }
         }
 
-        function waBookingCreateTokenSelect(inputName, initialVal) {
+        function waBookingPlaceholderTokensForField(fieldKey) {
+            var fk = fieldKey ? String(fieldKey) : '';
+            var by = waBookingPlaceholderKeysByField || {};
+            var list = fk && Object.prototype.hasOwnProperty.call(by, fk) ? by[fk] : null;
+            if (!list || !list.length) {
+                return waBookingPlaceholderTokens || [];
+            }
+            return list;
+        }
+
+        function waBookingAppendTokenOption(sel, tok, selectedTok) {
+            var label = (waBookingPlaceholderHints && waBookingPlaceholderHints[tok]) ? waBookingPlaceholderHints[tok] : '';
+            var guide = (waBookingPlaceholderGuides && waBookingPlaceholderGuides[tok]) ? waBookingPlaceholderGuides[tok] : '';
+            var mod = (waBookingPlaceholderModules && waBookingPlaceholderModules[tok]) ? waBookingPlaceholderModules[tok] : '';
+            var opt = document.createElement('option');
+            opt.value = tok;
+            opt.setAttribute('data-description', label);
+            opt.setAttribute('data-guide', guide);
+            opt.setAttribute('data-module', mod);
+            opt.setAttribute('title', mod ? tok + ' — ' + mod : tok);
+            opt.textContent = tok + ' — ' + (mod || '');
+            if (selectedTok !== undefined && selectedTok !== null && String(selectedTok) === String(tok)) {
+                opt.selected = true;
+            }
+            sel.appendChild(opt);
+        }
+
+        function waBookingCreateTokenSelect(inputName, initialVal, fieldKey) {
             var sel = document.createElement('select');
             sel.name = inputName;
             sel.className = 'form-select form-select-sm js-wa-booking-map-token-select';
@@ -727,21 +876,19 @@
             opt0.value = '';
             opt0.textContent = waLblMapPickPlaceholder;
             sel.appendChild(opt0);
-            (waBookingPlaceholderTokens || []).forEach(function (tok) {
-                var label = (waBookingPlaceholderHints && waBookingPlaceholderHints[tok]) ? waBookingPlaceholderHints[tok] : '';
-                var guide = (waBookingPlaceholderGuides && waBookingPlaceholderGuides[tok]) ? waBookingPlaceholderGuides[tok] : '';
-                var mod = (waBookingPlaceholderModules && waBookingPlaceholderModules[tok]) ? waBookingPlaceholderModules[tok] : '';
-                var opt = document.createElement('option');
-                opt.value = tok;
-                opt.setAttribute('data-description', label);
-                opt.setAttribute('data-guide', guide);
-                opt.setAttribute('data-module', mod);
-                opt.setAttribute('title', mod ? tok + ' — ' + mod : tok);
-                opt.textContent = tok + ' — ' + (mod || '');
-                if (initialVal !== undefined && initialVal !== null && String(initialVal) === String(tok)) {
-                    opt.selected = true;
+            var want = initialVal !== undefined && initialVal !== null ? String(initialVal).trim() : '';
+            var list = waBookingPlaceholderTokensForField(fieldKey);
+            var seen = {};
+            if (want && list.indexOf(want) === -1) {
+                waBookingAppendTokenOption(sel, want, want);
+                seen[want] = true;
+            }
+            (list || []).forEach(function (tok) {
+                if (seen[tok]) {
+                    return;
                 }
-                sel.appendChild(opt);
+                seen[tok] = true;
+                waBookingAppendTokenOption(sel, tok, want);
             });
             return sel;
         }
@@ -1080,7 +1227,7 @@
                     tdKey.textContent = waBookingTplVarBraces(name);
                     var tdVal = document.createElement('td');
                     var want = bodyInitial[idx] !== undefined && bodyInitial[idx] !== null ? String(bodyInitial[idx]) : '';
-                    tdVal.appendChild(waBookingCreateTokenSelect(field + '_wa_body_params[]', want));
+                    tdVal.appendChild(waBookingCreateTokenSelect(field + '_wa_body_params[]', want, field));
                     tr.appendChild(tdKey);
                     tr.appendChild(tdVal);
                     tbody.appendChild(tr);
@@ -1093,7 +1240,7 @@
                     tdKey.textContent = waBookingTplVarBraces(String(b + 1));
                     var tdVal = document.createElement('td');
                     var wantB = bodyInitial[b] !== undefined && bodyInitial[b] !== null ? String(bodyInitial[b]) : '';
-                    tdVal.appendChild(waBookingCreateTokenSelect(field + '_wa_body_params[]', wantB));
+                    tdVal.appendChild(waBookingCreateTokenSelect(field + '_wa_body_params[]', wantB, field));
                     tr.appendChild(tdKey);
                     tr.appendChild(tdVal);
                     tbody.appendChild(tr);
@@ -1108,7 +1255,7 @@
                     tdKeyH.textContent = waLblHeaderPrefix + ' ' + waBookingTplVarBraces(name);
                     var tdValH = document.createElement('td');
                     var wantH = headerInitial[idx] !== undefined && headerInitial[idx] !== null ? String(headerInitial[idx]) : '';
-                    tdValH.appendChild(waBookingCreateTokenSelect(field + '_wa_header_params[]', wantH));
+                    tdValH.appendChild(waBookingCreateTokenSelect(field + '_wa_header_params[]', wantH, field));
                     trH.appendChild(tdKeyH);
                     trH.appendChild(tdValH);
                     tbody.appendChild(trH);
@@ -1121,7 +1268,7 @@
                     tdKeyH2.textContent = waLblHeaderPrefix + ' ' + waBookingTplVarBraces(String(h + 1));
                     var tdValH2 = document.createElement('td');
                     var wantH2 = headerInitial[h] !== undefined && headerInitial[h] !== null ? String(headerInitial[h]) : '';
-                    tdValH2.appendChild(waBookingCreateTokenSelect(field + '_wa_header_params[]', wantH2));
+                    tdValH2.appendChild(waBookingCreateTokenSelect(field + '_wa_header_params[]', wantH2, field));
                     trH2.appendChild(tdKeyH2);
                     trH2.appendChild(tdValH2);
                     tbody.appendChild(trH2);
@@ -1175,8 +1322,57 @@
         (function () {
             var mainInput = document.getElementById('waActiveMainTab');
             var statusInput = document.getElementById('waActiveStatusSegment');
+            var bmsgInput = document.getElementById('waActiveBookingMessagesSegment');
+            var paymentSubInput = document.getElementById('waActivePaymentSubTab');
             if (!mainInput) {
                 return;
+            }
+            function waBookingSyncPaymentSubTabHiddenFromDom() {
+                if (!paymentSubInput) {
+                    return;
+                }
+                if (mainInput.value !== 'payment') {
+                    paymentSubInput.value = 'add-payment';
+                    return;
+                }
+                var pActive = document.querySelector('#waPaymentSubTabs .nav-link.active');
+                var pt = pActive ? (pActive.getAttribute('data-bs-target') || '') : '';
+                var pm = pt.match(/wa-payment-sub-([^#]+)/);
+                if (pm) {
+                    paymentSubInput.value = pm[1];
+                }
+            }
+            function waBookingSyncBookingMsgTabHiddenFromDom() {
+                if (!bmsgInput) {
+                    return;
+                }
+                if (mainInput.value !== 'booking-messages') {
+                    bmsgInput.value = '';
+                    if (statusInput) {
+                        statusInput.value = '';
+                    }
+                    return;
+                }
+                var innerActive = document.querySelector('#waBookingMessagesSubTabs .nav-link.active');
+                var innerTarget = innerActive ? (innerActive.getAttribute('data-bs-target') || '') : '';
+                if (innerTarget.indexOf('wa-bmsg-sub-status') !== -1) {
+                    bmsgInput.value = 'status';
+                    if (statusInput) {
+                        var subActive = document.querySelector('#waStatusSubTabs .nav-link.active');
+                        if (subActive) {
+                            var st = subActive.getAttribute('data-bs-target') || '';
+                            var sm = st.match(/wa-status-sub-([^#]+)/);
+                            if (sm) {
+                                statusInput.value = sm[1];
+                            }
+                        }
+                    }
+                } else {
+                    bmsgInput.value = 'new-booking';
+                    if (statusInput) {
+                        statusInput.value = '';
+                    }
+                }
             }
             function refreshMetaSelect2FromTabTrigger(el) {
                 var target = el.getAttribute('data-bs-target') || '';
@@ -1184,8 +1380,58 @@
                     return;
                 }
                 var pane = document.querySelector(target);
+                if (!pane) {
+                    return;
+                }
+                if (target.indexOf('wa-tpl-pane-booking-messages') !== -1) {
+                    var innerPane = pane.querySelector('#waBookingMessagesSubTabContent .tab-pane.active');
+                    if (innerPane) {
+                        waBookingRefreshMetaTemplateSelect2InPane(innerPane);
+                        return;
+                    }
+                }
+                if (target.indexOf('wa-tpl-pane-payment') !== -1) {
+                    var payInner = pane.querySelector('#waPaymentSubTabContent .tab-pane.active');
+                    if (payInner) {
+                        waBookingRefreshMetaTemplateSelect2InPane(payInner);
+                        return;
+                    }
+                }
                 waBookingRefreshMetaTemplateSelect2InPane(pane);
             }
+            /** If Bootstrap leaves a sub-tab group without an active item, select the first tab (matches server default). */
+            function waBookingEnsureActiveSubTabs() {
+                if (typeof bootstrap === 'undefined') {
+                    return;
+                }
+                function ensureNav(navEl) {
+                    if (!navEl) {
+                        return;
+                    }
+                    if (navEl.querySelector('.nav-link.active')) {
+                        return;
+                    }
+                    var first = navEl.querySelector('.nav-link[data-bs-toggle="tab"]');
+                    if (first) {
+                        bootstrap.Tab.getOrCreateInstance(first).show();
+                    }
+                }
+                if (!mainInput) {
+                    return;
+                }
+                var mv = mainInput.value;
+                if (mv === 'booking-messages') {
+                    ensureNav(document.querySelector('#waBookingMessagesSubTabs'));
+                    var inner = document.querySelector('#waBookingMessagesSubTabs .nav-link.active');
+                    var it = inner ? (inner.getAttribute('data-bs-target') || '') : '';
+                    if (it.indexOf('wa-bmsg-sub-status') !== -1) {
+                        ensureNav(document.querySelector('#waStatusSubTabs'));
+                    }
+                } else if (mv === 'payment') {
+                    ensureNav(document.querySelector('#waPaymentSubTabs'));
+                }
+            }
+            document.addEventListener('DOMContentLoaded', waBookingEnsureActiveSubTabs);
             document.querySelectorAll('#waBookingTemplateTabs [data-bs-toggle="tab"]').forEach(function (el) {
                 el.addEventListener('shown.bs.tab', function () {
                     var target = el.getAttribute('data-bs-target') || '';
@@ -1193,9 +1439,16 @@
                     if (m) {
                         mainInput.value = m[1];
                     }
-                    if (m && m[1] !== 'status' && statusInput) {
-                        statusInput.value = '';
-                    }
+                    waBookingEnsureActiveSubTabs();
+                    waBookingSyncBookingMsgTabHiddenFromDom();
+                    waBookingSyncPaymentSubTabHiddenFromDom();
+                    refreshMetaSelect2FromTabTrigger(el);
+                });
+            });
+            document.querySelectorAll('#waBookingMessagesSubTabs [data-bs-toggle="tab"]').forEach(function (el) {
+                el.addEventListener('shown.bs.tab', function () {
+                    waBookingEnsureActiveSubTabs();
+                    waBookingSyncBookingMsgTabHiddenFromDom();
                     refreshMetaSelect2FromTabTrigger(el);
                 });
             });
@@ -1211,6 +1464,12 @@
                     });
                 });
             }
+            document.querySelectorAll('#waPaymentSubTabs [data-bs-toggle="tab"]').forEach(function (el) {
+                el.addEventListener('shown.bs.tab', function () {
+                    waBookingSyncPaymentSubTabHiddenFromDom();
+                    refreshMetaSelect2FromTabTrigger(el);
+                });
+            });
         })();
 
         (function () {
@@ -1238,6 +1497,8 @@
             form.addEventListener('submit', function () {
                 var mainInput = document.getElementById('waActiveMainTab');
                 var statusInput = document.getElementById('waActiveStatusSegment');
+                var bmsgInput = document.getElementById('waActiveBookingMessagesSegment');
+                var paymentSubInput = document.getElementById('waActivePaymentSubTab');
                 var mainActive = document.querySelector('#waBookingTemplateTabs .nav-link.active');
                 if (mainInput && mainActive) {
                     var mt = mainActive.getAttribute('data-bs-target') || '';
@@ -1246,7 +1507,16 @@
                         mainInput.value = mm[1];
                     }
                 }
-                if (statusInput && mainInput && mainInput.value === 'status') {
+                if (bmsgInput && mainInput) {
+                    if (mainInput.value === 'booking-messages') {
+                        var innerActive = document.querySelector('#waBookingMessagesSubTabs .nav-link.active');
+                        var innerT = innerActive ? (innerActive.getAttribute('data-bs-target') || '') : '';
+                        bmsgInput.value = innerT.indexOf('wa-bmsg-sub-status') !== -1 ? 'status' : 'new-booking';
+                    } else {
+                        bmsgInput.value = '';
+                    }
+                }
+                if (statusInput && mainInput && mainInput.value === 'booking-messages' && bmsgInput && bmsgInput.value === 'status') {
                     var subActive = document.querySelector('#waStatusSubTabs .nav-link.active');
                     if (subActive) {
                         var st = subActive.getAttribute('data-bs-target') || '';
@@ -1255,8 +1525,22 @@
                             statusInput.value = sm[1];
                         }
                     }
-                } else if (statusInput && mainInput && mainInput.value !== 'status') {
+                } else if (statusInput) {
                     statusInput.value = '';
+                }
+                if (paymentSubInput && mainInput) {
+                    if (mainInput.value === 'payment') {
+                        var payActive = document.querySelector('#waPaymentSubTabs .nav-link.active');
+                        if (payActive) {
+                            var pt = payActive.getAttribute('data-bs-target') || '';
+                            var pm = pt.match(/wa-payment-sub-([^#]+)/);
+                            if (pm) {
+                                paymentSubInput.value = pm[1];
+                            }
+                        }
+                    } else {
+                        paymentSubInput.value = 'add-payment';
+                    }
                 }
                 jQuery(form).find('select.js-wa-booking-map-token-select').each(function () {
                     var $s = jQuery(this);
@@ -1317,13 +1601,17 @@
             var keyEl = document.getElementById('waBookingMsgSendModalKey');
             var valEl = document.getElementById('waBookingMsgSendModalValue');
             var mainTabEl = document.getElementById('waBookingMsgSendModalMainTab');
+            var bookingMsgSegEl = document.getElementById('waBookingMsgSendModalBookingMsgSeg');
             var statusSegEl = document.getElementById('waBookingMsgSendModalStatusSeg');
+            var paymentSubModalEl = document.getElementById('waBookingMsgSendModalPaymentSub');
             var enableText = {!! json_encode(translate('WhatsApp_booking_single_message_modal_enable_body')) !!};
             var disableText = {!! json_encode(translate('WhatsApp_booking_single_message_modal_disable_body')) !!};
 
             function syncTabFieldsForMessageModal() {
                 var mainInput = document.getElementById('waActiveMainTab');
                 var statusInput = document.getElementById('waActiveStatusSegment');
+                var bmsgInput = document.getElementById('waActiveBookingMessagesSegment');
+                var paymentSubInput = document.getElementById('waActivePaymentSubTab');
                 var mainActive = document.querySelector('#waBookingTemplateTabs .nav-link.active');
                 if (mainInput && mainActive) {
                     var mt = mainActive.getAttribute('data-bs-target') || '';
@@ -1332,7 +1620,16 @@
                         mainInput.value = mm[1];
                     }
                 }
-                if (statusInput && mainInput && mainInput.value === 'status') {
+                if (bmsgInput && mainInput) {
+                    if (mainInput.value === 'booking-messages') {
+                        var innerActive = document.querySelector('#waBookingMessagesSubTabs .nav-link.active');
+                        var innerT = innerActive ? (innerActive.getAttribute('data-bs-target') || '') : '';
+                        bmsgInput.value = innerT.indexOf('wa-bmsg-sub-status') !== -1 ? 'status' : 'new-booking';
+                    } else {
+                        bmsgInput.value = '';
+                    }
+                }
+                if (statusInput && mainInput && mainInput.value === 'booking-messages' && bmsgInput && bmsgInput.value === 'status') {
                     var subActive = document.querySelector('#waStatusSubTabs .nav-link.active');
                     if (subActive) {
                         var st = subActive.getAttribute('data-bs-target') || '';
@@ -1341,14 +1638,34 @@
                             statusInput.value = sm[1];
                         }
                     }
-                } else if (statusInput && mainInput && mainInput.value !== 'status') {
+                } else if (statusInput) {
                     statusInput.value = '';
+                }
+                if (paymentSubInput && mainInput) {
+                    if (mainInput.value === 'payment') {
+                        var pAct = document.querySelector('#waPaymentSubTabs .nav-link.active');
+                        if (pAct) {
+                            var pt = pAct.getAttribute('data-bs-target') || '';
+                            var pm = pt.match(/wa-payment-sub-([^#]+)/);
+                            if (pm) {
+                                paymentSubInput.value = pm[1];
+                            }
+                        }
+                    } else {
+                        paymentSubInput.value = 'add-payment';
+                    }
                 }
                 if (mainTabEl && mainInput) {
                     mainTabEl.value = mainInput.value;
                 }
+                if (bookingMsgSegEl && bmsgInput) {
+                    bookingMsgSegEl.value = bmsgInput.value;
+                }
                 if (statusSegEl && statusInput) {
                     statusSegEl.value = statusInput.value;
+                }
+                if (paymentSubModalEl && paymentSubInput) {
+                    paymentSubModalEl.value = paymentSubInput.value;
                 }
             }
 

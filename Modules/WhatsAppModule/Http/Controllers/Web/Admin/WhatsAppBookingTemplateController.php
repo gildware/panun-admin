@@ -29,15 +29,22 @@ class WhatsAppBookingTemplateController extends Controller
     private static function bookingTemplateMainTabKeys(): array
     {
         return [
-            'new-booking',
-            'status',
+            'booking-messages',
             'provider-change',
             'schedule',
             'payment',
             'ledger-payments',
-            'serviceman',
-            'verification',
         ];
+    }
+
+    /**
+     * Inner tabs under "Booking messages" (customer/provider templates).
+     *
+     * @return list<string>
+     */
+    private static function bookingMessagesInnerTabKeys(): array
+    {
+        return ['new-booking', 'status'];
     }
 
     public function edit(Request $request): View
@@ -50,17 +57,45 @@ class WhatsAppBookingTemplateController extends Controller
         $statusTemplateSegments = BookingWhatsAppNotificationService::statusTemplateSegmentKeys();
 
         $allowedMain = self::bookingTemplateMainTabKeys();
-        $waActiveMainTab = (string) old('wa_active_main_tab', $request->query('tab', 'new-booking'));
-        if (! in_array($waActiveMainTab, $allowedMain, true)) {
-            $waActiveMainTab = 'new-booking';
+        $allowedBookingMsgInner = self::bookingMessagesInnerTabKeys();
+        $tabFromQuery = (string) old('wa_active_main_tab', $request->query('tab', 'booking-messages'));
+        $bmsgFromQuery = (string) old('wa_active_booking_messages_segment', $request->query('bmsg', ''));
+
+        // Legacy deep links: ?tab=new-booking | ?tab=status
+        if (in_array($tabFromQuery, ['new-booking', 'status'], true)) {
+            $waActiveMainTab = 'booking-messages';
+            $waActiveBookingMessagesSegment = $tabFromQuery === 'status' ? 'status' : 'new-booking';
+        } elseif (! in_array($tabFromQuery, $allowedMain, true)) {
+            $waActiveMainTab = 'booking-messages';
+            $waActiveBookingMessagesSegment = 'new-booking';
+        } else {
+            $waActiveMainTab = $tabFromQuery;
+            if ($waActiveMainTab === 'booking-messages') {
+                $waActiveBookingMessagesSegment = in_array($bmsgFromQuery, $allowedBookingMsgInner, true)
+                    ? $bmsgFromQuery
+                    : 'new-booking';
+            } else {
+                $waActiveBookingMessagesSegment = 'new-booking';
+            }
         }
+
         $waActiveStatusSegment = (string) old('wa_active_status_segment', $request->query('status', ''));
-        if ($waActiveMainTab === 'status') {
+        if ($waActiveMainTab === 'booking-messages' && $waActiveBookingMessagesSegment === 'status') {
             if ($waActiveStatusSegment === '' || ! in_array($waActiveStatusSegment, $statusTemplateSegments, true)) {
                 $waActiveStatusSegment = $statusTemplateSegments[0] ?? '';
             }
         } else {
             $waActiveStatusSegment = '';
+        }
+
+        $paymentSubKeys = BookingWhatsAppNotificationService::paymentTemplateSubTabKeys();
+        $waActivePaymentSubTab = (string) old('wa_active_payment_sub_tab', $request->query('payment_sub', 'add-payment'));
+        if ($waActiveMainTab === 'payment') {
+            if (! in_array($waActivePaymentSubTab, $paymentSubKeys, true)) {
+                $waActivePaymentSubTab = 'add-payment';
+            }
+        } else {
+            $waActivePaymentSubTab = 'add-payment';
         }
 
         $waTemplates = WhatsAppMarketingTemplate::query()
@@ -96,6 +131,7 @@ class WhatsAppBookingTemplateController extends Controller
         );
         $bookingTokenKeys = array_keys($placeholders);
         $placeholderSamples = BookingWhatsAppNotificationService::allPlaceholderPreviewSamplesForAdmin();
+        $placeholderKeysByField = BookingWhatsAppNotificationService::placeholderKeysByAllBookingMessageSlots();
 
         $recentAutomationLogs = WhatsAppBookingAutomationMessageLog::query()
             ->orderByDesc('id')
@@ -112,9 +148,12 @@ class WhatsAppBookingTemplateController extends Controller
             'placeholderGuides',
             'placeholderDropdownModules',
             'placeholderSamples',
+            'placeholderKeysByField',
             'bookingTokenKeys',
             'waActiveMainTab',
+            'waActiveBookingMessagesSegment',
             'waActiveStatusSegment',
+            'waActivePaymentSubTab',
             'recentAutomationLogs'
         ));
     }
@@ -311,21 +350,38 @@ class WhatsAppBookingTemplateController extends Controller
         }
 
         $allowedMain = self::bookingTemplateMainTabKeys();
-        $mainTab = (string) $request->input('wa_active_main_tab', 'new-booking');
+        $allowedBookingMsgInner = self::bookingMessagesInnerTabKeys();
+        $mainTab = (string) $request->input('wa_active_main_tab', 'booking-messages');
         if (! in_array($mainTab, $allowedMain, true)) {
-            $mainTab = 'new-booking';
+            $mainTab = 'booking-messages';
+        }
+        $bookingMsgSeg = (string) $request->input('wa_active_booking_messages_segment', '');
+        if ($mainTab !== 'booking-messages') {
+            $bookingMsgSeg = '';
+        } elseif ($bookingMsgSeg === '' || ! in_array($bookingMsgSeg, $allowedBookingMsgInner, true)) {
+            $bookingMsgSeg = 'new-booking';
         }
         $statusSeg = (string) $request->input('wa_active_status_segment', '');
         $segmentKeys = BookingWhatsAppNotificationService::statusTemplateSegmentKeys();
-        if ($mainTab !== 'status') {
+        if ($mainTab !== 'booking-messages' || $bookingMsgSeg !== 'status') {
             $statusSeg = '';
         } elseif ($statusSeg === '' || ! in_array($statusSeg, $segmentKeys, true)) {
             $statusSeg = $segmentKeys[0] ?? '';
         }
 
         $redirectQuery = ['tab' => $mainTab];
-        if ($mainTab === 'status' && $statusSeg !== '') {
-            $redirectQuery['status'] = $statusSeg;
+        if ($mainTab === 'booking-messages') {
+            $redirectQuery['bmsg'] = $bookingMsgSeg;
+            if ($bookingMsgSeg === 'status' && $statusSeg !== '') {
+                $redirectQuery['status'] = $statusSeg;
+            }
+        }
+        if ($mainTab === 'payment') {
+            $paymentSub = (string) $request->input('wa_active_payment_sub_tab', 'add-payment');
+            $paymentSubKeys = BookingWhatsAppNotificationService::paymentTemplateSubTabKeys();
+            if (in_array($paymentSub, $paymentSubKeys, true)) {
+                $redirectQuery['payment_sub'] = $paymentSub;
+            }
         }
 
         return redirect()->route('admin.whatsapp.booking-templates.edit', $redirectQuery);
@@ -371,7 +427,9 @@ class WhatsAppBookingTemplateController extends Controller
             'message_key' => ['required', 'string', Rule::in($allowedKeys)],
             'enabled' => 'required|boolean',
             'wa_active_main_tab' => 'nullable|string',
+            'wa_active_booking_messages_segment' => ['nullable', 'string', Rule::in(self::bookingMessagesInnerTabKeys())],
             'wa_active_status_segment' => 'nullable|string',
+            'wa_active_payment_sub_tab' => ['nullable', 'string', Rule::in(BookingWhatsAppNotificationService::paymentTemplateSubTabKeys())],
         ]);
 
         $service = app(BookingWhatsAppNotificationService::class);
@@ -396,21 +454,38 @@ class WhatsAppBookingTemplateController extends Controller
         Toastr::success(translate('successfully_updated'));
 
         $allowedMain = self::bookingTemplateMainTabKeys();
-        $mainTab = (string) $request->input('wa_active_main_tab', 'new-booking');
+        $allowedBookingMsgInner = self::bookingMessagesInnerTabKeys();
+        $mainTab = (string) $request->input('wa_active_main_tab', 'booking-messages');
         if (! in_array($mainTab, $allowedMain, true)) {
-            $mainTab = 'new-booking';
+            $mainTab = 'booking-messages';
+        }
+        $bookingMsgSeg = (string) $request->input('wa_active_booking_messages_segment', '');
+        if ($mainTab !== 'booking-messages') {
+            $bookingMsgSeg = '';
+        } elseif ($bookingMsgSeg === '' || ! in_array($bookingMsgSeg, $allowedBookingMsgInner, true)) {
+            $bookingMsgSeg = 'new-booking';
         }
         $statusSeg = (string) $request->input('wa_active_status_segment', '');
         $segmentKeys = BookingWhatsAppNotificationService::statusTemplateSegmentKeys();
-        if ($mainTab !== 'status') {
+        if ($mainTab !== 'booking-messages' || $bookingMsgSeg !== 'status') {
             $statusSeg = '';
         } elseif ($statusSeg === '' || ! in_array($statusSeg, $segmentKeys, true)) {
             $statusSeg = $segmentKeys[0] ?? '';
         }
 
         $redirectQuery = ['tab' => $mainTab];
-        if ($mainTab === 'status' && $statusSeg !== '') {
-            $redirectQuery['status'] = $statusSeg;
+        if ($mainTab === 'booking-messages') {
+            $redirectQuery['bmsg'] = $bookingMsgSeg;
+            if ($bookingMsgSeg === 'status' && $statusSeg !== '') {
+                $redirectQuery['status'] = $statusSeg;
+            }
+        }
+        if ($mainTab === 'payment') {
+            $paymentSub = (string) $request->input('wa_active_payment_sub_tab', 'add-payment');
+            $paymentSubKeys = BookingWhatsAppNotificationService::paymentTemplateSubTabKeys();
+            if (in_array($paymentSub, $paymentSubKeys, true)) {
+                $redirectQuery['payment_sub'] = $paymentSub;
+            }
         }
 
         return redirect()->route('admin.whatsapp.booking-templates.edit', $redirectQuery);
