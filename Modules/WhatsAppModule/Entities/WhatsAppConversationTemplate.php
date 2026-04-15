@@ -4,12 +4,17 @@ namespace Modules\WhatsAppModule\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Modules\WhatsAppModule\Entities\Concerns\HasSocialInboxChannelScope;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 class WhatsAppConversationTemplate extends Model
 {
+    use HasSocialInboxChannelScope;
+
     protected $table = 'whatsapp_conversation_templates';
 
     protected $fillable = [
+        'channel',
         'title',
         'body',
         'sort_order',
@@ -20,6 +25,15 @@ class WhatsAppConversationTemplate extends Model
         'sort_order' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (WhatsAppConversationTemplate $model) {
+            if (empty($model->channel)) {
+                $model->channel = SocialInboxChannel::current();
+            }
+        });
+    }
 
     public function scopeActive($query)
     {

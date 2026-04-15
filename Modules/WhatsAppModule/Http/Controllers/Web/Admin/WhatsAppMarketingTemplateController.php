@@ -87,6 +87,6 @@ class WhatsAppMarketingTemplateController extends Controller
 
         Toastr::success(translate('Synced') . ': ' . $synced . ' ' . translate('templates'));
 
-        return redirect()->route('admin.whatsapp.marketing.templates.index');
+        return redirect()->route('admin.whatsapp.marketing.templates.index', ['channel' => 'whatsapp']);
     }
 }

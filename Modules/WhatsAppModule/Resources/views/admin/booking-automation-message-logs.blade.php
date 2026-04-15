@@ -3,6 +3,7 @@
 @section('title', translate('WhatsApp') . ' — ' . translate('WhatsApp_booking_automation_log_title'))
 
 @push('css_or_js')
+    @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
     <style>
         .wa-booking-automation-log-table th,
         .wa-booking-automation-log-table td {
@@ -12,13 +13,15 @@
 @endpush
 
 @section('content')
+    @php($siInboxCh = request()->route('channel') ?? 'whatsapp')
+    <div class="main-content social-inbox-page social-inbox-page--{{ $siInboxCh }}">
     <div class="container-fluid">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
             <div>
                 <h2 class="h4 mb-1">{{ translate('WhatsApp_booking_automation_log_title') }}</h2>
                 <p class="text-muted small mb-0">{{ translate('WhatsApp_booking_automation_log_hint') }}</p>
             </div>
-            <a href="{{ route('admin.whatsapp.booking-templates.edit') }}" class="btn btn-outline-secondary">
+            <a href="{{ route('admin.whatsapp.booking-templates.edit', ['channel' => $siInboxCh]) }}" class="btn btn-outline-secondary">
                 {{ translate('WhatsApp_booking_automation_log_back_templates') }}
             </a>
         </div>
@@ -109,5 +112,6 @@
                 <div class="card-footer">{{ $logs->links() }}</div>
             @endif
         </div>
+    </div>
     </div>
 @endsection

@@ -4,6 +4,9 @@ namespace Modules\WhatsAppModule\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Modules\WhatsAppModule\Entities\Concerns\HasSocialInboxChannelScope;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
+use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
 /**
  * User table in the WhatsApp (Neon) database only.
@@ -11,12 +14,15 @@ use Illuminate\Support\Facades\Cache;
  */
 class WhatsAppUser extends Model
 {
+    use HasSocialInboxChannelScope;
+
     public function getTable()
     {
         return config('whatsappmodule.tables.users', 'whatsapp_users');
     }
 
     protected $fillable = [
+        'channel',
         'phone',
         'name',
         'email',
@@ -41,10 +47,16 @@ class WhatsAppUser extends Model
         if ($phone === '') {
             return;
         }
-        $u = static::firstOrNew(['phone' => $phone]);
+        $u = static::firstOrNew([
+            'phone' => $phone,
+            'channel' => SocialInboxChannel::current(),
+        ]);
+        if (empty($u->channel)) {
+            $u->channel = SocialInboxChannel::current();
+        }
         $u->human_support_requested_at = now();
         $u->save();
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
     }
 
     public static function clearHumanSupportRequest(string $phone): void
@@ -53,6 +65,6 @@ class WhatsAppUser extends Model
             return;
         }
         static::query()->where('phone', $phone)->update(['human_support_requested_at' => null]);
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
     }
 }

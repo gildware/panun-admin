@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\WhatsAppModule\Http\Middleware\EnsureSocialInboxMarketingIsWhatsapp;
+use Modules\WhatsAppModule\Http\Middleware\SetSocialInboxChannelFromRoute;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppBookingTemplateController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppConversationTemplateController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppController;
@@ -12,13 +14,29 @@ use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppAiSettingsControll
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMarketingTemplateController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppChatConfigController;
 
+Route::middleware(['admin', 'actch:admin_panel'])
+    ->prefix('admin')
+    ->group(function () {
+        Route::any('whatsapp/{any?}', function (?string $any = null) {
+            $path = $any !== null && $any !== '' ? '/'.ltrim($any, '/') : '';
+            $qs = request()->getQueryString();
+
+            return redirect()->to(url('/admin/social-inbox/whatsapp'.$path).($qs ? '?'.$qs : ''));
+        })->where('any', '.*');
+    });
+
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.whatsapp.',
     'namespace' => 'Web\Admin',
     'middleware' => ['admin', 'actch:admin_panel'],
 ], function () {
-    Route::group(['prefix' => 'whatsapp', 'as' => ''], function () {
+    Route::group([
+        'prefix' => 'social-inbox/{channel}',
+        'where' => ['channel' => 'whatsapp|instagram|facebook'],
+        'middleware' => [SetSocialInboxChannelFromRoute::class],
+        'as' => '',
+    ], function () {
         Route::get('conversations', [WhatsAppController::class, 'index'])->middleware(['can:whatsapp_chat_view'])->name('conversations.index');
         Route::post('conversations/bookings/cancel', [WhatsAppController::class, 'cancelWhatsAppBooking'])->middleware(['can:booking_add'])->name('conversations.bookings.cancel');
         Route::post('conversations/prepare-open-chat', [WhatsAppController::class, 'prepareOpenChat'])->middleware(['can:whatsapp_chat_view'])->name('conversations.prepare-open');
@@ -57,7 +75,11 @@ Route::group([
         Route::post('ai-support/playground', [WhatsAppAiPlaygroundController::class, 'run'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.run');
         Route::post('ai-support/playground/reset', [WhatsAppAiPlaygroundController::class, 'reset'])->middleware(['can:whatsapp_chat_assign'])->name('ai-playground.reset');
 
-        Route::group(['prefix' => 'marketing', 'as' => 'marketing.'], function () {
+        Route::group([
+            'prefix' => 'marketing',
+            'as' => 'marketing.',
+            'middleware' => [EnsureSocialInboxMarketingIsWhatsapp::class],
+        ], function () {
             Route::get('templates', [WhatsAppMarketingTemplateController::class, 'index'])->middleware(['can:whatsapp_marketing_template_view'])->name('templates.index');
             Route::get('templates/{template}/preview', [WhatsAppMarketingTemplateController::class, 'preview'])->middleware(['can:whatsapp_marketing_template_view'])->name('templates.preview');
             Route::post('templates/sync', [WhatsAppMarketingTemplateController::class, 'sync'])->middleware(['can:whatsapp_marketing_template_update'])->name('templates.sync');

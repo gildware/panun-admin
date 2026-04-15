@@ -8,7 +8,9 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Modules\WhatsAppModule\Services\WhatsAppAiExecutionRecorder;
+use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Services\WhatsAppAiSupportOrchestrator;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 class ProcessWhatsAppAiSupportJob implements ShouldQueue
 {
@@ -23,9 +25,16 @@ class ProcessWhatsAppAiSupportJob implements ShouldQueue
 
     public function handle(WhatsAppAiSupportOrchestrator $orchestrator): void
     {
+        $trigger = WhatsAppMessage::withoutGlobalScopes()->find($this->whatsappMessageId);
+        $ch = $trigger && is_string($trigger->channel ?? null) && SocialInboxChannel::isValid((string) $trigger->channel)
+            ? (string) $trigger->channel
+            : SocialInboxChannel::WHATSAPP;
+
         $recorder = WhatsAppAiExecutionRecorder::begin($this->whatsappMessageId);
         try {
-            $orchestrator->handleInboundMessageId($this->whatsappMessageId, $recorder);
+            SocialInboxChannel::using($ch, function () use ($orchestrator, $recorder) {
+                $orchestrator->handleInboundMessageId($this->whatsappMessageId, $recorder);
+            });
         } catch (\Throwable $e) {
             $recorder->fail($e);
             throw $e;

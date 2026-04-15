@@ -4,6 +4,7 @@ namespace Modules\WhatsAppModule\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService;
+use Modules\WhatsAppModule\Services\MetaSocialOutboundService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Modules\WhatsAppModule\Services\WhatsAppMessagePersistenceService;
 
@@ -21,6 +22,7 @@ class WhatsAppModuleServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(WhatsAppCloudService::class, fn () => new WhatsAppCloudService);
+        $this->app->singleton(MetaSocialOutboundService::class, fn () => new MetaSocialOutboundService);
         $this->app->singleton(BookingWhatsAppNotificationService::class, function ($app) {
             return new BookingWhatsAppNotificationService(
                 $app->make(WhatsAppCloudService::class),

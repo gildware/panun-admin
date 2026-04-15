@@ -4,6 +4,8 @@ namespace Modules\WhatsAppModule\Entities;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Modules\WhatsAppModule\Entities\Concerns\HasSocialInboxChannelScope;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 /**
  * Message in the WhatsApp PostgreSQL database.
@@ -12,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class WhatsAppMessage extends Model
 {
+    use HasSocialInboxChannelScope;
+
     // Local table does not have updated_at.
     public const UPDATED_AT = null;
 
@@ -21,6 +25,7 @@ class WhatsAppMessage extends Model
     }
 
     protected $fillable = [
+        'channel',
         'phone',
         'message_text',
         'direction',
@@ -51,6 +56,9 @@ class WhatsAppMessage extends Model
     protected static function booted(): void
     {
         static::creating(function (WhatsAppMessage $model) {
+            if (empty($model->channel)) {
+                $model->channel = SocialInboxChannel::current();
+            }
             if ($model->created_at === null) {
                 $model->created_at = Carbon::now(
                     (string) config('whatsappmodule.message_timezone', config('app.timezone'))

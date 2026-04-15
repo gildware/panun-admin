@@ -1,8 +1,9 @@
 @extends('adminmodule::layouts.master')
 
-@section('title', translate('WhatsApp') . ' - ' . translate('Chat'))
+@section('title', translate('social_inbox_page_title') . ' - ' . translate('Chat'))
 
 @push('css_or_js')
+    @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
     <style>
         .wa-msg-bubble {
             max-width: 85%;
@@ -193,15 +194,25 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        /* Match conversations index: message scroll area up to 1000px, shrink on short viewports */
+        .wa-chat-standalone-messages {
+            --wa-chat-msg-h: min(1000px, calc(100dvh - 280px));
+            min-height: var(--wa-chat-msg-h);
+            max-height: var(--wa-chat-msg-h);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
     </style>
 @endpush
 
 @section('content')
-    <div class="main-content">
+    @php($socialInboxChannel = request()->route('channel') ?? 'whatsapp')
+    @php($waInboxCh = $socialInboxChannel)
+    <div class="main-content social-inbox-page social-inbox-page--{{ $socialInboxChannel }}">
         <div class="container-fluid">
             <div class="page-title-wrap mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <h2 class="page-title d-flex gap-3 align-items-center">
-                    <a href="{{ route('admin.whatsapp.conversations.index', ['tab' => 'chats']) }}" class="btn btn-sm btn--secondary">
+                    <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'chats']) }}" class="btn btn-sm btn--secondary">
                         <span class="material-icons">arrow_back</span>
                     </a>
                     <span class="material-icons">chat</span>
@@ -225,7 +236,7 @@
                         <div class="col-md-5">
                             <label class="form-label small text-muted mb-1">{{ translate('whatsapp_chat_status') }}</label>
                             @can('whatsapp_chat_reply')
-                                <form method="post" action="{{ route('admin.whatsapp.conversations.thread-status') }}" class="d-flex flex-wrap gap-2 align-items-center">
+                                <form method="post" action="{{ route('admin.whatsapp.conversations.thread-status', ['channel' => $waInboxCh]) }}" class="d-flex flex-wrap gap-2 align-items-center">
                                     @csrf
                                     <input type="hidden" name="phone" value="{{ e($phone) }}">
                                     <select name="whatsapp_chat_status_id" class="form-select form-select-sm" style="max-width: 14rem;">
@@ -273,7 +284,7 @@
                                             <div class="collapse position-absolute end-0 mt-1 p-2 border rounded bg-white shadow-sm"
                                                  id="wa-standalone-manage-tags"
                                                  style="z-index: 40; min-width: 260px; max-height: 320px;">
-                                                <form method="post" action="{{ route('admin.whatsapp.conversations.thread-tags') }}">
+                                                <form method="post" action="{{ route('admin.whatsapp.conversations.thread-tags', ['channel' => $waInboxCh]) }}">
                                                     @csrf
                                                     <input type="hidden" name="phone" value="{{ e($phone) }}">
                                                     <div class="form-label small mb-1">{{ translate('whatsapp_manage_tags') }}</div>
@@ -335,7 +346,7 @@
             <div class="row">
                 <div class="col-lg-8">
                     <div class="card card-body">
-                        <div class="chat-messages overflow-auto mb-3" style="min-height: 320px; max-height: 50vh;">
+                        <div class="chat-messages wa-chat-standalone-messages mb-3">
                             @foreach($messages as $msg)
                                 @php
                                     $isOut = strtoupper($msg->direction ?? '') === 'OUT';
@@ -478,7 +489,7 @@
                                 <div id="wa-conv-tpl-wrap-chat" class="mb-2 wa-conv-tpl-row d-none">
                                     <div id="wa-conv-tpl-chips-chat" class="d-flex flex-wrap align-items-center gap-1"></div>
                                 </div>
-                                <form action="{{ route('admin.whatsapp.conversations.reply') }}" method="POST" id="wa-chat-standalone-reply-form" class="d-flex flex-column">
+                                <form action="{{ route('admin.whatsapp.conversations.reply', ['channel' => $waInboxCh]) }}" method="POST" id="wa-chat-standalone-reply-form" class="d-flex flex-column">
                                     @csrf
                                     <input type="hidden" name="phone" value="{{ $phone }}">
                                     <input type="hidden" name="reply_to_wa_message_id" id="wa-chat-reply-to-wa-id" value="">
@@ -520,7 +531,7 @@
                             @endif
                         </ul>
                         @can('whatsapp_chat_delete')
-                            <form action="{{ route('admin.whatsapp.conversations.delete-history') }}" method="POST" class="mt-3"
+                            <form action="{{ route('admin.whatsapp.conversations.delete-history', ['channel' => $waInboxCh]) }}" method="POST" class="mt-3"
                                   onsubmit="return confirm({{ json_encode(translate('delete_chat') . '? ' . translate('are_you_sure')) }});">
                                 @csrf
                                 <input type="hidden" name="phone" value="{{ $phone }}">
@@ -589,11 +600,11 @@
             var waTplSuggestMatches = [];
             var wrap = document.getElementById('wa-conv-tpl-wrap-chat');
             var ta = document.getElementById('wa-chat-standalone-body');
-            var reactionUrl = @json(route('admin.whatsapp.conversations.reaction'));
-            var replyUrl = @json(route('admin.whatsapp.conversations.reply'));
-            var activeChatsForForwardUrl = @json(route('admin.whatsapp.conversations.active-chats-forward'));
-            var wabaTemplatesUrl = @json(route('admin.whatsapp.conversations.chat.waba-templates'));
-            var sendTemplateUrl = @json(route('admin.whatsapp.conversations.chat.send-template'));
+            var reactionUrl = @json(route('admin.whatsapp.conversations.reaction', ['channel' => $waInboxCh]));
+            var replyUrl = @json(route('admin.whatsapp.conversations.reply', ['channel' => $waInboxCh]));
+            var activeChatsForForwardUrl = @json(route('admin.whatsapp.conversations.active-chats-forward', ['channel' => $waInboxCh]));
+            var wabaTemplatesUrl = @json(route('admin.whatsapp.conversations.chat.waba-templates', ['channel' => $waInboxCh]));
+            var sendTemplateUrl = @json(route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]));
             var strSessionBanner = @json(translate('whatsapp_session_window_banner'));
             var strSessionTextareaPh = @json(translate('whatsapp_session_window_textarea_placeholder'));
             var strTplLoadFailed = @json(translate('whatsapp_waba_templates_load_failed'));

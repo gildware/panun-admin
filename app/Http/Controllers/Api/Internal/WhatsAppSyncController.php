@@ -16,6 +16,7 @@ use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Modules\WhatsAppModule\Services\WhatsAppLeadLifecycleService;
 use Modules\WhatsAppModule\Services\WhatsAppMessagePersistenceService;
+use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
 class WhatsAppSyncController extends Controller
 {
@@ -87,7 +88,7 @@ class WhatsAppSyncController extends Controller
         $msg->save();
 
         // Clear per-chat and list caches so ticks update.
-        Cache::forget('whatsapp_active_chats_list');
+        WhatsAppActiveChatsListCache::forgetAll();
         Cache::forget('whatsapp_chat_full_v2_' . md5($msg->phone));
 
         return response()->json(['ok' => true]);

@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
+use Modules\WhatsAppModule\Support\SocialInboxChannel;
+use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
 /**
  * Persists WhatsApp message rows and runs the same CRM bootstrap as the internal sync API.
@@ -32,8 +34,9 @@ class WhatsAppMessagePersistenceService
             return null;
         }
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        $ch = SocialInboxChannel::current();
         foreach (array_unique(array_filter([$raw, $normalized])) as $candidate) {
-            if (DB::table($table)->where('phone', $candidate)->exists()) {
+            if (DB::table($table)->where('phone', $candidate)->where('channel', $ch)->exists()) {
                 return $candidate;
             }
         }
@@ -74,6 +77,7 @@ class WhatsAppMessagePersistenceService
 
         $msg = new WhatsAppMessage();
         $msg->fill([
+            'channel' => $data['channel'] ?? SocialInboxChannel::current(),
             'phone' => $data['phone'],
             'message_text' => $data['message_text'] ?? '',
             'direction' => $data['direction'],
@@ -99,8 +103,8 @@ class WhatsAppMessagePersistenceService
             $this->crmBootstrap->bootstrapInboundThread((string) $data['phone']);
         }
 
-        Cache::forget('whatsapp_active_chats_list');
-        Cache::forget('whatsapp_chat_full_v2_' . md5((string) $data['phone']));
+        WhatsAppActiveChatsListCache::forgetAll();
+        WhatsAppActiveChatsListCache::forgetChatFull((string) $data['phone']);
 
         return $msg;
     }
@@ -164,8 +168,8 @@ class WhatsAppMessagePersistenceService
             $waUser->save();
         }
 
-        Cache::forget('whatsapp_active_chats_list');
-        Cache::forget('whatsapp_chat_full_v2_' . md5($normalizedPhone));
+        WhatsAppActiveChatsListCache::forgetAll();
+        WhatsAppActiveChatsListCache::forgetChatFull($normalizedPhone);
 
         return $msg;
     }

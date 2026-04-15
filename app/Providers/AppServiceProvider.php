@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\URL;
 use Laravel\Passport\Passport;
 use Modules\AddonModule\Traits\AddonHelper;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
@@ -48,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Exception $ex) {
             info($ex);
         }
+
+        URL::defaults(['channel' => 'whatsapp']);
     }
 
     protected function registerAliases(array $aliases): void
