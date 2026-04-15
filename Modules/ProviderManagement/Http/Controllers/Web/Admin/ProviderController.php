@@ -1486,10 +1486,19 @@ class ProviderController extends Controller
                 $adminCommission = $pair['admin_commission'];
                 $scaledCompanyLossLine = 0.0;
                 $scaledProviderLossLine = 0.0;
+                $scaledWriteoffLine = 0.0;
+                $scaledWriteoffCompanyLine = 0.0;
+                $scaledWriteoffProviderLine = 0.0;
                 if ($scaledLossMakingSplit) {
                     $lossPreview = $settlementService->buildPreview($b);
                     $scaledCompanyLossLine = round((float) ($lossPreview['scaled_loss_company_share'] ?? 0), 2);
                     $scaledProviderLossLine = round((float) ($lossPreview['scaled_loss_provider_share'] ?? 0), 2);
+                    $scaledWriteoffLine = round(max(0.0, (float) ($lossPreview['scaled_loss_writeoff_amount'] ?? 0)), 2);
+                    $cfg = is_array($b->settlement_config) ? $b->settlement_config : [];
+                    $scaledWriteoffCompanyLine = isset($cfg['scaled_loss_writeoff_company_amount']) && is_numeric($cfg['scaled_loss_writeoff_company_amount'])
+                        ? round(max(0.0, (float) $cfg['scaled_loss_writeoff_company_amount']), 2) : 0.0;
+                    $scaledWriteoffProviderLine = isset($cfg['scaled_loss_writeoff_provider_amount']) && is_numeric($cfg['scaled_loss_writeoff_provider_amount'])
+                        ? round(max(0.0, (float) $cfg['scaled_loss_writeoff_provider_amount']), 2) : 0.0;
                     $grossOnFullBooking = provider_payment_tab_loss_making_earning_display_for_scaled($b, 1.0);
                     if ($grossOnFullBooking !== null) {
                         $providerEarning = (float) ($grossOnFullBooking['provider_earning_before_loss'] ?? 0);
@@ -1508,6 +1517,9 @@ class ProviderController extends Controller
                     'scaled_loss_making_split' => $scaledLossMakingSplit,
                     'scaled_company_loss_line' => $scaledCompanyLossLine,
                     'scaled_provider_loss_line' => $scaledProviderLossLine,
+                    'scaled_writeoff_line' => $scaledWriteoffLine,
+                    'scaled_writeoff_company_line' => $scaledWriteoffCompanyLine,
+                    'scaled_writeoff_provider_line' => $scaledWriteoffProviderLine,
                     'amount_received_by_company' => $settlementCols['amount_received_by_company'],
                     'amount_received_by_provider' => $settlementCols['amount_received_by_provider'],
                     'provider_owes_company' => $settlementCols['provider_owes_company'],
@@ -1528,10 +1540,19 @@ class ProviderController extends Controller
                 $adminCommission = $pair['admin_commission'];
                 $scaledCompanyLossLine = 0.0;
                 $scaledProviderLossLine = 0.0;
+                $scaledWriteoffLine = 0.0;
+                $scaledWriteoffCompanyLine = 0.0;
+                $scaledWriteoffProviderLine = 0.0;
                 if ($scaledLossMakingSplit && $main instanceof Booking) {
                     $lossPreview = $settlementService->buildPreview($main);
                     $scaledCompanyLossLine = round((float) ($lossPreview['scaled_loss_company_share'] ?? 0) * $lineW, 2);
                     $scaledProviderLossLine = round((float) ($lossPreview['scaled_loss_provider_share'] ?? 0) * $lineW, 2);
+                    $scaledWriteoffLine = round(max(0.0, (float) ($lossPreview['scaled_loss_writeoff_amount'] ?? 0)) * $lineW, 2);
+                    $cfg = is_array($main->settlement_config) ? $main->settlement_config : [];
+                    $scaledWriteoffCompanyLine = isset($cfg['scaled_loss_writeoff_company_amount']) && is_numeric($cfg['scaled_loss_writeoff_company_amount'])
+                        ? round(max(0.0, (float) $cfg['scaled_loss_writeoff_company_amount']) * $lineW, 2) : 0.0;
+                    $scaledWriteoffProviderLine = isset($cfg['scaled_loss_writeoff_provider_amount']) && is_numeric($cfg['scaled_loss_writeoff_provider_amount'])
+                        ? round(max(0.0, (float) $cfg['scaled_loss_writeoff_provider_amount']) * $lineW, 2) : 0.0;
                     $grossOnFullBooking = provider_payment_tab_loss_making_earning_display_for_scaled($main, $lineW);
                     if ($grossOnFullBooking !== null) {
                         $providerEarning = (float) ($grossOnFullBooking['provider_earning_before_loss'] ?? 0);
@@ -1550,6 +1571,9 @@ class ProviderController extends Controller
                     'scaled_loss_making_split' => $scaledLossMakingSplit,
                     'scaled_company_loss_line' => $scaledCompanyLossLine,
                     'scaled_provider_loss_line' => $scaledProviderLossLine,
+                    'scaled_writeoff_line' => $scaledWriteoffLine,
+                    'scaled_writeoff_company_line' => $scaledWriteoffCompanyLine,
+                    'scaled_writeoff_provider_line' => $scaledWriteoffProviderLine,
                     'amount_received_by_company' => $settlementCols['amount_received_by_company'],
                     'amount_received_by_provider' => $settlementCols['amount_received_by_provider'],
                     'provider_owes_company' => $settlementCols['provider_owes_company'],
@@ -1593,6 +1617,9 @@ class ProviderController extends Controller
                 'admin_commission',
                 'scaled_company_loss_line',
                 'scaled_provider_loss_line',
+                'scaled_writeoff_line',
+                'scaled_writeoff_company_line',
+                'scaled_writeoff_provider_line',
                 'amount_received_by_company',
                 'amount_received_by_provider',
                 'provider_owes_company',

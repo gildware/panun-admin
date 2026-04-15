@@ -477,6 +477,16 @@
                                 <span class="badge bg-secondary">{{ translate('Bfs_badge_loss_making_booking') }}</span>
                             @endif
                         @endif
+                        @php
+                            $__headerBfsCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
+                            $__headerHasWriteoff = (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
+                                && isset($__headerBfsCfg['scaled_loss_writeoff_amount'])
+                                && is_numeric($__headerBfsCfg['scaled_loss_writeoff_amount'])
+                                && (float) $__headerBfsCfg['scaled_loss_writeoff_amount'] > 0.009;
+                        @endphp
+                        @if($__headerHasWriteoff)
+                            <span class="badge bg-danger" title="{{ translate('Settle_remaining_amount_as_discount') }}">{{ translate('Settled') }}</span>
+                        @endif
                         @if(in_array($__headerStatusNorm, ['completed', 'canceled', 'cancelled', 'refunded'], true)
                             && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT)
                             <span class="badge bg-success"
@@ -1127,6 +1137,11 @@
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                    @if(!empty($preview['scaled_loss_writeoff_amount']) && (float) $preview['scaled_loss_writeoff_amount'] > 0.009)
+                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#lossWriteoffRevertConfirmModal-{{ $booking->id }}">
+                                            {{ translate('Revert_write_off') }}
+                                        </button>
+                                    @endif
                                     <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
                                 </div>
                             </form>
@@ -1961,6 +1976,27 @@
                                         <span>{{ translate('Received_by_provider') }}:</span>
                                         <span class="text-end text-break min-w-0">{{ with_currency_symbol($revenueSettlement['amount_received_by_provider']) }}</span>
                                     </div>
+                                    @if($__bfsScaledLive !== null && !empty($__bfsScaledLive['scaled_loss_writeoff_amount']) && (float) $__bfsScaledLive['scaled_loss_writeoff_amount'] > 0.009)
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
+                                        <span>{{ translate('Write_off_amount') }}:</span>
+                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol((float) $__bfsScaledLive['scaled_loss_writeoff_amount']) }}</span>
+                                    </div>
+                                    @php
+                                        $__bfsWriteCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
+                                        $__bfsWriteCo = isset($__bfsWriteCfg['scaled_loss_writeoff_company_amount']) && is_numeric($__bfsWriteCfg['scaled_loss_writeoff_company_amount'])
+                                            ? (float) $__bfsWriteCfg['scaled_loss_writeoff_company_amount'] : 0.0;
+                                        $__bfsWritePr = isset($__bfsWriteCfg['scaled_loss_writeoff_provider_amount']) && is_numeric($__bfsWriteCfg['scaled_loss_writeoff_provider_amount'])
+                                            ? (float) $__bfsWriteCfg['scaled_loss_writeoff_provider_amount'] : 0.0;
+                                    @endphp
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
+                                        <span>{{ translate('Write_off_company_amount') }}:</span>
+                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__bfsWriteCo) }}</span>
+                                    </div>
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
+                                        <span>{{ translate('Write_off_provider_amount') }}:</span>
+                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__bfsWritePr) }}</span>
+                                    </div>
+                                    @endif
                                     </div>
                                     @if(!empty($revenueSettlement['net_revenue_zeroed_after_refund']))
                                         <div class="alert alert-secondary mb-0 py-2 px-2 fz-12">
@@ -2092,6 +2128,28 @@
                                     </div>
                                 </div>
                             </div>
+                @if(!empty($preview['scaled_loss_writeoff_amount']) && (float) $preview['scaled_loss_writeoff_amount'] > 0.009)
+                    <div class="modal fade" id="lossWriteoffRevertConfirmModal-{{ $booking->id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">{{ translate('Revert_write_off') }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="mb-0 text-muted">{{ translate('Revert_write_off_confirm') }}</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                    <form method="post" action="{{ route('admin.booking.loss_writeoff.revert', $booking->id) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-danger">{{ translate('Revert_write_off') }}</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
                         @endif
                     @endcan
                 </div>

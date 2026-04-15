@@ -18,6 +18,9 @@
         $bfsScaledLive = $outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS
             ? $bfsService->buildPreview($booking)
             : null;
+        $bfsScaledWriteoff = $bfsScaledLive !== null
+            ? round(max(0.0, (float) ($bfsScaledLive['scaled_loss_writeoff_amount'] ?? 0)), 2)
+            : 0.0;
         $status = (string) ($booking->booking_status ?? '');
         $bookingNotEditable = in_array($status, ['completed', 'canceled', 'cancelled', 'refunded'], true);
         $canConfigureSettlement = ($status === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking)) && ! $bookingNotEditable;
@@ -26,6 +29,13 @@
             : translate('Bfs_financial_settlement_only_while_ongoing');
         $bfsDecided = BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges($outcome);
         $bfsScaledOutcome = $outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $bfsCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
+        $bfsScaledWriteoffCo = $bfsScaledOutcome
+            ? round(max(0.0, (float) ($bfsCfg['scaled_loss_writeoff_company_amount'] ?? 0)), 2)
+            : 0.0;
+        $bfsScaledWriteoffPr = $bfsScaledOutcome
+            ? round(max(0.0, (float) ($bfsCfg['scaled_loss_writeoff_provider_amount'] ?? 0)), 2)
+            : 0.0;
         $bfsCustom = $outcome === BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION;
         $bfsAddPaymentModalOnPage = (bool) ($bfsAddPaymentModalOnPage ?? false);
         $bfsInvoiceRecoveryRemaining = 0.0;
@@ -60,7 +70,16 @@
                     @if (! empty($booking->after_visit_cancel))
                         <span class="badge bg-info text-dark">{{ translate('Bfs_list_badge_cancelled_after_visit') }}</span>
                     @endif
+                    @if ($bfsScaledOutcome && $bfsScaledWriteoff > 0.009)
+                        <span class="badge bg-danger text-nowrap">{{ translate('Settled') }}</span>
+                    @endif
                     @can('booking_can_manage_status')
+                        @if ($bfsScaledOutcome && $bfsScaledWriteoff > 0.009)
+                            <form method="post" action="{{ route('admin.booking.loss_writeoff.revert', $booking->id) }}" class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-danger btn-sm text-nowrap">{{ translate('Revert_write_off') }}</button>
+                            </form>
+                        @endif
                         @if ($canConfigureSettlement && $bfsIncludeSettlementModal)
                             <button type="button" class="btn btn--primary btn-sm text-nowrap" data-bs-toggle="modal"
                                 data-bs-target="#bookingFinancialSettlementModal">{{ translate('Configure_special_scenarios') }}</button>
@@ -118,6 +137,14 @@
                     <dd class="col-sm-8 col-md-9">{{ with_currency_symbol($sy) }}</dd>
                     <dt class="col-sm-4 col-md-3">{{ translate('Loss_to_provider') }}</dt>
                     <dd class="col-sm-8 col-md-9">{{ with_currency_symbol($sz) }}</dd>
+                    @if ($bfsScaledWriteoff > 0.009)
+                        <dt class="col-sm-4 col-md-3">{{ translate('Write_off_amount') }}</dt>
+                        <dd class="col-sm-8 col-md-9 fw-semibold">{{ with_currency_symbol($bfsScaledWriteoff) }}</dd>
+                        <dt class="col-sm-4 col-md-3">{{ translate('Write_off_company_amount') }}</dt>
+                        <dd class="col-sm-8 col-md-9">{{ with_currency_symbol($bfsScaledWriteoffCo) }}</dd>
+                        <dt class="col-sm-4 col-md-3">{{ translate('Write_off_provider_amount') }}</dt>
+                        <dd class="col-sm-8 col-md-9">{{ with_currency_symbol($bfsScaledWriteoffPr) }}</dd>
+                    @endif
                     <dt class="col-sm-4 col-md-3">{{ translate('Bfs_gross_company_commission_full_booking') }}</dt>
                     <dd class="col-sm-8 col-md-9">{{ with_currency_symbol((float) ($bfsScaledLive['company_commission'] ?? 0)) }}</dd>
                     <dt class="col-sm-4 col-md-3">{{ translate('Bfs_gross_provider_share_full_booking') }}</dt>
@@ -171,7 +198,15 @@
                         @if (!empty($bfsScaledLive['scaled_loss_writeoff_amount']) && (float) $bfsScaledLive['scaled_loss_writeoff_amount'] > 0.009)
                             <dl class="row small mb-0 gx-2 mt-1">
                                 <dt class="col-sm-4 col-md-3">{{ translate('Settlement_amount') }}</dt>
-                                <dd class="col-sm-8 col-md-9 fw-semibold">{{ with_currency_symbol((float) $bfsScaledLive['scaled_loss_writeoff_amount']) }}</dd>
+                                <dd class="col-sm-8 col-md-9 fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <span>{{ with_currency_symbol((float) $bfsScaledLive['scaled_loss_writeoff_amount']) }}</span>
+                                    @can('booking_can_manage_status')
+                                        <form method="post" action="{{ route('admin.booking.loss_writeoff.revert', $booking->id) }}" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">{{ translate('Revert_write_off') }}</button>
+                                        </form>
+                                    @endcan
+                                </dd>
                             </dl>
                         @endif
                     </div>
