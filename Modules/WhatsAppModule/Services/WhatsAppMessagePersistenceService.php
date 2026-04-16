@@ -3,6 +3,9 @@
 namespace Modules\WhatsAppModule\Services;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
@@ -19,6 +22,69 @@ class WhatsAppMessagePersistenceService
         protected WhatsAppCloudService $whatsAppCloud,
         protected WhatsAppCrmBootstrapService $crmBootstrap
     ) {}
+
+    private function downloadInboundSocialAttachmentToPublicDisk(?string $url, ?string $hintExt = null): ?string
+    {
+        $url = trim((string) $url);
+        if ($url === '') {
+            return null;
+        }
+        // Only allow http(s) URLs.
+        if (!str_starts_with($url, 'https://') && !str_starts_with($url, 'http://')) {
+            return null;
+        }
+
+        try {
+            $resp = Http::timeout(18)->accept('*/*')->get($url);
+        } catch (\Throwable) {
+            return null;
+        }
+        if (!$resp->successful()) {
+            return null;
+        }
+        $body = $resp->body();
+        if (!is_string($body) || $body === '') {
+            return null;
+        }
+        // Hard cap to avoid storing huge files unexpectedly (20MB).
+        if (strlen($body) > 20 * 1024 * 1024) {
+            return null;
+        }
+
+        $contentType = strtolower(trim((string) $resp->header('Content-Type', '')));
+        $ext = $hintExt ? strtolower(preg_replace('/[^a-z0-9]+/i', '', $hintExt)) : '';
+        if ($ext === '' || strlen($ext) > 10) {
+            $ext = '';
+        }
+        if ($ext === '' && str_contains($contentType, 'image/')) {
+            $ext = explode('/', $contentType, 2)[1] ?? '';
+        } elseif ($ext === '' && str_contains($contentType, 'video/')) {
+            $ext = explode('/', $contentType, 2)[1] ?? '';
+        } elseif ($ext === '' && str_contains($contentType, 'audio/')) {
+            $ext = explode('/', $contentType, 2)[1] ?? '';
+        } elseif ($ext === '' && (str_contains($contentType, 'application/pdf') || str_contains($contentType, 'application/'))) {
+            $ext = 'bin';
+        }
+        $ext = strtolower((string) $ext);
+        if ($ext === 'jpeg') {
+            $ext = 'jpg';
+        }
+        if ($ext === '' || strlen($ext) > 10) {
+            $ext = 'bin';
+        }
+
+        $ch = SocialInboxChannel::current();
+        $dir = 'social_inbox_attachments/' . $ch;
+        $name = Str::uuid()->toString() . '.' . $ext;
+        $path = $dir . '/' . $name;
+        try {
+            Storage::disk('public')->put($path, $body);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $path;
+    }
 
     /**
      * Same `phone` key as {@see \Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppController::chat} expects (matches existing thread rows when present).
@@ -68,11 +134,18 @@ class WhatsAppMessagePersistenceService
 
         $mediaPath = null;
         if (!empty($data['media_id']) || !empty($data['media_url'])) {
-            $mediaPath = $this->whatsAppCloud->downloadInboundMediaToPublicDisk(
-                $data['media_id'] ?? null,
-                $data['media_url'] ?? null,
-                $data['media_mime_type'] ?? null
-            );
+            if (($data['channel'] ?? SocialInboxChannel::current()) === SocialInboxChannel::WHATSAPP) {
+                $mediaPath = $this->whatsAppCloud->downloadInboundMediaToPublicDisk(
+                    $data['media_id'] ?? null,
+                    $data['media_url'] ?? null,
+                    $data['media_mime_type'] ?? null
+                );
+            } else {
+                $mediaPath = $this->downloadInboundSocialAttachmentToPublicDisk(
+                    $data['media_url'] ?? null,
+                    $data['media_ext_hint'] ?? null
+                );
+            }
         }
 
         $msg = new WhatsAppMessage();

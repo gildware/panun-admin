@@ -86,21 +86,40 @@ class MetaSocialMessagingWebhookController extends Controller
                 if (!is_array($ev)) {
                     continue;
                 }
-                $msg = $ev['message'] ?? null;
-                if (!is_array($msg)) {
-                    continue;
-                }
                 $from = $ev['sender']['id'] ?? null;
                 if (!is_string($from) || $from === '') {
                     continue;
                 }
-                $text = trim((string) ($msg['text'] ?? ''));
-                if ($text === '') {
-                    continue;
-                }
-                $mid = isset($msg['mid']) && is_string($msg['mid']) ? $msg['mid'] : null;
                 $phone = SocialThreadPhone::forFacebook($from);
-                $this->persistInboundText($phone, $text, $mid);
+
+                $msg = $ev['message'] ?? null;
+                $postback = $ev['postback'] ?? null;
+
+                if (is_array($msg)) {
+                    $mid = isset($msg['mid']) && is_string($msg['mid']) ? $msg['mid'] : null;
+                    $text = trim((string) ($msg['text'] ?? ''));
+                    if ($text !== '') {
+                        $this->persistInboundText($phone, $text, $mid);
+                    }
+
+                    $atts = $msg['attachments'] ?? null;
+                    if (is_array($atts) && $atts !== []) {
+                        $i = 0;
+                        foreach ($atts as $att) {
+                            $i++;
+                            if (!is_array($att)) {
+                                continue;
+                            }
+                            $this->persistInboundAttachment($phone, $att, $mid ? ($mid . ':a' . $i) : null);
+                        }
+                    }
+                } elseif (is_array($postback)) {
+                    // Common Messenger “button” interactions.
+                    $payloadText = trim((string) ($postback['payload'] ?? $postback['title'] ?? ''));
+                    if ($payloadText !== '') {
+                        $this->persistInboundText($phone, $payloadText, null);
+                    }
+                }
             }
         }
     }
@@ -118,23 +137,85 @@ class MetaSocialMessagingWebhookController extends Controller
                 if (!is_array($ev)) {
                     continue;
                 }
-                $msg = $ev['message'] ?? null;
-                if (!is_array($msg)) {
-                    continue;
-                }
                 $from = $ev['sender']['id'] ?? null;
                 if (!is_string($from) || $from === '') {
                     continue;
                 }
-                $text = trim((string) ($msg['text'] ?? ''));
-                if ($text === '') {
+                $phone = SocialThreadPhone::forInstagram($from);
+
+                $msg = $ev['message'] ?? null;
+                if (!is_array($msg)) {
                     continue;
                 }
                 $mid = isset($msg['mid']) && is_string($msg['mid']) ? $msg['mid'] : null;
-                $phone = SocialThreadPhone::forInstagram($from);
-                $this->persistInboundText($phone, $text, $mid);
+                $text = trim((string) ($msg['text'] ?? ''));
+                if ($text !== '') {
+                    $this->persistInboundText($phone, $text, $mid);
+                }
+                $atts = $msg['attachments'] ?? null;
+                if (is_array($atts) && $atts !== []) {
+                    $i = 0;
+                    foreach ($atts as $att) {
+                        $i++;
+                        if (!is_array($att)) {
+                            continue;
+                        }
+                        $this->persistInboundAttachment($phone, $att, $mid ? ($mid . ':a' . $i) : null);
+                    }
+                }
             }
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $att
+     */
+    private function persistInboundAttachment(string $phone, array $att, ?string $dedupeId): void
+    {
+        if ($dedupeId) {
+            $dup = \Modules\WhatsAppModule\Entities\WhatsAppMessage::withoutGlobalScopes()
+                ->where('wa_message_id', $dedupeId)
+                ->where('channel', SocialInboxChannel::current())
+                ->exists();
+            if ($dup) {
+                return;
+            }
+        }
+
+        $type = strtolower(trim((string) ($att['type'] ?? '')));
+        $payload = $att['payload'] ?? null;
+        $url = is_array($payload) ? trim((string) ($payload['url'] ?? '')) : '';
+
+        $messageType = match ($type) {
+            'image' => 'IMAGE',
+            'video' => 'VIDEO',
+            'audio' => 'AUDIO',
+            'file' => 'DOCUMENT',
+            default => 'DOCUMENT',
+        };
+
+        $extHint = '';
+        if ($url !== '') {
+            $path = parse_url($url, PHP_URL_PATH);
+            if (is_string($path) && str_contains($path, '.')) {
+                $extHint = strtolower(trim((string) pathinfo($path, PATHINFO_EXTENSION)));
+            }
+        }
+
+        $label = trim((string) ($att['title'] ?? ''));
+        if ($label === '') {
+            $label = $messageType;
+        }
+
+        $this->messagePersistence->persist([
+            'phone' => $phone,
+            'message_text' => $label,
+            'direction' => 'IN',
+            'message_type' => $messageType,
+            'wa_message_id' => $dedupeId,
+            'media_url' => $url !== '' ? $url : null,
+            'media_ext_hint' => $extHint !== '' ? $extHint : null,
+        ]);
     }
 
     private function persistInboundText(string $phone, string $text, ?string $mid): void

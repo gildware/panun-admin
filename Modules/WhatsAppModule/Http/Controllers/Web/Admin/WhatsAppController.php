@@ -695,7 +695,8 @@ class WhatsAppController extends Controller
         $messagingWindow = $this->buildMessagingWindowPayloadForThreadPhone($threadPhone);
         $body = trim((string) $request->input('body', ''));
         $hasFiles = $request->hasFile('attachments') || $request->hasFile('attachment');
-        if (!$messagingWindow['session_open'] && ($body !== '' || $hasFiles)) {
+        // WhatsApp Cloud API has a 24h free-form session window; Messenger/IG do not use this restriction.
+        if ($inboxChannel === SocialInboxChannel::WHATSAPP && !$messagingWindow['session_open'] && ($body !== '' || $hasFiles)) {
             Toastr::error(translate('whatsapp_session_window_closed_server'));
             if ($request->wantsJson()) {
                 return response()->json([
