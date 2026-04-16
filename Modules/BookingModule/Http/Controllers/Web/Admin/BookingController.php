@@ -2828,6 +2828,8 @@ class BookingController extends Controller
             'refund_provider_amount' => ['required', 'numeric', 'min:0'],
             'refund_company_transaction_id' => ['nullable', 'string', 'max:100'],
             'refund_provider_transaction_id' => ['nullable', 'string', 'max:100'],
+            'final_services_retained_from_customer' => ['nullable', 'numeric', 'min:0'],
+            'final_spare_parts_retained_from_customer' => ['nullable', 'numeric', 'min:0'],
             'reopen_dispute_remarks' => ['required', 'string', 'max:5000'],
         ], [
             'reopen_dispute_remarks.required' => translate('Reopen_resolve_remarks_required'),
@@ -2883,10 +2885,70 @@ class BookingController extends Controller
         $baseAdminCommission = $fullTier['admin_commission'];
         $baseProviderEarning = $fullTier['provider_earning'];
         $retainedFromCustomer = max(0.0, round($totalPaid - $totalRefund, 2));
-        $onRetained = booking_reopen_disputed_commission_on_customer_retained($booking, $retainedFromCustomer, $totalPaid);
+        // Allow admin to edit service vs spare retained split (must sum to overall retained).
+        $svcRetIn = array_key_exists('final_services_retained_from_customer', $validated) ? $validated['final_services_retained_from_customer'] : null;
+        $spRetIn = array_key_exists('final_spare_parts_retained_from_customer', $validated) ? $validated['final_spare_parts_retained_from_customer'] : null;
+
+        $hasSvc = $svcRetIn !== null && $svcRetIn !== '';
+        $hasSp = $spRetIn !== null && $spRetIn !== '';
+
+        if ($hasSvc || $hasSp) {
+            $svcRetained = $hasSvc ? round((float) $svcRetIn, 2) : null;
+            $spRetained = $hasSp ? round((float) $spRetIn, 2) : null;
+            if ($svcRetained !== null && $svcRetained < -0.0001) $svcRetained = 0.0;
+            if ($spRetained !== null && $spRetained < -0.0001) $spRetained = 0.0;
+
+            if ($svcRetained === null) {
+                $svcRetained = max(0.0, round($retainedFromCustomer - (float) $spRetained, 2));
+            }
+            if ($spRetained === null) {
+                $spRetained = max(0.0, round($retainedFromCustomer - (float) $svcRetained, 2));
+            }
+
+            // Cap each to retained and enforce exact sum (tolerance for rounding).
+            $svcRetained = max(0.0, min($retainedFromCustomer, $svcRetained));
+            $spRetained = max(0.0, min($retainedFromCustomer, $spRetained));
+            $spRetained = max(0.0, round($retainedFromCustomer - $svcRetained, 2));
+
+            $sum = round($svcRetained + $spRetained, 2);
+            if (abs($sum - $retainedFromCustomer) > 0.02) {
+                throw ValidationException::withMessages([
+                    'final_services_retained_from_customer' => [translate('Final_amount_retained_from_customer_after_refunds') . ' ' . translate('is_required')],
+                ]);
+            }
+
+            $setup = resolve_commission_tier_setup_for_booking($booking, $booking->provider_id);
+            $svcSplit = commission_calc_line_preview($svcRetained, $setup['service']);
+            $spSplit = commission_calc_line_preview($spRetained, $setup['spare_parts']);
+            $finalAdminServices = round((float) ($svcSplit['admin_commission'] ?? 0), 2);
+            $finalAdminSpare = round((float) ($spSplit['admin_commission'] ?? 0), 2);
+            $finalProviderServices = round((float) ($svcSplit['provider_earning'] ?? 0), 2);
+            $finalProviderSpare = round((float) ($spSplit['provider_earning'] ?? 0), 2);
+
+            $onRetained = [
+                'admin_commission' => round($finalAdminServices + $finalAdminSpare, 2),
+                'provider_earning' => round($finalProviderServices + $finalProviderSpare, 2),
+                // Keep scale_factor for snapshot compatibility (best-effort).
+                'scale_factor' => ($svcFull + $spFull) > 0.0001 ? round(min(1.0, $retainedFromCustomer / ($svcFull + $spFull)), 6) : 0.0,
+                'services_retained' => $svcRetained,
+                'spare_parts_retained' => $spRetained,
+                'services_admin_commission' => $finalAdminServices,
+                'spare_parts_admin_commission' => $finalAdminSpare,
+                'services_provider_earning' => $finalProviderServices,
+                'spare_parts_provider_earning' => $finalProviderSpare,
+            ];
+        } else {
+            $onRetained = booking_reopen_disputed_commission_on_customer_retained($booking, $retainedFromCustomer, $totalPaid);
+        }
         $finalAdminCommission = $onRetained['admin_commission'];
         $finalProviderEarning = $onRetained['provider_earning'];
         $netRatio = $onRetained['scale_factor'];
+        $finalServicesRetained = (float) ($onRetained['services_retained'] ?? 0);
+        $finalSpareRetained = (float) ($onRetained['spare_parts_retained'] ?? 0);
+        $finalAdminServices = (float) ($onRetained['services_admin_commission'] ?? 0);
+        $finalAdminSpare = (float) ($onRetained['spare_parts_admin_commission'] ?? 0);
+        $finalProviderServices = (float) ($onRetained['services_provider_earning'] ?? 0);
+        $finalProviderSpare = (float) ($onRetained['spare_parts_provider_earning'] ?? 0);
 
         $companyCashAfterRefund = max(0.0, round($companyEligible - $refundCompany, 2));
         $providerCashAfterRefund = max(0.0, round($providerEligible - $refundProvider, 2));
@@ -2930,6 +2992,12 @@ class BookingController extends Controller
             'final_net_to_customer' => $retainedFromCustomer,
             'final_admin_commission' => $finalAdminCommission,
             'final_provider_earning' => $finalProviderEarning,
+            'final_services_retained_from_customer' => round(max(0.0, $finalServicesRetained), 2),
+            'final_spare_parts_retained_from_customer' => round(max(0.0, $finalSpareRetained), 2),
+            'final_admin_commission_services' => round(max(0.0, $finalAdminServices), 2),
+            'final_admin_commission_spare_parts' => round(max(0.0, $finalAdminSpare), 2),
+            'final_provider_earning_services' => round(max(0.0, $finalProviderServices), 2),
+            'final_provider_earning_spare_parts' => round(max(0.0, $finalProviderSpare), 2),
         ];
 
         $date = Carbon::now()->toDateString();

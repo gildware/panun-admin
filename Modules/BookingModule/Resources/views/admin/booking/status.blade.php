@@ -201,6 +201,7 @@
                             @endif
                             @if((int)($booking->is_repeated ?? 0) === 0
                                 && $booking->isOpenReopenTicket()
+                                && booking_admin_can_dispute_and_close($booking)
                                 && (
                                     ($booking->booking_status ?? '') === 'ongoing'
                                     || (($booking->booking_status ?? '') === 'on_hold')
