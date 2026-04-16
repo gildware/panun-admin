@@ -35,6 +35,11 @@ class BookingReopenService
             throw new \RuntimeException(translate('Reopen is only supported for non-repeat bookings in this version.'));
         }
 
+        // Disputed-close is an end state; do not allow reopening again.
+        if (!empty($source->reopen_disputed_snapshot) && is_array($source->reopen_disputed_snapshot)) {
+            throw new \RuntimeException(translate('Reopen_not_allowed_after_disputed_close'));
+        }
+
         if (($source->booking_status ?? '') !== 'completed') {
             throw new \RuntimeException(translate('Only completed bookings can be reopened this way.'));
         }
@@ -120,6 +125,11 @@ class BookingReopenService
     ): BookingReopenEvent {
         if ((int) ($source->is_repeated ?? 0) !== 0) {
             throw new \RuntimeException(translate('Creating a follow-up booking from a repeat series is not supported in this version.'));
+        }
+
+        // Disputed-close is an end state; do not allow reopening again.
+        if (!empty($source->reopen_disputed_snapshot) && is_array($source->reopen_disputed_snapshot)) {
+            throw new \RuntimeException(translate('Reopen_not_allowed_after_disputed_close'));
         }
 
         if (($source->booking_status ?? '') !== 'completed') {

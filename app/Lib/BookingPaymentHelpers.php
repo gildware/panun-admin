@@ -920,7 +920,19 @@ if (!function_exists('booking_reopen_disputed_commission_on_customer_retained'))
      * Scaling basis is the original booking economic base (service + spare), NOT customer paid, so partial payment
      * scenarios (e.g. paid 300 on total 700) still recompute commission correctly on retained cash.
      *
-     * @return array{admin_commission: float, provider_earning: float, scale_factor: float, full_tier_admin: float, full_tier_provider: float}
+     * @return array{
+     *   admin_commission: float,
+     *   provider_earning: float,
+     *   scale_factor: float,
+     *   full_tier_admin: float,
+     *   full_tier_provider: float,
+     *   services_retained: float,
+     *   spare_parts_retained: float,
+     *   services_admin_commission: float,
+     *   spare_parts_admin_commission: float,
+     *   services_provider_earning: float,
+     *   spare_parts_provider_earning: float
+     * }
      */
     function booking_reopen_disputed_commission_on_customer_retained(Booking $booking, float $retainedFromCustomer, float $totalCustomerPaid): array
     {
@@ -942,6 +954,12 @@ if (!function_exists('booking_reopen_disputed_commission_on_customer_retained'))
                 'scale_factor' => round($scaleFactor, 6),
                 'full_tier_admin' => $aFull,
                 'full_tier_provider' => $pFull,
+                'services_retained' => 0.0,
+                'spare_parts_retained' => 0.0,
+                'services_admin_commission' => 0.0,
+                'spare_parts_admin_commission' => 0.0,
+                'services_provider_earning' => 0.0,
+                'spare_parts_provider_earning' => 0.0,
             ];
         }
 
@@ -953,14 +971,30 @@ if (!function_exists('booking_reopen_disputed_commission_on_customer_retained'))
                 'scale_factor' => round($scaleFactor, 6),
                 'full_tier_admin' => $aFull,
                 'full_tier_provider' => $pFull,
+                'services_retained' => $retained,
+                'spare_parts_retained' => 0.0,
+                'services_admin_commission' => 0.0,
+                'spare_parts_admin_commission' => 0.0,
+                'services_provider_earning' => $retained,
+                'spare_parts_provider_earning' => 0.0,
             ];
         }
 
+        // Scale service + spare subtotals such that (svc + sp) = retained (avoid rounding drift).
         $svc = round($svcFull * $scaleFactor, 2);
-        $sp = round($spFull * $scaleFactor, 2);
-        $scaled = booking_reopen_disputed_tier_split_for_amounts($booking, $svc, $sp);
-        $admin = round((float) ($scaled['admin_commission'] ?? 0), 2);
-        $provider = round((float) ($scaled['provider_earning'] ?? 0), 2);
+        $sp = round(max(0.0, $retained - $svc), 2);
+
+        $setup = resolve_commission_tier_setup_for_booking($booking, $booking->provider_id);
+        $svcSplit = commission_calc_line_preview($svc, $setup['service']);
+        $spSplit = commission_calc_line_preview($sp, $setup['spare_parts']);
+
+        $svcAdmin = round((float) ($svcSplit['admin_commission'] ?? 0), 2);
+        $spAdmin = round((float) ($spSplit['admin_commission'] ?? 0), 2);
+        $svcProv = round((float) ($svcSplit['provider_earning'] ?? 0), 2);
+        $spProv = round((float) ($spSplit['provider_earning'] ?? 0), 2);
+
+        $admin = round($svcAdmin + $spAdmin, 2);
+        $provider = round($svcProv + $spProv, 2);
 
         return [
             'admin_commission' => $admin,
@@ -968,6 +1002,12 @@ if (!function_exists('booking_reopen_disputed_commission_on_customer_retained'))
             'scale_factor' => round($scaleFactor, 6),
             'full_tier_admin' => $aFull,
             'full_tier_provider' => $pFull,
+            'services_retained' => $svc,
+            'spare_parts_retained' => $sp,
+            'services_admin_commission' => $svcAdmin,
+            'spare_parts_admin_commission' => $spAdmin,
+            'services_provider_earning' => $svcProv,
+            'spare_parts_provider_earning' => $spProv,
         ];
     }
 }
