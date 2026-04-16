@@ -61,7 +61,7 @@
                     overflow: hidden;
                 }
                 .wa-whatsapp-chats-split-page .wa-chats-split-layout > .wa-chats-split-col > .card {
-                    flex: 1 1 auto;
+                    flex: 1 1 0%;
                     min-width: 0;
                     min-height: 0;
                     height: 100%;
@@ -90,6 +90,12 @@
                     flex: 1 1 0%;
                     height: 0;
                     min-height: 0;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior-y: contain;
+                    touch-action: pan-y;
+                    position: relative;
                 }
             }
             .wa-active-chat-list-scroll {
@@ -225,29 +231,46 @@
              * Session-closed UI (banner + WABA template) must not grow the split row: messages shrink + scroll;
              * footer blocks scroll internally if needed.
              */
+            /* flex-basis must be 0% (not auto) or the panel's min size follows message content and kills inner scroll. */
             .wa-chat-main-panel #whatsapp-chat-panel {
-                flex: 1 1 auto;
+                flex: 1 1 0%;
                 min-height: 0;
                 overflow: hidden;
             }
+            /*
+             * Scroll container: use block layout here — display:flex on the scrollport often breaks
+             * overflow scrolling when a flex child has min-height:auto (content-sized).
+             */
             .wa-chat-main-panel #whatsapp-chat-messages {
-                flex: 1 1 0;
+                flex: 1 1 0%;
                 min-height: 0;
                 overflow-x: hidden;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
-                display: flex;
-                flex-direction: column;
+                overscroll-behavior-y: contain;
+                touch-action: pan-y;
+                position: relative;
+                display: block;
             }
-            /* Newest messages sit at the bottom when the thread is short (same as typical chat apps). */
+            /* Stacked layout: row height is not capped like the md+ split row; bound the thread so it scrolls inside. */
+            @media (max-width: 767.98px) {
+                .wa-whatsapp-chats-split-page .wa-chat-main-panel #whatsapp-chat-messages {
+                    max-height: min(70vh, 560px);
+                }
+            }
+            /* Short threads: spacer grows so newest messages sit toward the bottom; long threads: spacer collapses. */
             .wa-chat-main-panel #whatsapp-chat-messages > .wa-chat-messages-inner {
                 display: flex;
                 flex-direction: column;
-                justify-content: flex-end;
                 min-height: 100%;
                 width: 100%;
                 box-sizing: border-box;
                 padding-bottom: 0.25rem;
+            }
+            .wa-chat-main-panel #whatsapp-chat-messages > .wa-chat-messages-inner::before {
+                content: '';
+                flex: 1 1 0;
+                min-height: 0;
             }
             .wa-chat-main-panel #whatsapp-chat-panel > .card-footer {
                 flex: 0 0 auto;
