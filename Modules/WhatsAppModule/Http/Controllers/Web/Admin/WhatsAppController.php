@@ -71,6 +71,22 @@ class WhatsAppController extends Controller
 
         return $name !== '' ? $name : (string) ($user->email ?? '');
     }
+
+    /**
+     * @param  array<string, mixed>  $viewData
+     */
+    private function waConversationsIndexView(Request $request, string $tab, array $viewData): View
+    {
+        $fullscreen = in_array($tab, ['chats', 'human_support'], true) && $request->boolean('fullscreen');
+        $layout = $fullscreen ? 'adminmodule::layouts.social-inbox-fullscreen' : 'adminmodule::layouts.master';
+
+        return view('whatsappmodule::admin.conversations.index', array_merge($viewData, [
+            'tab' => $tab,
+            'layout' => $layout,
+            'fullscreen' => $fullscreen,
+        ]));
+    }
+
     /**
      * Tabbed index: chats, human support, leads, bookings, users, quick replies, chat config (WhatsApp DB).
      */
@@ -194,8 +210,7 @@ class WhatsAppController extends Controller
                 ->values()
                 ->all();
 
-            return view('whatsappmodule::admin.conversations.index', compact(
-                'tab',
+            return $this->waConversationsIndexView($request, $tab, compact(
                 'chats',
                 'chatHandlers',
                 'handlerFilter',
@@ -237,7 +252,7 @@ class WhatsAppController extends Controller
                 $leads = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
                 $leadsError = $e->getMessage();
             }
-            return view('whatsappmodule::admin.conversations.index', compact('tab', 'leads', 'leadsError'));
+            return $this->waConversationsIndexView($request, $tab, compact('leads', 'leadsError'));
         }
 
         if ($tab === 'bookings') {
@@ -263,7 +278,7 @@ class WhatsAppController extends Controller
                 $bookings = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
                 $bookingsError = $e->getMessage();
             }
-            return view('whatsappmodule::admin.conversations.index', compact('tab', 'bookings', 'bookingsError'));
+            return $this->waConversationsIndexView($request, $tab, compact('bookings', 'bookingsError'));
         }
 
         if ($tab === 'users') {
@@ -303,7 +318,7 @@ class WhatsAppController extends Controller
                 $users = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20);
                 $usersError = $e->getMessage();
             }
-            return view('whatsappmodule::admin.conversations.index', compact('tab', 'users', 'usersError'));
+            return $this->waConversationsIndexView($request, $tab, compact('users', 'usersError'));
         }
 
         if ($tab === 'quick_replies') {
@@ -317,7 +332,7 @@ class WhatsAppController extends Controller
                     ->get();
             }
 
-            return view('whatsappmodule::admin.conversations.index', compact('tab', 'conversationTemplates'));
+            return $this->waConversationsIndexView($request, $tab, compact('conversationTemplates'));
         }
 
         if ($tab === 'chat_config') {
@@ -339,8 +354,7 @@ class WhatsAppController extends Controller
                     ->get();
             }
 
-            return view('whatsappmodule::admin.conversations.index', compact(
-                'tab',
+            return $this->waConversationsIndexView($request, $tab, compact(
                 'chatStatusesForConfig',
                 'chatTagsForConfig'
             ));

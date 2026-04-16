@@ -1,4 +1,4 @@
-@extends('adminmodule::layouts.master')
+@extends($layout ?? 'adminmodule::layouts.master')
 
 @section('title', translate('social_inbox_page_title'))
 
@@ -493,6 +493,32 @@
                 opacity: 0.85;
                 margin-bottom: 0.15rem;
             }
+            /* Fullscreen inbox (new tab): fill viewport; list + conversation use remaining height */
+            body.wa-social-inbox-fullscreen-body .wa-si-fs-main .wa-social-inbox-fs-page.main-content {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+            }
+            .wa-social-inbox-fs-page.wa-whatsapp-chats-split-page.main-content {
+                overflow-y: hidden;
+                padding-bottom: 0;
+            }
+            @media (min-width: 768px) {
+                .wa-social-inbox-fs-page.wa-whatsapp-chats-split-page .wa-chats-split-layout {
+                    --wa-chats-pane-h: calc(100vh - 12rem);
+                }
+            }
+            body.wa-social-inbox-fullscreen-body .wa-social-inbox-fs-page > .container-fluid {
+                flex: 1 1 auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+            }
+            body.wa-social-inbox-fullscreen-body .wa-social-inbox-fs-page .wa-chats-split-layout {
+                flex: 1 1 auto;
+                min-height: 0;
+            }
         </style>
     <?php endif; ?>
         @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
@@ -500,6 +526,11 @@
 
 @section('content')
     @php
+        $waFs = !empty($fullscreen);
+        $waCh = request()->route('channel') ?? 'whatsapp';
+        $waFsQuery = $waFs ? ['fullscreen' => 1] : [];
+        $waExitQ = collect(request()->query())->except('fullscreen')->all();
+        $waExitFullscreenUrl = route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh], $waExitQ));
         // UI only: show last 10 digits. Full number stays in data-phone / hidden input for send + API.
         $displayPhone = function ($phone) {
             $digits = preg_replace('/\D+/', '', (string) $phone);
@@ -511,63 +542,95 @@
         $waInboxCh = request()->route('channel') ?? 'whatsapp';
         $socialInboxChannel = $waInboxCh;
     @endphp
-    <div class="main-content social-inbox-page social-inbox-page--{{ $socialInboxChannel }} {{ in_array(($tab ?? ''), ['chats', 'human_support'], true) ? 'wa-whatsapp-chats-split-page' : '' }}">
-        <div class="container-fluid">
-            <div class="page-title-wrap mb-3">
-                <h2 class="page-title d-flex gap-3 align-items-center">
-                    <span class="material-icons">chat</span>
-                    {{ translate('social_inbox_page_title') }}
-                </h2>
-            </div>
+    <div class="main-content social-inbox-page social-inbox-page--{{ $socialInboxChannel }} {{ $waFs ? 'wa-social-inbox-fs-page' : '' }} {{ in_array(($tab ?? ''), ['chats', 'human_support'], true) ? 'wa-whatsapp-chats-split-page' : '' }}">
+        <div class="container-fluid {{ $waFs ? 'py-2' : '' }}">
+            @unless($waFs)
+                <div class="page-title-wrap mb-3">
+                    <h2 class="page-title d-flex gap-3 align-items-center flex-wrap">
+                        <span class="material-icons">chat</span>
+                        {{ translate('social_inbox_page_title') }}
+                        @if(in_array(($tab ?? ''), ['chats', 'human_support'], true))
+                            <a href="{{ request()->fullUrlWithQuery(['fullscreen' => '1']) }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="btn btn-sm btn-outline-secondary ms-md-auto d-inline-flex align-items-center gap-1">
+                                <span class="material-icons" style="font-size:18px;">open_in_new</span>
+                                {{ translate('whatsapp_fullscreen_chat') }}
+                            </a>
+                        @endif
+                    </h2>
+                </div>
 
-            <div class="card card-body mb-3">
-                <ul class="nav nav--tabs">
-                    <li class="nav-item">
-                        <a class="nav-link {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'chats']) }}">
-                            {{ translate('Active Chats') }}
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'human_support']) }}">
-                            {{ translate('Human support') }}
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ ($tab ?? '') === 'leads' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'leads']) }}">
-                            {{ translate('Provider Leads') }}
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ ($tab ?? '') === 'bookings' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'bookings']) }}">
-                            {{ translate('Bookings') }}
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ ($tab ?? '') === 'users' ? 'active' : '' }}"
-                           href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'users']) }}">
-                            {{ translate('WhatsApp Users') }}
-                        </a>
-                    </li>
-                    @can('whatsapp_message_template_update')
+                <div class="card card-body mb-3">
+                    <ul class="nav nav--tabs">
                         <li class="nav-item">
-                            <a class="nav-link {{ ($tab ?? '') === 'quick_replies' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'quick_replies']) }}">
-                                {{ translate('WhatsApp_quick_replies_tab') }}
+                            <a class="nav-link {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
+                                {{ translate('Active Chats') }}
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ ($tab ?? '') === 'chat_config' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => 'chat_config']) }}">
-                                {{ translate('whatsapp_chat_configuration') }}
+                            <a class="nav-link {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
+                                {{ translate('Human support') }}
                             </a>
                         </li>
-                    @endcan
-                </ul>
-            </div>
+                        <li class="nav-item">
+                            <a class="nav-link {{ ($tab ?? '') === 'leads' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'leads'], $waFsQuery)) }}">
+                                {{ translate('Provider Leads') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ ($tab ?? '') === 'bookings' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'bookings'], $waFsQuery)) }}">
+                                {{ translate('Bookings') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ ($tab ?? '') === 'users' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'users'], $waFsQuery)) }}">
+                                {{ translate('WhatsApp Users') }}
+                            </a>
+                        </li>
+                        @can('whatsapp_message_template_update')
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'quick_replies' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'quick_replies'], $waFsQuery)) }}">
+                                    {{ translate('WhatsApp_quick_replies_tab') }}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ ($tab ?? '') === 'chat_config' ? 'active' : '' }}"
+                                   href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chat_config'], $waFsQuery)) }}">
+                                    {{ translate('whatsapp_chat_configuration') }}
+                                </a>
+                            </li>
+                        @endcan
+                    </ul>
+                </div>
+            @else
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 wa-si-fs-toolbar">
+                    <ul class="nav nav-pills wa-si-fs-pills mb-0">
+                        <li class="nav-item">
+                            <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
+                                {{ translate('Active Chats') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
+                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
+                                {{ translate('Human support') }}
+                            </a>
+                        </li>
+                    </ul>
+                    <a href="{{ $waExitFullscreenUrl }}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+                        <span class="material-icons" style="font-size:18px;">fullscreen_exit</span>
+                        {{ translate('whatsapp_exit_fullscreen') }}
+                    </a>
+                </div>
+            @endunless
 
             @php
                 $waSearchableTabs = ['chats', 'human_support', 'leads', 'bookings', 'users', 'quick_replies', 'chat_config'];
@@ -632,6 +695,9 @@
                         <div class="offcanvas-body d-flex flex-column">
                             <form method="get" action="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp']) }}" class="d-flex flex-column flex-grow-1 gap-3">
                                 <input type="hidden" name="tab" value="{{ $tab ?? 'chats' }}">
+                                @if($waFs)
+                                    <input type="hidden" name="fullscreen" value="1">
+                                @endif
 
                                 <div>
                                     <label class="form-label fw-semibold" for="wa-filter-assignee">{{ translate('Assignee') }}</label>
@@ -775,7 +841,7 @@
 
                                 <div class="mt-auto d-flex flex-wrap gap-2 pt-2 border-top">
                                     <button type="submit" class="btn btn--primary">{{ translate('apply') }}</button>
-                                    <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => $tab ?? 'chats']) }}"
+                                    <a href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => request()->route('channel') ?? 'whatsapp', 'tab' => $tab ?? 'chats'], $waFsQuery)) }}"
                                        class="btn btn-outline-secondary">{{ translate('Clear_all_Filter') }}</a>
                                 </div>
                             </form>
@@ -4123,6 +4189,7 @@
             <script>
                 (function () {
                     var waConvBaseUrl = @json(route('admin.whatsapp.conversations.index', ['channel' => request()->route('channel') ?? 'whatsapp']));
+                    var waFullscreenKeep = @json(!empty($fullscreen));
                     var searchUrl = @json(route('admin.whatsapp.conversations.search', ['channel' => request()->route('channel') ?? 'whatsapp']));
                     var waNavTabsForSearch = @json($waNavTabsForSearch);
                     var strPages = {!! json_encode(translate('Pages')) !!};
@@ -4169,6 +4236,9 @@
                         var u = new URL(waConvBaseUrl, window.location.origin);
                         u.search = '';
                         u.searchParams.set('tab', tab || 'chats');
+                        if (waFullscreenKeep) {
+                            u.searchParams.set('fullscreen', '1');
+                        }
                         queryObj = queryObj || {};
                         Object.keys(queryObj).forEach(function (k) {
                             var v = queryObj[k];
