@@ -12,8 +12,15 @@
     $__rsOnRetained = booking_reopen_disputed_commission_on_customer_retained($booking, $__rsDefaultRetained, $__rsPaid);
     $__rsFinalAdmin = (float) ($__rsOnRetained['admin_commission'] ?? 0);
     $__rsFinalPr = (float) ($__rsOnRetained['provider_earning'] ?? 0);
+    $__rsFinalSvcRetained = (float) ($__rsOnRetained['services_retained'] ?? 0);
+    $__rsFinalSpareRetained = (float) ($__rsOnRetained['spare_parts_retained'] ?? 0);
+    $__rsFinalAdminSvc = (float) ($__rsOnRetained['services_admin_commission'] ?? 0);
+    $__rsFinalAdminSpare = (float) ($__rsOnRetained['spare_parts_admin_commission'] ?? 0);
+    $__rsFinalPrSvc = (float) ($__rsOnRetained['services_provider_earning'] ?? 0);
+    $__rsFinalPrSpare = (float) ($__rsOnRetained['spare_parts_provider_earning'] ?? 0);
     $__rsCurPos = business_config('currency_symbol_position', 'business_information')['live_values'] ?? 'right';
-    $__rsCurDec = (int) (business_config('currency_decimal_point', 'business_information')['live_values'] ?? 2);
+    // Dispute modal must show whole numbers only (no decimals), regardless of global currency decimals.
+    $__rsCurDec = 0;
 @endphp
 @can('booking_can_manage_status')
     <div class="modal fade" id="reopenDisputeModal--{{ $booking->id }}" tabindex="-1" aria-hidden="true"
@@ -83,10 +90,44 @@
                         </div>
                         <div class="row g-2 mb-2">
                             <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_services_charges_retained_from_customer') }}</label>
+                                <input type="text" inputmode="decimal" name="final_services_retained_from_customer" class="form-control js-rs-retained-svc" autocomplete="off"
+                                    value="{{ number_format($__rsFinalSvcRetained, $__rsCurDec, '.', '') }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_admin_commission_services_net_basis') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control js-rs-final-admin-svc bg-light" readonly tabindex="-1"
+                                    value="{{ number_format($__rsFinalAdminSvc, $__rsCurDec, '.', '') }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_provider_earning_services_net_basis') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control js-rs-final-pr-svc bg-light" readonly tabindex="-1"
+                                    value="{{ number_format($__rsFinalPrSvc, $__rsCurDec, '.', '') }}">
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_spare_parts_charges_retained_from_customer') }}</label>
+                                <input type="text" inputmode="decimal" name="final_spare_parts_retained_from_customer" class="form-control js-rs-retained-spare" autocomplete="off"
+                                    value="{{ number_format($__rsFinalSpareRetained, $__rsCurDec, '.', '') }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_admin_commission_spare_parts_net_basis') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control js-rs-final-admin-spare bg-light" readonly tabindex="-1"
+                                    value="{{ number_format($__rsFinalAdminSpare, $__rsCurDec, '.', '') }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">{{ translate('Final_provider_earning_spare_parts_net_basis') }} <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control js-rs-final-pr-spare bg-light" readonly tabindex="-1"
+                                    value="{{ number_format($__rsFinalPrSpare, $__rsCurDec, '.', '') }}">
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
                                 <label class="form-label small">{{ translate('Final_amount_retained_from_customer_after_refunds') }} <span class="text-danger">*</span></label>
                                 <input type="number" step="0.01" min="0" class="form-control js-rs-retained bg-light" readonly tabindex="-1"
-                                    value="{{ $__rsDefaultRetained }}"
-                                    aria-describedby="rs-retained-hint--{{ $booking->id }}">
+                                       value="{{ $__rsDefaultRetained }}"
+                                       aria-describedby="rs-retained-hint--{{ $booking->id }}">
                                 <div id="rs-retained-hint--{{ $booking->id }}" class="form-text text-muted small">{{ translate('Auto_total_paid_minus_refunds') }}</div>
                             </div>
                             <div class="col-md-4">
@@ -140,12 +181,18 @@
                 var curPosition = (modal.getAttribute('data-rs-cur-pos') || 'right').toLowerCase();
                 var curDecimals = parseInt(modal.getAttribute('data-rs-cur-decimals'), 10);
                 if (isNaN(curDecimals) || curDecimals < 0) curDecimals = 2;
+                var splitUserEdited = false;
                 function round2(x) {
-                    return Math.round(Math.max(0, x) * 100) / 100;
+                    // Keep function name for minimal diff; rounding respects modal decimals.
+                    var v = Math.max(0, parseFloat(x) || 0);
+                    if (curDecimals === 0) {
+                        return Math.round(v);
+                    }
+                    return Math.round(v * 100) / 100;
                 }
                 function formatMoney(n) {
                     var v = round2(n);
-                    var s = v.toFixed(curDecimals);
+                    var s = (curDecimals === 0 ? String(Math.round(v)) : v.toFixed(curDecimals));
                     var parts = s.split('.');
                     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
                     var num = parts.length > 1 ? parts.join('.') : parts[0];
@@ -157,6 +204,54 @@
                     if (t === '' || t === '.') return NaN;
                     var n = parseFloat(t);
                     return isNaN(n) ? NaN : n;
+                }
+
+                function formatFieldValue(n) {
+                    var v = round2(n);
+                    if (curDecimals === 0) return String(Math.round(v));
+                    return v.toFixed(curDecimals);
+                }
+
+                function clamp(n, min, max) {
+                    n = parseFloat(n);
+                    if (isNaN(n)) return NaN;
+                    return Math.max(min, Math.min(max, n));
+                }
+
+                function getRetainedFromUi() {
+                    var elRet = modal.querySelector('.js-rs-retained');
+                    return elRet ? (parseFloat(elRet.value) || 0) : 0;
+                }
+
+                function defaultSvcSplitForRetained(retained) {
+                    retained = Math.max(0, round2(retained));
+                    var base = round2(Math.max(0, svcFull) + Math.max(0, spareFull));
+                    if (base <= 0.0001) return { svc: retained, sp: 0 };
+                    var factor = Math.min(1, retained / base);
+                    var svc = round2(Math.max(0, svcFull) * factor);
+                    var sp = round2(Math.max(0, retained - svc));
+                    return { svc: svc, sp: sp };
+                }
+
+                function syncSvcSpInputsFromRetained(retained) {
+                    var elSvc = modal.querySelector('.js-rs-retained-svc');
+                    var elSp = modal.querySelector('.js-rs-retained-spare');
+                    if (!elSvc || !elSp) return;
+                    retained = Math.max(0, round2(retained));
+                    var curSvc = parseMoneyInput(elSvc.value);
+                    var curSp = parseMoneyInput(elSp.value);
+                    if (!splitUserEdited || isNaN(curSvc) || isNaN(curSp)) {
+                        var d = defaultSvcSplitForRetained(retained);
+                        elSvc.value = formatFieldValue(d.svc);
+                        elSp.value = formatFieldValue(d.sp);
+                        return;
+                    }
+                    // Keep user's ratio but ensure sum == retained.
+                    curSvc = round2(Math.max(0, curSvc));
+                    if (curSvc > retained) curSvc = retained;
+                    var sp = round2(Math.max(0, retained - curSvc));
+                    elSvc.value = formatFieldValue(curSvc);
+                    elSp.value = formatFieldValue(sp);
                 }
 
                 /** If this field alone exceeds customer paid total, clamp it (allows normal typing until value parses over max). */
@@ -276,21 +371,41 @@
                     return { admin_commission: round2(admin), provider_earning: round2(provider) };
                 }
 
-                /** Retained becomes the new effective total; compute tier split on scaled service+spare so fa+fp=retained. */
+                /**
+                 * Retained becomes the new effective total; compute tier split on scaled service+spare so totals sum
+                 * to retained, and expose the per-line breakdown.
+                 */
                 function commissionTargetsForRetained(retained) {
                     var r = Math.max(0, round2(parseFloat(retained) || 0));
-                    if (r <= 0.0001) return { fa: 0, fp: 0 };
-                    if (!tierSetup || !tierSetup.service || !tierSetup.spare_parts) return { fa: 0, fp: r };
+                    if (r <= 0.0001) {
+                        return { svc: 0, sp: 0, faSvc: 0, faSp: 0, fpSvc: 0, fpSp: 0, fa: 0, fp: 0 };
+                    }
+                    if (!tierSetup || !tierSetup.service || !tierSetup.spare_parts) {
+                        // No tier setup: treat all retained as provider earning; allocate retained to services bucket.
+                        return { svc: r, sp: 0, faSvc: 0, faSp: 0, fpSvc: r, fpSp: 0, fa: 0, fp: r };
+                    }
                     var base = round2(Math.max(0, svcFull) + Math.max(0, spareFull));
-                    if (base <= 0.0001) return { fa: 0, fp: r };
+                    if (base <= 0.0001) {
+                        return { svc: r, sp: 0, faSvc: 0, faSp: 0, fpSvc: r, fpSp: 0, fa: 0, fp: r };
+                    }
                     var factor = Math.min(1, r / base);
                     var svc = round2(Math.max(0, svcFull) * factor);
-                    var sp = round2(Math.max(0, spareFull) * factor);
+                    var sp = round2(Math.max(0, r - svc));
                     var p1 = commissionCalcLinePreview(svc, tierSetup.service, false);
                     var p2 = commissionCalcLinePreview(sp, tierSetup.spare_parts, false);
+                    var faSvc = round2(parseFloat(p1.admin_commission) || 0);
+                    var faSp = round2(parseFloat(p2.admin_commission) || 0);
+                    var fpSvc = round2(parseFloat(p1.provider_earning) || 0);
+                    var fpSp = round2(parseFloat(p2.provider_earning) || 0);
                     return {
-                        fa: round2((parseFloat(p1.admin_commission) || 0) + (parseFloat(p2.admin_commission) || 0)),
-                        fp: round2((parseFloat(p1.provider_earning) || 0) + (parseFloat(p2.provider_earning) || 0))
+                        svc: svc,
+                        sp: sp,
+                        faSvc: faSvc,
+                        faSp: faSp,
+                        fpSvc: fpSvc,
+                        fpSp: fpSp,
+                        fa: round2(faSvc + faSp),
+                        fp: round2(fpSvc + fpSp)
                     };
                 }
 
@@ -329,32 +444,93 @@
                     var rPr = eff.rPr;
                     var sumEl = modal.querySelector('.js-rs-refund-sum');
                     if (sumEl) sumEl.textContent = formatMoney(rCo + rPr);
-                    var owesCo = Math.max(0, Math.round((rCo - coPool) * 100) / 100);
-                    var owesPr = Math.max(0, Math.round((rPr - prPool) * 100) / 100);
+                    var owesCo = round2(Math.max(0, (rCo - coPool)));
+                    var owesPr = round2(Math.max(0, (rPr - prPool)));
                     var elCo = modal.querySelector('.js-rs-owes-co');
                     var elPr = modal.querySelector('.js-rs-owes-pr');
                     if (elCo) elCo.textContent = owesCo.toFixed(2);
                     if (elPr) elPr.textContent = owesPr.toFixed(2);
-                    var retained = Math.max(0, Math.round((totalPaid - rCo - rPr) * 100) / 100);
-                    var split = commissionTargetsForRetained(retained);
-                    var fa = split.fa;
-                    var fp = split.fp;
-                    var coAfter = Math.max(0, Math.round((coPool - rCo) * 100) / 100);
-                    var prAfter = Math.max(0, Math.round((prPool - rPr) * 100) / 100);
-                    var shortAdmin = Math.max(0, Math.round((fa - coAfter) * 100) / 100);
-                    var shortProvider = Math.max(0, Math.round((fp - prAfter) * 100) / 100);
+                    var retained = round2(Math.max(0, (totalPaid - rCo - rPr)));
+                    // Ensure editable service/spare retained stay in sync with overall retained.
+                    syncSvcSpInputsFromRetained(retained);
+                    var elSvcInput = modal.querySelector('.js-rs-retained-svc');
+                    var elSpInput = modal.querySelector('.js-rs-retained-spare');
+                    var svcRet = elSvcInput ? parseMoneyInput(elSvcInput.value) : 0;
+                    var spRet = elSpInput ? parseMoneyInput(elSpInput.value) : 0;
+                    if (isNaN(svcRet)) svcRet = 0;
+                    if (isNaN(spRet)) spRet = 0;
+                    svcRet = round2(Math.max(0, Math.min(retained, svcRet)));
+                    spRet = round2(Math.max(0, Math.min(retained, spRet)));
+                    // Keep exact sum = retained by pushing remainder to spare.
+                    spRet = round2(Math.max(0, retained - svcRet));
+                    var coAfter = round2(Math.max(0, (coPool - rCo)));
+                    var prAfter = round2(Math.max(0, (prPool - rPr)));
                     var elRet = modal.querySelector('.js-rs-retained');
                     var elFa = modal.querySelector('.js-rs-final-admin');
                     var elFp = modal.querySelector('.js-rs-final-pr');
+                    var elRetSvc = modal.querySelector('.js-rs-retained-svc');
+                    var elRetSp = modal.querySelector('.js-rs-retained-spare');
+                    var elFaSvc = modal.querySelector('.js-rs-final-admin-svc');
+                    var elFaSp = modal.querySelector('.js-rs-final-admin-spare');
+                    var elFpSvc = modal.querySelector('.js-rs-final-pr-svc');
+                    var elFpSp = modal.querySelector('.js-rs-final-pr-spare');
                     if (elRet) elRet.value = retained.toFixed(2);
+                    // Recompute commissions from the editable retained split.
+                    var svcC = commissionCalcLinePreview(svcRet, tierSetup && tierSetup.service ? tierSetup.service : null, false);
+                    var spC = commissionCalcLinePreview(spRet, tierSetup && tierSetup.spare_parts ? tierSetup.spare_parts : null, false);
+                    var faSvc = round2(parseFloat(svcC.admin_commission) || 0);
+                    var faSp = round2(parseFloat(spC.admin_commission) || 0);
+                    var fpSvc = round2(parseFloat(svcC.provider_earning) || 0);
+                    var fpSp = round2(parseFloat(spC.provider_earning) || 0);
+                    var fa = round2(faSvc + faSp);
+                    var fp = round2(fpSvc + fpSp);
+                    if (elRetSvc && elSvcInput) elSvcInput.value = formatFieldValue(svcRet);
+                    if (elRetSp && elSpInput) elSpInput.value = formatFieldValue(spRet);
+                    if (elFaSvc) elFaSvc.value = faSvc.toFixed(2);
+                    if (elFaSp) elFaSp.value = faSp.toFixed(2);
+                    if (elFpSvc) elFpSvc.value = fpSvc.toFixed(2);
+                    if (elFpSp) elFpSp.value = fpSp.toFixed(2);
+                    // Overall totals must be the sum of both lines.
                     if (elFa) elFa.value = fa.toFixed(2);
                     if (elFp) elFp.value = fp.toFixed(2);
-                    var providerRemitTotal = Math.round((owesCo + shortAdmin) * 100) / 100;
-                    var companyPayTotal = Math.round((owesPr + shortProvider) * 100) / 100;
+
+                    var shortAdmin = round2(Math.max(0, (fa - coAfter)));
+                    var shortProvider = round2(Math.max(0, (fp - prAfter)));
+                    var providerRemitTotal = round2(owesCo + shortAdmin);
+                    var companyPayTotal = round2(owesPr + shortProvider);
                     var elRemitTot = modal.querySelector('.js-rs-provider-remit-total');
                     var elCoPayTot = modal.querySelector('.js-rs-company-pay-pr-total');
                     if (elRemitTot) elRemitTot.textContent = formatMoney(providerRemitTotal);
                     if (elCoPayTot) elCoPayTot.textContent = formatMoney(companyPayTotal);
+                }
+
+                function onRetainedSplitInput(e) {
+                    if (!e.target) return;
+                    if (!e.target.classList.contains('js-rs-retained-svc') && !e.target.classList.contains('js-rs-retained-spare')) {
+                        return;
+                    }
+                    splitUserEdited = true;
+                    var retained = getRetainedFromUi();
+                    retained = Math.max(0, round2(retained));
+                    var elSvc = modal.querySelector('.js-rs-retained-svc');
+                    var elSp = modal.querySelector('.js-rs-retained-spare');
+                    if (!elSvc || !elSp) return;
+                    var svc = parseMoneyInput(elSvc.value);
+                    var sp = parseMoneyInput(elSp.value);
+                    if (isNaN(svc)) svc = 0;
+                    if (isNaN(sp)) sp = 0;
+                    if (e.target.classList.contains('js-rs-retained-svc')) {
+                        svc = round2(Math.max(0, Math.min(retained, svc)));
+                        sp = round2(Math.max(0, retained - svc));
+                        elSvc.value = formatFieldValue(svc);
+                        elSp.value = formatFieldValue(sp);
+                    } else {
+                        sp = round2(Math.max(0, Math.min(retained, sp)));
+                        svc = round2(Math.max(0, retained - sp));
+                        elSvc.value = formatFieldValue(svc);
+                        elSp.value = formatFieldValue(sp);
+                    }
+                    recalc();
                 }
                 function onRefundInput(e) {
                     if (!e.target) return;
@@ -379,11 +555,17 @@
                     normalizeRefundField(inpCo);
                     normalizeRefundField(inpPr);
                     applyPairedRefundCap(null);
+                    // Normalize retained split too so backend receives clean numeric values.
+                    var retained = getRetainedFromUi();
+                    retained = Math.max(0, round2(retained));
+                    syncSvcSpInputsFromRetained(retained);
                     recalc();
                 }
                 var refundForm = modal.querySelector('.reopen-disputed-form');
                 modal.addEventListener('input', onRefundInput);
                 modal.addEventListener('change', onRefundInput);
+                modal.addEventListener('input', onRetainedSplitInput);
+                modal.addEventListener('change', onRetainedSplitInput);
                 modal.addEventListener('blur', onRefundBlur, true);
                 if (refundForm) {
                     refundForm.addEventListener('submit', onRefundFormSubmit);
@@ -394,6 +576,7 @@
                     normalizeRefundField(inpCo);
                     normalizeRefundField(inpPr);
                     applyPairedRefundCap(null);
+                    splitUserEdited = false;
                     recalc();
                 });
             })();

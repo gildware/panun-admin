@@ -412,6 +412,11 @@ class Booking extends Model
      */
     public function blocksAdminCommissionOverrideAndCompensation(): bool
     {
+        // Disputed-close bookings are final for financials; do not allow commission edits/compensation changes.
+        if (!empty($this->reopen_disputed_snapshot) && is_array($this->reopen_disputed_snapshot)) {
+            return true;
+        }
+
         return \Modules\BookingModule\Services\BookingFinancialSettlementService::specialScenarioOutcomeDisablesCommissionOverrideAndCompensation(
             (string) ($this->settlement_outcome ?? '')
         );

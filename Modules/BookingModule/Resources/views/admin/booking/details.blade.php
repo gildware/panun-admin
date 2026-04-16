@@ -758,6 +758,7 @@
                             @endif
                             @if((int)($booking->is_repeated ?? 0) === 0
                                 && $booking->isOpenReopenTicket()
+                                && booking_admin_can_dispute_and_close($booking)
                                 && in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true)
                             )
                                 <button type="button" class="btn btn--danger" data-bs-toggle="modal"
@@ -1389,7 +1390,7 @@
                                         @php
                                             $__isSingle = (int) ($booking->is_repeated ?? 0) === 0;
                                             $__isOngoingOrHoldAfterVisit = $__overviewSt === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking);
-                                            $__canDisputeCloseBtn = $__isSingle && $__isOngoingOrHoldAfterVisit;
+                                            $__canDisputeCloseBtn = $__isSingle && $__isOngoingOrHoldAfterVisit && booking_admin_can_dispute_and_close($booking);
                                             $__showResolveBookingBtn = $__isSingle && $booking->isOpenReopenTicket();
                                             $__resolveDueRemaining = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
                                             $__resolveDueOutstanding = $__resolveDueRemaining > 0.009;
@@ -1416,7 +1417,7 @@
                                             data-bs-target="#bookingReopenModal--{{ $booking->id }}">
                                             {{ translate('Reopen_Booking') }}
                                         </button>
-                                        @if($booking->isOpenReopenTicket())
+                                        @if($booking->isOpenReopenTicket() && booking_admin_can_dispute_and_close($booking))
                                             <button type="button" class="booking-status-pill booking-status-pill--danger" data-bs-toggle="modal"
                                                 data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
                                                 {{ translate('Dispute_and_close') }}
@@ -2144,12 +2145,14 @@
                                                 <div class="mb-3">
                                                     <label class="form-label d-block">{{ translate('Received by') }} <span class="text-danger">*</span></label>
                                                     <div class="d-flex flex-wrap gap-3">
+                                                        @if(($bookingStatusForAddPayment ?? ($booking->booking_status ?? '')) === 'ongoing')
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedProvider--{{ $booking->id }}" value="provider" checked>
+                                                                <label class="form-check-label" for="addPaymentReceivedProvider--{{ $booking->id }}">{{ translate('Provider') }}</label>
+                                                            </div>
+                                                        @endif
                                                         <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedProvider--{{ $booking->id }}" value="provider" checked>
-                                                            <label class="form-check-label" for="addPaymentReceivedProvider--{{ $booking->id }}">{{ translate('Provider') }}</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedCompany--{{ $booking->id }}" value="company">
+                                                            <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedCompany--{{ $booking->id }}" value="company" @if(($bookingStatusForAddPayment ?? ($booking->booking_status ?? '')) !== 'ongoing') checked @endif>
                                                             <label class="form-check-label" for="addPaymentReceivedCompany--{{ $booking->id }}">{{ translate('Company') }}</label>
                                                         </div>
                                                     </div>
@@ -4076,8 +4079,14 @@
                     if ($dateIn.length) {
                         $dateIn.val($form.attr('data-default-date') || new Date().toISOString().slice(0, 10));
                     }
-                    $form.find('input[name="received_by"][value="provider"]').prop('checked', true);
-                    $form.find('input[name="received_by"][value="company"]').prop('checked', false);
+                    var $rbProvider = $form.find('input[name="received_by"][value="provider"]');
+                    var $rbCompany = $form.find('input[name="received_by"][value="company"]');
+                    if ($rbProvider.length) {
+                        $rbProvider.prop('checked', true);
+                        $rbCompany.prop('checked', false);
+                    } else {
+                        $rbCompany.prop('checked', true);
+                    }
                     if ($form.find('[name="split_amount_provider"]').length) {
                         $form.find('[name="split_amount_provider"]').val('0');
                         $form.find('[name="split_amount_company"]').val('0');

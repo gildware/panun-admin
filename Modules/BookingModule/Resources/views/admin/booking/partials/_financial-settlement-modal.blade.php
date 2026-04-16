@@ -213,12 +213,14 @@
                         <div class="mb-3">
                             <label class="form-label d-block">{{ translate('Received by') }} <span class="text-danger">*</span></label>
                             <div class="d-flex flex-wrap gap-3">
+                                @if(((string) ($booking->booking_status ?? '')) === 'ongoing')
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdProvider" value="provider" checked>
+                                        <label class="form-check-label" for="bfsEmbedPayRcvdProvider">{{ translate('Provider') }}</label>
+                                    </div>
+                                @endif
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdProvider" value="provider" checked>
-                                    <label class="form-check-label" for="bfsEmbedPayRcvdProvider">{{ translate('Provider') }}</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdCompany" value="company">
+                                    <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdCompany" value="company" @if(((string) ($booking->booking_status ?? '')) !== 'ongoing') checked @endif>
                                     <label class="form-check-label" for="bfsEmbedPayRcvdCompany">{{ translate('Company') }}</label>
                                 </div>
                             </div>
