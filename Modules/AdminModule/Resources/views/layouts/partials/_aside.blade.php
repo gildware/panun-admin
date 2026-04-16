@@ -94,6 +94,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                             <span class="link-title">{{ translate('WhatsApp') }}</span>
                         </a>
                     </li>
+                    {{--
                     <li>
                         <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'instagram', 'tab' => 'chats']) }}"
                            class="{{ request()->is('admin/social-inbox/instagram/*') ? 'active-menu' : '' }}">
@@ -108,6 +109,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                             <span class="link-title">{{ translate('Facebook') }}</span>
                         </a>
                     </li>
+                    --}}
                 @endcan
                 @can('whatsapp_message_template_view')
                     <li>
