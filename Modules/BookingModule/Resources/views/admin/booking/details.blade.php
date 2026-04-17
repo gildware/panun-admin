@@ -757,10 +757,8 @@
                                 </button>
                             @endif
                             @if((int)($booking->is_repeated ?? 0) === 0
-                                && $booking->isOpenReopenTicket()
-                                && booking_admin_can_dispute_and_close($booking)
-                                && in_array((string) ($booking->booking_status ?? ''), ['ongoing', 'on_hold'], true)
-                            )
+                                && (($booking->booking_status ?? '') === 'ongoing' || booking_on_hold_is_after_visit_from_ongoing($booking))
+                                && booking_admin_can_dispute_and_close($booking))
                                 <button type="button" class="btn btn--danger" data-bs-toggle="modal"
                                     data-bs-target="#reopenDisputeModal--{{ $booking->id }}">
                                     <span class="material-icons">gavel</span>{{ translate('Dispute_and_close') }}
@@ -3045,7 +3043,7 @@
                                 </div>
                             @endif
 
-                            @if(($booking->booking_status ?? '') === 'completed' && ! $booking->blocksAdminCommissionOverrideAndCompensation())
+                            @if($booking->adminEligibleForCompensationRecording())
                                 @include('bookingmodule::admin.booking.partials.details._compensation-box', ['booking' => $booking])
                             @endif
 
