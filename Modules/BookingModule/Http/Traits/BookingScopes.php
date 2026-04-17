@@ -75,6 +75,140 @@ trait BookingScopes
             });
     }
 
+    /**
+     * Booking is on hold and the most recent transition to on_hold was from ongoing (hold after visit).
+     * Parent booking rows only (booking_repeat_id IS NULL).
+     */
+    public function scopeHoldAfterVisit($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->where($table . '.booking_status', 'on_hold');
+
+        // Latest parent on_hold history id for this booking.
+        $latestHoldIdSql = "(SELECT MAX(h1.id) FROM booking_status_histories h1 WHERE h1.booking_id = {$table}.id AND h1.booking_repeat_id IS NULL AND h1.booking_status = 'on_hold')";
+        // Previous parent history id right before that.
+        $prevIdSql = "(SELECT MAX(h2.id) FROM booking_status_histories h2 WHERE h2.booking_id = {$table}.id AND h2.booking_repeat_id IS NULL AND h2.id < {$latestHoldIdSql})";
+        // Previous status must be ongoing.
+        $query->whereRaw("(SELECT h3.booking_status FROM booking_status_histories h3 WHERE h3.id = {$prevIdSql}) = 'ongoing'");
+    }
+
+    /**
+     * Cancel-after-visit (visit retained cancel) bookings only.
+     */
+    public function scopeCancelledAfterVisit($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->whereIn($table . '.booking_status', ['canceled', 'cancelled', 'refunded'])
+            ->where(function ($q) use ($table) {
+                $q->where($table . '.after_visit_cancel', true)
+                    ->orWhere($table . '.settlement_outcome', \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL);
+            });
+    }
+
+    /**
+     * Completed with little / no real service (visit fee split).
+     */
+    public function scopeCompletedNoOrLittle($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->where($table . '.booking_status', 'completed')
+            ->where($table . '.settlement_outcome', \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT);
+    }
+
+    /**
+     * Loss making / scaled to payments settlement outcome.
+     */
+    public function scopeLossMaking($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->where($table . '.settlement_outcome', \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS);
+    }
+
+    /**
+     * Loss making (scaled) bookings that still have remaining loss (pending recovery).
+     *
+     * Uses settlement snapshot keys written by {@see \Modules\BookingModule\Services\BookingFinancialSettlementService::buildPreview()}.
+     */
+    public function scopeLossMakingPending($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->lossMaking()
+            ->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT({$table}.settlement_snapshot, '$.scaled_loss_amount')) AS DECIMAL(18,2)) > 0.009")
+            ->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT({$table}.settlement_snapshot, '$.scaled_loss_writeoff_amount')) AS DECIMAL(18,2)) <= 0.009");
+    }
+
+    /**
+     * Loss making (scaled) bookings where the loss is fully recovered by additional payments (loss amount is zero).
+     */
+    public function scopeLossRecovered($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->lossMaking()
+            ->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT({$table}.settlement_snapshot, '$.scaled_loss_amount')) AS DECIMAL(18,2)) <= 0.009")
+            ->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT({$table}.settlement_snapshot, '$.scaled_loss_writeoff_amount')) AS DECIMAL(18,2)) <= 0.009");
+    }
+
+    /**
+     * Loss settled (scaled) bookings where a write-off/discount was applied to settle the remaining loss.
+     */
+    public function scopeLossSettled($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->lossMaking()
+            ->where(function ($q) use ($table) {
+                $q->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT({$table}.settlement_snapshot, '$.scaled_loss_writeoff_amount')) AS DECIMAL(18,2)) > 0.009")
+                    ->orWhereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT({$table}.settlement_config, '$.scaled_loss_writeoff_amount')) AS DECIMAL(18,2)) > 0.009");
+            });
+    }
+
+    /**
+     * Disputed close snapshot exists on the booking row.
+     */
+    public function scopeDisputedClosed($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->whereNotNull($table . '.reopen_disputed_snapshot')
+            ->where($table . '.reopen_disputed_snapshot', '!=', '');
+    }
+
+    /**
+     * Disputed-close bookings that ended up cancelled/refunded.
+     */
+    public function scopeDisputedClosedCancelled($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->disputedClosed()
+            ->whereIn($table . '.booking_status', ['canceled', 'cancelled', 'refunded']);
+    }
+
+    /**
+     * Disputed-close bookings that ended up completed.
+     */
+    public function scopeDisputedClosedCompleted($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->disputedClosed()
+            ->where($table . '.booking_status', 'completed');
+    }
+
+    /**
+     * Reopen case resolved (not disputed-close).
+     */
+    public function scopeResolvedReopenCase($query): void
+    {
+        $table = $query->getModel()->getTable();
+        if (self::bookingsTableHasReopenResolvedAt($table)) {
+            $query->whereNotNull($table . '.reopen_resolved_at');
+        } else {
+            $query->whereRaw('1=0');
+        }
+        $query->where(function ($q) use ($table) {
+            $q->whereNull($table . '.reopen_disputed_snapshot')
+                ->orWhere($table . '.reopen_disputed_snapshot', '=', '')
+                ->orWhere($table . '.reopen_disputed_snapshot', '=', '[]');
+        });
+    }
+
     public function scopeSearch($query, $keywords, array $searchColumns): mixed
     {
         return $query->when($keywords && $searchColumns, function ($query) use ($keywords, $searchColumns) {

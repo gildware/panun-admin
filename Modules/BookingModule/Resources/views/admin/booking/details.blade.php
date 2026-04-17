@@ -425,6 +425,7 @@
                 $__overviewSt = $booking->booking_status ?? '';
                 $__cancelHist = $booking->latestParentCancellationStatusHistory;
                 $__holdHist = $booking->latestParentHoldStatusHistory;
+                $__disputeHist = $booking->latestParentDisputeStatusHistory;
                 $__reopenEv = $booking->reopenFromCompletedDisplayEvent();
                 $__respLabels = ['customer' => translate('Customer'), 'provider' => translate('Provider'), 'staff' => translate('Staff'), 'no_one' => translate('No_one')];
                 $__overviewShowReopenInCard = $booking->adminEligibleForReopenFromCompleted();
@@ -460,6 +461,12 @@
                 $__dsRefundProvider = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['refund_provider_amount'] ?? 0), 2) : 0.0;
                 $__dsRefundTotal = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['refund_total'] ?? ($__dsRefundCompany + $__dsRefundProvider)), 2) : 0.0;
                 $__dsRetained = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['retained_from_customer'] ?? $__disputedSnap['final_net_to_customer'] ?? 0), 2) : 0.0;
+                $__dsZeroRetained = $__headerHasDisputedSnapshot && $__dsRetained <= 0.009;
+                if ($__headerHasDisputedSnapshot) {
+                    // Disputed-close: dark red when retained is zero, dark amber otherwise.
+                    $__headerMainBadgeClass = $__dsZeroRetained ? 'danger' : 'warning-dark';
+                    $__overviewBadge = $__headerMainBadgeClass;
+                }
                 $__dsFinalAdmin = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['final_admin_commission'] ?? 0), 2) : 0.0;
                 $__dsFinalProvider = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['final_provider_earning'] ?? 0), 2) : 0.0;
                 $__dsCompanyAfter = $__headerHasDisputedSnapshot ? round((float) ($__disputedSnap['company_cash_after_refund'] ?? 0), 2) : 0.0;
@@ -638,7 +645,43 @@
                             </div>
                         @endif
 
-                        @if(in_array($__overviewSt, ['canceled', 'cancelled', 'refunded'], true) && $__cancelHist && ($__cancelHist->cancellationReason || filled($__cancelHist->status_change_remarks)))
+                        @if($__disputeHist && ($__disputeHist->disputeReason || filled($__disputeHist->status_change_remarks)))
+                            <div class="booking-status-detail-box fz-12 w-100 align-self-stretch" style="max-width: min(100%, 36rem);">
+                                <div class="booking-status-detail-box__head">
+                                    <span class="title-color fw-semibold text-uppercase fz-11">{{ translate('Booking_dispute_reasons') }}</span>
+                                </div>
+                                <div class="booking-overview-kv-rows">
+                                    @if($__disputeHist->disputeReason)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Reason') }}:</span>
+                                            <span class="fz-12 text-break text-end fw-semibold min-w-0">{{ $__disputeHist->disputeReason->name }}</span>
+                                        </div>
+                                        @if($__disputeHist->disputeReason->description)
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                                <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Description') }}:</span>
+                                                <span class="fz-12 text-muted text-break text-end min-w-0">{{ $__disputeHist->disputeReason->description }}</span>
+                                            </div>
+                                        @endif
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Responsible') }}:</span>
+                                            <span class="fz-12 text-break text-end min-w-0">{{ $__respLabels[$__disputeHist->disputeReason->responsible] ?? $__disputeHist->disputeReason->responsible }}</span>
+                                        </div>
+                                    @endif
+                                    @if(filled($__disputeHist->status_change_remarks))
+                                        @php
+                                            $__disputeRemarks = (string) $__disputeHist->status_change_remarks;
+                                            if (\Illuminate\Support\Str::startsWith($__disputeRemarks, 'reopen_disputed:')) {
+                                                $__disputeRemarks = trim((string) \Illuminate\Support\Str::after($__disputeRemarks, 'reopen_disputed:'));
+                                            }
+                                        @endphp
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Status_change_remarks') }}:</span>
+                                            <div class="fz-12 text-break text-end min-w-0">{!! nl2br(e($__disputeRemarks)) !!}</div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @elseif(in_array($__overviewSt, ['canceled', 'cancelled', 'refunded'], true) && $__cancelHist && ($__cancelHist->cancellationReason || filled($__cancelHist->status_change_remarks)))
                             <div class="booking-status-detail-box fz-12 w-100 align-self-stretch" style="max-width: min(100%, 36rem);">
                                 <div class="booking-status-detail-box__head">
                                     <span class="title-color fw-semibold text-uppercase fz-11">{{ translate('Booking_cancellation_reasons') }}</span>

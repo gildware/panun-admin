@@ -21,6 +21,13 @@
                         </div>
                         <div class="col-lg-6">
                             @include('bookingmodule::admin.configuration.partials._booking-config-card', [
+                                'title' => translate('Booking_dispute_reasons'),
+                                'type' => 'booking_dispute_reason',
+                                'items' => $bookingDisputeReasons,
+                            ])
+                        </div>
+                        <div class="col-lg-6">
+                            @include('bookingmodule::admin.configuration.partials._booking-config-card', [
                                 'title' => translate('Booking_hold_reasons'),
                                 'type' => 'booking_hold_reason',
                                 'items' => $bookingHoldReasons,

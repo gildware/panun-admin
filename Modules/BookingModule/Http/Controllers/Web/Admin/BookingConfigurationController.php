@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\BookingModule\Entities\BookingCancellationReason;
+use Modules\BookingModule\Entities\BookingDisputeReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
 
 class BookingConfigurationController extends Controller
@@ -16,11 +17,13 @@ class BookingConfigurationController extends Controller
         $bookingCancellationReasons = BookingCancellationReason::orderBy('name')->get();
         $bookingHoldReasons = BookingHoldReopenReason::where('kind', BookingHoldReopenReason::KIND_HOLD)->orderBy('name')->get();
         $bookingReopenReasons = BookingHoldReopenReason::where('kind', BookingHoldReopenReason::KIND_REOPEN)->orderBy('name')->get();
+        $bookingDisputeReasons = BookingDisputeReason::orderBy('name')->get();
 
         return view('bookingmodule::admin.configuration.index', compact(
             'bookingCancellationReasons',
             'bookingHoldReasons',
-            'bookingReopenReasons'
+            'bookingReopenReasons',
+            'bookingDisputeReasons'
         ));
     }
 
@@ -115,6 +118,7 @@ class BookingConfigurationController extends Controller
             'booking_cancellation_reason' => [BookingCancellationReason::class, 'name', []],
             'booking_hold_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_HOLD]],
             'booking_reopen_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_REOPEN]],
+            'booking_dispute_reason' => [BookingDisputeReason::class, 'name', []],
             default => abort(400, 'Unknown configuration type'),
         };
     }

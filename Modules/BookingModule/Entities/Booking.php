@@ -265,6 +265,17 @@ class Booking extends Model
     }
 
     /**
+     * Latest parent-row history when the booking was dispute-closed (dispute reason captured on the status history row).
+     */
+    public function latestParentDisputeStatusHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereNotNull('booking_dispute_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
      * Latest reopen-from-completed event relevant to this row (in-place / new linked booking, or child follow-up).
      */
     public function reopenFromCompletedDisplayEvent(): ?BookingReopenEvent

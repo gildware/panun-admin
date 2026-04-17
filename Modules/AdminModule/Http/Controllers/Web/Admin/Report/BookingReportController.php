@@ -11,10 +11,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\BookingModule\Entities\BookingCancellationReason;
+use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\Account;
+use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
@@ -71,6 +75,10 @@ class BookingReportController extends Controller
             'category_ids.*' => 'uuid',
             'sub_category_ids' => 'array',
             'sub_category_ids.*' => 'uuid',
+            'service_ids' => 'array',
+            'service_ids.*' => 'uuid',
+            'staff_ids' => 'array',
+            'staff_ids.*' => 'string',
             'date_range' => 'in:all_time, this_week, last_week, this_month, last_month, last_15_days, this_year, last_year, last_6_month, this_year_1st_quarter, this_year_2nd_quarter, this_year_3rd_quarter, this_year_4th_quarter, custom_date',
             'from' => $request['date_range'] == 'custom_date' ? 'required' : '',
             'to' => $request['date_range'] == 'custom_date' ? 'required' : '',
@@ -81,9 +89,36 @@ class BookingReportController extends Controller
         $zones = $this->zone->ofStatus(1)->select('id', 'name')->get();
         $providers = $this->provider->ofApproval(1)->select('id', 'company_name', 'company_phone')->get();
         $categories = $this->categories->ofType('main')->select('id', 'name')->get();
-        $subCategories = $this->categories->ofType('sub')->select('id', 'name')->get();
+        $assignees = $this->user->ofType(ADMIN_USER_TYPES)->select('id', 'first_name', 'last_name', 'email', 'phone', 'user_type')->get();
+        $cancellationReasons = BookingCancellationReason::active()->select('id', 'name', 'responsible')->orderBy('name')->get();
+        $holdReasons = BookingHoldReopenReason::active()->where('kind', BookingHoldReopenReason::KIND_HOLD)->select('id', 'name', 'responsible')->orderBy('name')->get();
 
-        $queryParams = $request->only('search', 'zone_ids', 'provider_ids', 'category_ids', 'sub_category_ids', 'date_range');
+        $categoryIds = array_values(array_filter((array) $request->input('category_ids', [])));
+        $subCategoryIds = array_values(array_filter((array) $request->input('sub_category_ids', [])));
+
+        $subCategories = count($categoryIds) > 0
+            ? $this->categories->ofType('sub')->whereIn('parent_id', $categoryIds)->select('id', 'name', 'parent_id')->get()
+            : collect();
+
+        $services = count($subCategoryIds) > 0
+            ? $this->service->whereIn('sub_category_id', $subCategoryIds)->select('id', 'name', 'sub_category_id')->get()
+            : collect();
+
+        $allSubCategoriesForJs = $this->categories->ofType('sub')->select('id', 'name', 'parent_id')->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'parent_id' => $c->parent_id,
+            ])->values()->all();
+
+        $allServicesForJs = $this->service->select('id', 'name', 'sub_category_id')->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'sub_category_id' => $s->sub_category_id,
+            ])->values()->all();
+
+        $queryParams = $request->only('search', 'zone_ids', 'provider_ids', 'category_ids', 'sub_category_ids', 'service_ids', 'staff_ids', 'date_range');
         if ($request->date_range === 'custom_date') {
             $queryParams['from'] = $request->from;
             $queryParams['to'] = $request->to;
@@ -106,18 +141,17 @@ class BookingReportController extends Controller
             ->appends($queryParams);
 
 
+        $bookingStatusKeys = array_column(BOOKING_STATUSES, 'key');
         $bookings_for_amount = self::filterQuery($this->booking, $request)
             ->with(['customer', 'provider.owner'])
-            ->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'completed', 'canceled'])
+            ->whereIn('booking_status', $bookingStatusKeys)
             ->get();
 
         $bookings_count = [];
         $bookings_count['total_bookings'] = $bookings_for_amount->count();
-        $bookings_count['accepted'] = $bookings_for_amount->where('booking_status', 'accepted')->count();
-        $bookings_count['ongoing'] = $bookings_for_amount->where('booking_status', 'ongoing')->count();
-        $bookings_count['completed'] = $bookings_for_amount->where('booking_status', 'completed')->count();
-        $bookings_count['canceled'] = $bookings_for_amount->where('booking_status', 'canceled')->count();
-        $bookings_count['pending'] = $bookings_for_amount->where('booking_status', 'pending')->count();
+        foreach ($bookingStatusKeys as $statusKey) {
+            $bookings_count[$statusKey] = $bookings_for_amount->where('booking_status', $statusKey)->count();
+        }
 
         $booking_amount = [];
         $booking_amount['total_booking_amount'] = $bookings_for_amount->sum('total_booking_amount');
@@ -266,7 +300,493 @@ class BookingReportController extends Controller
             }
         }
 
-        return view('adminmodule::admin.report.booking', compact('zones', 'providers', 'categories', 'subCategories', 'filtered_bookings', 'bookings_count', 'booking_amount', 'chart_data', 'queryParams'));
+        $statusBreakdownRows = self::filterQuery($this->booking->newQuery(), $request)
+            ->selectRaw("
+                CASE
+                    WHEN reopen_disputed_snapshot IS NOT NULL
+                         AND JSON_EXTRACT(reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'
+                         AND booking_status IN ('canceled','cancelled','refunded')
+                    THEN 'disputed_cancelled'
+                    WHEN reopen_disputed_snapshot IS NOT NULL
+                         AND JSON_EXTRACT(reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'
+                         AND booking_status = 'completed'
+                    THEN 'disputed_completed'
+                    ELSE booking_status
+                END as status_bucket,
+                COUNT(*) as cnt,
+                COALESCE(SUM(total_booking_amount), 0) as total_amount
+            ")
+            ->groupBy('status_bucket')
+            ->get()
+            ->keyBy('status_bucket');
+
+        $statusBucketMeta = [
+            ['key' => 'pending', 'label' => translate('Booking_status_tpl_pending')],
+            ['key' => 'accepted', 'label' => translate('Booking_status_tpl_accepted')],
+            ['key' => 'ongoing', 'label' => translate('Booking_status_tpl_ongoing')],
+            ['key' => 'on_hold', 'label' => translate('Booking_status_tpl_on_hold')],
+            ['key' => 'completed', 'label' => translate('Booking_status_tpl_completed')],
+            ['key' => 'canceled', 'label' => translate('Booking_status_tpl_canceled')],
+            ['key' => 'refunded', 'label' => translate('Booking_status_tpl_refunded')],
+            ['key' => 'disputed_cancelled', 'label' => 'Disputed & Cancelled'],
+            ['key' => 'disputed_completed', 'label' => 'Disputed & Completed'],
+        ];
+
+        $report_status_table = [];
+        $report_status_chart = ['labels' => [], 'counts' => [], 'amounts' => []];
+        foreach ($statusBucketMeta as $meta) {
+            $key = $meta['key'];
+            $row = $statusBreakdownRows->get($key);
+            $cnt = $row ? (int) $row->cnt : 0;
+            $amt = $row ? (float) $row->total_amount : 0.0;
+            $label = $meta['label'];
+            $report_status_table[] = [
+                'key' => $key,
+                'label' => $label,
+                'count' => $cnt,
+                'amount' => $amt,
+            ];
+            if ($cnt > 0) {
+                $report_status_chart['labels'][] = $label;
+                $report_status_chart['counts'][] = $cnt;
+                $report_status_chart['amounts'][] = round($amt, 2);
+            }
+        }
+        if (count($report_status_chart['labels']) === 0) {
+            $report_status_chart['labels'] = [translate('Total_Bookings')];
+            $report_status_chart['counts'] = [0];
+            $report_status_chart['amounts'] = [0];
+        }
+
+        $visitRetained = BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+        $visitFeeSplit = BookingFinancialSettlementService::OUTCOME_VISIT_FEE_SPLIT;
+
+        $baseBookingIdsQuery = self::filterQuery($this->booking->newQuery(), $request)->select('id');
+
+        $refund_total_amount = (float) LedgerTransaction::query()
+            ->whereIn('booking_id', $baseBookingIdsQuery)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->sum('amount');
+        $refund_total_amount = round($refund_total_amount, 2);
+
+        $earnedCompletedBookingIds = self::filterQuery($this->booking->newQuery(), $request)
+            ->where('booking_status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('reopen_disputed_snapshot')
+                    ->orWhereRaw("JSON_EXTRACT(reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
+            })
+            ->select('id');
+
+        $earnedDisputedCompletedBookingIds = self::filterQuery($this->booking->newQuery(), $request)
+            ->where('booking_status', 'completed')
+            ->whereRaw("reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'")
+            ->select('id');
+
+        $earnedSpecialCancelBookingIds = self::filterQuery($this->booking->newQuery(), $request)
+            ->whereIn('booking_status', ['canceled', 'cancelled', 'refunded'])
+            ->where(function ($q) use ($visitRetained) {
+                $q->where('after_visit_cancel', true)
+                    ->orWhere('settlement_outcome', $visitRetained);
+            })
+            ->where(function ($q) {
+                $q->whereNull('reopen_disputed_snapshot')
+                    ->orWhereRaw("JSON_EXTRACT(reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
+            })
+            ->select('id');
+
+        $earningBuckets = [
+            [
+                'label' => translate('Booking_status_tpl_completed'),
+                'booking_ids' => $earnedCompletedBookingIds,
+            ],
+            [
+                'label' => 'Disputed & Completed',
+                'booking_ids' => $earnedDisputedCompletedBookingIds,
+            ],
+            [
+                'label' => translate('Bfs_label_cancel_keep_visit'),
+                'booking_ids' => $earnedSpecialCancelBookingIds,
+            ],
+        ];
+
+        $earning_chart = ['labels_short' => [], 'labels_full' => [], 'customer_paid' => [], 'company_commission' => []];
+        foreach ($earningBuckets as $idx => $b) {
+            $fullLabel = (string) $b['label'];
+            $shortLabel = match ($idx) {
+                0 => 'Completed',
+                1 => 'Disp+Comp',
+                2 => 'After-visit',
+                default => $fullLabel,
+            };
+            $earning_chart['labels_full'][] = $fullLabel;
+            $earning_chart['labels_short'][] = $shortLabel;
+
+            $paid = (float) DB::table('booking_partial_payments')
+                ->whereIn('booking_id', $b['booking_ids'])
+                ->sum('paid_amount');
+            $earning_chart['customer_paid'][] = round($paid, 2);
+
+            $commission = (float) DB::table('booking_details_amounts')
+                ->whereIn('booking_id', $b['booking_ids'])
+                ->sum('admin_commission');
+            $earning_chart['company_commission'][] = round($commission, 2);
+        }
+
+        $latestCancelHistoryIds = DB::table('booking_status_histories')
+            ->selectRaw('MAX(id) as id')
+            ->whereIn('booking_id', $baseBookingIdsQuery)
+            ->where('booking_status', 'canceled')
+            ->groupBy('booking_id');
+
+        $visitRetainedOutcome = BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL;
+
+        $cancel_bucket_rows = DB::table('bookings as b')
+            ->whereIn('b.id', $baseBookingIdsQuery)
+            ->selectRaw("
+                SUM(CASE
+                    WHEN b.reopen_disputed_snapshot IS NOT NULL
+                         AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'
+                         AND b.booking_status IN ('canceled','cancelled','refunded')
+                    THEN 1 ELSE 0 END
+                ) as disputed_cancelled_cnt,
+                COALESCE(SUM(CASE
+                    WHEN b.reopen_disputed_snapshot IS NOT NULL
+                         AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'
+                         AND b.booking_status IN ('canceled','cancelled','refunded')
+                    THEN b.total_booking_amount ELSE 0 END
+                ), 0) as disputed_cancelled_amt,
+                SUM(CASE
+                    WHEN b.reopen_disputed_snapshot IS NOT NULL
+                         AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'
+                         AND b.booking_status = 'completed'
+                    THEN 1 ELSE 0 END
+                ) as disputed_completed_cnt,
+                COALESCE(SUM(CASE
+                    WHEN b.reopen_disputed_snapshot IS NOT NULL
+                         AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'
+                         AND b.booking_status = 'completed'
+                    THEN b.total_booking_amount ELSE 0 END
+                ), 0) as disputed_completed_amt,
+                SUM(CASE
+                    WHEN (b.booking_status IN ('canceled','cancelled','refunded'))
+                         AND (b.after_visit_cancel = 1 OR b.settlement_outcome = ?)
+                         AND NOT (b.reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund')
+                    THEN 1 ELSE 0 END
+                ) as special_cnt,
+                COALESCE(SUM(CASE
+                    WHEN (b.booking_status IN ('canceled','cancelled','refunded'))
+                         AND (b.after_visit_cancel = 1 OR b.settlement_outcome = ?)
+                         AND NOT (b.reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund')
+                    THEN b.total_booking_amount ELSE 0 END
+                ), 0) as special_amt,
+                SUM(CASE
+                    WHEN b.booking_status IN ('canceled','cancelled')
+                         AND (b.after_visit_cancel = 0 OR b.after_visit_cancel IS NULL)
+                         AND (b.settlement_outcome IS NULL OR b.settlement_outcome <> ?)
+                         AND (b.reopen_disputed_snapshot IS NULL OR JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund')
+                    THEN 1 ELSE 0 END
+                ) as normal_cnt,
+                COALESCE(SUM(CASE
+                    WHEN b.booking_status IN ('canceled','cancelled')
+                         AND (b.after_visit_cancel = 0 OR b.after_visit_cancel IS NULL)
+                         AND (b.settlement_outcome IS NULL OR b.settlement_outcome <> ?)
+                         AND (b.reopen_disputed_snapshot IS NULL OR JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund')
+                    THEN b.total_booking_amount ELSE 0 END
+                ), 0) as normal_amt
+            ", [$visitRetainedOutcome, $visitRetainedOutcome, $visitRetainedOutcome, $visitRetainedOutcome])
+            ->first();
+
+        $cancel_bucket_chart = [
+            'labels' => [
+                'Canceled (before visit)',
+                'Canceled (special settlement / after visit)',
+                'Disputed & Cancelled',
+                'Disputed & Completed',
+            ],
+            'counts' => [
+                (int) ($cancel_bucket_rows->normal_cnt ?? 0),
+                (int) ($cancel_bucket_rows->special_cnt ?? 0),
+                (int) ($cancel_bucket_rows->disputed_cancelled_cnt ?? 0),
+                (int) ($cancel_bucket_rows->disputed_completed_cnt ?? 0),
+            ],
+            'amounts' => [
+                round((float) ($cancel_bucket_rows->normal_amt ?? 0), 2),
+                round((float) ($cancel_bucket_rows->special_amt ?? 0), 2),
+                round((float) ($cancel_bucket_rows->disputed_cancelled_amt ?? 0), 2),
+                round((float) ($cancel_bucket_rows->disputed_completed_amt ?? 0), 2),
+            ],
+        ];
+
+        $cancel_reason_rows = DB::table('booking_status_histories as h')
+            ->joinSub($latestCancelHistoryIds, 'lh', fn ($j) => $j->on('h.id', '=', 'lh.id'))
+            ->leftJoin('booking_cancellation_reasons as r', 'r.id', '=', 'h.booking_cancellation_reason_id')
+            ->join('bookings as b', 'b.id', '=', 'h.booking_id')
+            ->whereIn('b.booking_status', ['canceled', 'cancelled'])
+            ->where(function ($q) {
+                $q->whereNull('b.after_visit_cancel')->orWhere('b.after_visit_cancel', false);
+            })
+            ->where(function ($q) use ($visitRetainedOutcome) {
+                $q->whereNull('b.settlement_outcome')->orWhere('b.settlement_outcome', '!=', $visitRetainedOutcome);
+            })
+            ->where(function ($q) {
+                $q->whereNull('b.reopen_disputed_snapshot')
+                    ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
+            })
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COALESCE(r.responsible, ?) as responsible, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(b.total_booking_amount), 0) as total_amount', [
+                translate('Unknown'),
+                BookingCancellationReason::RESPONSIBLE_NO_ONE,
+            ])
+            ->groupBy('reason_id', 'reason_name', 'responsible')
+            ->orderByDesc('booking_count')
+            ->get()
+            ->map(fn ($row) => [
+                'reason_id' => (int) $row->reason_id,
+                'reason_name' => (string) $row->reason_name,
+                'responsible' => (string) $row->responsible,
+                'booking_count' => (int) $row->booking_count,
+                'total_amount' => (float) $row->total_amount,
+            ])
+            ->values()
+            ->all();
+
+        $cancel_reason_chart = [
+            'labels' => array_map(fn ($r) => $r['reason_name'], $cancel_reason_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $cancel_reason_rows),
+        ];
+        if (count($cancel_reason_chart['labels']) === 0) {
+            $cancel_reason_chart = ['labels' => [translate('Canceled')], 'counts' => [0]];
+        }
+
+        $cancel_service_rows = DB::table('booking_details as d')
+            ->join('bookings as b', 'b.id', '=', 'd.booking_id')
+            ->leftJoin('services as s', 's.id', '=', 'd.service_id')
+            ->whereIn('b.id', $baseBookingIdsQuery)
+            ->whereIn('b.booking_status', ['canceled', 'cancelled'])
+            ->where(function ($q) {
+                $q->whereNull('b.after_visit_cancel')->orWhere('b.after_visit_cancel', false);
+            })
+            ->where(function ($q) use ($visitRetainedOutcome) {
+                $q->whereNull('b.settlement_outcome')->orWhere('b.settlement_outcome', '!=', $visitRetainedOutcome);
+            })
+            ->where(function ($q) {
+                $q->whereNull('b.reopen_disputed_snapshot')
+                    ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
+            })
+            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+                translate('Unknown'),
+            ])
+            ->groupBy('service_id', 'service_name')
+            ->orderByDesc('booking_count')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row) => [
+                'service_id' => (string) $row->service_id,
+                'service_name' => (string) $row->service_name,
+                'booking_count' => (int) $row->booking_count,
+                'service_total' => (float) $row->service_total,
+            ])
+            ->values()
+            ->all();
+
+        $cancel_service_chart = [
+            'labels' => array_map(fn ($r) => $r['service_name'], $cancel_service_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $cancel_service_rows),
+        ];
+        if (count($cancel_service_chart['labels']) === 0) {
+            $cancel_service_chart = ['labels' => [translate('service')], 'counts' => [0]];
+        }
+
+        $cancel_special_service_rows = DB::table('booking_details as d')
+            ->join('bookings as b', 'b.id', '=', 'd.booking_id')
+            ->leftJoin('services as s', 's.id', '=', 'd.service_id')
+            ->whereIn('b.id', $baseBookingIdsQuery)
+            ->whereIn('b.booking_status', ['canceled', 'cancelled', 'refunded'])
+            ->where(function ($q) use ($visitRetainedOutcome) {
+                $q->where('b.after_visit_cancel', true)->orWhere('b.settlement_outcome', $visitRetainedOutcome);
+            })
+            ->where(function ($q) {
+                $q->whereNull('b.reopen_disputed_snapshot')
+                    ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
+            })
+            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+                translate('Unknown'),
+            ])
+            ->groupBy('service_id', 'service_name')
+            ->orderByDesc('booking_count')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row) => [
+                'service_id' => (string) $row->service_id,
+                'service_name' => (string) $row->service_name,
+                'booking_count' => (int) $row->booking_count,
+                'service_total' => (float) $row->service_total,
+            ])
+            ->values()
+            ->all();
+
+        $cancel_special_service_chart = [
+            'labels' => array_map(fn ($r) => $r['service_name'], $cancel_special_service_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $cancel_special_service_rows),
+        ];
+        if (count($cancel_special_service_chart['labels']) === 0) {
+            $cancel_special_service_chart = ['labels' => [translate('service')], 'counts' => [0]];
+        }
+
+        $disputed_service_rows = DB::table('booking_details as d')
+            ->join('bookings as b', 'b.id', '=', 'd.booking_id')
+            ->leftJoin('services as s', 's.id', '=', 'd.service_id')
+            ->whereIn('b.id', $baseBookingIdsQuery)
+            ->whereRaw("b.reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'")
+            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+                translate('Unknown'),
+            ])
+            ->groupBy('service_id', 'service_name')
+            ->orderByDesc('booking_count')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row) => [
+                'service_id' => (string) $row->service_id,
+                'service_name' => (string) $row->service_name,
+                'booking_count' => (int) $row->booking_count,
+                'service_total' => (float) $row->service_total,
+            ])
+            ->values()
+            ->all();
+
+        $disputed_service_chart = [
+            'labels' => array_map(fn ($r) => $r['service_name'], $disputed_service_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $disputed_service_rows),
+        ];
+        if (count($disputed_service_chart['labels']) === 0) {
+            $disputed_service_chart = ['labels' => [translate('service')], 'counts' => [0]];
+        }
+
+        $cancel_remarks_rows = DB::table('booking_status_histories as h')
+            ->joinSub($latestCancelHistoryIds, 'lh2', fn ($j) => $j->on('h.id', '=', 'lh2.id'))
+            ->selectRaw('COALESCE(NULLIF(TRIM(h.status_change_remarks), ""), ?) as remarks, COUNT(*) as cnt', [translate('N/A')])
+            ->groupBy('remarks')
+            ->orderByDesc('cnt')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row) => ['remarks' => (string) $row->remarks, 'count' => (int) $row->cnt])
+            ->values()
+            ->all();
+
+        $latestHoldHistoryIds = DB::table('booking_status_histories')
+            ->selectRaw('MAX(id) as id')
+            ->whereIn('booking_id', $baseBookingIdsQuery)
+            ->where('booking_status', 'on_hold')
+            ->groupBy('booking_id');
+
+        $hold_reason_rows = DB::table('booking_status_histories as h')
+            ->joinSub($latestHoldHistoryIds, 'lh3', fn ($j) => $j->on('h.id', '=', 'lh3.id'))
+            ->leftJoin('booking_hold_reopen_reasons as r', function ($j) {
+                $j->on('r.id', '=', 'h.booking_hold_reopen_reason_id')
+                    ->where('r.kind', '=', BookingHoldReopenReason::KIND_HOLD);
+            })
+            ->join('bookings as b', 'b.id', '=', 'h.booking_id')
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COALESCE(r.responsible, ?) as responsible, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(b.total_booking_amount), 0) as total_amount', [
+                translate('Unknown'),
+                BookingHoldReopenReason::RESPONSIBLE_NO_ONE,
+            ])
+            ->groupBy('reason_id', 'reason_name', 'responsible')
+            ->orderByDesc('booking_count')
+            ->get()
+            ->map(fn ($row) => [
+                'reason_id' => (int) $row->reason_id,
+                'reason_name' => (string) $row->reason_name,
+                'responsible' => (string) $row->responsible,
+                'booking_count' => (int) $row->booking_count,
+                'total_amount' => (float) $row->total_amount,
+            ])
+            ->values()
+            ->all();
+
+        $hold_reason_chart = [
+            'labels' => array_map(fn ($r) => $r['reason_name'], $hold_reason_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $hold_reason_rows),
+        ];
+        if (count($hold_reason_chart['labels']) === 0) {
+            $hold_reason_chart = ['labels' => [translate('Booking_status_tpl_on_hold')], 'counts' => [0]];
+        }
+
+        $hold_service_rows = DB::table('booking_details as d')
+            ->join('bookings as b', 'b.id', '=', 'd.booking_id')
+            ->leftJoin('services as s', 's.id', '=', 'd.service_id')
+            ->whereIn('b.id', $baseBookingIdsQuery)
+            ->where('b.booking_status', 'on_hold')
+            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+                translate('Unknown'),
+            ])
+            ->groupBy('service_id', 'service_name')
+            ->orderByDesc('booking_count')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row) => [
+                'service_id' => (string) $row->service_id,
+                'service_name' => (string) $row->service_name,
+                'booking_count' => (int) $row->booking_count,
+                'service_total' => (float) $row->service_total,
+            ])
+            ->values()
+            ->all();
+
+        $hold_service_chart = [
+            'labels' => array_map(fn ($r) => $r['service_name'], $hold_service_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $hold_service_rows),
+        ];
+        if (count($hold_service_chart['labels']) === 0) {
+            $hold_service_chart = ['labels' => [translate('service')], 'counts' => [0]];
+        }
+
+        $hold_remarks_rows = DB::table('booking_status_histories as h')
+            ->joinSub($latestHoldHistoryIds, 'lh4', fn ($j) => $j->on('h.id', '=', 'lh4.id'))
+            ->selectRaw('COALESCE(NULLIF(TRIM(h.status_change_remarks), ""), ?) as remarks, COUNT(*) as cnt', [translate('N/A')])
+            ->groupBy('remarks')
+            ->orderByDesc('cnt')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row) => ['remarks' => (string) $row->remarks, 'count' => (int) $row->cnt])
+            ->values()
+            ->all();
+
+        return view('adminmodule::admin.report.booking', compact(
+            'zones',
+            'providers',
+            'categories',
+            'assignees',
+            'cancellationReasons',
+            'holdReasons',
+            'subCategories',
+            'services',
+            'allSubCategoriesForJs',
+            'allServicesForJs',
+            'filtered_bookings',
+            'bookings_count',
+            'booking_amount',
+            'refund_total_amount',
+            'earning_chart',
+            'chart_data',
+            'queryParams',
+            'report_status_table',
+            'report_status_chart',
+            'cancel_reason_rows',
+            'cancel_reason_chart',
+            'cancel_service_rows',
+            'cancel_service_chart',
+            'cancel_bucket_chart',
+            'cancel_special_service_rows',
+            'cancel_special_service_chart',
+            'disputed_service_rows',
+            'disputed_service_chart',
+            'cancel_remarks_rows',
+            'hold_reason_rows',
+            'hold_reason_chart',
+            'hold_service_rows',
+            'hold_service_chart',
+            'hold_remarks_rows'
+        ));
     }
 
 
@@ -286,8 +806,12 @@ class BookingReportController extends Controller
             'zone_ids.*' => 'uuid',
             'provider_ids' => 'array',
             'provider_ids.*' => 'uuid',
+            'category_ids' => 'array',
+            'category_ids.*' => 'uuid',
             'sub_category_ids' => 'array',
             'sub_category_ids.*' => 'uuid',
+            'service_ids' => 'array',
+            'service_ids.*' => 'uuid',
             'date_range' => 'in:all_time, this_week, last_week, this_month, last_month, last_15_days, this_year, last_year, last_6_month, this_year_1st_quarter, this_year_2nd_quarter, this_year_3rd_quarter, this_year_4th_quarter, custom_date',
             'from' => $request['date_range'] == 'custom_date' ? 'required' : '',
             'to' => $request['date_range'] == 'custom_date' ? 'required' : '',
@@ -342,13 +866,27 @@ class BookingReportController extends Controller
             ->when($request->has('provider_ids'), function ($query) use ($request) {
                 $query->whereIn('provider_id', $request['provider_ids']);
             })
+            ->when($request->has('staff_ids'), function ($query) use ($request) {
+                $query->filterByAssigneeIds($request->input('staff_ids'));
+            })
             ->when($request->has('category_ids'), function ($query) use ($request) {
                 $query->whereIn('category_id', $request['category_ids']);
             })
             ->when($request->has('sub_category_ids'), function ($query) use ($request) {
                 $query->whereIn('sub_category_id', $request['sub_category_ids']);
             })
-            ->when($request->has('date_range') && $request['date_range'] == 'custom_date', function ($query) use ($request) {
+            ->when(
+                collect($request->input('service_ids', []))->filter(fn ($id) => is_string($id) && $id !== '')->isNotEmpty(),
+                function ($query) use ($request) {
+                    $serviceIds = collect($request->input('service_ids', []))->filter(fn ($id) => is_string($id) && $id !== '')->values()->all();
+                    $query->whereHas('detail', function ($q) use ($serviceIds) {
+                        $q->whereIn('service_id', $serviceIds);
+                    });
+                }
+            )
+            ->when(
+                $request->has('date_range') && $request['date_range'] == 'custom_date',
+                function ($query) use ($request) {
                 $query->whereBetween('created_at', [Carbon::parse($request['from'])->startOfDay(), Carbon::parse($request['to'])->endOfDay()]);
             })
             ->when($request->has('date_range') && $request['date_range'] != 'custom_date', function ($query) use ($request) {

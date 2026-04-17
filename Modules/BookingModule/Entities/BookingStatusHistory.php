@@ -18,6 +18,7 @@ class BookingStatusHistory extends Model
         'booking_repeat_id',
         'booking_cancellation_reason_id',
         'booking_hold_reopen_reason_id',
+        'booking_dispute_reason_id',
         'status_change_remarks',
     ];
 
@@ -34,6 +35,11 @@ class BookingStatusHistory extends Model
     public function holdReopenReason(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(BookingHoldReopenReason::class, 'booking_hold_reopen_reason_id');
+    }
+
+    public function disputeReason(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(BookingDisputeReason::class, 'booking_dispute_reason_id');
     }
 
     protected static function newFactory()

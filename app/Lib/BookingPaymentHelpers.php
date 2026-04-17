@@ -763,6 +763,22 @@ if (!function_exists('get_booking_received_and_settlement')) {
                 ? $booking->reopen_disputed_snapshot
                 : null;
             if (is_array($snap)) {
+                $netRevenueZeroedAfterRefund = booking_should_zero_net_revenue_settlement_display($booking);
+                if ($netRevenueZeroedAfterRefund) {
+                    $disputedAdj = booking_reopen_disputed_refund_settlement_adjustment($booking);
+
+                    return [
+                        'company_share' => 0.0,
+                        'provider_share' => 0.0,
+                        'amount_received_by_company' => 0.0,
+                        'amount_received_by_provider' => 0.0,
+                        'total_paid' => round((float) ($snap['customer_paid_total'] ?? 0), 2),
+                        'pay_to_provider' => $disputedAdj['company_owes_provider'],
+                        'provider_owes_company' => $disputedAdj['provider_owes_company'],
+                        'net_revenue_zeroed_after_refund' => true,
+                    ];
+                }
+
                 return [
                     'company_share' => round((float) ($snap['final_admin_commission'] ?? 0), 2),
                     'provider_share' => round((float) ($snap['final_provider_earning'] ?? 0), 2),
@@ -1143,10 +1159,28 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
 if (!function_exists('booking_admin_booking_status_display_label')) {
     /**
      * Admin UI label for {@see Booking::booking_status}: use "Hold after visit" when hold followed ongoing.
-     * Disputed state is shown as a separate tag (see booking admin status tags partial), not appended here.
+     * Disputed-close is a terminal case; display as "Disputed and Completed" when any customer amount was collected,
+     * otherwise "Disputed and Cancelled".
      */
     function booking_admin_booking_status_display_label(Booking $booking): string
     {
+        $hasDisputedSnapshot = ! empty($booking->reopen_disputed_snapshot)
+            && is_array($booking->reopen_disputed_snapshot)
+            && $booking->reopen_disputed_snapshot !== [];
+        if ($hasDisputedSnapshot) {
+            $snap = (array) $booking->reopen_disputed_snapshot;
+            $retained = 0.0;
+            foreach (['retained_from_customer', 'final_net_to_customer'] as $k) {
+                if (isset($snap[$k]) && is_numeric($snap[$k])) {
+                    $retained = (float) $snap[$k];
+                    break;
+                }
+            }
+
+            return $retained > 0.009
+                ? translate('Disputed_and_Completed')
+                : translate('Disputed_and_Cancelled');
+        }
         if (booking_on_hold_is_after_visit_from_ongoing($booking)) {
             return translate('Hold_after_visit');
         }
