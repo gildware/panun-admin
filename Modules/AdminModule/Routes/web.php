@@ -13,6 +13,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\Report\ProviderReportControll
 use Modules\AdminModule\Http\Controllers\Web\Admin\Report\TransactionReportController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\DataTransferController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemMaintenanceController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\SystemLogsController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
@@ -23,6 +24,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+    Route::get('system-logs', [SystemLogsController::class, 'index'])->name('system-logs.index');
+    Route::post('system-logs/clear', [SystemLogsController::class, 'clear'])->name('system-logs.clear');
 
     Route::get('data-transfer', [DataTransferController::class, 'index'])->name('data-transfer.index');
     Route::get('data-transfer/export/{domain}', [DataTransferController::class, 'export'])->name('data-transfer.export');

@@ -518,6 +518,19 @@ class BookingReportController extends Controller
             ],
         ];
 
+        $cancel_total_pie_chart = [
+            'labels' => [
+                'Cancelled',
+                'Cancelled after visit',
+                'Disputed & Cancelled',
+            ],
+            'counts' => [
+                (int) ($cancel_bucket_rows->normal_cnt ?? 0),
+                (int) ($cancel_bucket_rows->special_cnt ?? 0),
+                (int) ($cancel_bucket_rows->disputed_cancelled_cnt ?? 0),
+            ],
+        ];
+
         $cancel_reason_rows = DB::table('booking_status_histories as h')
             ->joinSub($latestCancelHistoryIds, 'lh', fn ($j) => $j->on('h.id', '=', 'lh.id'))
             ->leftJoin('booking_cancellation_reasons as r', 'r.id', '=', 'h.booking_cancellation_reason_id')
@@ -556,6 +569,70 @@ class BookingReportController extends Controller
         ];
         if (count($cancel_reason_chart['labels']) === 0) {
             $cancel_reason_chart = ['labels' => [translate('Canceled')], 'counts' => [0]];
+        }
+
+        // Cancelled after visit / special settlement cancellation reasons
+        $cancel_after_visit_reason_rows = DB::table('booking_status_histories as h')
+            ->joinSub($latestCancelHistoryIds, 'lh_av', fn ($j) => $j->on('h.id', '=', 'lh_av.id'))
+            ->leftJoin('booking_cancellation_reasons as r', 'r.id', '=', 'h.booking_cancellation_reason_id')
+            ->join('bookings as b', 'b.id', '=', 'h.booking_id')
+            ->whereIn('b.booking_status', ['canceled', 'cancelled', 'refunded'])
+            ->where(function ($q) use ($visitRetainedOutcome) {
+                $q->where('b.after_visit_cancel', true)->orWhere('b.settlement_outcome', $visitRetainedOutcome);
+            })
+            ->where(function ($q) {
+                $q->whereNull('b.reopen_disputed_snapshot')
+                    ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
+            })
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COUNT(DISTINCT b.id) as booking_count', [
+                translate('Unknown'),
+            ])
+            ->groupBy('reason_id', 'reason_name')
+            ->orderByDesc('booking_count')
+            ->get()
+            ->map(fn ($row) => [
+                'reason_id' => (int) $row->reason_id,
+                'reason_name' => (string) $row->reason_name,
+                'booking_count' => (int) $row->booking_count,
+            ])
+            ->values()
+            ->all();
+
+        $cancel_after_visit_reason_chart = [
+            'labels' => array_map(fn ($r) => $r['reason_name'], $cancel_after_visit_reason_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $cancel_after_visit_reason_rows),
+        ];
+        if (count($cancel_after_visit_reason_chart['labels']) === 0) {
+            $cancel_after_visit_reason_chart = ['labels' => [translate('Canceled')], 'counts' => [0]];
+        }
+
+        // Disputed & cancelled cancellation reasons
+        $disputed_cancel_reason_rows = DB::table('booking_status_histories as h')
+            ->joinSub($latestCancelHistoryIds, 'lh_dc', fn ($j) => $j->on('h.id', '=', 'lh_dc.id'))
+            ->leftJoin('booking_cancellation_reasons as r', 'r.id', '=', 'h.booking_cancellation_reason_id')
+            ->join('bookings as b', 'b.id', '=', 'h.booking_id')
+            ->whereIn('b.booking_status', ['canceled', 'cancelled', 'refunded'])
+            ->whereRaw("b.reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'")
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COUNT(DISTINCT b.id) as booking_count', [
+                translate('Unknown'),
+            ])
+            ->groupBy('reason_id', 'reason_name')
+            ->orderByDesc('booking_count')
+            ->get()
+            ->map(fn ($row) => [
+                'reason_id' => (int) $row->reason_id,
+                'reason_name' => (string) $row->reason_name,
+                'booking_count' => (int) $row->booking_count,
+            ])
+            ->values()
+            ->all();
+
+        $disputed_cancel_reason_chart = [
+            'labels' => array_map(fn ($r) => $r['reason_name'], $disputed_cancel_reason_rows),
+            'counts' => array_map(fn ($r) => $r['booking_count'], $disputed_cancel_reason_rows),
+        ];
+        if (count($disputed_cancel_reason_chart['labels']) === 0) {
+            $disputed_cancel_reason_chart = ['labels' => [translate('Unknown')], 'counts' => [0]];
         }
 
         $cancel_service_rows = DB::table('booking_details as d')
@@ -776,6 +853,11 @@ class BookingReportController extends Controller
             'cancel_service_rows',
             'cancel_service_chart',
             'cancel_bucket_chart',
+            'cancel_total_pie_chart',
+            'cancel_after_visit_reason_rows',
+            'cancel_after_visit_reason_chart',
+            'disputed_cancel_reason_rows',
+            'disputed_cancel_reason_chart',
             'cancel_special_service_rows',
             'cancel_special_service_chart',
             'disputed_service_rows',
