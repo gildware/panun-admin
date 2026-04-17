@@ -48,6 +48,10 @@ class BookingReopenService
             throw new \RuntimeException(translate('Loss_making_completed_booking_cannot_be_reopened'));
         }
 
+        if ($source->isScaledSettlementLossRecovered()) {
+            throw new \RuntimeException(translate('Scaled_settlement_loss_recovered_booking_cannot_be_reopened'));
+        }
+
         if ($source->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
             throw new \RuntimeException(translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened'));
         }
@@ -138,6 +142,10 @@ class BookingReopenService
 
         if ($source->isLossMakingFinancialSettlement()) {
             throw new \RuntimeException(translate('Loss_making_completed_booking_cannot_be_reopened'));
+        }
+
+        if ($source->isScaledSettlementLossRecovered()) {
+            throw new \RuntimeException(translate('Scaled_settlement_loss_recovered_booking_cannot_be_reopened'));
         }
 
         if ($source->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
