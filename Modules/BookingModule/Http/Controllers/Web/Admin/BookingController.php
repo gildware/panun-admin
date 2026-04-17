@@ -444,6 +444,13 @@ class BookingController extends Controller
                 return redirect()->route('admin.booking.details', [$src->id, 'web_page' => 'details']);
             }
 
+            if ($src->isScaledSettlementLossRecovered()) {
+                session()->forget('reopen_new_booking_draft');
+                Toastr::error(translate('Scaled_settlement_loss_recovered_booking_cannot_be_reopened'));
+
+                return redirect()->route('admin.booking.details', [$src->id, 'web_page' => 'details']);
+            }
+
             if ($src->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
                 session()->forget('reopen_new_booking_draft');
                 Toastr::error(translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened'));
@@ -1407,6 +1414,11 @@ class BookingController extends Controller
                         'reopen_source_booking_id' => [translate('Loss_making_completed_booking_cannot_be_reopened')],
                     ]);
                 }
+                if ($srcPreview && $srcPreview->isScaledSettlementLossRecovered()) {
+                    throw ValidationException::withMessages([
+                        'reopen_source_booking_id' => [translate('Scaled_settlement_loss_recovered_booking_cannot_be_reopened')],
+                    ]);
+                }
                 if ($srcPreview && $srcPreview->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
                     throw ValidationException::withMessages([
                         'reopen_source_booking_id' => [translate('Bfs_decided_charges_settlement_booking_cannot_be_reopened')],
@@ -1675,6 +1687,11 @@ class BookingController extends Controller
             if ($sourceForFollowUp && $sourceForFollowUp->isLossMakingFinancialSettlement()) {
                 throw ValidationException::withMessages([
                     'reopen_source_booking_id' => [translate('Loss_making_completed_booking_cannot_be_reopened')],
+                ]);
+            }
+            if ($sourceForFollowUp && $sourceForFollowUp->isScaledSettlementLossRecovered()) {
+                throw ValidationException::withMessages([
+                    'reopen_source_booking_id' => [translate('Scaled_settlement_loss_recovered_booking_cannot_be_reopened')],
                 ]);
             }
             if ($sourceForFollowUp && $sourceForFollowUp->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {

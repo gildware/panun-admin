@@ -7454,6 +7454,7 @@ _Message' => 'Customer notification for provider bid offer
   'Reopened_from_self' => 'Self (same booking)',
   'Reopen_after_completion' => 'Reopen or raise complaint (after completion)',
   'Loss_making_completed_booking_cannot_be_reopened' => 'Loss-making bookings cannot be reopened.',
+  'Scaled_settlement_loss_recovered_booking_cannot_be_reopened' => 'This booking used scaled settlement and the customer shortfall is fully recovered. It is closed for reopen and follow-up booking.',
   'Reopen_after_completion_help' => 'Reopens this booking (same ID) to Pending or Accepted, records the reason and optional notes, and tags the case for reporting and provider performance.',
   'Reopen_custom_commission_resets_to_default_hint' => 'Note: Reopening cancels any custom commission set for this booking. Default commission rules will apply after reopen.',
   'New_schedule_date_time' => 'New schedule date & time',

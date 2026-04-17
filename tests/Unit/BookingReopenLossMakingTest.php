@@ -37,6 +37,24 @@ class BookingReopenLossMakingTest extends TestCase
         $this->assertTrue($b->isScaledSettlementLossRecovered());
     }
 
+    public function test_admin_not_eligible_for_reopen_when_scaled_settlement_loss_recovered(): void
+    {
+        $b = new Booking;
+        $b->is_repeated = 0;
+        $b->booking_status = 'completed';
+        $b->total_booking_amount = 600.0;
+        $b->extra_fee = 0.0;
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = ['scaled_customer_paid_amount' => 100.0];
+        $b->setRelation('extra_services', collect());
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 600.0, 'received_by' => 'company'],
+        ]));
+
+        $this->assertTrue($b->isScaledSettlementLossRecovered());
+        $this->assertFalse($b->adminEligibleForReopenFromCompleted());
+    }
+
     public function test_reopen_in_place_rejects_completed_loss_making_booking(): void
     {
         $booking = new Booking;
@@ -49,6 +67,29 @@ class BookingReopenLossMakingTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage(translate('Loss_making_completed_booking_cannot_be_reopened'));
+
+        app(BookingReopenService::class)->reopenInPlace($booking, $actor, '', 'accepted', null, null);
+    }
+
+    public function test_reopen_in_place_rejects_scaled_settlement_loss_recovered_booking(): void
+    {
+        $booking = new Booking;
+        $booking->is_repeated = 0;
+        $booking->booking_status = 'completed';
+        $booking->total_booking_amount = 600.0;
+        $booking->extra_fee = 0.0;
+        $booking->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $booking->settlement_config = ['scaled_customer_paid_amount' => 100.0];
+        $booking->setRelation('extra_services', collect());
+        $booking->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 600.0, 'received_by' => 'company'],
+        ]));
+
+        $actor = new User;
+        $actor->id = '00000000-0000-0000-0000-000000000001';
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage(translate('Scaled_settlement_loss_recovered_booking_cannot_be_reopened'));
 
         app(BookingReopenService::class)->reopenInPlace($booking, $actor, '', 'accepted', null, null);
     }

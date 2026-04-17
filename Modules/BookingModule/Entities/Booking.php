@@ -383,7 +383,7 @@ class Booking extends Model
     }
 
     /**
-     * Admin "Reopen" / follow-up-from-completed (non-repeat, completed, not loss-making scaled, not decided-charges special settlement).
+     * Admin "Reopen" / follow-up-from-completed (non-repeat, completed, not loss-making scaled, not loss-recovered scaled end state, not decided-charges special settlement).
      */
     public function adminEligibleForReopenFromCompleted(): bool
     {
@@ -398,6 +398,10 @@ class Booking extends Model
             return false;
         }
         if ($this->isLossMakingFinancialSettlement()) {
+            return false;
+        }
+        // Scaled settlement after full recovery (was loss-tagged flow; shortfall cleared) — terminal like disputed close.
+        if ($this->isScaledSettlementLossRecovered()) {
             return false;
         }
         if ($this->blocksAdminReopenDueToDecidedChargesSpecialSettlement()) {
