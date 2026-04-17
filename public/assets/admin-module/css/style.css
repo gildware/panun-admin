@@ -2810,6 +2810,15 @@ svg.danger circle {
   background-color: #e4ae23;
 }
 
+.badge-warning-dark {
+  background-color: rgba(var(--bs-warning-rgb-dark), 0.12);
+  color: var(--bs-warning-dark);
+}
+
+.badge-warning-dark .dot {
+  background-color: var(--bs-warning-dark);
+}
+
 /* Switcher */
 .switcher {
   display: block;

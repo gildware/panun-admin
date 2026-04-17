@@ -34,7 +34,7 @@
     <span class="badge bg-success text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"
           title="{{ translate('Refunded') }}: {{ with_currency_symbol((float) ($bfsRefundTotals['refunded_total'] ?? 0)) }}">{{ translate('Refunded') }}</span>
 @elseif($bfsRefundTag === 'partial')
-    <span class="badge bg-info text-dark text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"
+    <span class="badge bg-info text-white text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"
           title="{{ translate('Booking_tag_refund_partial') }}: {{ with_currency_symbol((float) ($bfsRefundTotals['refunded_total'] ?? 0)) }} / {{ with_currency_symbol((float) ($bfsRefundTotals['max_eligible'] ?? 0)) }}">{{ translate('Booking_tag_refund_partial') }}</span>
 @endif
 @if($bfsHasDisputed)
@@ -59,7 +59,7 @@
 @if(empty($booking->is_repeated))
     @if($booking->isOpenReopenTicket())
         <span class="badge bg-warning text-dark text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}">{{ translate('Reopened') }}</span>
-    @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
+    @elseif($booking->isReopenedTagged() && !booking_admin_has_disputed_reopen_snapshot($booking))
         <span class="badge bg-success text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}">{{ translate('Resolved') }}</span>
     @endif
 @endif

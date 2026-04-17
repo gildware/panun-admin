@@ -32,7 +32,7 @@
                                     </div>
                                     <div class="col-lg-4 col-sm-6 mb-30">
                                         <label class="mb-2">{{translate('category')}}</label>
-                                        <select class="js-select category__select" name="category_ids[]" multiple>
+                                        <select class="js-select category__select" name="category_ids[]" id="category_selector__select" multiple>
                                             @foreach($categories as $category)
                                                 <option value="{{$category['id']}}" {{array_key_exists('category_ids', $queryParams) && in_array($category['id'], $queryParams['category_ids']) ? 'selected' : '' }}>{{$category['name']}}</option>
                                             @endforeach
@@ -40,9 +40,17 @@
                                     </div>
                                     <div class="col-lg-4 col-sm-6 mb-30">
                                         <label class="mb-2">{{translate('sub_category')}}</label>
-                                        <select class="js-select sub-category__select" name="sub_category_ids[]" multiple>
+                                        <select class="js-select sub-category__select" name="sub_category_ids[]" id="sub_category_selector__select" multiple>
                                             @foreach($subCategories as $subCategory)
                                                 <option value="{{$subCategory['id']}}" {{array_key_exists('sub_category_ids', $queryParams) && in_array($subCategory['id'], $queryParams['sub_category_ids']) ? 'selected' : '' }}>{{$subCategory['name']}}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-4 col-sm-6 mb-30">
+                                        <label class="mb-2">{{translate('service')}}</label>
+                                        <select class="js-select service__select" name="service_ids[]" id="service_selector__select" multiple>
+                                            @foreach($services as $service)
+                                                <option value="{{$service->id}}" {{array_key_exists('service_ids', $queryParams) && is_array($queryParams['service_ids']) && in_array($service->id, $queryParams['service_ids'], true) ? 'selected' : '' }}>{{$service->name}}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -78,8 +86,9 @@
                                             <label for="to">{{translate('To')}}</label>
                                         </div>
                                     </div>
-                                    <div class="col-12 gap-3 d-flex justify-content-end">
-                                        <button type="reset" class="btn btn--secondary btn-sm">{{translate('Reset')}}</button>
+                                    <div class="col-12 gap-2 d-flex justify-content-end flex-wrap">
+                                        <a href="{{ route('provider.report.booking') }}"
+                                           class="btn btn--secondary btn-sm">{{ translate('Clear_all_Filter') }}</a>
                                         <button type="submit" class="btn btn--primary btn-sm">{{translate('Submit')}}</button>
                                     </div>
                                 </div>
@@ -99,22 +108,13 @@
                                         </div>
                                     </div>
                                     <div class="d-flex flex-wrap justify-content-between gap-2 mt-30">
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span class="fw-semibold text-danger">{{$bookingsCount['canceled']}}</span>
-                                            <span class="opacity-50">{{translate('Canceled')}}</span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span class="fw-semibold text-success">{{$bookingsCount['accepted']}}</span>
-                                            <span class="opacity-50">{{translate('Accepted')}}</span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span class="c1 fw-semibold">{{$bookingsCount['ongoing']}}</span>
-                                            <span class="opacity-50">{{translate('On_Going')}}</span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span class="fw-semibold text-success">{{$bookingsCount['completed']}}</span>
-                                            <span class="opacity-50">{{translate('Completed')}}</span>
-                                        </div>
+                                        @foreach(BOOKING_STATUSES as $booking_status)
+                                            @php($bkSt = $booking_status['key'])
+                                            <div class="d-flex flex-column align-items-center gap-2 fz-12">
+                                                <span class="fw-semibold">{{ $bookingsCount[$bkSt] ?? 0 }}</span>
+                                                <span class="opacity-50 text-center">{{ translate('Booking_status_tpl_' . $bkSt) }}</span>
+                                            </div>
+                                        @endforeach
                                     </div>
                                 </div>
 
@@ -152,6 +152,200 @@
                                 <div class="card-body ps-0">
                                     <h4 class="ps-20">{{translate('Booking_Statistics')}}</h4>
                                     <div id="apex_column-chart"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="mb-3 fz-16">{{ translate('Booking_Status') }} — {{ translate('total') }}</div>
+                            <div class="table-responsive mb-4">
+                                <table class="table table-borderless table-sm align-middle mb-0">
+                                    <thead class="text-nowrap border-bottom">
+                                    <tr>
+                                        <th>{{ translate('Booking_Status') }}</th>
+                                        <th class="text-end">{{ translate('total') }}</th>
+                                        <th class="text-end">{{ translate('Booking_Amount') }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @foreach($report_status_table as $row)
+                                        <tr>
+                                            <td>{{ $row['label'] }}</td>
+                                            <td class="text-end fw-semibold">{{ $row['count'] }}</td>
+                                            <td class="text-end">{{ with_currency_symbol($row['amount']) }}</td>
+                                        </tr>
+                                    @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('Booking_Status') }}</h5>
+                                        <div id="apex_booking_status_pie"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('Booking_Status') }} ({{ translate('total') }})</h5>
+                                        <div id="apex_booking_status_donut"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('Tag') }}</h5>
+                                        <div id="apex_booking_tags_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('Booking_Amount') }} — {{ translate('Booking_Status') }}</h5>
+                                        <div id="apex_booking_status_amount_bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="mb-3 fz-16">{{ translate('Booking_cancellation_reasons') }}</div>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('Cancellation_Reason') }}</h5>
+                                        <div id="apex_cancel_reason_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('service') }} ({{ translate('Booking_status_tpl_canceled') }})</h5>
+                                        <div id="apex_cancel_service_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="table-responsive">
+                                        <table class="table table-borderless table-sm align-middle mb-0">
+                                            <thead class="text-nowrap border-bottom">
+                                            <tr>
+                                                <th>{{ translate('Cancellation_Reason') }}</th>
+                                                <th>{{ translate('Responsible') }}</th>
+                                                <th class="text-end">{{ translate('total') }}</th>
+                                                <th class="text-end">{{ translate('Booking_Amount') }}</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            @forelse($cancel_reason_rows as $row)
+                                                <tr>
+                                                    <td>{{ $row['reason_name'] }}</td>
+                                                    <td class="text-capitalize">{{ str_replace('_', ' ', $row['responsible']) }}</td>
+                                                    <td class="text-end fw-semibold">{{ $row['booking_count'] }}</td>
+                                                    <td class="text-end">{{ with_currency_symbol($row['total_amount']) }}</td>
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="99" class="text-center">{{ translate('Data_not_available') }}</td></tr>
+                                            @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="border rounded p-3">
+                                        <h5 class="fz-14 mb-3">{{ translate('Remarks') }}</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-borderless table-sm align-middle mb-0">
+                                                <thead class="text-nowrap border-bottom">
+                                                <tr>
+                                                    <th>{{ translate('Remarks') }}</th>
+                                                    <th class="text-end">{{ translate('total') }}</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                @forelse($cancel_remarks_rows as $row)
+                                                    <tr>
+                                                        <td>{{ $row['remarks'] }}</td>
+                                                        <td class="text-end fw-semibold">{{ $row['count'] }}</td>
+                                                    </tr>
+                                                @empty
+                                                    <tr><td colspan="99" class="text-center">{{ translate('Data_not_available') }}</td></tr>
+                                                @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="mb-3 fz-16">{{ translate('Booking_hold_reasons') }}</div>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('Hold_reason') }}</h5>
+                                        <div id="apex_hold_reason_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3">{{ translate('service') }} ({{ translate('Booking_status_tpl_on_hold') }})</h5>
+                                        <div id="apex_hold_service_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="table-responsive">
+                                        <table class="table table-borderless table-sm align-middle mb-0">
+                                            <thead class="text-nowrap border-bottom">
+                                            <tr>
+                                                <th>{{ translate('Hold_reason') }}</th>
+                                                <th>{{ translate('Responsible') }}</th>
+                                                <th class="text-end">{{ translate('total') }}</th>
+                                                <th class="text-end">{{ translate('Booking_Amount') }}</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            @forelse($hold_reason_rows as $row)
+                                                <tr>
+                                                    <td>{{ $row['reason_name'] }}</td>
+                                                    <td class="text-capitalize">{{ str_replace('_', ' ', $row['responsible']) }}</td>
+                                                    <td class="text-end fw-semibold">{{ $row['booking_count'] }}</td>
+                                                    <td class="text-end">{{ with_currency_symbol($row['total_amount']) }}</td>
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="99" class="text-center">{{ translate('Data_not_available') }}</td></tr>
+                                            @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="border rounded p-3">
+                                        <h5 class="fz-14 mb-3">{{ translate('Remarks') }}</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-borderless table-sm align-middle mb-0">
+                                                <thead class="text-nowrap border-bottom">
+                                                <tr>
+                                                    <th>{{ translate('Remarks') }}</th>
+                                                    <th class="text-end">{{ translate('total') }}</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                @forelse($hold_remarks_rows as $row)
+                                                    <tr>
+                                                        <td>{{ $row['remarks'] }}</td>
+                                                        <td class="text-end fw-semibold">{{ $row['count'] }}</td>
+                                                    </tr>
+                                                @empty
+                                                    <tr><td colspan="99" class="text-center">{{ translate('Data_not_available') }}</td></tr>
+                                                @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -288,6 +482,69 @@
     <script>
         "use strict";
 
+        var bookingReportAllSubCategories = @json($allSubCategoriesForJs);
+        var bookingReportAllServices = @json($allServicesForJs);
+
+        function bookingReportSelectedRealIds($select) {
+            var vals = $select.val();
+            if (!vals) {
+                return [];
+            }
+            return vals.filter(function (v) {
+                return v !== 'all';
+            });
+        }
+
+        function rebuildBookingReportSubCategories() {
+            var $cat = $('#category_selector__select');
+            var $sub = $('#sub_category_selector__select');
+            var catIds = bookingReportSelectedRealIds($cat);
+            var prevSub = bookingReportSelectedRealIds($sub);
+            var filtered = bookingReportAllSubCategories.filter(function (s) {
+                return catIds.length > 0 && catIds.indexOf(s.parent_id) !== -1;
+            });
+            $sub.find('option').remove();
+            filtered.forEach(function (s) {
+                $sub.append(new Option(s.name, s.id, false, prevSub.indexOf(s.id) !== -1));
+            });
+            var nextSub = prevSub.filter(function (id) {
+                return filtered.some(function (s) {
+                    return s.id === id;
+                });
+            });
+            $sub.val(nextSub.length ? nextSub : null);
+            $sub.trigger('change');
+        }
+
+        function rebuildBookingReportServices() {
+            var $sub = $('#sub_category_selector__select');
+            var $svc = $('#service_selector__select');
+            var subIds = bookingReportSelectedRealIds($sub);
+            var prevSvc = bookingReportSelectedRealIds($svc);
+            var filtered = bookingReportAllServices.filter(function (s) {
+                return subIds.length > 0 && subIds.indexOf(s.sub_category_id) !== -1;
+            });
+            $svc.find('option').remove();
+            filtered.forEach(function (s) {
+                $svc.append(new Option(s.name, s.id, false, prevSvc.indexOf(s.id) !== -1));
+            });
+            var nextSvc = prevSvc.filter(function (id) {
+                return filtered.some(function (s) {
+                    return s.id === id;
+                });
+            });
+            $svc.val(nextSvc.length ? nextSvc : null);
+            $svc.trigger('change');
+        }
+
+        $('#category_selector__select').on('change', function () {
+            rebuildBookingReportSubCategories();
+        });
+
+        $('#sub_category_selector__select').on('change', function () {
+            rebuildBookingReportServices();
+        });
+
         $(document).ready(function () {
             $('.zone__select').select2({
                 placeholder: "{{translate('Select_zone')}}",
@@ -300,6 +557,9 @@
             });
             $('.sub-category__select').select2({
                 placeholder: "{{translate('Select_sub_category')}}",
+            });
+            $('.service__select').select2({
+                placeholder: "{{translate('service')}}",
             });
             $('.booking-status__select').select2({
                 placeholder: "{{translate('Booking_status')}}",
@@ -383,5 +643,117 @@
 
         var chart = new ApexCharts(document.querySelector("#apex_column-chart"), options);
         chart.render();
+
+        var reportStatusChart = @json($report_status_chart);
+        var reportTagLabels = @json($report_tag_labels);
+        var reportTagCounts = @json($report_tag_counts);
+        var reportChartPalette = ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0', '#546E7A', '#26a69a'];
+
+        if (document.querySelector('#apex_booking_status_pie')) {
+            new ApexCharts(document.querySelector('#apex_booking_status_pie'), {
+                chart: {type: 'pie', height: 320, toolbar: {show: false}},
+                labels: reportStatusChart.labels,
+                series: reportStatusChart.counts,
+                colors: reportChartPalette,
+                legend: {position: 'bottom'},
+                dataLabels: {enabled: true}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_booking_status_donut')) {
+            new ApexCharts(document.querySelector('#apex_booking_status_donut'), {
+                chart: {type: 'donut', height: 320, toolbar: {show: false}},
+                labels: reportStatusChart.labels,
+                series: reportStatusChart.counts,
+                colors: reportChartPalette,
+                legend: {
+                    position: 'bottom',
+                    formatter: function (seriesName, opts) {
+                        var val = (opts.w.globals.series[opts.seriesIndex] || 0);
+                        return seriesName + ' (' + val + ')';
+                    }
+                },
+                plotOptions: {pie: {donut: {size: '65%'}}},
+                dataLabels: {enabled: true}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_booking_tags_bar')) {
+            new ApexCharts(document.querySelector('#apex_booking_tags_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: reportTagCounts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: reportTagLabels},
+                dataLabels: {enabled: true},
+                colors: ['#775DD0'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_booking_status_amount_bar')) {
+            new ApexCharts(document.querySelector('#apex_booking_status_amount_bar'), {
+                chart: {type: 'bar', height: 320, toolbar: {show: false}},
+                series: [{name: @json(translate('Booking_Amount')), data: reportStatusChart.amounts}],
+                plotOptions: {bar: {horizontal: false, columnWidth: '55%', borderRadius: 4}},
+                xaxis: {categories: reportStatusChart.labels},
+                yaxis: {title: {text: @json(currency_symbol())}},
+                dataLabels: {enabled: true},
+                colors: ['#008FFB'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        var cancelReasonChart = @json($cancel_reason_chart);
+        var cancelServiceChart = @json($cancel_service_chart);
+        var holdReasonChart = @json($hold_reason_chart);
+        var holdServiceChart = @json($hold_service_chart);
+
+        if (document.querySelector('#apex_cancel_reason_bar')) {
+            new ApexCharts(document.querySelector('#apex_cancel_reason_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: cancelReasonChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: cancelReasonChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#FF4560'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_cancel_service_bar')) {
+            new ApexCharts(document.querySelector('#apex_cancel_service_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: cancelServiceChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: cancelServiceChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#FEB019'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_hold_reason_bar')) {
+            new ApexCharts(document.querySelector('#apex_hold_reason_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: holdReasonChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: holdReasonChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#775DD0'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_hold_service_bar')) {
+            new ApexCharts(document.querySelector('#apex_hold_service_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: holdServiceChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: holdServiceChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#00E396'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
     </script>
 @endpush

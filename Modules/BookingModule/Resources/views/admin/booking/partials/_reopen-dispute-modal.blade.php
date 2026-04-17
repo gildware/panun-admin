@@ -47,6 +47,20 @@
                     </ul>
                     <form method="post" action="{{ route('admin.booking.reopen_scenario.disputed_refund', $booking->id) }}" class="reopen-disputed-form">
                         @csrf
+                        <div class="mb-2">
+                            <label class="form-label small">{{ translate('Dispute_reason') }} <span class="text-danger">*</span></label>
+                            <select name="booking_dispute_reason_id" class="form-select" required>
+                                <option value="" disabled {{ old('booking_dispute_reason_id') ? '' : 'selected' }}>—</option>
+                                @foreach(($bookingDisputeReasons ?? collect()) as $reason)
+                                    <option value="{{ $reason->id }}" {{ (string) old('booking_dispute_reason_id') === (string) $reason->id ? 'selected' : '' }}>
+                                        {{ $reason->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('booking_dispute_reason_id')
+                                <span class="text-danger small d-block">{{ $message }}</span>
+                            @enderror
+                        </div>
                         <p class="small text-muted mb-2">{{ translate('Disputed_refund_pair_linked_hint') }}</p>
                         <p class="small text-muted mb-2">{{ translate('Disputed_refund_max_per_field_is_customer_paid') }}
                             <strong>{{ with_currency_symbol($__rsPaid) }}</strong>.</p>

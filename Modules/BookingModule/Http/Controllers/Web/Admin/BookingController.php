@@ -41,6 +41,7 @@ use Throwable;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\SubscriptionBookingType;
 use Modules\BookingModule\Entities\BookingCancellationReason;
+use Modules\BookingModule\Entities\BookingDisputeReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
@@ -121,6 +122,7 @@ class BookingController extends Controller
             'bookingCancellationReasons' => BookingCancellationReason::query()->where('is_active', true)->orderBy('name')->get(),
             'bookingHoldReasons' => BookingHoldReopenReason::query()->where('is_active', true)->where('kind', BookingHoldReopenReason::KIND_HOLD)->orderBy('name')->get(),
             'bookingReopenReasons' => BookingHoldReopenReason::query()->where('is_active', true)->where('kind', BookingHoldReopenReason::KIND_REOPEN)->orderBy('name')->get(),
+            'bookingDisputeReasons' => BookingDisputeReason::query()->where('is_active', true)->orderBy('name')->get(),
         ];
     }
 
@@ -207,7 +209,20 @@ class BookingController extends Controller
     public function index(Request $request): Renderable
     {
         $this->authorize('booking_view');
-        $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), ['all', 'reopened']);
+        $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), [
+            'all',
+            'reopened',
+            'resolved',
+            'disputed_cancelled',
+            'disputed_completed',
+            'hold_after_visit',
+            'cancelled_after_visit',
+            'completed_no_or_little',
+            'loss_making',
+            'loss_making_pending',
+            'loss_recovered',
+            'loss_settled',
+        ]);
         $request->validate([
             'booking_status' => 'nullable|in:' . implode(',', $allowedBookingStatuses),
         ]);
@@ -243,6 +258,24 @@ class BookingController extends Controller
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
                 if ($bookingStatus === 'reopened') {
                     $query->reopenedChain();
+                } elseif ($bookingStatus === 'resolved') {
+                    $query->resolvedReopenCase();
+                } elseif ($bookingStatus === 'disputed_cancelled') {
+                    $query->disputedClosedCancelled();
+                } elseif ($bookingStatus === 'disputed_completed') {
+                    $query->disputedClosedCompleted();
+                } elseif ($bookingStatus === 'hold_after_visit') {
+                    $query->holdAfterVisit();
+                } elseif ($bookingStatus === 'cancelled_after_visit') {
+                    $query->cancelledAfterVisit();
+                } elseif ($bookingStatus === 'completed_no_or_little') {
+                    $query->completedNoOrLittle();
+                } elseif ($bookingStatus === 'loss_making_pending' || $bookingStatus === 'loss_making') {
+                    $query->lossMakingPending();
+                } elseif ($bookingStatus === 'loss_recovered') {
+                    $query->lossRecovered();
+                } elseif ($bookingStatus === 'loss_settled') {
+                    $query->lossSettled();
                 } else {
                     $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
                         $query->adminPendingBookings($maxBookingAmount);
@@ -398,6 +431,15 @@ class BookingController extends Controller
             'reopened' => $this->booking->newQuery()->reopenedChain()->count(),
             'on_hold' => $this->booking->newQuery()->where('booking_status', 'on_hold')->count(),
             'canceled' => $this->booking->newQuery()->whereIn('booking_status', ['canceled', 'refunded'])->count(),
+            'hold_after_visit' => $this->booking->newQuery()->holdAfterVisit()->count(),
+            'resolved' => $this->booking->newQuery()->resolvedReopenCase()->count(),
+            'disputed_cancelled' => $this->booking->newQuery()->disputedClosedCancelled()->count(),
+            'disputed_completed' => $this->booking->newQuery()->disputedClosedCompleted()->count(),
+            'completed_no_or_little' => $this->booking->newQuery()->completedNoOrLittle()->count(),
+            'cancelled_after_visit' => $this->booking->newQuery()->cancelledAfterVisit()->count(),
+            'loss_making_pending' => $this->booking->newQuery()->lossMakingPending()->count(),
+            'loss_recovered' => $this->booking->newQuery()->lossRecovered()->count(),
+            'loss_settled' => $this->booking->newQuery()->lossSettled()->count(),
         ];
     }
 
@@ -2325,10 +2367,11 @@ class BookingController extends Controller
                 'provider',
                 'serviceman',
                 'assignee',
-                'status_histories' => fn ($q) => $q->with(['user', 'cancellationReason', 'holdReopenReason']),
+                'status_histories' => fn ($q) => $q->with(['user', 'cancellationReason', 'holdReopenReason', 'disputeReason']),
                 'latestParentCancellationStatusHistory.cancellationReason',
                 'latestParentHoldStatusHistory.holdReopenReason',
                 'latestParentHoldStatusHistory.user',
+                'latestParentDisputeStatusHistory.disputeReason',
                 'booking_partial_payments.ledgerTransactions',
                 'booking_offline_payments',
                 'followups',
@@ -2841,6 +2884,12 @@ class BookingController extends Controller
         $totalPaid = round((float) get_booking_total_paid($booking), 2);
 
         $validated = $request->validate([
+            'booking_dispute_reason_id' => [
+                'required',
+                Rule::exists('booking_dispute_reasons', 'id')->where(function ($query) {
+                    $query->where('is_active', 1);
+                }),
+            ],
             'refund_company_amount' => ['required', 'numeric', 'min:0'],
             'refund_provider_amount' => ['required', 'numeric', 'min:0'],
             'refund_company_transaction_id' => ['nullable', 'string', 'max:100'],
@@ -2981,6 +3030,8 @@ class BookingController extends Controller
             ]);
         }
 
+        $disputeReasonId = (int) $validated['booking_dispute_reason_id'];
+
         $tidCompany = AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) ($validated['refund_company_transaction_id'] ?? '')));
         $tidProvider = AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) ($validated['refund_provider_transaction_id'] ?? '')));
 
@@ -3032,6 +3083,7 @@ class BookingController extends Controller
                 $userIdForHistory,
                 $resolverUserId,
                 $remarks,
+                $disputeReasonId,
                 $snapshot,
                 $totalPaid,
                 $totalRefund,
@@ -3120,7 +3172,8 @@ class BookingController extends Controller
                     $booking->id,
                     null,
                     null,
-                    'reopen_disputed: '.$remarks
+                    $disputeReasonId,
+                    $remarks
                 );
             });
         } catch (\Throwable $e) {
@@ -3817,6 +3870,7 @@ class BookingController extends Controller
         string $bookingId,
         ?int $cancellationReasonId = null,
         ?int $holdReopenReasonId = null,
+        ?int $disputeReasonId = null,
         ?string $remarks = null,
     ): void {
         $remarksTrimmed = is_string($remarks) ? trim($remarks) : null;
@@ -3830,6 +3884,7 @@ class BookingController extends Controller
             'booking_status' => $status,
             'booking_cancellation_reason_id' => $cancellationReasonId,
             'booking_hold_reopen_reason_id' => $holdReopenReasonId,
+            'booking_dispute_reason_id' => $disputeReasonId,
             'status_change_remarks' => $remarksTrimmed,
         ]);
     }

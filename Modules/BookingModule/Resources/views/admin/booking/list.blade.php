@@ -117,6 +117,16 @@
                             <h2 class="page-title">{{ translate('Reopened_bookings') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'on_hold')
                             <h2 class="page-title">{{ translate('On_hold_bookings') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'disputed_cancelled')
+                            <h2 class="page-title">{{ translate('Disputed_and_Cancelled') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'disputed_completed')
+                            <h2 class="page-title">{{ translate('Disputed_and_Completed') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'loss_making_pending')
+                            <h2 class="page-title">{{ translate('Bfs_list_badge_loss_making') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'loss_recovered')
+                            <h2 class="page-title">{{ translate('Bfs_list_badge_loss_recovered') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'loss_settled')
+                            <h2 class="page-title">{{ translate('Settled') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'all')
                             <h2 class="page-title">{{ translate('Booking_Requests') }}</h2>
                         @elseif($queryParams['booking_status'] ?? null)
@@ -160,6 +170,13 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'canceled' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'canceled'])) }}">
+                                    {{ translate('Cancelled') }}
+                                    <span class="count">{{ $bookingTabCounts['canceled'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link {{ $bookingListTabStatus === 'ongoing' ? 'active' : '' }}"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'ongoing'])) }}">
                                     {{ translate('Ongoing') }}
@@ -181,6 +198,27 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'resolved' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'resolved'])) }}">
+                                    {{ translate('Resolved') }}
+                                    <span class="count">{{ $bookingTabCounts['resolved'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'disputed_cancelled' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'disputed_cancelled'])) }}">
+                                    {{ translate('Disputed_and_Cancelled') }}
+                                    <span class="count">{{ $bookingTabCounts['disputed_cancelled'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'disputed_completed' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'disputed_completed'])) }}">
+                                    {{ translate('Disputed_and_Completed') }}
+                                    <span class="count">{{ $bookingTabCounts['disputed_completed'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link {{ $bookingListTabStatus === 'on_hold' ? 'active' : '' }}"
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'on_hold'])) }}">
                                     {{ translate('On_hold') }}
@@ -188,10 +226,45 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'canceled' ? 'active' : '' }}"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'canceled'])) }}">
-                                    {{ translate('Canceled') }}
-                                    <span class="count">{{ $bookingTabCounts['canceled'] }}</span>
+                                <a class="nav-link {{ $bookingListTabStatus === 'hold_after_visit' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'hold_after_visit'])) }}">
+                                    {{ translate('Hold_after_visit') }}
+                                    <span class="count">{{ $bookingTabCounts['hold_after_visit'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'completed_no_or_little' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'completed_no_or_little'])) }}">
+                                    {{ translate('Booking_tag_complete_no_service') }}
+                                    <span class="count">{{ $bookingTabCounts['completed_no_or_little'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'cancelled_after_visit' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'cancelled_after_visit'])) }}">
+                                    {{ translate('Booking_tag_cancel_after_visit') }}
+                                    <span class="count">{{ $bookingTabCounts['cancelled_after_visit'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ in_array($bookingListTabStatus, ['loss_making_pending', 'loss_making'], true) ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_making_pending'])) }}">
+                                    {{ translate('Bfs_list_badge_loss_making') }}
+                                    <span class="count">{{ $bookingTabCounts['loss_making_pending'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'loss_recovered' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_recovered'])) }}">
+                                    {{ translate('Bfs_list_badge_loss_recovered') }}
+                                    <span class="count">{{ $bookingTabCounts['loss_recovered'] ?? 0 }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'loss_settled' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'loss_settled'])) }}">
+                                    {{ translate('Settled') }}
+                                    <span class="count">{{ $bookingTabCounts['loss_settled'] ?? 0 }}</span>
                                 </a>
                             </li>
                         </ul>

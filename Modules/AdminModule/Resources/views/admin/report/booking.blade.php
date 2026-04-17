@@ -3,7 +3,17 @@
 @section('title',translate('Booking_Report'))
 
 @push('css_or_js')
-
+    <style>
+        .report-chart-title{
+            font-weight: 800;
+            color: #0b5ed7;
+            letter-spacing: .2px;
+        }
+        .report-chart-title .report-chart-meta{
+            font-weight: 700;
+            color: #6c757d;
+        }
+    </style>
 @endpush
 
 @section('content')
@@ -57,6 +67,18 @@
                                         </select>
                                     </div>
                                     <div class="col-lg-4 col-sm-6 mb-30">
+                                        <label class="mb-2">{{translate('service')}}</label>
+                                        <select class="js-select service__select" name="service_ids[]"
+                                                id="service_selector__select"
+                                                multiple>
+                                            <option value="all">{{translate('Select All')}}</option>
+                                            @foreach($services as $service)
+                                                <option
+                                                    value="{{$service->id}}" {{array_key_exists('service_ids', $queryParams) && is_array($queryParams['service_ids']) && in_array($service->id, $queryParams['service_ids'], true) ? 'selected' : '' }}>{{$service->name}}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-4 col-sm-6 mb-30">
                                         <label class="mb-2">{{translate('provider')}}</label>
                                         <select class="js-select provider__select" name="provider_ids[]"
                                                 id="provider_selector__select" multiple>
@@ -65,6 +87,22 @@
                                                 <option
                                                     value="{{$provider['id']}}" {{array_key_exists('provider_ids', $queryParams) && in_array($provider['id'], $queryParams['provider_ids']) ? 'selected' : '' }}>{{$provider['company_name']}}
                                                     ({{$provider['company_phone']}})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-4 col-sm-6 mb-30">
+                                        <label class="mb-2">{{ translate('Assignee') }}</label>
+                                        <select class="js-select staff__select" name="staff_ids[]"
+                                                id="staff_selector__select" multiple>
+                                            <option value="all">{{translate('Select All')}}</option>
+                                            <option value="__unassigned__" {{ array_key_exists('staff_ids', $queryParams) && in_array('__unassigned__', $queryParams['staff_ids'] ?? [], true) ? 'selected' : '' }}>
+                                                {{ translate('Unassigned') }}
+                                            </option>
+                                            @foreach($assignees as $u)
+                                                <option value="{{ $u->id }}"
+                                                    {{ array_key_exists('staff_ids', $queryParams) && in_array($u->id, $queryParams['staff_ids'] ?? [], true) ? 'selected' : '' }}>
+                                                    {{ trim($u->first_name . ' ' . $u->last_name) }} ({{ $u->email ?? $u->phone }})
                                                 </option>
                                             @endforeach
                                         </select>
@@ -122,7 +160,9 @@
                                             <label for="to">{{translate('To')}}</label>
                                         </div>
                                     </div>
-                                    <div class="col-12 d-flex justify-content-end">
+                                    <div class="col-12 d-flex justify-content-end gap-2 flex-wrap">
+                                        <a href="{{ route('admin.report.booking') }}"
+                                           class="btn btn--secondary btn-sm">{{ translate('Clear_all_Filter') }}</a>
                                         <button type="submit"
                                                 class="btn btn--primary btn-sm">{{translate('Submit')}}</button>
                                     </div>
@@ -131,86 +171,120 @@
                         </div>
                     </div>
 
-                    <div class="row g-2 pt-2">
-                        <div class="col-xl-3">
-                            <div class="d-flex flex-wrap gap-2">
-                                <div class="card p-30 flex-grow-1">
-                                    <div class="d-flex gap-4 flex-wrap">
-                                        <img width="35" class="avatar"
-                                             src="{{asset('assets/admin-module')}}/img/icons/total_booking.png"
-                                             alt="">
-                                        <div class="text-center">
-                                            <h2 class="fz-26">{{$bookings_count['total_bookings']}}</h2>
-                                            <span class="fz-12">{{translate('Total_Bookings')}}</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex flex-wrap justify-content-between gap-2 mt-30">
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span class="fw-semibold text-danger">{{$bookings_count['canceled']}}</span>
-                                            <span class="opacity-50">{{translate('Canceled')}}</span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span
-                                                class="fw-semibold text-success">{{$bookings_count['accepted']}}</span>
-                                            <span class="opacity-50">{{translate('Accepted')}}</span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span class="c1 fw-semibold">{{$bookings_count['ongoing']}}</span>
-                                            <span class="opacity-50">{{translate('On_Going')}}</span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span
-                                                class="fw-semibold text-success">{{$bookings_count['completed']}}</span>
-                                            <span class="opacity-50">{{translate('Completed')}}</span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span
-                                                class="fw-semibold text-success">{{$bookings_count['pending']}}</span>
-                                            <span class="opacity-50">{{translate('pending')}}</span>
-                                        </div>
+                    {{-- Removed: Top widgets + Booking Statistics chart (per request) --}}
+
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                            <span>{{ translate('Booking_Status') }}</span>
+                                            <span class="report-chart-meta">{{ translate('Total_Bookings') }}: {{ $bookings_count['total_bookings'] ?? 0 }}</span>
+                                        </h5>
+                                        <div id="apex_booking_status_donut"></div>
                                     </div>
                                 </div>
-
-                                <div class="card p-30 flex-grow-1">
-                                    <div class="d-flex gap-4 flex-wrap">
-                                        <img width="35" class="avatar"
-                                             src="{{asset('assets/admin-module')}}/img/icons/booking_amount.png"
-                                             alt="">
-                                        <div class="text-center">
-                                            <h2 class="fz-26">{{with_currency_symbol($booking_amount['total_booking_amount'])}}</h2>
-                                            <span class="fz-12">{{translate('Total_Booking_Amount')}}</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex flex-wrap justify-content-between gap-2 mt-30">
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span
-                                                class="text-danger fw-semibold">{{with_currency_symbol($booking_amount['total_unpaid_booking_amount'])}}</span>
-                                            <span class="opacity-50 gap-1">{{translate('Due_Amount')}}
-                                                <i class="material-icons" data-bs-toggle="tooltip"
-                                                   data-bs-placement="top"
-                                                   title="{{translate('Digitally paid but yet to disburse the amount')}}"
-                                                >info</i>
-                                            </span>
-                                        </div>
-                                        <div class="d-flex flex-column align-items-center gap-2 fz-12">
-                                            <span
-                                                class="text-success fw-semibold">{{with_currency_symbol($booking_amount['total_paid_booking_amount'])}}</span>
-                                            <span class="opacity-50 gap-1">{{translate('Already_Settled')}}
-                                                <i class="material-icons" data-bs-toggle="tooltip"
-                                                   data-bs-placement="top"
-                                                   title="{{translate('Digitally paid & already disbursed the amount')}}"
-                                                >info</i>
-                                            </span>
-                                        </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">Status Vise earning</h5>
+                                        <div id="apex_booking_earning_bar"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-xl-9">
-                            <div class="card">
-                                <div class="card-body ps-0">
-                                    <h4 class="ps-20">{{translate('Booking_Statistics')}}</h4>
-                                    <div id="apex_column-chart"></div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="mb-3 fz-16 report-chart-title">{{ translate('Booking_cancellation_reasons') }}</div>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">
+                                            Canceled vs Special vs Disputed
+                                            <span class="report-chart-meta">
+                                                ({{ array_sum($cancel_bucket_chart['counts'] ?? []) }})
+                                            </span>
+                                        </h5>
+                                        <div id="apex_cancel_bucket_donut"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">
+                                            {{ translate('Cancellation_Reason') }} (before visit)
+                                            <span class="report-chart-meta">({{ ($cancel_bucket_chart['counts'][0] ?? 0) }})</span>
+                                        </h5>
+                                        <div id="apex_cancel_reason_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">
+                                            {{ translate('service') }} (canceled before visit)
+                                            <span class="report-chart-meta">({{ ($cancel_bucket_chart['counts'][0] ?? 0) }})</span>
+                                        </h5>
+                                        <div id="apex_cancel_service_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">
+                                            {{ translate('service') }} (special settlement / after visit)
+                                            <span class="report-chart-meta">({{ ($cancel_bucket_chart['counts'][1] ?? 0) }})</span>
+                                        </h5>
+                                        <div id="apex_cancel_special_service_bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="mb-3 fz-16 report-chart-title">
+                                Disputed bookings
+                                <span class="report-chart-meta">
+                                    ({{ ($cancel_bucket_chart['counts'][2] ?? 0) + ($cancel_bucket_chart['counts'][3] ?? 0) }})
+                                </span>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-lg-12">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">{{ translate('service') }} (disputed)</h5>
+                                        <div id="apex_disputed_service_bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="mb-3 fz-16 report-chart-title">{{ translate('Booking_hold_reasons') }}</div>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">
+                                            {{ translate('Hold_reason') }}
+                                            <span class="report-chart-meta">
+                                                ({{ (collect($report_status_table ?? [])->firstWhere('key', 'on_hold')['count'] ?? 0) }})
+                                            </span>
+                                        </h5>
+                                        <div id="apex_hold_reason_bar"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <h5 class="fz-14 mb-3 report-chart-title">
+                                            {{ translate('service') }} ({{ translate('Booking_status_tpl_on_hold') }})
+                                            <span class="report-chart-meta">
+                                                ({{ (collect($report_status_table ?? [])->firstWhere('key', 'on_hold')['count'] ?? 0) }})
+                                            </span>
+                                        </h5>
+                                        <div id="apex_hold_service_bar"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -271,7 +345,7 @@
                                         <th>{{translate('SL')}}</th>
                                         <th>{{translate('Booking_ID')}}</th>
                                         <th>{{translate('Booking_Status')}}</th>
-                                        <th>{{translate('Tag')}}</th>
+                                        <th>{{translate('Status_Vise_earning')}}</th>
                                         <th>{{translate('Customer_Info')}}</th>
                                         <th>{{translate('Provider_Info')}}</th>
                                         <th>{{translate('Booking_Amount')}}</th>
@@ -376,6 +450,64 @@
     <script>
         "use strict";
 
+        var bookingReportAllSubCategories = @json($allSubCategoriesForJs);
+        var bookingReportAllServices = @json($allServicesForJs);
+        var bookingReportSelectAllLabel = @json(translate('Select_All'));
+
+        function bookingReportSelectedRealIds($select) {
+            var vals = $select.val();
+            if (!vals) {
+                return [];
+            }
+            return vals.filter(function (v) {
+                return v !== 'all';
+            });
+        }
+
+        function rebuildBookingReportSubCategories() {
+            var $cat = $('#category_selector__select');
+            var $sub = $('#sub_category_selector__select');
+            var catIds = bookingReportSelectedRealIds($cat);
+            var prevSub = bookingReportSelectedRealIds($sub);
+            var filtered = bookingReportAllSubCategories.filter(function (s) {
+                return catIds.length > 0 && catIds.indexOf(s.parent_id) !== -1;
+            });
+            $sub.find('option').remove();
+            $sub.append(new Option(bookingReportSelectAllLabel, 'all', false, false));
+            filtered.forEach(function (s) {
+                $sub.append(new Option(s.name, s.id, false, prevSub.indexOf(s.id) !== -1));
+            });
+            var nextSub = prevSub.filter(function (id) {
+                return filtered.some(function (s) {
+                    return s.id === id;
+                });
+            });
+            $sub.val(nextSub.length ? nextSub : null);
+            $sub.trigger('change');
+        }
+
+        function rebuildBookingReportServices() {
+            var $sub = $('#sub_category_selector__select');
+            var $svc = $('#service_selector__select');
+            var subIds = bookingReportSelectedRealIds($sub);
+            var prevSvc = bookingReportSelectedRealIds($svc);
+            var filtered = bookingReportAllServices.filter(function (s) {
+                return subIds.length > 0 && subIds.indexOf(s.sub_category_id) !== -1;
+            });
+            $svc.find('option').remove();
+            $svc.append(new Option(bookingReportSelectAllLabel, 'all', false, false));
+            filtered.forEach(function (s) {
+                $svc.append(new Option(s.name, s.id, false, prevSvc.indexOf(s.id) !== -1));
+            });
+            var nextSvc = prevSvc.filter(function (id) {
+                return filtered.some(function (s) {
+                    return s.id === id;
+                });
+            });
+            $svc.val(nextSvc.length ? nextSvc : null);
+            $svc.trigger('change');
+        }
+
         $('#zone_selector__select').on('change', function () {
             var selectedValues = $(this).val();
             if (selectedValues !== null && selectedValues.includes('all')) {
@@ -390,9 +522,19 @@
                 $(this).find('option').not(':disabled').prop('selected', 'selected');
                 $(this).find('option[value="all"]').prop('selected', false);
             }
+            rebuildBookingReportSubCategories();
         });
 
         $('#sub_category_selector__select').on('change', function () {
+            var selectedValues = $(this).val();
+            if (selectedValues !== null && selectedValues.includes('all')) {
+                $(this).find('option').not(':disabled').prop('selected', 'selected');
+                $(this).find('option[value="all"]').prop('selected', false);
+            }
+            rebuildBookingReportServices();
+        });
+
+        $('#service_selector__select').on('change', function () {
             var selectedValues = $(this).val();
             if (selectedValues !== null && selectedValues.includes('all')) {
                 $(this).find('option').not(':disabled').prop('selected', 'selected');
@@ -415,11 +557,17 @@
             $('.provider__select').select2({
                 placeholder: "{{translate('Select_provider')}}",
             });
+            $('.staff__select').select2({
+                placeholder: "{{translate('Assignee')}}",
+            });
             $('.category__select').select2({
                 placeholder: "{{translate('Select_category')}}",
             });
             $('.sub-category__select').select2({
                 placeholder: "{{translate('Select_sub_category')}}",
+            });
+            $('.service__select').select2({
+                placeholder: "{{translate('service')}}",
             });
             $('.booking-status__select').select2({
                 placeholder: "{{translate('Booking_status')}}",
@@ -447,60 +595,174 @@
             });
         });
 
-        var options = {
-            series: [{
-                name: '{{translate('Total_Booking')}}',
-                data: {{json_encode($chart_data['booking_amount'])}}
-            }, {
-                name: '{{translate('Commission')}}',
-                data: {{json_encode($chart_data['admin_commission'])}}
-            }, {
-                name: '{{translate('VAT_/_Tax')}}',
-                data: {{json_encode($chart_data['tax_amount'])}}
-            }],
-            chart: {
-                type: 'bar',
-                height: 299
-            },
-            plotOptions: {
-                bar: {
-                    horizontal: false,
-                    columnWidth: '55px',
-                    endingShape: 'rounded'
+        var reportStatusChart = @json($report_status_chart);
+        var reportChartPalette = ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0', '#546E7A', '#26a69a'];
+
+        if (document.querySelector('#apex_booking_status_donut')) {
+            new ApexCharts(document.querySelector('#apex_booking_status_donut'), {
+                chart: {type: 'donut', height: 320, toolbar: {show: false}},
+                labels: reportStatusChart.labels,
+                series: reportStatusChart.counts,
+                colors: reportChartPalette,
+                legend: {
+                    position: 'bottom',
+                    formatter: function (seriesName, opts) {
+                        var val = (opts.w.globals.series[opts.seriesIndex] || 0);
+                        return seriesName + ' (' + val + ')';
+                    }
                 },
-            },
-            dataLabels: {
-                enabled: false
-            },
-            stroke: {
-                show: true,
-                width: 2,
-                colors: ['transparent']
-            },
-            xaxis: {
-                categories: {{json_encode($chart_data['timeline'])}},
-            },
-            yaxis: {
-                title: {
-                    text: '{{currency_symbol()}}'
-                }
-            },
-            fill: {
-                opacity: 1
-            },
-            tooltip: {
-                y: {
-                    formatter: function (val) {
-                        return " " + val + " ";
+                plotOptions: {pie: {donut: {size: '65%'}}},
+                dataLabels: {enabled: true}
+            }).render();
+        }
+
+        var earningChart = @json($earning_chart);
+        if (document.querySelector('#apex_booking_earning_bar')) {
+            new ApexCharts(document.querySelector('#apex_booking_earning_bar'), {
+                chart: {type: 'bar', height: 360, stacked: true, toolbar: {show: false}},
+                series: [
+                    {name: 'Customer paid', data: earningChart.customer_paid},
+                    {name: 'Company commission', data: earningChart.company_commission}
+                ],
+                plotOptions: {bar: {horizontal: false, columnWidth: '55%', borderRadius: 4}},
+                xaxis: {
+                    categories: earningChart.labels_short || [],
+                    labels: {
+                        rotate: 0,
+                        rotateAlways: false,
+                        trim: true,
+                        hideOverlappingLabels: true,
+                        style: {fontSize: '10px'},
+                        formatter: function (val) {
+                            if (!val) return val;
+                            val = String(val);
+                            return val.length > 10 ? (val.slice(0, 10) + '…') : val;
+                        }
+                    }
+                },
+                yaxis: {title: {text: @json(currency_symbol())}},
+                dataLabels: {enabled: false},
+                colors: ['#0b5ed7', '#00E396'],
+                grid: {strokeDashArray: 4},
+                tooltip: {
+                    x: {
+                        formatter: function (val, opts) {
+                            var i = opts.dataPointIndex || 0;
+                            if (earningChart.labels_full && earningChart.labels_full[i]) {
+                                return earningChart.labels_full[i];
+                            }
+                            return val;
+                        }
+                    },
+                    y: {
+                        formatter: function (val) {
+                            return @json(currency_symbol()) + (val || 0);
+                        }
+                    }
+                },
+                legend: {position: 'bottom'}
+            }).render();
+        }
+
+        var cancelBucketChart = @json($cancel_bucket_chart);
+        var cancelReasonChart = @json($cancel_reason_chart);
+        var cancelServiceChart = @json($cancel_service_chart);
+        var cancelSpecialServiceChart = @json($cancel_special_service_chart);
+        var disputedServiceChart = @json($disputed_service_chart);
+        var holdReasonChart = @json($hold_reason_chart);
+        var holdServiceChart = @json($hold_service_chart);
+
+        if (document.querySelector('#apex_cancel_bucket_donut')) {
+            new ApexCharts(document.querySelector('#apex_cancel_bucket_donut'), {
+                chart: {type: 'donut', height: 360, toolbar: {show: false}},
+                labels: cancelBucketChart.labels,
+                series: cancelBucketChart.counts,
+                colors: ['#FF4560', '#FEB019', '#8B0000', '#FF8C00'],
+                legend: {position: 'bottom'},
+                plotOptions: {pie: {donut: {size: '65%'}}},
+                dataLabels: {enabled: true},
+                tooltip: {
+                    y: {
+                        formatter: function (val, opts) {
+                            var i = opts.seriesIndex || 0;
+                            var amt = (cancelBucketChart.amounts && cancelBucketChart.amounts[i]) ? cancelBucketChart.amounts[i] : 0;
+                            return val + ' | ' + @json(currency_symbol()) + amt;
+                        }
                     }
                 }
-            },
-            legend: {
-                show: false
-            },
-        };
+            }).render();
+        }
 
-        var chart = new ApexCharts(document.querySelector("#apex_column-chart"), options);
-        chart.render();
+        if (document.querySelector('#apex_cancel_reason_bar')) {
+            new ApexCharts(document.querySelector('#apex_cancel_reason_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: cancelReasonChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: cancelReasonChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#FF4560'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_cancel_service_bar')) {
+            new ApexCharts(document.querySelector('#apex_cancel_service_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: cancelServiceChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: cancelServiceChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#FEB019'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_cancel_special_service_bar')) {
+            new ApexCharts(document.querySelector('#apex_cancel_special_service_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: cancelSpecialServiceChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: cancelSpecialServiceChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#FF4560'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_disputed_service_bar')) {
+            new ApexCharts(document.querySelector('#apex_disputed_service_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: disputedServiceChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: disputedServiceChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#775DD0'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_hold_reason_bar')) {
+            new ApexCharts(document.querySelector('#apex_hold_reason_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: holdReasonChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: holdReasonChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#775DD0'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
+
+        if (document.querySelector('#apex_hold_service_bar')) {
+            new ApexCharts(document.querySelector('#apex_hold_service_bar'), {
+                chart: {type: 'bar', height: 360, toolbar: {show: false}},
+                series: [{name: @json(translate('total')), data: holdServiceChart.counts}],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
+                xaxis: {categories: holdServiceChart.labels},
+                dataLabels: {enabled: true},
+                colors: ['#00E396'],
+                grid: {strokeDashArray: 4}
+            }).render();
+        }
     </script>
 @endpush

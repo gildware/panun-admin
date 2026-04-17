@@ -16,17 +16,30 @@
                             <h3 class="c1 mb-0">{{ translate('Booking') }} # {{ $booking['readable_id'] }}</h3>
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
-                            <span class="badge badge-{{
-                                $booking->booking_status == 'ongoing' ? 'warning' :
-                                ($booking->booking_status == 'completed' ? 'success' :
-                                ($booking->booking_status == 'canceled' ? 'danger' : 'info'))
-                            }}">{{ ucwords($booking->booking_status) }}</span>
+                            @php
+                                $__st = strtolower((string) ($booking->booking_status ?? ''));
+                                $__badgeClass = match ($__st) {
+                                    'ongoing' => 'warning',
+                                    'on_hold' => 'secondary',
+                                    'completed' => 'success',
+                                    'canceled', 'cancelled' => 'danger',
+                                    default => 'info',
+                                };
+                                $__hasDisputedSnapshot = !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot);
+                                $__disputedSnap = $__hasDisputedSnapshot ? (array) $booking->reopen_disputed_snapshot : null;
+                                $__dsRetained = $__hasDisputedSnapshot ? round((float) ($__disputedSnap['retained_from_customer'] ?? $__disputedSnap['final_net_to_customer'] ?? 0), 2) : 0.0;
+                                $__dsZeroRetained = $__hasDisputedSnapshot && $__dsRetained <= 0.009;
+                                if ($__hasDisputedSnapshot) {
+                                    $__badgeClass = $__dsZeroRetained ? 'danger' : 'warning-dark';
+                                }
+                            @endphp
+                            <span class="badge badge-{{ $__badgeClass }}">{{ booking_admin_booking_status_display_label($booking) }}</span>
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                             @include('bookingmodule::admin.booking.partials._booking-admin-status-tags', ['booking' => $booking, 'bookingStatusTagsVariant' => 'header', 'bookingListTagStacked' => true])
                             @if($booking->isOpenReopenTicket())
                                 <span class="badge bg-warning text-dark">{{ translate('Reopened') }}</span>
-                            @elseif($booking->isReopenedTagged() && (empty($booking->reopen_disputed_snapshot) || !is_array($booking->reopen_disputed_snapshot)))
+                            @elseif($booking->isReopenedTagged() && !booking_admin_has_disputed_reopen_snapshot($booking))
                                 <span class="badge bg-success">{{ translate('Resolved') }}</span>
                             @endif
                         </div>
