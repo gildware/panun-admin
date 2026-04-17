@@ -1,6 +1,8 @@
 @extends('adminmodule::layouts.master')
 
-@php($waMktCh = 'whatsapp')
+@php
+    $waMktCh = 'whatsapp';
+@endphp
 
 @section('title', $campaign->name)
 

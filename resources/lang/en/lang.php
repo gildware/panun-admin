@@ -7874,7 +7874,7 @@ _Message' => 'Customer notification for provider bid offer
   'whatsapp_remove_tag' => 'Remove tag',
   'whatsapp_manage_tags' => 'Manage tags',
   'whatsapp_chat_status_in_use' => 'This status is assigned to one or more chats. Change those chats first.',
-  'whatsapp_chat_filters_tags_hint' => 'Shows chats that have any of the selected tags.',
+  'whatsapp_chat_filters_tags_hint' => 'Whatsapp chat filters tags hint',
   'whatsapp_chat_filters_unconfigured' => 'Configure chat statuses and tags under Chat configuration to enable these filters.',
   'whatsapp_chat_filters_assignee_hint' => 'Leave empty to show all assignees. Multiple selections show chats handled by any of them.',
   'whatsapp_chat_filters_system_label' => 'In system (CRM)',
@@ -8233,5 +8233,5 @@ _Message' => 'Customer notification for provider bid offer
   'Move the booking to Ongoing first, then use Resolve booking when the work is finished.' => 'Move the booking to Ongoing first, then use Resolve booking when the work is finished.',
   'Booking_total_cannot_be_less_than_paid_amount' => 'Total amount cannot be less than the amount already paid by the customer for this booking.',
   'After_refund' => 'After refund',
-  'whatsapp_chat_filters_tags_hint' => 'Whatsapp chat filters tags hint',
+  'social_inbox_facebook' => 'Social inbox facebook',
 );

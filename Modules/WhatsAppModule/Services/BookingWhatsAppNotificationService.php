@@ -90,6 +90,10 @@ class BookingWhatsAppNotificationService
         '{payment_date}' => 'Payment date',
         '{payment_method}' => 'Payment method (cash / bank / etc.)',
         '{payment_reference}' => 'Transaction / reference id (if any)',
+        '{customer_payments_total}' => 'Total received from customer (all booking partial payments)',
+        '{customer_payments_to_company}' => 'Total received by company from customer (partial payments marked company)',
+        '{customer_payments_to_provider}' => 'Total received by provider from customer (partial payments marked provider)',
+        '{customer_payments_unassigned}' => 'Customer partial payments with no received-by set',
         '{serviceman_name}' => 'Assigned serviceman name',
         '{serviceman_phone}' => 'Assigned serviceman phone',
         '{previous_serviceman_name}' => 'Previous serviceman name (assignment change only)',
@@ -146,6 +150,9 @@ class BookingWhatsAppNotificationService
         '{refund_transaction_id}' => 'Refund: transaction / reference id',
         '{refund_reference_note}' => 'Refund: admin reference note (if any)',
         '{refund_remaining}' => 'Refund: remaining refundable balance on the booking after this refund',
+        '{customer_refund_total}' => 'Refund: total refunded to customer so far (after this step)',
+        '{customer_refund_cap}' => 'Refund: maximum amount eligible for refund on this booking',
+        '{customer_refund_before_this}' => 'Refund: total refunded before this refund step',
     ];
 
     /**
@@ -178,6 +185,10 @@ class BookingWhatsAppNotificationService
         '{payment_date}' => "Modules: Booking — payments.\nWhen: “Add payment” message templates.\nContains: The payment date recorded in the Add payment modal.",
         '{payment_method}' => "Modules: Booking — payments.\nWhen: “Add payment” templates.\nContains: The payment method label used for ledger recording (cash/bank/etc.).",
         '{payment_reference}' => "Modules: Booking — payments.\nWhen: “Add payment” templates.\nContains: Transaction / reference id if recorded; otherwise blank/—.",
+        '{customer_payments_total}' => "Modules: Booking — payments & refunds.\nWhen: Templates under Payments & refunds (add payment, refund to customer).\nContains: Sum of all customer partial payment amounts on the booking (formatted).",
+        '{customer_payments_to_company}' => "Modules: Booking — payments & refunds.\nWhen: Payments & refunds templates.\nContains: Sum of partials where received-by is company (formatted).",
+        '{customer_payments_to_provider}' => "Modules: Booking — payments & refunds.\nWhen: Payments & refunds templates.\nContains: Sum of partials where received-by is provider (formatted).",
+        '{customer_payments_unassigned}' => "Modules: Booking — payments & refunds.\nWhen: Payments & refunds templates.\nContains: Sum of partials with missing/unknown received-by (formatted).",
         '{serviceman_name}' => "Modules: Booking — assigned technician.\nWhen: Any booking template that names the assigned serviceman.\nContains: Current serviceman display name.",
         '{serviceman_phone}' => "Modules: Booking — assigned technician.\nWhen: Templates that should show how to contact the assigned serviceman.\nContains: Serviceman phone string.",
         '{previous_serviceman_name}' => "Modules: Booking.\nWhen: Rarely used; placeholder for a prior assignee name if your copy needs it.\nContains: Otherwise typically em dash in general automations.",
@@ -234,6 +245,9 @@ class BookingWhatsAppNotificationService
         '{refund_transaction_id}' => "Modules: Booking — customer refund.\nContains: Transaction / reference id entered when recording the refund.",
         '{refund_reference_note}' => "Modules: Booking — customer refund.\nContains: Optional admin note on the refund.",
         '{refund_remaining}' => "Modules: Booking — customer refund.\nContains: Remaining amount still refundable to the customer after this refund (formatted; 0 when fully refunded).",
+        '{customer_refund_total}' => "Modules: Booking — customer refund.\nWhen: After each refund automation; also populated on canceled/refunded bookings from ledger.\nContains: Cumulative amount refunded to the customer up to send time (formatted).",
+        '{customer_refund_cap}' => "Modules: Booking — customer refund.\nWhen: Canceled/refunded bookings.\nContains: Maximum total that may be refunded under current rules (formatted).",
+        '{customer_refund_before_this}' => "Modules: Booking — customer refund.\nWhen: “Refund to customer” automation only.\nContains: Cumulative refunds recorded before this refund step (formatted).",
     ];
 
     /**
@@ -264,6 +278,10 @@ class BookingWhatsAppNotificationService
         '{payment_date}' => '2026-04-13',
         '{payment_method}' => 'cash_after_service',
         '{payment_reference}' => 'TXN-884120',
+        '{customer_payments_total}' => '3,300.00',
+        '{customer_payments_to_company}' => '2,000.00',
+        '{customer_payments_to_provider}' => '1,300.00',
+        '{customer_payments_unassigned}' => '0.00',
         '{serviceman_name}' => 'Ravi Kumar',
         '{serviceman_phone}' => '+91 99887 76655',
         '{previous_serviceman_name}' => 'Amit Singh',
@@ -320,6 +338,9 @@ class BookingWhatsAppNotificationService
         '{refund_transaction_id}' => 'RFN-20441',
         '{refund_reference_note}' => 'UPI reversal to customer',
         '{refund_remaining}' => '0.00',
+        '{customer_refund_total}' => '3,300.00',
+        '{customer_refund_cap}' => '3,300.00',
+        '{customer_refund_before_this}' => '2,100.00',
     ];
 
     /**
@@ -561,6 +582,10 @@ class BookingWhatsAppNotificationService
                 '{payment_date}',
                 '{payment_method}',
                 '{payment_reference}',
+                '{customer_payments_total}',
+                '{customer_payments_to_company}',
+                '{customer_payments_to_provider}',
+                '{customer_payments_unassigned}',
             ]));
         }
 
@@ -571,6 +596,13 @@ class BookingWhatsAppNotificationService
                 '{refund_transaction_id}',
                 '{refund_reference_note}',
                 '{refund_remaining}',
+                '{customer_refund_total}',
+                '{customer_refund_cap}',
+                '{customer_refund_before_this}',
+                '{customer_payments_total}',
+                '{customer_payments_to_company}',
+                '{customer_payments_to_provider}',
+                '{customer_payments_unassigned}',
             ]));
         }
 
@@ -751,12 +783,34 @@ class BookingWhatsAppNotificationService
             return 'Audience: Customer templates (who will serve them) and provider templates (their own business name/phone).';
         }
 
-        $bookingPaymentTokens = ['{amount_added}', '{payment_received_by}', '{payment_date}', '{payment_method}', '{payment_reference}', '{amount_paid}', '{due_amount}', '{total_bill}'];
+        $bookingPaymentTokens = [
+            '{amount_added}',
+            '{payment_received_by}',
+            '{payment_date}',
+            '{payment_method}',
+            '{payment_reference}',
+            '{customer_payments_total}',
+            '{customer_payments_to_company}',
+            '{customer_payments_to_provider}',
+            '{customer_payments_unassigned}',
+            '{amount_paid}',
+            '{due_amount}',
+            '{total_bill}',
+        ];
         if (in_array($token, $bookingPaymentTokens, true)) {
-            return 'Audience: Booking payment templates — use Customer template column for the customer, Provider template column for the provider, depending on who receives the WhatsApp.';
+            return 'Audience: Payments & refunds → Add payment on booking (customer vs provider columns). Customer-payment totals here are also available on Refund to customer when you need paid-to-date splits in the same copy.';
         }
 
-        $refundTokens = ['{refund_amount}', '{refund_date}', '{refund_transaction_id}', '{refund_reference_note}', '{refund_remaining}'];
+        $refundTokens = [
+            '{refund_amount}',
+            '{refund_date}',
+            '{refund_transaction_id}',
+            '{refund_reference_note}',
+            '{refund_remaining}',
+            '{customer_refund_total}',
+            '{customer_refund_cap}',
+            '{customer_refund_before_this}',
+        ];
         if (in_array($token, $refundTokens, true)) {
             return 'Audience: Customer template on WhatsApp booking templates → Payments & refunds → Refund to customer.';
         }
@@ -799,7 +853,30 @@ class BookingWhatsAppNotificationService
             return 'WhatsApp_booking_var_module_ledger';
         }
 
-        $paymentTokens = ['{payment_status}', '{previous_payment_status}', '{amount_paid}', '{due_amount}', '{total_bill}'];
+        $paymentTokens = [
+            '{payment_status}',
+            '{previous_payment_status}',
+            '{amount_paid}',
+            '{due_amount}',
+            '{total_bill}',
+            '{amount_added}',
+            '{payment_received_by}',
+            '{payment_date}',
+            '{payment_method}',
+            '{payment_reference}',
+            '{customer_payments_total}',
+            '{customer_payments_to_company}',
+            '{customer_payments_to_provider}',
+            '{customer_payments_unassigned}',
+            '{refund_amount}',
+            '{refund_date}',
+            '{refund_transaction_id}',
+            '{refund_reference_note}',
+            '{refund_remaining}',
+            '{customer_refund_total}',
+            '{customer_refund_cap}',
+            '{customer_refund_before_this}',
+        ];
         if (in_array($token, $paymentTokens, true)) {
             return 'WhatsApp_booking_var_module_booking_payment';
         }
@@ -982,9 +1059,9 @@ class BookingWhatsAppNotificationService
             'provider_change_new_provider' => "You have been assigned booking *{booking_id}*\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\nAddress: {customer_address}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}\nService at: {service_where}\n\n*Payment*\nTotal: {total_bill}\nPaid: {amount_paid}\nDue: {due_amount}\n\n*Previous provider*\n{previous_provider_name}\nPhone: {previous_provider_phone}\n\nPlease accept and prepare in your app.",
             'booking_schedule_customer' => "Schedule update\n\nBooking *{booking_id}* has a new service time.\n\nBefore: {previous_service_schedule}\nNow: {booking_datetime}\n\nService: {service_name}\nProvider: {provider_name} ({provider_phone})",
             'booking_schedule_provider' => "Schedule update\n\nBooking *{booking_id}* rescheduled.\n\nBefore: {previous_service_schedule}\nNow: {booking_datetime}\n\nCustomer: {customer_name} ({customer_phone})\nService: {service_name}",
-            'booking_payment_added_customer' => "Payment received\n\nBooking *{booking_id}*\nAmount added: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
-            'booking_payment_added_provider' => "Payment added\n\nBooking *{booking_id}*\nAmount: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nCustomer: {customer_name} ({customer_phone})\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
-            'booking_refund_to_customer' => "Refund update\n\nBooking *{booking_id}*\nWe recorded a refund of *{refund_amount}* on {refund_date}.\nReference: {refund_transaction_id}\nNote: {refund_reference_note}\n\nRemaining refundable (if any): {refund_remaining}\n\nService: {service_name}",
+            'booking_payment_added_customer' => "Payment received\n\nBooking *{booking_id}*\nAmount added: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nFrom customer — total: {customer_payments_total} (company {customer_payments_to_company}, provider {customer_payments_to_provider})\n\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
+            'booking_payment_added_provider' => "Payment added\n\nBooking *{booking_id}*\nAmount: *{amount_added}*\nReceived by: {payment_received_by}\nDate: {payment_date}\nMethod: {payment_method}\nRef: {payment_reference}\n\nFrom customer — total: {customer_payments_total} (company {customer_payments_to_company}, provider {customer_payments_to_provider})\n\nCustomer: {customer_name} ({customer_phone})\nTotal: {total_bill} | Paid: {amount_paid} | Due: {due_amount}",
+            'booking_refund_to_customer' => "Refund update\n\nBooking *{booking_id}*\nWe recorded a refund of *{refund_amount}* on {refund_date}.\nReference: {refund_transaction_id}\nNote: {refund_reference_note}\n\nThis refund: {refund_amount} | Refunded before: {customer_refund_before_this} | Total refunded: {customer_refund_total} | Refund cap: {customer_refund_cap} | Still refundable: {refund_remaining}\n\nPaid on booking — total: {customer_payments_total} (company {customer_payments_to_company}, provider {customer_payments_to_provider})\n\nService: {service_name}",
             'ledger_provider_payment_reminder' => "Payment reminder\n\nHello {provider_name},\n\nPending balance: {provider_pending_balance}\n\nPlease settle at your earliest convenience.",
             'ledger_customer_payment_reminder' => "Payment reminder\n\nHello {customer_name},\n\nOutstanding amount: {customer_pending_balance}\n\nPlease complete your payment.",
             'ledger_payment_received_from_provider' => "Payment received\n\nThank you {provider_name}. Collected: {amount_collected_from_provider}.\n\nStill to collect (settlement): {balance_after_payment_collected}\nNet after this payment: {booking_settlement_net_after_collect}",
@@ -1710,6 +1787,8 @@ class BookingWhatsAppNotificationService
 
         $totalsAfter = get_booking_refund_display_totals($booking);
         $remaining = round((float) ($totalsAfter['refundable_remaining'] ?? 0), 2);
+        $refundedAfter = round((float) ($totalsAfter['refunded_total'] ?? 0), 2);
+        $refundedBeforeThis = round(max(0.0, $refundedAfter - $amount), 2);
 
         $date = trim((string) ($meta['date'] ?? ''));
         if ($date === '') {
@@ -1730,6 +1809,9 @@ class BookingWhatsAppNotificationService
             '{refund_transaction_id}' => $tx,
             '{refund_reference_note}' => $note,
             '{refund_remaining}' => $this->formatMoneyAmountForMessages($remaining),
+            '{customer_refund_before_this}' => $this->formatMoneyAmountForMessages($refundedBeforeThis),
+            '{customer_refund_total}' => $this->formatMoneyAmountForMessages($refundedAfter),
+            '{customer_refund_cap}' => $this->formatMoneyAmountForMessages(round((float) ($totalsAfter['max_eligible'] ?? 0), 2)),
         ]);
 
         $this->trySendBookingMetaOnly(
@@ -1827,8 +1909,12 @@ class BookingWhatsAppNotificationService
         $amount = (float) ($partial->paid_amount ?? 0);
         $amountLabel = function_exists('with_currency_symbol') ? with_currency_symbol($amount) : (string) $amount;
 
-        $receivedBy = (string) ($partial->received_by ?? '');
-        $receivedByLabel = $receivedBy !== '' ? ucfirst($receivedBy) : '—';
+        $receivedBy = strtolower(trim((string) ($partial->received_by ?? '')));
+        $receivedByLabel = match ($receivedBy) {
+            'company' => translate('Company'),
+            'provider' => translate('Provider'),
+            default => $receivedBy !== '' ? ucfirst($receivedBy) : '—',
+        };
 
         $date = trim((string) ($meta['date'] ?? ''));
         if ($date === '') {
@@ -2003,7 +2089,7 @@ class BookingWhatsAppNotificationService
      */
     protected function mergeBookingContextFinancialPlaceholders(Booking $booking): array
     {
-        $booking->loadMissing(['settlement_snapshot', 'reopen_disputed_snapshot']);
+        $booking->loadMissing(['booking_partial_payments', 'settlement_snapshot', 'reopen_disputed_snapshot']);
         $totalBill = (float) get_booking_total_amount($booking);
         $amountPaid = (float) get_booking_total_paid($booking);
         $due = max(0.0, round($totalBill - $amountPaid, 2));
@@ -2041,6 +2127,29 @@ class BookingWhatsAppNotificationService
                 ? (function_exists('with_currency_symbol') ? with_currency_symbol($stillDue) : (string) $stillDue)
                 : '—',
         ];
+
+        if (function_exists('booking_customer_paid_split_by_receiver')) {
+            $split = booking_customer_paid_split_by_receiver($booking);
+            $out['{customer_payments_total}'] = $this->formatMoneyAmountForMessages((float) ($split['total'] ?? 0));
+            $out['{customer_payments_to_company}'] = $this->formatMoneyAmountForMessages((float) ($split['company'] ?? 0));
+            $out['{customer_payments_to_provider}'] = $this->formatMoneyAmountForMessages((float) ($split['provider'] ?? 0));
+            $out['{customer_payments_unassigned}'] = $this->formatMoneyAmountForMessages((float) ($split['unassigned'] ?? 0));
+        } else {
+            $out['{customer_payments_total}'] = '—';
+            $out['{customer_payments_to_company}'] = '—';
+            $out['{customer_payments_to_provider}'] = '—';
+            $out['{customer_payments_unassigned}'] = '—';
+        }
+
+        $status = (string) ($booking->booking_status ?? '');
+        $out['{customer_refund_total}'] = '—';
+        $out['{customer_refund_cap}'] = '—';
+        if (function_exists('get_booking_refund_display_totals')
+            && in_array($status, ['canceled', 'cancelled', 'refunded'], true)) {
+            $rt = get_booking_refund_display_totals($booking);
+            $out['{customer_refund_total}'] = $this->formatMoneyAmountForMessages(round((float) ($rt['refunded_total'] ?? 0), 2));
+            $out['{customer_refund_cap}'] = $this->formatMoneyAmountForMessages(round((float) ($rt['max_eligible'] ?? 0), 2));
+        }
 
         $ds = $booking->reopen_disputed_snapshot;
         if (is_array($ds) && (($ds['type'] ?? '') === 'reopen_disputed_refund')) {
@@ -3164,6 +3273,7 @@ class BookingWhatsAppNotificationService
             '{on_hold_reason}' => $onHoldReasonText,
             '{on_hold_reason_remarks}' => $onHoldRemarksText,
             '{reopen_from_completed_reason}' => $reopenFromCompletedText,
+            '{customer_refund_before_this}' => '—',
         ];
 
         $acData = self::buildAdditionalChargePlaceholderData();
