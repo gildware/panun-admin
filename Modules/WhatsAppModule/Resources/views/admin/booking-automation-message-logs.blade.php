@@ -13,7 +13,9 @@
 @endpush
 
 @section('content')
-    @php($siInboxCh = request()->route('channel') ?? 'whatsapp')
+    @php
+        $siInboxCh = request()->route('channel') ?? 'whatsapp';
+    @endphp
     <div class="main-content social-inbox-page social-inbox-page--{{ $siInboxCh }}">
     <div class="container-fluid">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
@@ -56,15 +58,23 @@
                                 }
                             @endphp
                             <tr>
-                                <td class="small">{{ $log->created_at?->timezone('Asia/Kolkata')->format('Y-m-d H:i:s') . ' IST' ?? '—' }}</td>
+                                <td class="small">
+                                    @if(!empty($log->created_at))
+                                        {{ $log->created_at->timezone('Asia/Kolkata')->format('Y-m-d H:i:s') . ' IST' }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td>
                                     @php
-                                        $badgeClass = match ($log->result) {
-                                            'sent' => 'bg-success',
-                                            'failed' => 'bg-danger',
-                                            'skipped' => 'bg-secondary',
-                                            default => 'bg-light text-dark',
-                                        };
+                                        $badgeClass = 'bg-light text-dark';
+                                        if ($log->result === 'sent') {
+                                            $badgeClass = 'bg-success';
+                                        } elseif ($log->result === 'failed') {
+                                            $badgeClass = 'bg-danger';
+                                        } elseif ($log->result === 'skipped') {
+                                            $badgeClass = 'bg-secondary';
+                                        }
                                     @endphp
                                     <span class="badge {{ $badgeClass }}">{{ $log->result }}</span>
                                 </td>

@@ -885,14 +885,31 @@
             .fail(function (xhr) {
                 if (seq !== bfsPreviewSeq) return;
                 var errMsg = L.previewError;
-                if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
-                    var ev = xhr.responseJSON.errors;
-                    var fv = Object.values(ev)[0];
-                    if (Array.isArray(fv) && fv[0]) {
-                        errMsg = fv[0];
+                if (xhr && xhr.responseJSON) {
+                    // Our API uses response_formatter() which always includes `errors` (often empty) and `message`.
+                    // Prefer a concrete field error if present; otherwise fall back to the top-level message.
+                    if (xhr.status === 422 && xhr.responseJSON.errors) {
+                        var ev = xhr.responseJSON.errors;
+                        if (Array.isArray(ev)) {
+                            if (ev.length && ev[0] && ev[0].message) {
+                                errMsg = ev[0].message;
+                            }
+                        } else if (typeof ev === 'object') {
+                            var fv = Object.values(ev || {})[0];
+                            if (Array.isArray(fv) && fv[0]) {
+                                errMsg = fv[0];
+                            }
+                        }
                     }
-                } else if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errMsg = xhr.responseJSON.message;
+                    if ((errMsg === L.previewError || !errMsg) && xhr.responseJSON.message) {
+                        errMsg = xhr.responseJSON.message;
+                    }
+                } else if (xhr && xhr.responseText) {
+                    // Fallback: show something actionable even if server returned non-JSON.
+                    var t = String(xhr.responseText || '');
+                    if (t && t.length < 300) {
+                        errMsg = t;
+                    }
                 }
                 $('#bfs-preview-kv').html('<div class="text-danger small py-2">' + errMsg + '</div>');
                 bfsLastDecidedPreview = null;

@@ -77,6 +77,11 @@ class BookingFinancialSettlementService
             if (round((float) ($p->paid_amount ?? 0), 2) <= 0) {
                 continue;
             }
+            // Admin-entered payments from the Special financial settlement modal can represent
+            // the "closing amount" being recorded. Those should not block decided-charges scenarios.
+            if ((string) ($p->paid_with ?? '') === 'admin_entry') {
+                continue;
+            }
             if ((string) ($p->received_by ?? '') === 'provider') {
                 return true;
             }

@@ -967,6 +967,16 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcan
 
+            @canany(['business_view', 'configuration_view', 'backup_view'])
+                <li>
+                    <a href="{{ route('admin.system-logs.index') }}"
+                       class="{{ request()->is('admin/system-logs') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('System_Logs') }}">bug_report</span>
+                        <span class="link-title">{{ translate('System_Logs') }}</span>
+                    </a>
+                </li>
+            @endcanany
+
             @canany(['service_view', 'category_view', 'customer_view', 'provider_view', 'lead_view', 'booking_view', 'business_view'])
                 <li>
                     <a href="{{ route('admin.data-transfer.index') }}"

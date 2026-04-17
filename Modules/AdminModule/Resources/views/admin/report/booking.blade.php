@@ -202,19 +202,19 @@
                                 <div class="col-lg-6">
                                     <div class="border rounded p-3 h-100">
                                         <h5 class="fz-14 mb-3 report-chart-title">
-                                            Canceled vs Special vs Disputed
+                                            Total cancelled
                                             <span class="report-chart-meta">
-                                                ({{ array_sum($cancel_bucket_chart['counts'] ?? []) }})
+                                                ({{ array_sum($cancel_total_pie_chart['counts'] ?? []) }})
                                             </span>
                                         </h5>
-                                        <div id="apex_cancel_bucket_donut"></div>
+                                        <div id="apex_cancel_total_pie"></div>
                                     </div>
                                 </div>
                                 <div class="col-lg-6">
                                     <div class="border rounded p-3 h-100">
                                         <h5 class="fz-14 mb-3 report-chart-title">
-                                            {{ translate('Cancellation_Reason') }} (before visit)
-                                            <span class="report-chart-meta">({{ ($cancel_bucket_chart['counts'][0] ?? 0) }})</span>
+                                            {{ translate('Cancellation_Reason') }} (Cancelled)
+                                            <span class="report-chart-meta">({{ ($cancel_total_pie_chart['counts'][0] ?? 0) }})</span>
                                         </h5>
                                         <div id="apex_cancel_reason_bar"></div>
                                     </div>
@@ -222,19 +222,19 @@
                                 <div class="col-lg-6">
                                     <div class="border rounded p-3 h-100">
                                         <h5 class="fz-14 mb-3 report-chart-title">
-                                            {{ translate('service') }} (canceled before visit)
-                                            <span class="report-chart-meta">({{ ($cancel_bucket_chart['counts'][0] ?? 0) }})</span>
+                                            {{ translate('Cancellation_Reason') }} (Cancelled after visit)
+                                            <span class="report-chart-meta">({{ ($cancel_total_pie_chart['counts'][1] ?? 0) }})</span>
                                         </h5>
-                                        <div id="apex_cancel_service_bar"></div>
+                                        <div id="apex_cancel_after_visit_reason_bar"></div>
                                     </div>
                                 </div>
                                 <div class="col-lg-6">
                                     <div class="border rounded p-3 h-100">
                                         <h5 class="fz-14 mb-3 report-chart-title">
-                                            {{ translate('service') }} (special settlement / after visit)
-                                            <span class="report-chart-meta">({{ ($cancel_bucket_chart['counts'][1] ?? 0) }})</span>
+                                            {{ translate('Cancellation_Reason') }} (Disputed & Cancelled)
+                                            <span class="report-chart-meta">({{ ($cancel_total_pie_chart['counts'][2] ?? 0) }})</span>
                                         </h5>
-                                        <div id="apex_cancel_special_service_bar"></div>
+                                        <div id="apex_disputed_cancel_reason_bar"></div>
                                     </div>
                                 </div>
                             </div>
@@ -664,29 +664,27 @@
             }).render();
         }
 
-        var cancelBucketChart = @json($cancel_bucket_chart);
+        var cancelTotalPieChart = @json($cancel_total_pie_chart);
         var cancelReasonChart = @json($cancel_reason_chart);
-        var cancelServiceChart = @json($cancel_service_chart);
-        var cancelSpecialServiceChart = @json($cancel_special_service_chart);
+        var cancelAfterVisitReasonChart = @json($cancel_after_visit_reason_chart);
+        var disputedCancelReasonChart = @json($disputed_cancel_reason_chart);
         var disputedServiceChart = @json($disputed_service_chart);
         var holdReasonChart = @json($hold_reason_chart);
         var holdServiceChart = @json($hold_service_chart);
 
-        if (document.querySelector('#apex_cancel_bucket_donut')) {
-            new ApexCharts(document.querySelector('#apex_cancel_bucket_donut'), {
-                chart: {type: 'donut', height: 360, toolbar: {show: false}},
-                labels: cancelBucketChart.labels,
-                series: cancelBucketChart.counts,
-                colors: ['#FF4560', '#FEB019', '#8B0000', '#FF8C00'],
+        if (document.querySelector('#apex_cancel_total_pie')) {
+            new ApexCharts(document.querySelector('#apex_cancel_total_pie'), {
+                chart: {type: 'pie', height: 360, toolbar: {show: false}},
+                labels: cancelTotalPieChart.labels,
+                series: cancelTotalPieChart.counts,
+                colors: ['#FF4560', '#FEB019', '#8B0000'],
                 legend: {position: 'bottom'},
-                plotOptions: {pie: {donut: {size: '65%'}}},
                 dataLabels: {enabled: true},
                 tooltip: {
                     y: {
                         formatter: function (val, opts) {
                             var i = opts.seriesIndex || 0;
-                            var amt = (cancelBucketChart.amounts && cancelBucketChart.amounts[i]) ? cancelBucketChart.amounts[i] : 0;
-                            return val + ' | ' + @json(currency_symbol()) + amt;
+                            return val;
                         }
                     }
                 }
@@ -705,26 +703,26 @@
             }).render();
         }
 
-        if (document.querySelector('#apex_cancel_service_bar')) {
-            new ApexCharts(document.querySelector('#apex_cancel_service_bar'), {
+        if (document.querySelector('#apex_cancel_after_visit_reason_bar')) {
+            new ApexCharts(document.querySelector('#apex_cancel_after_visit_reason_bar'), {
                 chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: cancelServiceChart.counts}],
+                series: [{name: @json(translate('total')), data: cancelAfterVisitReasonChart.counts}],
                 plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: cancelServiceChart.labels},
+                xaxis: {categories: cancelAfterVisitReasonChart.labels},
                 dataLabels: {enabled: true},
                 colors: ['#FEB019'],
                 grid: {strokeDashArray: 4}
             }).render();
         }
 
-        if (document.querySelector('#apex_cancel_special_service_bar')) {
-            new ApexCharts(document.querySelector('#apex_cancel_special_service_bar'), {
+        if (document.querySelector('#apex_disputed_cancel_reason_bar')) {
+            new ApexCharts(document.querySelector('#apex_disputed_cancel_reason_bar'), {
                 chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: cancelSpecialServiceChart.counts}],
+                series: [{name: @json(translate('total')), data: disputedCancelReasonChart.counts}],
                 plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: cancelSpecialServiceChart.labels},
+                xaxis: {categories: disputedCancelReasonChart.labels},
                 dataLabels: {enabled: true},
-                colors: ['#FF4560'],
+                colors: ['#8B0000'],
                 grid: {strokeDashArray: 4}
             }).render();
         }

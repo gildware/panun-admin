@@ -4122,11 +4122,13 @@
                     }
                     var $rbProvider = $form.find('input[name="received_by"][value="provider"]');
                     var $rbCompany = $form.find('input[name="received_by"][value="company"]');
-                    if ($rbProvider.length) {
-                        $rbProvider.prop('checked', true);
-                        $rbCompany.prop('checked', false);
-                    } else {
+                    // In Special financial settlement we should default to Company to avoid
+                    // blocking decided-charges scenarios (those are not allowed once any payment is recorded as received by provider).
+                    if ($rbCompany.length) {
                         $rbCompany.prop('checked', true);
+                    }
+                    if ($rbProvider.length) {
+                        $rbProvider.prop('checked', false);
                     }
                     if ($form.find('[name="split_amount_provider"]').length) {
                         $form.find('[name="split_amount_provider"]').val('0');
