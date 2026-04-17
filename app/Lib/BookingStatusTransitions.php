@@ -162,7 +162,7 @@ if (! function_exists('booking_can_mark_ongoing_by_service_schedule')) {
 
 if (! function_exists('booking_admin_can_dispute_and_close')) {
     /**
-     * Admin "Dispute and close" is only for ongoing, hold-after-visit, or an open reopen ticket.
+     * Admin "Dispute and close" is for ongoing, hold-after-visit, or an open reopen ticket (including zero customer payment).
      */
     function booking_admin_can_dispute_and_close($booking): bool
     {
@@ -170,10 +170,6 @@ if (! function_exists('booking_admin_can_dispute_and_close')) {
             return false;
         }
         if ((int) ($booking->is_repeated ?? 0) !== 0) {
-            return false;
-        }
-        // No customer collection → no disputed refund/close flow.
-        if (round((float) get_booking_total_paid($booking), 2) <= 0.0) {
             return false;
         }
         if ($booking->isOpenReopenTicket()) {

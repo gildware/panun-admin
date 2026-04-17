@@ -2882,7 +2882,7 @@ class BookingController extends Controller
             ]);
         }
 
-        if ($totalRefund < 0.01) {
+        if ($totalPaid > 0.009 && $totalRefund < 0.01) {
             throw ValidationException::withMessages([
                 'refund_company_amount' => [translate('Disputed_refund_total_must_be_positive')],
             ]);
@@ -3103,8 +3103,11 @@ class BookingController extends Controller
                     ->exists();
                 if ($wasEverCompleted) {
                     $booking->booking_status = 'completed';
+                } elseif ($totalPaid <= 0.009) {
+                    // No customer money: close the job as canceled (no refund legs).
+                    $booking->booking_status = 'canceled';
                 } else {
-                    $isFullRefund = $totalPaid > 0.009 && $totalRefund + 0.005 >= $totalPaid;
+                    $isFullRefund = $totalRefund + 0.005 >= $totalPaid;
                     $booking->booking_status = $isFullRefund ? 'canceled' : 'completed';
                 }
 
@@ -6594,6 +6597,11 @@ class BookingController extends Controller
             return false;
         }
         if ($strictVisitRetainedBlock) {
+            // Dispute-and-close without any customer payment is still allowed (cancel-only close); visit-retained refund rules apply once money moved.
+            if (round((float) get_booking_total_paid($booking), 2) <= 0.009) {
+                return false;
+            }
+
             return true;
         }
         $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
@@ -7209,7 +7217,7 @@ class BookingController extends Controller
     }
 
     /**
-     * Admin: add compensation to a completed booking.
+     * Admin: add compensation to a terminal booking (completed, canceled, refunded), including special settlements and dispute-and-close.
      *
      * Types:
      * - company_to_customer: ledger + transactions (company ↔ customer)
@@ -7245,22 +7253,12 @@ class BookingController extends Controller
             return back();
         }
 
-        if ((string) ($booking->booking_status ?? '') !== 'completed') {
-            $msg = translate('Compensation is only available for completed bookings.');
+        if (! $booking->adminEligibleForCompensationRecording()) {
+            $msg = translate('Compensation_only_terminal_bookings');
             if ($request->wantsJson()) {
                 return response()->json(response_formatter(DEFAULT_400, null, ['type' => [$msg]]), 400);
             }
             Toastr::error($msg);
-            return back();
-        }
-
-        if ($booking->blocksAdminCommissionOverrideAndCompensation()) {
-            $msg = translate('Bfs_commission_override_and_compensation_not_for_special_settlement');
-            if ($request->wantsJson()) {
-                return response()->json(response_formatter(DEFAULT_400, null, ['type' => [$msg]]), 400);
-            }
-            Toastr::error($msg);
-
             return back();
         }
 

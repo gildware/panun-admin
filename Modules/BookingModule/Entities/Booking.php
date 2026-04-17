@@ -412,11 +412,12 @@ class Booking extends Model
     }
 
     /**
-     * Hide admin per-booking commission override and compensation when a modal special financial scenario is on file.
+     * Hide admin per-booking commission override when a modal special financial scenario is on file (settlement defines economics).
+     * Compensation is handled separately — see {@see self::adminEligibleForCompensationRecording()}.
      */
     public function blocksAdminCommissionOverrideAndCompensation(): bool
     {
-        // Disputed-close bookings are final for financials; do not allow commission edits/compensation changes.
+        // Disputed-close bookings are final for commission override edits.
         if (!empty($this->reopen_disputed_snapshot) && is_array($this->reopen_disputed_snapshot)) {
             return true;
         }
@@ -424,6 +425,24 @@ class Booking extends Model
         return \Modules\BookingModule\Services\BookingFinancialSettlementService::specialScenarioOutcomeDisablesCommissionOverrideAndCompensation(
             (string) ($this->settlement_outcome ?? '')
         );
+    }
+
+    /**
+     * Admin may record booking-linked compensation once the job is in a terminal state (including dispute-and-close,
+     * special settlement outcomes, scaled loss, etc.). Non-repeat bookings only, same as other per-booking financial tools.
+     */
+    public function adminEligibleForCompensationRecording(): bool
+    {
+        if ((int) ($this->is_repeated ?? 0) !== 0) {
+            return false;
+        }
+
+        $st = strtolower((string) ($this->booking_status ?? ''));
+        if ($st === 'cancelled') {
+            $st = 'canceled';
+        }
+
+        return in_array($st, ['completed', 'canceled', 'refunded'], true);
     }
 
     /**
