@@ -210,17 +210,22 @@
                             <label class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span> <small class="text-muted">(<span id="bfs-embed-due-label">{{ translate('Due amount') }}</span>: <span id="bfs-embed-due-val">—</span>)</small></label>
                             <input type="number" step="0.01" min="0.01" name="amount" class="form-control add-payment-amount bfs-embed-pay-amount" required id="bfs-embed-pay-amount" value="">
                         </div>
+                        @php
+                            $bfsEmbedBookingStatus = (string) ($booking->booking_status ?? '');
+                            $bfsEmbedScaledOutcome = trim((string) ($booking->settlement_outcome ?? '')) === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                            $bfsEmbedShowProviderReceived = $bfsEmbedBookingStatus === 'ongoing' || $bfsEmbedScaledOutcome;
+                        @endphp
                         <div class="mb-3">
                             <label class="form-label d-block">{{ translate('Received by') }} <span class="text-danger">*</span></label>
                             <div class="d-flex flex-wrap gap-3">
-                                @if(((string) ($booking->booking_status ?? '')) === 'ongoing')
+                                @if($bfsEmbedShowProviderReceived)
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdProvider" value="provider" checked>
+                                        <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdProvider" value="provider" @if($bfsEmbedBookingStatus === 'ongoing') checked @endif>
                                         <label class="form-check-label" for="bfsEmbedPayRcvdProvider">{{ translate('Provider') }}</label>
                                     </div>
                                 @endif
                                 <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdCompany" value="company" @if(((string) ($booking->booking_status ?? '')) !== 'ongoing') checked @endif>
+                                    <input class="form-check-input" type="radio" name="received_by" id="bfsEmbedPayRcvdCompany" value="company" @if($bfsEmbedBookingStatus !== 'ongoing') checked @endif>
                                     <label class="form-check-label" for="bfsEmbedPayRcvdCompany">{{ translate('Company') }}</label>
                                 </div>
                             </div>

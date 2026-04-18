@@ -2183,17 +2183,22 @@
                                                     <label class="form-label">{{ translate('Amount') }} <span class="text-danger">*</span> <small class="text-muted">({{ translate('Due amount') }}: {{ with_currency_symbol($adminAddPaymentRemainingCapacity) }})</small></label>
                                                     <input type="number" step="0.01" min="0.01" max="{{ $adminAddPaymentRemainingCapacity }}" name="amount" class="form-control add-payment-amount" required placeholder="{{ translate('Max') }} {{ with_currency_symbol($adminAddPaymentRemainingCapacity) }}">
                                                 </div>
+                                                @php
+                                                    $__addPayStatus = (string) ($bookingStatusForAddPayment ?? ($booking->booking_status ?? ''));
+                                                    $__addPayScaledOutcome = trim((string) ($booking->settlement_outcome ?? '')) === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+                                                    $__addPayShowProviderReceived = $__addPayStatus === 'ongoing' || $__addPayScaledOutcome;
+                                                @endphp
                                                 <div class="mb-3">
                                                     <label class="form-label d-block">{{ translate('Received by') }} <span class="text-danger">*</span></label>
                                                     <div class="d-flex flex-wrap gap-3">
-                                                        @if(($bookingStatusForAddPayment ?? ($booking->booking_status ?? '')) === 'ongoing')
+                                                        @if($__addPayShowProviderReceived)
                                                             <div class="form-check">
-                                                                <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedProvider--{{ $booking->id }}" value="provider" checked>
+                                                                <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedProvider--{{ $booking->id }}" value="provider" @if($__addPayStatus === 'ongoing') checked @endif>
                                                                 <label class="form-check-label" for="addPaymentReceivedProvider--{{ $booking->id }}">{{ translate('Provider') }}</label>
                                                             </div>
                                                         @endif
                                                         <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedCompany--{{ $booking->id }}" value="company" @if(($bookingStatusForAddPayment ?? ($booking->booking_status ?? '')) !== 'ongoing') checked @endif>
+                                                            <input class="form-check-input" type="radio" name="received_by" id="addPaymentReceivedCompany--{{ $booking->id }}" value="company" @if($__addPayStatus !== 'ongoing') checked @endif>
                                                             <label class="form-check-label" for="addPaymentReceivedCompany--{{ $booking->id }}">{{ translate('Company') }}</label>
                                                         </div>
                                                     </div>
