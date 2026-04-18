@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
-use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
@@ -204,8 +203,9 @@ class BookingController extends Controller
                 $booking_status_history->save();
             });
 
-            if (BookingRepeat::query()->where('booking_id', $booking->id)->exists()
-                && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+            // Always call: repeat-series parents skip BookingObserver for WhatsApp; plain bookings may miss the observer.
+            // sendBookingStatusChange() dedupes against the observer when both run.
+            if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
                 try {
                     $fresh = $this->booking->with([
                         'customer',

@@ -2800,6 +2800,7 @@ class BookingController extends Controller
                     $booking->id,
                     null,
                     null,
+                    null,
                     'reopen_resolved_complete: '.$remarks
                 );
             });
@@ -3705,8 +3706,6 @@ class BookingController extends Controller
         }
 
         if ($booking->isDirty('booking_status')) {
-            $hasRepeatSeries = BookingRepeat::query()->where('booking_id', $booking->id)->exists();
-
             DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks, $holdSchedule) {
                 $previousServiceSchedule = $booking->getOriginal('service_schedule');
                 if ($status === 'on_hold' && $holdSchedule !== null) {
@@ -3721,7 +3720,7 @@ class BookingController extends Controller
                             'serviceman_id' => null,
                         ]);
 
-                        $this->logBookingStatusHistory($repeat->id, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, $remarks);
+                        $this->logBookingStatusHistory($repeat->id, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, null, $remarks);
                     }
 
                     if ($status == 'canceled' && $booking->repeat->contains('booking_status', 'completed')) {
@@ -3730,7 +3729,7 @@ class BookingController extends Controller
                 }
 
                 $booking->save();
-                $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, $remarks);
+                $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, null, $remarks);
 
                 if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
                     $bookingScheduleHistory = $this->bookingScheduleHistory->newInstance();
@@ -3750,25 +3749,26 @@ class BookingController extends Controller
                 }
             });
 
-            if ($hasRepeatSeries) {
-                try {
-                    $fresh = $this->booking->with([
-                        'customer',
-                        'provider.owner',
-                        'service_address',
-                        'detail',
-                        'booking_partial_payments',
-                    ])->find($booking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingStatusChange($fresh, $previousParentStatus);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('WhatsApp booking status (admin parent bulk update) failed', [
-                        'booking_id' => $booking->id ?? null,
-                        'message' => $e->getMessage(),
-                    ]);
+            // Always notify after a parent status save: repeat-series bookings skip the Booking observer for WhatsApp
+            // (see BookingObserver), and non-repeat bookings rely on the observer which can be missed by some saves.
+            // sendBookingStatusChange() dedupes duplicate invocations (observer + this block) within the same transition.
+            try {
+                $fresh = $this->booking->with([
+                    'customer',
+                    'provider.owner',
+                    'service_address',
+                    'detail',
+                    'booking_partial_payments',
+                ])->find($booking->id);
+                if ($fresh && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
+                        ->sendBookingStatusChange($fresh, $previousParentStatus);
                 }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp booking status (admin parent status update) failed', [
+                    'booking_id' => $booking->id ?? null,
+                    'message' => $e->getMessage(),
+                ]);
             }
 
             return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
@@ -3799,7 +3799,7 @@ class BookingController extends Controller
 
                 $repeatBooking->save();
                 sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
-                $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id, $cancellationId, $holdReopenId, $remarks);
+                $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id, $cancellationId, $holdReopenId, null, $remarks);
 
                 if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
                     $bookingRepeatScheduleHistory = $this->bookingScheduleHistory->newInstance();

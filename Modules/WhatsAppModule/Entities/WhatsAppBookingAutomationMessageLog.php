@@ -12,6 +12,7 @@ class WhatsAppBookingAutomationMessageLog extends Model
     protected $table = 'whatsapp_booking_automation_message_logs';
 
     protected $fillable = [
+        'channel',
         'message_key',
         'trigger_event',
         'template_id',
