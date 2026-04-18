@@ -381,7 +381,7 @@ class EarningReportController extends Controller
         }
 
         $bookings = self::filterQuery($this->booking, $request)
-            ->with(['details_amounts'])
+            ->with(['details_amounts', 'extra_services'])
             ->forRevenueReporting()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
@@ -793,7 +793,7 @@ class EarningReportController extends Controller
         ]);
 
         $bookings = self::filterQuery($this->booking, $request)
-            ->with(['details_amounts'])
+            ->with(['details_amounts', 'extra_services'])
             ->forRevenueReporting()
             ->when($request->has('search'), function ($query) use ($request) {
                 $keys = explode(' ', $request['search']);
@@ -834,6 +834,155 @@ class EarningReportController extends Controller
                 'Admin Net Income (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_admin_net_income ?? 0),
             ];
         });
+    }
+
+    /**
+     * Aligns per-row numbers with the admin dashboard / provider payment tab (reported revenue + live commission pair).
+     */
+    private function hydrateEarningReportBookingRow(Booking $booking): void
+    {
+        $booking->loadMissing('details_amounts');
+
+        $discount_by_admin = 0.0;
+        $discount_by_provider = 0.0;
+        $coupon_discount_by_admin = 0.0;
+        $coupon_discount_by_provider = 0.0;
+        $campaign_discount_by_admin = 0.0;
+        $campaign_discount_by_provider = 0.0;
+        $admin_commission_gross = 0.0;
+
+        foreach ($booking->details_amounts as $item) {
+            $discount_by_admin += (float) $item['discount_by_admin'];
+            $discount_by_provider += (float) $item['discount_by_provider'];
+            $coupon_discount_by_admin += (float) $item['coupon_discount_by_admin'];
+            $coupon_discount_by_provider += (float) $item['coupon_discount_by_provider'];
+            $campaign_discount_by_admin += (float) $item['campaign_discount_by_admin'];
+            $campaign_discount_by_provider += (float) $item['campaign_discount_by_provider'];
+            $admin_commission_gross += (float) $item->admin_commission;
+        }
+
+        $booking->earning_report_discount_by_admin = round($discount_by_admin, 2);
+        $booking->earning_report_discount_by_provider = round($discount_by_provider, 2);
+        $booking->earning_report_coupon_discount_by_admin = round($coupon_discount_by_admin, 2);
+        $booking->earning_report_coupon_discount_by_provider = round($coupon_discount_by_provider, 2);
+        $booking->earning_report_campaign_discount_by_admin = round($campaign_discount_by_admin, 2);
+        $booking->earning_report_campaign_discount_by_provider = round($campaign_discount_by_provider, 2);
+        $booking->earning_report_admin_commission_gross = round($admin_commission_gross, 2);
+
+        $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($booking);
+        $booking->earning_report_reported_amount = round((float) ($slice['reported_total'] ?? 0), 2);
+
+        $pair = provider_payment_tab_earning_commission_pair($booking);
+        $booking->earning_report_admin_net_income = round((float) ($pair['admin_commission'] ?? 0), 2);
+        $booking->earning_report_provider_net_income = round((float) ($pair['provider_earning'] ?? 0), 2);
+    }
+
+    /**
+     * Reported revenue (dashboard “Total Revenue” basis) per chart bucket for main bookings + completed repeats.
+     *
+     * @return array<int, float>
+     */
+    private function computeReportedRevenueByBucket(Request $request, string $groupByDeterministic): array
+    {
+        $out = [];
+
+        $allCompletedRepeats = BookingRepeat::query()
+            ->ofBookingStatus('completed')
+            ->with('booking.extra_services')
+            ->get();
+        $repeatDenom = provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id($allCompletedRepeats);
+
+        $bookingQuery = self::filterQuery($this->booking->newQuery(), $request)
+            ->forRevenueReporting()
+            ->with('extra_services');
+
+        foreach ($bookingQuery->cursor() as $booking) {
+            if (! $booking instanceof Booking) {
+                continue;
+            }
+            $k = self::chartBucketKeyFromCarbon(Carbon::parse($booking->created_at), $groupByDeterministic);
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($booking);
+            $out[$k] = round(($out[$k] ?? 0) + (float) ($slice['reported_total'] ?? 0), 2);
+        }
+
+        $repeatQuery = BookingRepeat::query()
+            ->ofBookingStatus('completed')
+            ->with('booking.extra_services')
+            ->whereHas('booking', function ($bq) use ($request) {
+                self::filterQueryGeographyOnly($bq, $request);
+            });
+        if ($request->has('date_range')) {
+            $this->applyDateRangeConditions($repeatQuery, $request);
+        }
+
+        foreach ($repeatQuery->cursor() as $repeat) {
+            $k = self::chartBucketKeyFromCarbon(Carbon::parse($repeat->created_at), $groupByDeterministic);
+            $parentKey = (string) $repeat->booking_id;
+            $den = (float) ($repeatDenom[$parentKey] ?? get_booking_total_amount($repeat));
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_repeat($repeat, $den);
+            $out[$k] = round(($out[$k] ?? 0) + (float) ($slice['reported_total'] ?? 0), 2);
+        }
+
+        foreach ($out as $kk => $v) {
+            $out[$kk] = round((float) $v, 2);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Loss-making (scaled) admin commission delta per chart bucket — same add-on as the admin dashboard earning chart.
+     *
+     * @return array<int, float>
+     */
+    private function computeScaledCommissionDeltaByBucket(Request $request, string $groupByDeterministic): array
+    {
+        $out = [];
+        $q = $this->booking->newQuery()
+            ->forRevenueReporting()
+            ->where('settlement_outcome', BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS);
+        self::filterQuery($q, $request);
+
+        foreach ($q->cursor() as $main) {
+            if (! $main instanceof Booking) {
+                continue;
+            }
+            $delta = booking_scaled_admin_commission_delta_for_main($main);
+            if (abs($delta) < 0.00001) {
+                continue;
+            }
+            $k = self::chartBucketKeyFromCarbon(Carbon::parse($main->created_at), $groupByDeterministic);
+            $out[$k] = round(($out[$k] ?? 0) + $delta, 2);
+        }
+
+        return $out;
+    }
+
+    private static function chartBucketKeyFromCarbon(Carbon $dt, string $groupByDeterministic): int
+    {
+        return match ($groupByDeterministic) {
+            'day' => (int) $dt->format('j'),
+            'month' => (int) $dt->format('n'),
+            'year' => (int) $dt->format('Y'),
+            default => (int) $dt->format('j'),
+        };
+    }
+
+    /**
+     * Zone / category filters only (no date) — used for repeat-line queries where the date applies to the repeat row.
+     */
+    private static function filterQueryGeographyOnly($instance, Request $request): mixed
+    {
+        return $instance
+            ->when($request->has('zone_ids'), function ($query) use ($request) {
+                $query->whereIn('zone_id', $request['zone_ids']);
+            })
+            ->when($request->has('category_ids'), function ($query) use ($request) {
+                $query->whereIn('category_id', $request['category_ids']);
+            })
+            ->when($request->has('sub_category_ids'), function ($query) use ($request) {
+                $query->whereIn('sub_category_id', $request['sub_category_ids']);
+            });
     }
 
     /**
