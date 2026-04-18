@@ -276,59 +276,28 @@
                             </thead>
                             <tbody>
                             @forelse($bookings as $key=>$booking)
-                                    <?php
-                                    $admin_commission_without_earning = 0;
-
-                                    $discount_by_admin = 0;
-                                    $discount_by_provider = 0;
-                                    $coupon_discount_by_admin = 0;
-                                    $coupon_discount_by_provider = 0;
-                                    $campaign_discount_by_admin = 0;
-                                    $campaign_discount_by_provider = 0;
-
-                                    $admin_commission_with_cost = 0;
-
-                                    $admin_net_income = 0;
-                                    $provider_net_income = 0;
-
-                                    foreach ($booking->details_amounts as $key => $item) {
-                                        $discount_by_admin += $item['discount_by_admin'];
-                                        $discount_by_provider += $item['discount_by_provider'];
-                                        $coupon_discount_by_admin += $item['coupon_discount_by_admin'];
-                                        $coupon_discount_by_provider += $item['coupon_discount_by_provider'];
-                                        $campaign_discount_by_admin += $item['campaign_discount_by_admin'];
-                                        $campaign_discount_by_provider += $item['campaign_discount_by_provider'];
-
-                                        $admin_commission_with_cost += $item->admin_commission;
-
-                                    }
-
-                                    $admin_commission_without_cost = $admin_commission_with_cost - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin);
-                                    $admin_net_income = $admin_commission_without_cost;
-                                    $provider_net_income = $booking['total_booking_amount'] - $admin_commission_without_cost;
-                                    ?>
                                 <tr>
                                     <td>
                                         <a href="{{route('admin.booking.details', [$booking->id,'web_page'=>'details'])}}">
                                             {{$booking['readable_id']}}</a>
                                     </td>
-                                    <td>{{with_currency_symbol($booking['total_booking_amount'])}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_reported_amount ?? $booking['total_booking_amount'])}}</td>
 
                                     <td>{{with_currency_symbol($booking['total_discount_amount'])}}</td>
-                                    <td>{{with_currency_symbol($discount_by_admin)}}</td>
-                                    <td>{{with_currency_symbol($discount_by_provider)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_discount_by_admin ?? 0)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_discount_by_provider ?? 0)}}</td>
                                     <td>{{with_currency_symbol($booking['total_coupon_discount_amount'])}}</td>
-                                    <td>{{with_currency_symbol($coupon_discount_by_admin)}}</td>
-                                    <td>{{with_currency_symbol($coupon_discount_by_provider)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_coupon_discount_by_admin ?? 0)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_coupon_discount_by_provider ?? 0)}}</td>
                                     <td>{{with_currency_symbol($booking['total_campaign_discount_amount'])}}</td>
-                                    <td>{{with_currency_symbol($campaign_discount_by_admin)}}</td>
-                                    <td>{{with_currency_symbol($campaign_discount_by_provider)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_campaign_discount_by_admin ?? 0)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_campaign_discount_by_provider ?? 0)}}</td>
 
-                                    <td>{{with_currency_symbol($booking['total_booking_amount'])}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_reported_amount ?? $booking['total_booking_amount'])}}</td>
                                     <td>{{with_currency_symbol($booking['total_tax_amount'])}}</td>
-                                    <td>{{with_currency_symbol($admin_commission_with_cost)}}</td>
-                                    <td>{{with_currency_symbol($provider_net_income)}}</td>
-                                    <td>{{with_currency_symbol($admin_net_income)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_admin_commission_gross ?? 0)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_provider_net_income ?? 0)}}</td>
+                                    <td>{{with_currency_symbol($booking->earning_report_admin_net_income ?? 0)}}</td>
                                 </tr>
                             @empty
                                 <tr>
