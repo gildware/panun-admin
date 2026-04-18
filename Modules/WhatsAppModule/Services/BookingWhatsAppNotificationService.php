@@ -169,6 +169,20 @@ class BookingWhatsAppNotificationService
         '{disputed_final_provider_earning}' => 'Disputed close: final net provider earning after dispute distribution',
         '{disputed_company_pays_provider_total}' => 'Disputed close: total company pays provider (net settlement)',
         '{disputed_provider_remittance_total}' => 'Disputed close: total provider remittance to company',
+        '{dispute_reason}' => 'Disputed close — dispute reason (same as Dispute and close modal)',
+        '{refund_paid_from_company_pool}' => 'Disputed close — refund paid from company pool',
+        '{refund_paid_from_provider_pool}' => 'Disputed close — refund paid from provider pool',
+        '{refund_company_transaction_id}' => 'Disputed close — reference / transaction ID (company leg)',
+        '{refund_provider_transaction_id}' => 'Disputed close — reference / transaction ID (provider leg)',
+        '{final_services_charges_retained_from_customer}' => 'Disputed close — final Services Charges retained from customer',
+        '{final_spare_parts_charges_retained_from_customer}' => 'Disputed close — final Spare Parts Charges retained from customer',
+        '{final_admin_commission_services_net_basis}' => 'Disputed close — final admin commission Services (net basis)',
+        '{final_provider_earning_services_net_basis}' => 'Disputed close — final provider earning Services (net basis)',
+        '{final_admin_commission_spare_parts_net_basis}' => 'Disputed close — final admin commission Spare Parts (net basis)',
+        '{final_provider_earning_spare_parts_net_basis}' => 'Disputed close — final provider earning Spare Parts (net basis)',
+        '{final_amount_retained_from_customer_after_refunds}' => 'Disputed close — final amount retained from customer after refunds',
+        '{disputed_total_provider_pays_company}' => 'Disputed close — total provider pays company',
+        '{disputed_total_company_pays_provider}' => 'Disputed close — total company pays provider',
         '{compensation_amount}' => 'Compensation: amount for this compensation row (when compensation message is sent)',
         '{compensation_from_party_label}' => 'Compensation: payer (Company / Provider)',
         '{compensation_to_party_label}' => 'Compensation: recipient (Customer / Provider)',
@@ -264,6 +278,20 @@ class BookingWhatsAppNotificationService
         '{disputed_final_provider_earning}' => "Modules: Booking — disputed reopen close.\nContains: Final net provider earning after dispute distribution (formatted).",
         '{disputed_company_pays_provider_total}' => "Modules: Booking — disputed reopen close.\nContains: Total the company pays the provider in net settlement (formatted).",
         '{disputed_provider_remittance_total}' => "Modules: Booking — disputed reopen close.\nContains: Total provider remittance due to company (formatted).",
+        '{dispute_reason}' => "Modules: Booking — disputed reopen close.\nWhen: Dispute and close modal submit.\nContains: Active dispute reason name (same field as modal).",
+        '{refund_paid_from_company_pool}' => "Modules: Booking — disputed reopen close.\nContains: Same as refund from company pool in the modal (formatted).",
+        '{refund_paid_from_provider_pool}' => "Modules: Booking — disputed reopen close.\nContains: Same as refund from provider pool in the modal (formatted).",
+        '{refund_company_transaction_id}' => "Modules: Booking — disputed reopen close.\nContains: Company-leg reference / transaction id (or em dash if none).",
+        '{refund_provider_transaction_id}' => "Modules: Booking — disputed reopen close.\nContains: Provider-leg reference / transaction id (or em dash if none).",
+        '{final_services_charges_retained_from_customer}' => "Modules: Booking — disputed reopen close.\nContains: Services portion of customer retained after refunds (formatted).",
+        '{final_spare_parts_charges_retained_from_customer}' => "Modules: Booking — disputed reopen close.\nContains: Spare-parts portion of customer retained after refunds (formatted).",
+        '{final_admin_commission_services_net_basis}' => "Modules: Booking — disputed reopen close.\nContains: Admin commission on Services net basis (formatted).",
+        '{final_provider_earning_services_net_basis}' => "Modules: Booking — disputed reopen close.\nContains: Provider earning on Services net basis (formatted).",
+        '{final_admin_commission_spare_parts_net_basis}' => "Modules: Booking — disputed reopen close.\nContains: Admin commission on Spare Parts net basis (formatted).",
+        '{final_provider_earning_spare_parts_net_basis}' => "Modules: Booking — disputed reopen close.\nContains: Provider earning on Spare Parts net basis (formatted).",
+        '{final_amount_retained_from_customer_after_refunds}' => "Modules: Booking — disputed reopen close.\nContains: Total retained from customer after refunds (formatted); same basis as modal total retained.",
+        '{disputed_total_provider_pays_company}' => "Modules: Booking — disputed reopen close.\nContains: Total provider pays company (modal reconciliation total; formatted).",
+        '{disputed_total_company_pays_provider}' => "Modules: Booking — disputed reopen close.\nContains: Total company pays provider (modal reconciliation total; formatted).",
         '{compensation_amount}' => "Modules: Booking — compensation.\nWhen: “Compensation” automation only.\nContains: Amount for this compensation record (formatted).",
         '{compensation_from_party_label}' => "Modules: Booking — compensation.\nContains: Payer label: Company, Provider, or Customer.",
         '{compensation_to_party_label}' => "Modules: Booking — compensation.\nContains: Recipient label.",
@@ -357,6 +385,20 @@ class BookingWhatsAppNotificationService
         '{disputed_final_provider_earning}' => '2,400.00',
         '{disputed_company_pays_provider_total}' => '300.00',
         '{disputed_provider_remittance_total}' => '500.00',
+        '{dispute_reason}' => 'Service not as described',
+        '{refund_paid_from_company_pool}' => '1,500.00',
+        '{refund_paid_from_provider_pool}' => '1,000.00',
+        '{refund_company_transaction_id}' => 'CO-TXN-991',
+        '{refund_provider_transaction_id}' => 'PR-TXN-772',
+        '{final_services_charges_retained_from_customer}' => '1,800.00',
+        '{final_spare_parts_charges_retained_from_customer}' => '200.00',
+        '{final_admin_commission_services_net_basis}' => '540.00',
+        '{final_provider_earning_services_net_basis}' => '1,260.00',
+        '{final_admin_commission_spare_parts_net_basis}' => '60.00',
+        '{final_provider_earning_spare_parts_net_basis}' => '140.00',
+        '{final_amount_retained_from_customer_after_refunds}' => '2,000.00',
+        '{disputed_total_provider_pays_company}' => '500.00',
+        '{disputed_total_company_pays_provider}' => '300.00',
         '{compensation_amount}' => '150.00',
         '{compensation_from_party_label}' => 'Company',
         '{compensation_to_party_label}' => 'Customer',
@@ -507,6 +549,20 @@ class BookingWhatsAppNotificationService
     private static function bookingStatusDisputedScenarioTokenKeys(): array
     {
         return [
+            '{dispute_reason}',
+            '{refund_paid_from_company_pool}',
+            '{refund_company_transaction_id}',
+            '{refund_paid_from_provider_pool}',
+            '{refund_provider_transaction_id}',
+            '{final_services_charges_retained_from_customer}',
+            '{final_admin_commission_services_net_basis}',
+            '{final_provider_earning_services_net_basis}',
+            '{final_spare_parts_charges_retained_from_customer}',
+            '{final_admin_commission_spare_parts_net_basis}',
+            '{final_provider_earning_spare_parts_net_basis}',
+            '{final_amount_retained_from_customer_after_refunds}',
+            '{disputed_total_provider_pays_company}',
+            '{disputed_total_company_pays_provider}',
             '{disputed_refund_total}',
             '{disputed_refund_company}',
             '{disputed_refund_provider}',
@@ -1106,8 +1162,8 @@ class BookingWhatsAppNotificationService
         $resolvedProvider = "Reopen case resolved\n\nBooking *{booking_id}* reopen case marked resolved.\n\nRemarks: {reopen_resolve_remarks}\n\nFinal order total: {booking_final_amount} (paid {amount_paid}, due {due_amount})\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
         $lossMakingCustomer = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* is *completed* with a scaled / partial settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\nOutcome: {settlement_outcome_label}\nNotes: {settlement_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
         $lossMakingProvider = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* completed with scaled settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
-        $disputedCloseCustomer = "Disputed booking closed\n\nBooking *{booking_id}* — refunds are recorded and the case is closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nRefunds: *{disputed_refund_total}* (company pool {disputed_refund_company}, provider pool {disputed_refund_provider})\nRetained on booking: *{disputed_customer_retained}*\n\nFinal split — company commission: {disputed_final_admin_commission}, provider earning: {disputed_final_provider_earning}\nSettlement movement — company pays provider: {disputed_company_pays_provider_total}, provider remits: {disputed_provider_remittance_total}\n\nRemarks: {reopen_resolve_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
-        $disputedCloseProvider = "Disputed booking closed\n\nBooking *{booking_id}* — refund legs recorded; case closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nRefunds: *{disputed_refund_total}* (company {disputed_refund_company}, provider {disputed_refund_provider})\nCustomer retained: *{disputed_customer_retained}*\n\nFinal split — company: {disputed_final_admin_commission}, provider: {disputed_final_provider_earning}\nNet settlement — company pays provider: {disputed_company_pays_provider_total}, provider remits: {disputed_provider_remittance_total}\n\nRemarks: {reopen_resolve_remarks}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
+        $disputedCloseCustomer = "Disputed booking closed\n\nBooking *{booking_id}* — refunds are recorded and the case is closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nDispute reason: {dispute_reason}\nRefund paid from company pool: {refund_paid_from_company_pool} (ref: {refund_company_transaction_id})\nRefund paid from provider pool: {refund_paid_from_provider_pool} (ref: {refund_provider_transaction_id})\n\nServices retained: {final_services_charges_retained_from_customer} — admin {final_admin_commission_services_net_basis}, provider {final_provider_earning_services_net_basis}\nSpare retained: {final_spare_parts_charges_retained_from_customer} — admin {final_admin_commission_spare_parts_net_basis}, provider {final_provider_earning_spare_parts_net_basis}\nFinal amount retained from customer: {final_amount_retained_from_customer_after_refunds}\n\nTotals — company commission: {disputed_final_admin_commission}, provider earning: {disputed_final_provider_earning}\nTotal provider pays company: {disputed_total_provider_pays_company}\nTotal company pays provider: {disputed_total_company_pays_provider}\n\nRemarks: {reopen_resolve_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $disputedCloseProvider = "Disputed booking closed\n\nBooking *{booking_id}* — refund legs recorded; case closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nDispute reason: {dispute_reason}\nRefund paid from company pool: {refund_paid_from_company_pool} (ref: {refund_company_transaction_id})\nRefund paid from provider pool: {refund_paid_from_provider_pool} (ref: {refund_provider_transaction_id})\n\nServices retained: {final_services_charges_retained_from_customer} — admin {final_admin_commission_services_net_basis}, provider {final_provider_earning_services_net_basis}\nSpare retained: {final_spare_parts_charges_retained_from_customer} — admin {final_admin_commission_spare_parts_net_basis}, provider {final_provider_earning_spare_parts_net_basis}\nFinal amount retained from customer: {final_amount_retained_from_customer_after_refunds}\n\nTotals — company: {disputed_final_admin_commission}, provider: {disputed_final_provider_earning}\nTotal provider pays company: {disputed_total_provider_pays_company}\nTotal company pays provider: {disputed_total_company_pays_provider}\n\nRemarks: {reopen_resolve_remarks}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
 
         $perStatus = [];
         foreach (self::statusTemplateSegmentKeys() as $segment) {
@@ -2680,7 +2736,30 @@ class BookingWhatsAppNotificationService
         $coPaysPr = round((float) ($snapshot['company_pays_provider_total'] ?? 0), 2);
         $prRemit = round((float) ($snapshot['provider_total_remittance_to_company'] ?? 0), 2);
 
+        $disputeReason = trim((string) ($snapshot['booking_dispute_reason_name'] ?? ''));
+        if ($disputeReason === '') {
+            $disputeReason = '—';
+        }
+        $tidCo = trim((string) ($snapshot['refund_company_transaction_id'] ?? ''));
+        $tidPr = trim((string) ($snapshot['refund_provider_transaction_id'] ?? ''));
+
+        $fmtTx = static fn (string $s): string => $s !== '' ? $s : '—';
+
         return [
+            '{dispute_reason}' => $disputeReason,
+            '{refund_paid_from_company_pool}' => $this->formatMoneyAmountForMessages($company),
+            '{refund_paid_from_provider_pool}' => $this->formatMoneyAmountForMessages($provider),
+            '{refund_company_transaction_id}' => $fmtTx($tidCo),
+            '{refund_provider_transaction_id}' => $fmtTx($tidPr),
+            '{final_services_charges_retained_from_customer}' => $this->formatMoneyAmountForMessages(round((float) ($snapshot['final_services_retained_from_customer'] ?? 0), 2)),
+            '{final_spare_parts_charges_retained_from_customer}' => $this->formatMoneyAmountForMessages(round((float) ($snapshot['final_spare_parts_retained_from_customer'] ?? 0), 2)),
+            '{final_admin_commission_services_net_basis}' => $this->formatMoneyAmountForMessages(round((float) ($snapshot['final_admin_commission_services'] ?? 0), 2)),
+            '{final_provider_earning_services_net_basis}' => $this->formatMoneyAmountForMessages(round((float) ($snapshot['final_provider_earning_services'] ?? 0), 2)),
+            '{final_admin_commission_spare_parts_net_basis}' => $this->formatMoneyAmountForMessages(round((float) ($snapshot['final_admin_commission_spare_parts'] ?? 0), 2)),
+            '{final_provider_earning_spare_parts_net_basis}' => $this->formatMoneyAmountForMessages(round((float) ($snapshot['final_provider_earning_spare_parts'] ?? 0), 2)),
+            '{final_amount_retained_from_customer_after_refunds}' => $this->formatMoneyAmountForMessages($retained),
+            '{disputed_total_provider_pays_company}' => $this->formatMoneyAmountForMessages($prRemit),
+            '{disputed_total_company_pays_provider}' => $this->formatMoneyAmountForMessages($coPaysPr),
             '{disputed_refund_total}' => $this->formatMoneyAmountForMessages($total),
             '{disputed_refund_company}' => $this->formatMoneyAmountForMessages($company),
             '{disputed_refund_provider}' => $this->formatMoneyAmountForMessages($provider),

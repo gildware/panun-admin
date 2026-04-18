@@ -3036,9 +3036,15 @@ class BookingController extends Controller
         $tidCompany = AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) ($validated['refund_company_transaction_id'] ?? '')));
         $tidProvider = AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField(trim((string) ($validated['refund_provider_transaction_id'] ?? '')));
 
+        $disputeReasonName = trim((string) (BookingDisputeReason::query()->where('id', $disputeReasonId)->value('name') ?? ''));
+
         $snapshot = [
             'type' => 'reopen_disputed_refund',
             'submitted_at' => now()->toIso8601String(),
+            'booking_dispute_reason_id' => $disputeReasonId,
+            'booking_dispute_reason_name' => $disputeReasonName,
+            'refund_company_transaction_id' => $tidCompany,
+            'refund_provider_transaction_id' => $tidProvider,
             'customer_paid_split' => $split,
             'company_refund_pool_eligible' => $companyEligible,
             'provider_refund_pool_eligible' => $providerEligible,
