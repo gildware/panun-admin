@@ -99,7 +99,7 @@ class WhatsAppBookingAutomationFlowsTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_send_booking_status_change_dedupe_writes_two_skipped_rows(): void
+    public function test_send_booking_status_change_double_invoke_logs_each_time_no_transition_dedupe(): void
     {
         $cloud = $this->createStub(WhatsAppCloudService::class);
         $persist = $this->createStub(WhatsAppMessagePersistenceService::class);
@@ -128,7 +128,7 @@ class WhatsAppBookingAutomationFlowsTest extends TestCase
 
         $this->assertSame(4, WhatsAppBookingAutomationMessageLog::query()->count());
         $this->assertSame(
-            2,
+            0,
             WhatsAppBookingAutomationMessageLog::query()
                 ->where('error_detail', 'skipped_dedupe_same_status_transition')
                 ->count()

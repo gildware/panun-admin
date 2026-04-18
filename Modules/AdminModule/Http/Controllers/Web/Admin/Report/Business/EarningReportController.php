@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
+use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\BusinessSettingsModule\Entities\SubscriptionPackage;
@@ -127,8 +128,14 @@ class EarningReportController extends Controller
         $amounts = $this->bookingDetailsAmount
             ->whereHas('booking', function ($query) use ($request) {
                 self::filterQuery($query, $request)->forRevenueReporting();
-            })->orWhereHas('repeat', function ($subQuery) {
-                $subQuery->ofBookingStatus('completed');
+            })->orWhereHas('repeat', function ($subQuery) use ($request) {
+                $subQuery->ofBookingStatus('completed')
+                    ->whereHas('booking', function ($bq) use ($request) {
+                        self::filterQueryGeographyOnly($bq, $request);
+                    });
+                if ($request->has('date_range')) {
+                    $this->applyDateRangeConditions($subQuery, $request);
+                }
             })
             ->when(isset($group_by_deterministic), function ($query) use ($group_by_deterministic) {
                 $query->select(
@@ -225,6 +232,9 @@ class EarningReportController extends Controller
 
 
 
+        $reportedRevenueByBucket = $this->computeReportedRevenueByBucket($request, $group_by_deterministic);
+        $scaledCommissionDeltaByBucket = $this->computeScaledCommissionDeltaByBucket($request, $group_by_deterministic);
+
         $chart_data = ['net_profit' => array(), 'total_earning' => array(), 'commission_earning' => array(), 'subscription_earning' => array(), 'platform_fee' => array(), 'timeline' => array()];
         if ($deterministic == 'month') {
             $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -240,9 +250,12 @@ class EarningReportController extends Controller
                         $coupon_discount_by_admin = $item['coupon_discount_by_admin'] ?? 0;
                         $campaign_discount_by_admin = $item['campaign_discount_by_admin'] ?? 0;
 
-                        $chart_data['net_profit'][] = with_decimal_point(($admin_commission + $subscriptionEarning + $platformFee) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin));
-                        $chart_data['total_earning'][] = with_decimal_point($admin_commission + $subscriptionEarning + $platformFee);
-                        $chart_data['commission_earning'][] = with_decimal_point($admin_commission);
+                        $netCommission = ($admin_commission + ($scaledCommissionDeltaByBucket[$month] ?? 0)) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin);
+                        $reportedRevenue = (float) ($reportedRevenueByBucket[$month] ?? 0);
+
+                        $chart_data['net_profit'][] = with_decimal_point($netCommission + $subscriptionEarning + $platformFee);
+                        $chart_data['total_earning'][] = with_decimal_point($reportedRevenue);
+                        $chart_data['commission_earning'][] = with_decimal_point($netCommission);
                         $chart_data['subscription_earning'][] = with_decimal_point($subscriptionEarning);
                         $chart_data['platform_fee'][] = with_decimal_point($platformFee);
 
@@ -251,7 +264,7 @@ class EarningReportController extends Controller
                 }
                 if (!$found) {
                     $chart_data['net_profit'][] = with_decimal_point(0);
-                    $chart_data['total_earning'][] = with_decimal_point(0);
+                    $chart_data['total_earning'][] = with_decimal_point($reportedRevenueByBucket[$month] ?? 0);
                     $chart_data['commission_earning'][] = with_decimal_point(0);
                     $chart_data['subscription_earning'][] = with_decimal_point(0);
                     $chart_data['platform_fee'][] = with_decimal_point(0);
@@ -267,9 +280,13 @@ class EarningReportController extends Controller
                 $coupon_discount_by_admin = $item['coupon_discount_by_admin'] ?? 0;
                 $campaign_discount_by_admin = $item['campaign_discount_by_admin'] ?? 0;
 
-                $chart_data['net_profit'][] = with_decimal_point(($admin_commission + $subscriptionEarning + $platformFee) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin));
-                $chart_data['total_earning'][] = with_decimal_point($admin_commission  + $subscriptionEarning + $platformFee);
-                $chart_data['commission_earning'][] = with_decimal_point($admin_commission);
+                $yearKey = (int) ($item[$deterministic] ?? 0);
+                $netCommission = ($admin_commission + ($scaledCommissionDeltaByBucket[$yearKey] ?? 0)) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin);
+                $reportedRevenue = (float) ($reportedRevenueByBucket[$yearKey] ?? 0);
+
+                $chart_data['net_profit'][] = with_decimal_point($netCommission + $subscriptionEarning + $platformFee);
+                $chart_data['total_earning'][] = with_decimal_point($reportedRevenue);
+                $chart_data['commission_earning'][] = with_decimal_point($netCommission);
                 $chart_data['subscription_earning'][] = with_decimal_point($subscriptionEarning);
                 $chart_data['platform_fee'][] = with_decimal_point($platformFee);
                 $chart_data['timeline'][] = $item[$deterministic];
@@ -298,9 +315,13 @@ class EarningReportController extends Controller
                         $coupon_discount_by_admin = $item['coupon_discount_by_admin'] ?? 0;
                         $campaign_discount_by_admin = $item['campaign_discount_by_admin'] ?? 0;
 
-                        $chart_data['net_profit'][] = with_decimal_point(($admin_commission + $subscriptionEarning + $platformFee) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin));
-                        $chart_data['total_earning'][] = with_decimal_point($admin_commission + $subscriptionEarning + $platformFee);
-                        $chart_data['commission_earning'][] = with_decimal_point($admin_commission);
+                        $dayKey = (int) $i;
+                        $netCommission = ($admin_commission + ($scaledCommissionDeltaByBucket[$dayKey] ?? 0)) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin);
+                        $reportedRevenue = (float) ($reportedRevenueByBucket[$dayKey] ?? 0);
+
+                        $chart_data['net_profit'][] = with_decimal_point($netCommission + $subscriptionEarning + $platformFee);
+                        $chart_data['total_earning'][] = with_decimal_point($reportedRevenue);
+                        $chart_data['commission_earning'][] = with_decimal_point($netCommission);
                         $chart_data['subscription_earning'][] = with_decimal_point($subscriptionEarning);
                         $chart_data['platform_fee'][] = with_decimal_point($platformFee);
 
@@ -309,7 +330,7 @@ class EarningReportController extends Controller
                 }
                 if (!$found) {
                     $chart_data['net_profit'][] = with_decimal_point(0);
-                    $chart_data['total_earning'][] = with_decimal_point(0);
+                    $chart_data['total_earning'][] = with_decimal_point($reportedRevenueByBucket[$i] ?? 0);
                     $chart_data['commission_earning'][] = with_decimal_point(0);
                     $chart_data['subscription_earning'][] = with_decimal_point(0);
                     $chart_data['platform_fee'][] = with_decimal_point(0);
@@ -336,11 +357,13 @@ class EarningReportController extends Controller
                         $coupon_discount_by_admin = $item['coupon_discount_by_admin'] ?? 0;
                         $campaign_discount_by_admin = $item['campaign_discount_by_admin'] ?? 0;
 
-                        $chart_data['net_profit'][] = with_decimal_point(
-                            ($admin_commission + $subscriptionEarning + $platformFee) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin)
-                        );
-                        $chart_data['total_earning'][] = with_decimal_point($admin_commission + $subscriptionEarning + $platformFee);
-                        $chart_data['commission_earning'][] = with_decimal_point($admin_commission);
+                        $dayKey = (int) $i;
+                        $netCommission = ($admin_commission + ($scaledCommissionDeltaByBucket[$dayKey] ?? 0)) - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin);
+                        $reportedRevenue = (float) ($reportedRevenueByBucket[$dayKey] ?? 0);
+
+                        $chart_data['net_profit'][] = with_decimal_point($netCommission + $subscriptionEarning + $platformFee);
+                        $chart_data['total_earning'][] = with_decimal_point($reportedRevenue);
+                        $chart_data['commission_earning'][] = with_decimal_point($netCommission);
                         $chart_data['subscription_earning'][] = with_decimal_point($subscriptionEarning);
                         $chart_data['platform_fee'][] = with_decimal_point($platformFee);
 
@@ -349,7 +372,7 @@ class EarningReportController extends Controller
                 }
                 if (!$found) {
                     $chart_data['net_profit'][] = with_decimal_point(0);
-                    $chart_data['total_earning'][] = with_decimal_point(0);
+                    $chart_data['total_earning'][] = with_decimal_point($reportedRevenueByBucket[$i] ?? 0);
                     $chart_data['commission_earning'][] = with_decimal_point(0);
                     $chart_data['subscription_earning'][] = with_decimal_point(0);
                     $chart_data['platform_fee'][] = with_decimal_point(0);
@@ -370,6 +393,12 @@ class EarningReportController extends Controller
             })
             ->latest()
             ->latest()->paginate(pagination_limit())->appends($queryParams);
+
+        $bookings->setCollection($bookings->getCollection()->map(function (Booking $booking) {
+            $this->hydrateEarningReportBookingRow($booking);
+
+            return $booking;
+        }));
 
         return view('adminmodule::admin.report.business.earning', compact('zones', 'categories', 'sub_categories', 'bookings', 'chart_data', 'queryParams'));
     }
@@ -778,68 +807,31 @@ class EarningReportController extends Controller
             ->get();
 
         foreach ($bookings as $booking) {
-            $admin_commission_without_earning = 0;
-
-            $discount_by_admin = 0;
-            $discount_by_provider = 0;
-            $coupon_discount_by_admin = 0;
-            $coupon_discount_by_provider = 0;
-            $campaign_discount_by_admin = 0;
-            $campaign_discount_by_provider = 0;
-
-            $admin_commission_with_cost = 0;
-
-            $admin_net_income = 0;
-            $provider_net_income = 0;
-
-            foreach ($booking->details_amounts as $key => $item) {
-                $discount_by_admin += $item['discount_by_admin'];
-                $discount_by_provider += $item['discount_by_provider'];
-                $coupon_discount_by_admin += $item['coupon_discount_by_admin'];
-                $coupon_discount_by_provider += $item['coupon_discount_by_provider'];
-                $campaign_discount_by_admin += $item['campaign_discount_by_admin'];
-                $campaign_discount_by_provider += $item['campaign_discount_by_provider'];
-
-                $admin_commission_with_cost += $item->admin_commission;
-
-            }
-            $booking->discount_by_admin = $discount_by_admin;
-            $booking->discount_by_provider = $discount_by_provider;
-            $booking->coupon_discount_by_admin = $coupon_discount_by_admin;
-            $booking->coupon_discount_by_provider = $coupon_discount_by_provider;
-            $booking->campaign_discount_by_admin = $campaign_discount_by_admin;
-            $booking->campaign_discount_by_provider = $campaign_discount_by_provider;
-            $booking->admin_commission_with_cost = $admin_commission_with_cost;
-
-            $admin_commission_without_cost = $admin_commission_with_cost - ($discount_by_admin + $coupon_discount_by_admin + $campaign_discount_by_admin);
-            $admin_net_income = $admin_commission_without_cost;
-            $provider_net_income = $booking['total_booking_amount'] - $admin_commission_without_cost;
-            $booking->admin_net_income = $admin_net_income;
-            $booking->provider_net_income = $provider_net_income;
+            $this->hydrateEarningReportBookingRow($booking);
         }
 
         return (new FastExcel($bookings))->download(time() . '-business-earning-report.xlsx', function ($item) {
             return [
                 'Booking ID' => $item->readable_id ?? '',
-                'Booking Amount (' . currency_symbol() . ')' => with_decimal_point($item['total_booking_amount']),
+                'Booking Amount (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_reported_amount ?? $item['total_booking_amount']),
 
                 'Total Service Discount (' . currency_symbol() . ')' => with_decimal_point($item['total_discount_amount']),
-                'Discount on service by admin (' . currency_symbol() . ')' => with_decimal_point($item['discount_by_admin']),
-                'Discount on service by provider (' . currency_symbol() . ')' => with_decimal_point($item['discount_by_provider']),
+                'Discount on service by admin (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_discount_by_admin ?? 0),
+                'Discount on service by provider (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_discount_by_provider ?? 0),
 
                 'Total Coupon Discount (' . currency_symbol() . ')' => with_decimal_point($item['total_coupon_discount_amount']),
-                'Coupon Discount on service by admin (' . currency_symbol() . ')' => with_decimal_point($item['coupon_discount_by_admin']),
-                'Coupon Discount on service by provider (' . currency_symbol() . ')' => with_decimal_point($item['coupon_discount_by_provider']),
+                'Coupon Discount on service by admin (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_coupon_discount_by_admin ?? 0),
+                'Coupon Discount on service by provider (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_coupon_discount_by_provider ?? 0),
 
                 'Total Campaign Discount (' . currency_symbol() . ')' => with_decimal_point($item['total_campaign_discount_amount']),
-                'Campaign Discount on service by admin (' . currency_symbol() . ')' => with_decimal_point($item['campaign_discount_by_admin']),
-                'Campaign Discount on service by provider (' . currency_symbol() . ')' => with_decimal_point($item['campaign_discount_by_provider']),
+                'Campaign Discount on service by admin (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_campaign_discount_by_admin ?? 0),
+                'Campaign Discount on service by provider (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_campaign_discount_by_provider ?? 0),
 
-                'Subtotal (' . currency_symbol() . ')' => with_decimal_point($item['total_booking_amount']),
+                'Subtotal (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_reported_amount ?? $item['total_booking_amount']),
                 'VAT / Tax (' . currency_symbol() . ')' => with_decimal_point($item['total_tax_amount']),
-                'Admin Commission (' . currency_symbol() . ')' => with_decimal_point($item['admin_commission_with_cost']),
-                'Provider Net Income (' . currency_symbol() . ')' => with_decimal_point($item['provider_net_income']),
-                'Admin Net Income (' . currency_symbol() . ')' => with_decimal_point($item['admin_net_income']),
+                'Admin Commission (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_admin_commission_gross ?? 0),
+                'Provider Net Income (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_provider_net_income ?? 0),
+                'Admin Net Income (' . currency_symbol() . ')' => with_decimal_point($item->earning_report_admin_net_income ?? 0),
             ];
         });
     }

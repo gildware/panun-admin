@@ -72,9 +72,6 @@ class BookingWhatsAppNotificationService
 
     public const CACHE_STATUS_SENT_PREFIX = 'wa:bst:sent:';
 
-    /** @see sendBookingStatusChange() Coalesces observer + controller invocations for the same transition. */
-    public const CACHE_STATUS_NOTIFY_DEDUPE_PREFIX = 'wa:bst:notify:';
-
     public const CACHE_PROVIDER_CHANGE_LOCK_PREFIX = 'wa:lock:bpc:';
 
     public const CACHE_PROVIDER_CHANGE_SENT_PREFIX = 'wa:bpc:sent:';
@@ -1519,22 +1516,31 @@ class BookingWhatsAppNotificationService
 
         $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus, $booking);
 
-        // Observer + explicit controller calls can both run for the same HTTP save; let the first win.
-        $dedupeKey = self::CACHE_STATUS_NOTIFY_DEDUPE_PREFIX . $booking->id . ':'
-            . mb_strtolower(trim($previousBookingStatus)) . ':' . mb_strtolower(trim($newStatus));
-        if (! Cache::add($dedupeKey, 1, now()->addSeconds(60))) {
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            $this->logAutomationMasterDisabled($booking, null, [
+                ['key' => 'booking_status_customer_' . $segment, 'label' => 'booking status (customer)'],
+                ['key' => 'booking_status_provider_' . $segment, 'label' => 'booking status (provider)'],
+            ]);
+
+            return;
+        }
+
+        $lock = Cache::lock(self::CACHE_STATUS_LOCK_PREFIX . $booking->id, 30);
+        if (!$lock->get()) {
+            // Avoid silent no-ops: if the lock can't be acquired, record a skipped row so admins can
+            // see why no WhatsApp was sent for this transition.
             $baseCtx = [
                 'booking_id' => $booking->id,
                 'entity_id' => (string) $booking->id,
                 'segment' => $segment,
-                'skip_code' => 'skipped_dedupe_same_status_transition',
             ];
-            $reason = 'skipped_dedupe_same_status_transition';
+            $reason = 'skipped_lock_busy';
             $this->writeAutomationLog(
                 array_merge($baseCtx, ['party' => 'customer', 'message_key' => 'booking_status_customer_' . $segment]),
                 'booking_status_customer_' . $segment,
                 null,
-                'booking status (duplicate notify coalesced) (customer)',
+                'booking status (customer)',
                 'skipped',
                 $reason
             );
@@ -1542,92 +1548,44 @@ class BookingWhatsAppNotificationService
                 array_merge($baseCtx, ['party' => 'provider', 'message_key' => 'booking_status_provider_' . $segment]),
                 'booking_status_provider_' . $segment,
                 null,
-                'booking status (duplicate notify coalesced) (provider)',
+                'booking status (provider)',
                 'skipped',
                 $reason
             );
 
             return;
         }
-
         try {
-            $config = $this->getConfig();
-            if (empty($config['enabled'])) {
-                $this->logAutomationMasterDisabled($booking, null, [
-                    ['key' => 'booking_status_customer_' . $segment, 'label' => 'booking status (customer)'],
-                    ['key' => 'booking_status_provider_' . $segment, 'label' => 'booking status (provider)'],
-                ]);
+            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+            $vars = $this->buildReplacements($booking, $previousBookingStatus);
 
-                return;
-            }
+            $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'customer',
+                $vars,
+                $customerPhone,
+                $booking,
+                null,
+                'booking status',
+                (string) $booking->id
+            );
 
-            $lock = Cache::lock(self::CACHE_STATUS_LOCK_PREFIX . $booking->id, 30);
-            if (!$lock->get()) {
-                // Avoid silent no-ops: if the lock can't be acquired, record a skipped row so admins can
-                // see why no WhatsApp was sent for this transition.
-                $baseCtx = [
-                    'booking_id' => $booking->id,
-                    'entity_id' => (string) $booking->id,
-                    'segment' => $segment,
-                ];
-                $reason = 'skipped_lock_busy';
-                $this->writeAutomationLog(
-                    array_merge($baseCtx, ['party' => 'customer', 'message_key' => 'booking_status_customer_' . $segment]),
-                    'booking_status_customer_' . $segment,
-                    null,
-                    'booking status (customer)',
-                    'skipped',
-                    $reason
-                );
-                $this->writeAutomationLog(
-                    array_merge($baseCtx, ['party' => 'provider', 'message_key' => 'booking_status_provider_' . $segment]),
-                    'booking_status_provider_' . $segment,
-                    null,
-                    'booking status (provider)',
-                    'skipped',
-                    $reason
-                );
-
-                return;
-            }
-            try {
-                $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
-                $vars = $this->buildReplacements($booking, $previousBookingStatus);
-
-                $customerPhone = $this->normalizePhone($booking->customer?->phone, $config);
-                $this->deliverStatusTemplateMessage(
-                    $config,
-                    $segment,
-                    'customer',
-                    $vars,
-                    $customerPhone,
-                    $booking,
-                    null,
-                    'booking status',
-                    (string) $booking->id
-                );
-
-                $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
-                $this->deliverStatusTemplateMessage(
-                    $config,
-                    $segment,
-                    'provider',
-                    $vars,
-                    $providerPhone,
-                    $booking,
-                    null,
-                    'booking status',
-                    (string) $booking->id
-                );
-            } finally {
-                $lock->release();
-            }
-        } catch (\Throwable $e) {
-            // We claimed the dedupe slot before doing work. If the first caller (often the observer) throws
-            // before writing any automation log, the second caller (e.g. controller) would only log
-            // skipped_dedupe_same_status_transition — release so the follow-up invocation can send/log for real.
-            Cache::forget($dedupeKey);
-            throw $e;
+            $providerPhone = $this->resolveProviderPhone($booking->provider, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                'provider',
+                $vars,
+                $providerPhone,
+                $booking,
+                null,
+                'booking status',
+                (string) $booking->id
+            );
+        } finally {
+            $lock->release();
         }
     }
 
