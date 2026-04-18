@@ -161,6 +161,8 @@ class BookingWhatsAppNotificationService
         '{scaled_net_provider_share}' => 'Loss-making: net provider earning share after scaled loss',
         '{scaled_customer_paid_amount}' => 'Loss-making: customer paid amount (capped) from settlement snapshot',
         '{booking_customer_still_due}' => 'Amount still due from customer on this booking (admin settlement / due basis)',
+        '{settlement_company_pays_provider}' => 'Net settlement: amount company must pay the provider (same basis as booking details Pay to provider)',
+        '{settlement_provider_pays_company}' => 'Net settlement: amount provider must remit to the company (provider owes company)',
         '{disputed_provider_owes_company}' => 'Disputed close: refund pool amount attributed as provider owes company',
         '{disputed_company_owes_provider}' => 'Disputed close: refund pool amount attributed as company owes provider',
         '{disputed_company_cash_after_refund}' => 'Disputed close: company-collected cash after refund legs',
@@ -270,6 +272,8 @@ class BookingWhatsAppNotificationService
         '{scaled_net_provider_share}' => "Modules: Booking — loss-making (scaled).\nWhen: After loss allocation in settlement snapshot.\nContains: Net provider earning after scaled loss (formatted).",
         '{scaled_customer_paid_amount}' => "Modules: Booking — loss-making (scaled).\nWhen: Settlement snapshot present.\nContains: Recorded customer paid amount used in scaled preview (formatted).",
         '{booking_customer_still_due}' => "Modules: Booking — collections.\nWhen: Any status; strongest meaning on pending/ongoing with amount due.\nContains: Amount still to collect from the customer for this booking (formatted).",
+        '{settlement_company_pays_provider}' => "Modules: Booking — settlement legs.\nWhen: Status templates after payments (especially loss-making / scaled completion).\nContains: Amount the company must pay the provider — same as “Pay to provider” on booking details (formatted).",
+        '{settlement_provider_pays_company}' => "Modules: Booking — settlement legs.\nWhen: Same as company→provider settlement token.\nContains: Amount the provider must remit to the company — same as “Provider owes you” on booking details (formatted).",
         '{disputed_provider_owes_company}' => "Modules: Booking — disputed reopen close.\nWhen: After disputed refund snapshot is stored.\nContains: Provider-side pool attributed as owed to company (formatted).",
         '{disputed_company_owes_provider}' => "Modules: Booking — disputed reopen close.\nWhen: After disputed refund snapshot.\nContains: Company-side pool attributed as owed to provider (formatted).",
         '{disputed_company_cash_after_refund}' => "Modules: Booking — disputed reopen close.\nContains: Company cash pool after refund legs (formatted).",
@@ -377,6 +381,8 @@ class BookingWhatsAppNotificationService
         '{scaled_net_provider_share}' => '2,180.00',
         '{scaled_customer_paid_amount}' => '3,300.00',
         '{booking_customer_still_due}' => '800.00',
+        '{settlement_company_pays_provider}' => '450.00',
+        '{settlement_provider_pays_company}' => '120.00',
         '{disputed_provider_owes_company}' => '400.00',
         '{disputed_company_owes_provider}' => '250.00',
         '{disputed_company_cash_after_refund}' => '900.00',
@@ -540,6 +546,8 @@ class BookingWhatsAppNotificationService
             '{scaled_net_provider_share}',
             '{scaled_customer_paid_amount}',
             '{booking_customer_still_due}',
+            '{settlement_company_pays_provider}',
+            '{settlement_provider_pays_company}',
         ];
     }
 
@@ -1160,8 +1168,8 @@ class BookingWhatsAppNotificationService
         $reopenedProvider = "Booking reopened\n\nBooking *{booking_id}* status is now *{booking_status}* (reopened from completed).\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
         $resolvedCustomer = "Reopen case resolved\n\nBooking *{booking_id}* — your reopen request is marked *resolved*.\n\nRemarks: {reopen_resolve_remarks}\n\nFinal order total: {booking_final_amount} (paid {amount_paid}, due {due_amount})\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
         $resolvedProvider = "Reopen case resolved\n\nBooking *{booking_id}* reopen case marked resolved.\n\nRemarks: {reopen_resolve_remarks}\n\nFinal order total: {booking_final_amount} (paid {amount_paid}, due {due_amount})\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
-        $lossMakingCustomer = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* is *completed* with a scaled / partial settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\nOutcome: {settlement_outcome_label}\nNotes: {settlement_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
-        $lossMakingProvider = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* completed with scaled settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $lossMakingCustomer = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* is *completed* with a scaled / partial settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\nSettlement: company pays provider {settlement_company_pays_provider}; provider pays company {settlement_provider_pays_company}\n\nOutcome: {settlement_outcome_label}\nNotes: {settlement_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
+        $lossMakingProvider = "Booking completed — loss-making settlement\n\nBooking *{booking_id}* completed with scaled settlement.\n\nOrder total: {booking_final_amount}\nPaid: {amount_paid}\nCustomer still due: {booking_customer_still_due}\n\nLoss total: {scaled_loss_total} (company {scaled_loss_company_share}, provider {scaled_loss_provider_share})\nNet after loss — company: {scaled_net_company_share}, provider: {scaled_net_provider_share}\n\nSettlement: company pays provider {settlement_company_pays_provider}; provider pays company {settlement_provider_pays_company}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
         $disputedCloseCustomer = "Disputed booking closed\n\nBooking *{booking_id}* — refunds are recorded and the case is closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nDispute reason: {dispute_reason}\nRefund paid from company pool: {refund_paid_from_company_pool} (ref: {refund_company_transaction_id})\nRefund paid from provider pool: {refund_paid_from_provider_pool} (ref: {refund_provider_transaction_id})\n\nServices retained: {final_services_charges_retained_from_customer} — admin {final_admin_commission_services_net_basis}, provider {final_provider_earning_services_net_basis}\nSpare retained: {final_spare_parts_charges_retained_from_customer} — admin {final_admin_commission_spare_parts_net_basis}, provider {final_provider_earning_spare_parts_net_basis}\nFinal amount retained from customer: {final_amount_retained_from_customer_after_refunds}\n\nTotals — company commission: {disputed_final_admin_commission}, provider earning: {disputed_final_provider_earning}\nTotal provider pays company: {disputed_total_provider_pays_company}\nTotal company pays provider: {disputed_total_company_pays_provider}\n\nRemarks: {reopen_resolve_remarks}\n\n*Service*\n{service_name}\nWhen: {booking_datetime}";
         $disputedCloseProvider = "Disputed booking closed\n\nBooking *{booking_id}* — refund legs recorded; case closed.\n\nStatus: *{booking_status}* (was: {previous_booking_status})\n\nDispute reason: {dispute_reason}\nRefund paid from company pool: {refund_paid_from_company_pool} (ref: {refund_company_transaction_id})\nRefund paid from provider pool: {refund_paid_from_provider_pool} (ref: {refund_provider_transaction_id})\n\nServices retained: {final_services_charges_retained_from_customer} — admin {final_admin_commission_services_net_basis}, provider {final_provider_earning_services_net_basis}\nSpare retained: {final_spare_parts_charges_retained_from_customer} — admin {final_admin_commission_spare_parts_net_basis}, provider {final_provider_earning_spare_parts_net_basis}\nFinal amount retained from customer: {final_amount_retained_from_customer_after_refunds}\n\nTotals — company: {disputed_final_admin_commission}, provider: {disputed_final_provider_earning}\nTotal provider pays company: {disputed_total_provider_pays_company}\nTotal company pays provider: {disputed_total_company_pays_provider}\n\nRemarks: {reopen_resolve_remarks}\n\n*Customer*\n{customer_name}\nPhone: {customer_phone}\n\n*Service*\n{service_name}";
 
@@ -2820,7 +2828,17 @@ class BookingWhatsAppNotificationService
             '{booking_customer_still_due}' => $stillDue > 0.009
                 ? (function_exists('with_currency_symbol') ? with_currency_symbol($stillDue) : (string) $stillDue)
                 : '—',
+            '{settlement_company_pays_provider}' => '—',
+            '{settlement_provider_pays_company}' => '—',
         ];
+
+        if (function_exists('get_booking_received_and_settlement')) {
+            $settled = get_booking_received_and_settlement($booking);
+            $payToProvider = round((float) ($settled['pay_to_provider'] ?? 0), 2);
+            $providerOwesCompany = round((float) ($settled['provider_owes_company'] ?? 0), 2);
+            $out['{settlement_company_pays_provider}'] = $dash($payToProvider);
+            $out['{settlement_provider_pays_company}'] = $dash($providerOwesCompany);
+        }
 
         if (function_exists('booking_customer_paid_split_by_receiver')) {
             $split = booking_customer_paid_split_by_receiver($booking);
