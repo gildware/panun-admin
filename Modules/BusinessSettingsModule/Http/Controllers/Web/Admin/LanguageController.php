@@ -2,7 +2,6 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Admin;
 
-use App\Traits\ActivationClass;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Foundation\Application;
@@ -24,7 +23,6 @@ use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class LanguageController extends Controller
 {
-    use ActivationClass;
     use AuthorizesRequests;
 
     private BusinessSettings $businessSettings;

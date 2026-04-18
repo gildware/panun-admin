@@ -13,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -88,37 +87,17 @@ class AddonController extends Controller
      */
     public function activation(Request $request): Redirector|RedirectResponse|Application
     {
-        $remove = ["http://", "https://", "www."];
-        $url = str_replace($remove, "", url('/'));
         $fullData = include($request['path'] . '/Addon/info.php');
 
-        $post = [
-            base64_decode('dXNlcm5hbWU=') => $request['username'],
-            base64_decode('cHVyY2hhc2Vfa2V5') => $request['purchase_code'],
-            base64_decode('c29mdHdhcmVfaWQ=') => $fullData['software_id'],
-            base64_decode('ZG9tYWlu') => $url,
-        ];
+        $fullData['is_published'] = 1;
+        $fullData['username'] = $request['username'];
+        $fullData['purchase_code'] = $request['purchase_code'];
+        $str = "<?php return " . var_export($fullData, true) . ";";
+        file_put_contents(base_path($request['path'] . '/Addon/info.php'), $str);
 
-        $response = Http::post(base64_decode('aHR0cHM6Ly9jaGVjay42YW10ZWNoLmNvbS9hcGkvdjEvYWN0aXZhdGlvbi1jaGVjaw=='), $post)->json();
-        $status = $response['active'] ?? base64_encode(1);
+        Toastr::success(translate('activated_successfully'));
 
-        if ((int)base64_decode($status)) {
-            $fullData['is_published'] = 1;
-            $fullData['username'] = $request['username'];
-            $fullData['purchase_code'] = $request['purchase_code'];
-            $str = "<?php return " . var_export($fullData, true) . ";";
-            file_put_contents(base_path($request['path'] . '/Addon/info.php'), $str);
-
-            Toastr::success(translate('activated_successfully'));
-            return back();
-        }
-
-        $activationUrl = base64_decode('aHR0cHM6Ly9hY3RpdmF0aW9uLjZhbXRlY2guY29t');
-        $activationUrl .= '?username=' . $request['username'];
-        $activationUrl .= '&purchase_code=' . $request['purchase_code'];
-        $activationUrl .= '&domain=' . url('/') . '&';
-
-        return redirect($activationUrl);
+        return back();
     }
 
     /**

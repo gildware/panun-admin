@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\CategoryManagement\Http\Controllers\Web\Admin\CategoryController;
 use Modules\CategoryManagement\Http\Controllers\Web\Admin\SubCategoryController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
 
     Route::group(['prefix' => 'category', 'as' => 'category.'], function () {
         Route::any('create', [CategoryController::class, 'create'])->name('create');

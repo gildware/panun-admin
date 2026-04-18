@@ -12,7 +12,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin', 'namespace' => 'Api\V1'], fu
 
 });
 
-Route::group(['prefix' => 'provider', 'as' => 'provider', 'namespace' => 'Api\V1', 'middleware' => ['actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'as' => 'provider', 'namespace' => 'Api\V1'], function () {
     Route::group(['prefix' => 'auth', 'as' => 'auth.'], function () {
         Route::post('registration', [RegisterController::class, 'providerRegister'])->name('registration');
         Route::post('login', [LoginController::class, 'providerLogin'])->name('login');
@@ -30,7 +30,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer', 'namespace' => 'Api\V1
     });
 });
 
-Route::group(['prefix' => 'serviceman', 'as' => 'serviceman', 'namespace' => 'Api\V1', 'middleware' => ['actch:serviceman_app']], function () {
+Route::group(['prefix' => 'serviceman', 'as' => 'serviceman', 'namespace' => 'Api\V1'], function () {
     Route::group(['prefix' => 'auth', 'as' => 'auth.'], function () {
         Route::post('login', [LoginController::class, 'servicemanLogin'])->name('login');
     });

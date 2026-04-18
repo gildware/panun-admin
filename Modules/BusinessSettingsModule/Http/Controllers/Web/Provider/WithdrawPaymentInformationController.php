@@ -2,7 +2,6 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Provider;
 
-use App\Traits\ActivationClass;
 use App\Traits\FileManagerTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\Foundation\Application;

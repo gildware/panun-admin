@@ -23,14 +23,14 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     Route::post('change-language', [ProviderProviderController::class, 'changeLanguage']);
 });
 
-Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::get('/', [ProviderProviderController::class, 'index']);
     Route::get('dashboard', [ProviderProviderController::class, 'dashboard']);
     Route::get('dashboard/earning', [ProviderProviderController::class, 'earningStatistics']);
     Route::get('get-bank-details', [ProviderProviderController::class, 'getBankDetails']);
     Route::put('update-bank-details', [ProviderProviderController::class, 'updateBankDetails']);
 
-    Route::get('config', [ProviderConfigController::class, 'config'])->withoutMiddleware(['auth:api', 'actch:provider_app']);
+    Route::get('config', [ProviderConfigController::class, 'config'])->withoutMiddleware(['auth:api']);
     Route::get('config/page-details/{key}', [ProviderConfigController::class, 'pageDetails'])->withoutMiddleware('auth:api');
 
     Route::get('info', [ProviderProviderController::class, 'index']);

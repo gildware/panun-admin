@@ -20,7 +20,7 @@ Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Api\V1\Admin'
 });
 
 
-Route::group(['prefix' => 'provider', 'as'=>'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'as'=>'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::get('sub-categories', [ProviderCategoryController::class, 'subCategory']);
     Route::group(['prefix' => 'category', 'as'=>'category.'], function () {
         Route::get('/', [ProviderCategoryController::class, 'index']); // index

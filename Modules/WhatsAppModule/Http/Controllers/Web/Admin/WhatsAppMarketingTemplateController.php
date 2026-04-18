@@ -53,11 +53,13 @@ class WhatsAppMarketingTemplateController extends Controller
         }
 
         $synced = 0;
+        $syncedNameLangKeys = [];
         foreach ($rows as $row) {
-            $name = (string) ($row['name'] ?? '');
-            $lang = is_array($row['language'] ?? null)
-                ? (string) ($row['language']['code'] ?? '')
-                : (string) ($row['language'] ?? '');
+            if (! is_array($row)) {
+                continue;
+            }
+            $name = trim((string) ($row['name'] ?? ''));
+            $lang = WhatsAppCloudService::languageCodeFromGraphTemplateRow($row);
             if ($name === '' || $lang === '') {
                 continue;
             }
@@ -82,10 +84,34 @@ class WhatsAppMarketingTemplateController extends Controller
                     'synced_at' => now(),
                 ]
             );
+            $syncedNameLangKeys[$name."\0".$lang] = true;
             $synced++;
         }
 
-        Toastr::success(translate('Synced') . ': ' . $synced . ' ' . translate('templates'));
+        // Rows left in the DB that Meta no longer returns stay "APPROVED" forever and cause #132001 at send.
+        $stale = 0;
+        WhatsAppMarketingTemplate::query()->orderBy('id')->chunkById(100, function ($chunk) use ($syncedNameLangKeys, &$stale) {
+            foreach ($chunk as $tpl) {
+                $key = trim((string) $tpl->name)."\0".trim((string) $tpl->language);
+                if (isset($syncedNameLangKeys[$key])) {
+                    continue;
+                }
+                if (strtoupper((string) $tpl->status) === 'NOT_ON_META') {
+                    continue;
+                }
+                $tpl->forceFill([
+                    'status' => 'NOT_ON_META',
+                    'synced_at' => now(),
+                ])->save();
+                $stale++;
+            }
+        });
+
+        $msg = translate('Synced').': '.$synced.' '.translate('templates');
+        if ($stale > 0) {
+            $msg .= ' — '.__('lang.WhatsApp_templates_sync_stale_suffix', ['count' => $stale]);
+        }
+        Toastr::success($msg);
 
         return redirect()->route('admin.whatsapp.marketing.templates.index', ['channel' => 'whatsapp']);
     }

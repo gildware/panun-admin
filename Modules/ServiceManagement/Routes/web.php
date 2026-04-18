@@ -6,7 +6,7 @@ use Modules\ServiceManagement\Http\Controllers\Web\Admin\ServiceRequestControlle
 use Modules\ServiceManagement\Http\Controllers\Web\Admin\FAQController;
 use Modules\ServiceManagement\Http\Controllers\Web\Provider\ServiceController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
 
     Route::group(['prefix' => 'service', 'as' => 'service.'], function () {
         Route::any('list', [AdminServiceController::class, 'index'])->name('index');

@@ -73,7 +73,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
     });
 });
 
-Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'advertisements', 'as' => 'advertisements.'], function () {
         Route::get('ads-list', [ProviderAdvertisementsController::class, 'AdsList']);
         Route::post('ads-store', [ProviderAdvertisementsController::class, 'AdsStore']);

@@ -6,7 +6,7 @@ use Modules\Auth\Http\Controllers\RegisterController;
 use Modules\Auth\Http\Controllers\Web\PasswordResetController;
 use Modules\Auth\Http\Controllers\Web\VerificationController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
     Route::group(['prefix' => 'auth', 'as' => 'auth.'], function () {
         Route::get('login', [LoginController::class, 'loginForm'])->name('login');
         Route::post('login', [LoginController::class, 'adminLogin']);

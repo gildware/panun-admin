@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Traits\ActivationClass;
 use Illuminate\Foundation\AliasLoader;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
@@ -19,7 +18,7 @@ ini_set('memory_limit', '512M');
 
 class AppServiceProvider extends ServiceProvider
 {
-    use ActivationClass, AddonHelper;
+    use AddonHelper;
 
     /**
      * Register any application services.

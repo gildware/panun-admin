@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\ChattingModule\Http\Controllers\Web\Admin\ChattingController;
 use Modules\ChattingModule\Http\Controllers\Web\Provider\ChattingController as ProviderChattingController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'chat', 'as' => 'chat.'], function () {
         Route::get('index', [ChattingController::class, 'index'])->name('index');
         Route::get('channel-list', [ChattingController::class, 'channelList']);

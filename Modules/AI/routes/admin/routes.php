@@ -15,7 +15,7 @@ use Modules\AI\app\Http\Controllers\Admin\AIProductController;
 |
 */
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'product', 'as' => 'product.'], function () {
         Route::get('title-auto-fill', [AIProductController::class, 'titleAutoFill'])->name('title-auto-fill');
         Route::get('description-auto-fill', [AIProductController::class, 'descriptionAutoFill'])->name('description-auto-fill');

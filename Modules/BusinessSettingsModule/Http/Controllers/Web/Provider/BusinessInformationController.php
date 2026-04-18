@@ -2,7 +2,6 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Provider;
 
-use App\Traits\ActivationClass;
 use App\Traits\FileManagerTrait;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
@@ -26,7 +25,6 @@ use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 
 class BusinessInformationController extends Controller
 {
-    use ActivationClass;
     use FileManagerTrait;
     use UploadSizeHelperTrait;
 

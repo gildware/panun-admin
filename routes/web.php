@@ -3,7 +3,6 @@
 use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\InstallController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,9 +29,6 @@ Route::get('/image-proxy', function () {
         ->header('Content-Type', $response->header('Content-Type'))
         ->header('Access-Control-Allow-Origin', '*');
 });
-
-Route::get('activation-check', [InstallController::class, 'getActivationCheckView'])->name('system.activation-check');
-Route::post('activation-check', [InstallController::class, 'activationCheck']);
 
 Route::get('lang/{locale}', [LandingController::class, 'lang'])->name('lang');
 Route::get('/', [LandingController::class, 'home'])->name('home');

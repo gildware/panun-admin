@@ -1064,7 +1064,10 @@ class WhatsAppController extends Controller
             if ($name === '') {
                 continue;
             }
-            $lang = (string) ($t['language'] ?? 'en');
+            $lang = WhatsAppCloudService::languageCodeFromGraphTemplateRow($t);
+            if ($lang === '') {
+                $lang = 'en';
+            }
             $components = is_array($t['components'] ?? null) ? $t['components'] : [];
             $bodyPlan = WhatsAppCloudService::resolveBodyParameterPlanFromTemplate($t);
             $headerTextPlan = WhatsAppCloudService::resolveHeaderTextParameterPlanFromTemplate($t);
@@ -1114,7 +1117,7 @@ class WhatsAppController extends Controller
             if (trim((string) ($t['name'] ?? '')) !== $name) {
                 continue;
             }
-            if ((string) ($t['language'] ?? '') !== $language) {
+            if (WhatsAppCloudService::languageCodeFromGraphTemplateRow($t) !== $language) {
                 continue;
             }
 

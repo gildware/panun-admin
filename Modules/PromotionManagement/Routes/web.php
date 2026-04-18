@@ -11,7 +11,7 @@ use Modules\PromotionManagement\Http\Controllers\Web\Provider\AdvertisementsCont
 
 
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
 
     Route::group(['prefix' => 'discount', 'as' => 'discount.'], function () {
         Route::any('create', [DiscountController::class, 'create'])->name('create');

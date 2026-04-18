@@ -16,7 +16,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\SystemMaintenanceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemLogsController;
 
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::get('component', [AdminController::class, 'component'])->name('component');
 
     Route::get('setup-guide/status', [AdminController::class, 'refreshSetupGuideUI'])->name('setup-guide.status');
@@ -67,7 +67,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     });
 });
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
 
     Route::group(['prefix' => 'report', 'as' => 'report.', 'namespace' => 'Report'], function () {
         Route::any('transaction', [TransactionReportController::class, 'getTransactionReport'])->name('transaction');

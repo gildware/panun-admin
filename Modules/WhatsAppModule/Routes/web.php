@@ -14,7 +14,7 @@ use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppAiSettingsControll
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppMarketingTemplateController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\WhatsAppChatConfigController;
 
-Route::middleware(['admin', 'actch:admin_panel'])
+Route::middleware(['admin'])
     ->prefix('admin')
     ->group(function () {
         Route::any('whatsapp/{any?}', function (?string $any = null) {
@@ -29,7 +29,7 @@ Route::group([
     'prefix' => 'admin',
     'as' => 'admin.whatsapp.',
     'namespace' => 'Web\Admin',
-    'middleware' => ['admin', 'actch:admin_panel'],
+    'middleware' => ['admin'],
 ], function () {
     Route::group([
         'prefix' => 'social-inbox/{channel}',

@@ -31,7 +31,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
     });
 });
 
-Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::post('/', [ProviderBookingController::class, 'index']);
         Route::get('{id}', [ProviderBookingController::class, 'show']);
@@ -56,7 +56,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
 });
 
 
-Route::group(['prefix' => 'serviceman', 'as' => 'serviceman.', 'namespace' => 'Api\V1\Serviceman', 'middleware' => ['auth:api', 'actch:serviceman_app']], function () {
+Route::group(['prefix' => 'serviceman', 'as' => 'serviceman.', 'namespace' => 'Api\V1\Serviceman', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::put('status-update/{booking_id}', [ServicemanBookingController::class, 'statusUpdate']);
         Route::put('single-repeat-status-update/{booking_id}', [ServicemanBookingController::class, 'singleBookingStatusUpdate']);
