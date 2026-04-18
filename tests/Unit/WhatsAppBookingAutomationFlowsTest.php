@@ -258,4 +258,20 @@ class WhatsAppBookingAutomationFlowsTest extends TestCase
             WhatsAppBookingAutomationMessageLog::query()->orderBy('id')->pluck('message_key')->all()
         );
     }
+
+    public function test_language_code_from_graph_template_row_handles_string_and_object_shapes(): void
+    {
+        $this->assertSame('en_GB', WhatsAppCloudService::languageCodeFromGraphTemplateRow([
+            'language' => 'en_GB',
+        ]));
+        $this->assertSame('en_US', WhatsAppCloudService::languageCodeFromGraphTemplateRow([
+            'language' => ['code' => 'en_US'],
+        ]));
+        $this->assertSame('fr', WhatsAppCloudService::languageCodeFromGraphTemplateRow([
+            'language' => ['locale' => 'fr'],
+        ]));
+        $this->assertSame('', WhatsAppCloudService::languageCodeFromGraphTemplateRow([
+            'language' => [],
+        ]));
+    }
 }

@@ -1026,6 +1026,31 @@ class WhatsAppCloudService
     }
 
     /**
+     * Graph `message_templates` rows return `language` as a string code (e.g. en_GB), or as an object
+     * with `code` / `locale` (API versions differ). Casting an array to string yields wrong values and
+     * breaks matching and sends (#132001).
+     *
+     * @param  array<string, mixed>  $row
+     */
+    public static function languageCodeFromGraphTemplateRow(array $row): string
+    {
+        $lang = $row['language'] ?? null;
+        if (is_string($lang)) {
+            return trim($lang);
+        }
+        if (is_array($lang)) {
+            $code = $lang['code'] ?? $lang['locale'] ?? $lang['language'] ?? '';
+
+            return is_string($code) ? trim($code) : '';
+        }
+        if (is_scalar($lang)) {
+            return trim((string) $lang);
+        }
+
+        return '';
+    }
+
+    /**
      * Send a template message.
      *
      * @param  array<int, string>  $bodyParameters  Ordered values: positional {{1}}…{{n}}, or parallel to named_param_names when $bodyPlan is named.

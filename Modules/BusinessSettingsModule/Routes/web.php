@@ -23,7 +23,7 @@ Route::group(['namespace' => 'Api\V1\Admin'], function () {
 });
 
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
 
     Route::get('lang/{locale}', 'LanguageController@lang')->name('lang');
 

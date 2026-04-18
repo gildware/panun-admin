@@ -12,7 +12,7 @@ use Modules\LeadManagement\Http\Controllers\Web\Admin\SourceController;
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['admin', 'actch:admin_panel'],
+    'middleware' => ['admin'],
 ], function () {
     Route::group(['prefix' => 'lead', 'as' => 'lead.'], function () {
         Route::get('/', [LeadController::class, 'index'])->middleware(['can:lead_view'])->name('index');

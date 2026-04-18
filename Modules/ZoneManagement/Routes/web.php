@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\ZoneManagement\Http\Controllers\Web\Admin\ZoneController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'zone', 'as' => 'zone.'], function () {
         Route::any('create', [ZoneController::class, 'create'])->name('create');
         Route::post('store', [ZoneController::class, 'store'])->name('store');

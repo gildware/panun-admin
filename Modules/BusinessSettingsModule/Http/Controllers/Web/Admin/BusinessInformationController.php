@@ -4,7 +4,6 @@ namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Admin;
 
 use App\Lib\CommissionTierPayload;
 use App\Mail\MaintenanceModeStartEmail;
-use App\Traits\ActivationClass;
 use App\Traits\FileManagerTrait;
 use App\Traits\MaintenanceModeTrait;
 use App\Traits\UnloadedHelpers;
@@ -49,7 +48,6 @@ use ZipArchive;
 
 class BusinessInformationController extends Controller
 {
-    use ActivationClass;
     use FileManagerTrait;
     use AuthorizesRequests;
     use UnloadedHelpers;

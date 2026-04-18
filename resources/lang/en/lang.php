@@ -7085,6 +7085,7 @@ _Message' => 'Customer notification for provider bid offer
   'WhatsApp_payment_reminder_failed_with_recipient' => 'WhatsApp message was not sent. Attempted recipient (digits only, as sent to Meta): :recipient. Check that this number is on WhatsApp, your Cloud API token and phone number ID, and that this message slot uses an approved Meta template with variable mappings that match the template.',
   'WhatsApp_meta_api_detail_suffix' => 'Meta: :detail',
   'WhatsApp_hint_template_language_or_name_mismatch' => 'Often the template language in admin does not match Meta (e.g. approved as en_US but stored as en). Re-sync templates from Meta in Message templates, or fix the locale in Meta Business Suite.',
+  'WhatsApp_templates_sync_stale_suffix' => ':count row(s) no longer returned by Meta were marked inactive (re-select templates in booking/marketing settings if needed).',
   'WhatsApp_ledger_err_not_configured' => 'No Meta template is selected for this message slot in Message templates.',
   'WhatsApp_ledger_err_template_missing_or_not_approved' => 'The selected template is missing or not approved in your synced list.',
   'WhatsApp_ledger_err_body_param_count' => 'Body placeholders: the template expects :expected, but this slot maps :got. Open Message templates and adjust body variable mappings for this message.',

@@ -2,7 +2,6 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Admin;
 
-use App\Traits\ActivationClass;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\Foundation\Application;
@@ -26,7 +25,6 @@ use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class LandingPageController extends Controller
 {
-    use ActivationClass;
     use UploadSizeHelperTrait;
 
     private BusinessSettings $business_setting;

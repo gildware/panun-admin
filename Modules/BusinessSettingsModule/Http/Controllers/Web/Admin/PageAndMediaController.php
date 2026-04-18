@@ -2,7 +2,6 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Admin;
 
-use App\Traits\ActivationClass;
 use App\Traits\FileManagerTrait;
 use App\Traits\UnloadedHelpers;
 use App\Traits\UploadSizeHelperTrait;
@@ -27,7 +26,6 @@ use Ramsey\Uuid\Uuid;
 
 class PageAndMediaController extends Controller
 {
-    use ActivationClass;
     use FileManagerTrait;
     use AuthorizesRequests;
     use UnloadedHelpers;

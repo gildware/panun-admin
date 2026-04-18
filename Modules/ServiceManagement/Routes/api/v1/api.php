@@ -21,7 +21,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
     Route::delete('faq/delete', [AdminFAQController::class, 'destroy']);
 });
 
-Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::get('service', [ProviderServiceController::class, 'index']); // index
     Route::get('service/{id}', [ProviderServiceController::class, 'show']); // show
     Route::put('service/status/update', [ProviderServiceController::class, 'statusUpdate']);

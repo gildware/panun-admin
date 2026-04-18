@@ -22,7 +22,7 @@ Route::group(['prefix' => 'customer', 'namespace' => 'Api\V1\Customer', 'middlew
     });
 });
 
-Route::group(['prefix' => 'provider', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'ensureBiddingIsActive', 'actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'ensureBiddingIsActive']], function () {
     Route::group(['prefix' => 'post'], function () {
         Route::get('/', [ProviderPostController::class, 'index']);
         Route::get('details/{id}', [ProviderPostController::class, 'show']);

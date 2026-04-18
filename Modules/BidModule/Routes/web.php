@@ -20,7 +20,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Web\P
     });
 });
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
 
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::group(['prefix' => 'post', 'as' => 'post.'], function () {

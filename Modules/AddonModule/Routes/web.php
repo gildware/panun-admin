@@ -15,7 +15,7 @@ use Modules\AddonModule\Http\Controllers\Web\Admin\AddonActivationController;
 |
 */
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
 
     Route::group(['prefix' => 'addon', 'as' => 'addon.'], function () {
         Route::get('/', [AddonController::class, 'index'])->name('index');

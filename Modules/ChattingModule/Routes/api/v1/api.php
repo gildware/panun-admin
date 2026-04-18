@@ -28,7 +28,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
     });
 });
 
-Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api', 'actch:provider_app']], function () {
+Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'chat'], function () {
         Route::get('channel-list', [ProviderChattingController::class, 'channelList']);
         Route::post('channel-list-search', [ProviderChattingController::class, 'channelListSearch']);
@@ -39,7 +39,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     });
 });
 
-Route::group(['prefix' => 'serviceman', 'as' => 'serviceman.', 'namespace' => 'Api\V1\Serviceman', 'middleware' => ['auth:api', 'actch:serviceman_app']], function () {
+Route::group(['prefix' => 'serviceman', 'as' => 'serviceman.', 'namespace' => 'Api\V1\Serviceman', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'chat'], function () {
         Route::get('channel-list', [ServicemanChattingController::class, 'channelList']);
         Route::post('channel-list-search', [ServicemanChattingController::class, 'channelListSearch']);

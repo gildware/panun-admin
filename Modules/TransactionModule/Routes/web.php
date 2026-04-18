@@ -9,7 +9,7 @@ use Modules\TransactionModule\Http\Controllers\Web\Admin\PendingProviderBalances
 use Modules\TransactionModule\Http\Controllers\Web\Provider\WithdrawController as ProviderWithdrawnController;
 
 
-Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Web\Admin','middleware'=>['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Web\Admin','middleware'=>['admin']], function () {
 
     Route::group(['prefix' => 'transaction', 'as'=>'transaction.'], function () {
         Route::any('list', [TransactionController::class, 'index'])->name('list');

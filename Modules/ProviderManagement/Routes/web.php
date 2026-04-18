@@ -17,7 +17,7 @@ use Modules\ProviderManagement\Http\Controllers\Web\Provider\ProviderController 
 use Modules\ProviderManagement\Http\Controllers\Web\Provider\WithdrawController;
 
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin', 'actch:admin_panel']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
     Route::group(['prefix' => 'provider', 'as' => 'provider.'], function () {
         Route::any('list', [ProviderController::class, 'index'])->name('list');
         Route::get('top-providers', [ProviderController::class, 'topProviders'])->name('top-providers');

@@ -8,8 +8,7 @@ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\{ActivationCheckMiddleware,
-    ApiHitLimitMiddleware,
+use App\Http\Middleware\{ApiHitLimitMiddleware,
     Authenticate,
     EncryptCookies,
     Localization,
@@ -88,7 +87,6 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'provider' => ProviderMiddleware::class,
             'ensureBiddingIsActive' => EnsureBiddingIsActive::class,
             'subscription' => Subscription::class,
-            'actch' => ActivationCheckMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
