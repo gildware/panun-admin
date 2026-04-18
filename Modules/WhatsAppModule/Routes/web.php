@@ -61,6 +61,7 @@ Route::group([
         Route::get('users/details', [WhatsAppController::class, 'userDetails'])->middleware(['can:whatsapp_chat_view'])->name('users.details');
         Route::get('booking-message-templates', [WhatsAppBookingTemplateController::class, 'edit'])->middleware(['can:whatsapp_message_template_view'])->name('booking-templates.edit');
         Route::get('booking-message-templates/automation-log', [WhatsAppBookingTemplateController::class, 'automationMessageLogs'])->middleware(['can:whatsapp_message_template_view'])->name('booking-templates.automation-log');
+        Route::post('booking-message-templates/automation-log/clear', [WhatsAppBookingTemplateController::class, 'clearAutomationMessageLogs'])->middleware(['can:whatsapp_message_template_update'])->name('booking-templates.automation-log.clear');
         Route::post('booking-message-templates', [WhatsAppBookingTemplateController::class, 'update'])->middleware(['can:whatsapp_message_template_update'])->name('booking-templates.update');
         Route::post('booking-message-templates/toggle-enabled', [WhatsAppBookingTemplateController::class, 'toggleEnabled'])->middleware(['can:whatsapp_message_template_update'])->name('booking-templates.toggle-enabled');
         Route::post('booking-message-templates/toggle-message-send-enabled', [WhatsAppBookingTemplateController::class, 'toggleMessageSendEnabled'])->middleware(['can:whatsapp_message_template_update'])->name('booking-templates.toggle-message-send-enabled');

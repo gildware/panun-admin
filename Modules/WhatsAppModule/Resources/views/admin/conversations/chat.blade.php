@@ -213,6 +213,32 @@
             width: 100%;
             box-sizing: border-box;
         }
+        /* WABA template picker when session is closed — Select2 searchable (same pattern as message templates) */
+        #wa-waba-template-panel .select2-container {
+            min-width: 0;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        #wa-waba-template-panel .select2-container--open {
+            z-index: 2005;
+        }
+        body > .select2-container .select2-dropdown.select2-wa-session-tpl-dd {
+            z-index: 2010 !important;
+            max-width: min(36rem, calc(100vw - 1rem));
+            box-sizing: border-box;
+        }
+        .select2-wa-session-tpl-dd .select2-search--dropdown {
+            padding: 0.5rem 0.5rem 0.25rem;
+        }
+        .select2-wa-session-tpl-dd .select2-search__field {
+            width: 100% !important;
+            min-height: 2.25rem;
+        }
+        .select2-wa-session-tpl-dd .select2-results > .select2-results__options {
+            max-height: 12.5rem !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
     </style>
 @endpush
 
@@ -662,6 +688,84 @@
                 return (t.name || '') + '\t' + (t.language || '');
             }
 
+            function waDestroyWabaTemplateSelect2() {
+                var sel = document.getElementById('wa-waba-template-select');
+                if (!sel || typeof jQuery === 'undefined' || !jQuery.fn || !jQuery.fn.select2) {
+                    return;
+                }
+                var $s = jQuery(sel);
+                if ($s.data('select2') && $s.hasClass('select2-hidden-accessible')) {
+                    try {
+                        $s.select2('destroy');
+                    } catch (e) { /* ignore */ }
+                }
+            }
+
+            function waInitWabaTemplateSelect2() {
+                var sel = document.getElementById('wa-waba-template-select');
+                if (!sel || typeof jQuery === 'undefined' || !jQuery.fn || !jQuery.fn.select2) {
+                    return;
+                }
+                waDestroyWabaTemplateSelect2();
+                var $s = jQuery(sel);
+                $s.select2({
+                    width: '100%',
+                    dropdownParent: jQuery('body'),
+                    dropdownCssClass: 'select2-wa-session-tpl-dd',
+                    minimumResultsForSearch: 0,
+                    matcher: function (params, data) {
+                        if (jQuery.trim(params.term) === '') {
+                            return data;
+                        }
+                        if (!data.id) {
+                            return data;
+                        }
+                        var term = params.term.toLowerCase();
+                        var txt = String(data.text || '').toLowerCase();
+                        var name = '';
+                        var lang = '';
+                        var cat = '';
+                        if (data.element) {
+                            name = String(data.element.getAttribute('data-wa-tpl-name') || '').toLowerCase();
+                            lang = String(data.element.getAttribute('data-wa-tpl-language') || '').toLowerCase();
+                            cat = String(data.element.getAttribute('data-wa-tpl-category') || '').toLowerCase();
+                        }
+                        if (txt.indexOf(term) > -1 || name.indexOf(term) > -1 || lang.indexOf(term) > -1 || cat.indexOf(term) > -1) {
+                            return data;
+                        }
+                        return null;
+                    },
+                    templateResult: function (state) {
+                        if (!state.id) {
+                            return state.text;
+                        }
+                        var el = state.element;
+                        var name = el ? String(el.getAttribute('data-wa-tpl-name') || '').trim() : '';
+                        var lang = el ? String(el.getAttribute('data-wa-tpl-language') || '').trim() : '';
+                        var cat = el ? String(el.getAttribute('data-wa-tpl-category') || '').trim() : '';
+                        var line2 = [lang, cat].filter(function (x) { return x; }).join(' · ');
+                        var $wrap = jQuery('<div class="wa-session-tpl-opt py-1"></div>');
+                        $wrap.append(jQuery('<div class="fw-semibold small text-break"></div>').text(name || state.text));
+                        if (line2) {
+                            $wrap.append(jQuery('<div class="text-muted" style="font-size:0.78rem;"></div>').text(line2));
+                        }
+                        return $wrap;
+                    },
+                    templateSelection: function (state) {
+                        if (!state.id) {
+                            return state.text;
+                        }
+                        var el = state.element;
+                        var name = el ? String(el.getAttribute('data-wa-tpl-name') || '').trim() : '';
+                        var lang = el ? String(el.getAttribute('data-wa-tpl-language') || '').trim() : '';
+                        if (name && lang) {
+                            return name + ' (' + lang + ')';
+                        }
+                        return name || state.text;
+                    },
+                });
+            }
+
             function waMetaTplVarBraces(inner) {
                 return '\u007B\u007B' + String(inner) + '\u007D\u007D';
             }
@@ -774,7 +878,11 @@
             function waClearWabaTemplateComposer() {
                 var sel = document.getElementById('wa-waba-template-select');
                 if (sel) {
-                    sel.value = '';
+                    if (typeof jQuery !== 'undefined' && jQuery(sel).data('select2')) {
+                        jQuery(sel).val('').trigger('change');
+                    } else {
+                        sel.value = '';
+                    }
                 }
                 waRebuildWabaTemplateFields();
             }
@@ -788,6 +896,7 @@
                     return;
                 }
                 waWabaTemplatesLoading = true;
+                waDestroyWabaTemplateSelect2();
                 sel.innerHTML = '<option value="">…</option>';
                 fetch(wabaTemplatesUrl, {
                     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -803,6 +912,7 @@
                                 toastr.error(strTplLoadFailed);
                             }
                             sel.innerHTML = '<option value="">' + escapeHtml(strTplLoadFailed) + '</option>';
+                            waInitWabaTemplateSelect2();
                             return;
                         }
                         waWabaTemplatesList = data.templates || [];
@@ -812,14 +922,23 @@
                             opt.value = waTemplateSelectValue(t);
                             opt.textContent = (t.name || '') + ' · ' + (t.language || '') + (t.category ? ' (' + t.category + ')' : '');
                             opt.setAttribute('data-n', String(t.body_placeholder_count != null ? t.body_placeholder_count : 0));
+                            opt.setAttribute('data-wa-tpl-name', t.name || '');
+                            opt.setAttribute('data-wa-tpl-language', t.language || '');
+                            opt.setAttribute('data-wa-tpl-category', t.category || '');
                             sel.appendChild(opt);
                         });
+                        waInitWabaTemplateSelect2();
                     })
                     .catch(function () {
                         waWabaTemplatesLoading = false;
                         waWabaTemplatesList = null;
                         if (typeof toastr !== 'undefined') {
                             toastr.error(strTplLoadFailed);
+                        }
+                        if (sel) {
+                            waDestroyWabaTemplateSelect2();
+                            sel.innerHTML = '<option value="">' + escapeHtml(strTplLoadFailed) + '</option>';
+                            waInitWabaTemplateSelect2();
                         }
                     });
             }

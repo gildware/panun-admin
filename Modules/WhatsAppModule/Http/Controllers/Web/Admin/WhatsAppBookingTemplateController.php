@@ -193,6 +193,19 @@ class WhatsAppBookingTemplateController extends Controller
         ));
     }
 
+    public function clearAutomationMessageLogs(): RedirectResponse
+    {
+        $this->authorize('whatsapp_message_template_update');
+
+        WhatsAppBookingAutomationMessageLog::query()->delete();
+
+        Toastr::success(translate('WhatsApp_booking_automation_log_cleared'));
+
+        return redirect()->route('admin.whatsapp.booking-templates.automation-log', [
+            'channel' => SocialInboxChannel::current(),
+        ]);
+    }
+
     public function update(Request $request): RedirectResponse
     {
         $this->authorize('whatsapp_message_template_update');

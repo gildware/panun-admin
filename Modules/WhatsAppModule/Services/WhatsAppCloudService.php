@@ -29,7 +29,7 @@ class WhatsAppCloudService
      * digits without +. If we prepend the country prefix without dropping that 0, the number is wrong (e.g. 920300…
      * instead of 92300…), which matches "works from n8n, not from admin".
      */
-    public function normalizeRecipientPhone(string $phone): ?string
+    public function normalizeRecipientPhone(string $phone, ?array $bookingAutomationPrefix = null): ?string
     {
         $digits = preg_replace('/\D+/', '', $phone) ?? '';
         if ($digits === '') {
@@ -44,9 +44,14 @@ class WhatsAppCloudService
             }
         }
 
-        $applyPrefix = (bool) config('services.whatsapp_cloud.auto_prefix_enabled', true);
-        $prefix = (string) config('services.whatsapp_cloud.default_country_prefix', '');
-        $prefix = preg_replace('/\D+/', '', $prefix) ?? '';
+        if (is_array($bookingAutomationPrefix)) {
+            $applyPrefix = (bool) ($bookingAutomationPrefix['apply_default_phone_prefix'] ?? true);
+            $prefix = preg_replace('/\D+/', '', (string) ($bookingAutomationPrefix['default_phone_prefix'] ?? '')) ?? '';
+        } else {
+            $applyPrefix = (bool) config('services.whatsapp_cloud.auto_prefix_enabled', true);
+            $prefix = (string) config('services.whatsapp_cloud.default_country_prefix', '');
+            $prefix = preg_replace('/\D+/', '', $prefix) ?? '';
+        }
 
         // WhatsApp Cloud API expects full international digits (no '+', digits only).
         // Default project rule: if we receive a 10-digit number, prefix it (e.g. IN 91xxxxxxxxxx).
