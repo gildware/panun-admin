@@ -508,6 +508,9 @@
 </script>
 
 @stack('script')
+
+@include('whatsappmodule::admin.booking-whatsapp-send-prompt')
+
 </body>
 
 </html>

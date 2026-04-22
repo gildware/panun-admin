@@ -44,6 +44,11 @@ class BookingObserver
                 return;
             }
 
+            if (class_exists(\Modules\WhatsAppModule\Support\BookingWhatsAppAutomationDeferral::class)
+                && app(\Modules\WhatsAppModule\Support\BookingWhatsAppAutomationDeferral::class)->isDeferring()) {
+                return;
+            }
+
             if (! class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
                 return;
             }
@@ -76,6 +81,11 @@ class BookingObserver
         // Repeat-series bookings use sendBookingRepeatStatusChange from repeat save paths; parent sync
         // would duplicate those notifications if we also fired here.
         if (BookingRepeat::query()->where('booking_id', $booking->id)->exists()) {
+            return;
+        }
+
+        if (class_exists(\Modules\WhatsAppModule\Support\BookingWhatsAppAutomationDeferral::class)
+            && app(\Modules\WhatsAppModule\Support\BookingWhatsAppAutomationDeferral::class)->isDeferring()) {
             return;
         }
 

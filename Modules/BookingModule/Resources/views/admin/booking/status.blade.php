@@ -1036,15 +1036,23 @@
                                 CloseButton: true,
                                 ProgressBar: true
                             });
-                            if (componentId === 'booking_status' && (updatedValue === 'completed' || updatedValue === 'canceled' || updatedValue === 'cancelled')) {
-                                if (bookingCurrentProviderId) {
-                                    pendingPostFeedbackAction = 'reload';
-                                    openProviderPerformanceFeedbackModal(bookingCurrentProviderId, updatedValue);
-                                    return;
+                            var finish = function () {
+                                if (componentId === 'booking_status' && (updatedValue === 'completed' || updatedValue === 'canceled' || updatedValue === 'cancelled')) {
+                                    if (bookingCurrentProviderId) {
+                                        pendingPostFeedbackAction = 'reload';
+                                        openProviderPerformanceFeedbackModal(bookingCurrentProviderId, updatedValue);
+                                        return;
+                                    }
                                 }
-                            }
 
-                            location.reload();
+                                location.reload();
+                            };
+
+                            if (typeof window.waAdminAfterAjaxWithOptionalWhatsAppPrompt === 'function') {
+                                window.waAdminAfterAjaxWithOptionalWhatsAppPrompt(data, finish);
+                            } else {
+                                finish();
+                            }
                         },
                         complete: function() {},
                     });

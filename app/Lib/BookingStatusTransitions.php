@@ -53,14 +53,6 @@ if (! function_exists('booking_admin_allowed_next_statuses_for_booking')) {
             $next = ['ongoing'];
         }
 
-        // Hold before visit: do not offer "Accept booking" (transition back to accepted).
-        if ($current === 'on_hold'
-            && ($booking instanceof \Modules\BookingModule\Entities\Booking
-                || $booking instanceof \Modules\BookingModule\Entities\BookingRepeat)
-            && ! booking_on_hold_is_after_visit_from_ongoing($booking)) {
-            $next = array_values(array_filter($next, fn ($s) => $s !== 'accepted'));
-        }
-
         // Open reopen ticket: hide Completed until unlock and disallow plain "Cancel booking".
         // Cancellation must be done via the reopen flow (Dispute and close → refund split + cancel).
         if ($booking instanceof \Modules\BookingModule\Entities\Booking && $booking->adminMustConfigureReopenBeforeComplete()) {

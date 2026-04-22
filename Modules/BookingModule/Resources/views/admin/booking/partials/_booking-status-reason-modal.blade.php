@@ -202,18 +202,25 @@
                     if (res && res.message && typeof toastr !== 'undefined') {
                         toastr.success(res.message, { CloseButton: true, ProgressBar: true });
                     }
-                    if (to === 'completed' || to === 'canceled') {
-                        var bookingCurrentProviderId = typeof window.bookingCurrentProviderId !== 'undefined' ? window.bookingCurrentProviderId : null;
-                        if (bookingCurrentProviderId && typeof openProviderPerformanceFeedbackModal === 'function') {
-                            if (typeof pendingPostFeedbackAction !== 'undefined') {
-                                window.pendingPostFeedbackAction = 'reload';
+                    var finish = function () {
+                        if (to === 'completed' || to === 'canceled') {
+                            var bookingCurrentProviderId = typeof window.bookingCurrentProviderId !== 'undefined' ? window.bookingCurrentProviderId : null;
+                            if (bookingCurrentProviderId && typeof openProviderPerformanceFeedbackModal === 'function') {
+                                if (typeof pendingPostFeedbackAction !== 'undefined') {
+                                    window.pendingPostFeedbackAction = 'reload';
+                                }
+                                openProviderPerformanceFeedbackModal(bookingCurrentProviderId, to === 'canceled' ? 'canceled' : 'completed');
+                                $btn.prop('disabled', false);
+                                return;
                             }
-                            openProviderPerformanceFeedbackModal(bookingCurrentProviderId, to === 'canceled' ? 'canceled' : 'completed');
-                            $btn.prop('disabled', false);
-                            return;
                         }
+                        location.reload();
+                    };
+                    if (typeof window.waAdminAfterAjaxWithOptionalWhatsAppPrompt === 'function') {
+                        window.waAdminAfterAjaxWithOptionalWhatsAppPrompt(res, finish);
+                    } else {
+                        finish();
                     }
-                    location.reload();
                 }).fail(function (xhr) {
                     $btn.prop('disabled', false);
                     var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '{{ translate('Something went wrong. Please try again.') }}';

@@ -1297,18 +1297,26 @@
                                 ProgressBar: true
                             });
 
-                            if (componentId === 'booking_status' && (updatedValue === 'completed' || updatedValue === 'canceled' || updatedValue === 'cancelled')) {
-                                if (bookingCurrentProviderId) {
-                                    pendingPostFeedbackAction = 'reload';
-                                    openProviderPerformanceFeedbackModal(bookingCurrentProviderId, updatedValue);
-                                    return;
+                            var finish = function () {
+                                if (componentId === 'booking_status' && (updatedValue === 'completed' || updatedValue === 'canceled' || updatedValue === 'cancelled')) {
+                                    if (bookingCurrentProviderId) {
+                                        pendingPostFeedbackAction = 'reload';
+                                        openProviderPerformanceFeedbackModal(bookingCurrentProviderId, updatedValue);
+                                        return;
+                                    }
                                 }
-                            }
 
-                            if (componentId === 'booking_status' || componentId === 'payment_status' ||
-                                componentId === 'service_schedule' || componentId ===
-                                'serviceman_assign') {
-                                location.reload();
+                                if (componentId === 'booking_status' || componentId === 'payment_status' ||
+                                    componentId === 'service_schedule' || componentId ===
+                                    'serviceman_assign') {
+                                    location.reload();
+                                }
+                            };
+
+                            if (typeof window.waAdminAfterAjaxWithOptionalWhatsAppPrompt === 'function') {
+                                window.waAdminAfterAjaxWithOptionalWhatsAppPrompt(data, finish);
+                            } else {
+                                finish();
                             }
                         },
                         error: function(xhr) {
