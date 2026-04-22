@@ -2,6 +2,14 @@
 
 @section('title', translate('Booking_created_successfully'))
 
+@push('script')
+    @if(!empty($whatsappPrompt))
+        <script>
+            window.__waAdminBookingPromptFromPage = @json($whatsappPrompt);
+        </script>
+    @endif
+@endpush
+
 @section('content')
     <div class="content container-fluid">
         <div class="row justify-content-center">

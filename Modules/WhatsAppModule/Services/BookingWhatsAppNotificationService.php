@@ -1992,7 +1992,7 @@ class BookingWhatsAppNotificationService
     /**
      * @return array<string, string>
      */
-    protected function buildRepeatRowReplacements(BookingRepeat $repeat, Booking $parent): array
+    public function buildRepeatRowReplacements(BookingRepeat $repeat, Booking $parent): array
     {
         $parent->loadMissing(['customer', 'service_address', 'detail', 'booking_partial_payments']);
         $repeat->loadMissing(['detail', 'provider.owner', 'serviceman.user']);
@@ -2067,7 +2067,7 @@ class BookingWhatsAppNotificationService
     /**
      * @return array<string, string>
      */
-    protected function buildRepeatStatusReplacements(BookingRepeat $repeat, Booking $parent, string $previousBookingStatus): array
+    public function buildRepeatStatusReplacements(BookingRepeat $repeat, Booking $parent, string $previousBookingStatus): array
     {
         $vars = $this->buildRepeatRowReplacements($repeat, $parent);
         $vars['{previous_booking_status}'] = $previousBookingStatus !== ''
@@ -2671,12 +2671,12 @@ class BookingWhatsAppNotificationService
         }
     }
 
-    protected function formatScheduleToken(?string $raw): string
+    public function formatScheduleToken(?string $raw): string
     {
         return $this->formatServiceDateTimeForMessages($raw);
     }
 
-    protected function formatMoneyAmountForMessages(float $amount): string
+    public function formatMoneyAmountForMessages(float $amount): string
     {
         $rounded = round($amount, 2);
 
@@ -2687,7 +2687,7 @@ class BookingWhatsAppNotificationService
      * @param  array<string, mixed>  $snapshot
      * @return array<string, string>
      */
-    protected function buildDisputedReopenRefundPlaceholderExtras(array $snapshot): array
+    public function buildDisputedReopenRefundPlaceholderExtras(array $snapshot): array
     {
         $total = round((float) ($snapshot['refund_total'] ?? 0), 2);
         $company = round((float) ($snapshot['refund_company_amount'] ?? 0), 2);
@@ -3039,7 +3039,7 @@ class BookingWhatsAppNotificationService
     /**
      * @return array<string, string>
      */
-    protected function previousProviderReplacementMap(?Provider $previousProvider): array
+    public function previousProviderReplacementMap(?Provider $previousProvider): array
     {
         if (!$previousProvider) {
             return [
@@ -3535,6 +3535,111 @@ class BookingWhatsAppNotificationService
             $headerMediaFormat,
             $actingAdminUserId
         );
+    }
+
+    /**
+     * Admin preview for a single Meta template slot (no send, no automation logs).
+     *
+     * @param  array<string, string>  $vars
+     * @return array{message_key: string, recipient_label: string, to_phone: ?string, template_name: string, preview_text: string, missing_phone: bool}|null
+     */
+    public function previewBookingMetaTemplateSlot(
+        array $config,
+        string $messageKey,
+        array $vars,
+        ?string $phoneRaw,
+        string $recipientLabel
+    ): ?array {
+        if (empty($config['enabled'])) {
+            return null;
+        }
+        if (! $this->isBookingTemplateMessageEnabled($config, $messageKey)) {
+            return null;
+        }
+        $tplId = (int) ($config[$messageKey . '_wa_tpl_id'] ?? 0);
+        if ($tplId <= 0) {
+            return null;
+        }
+        $template = WhatsAppMarketingTemplate::query()->find($tplId);
+        if (! $template || strtoupper((string) $template->status) !== 'APPROVED') {
+            return null;
+        }
+        $phone = $this->normalizePhone($phoneRaw, $config);
+        $body = $this->synthesizeCaptionFromBookingTemplate($template, $config, $messageKey, $vars);
+
+        $titleLine = __('lang.whatsapp_template_conversation_title', [
+            'name' => $template->name,
+            'language' => $template->language,
+        ]);
+        $previewText = trim($titleLine."\n\n".$body);
+
+        return [
+            'message_key' => $messageKey,
+            'recipient_label' => $recipientLabel,
+            'to_phone' => $phone,
+            'template_name' => $template->name,
+            'preview_text' => $previewText,
+            'missing_phone' => $phone === null || $phone === '',
+        ];
+    }
+
+    /**
+     * Admin preview for a status-segment template (body text only; invoice/PDF is noted when enabled).
+     *
+     * @param  array<string, string>  $vars
+     * @return array{message_key: string, recipient_label: string, to_phone: ?string, template_name: string, preview_text: string, missing_phone: bool}|null
+     */
+    public function previewDeliverStatusTemplateMessage(
+        array $config,
+        string $segment,
+        string $party,
+        array $vars,
+        ?string $phone,
+        Booking $booking,
+        ?BookingRepeat $repeat,
+        string $recipientLabel
+    ): ?array {
+        if (empty($config['enabled'])) {
+            return null;
+        }
+
+        $waBinding = $this->resolveWaBindingForStatus($config, $party, $segment);
+        if ($waBinding === null) {
+            return null;
+        }
+
+        $storageKey = $waBinding['params_storage_key'];
+        if (! $this->isBookingTemplateMessageEnabled($config, $storageKey)) {
+            return null;
+        }
+
+        $template = WhatsAppMarketingTemplate::query()->find($waBinding['template_id']);
+        if (! $template) {
+            return null;
+        }
+
+        $synthesized = $this->synthesizeCaptionFromBookingTemplate($template, $config, $storageKey, $vars);
+        $attachInvoice = $this->statusInvoiceEnabled($config, $party, $segment);
+        if ($attachInvoice) {
+            $synthesized .= "\n\n".__('lang.WhatsApp_booking_preview_invoice_may_attach');
+        }
+
+        $titleLine = __('lang.whatsapp_template_conversation_title', [
+            'name' => $template->name,
+            'language' => $template->language,
+        ]);
+        $previewText = trim($titleLine."\n\n".$synthesized);
+
+        $normalizedPhone = $this->normalizePhone($phone, $config);
+
+        return [
+            'message_key' => $storageKey,
+            'recipient_label' => $recipientLabel,
+            'to_phone' => $normalizedPhone,
+            'template_name' => $template->name,
+            'preview_text' => $previewText,
+            'missing_phone' => $normalizedPhone === null || $normalizedPhone === '',
+        ];
     }
 
     /**
@@ -4045,7 +4150,7 @@ class BookingWhatsAppNotificationService
         return array_merge($base, $acReplacements, $this->mergeBookingContextFinancialPlaceholders($booking));
     }
 
-    protected function resolveStatusTemplateSegment(string $previousBookingStatus, string $newStatus, ?Booking $booking = null): string
+    public function resolveStatusTemplateSegment(string $previousBookingStatus, string $newStatus, ?Booking $booking = null): string
     {
         $prev = strtolower(trim($previousBookingStatus));
         $new = strtolower(trim($newStatus));
@@ -4463,7 +4568,7 @@ class BookingWhatsAppNotificationService
      *
      * @param  array<string, mixed>  $config
      */
-    protected function resolveProviderPhone(?Provider $provider, array $config): ?string
+    public function resolveProviderPhone(?Provider $provider, array $config): ?string
     {
         if (!$provider) {
             return null;
@@ -4515,5 +4620,209 @@ class BookingWhatsAppNotificationService
         }
 
         return strtr($template, $expanded);
+    }
+
+    /**
+     * Admin prompt: send one Meta template row (booking automation keys).
+     *
+     * @param  array<string, string>  $vars
+     */
+    public function adminPromptTrySendMetaKey(Booking $booking, string $messageKey, array $vars, ?string $phone): bool
+    {
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            return false;
+        }
+        $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+
+        return $this->trySendBookingMetaOnly(
+            $config,
+            $messageKey,
+            $vars,
+            $phone,
+            'admin prompt',
+            ['booking_id' => $booking->id]
+        );
+    }
+
+    /**
+     * Admin prompt: one party for booking status change templates.
+     *
+     * @param  array<string, string>  $extraVars
+     */
+    public function adminPromptDeliverBookingStatusParty(Booking $booking, string $previousBookingStatus, string $party, array $extraVars = []): void
+    {
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            return;
+        }
+        $newStatus = (string) $booking->booking_status;
+        if ($previousBookingStatus === $newStatus) {
+            return;
+        }
+        $lock = Cache::lock(self::CACHE_STATUS_LOCK_PREFIX . $booking->id, 30);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+            $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus, $booking);
+            $vars = array_merge($this->buildReplacements($booking, $previousBookingStatus), $extraVars);
+            $phone = $party === 'customer'
+                ? $this->normalizePhone($booking->customer?->phone, $config)
+                : $this->resolveProviderPhone($booking->provider, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                $party,
+                $vars,
+                $phone,
+                $booking,
+                null,
+                'booking status',
+                (string) $booking->id
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Admin prompt: one party for repeat booking status templates.
+     */
+    public function adminPromptDeliverRepeatStatusParty(BookingRepeat $repeat, string $previousBookingStatus, string $party): void
+    {
+        $config = $this->getConfig();
+        if (empty($config['enabled'])) {
+            return;
+        }
+        $newStatus = (string) $repeat->booking_status;
+        if ($previousBookingStatus === $newStatus) {
+            return;
+        }
+        $repeat->loadMissing([
+            'booking.customer',
+            'booking.service_address',
+            'booking.detail',
+            'booking.booking_partial_payments',
+            'booking',
+            'detail',
+            'provider.owner',
+        ]);
+        $parent = $repeat->booking;
+        if (! $parent) {
+            return;
+        }
+        $lock = Cache::lock(self::CACHE_STATUS_LOCK_PREFIX . 'repeat:' . $repeat->id, 30);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $segment = $this->resolveStatusTemplateSegment($previousBookingStatus, $newStatus, $parent);
+            $vars = $this->buildRepeatStatusReplacements($repeat, $parent, $previousBookingStatus);
+            $provider = $repeat->provider ?? $parent->provider;
+            $phone = $party === 'customer'
+                ? $this->normalizePhone($parent->customer?->phone, $config)
+                : $this->resolveProviderPhone($provider, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                $party,
+                $vars,
+                $phone,
+                $parent,
+                $repeat,
+                'repeat booking status',
+                (string) $repeat->id
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Admin prompt: reopen resolved — one party.
+     *
+     * @param  array<string, string>  $extraVarMerge
+     */
+    public function adminPromptDeliverReopenResolvedParty(Booking $booking, string $party, array $extraVarMerge = []): void
+    {
+        $config = $this->getConfig();
+        $segment = 'reopen_resolved';
+        if (empty($config['enabled'])) {
+            return;
+        }
+        $lock = Cache::lock(self::CACHE_REOPEN_RESOLVED_LOCK_PREFIX . $booking->id, 30);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+            $vars = array_merge($this->buildReplacements($booking, null), [
+                '{reopen_resolve_remarks}' => trim((string) ($booking->reopen_resolve_remarks ?? '')) !== ''
+                    ? (string) $booking->reopen_resolve_remarks
+                    : '—',
+            ], $extraVarMerge);
+            $phone = $party === 'customer'
+                ? $this->normalizePhone($booking->customer?->phone, $config)
+                : $this->resolveProviderPhone($booking->provider, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                $party,
+                $vars,
+                $phone,
+                $booking,
+                null,
+                'reopen resolved',
+                (string) $booking->id
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Admin prompt: disputed close — one party.
+     */
+    public function adminPromptDeliverDisputedRefundParty(Booking $booking, string $previousBookingStatus, string $party): void
+    {
+        $snap = $booking->reopen_disputed_snapshot ?? null;
+        if (! is_array($snap) || (($snap['type'] ?? null) !== 'reopen_disputed_refund')) {
+            return;
+        }
+        $config = $this->getConfig();
+        $segment = 'disputed_close';
+        if (empty($config['enabled'])) {
+            return;
+        }
+        $lock = Cache::lock(self::CACHE_DISPUTED_REOPEN_REFUND_LOCK_PREFIX . $booking->id, 30);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+            $vars = array_merge($this->buildReplacements($booking, $previousBookingStatus), [
+                '{reopen_resolve_remarks}' => trim((string) ($booking->reopen_resolve_remarks ?? '')) !== ''
+                    ? (string) $booking->reopen_resolve_remarks
+                    : '—',
+            ], $this->buildDisputedReopenRefundPlaceholderExtras($snap));
+            $phone = $party === 'customer'
+                ? $this->normalizePhone($booking->customer?->phone, $config)
+                : $this->resolveProviderPhone($booking->provider, $config);
+            $this->deliverStatusTemplateMessage(
+                $config,
+                $segment,
+                $party,
+                $vars,
+                $phone,
+                $booking,
+                null,
+                'disputed close',
+                (string) $booking->id
+            );
+        } finally {
+            $lock->release();
+        }
     }
 }

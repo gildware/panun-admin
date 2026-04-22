@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingConfigurationController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingController;
+use Modules\WhatsAppModule\Http\Controllers\Web\Admin\BookingWhatsAppAdminPromptController;
 use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as ProviderBookingController;
 
 
@@ -13,6 +14,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('create/from-whatsapp-booking/{booking_id}', [BookingController::class, 'createFromWhatsAppBooking'])->name('create-from-whatsapp-booking');
         Route::post('preview', [BookingController::class, 'preview'])->name('preview');
         Route::post('store', [BookingController::class, 'store'])->name('store');
+        Route::post('whatsapp-automation-prompt/send', [BookingWhatsAppAdminPromptController::class, 'send'])->name('whatsapp_automation_prompt.send');
+        Route::post('whatsapp-automation-prompt/send-row', [BookingWhatsAppAdminPromptController::class, 'sendRow'])->name('whatsapp_automation_prompt.send_row');
+        Route::post('whatsapp-automation-prompt/skip-row', [BookingWhatsAppAdminPromptController::class, 'skipRow'])->name('whatsapp_automation_prompt.skip_row');
         Route::get('success/{id}', [BookingController::class, 'success'])->name('success');
         Route::any('list/special-scenarios', [BookingController::class, 'specialScenarioBookings'])->name('list.special_scenarios');
         Route::any('list', [BookingController::class, 'index'])->name('list');

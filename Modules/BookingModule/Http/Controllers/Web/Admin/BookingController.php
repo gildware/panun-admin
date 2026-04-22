@@ -1946,11 +1946,15 @@ class BookingController extends Controller
                 $fresh = Booking::query()
                     ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
                     ->find($booking->id);
-                if ($fresh) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingConfirmation($fresh);
+                if ($fresh && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                    $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                        ->buildBookingConfirmationPrompt($fresh);
+                    if ($prompt) {
+                        session()->flash('whatsapp_admin_booking_prompt', $prompt);
+                    }
                 }
             } catch (\Throwable $e) {
-                Log::warning('WhatsApp booking confirmation failed', [
+                Log::warning('WhatsApp booking confirmation prompt failed', [
                     'booking_id' => $booking->id,
                     'message' => $e->getMessage(),
                 ]);
@@ -2021,7 +2025,9 @@ class BookingController extends Controller
             return redirect()->route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']);
         }
 
-        return view('bookingmodule::admin.booking.success', compact('booking'));
+        $whatsappPrompt = session()->pull('whatsapp_admin_booking_prompt');
+
+        return view('bookingmodule::admin.booking.success', compact('booking', 'whatsappPrompt'));
     }
 
     /**
@@ -2701,9 +2707,16 @@ class BookingController extends Controller
 
             $booking->refresh();
             try {
-                app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendReopenCaseResolved($booking);
+                $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+                if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                    $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                        ->buildReopenResolvedPrompt($booking);
+                    if ($prompt) {
+                        session()->flash('whatsapp_admin_booking_prompt', $prompt);
+                    }
+                }
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('WhatsApp reopen resolved notification failed', [
+                \Illuminate\Support\Facades\Log::warning('WhatsApp reopen resolved prompt failed', [
                     'booking_id' => $booking->id,
                     'message' => $e->getMessage(),
                 ]);
@@ -2812,9 +2825,16 @@ class BookingController extends Controller
 
         $booking->refresh();
         try {
-            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendReopenCaseResolved($booking);
+            $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+            if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                    ->buildReopenResolvedPrompt($booking);
+                if ($prompt) {
+                    session()->flash('whatsapp_admin_booking_prompt', $prompt);
+                }
+            }
         } catch (\Throwable $e) {
-            Log::warning('WhatsApp reopen resolved notification failed', [
+            Log::warning('WhatsApp reopen resolved prompt failed', [
                 'booking_id' => $booking->id,
                 'message' => $e->getMessage(),
             ]);
@@ -3079,6 +3099,10 @@ class BookingController extends Controller
         $resolverUserId = $request->user()->id;
         $userIdForHistory = (string) $resolverUserId;
 
+        $waPreviousBookingStatusForDisputed = (string) ($booking->booking_status ?? '');
+        $defer = app(\Modules\WhatsAppModule\Support\BookingWhatsAppAutomationDeferral::class);
+        $defer->begin();
+
         try {
             DB::transaction(function () use (
                 $booking,
@@ -3187,9 +3211,27 @@ class BookingController extends Controller
             Toastr::error($e->getMessage());
 
             return back()->withInput();
+        } finally {
+            $defer->end();
         }
 
         $booking->refresh();
+
+        try {
+            if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+                $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                    ->buildDisputedRefundPrompt($booking, $waPreviousBookingStatusForDisputed);
+                if ($prompt) {
+                    session()->flash('whatsapp_admin_booking_prompt', $prompt);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp disputed close prompt failed', [
+                'booking_id' => $booking->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         Toastr::success(translate('Disputed_reopen_recorded'));
 
@@ -3712,72 +3754,77 @@ class BookingController extends Controller
         }
 
         if ($booking->isDirty('booking_status')) {
-            DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks, $holdSchedule) {
-                $previousServiceSchedule = $booking->getOriginal('service_schedule');
-                if ($status === 'on_hold' && $holdSchedule !== null) {
-                    $booking->service_schedule = $holdSchedule;
-                }
+            $waScheduleBefore = $booking->getOriginal('service_schedule');
 
-                if ($booking->repeat) {
-                    foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold']) as $repeat) {
-                        $repeat->update([
-                            'provider_id' => $request->provider_id,
-                            'booking_status' => $status,
-                            'serviceman_id' => null,
-                        ]);
-
-                        $this->logBookingStatusHistory($repeat->id, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, null, $remarks);
-                    }
-
-                    if ($status == 'canceled' && $booking->repeat->contains('booking_status', 'completed')) {
-                        $booking->booking_status = 'completed';
-                    }
-                }
-
-                $booking->save();
-                $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, null, $remarks);
-
-                if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
-                    $bookingScheduleHistory = $this->bookingScheduleHistory->newInstance();
-                    $bookingScheduleHistory->booking_id = $booking->id;
-                    $bookingScheduleHistory->changed_by = $request->user()->id;
-                    $bookingScheduleHistory->schedule = $holdSchedule;
-                    $bookingScheduleHistory->save();
-                    try {
-                        $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
-                        if ($fresh) {
-                            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                                ->sendBookingScheduleChange($fresh, $previousServiceSchedule ? (string) $previousServiceSchedule : null);
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('WhatsApp booking schedule (hold) failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
-                    }
-                }
-            });
-
-            // Always notify after a parent status save: repeat-series bookings skip the Booking observer for WhatsApp
-            // (see BookingObserver), and non-repeat bookings rely on the observer which can be missed by some saves.
-            // sendBookingStatusChange() dedupes duplicate invocations (observer + this block) within the same transition.
+            $defer = app(\Modules\WhatsAppModule\Support\BookingWhatsAppAutomationDeferral::class);
+            $defer->begin();
             try {
-                $fresh = $this->booking->with([
-                    'customer',
-                    'provider.owner',
-                    'service_address',
-                    'detail',
-                    'booking_partial_payments',
-                ])->find($booking->id);
-                if ($fresh && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                        ->sendBookingStatusChange($fresh, $previousParentStatus);
+                DB::transaction(function () use ($booking, $status, $request, $cancellationId, $holdReopenId, $remarks, $holdSchedule) {
+                    $previousServiceSchedule = $booking->getOriginal('service_schedule');
+                    if ($status === 'on_hold' && $holdSchedule !== null) {
+                        $booking->service_schedule = $holdSchedule;
+                    }
+
+                    if ($booking->repeat) {
+                        foreach ($booking->repeat->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold']) as $repeat) {
+                            $repeat->update([
+                                'provider_id' => $request->provider_id,
+                                'booking_status' => $status,
+                                'serviceman_id' => null,
+                            ]);
+
+                            $this->logBookingStatusHistory($repeat->id, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, null, $remarks);
+                        }
+
+                        if ($status == 'canceled' && $booking->repeat->contains('booking_status', 'completed')) {
+                            $booking->booking_status = 'completed';
+                        }
+                    }
+
+                    $booking->save();
+                    $this->logBookingStatusHistory(null, $status, $request->user()->id, $booking->id, $cancellationId, $holdReopenId, null, $remarks);
+
+                    if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
+                        $bookingScheduleHistory = $this->bookingScheduleHistory->newInstance();
+                        $bookingScheduleHistory->booking_id = $booking->id;
+                        $bookingScheduleHistory->changed_by = $request->user()->id;
+                        $bookingScheduleHistory->schedule = $holdSchedule;
+                        $bookingScheduleHistory->save();
+                    }
+                });
+            } finally {
+                $defer->end();
+            }
+
+            $payload = response_formatter(DEFAULT_STATUS_UPDATE_200);
+            try {
+                if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                    $fresh = $this->booking->with([
+                        'customer',
+                        'provider.owner',
+                        'service_address',
+                        'detail',
+                        'booking_partial_payments',
+                    ])->find($booking->id);
+                    if ($fresh) {
+                        $promptSvc = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class);
+                        $parts = [];
+                        if ($status === 'on_hold' && $holdSchedule !== null && (string) ($waScheduleBefore ?? '') !== (string) $holdSchedule) {
+                            $parts[] = $promptSvc->compileScheduleChangePrompt($fresh, $waScheduleBefore !== null ? (string) $waScheduleBefore : null);
+                        }
+                        $parts[] = $promptSvc->compileStatusChangePrompt($fresh, $previousParentStatus);
+                        $merged = $promptSvc->mergePromptCompilations(array_values(array_filter($parts)));
+                        $payload = $this->attachWhatsAppAdminPrompt($merged, $payload);
+                    }
                 }
             } catch (\Throwable $e) {
-                Log::warning('WhatsApp booking status (admin parent status update) failed', [
+                Log::warning('WhatsApp admin booking prompt build failed', [
                     'booking_id' => $booking->id ?? null,
                     'message' => $e->getMessage(),
                 ]);
             }
 
-            return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+            return response()->json($payload, 200);
         }
 
         return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -3797,73 +3844,97 @@ class BookingController extends Controller
         $repeatBooking->booking_status = $status;
 
         if ($repeatBooking->isDirty('booking_status')) {
-            DB::transaction(function () use ($repeatBooking, $status, $request, $cancellationId, $holdReopenId, $remarks, $holdSchedule) {
-                $previousServiceSchedule = $repeatBooking->getOriginal('service_schedule');
-                if ($status === 'on_hold' && $holdSchedule !== null) {
-                    $repeatBooking->service_schedule = $holdSchedule;
-                }
+            $waRepeatScheduleBefore = $repeatBooking->getOriginal('service_schedule');
+            $parentBookingId = (string) $repeatBooking->booking_id;
+            $parentStatusBefore = (string) (Booking::query()->whereKey($parentBookingId)->value('booking_status') ?? '');
 
-                $repeatBooking->save();
-                sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
-                $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id, $cancellationId, $holdReopenId, null, $remarks);
-
-                if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
-                    $bookingRepeatScheduleHistory = $this->bookingScheduleHistory->newInstance();
-                    $bookingRepeatScheduleHistory->booking_id = $repeatBooking->booking_id;
-                    $bookingRepeatScheduleHistory->changed_by = $request->user()->id;
-                    $bookingRepeatScheduleHistory->schedule = $holdSchedule;
-                    $bookingRepeatScheduleHistory->booking_repeat_id = $repeatBooking->id;
-                    $bookingRepeatScheduleHistory->save();
-                    try {
-                        $freshRepeat = $this->bookingRepeat->with([
-                            'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
-                            'detail', 'provider.owner', 'serviceman.user', 'booking',
-                        ])->find($repeatBooking->id);
-                        if ($freshRepeat) {
-                            app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                                ->sendBookingRepeatScheduleChange($freshRepeat, $previousServiceSchedule ? (string) $previousServiceSchedule : null);
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('WhatsApp repeat schedule (hold) failed', ['booking_repeat_id' => $repeatBooking->id, 'message' => $e->getMessage()]);
-                    }
-                }
-
-                $relatedRepeats = $this->bookingRepeat->where('booking_id', $repeatBooking->booking_id)->get();
-                if ($relatedRepeats->every(fn ($repeat) => ! in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing', 'on_hold'], true))) {
-                    $repeatBooking->booking->update(['booking_status' => 'completed', 'is_paid' => 1]);
-                }
-
-                $repeatSt = (string) $repeatBooking->booking_status;
-                if (in_array($repeatSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
-                    $parentSt = (string) $repeatBooking->booking->booking_status;
-                    if (! in_array($parentSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
-                        $repeatBooking->booking->booking_status = $repeatSt === 'on_hold' ? 'on_hold' : 'ongoing';
-                        $repeatBooking->booking->save();
-                    }
-                }
-            });
-
+            $defer = app(\Modules\WhatsAppModule\Support\BookingWhatsAppAutomationDeferral::class);
+            $defer->begin();
             try {
-                $freshRepeat = $this->bookingRepeat->with([
-                    'booking.customer',
-                    'booking.service_address',
-                    'booking.detail',
-                    'booking.booking_partial_payments',
-                    'detail',
-                    'provider.owner',
-                ])->find($repeatBooking->id);
-                if ($freshRepeat) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                        ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
+                DB::transaction(function () use ($repeatBooking, $status, $request, $cancellationId, $holdReopenId, $remarks, $holdSchedule) {
+                    $previousServiceSchedule = $repeatBooking->getOriginal('service_schedule');
+                    if ($status === 'on_hold' && $holdSchedule !== null) {
+                        $repeatBooking->service_schedule = $holdSchedule;
+                    }
+
+                    $repeatBooking->save();
+                    sync_repeat_series_additional_charges((string) $repeatBooking->booking_id);
+                    $this->logBookingStatusHistory($repeatBooking->id, $status, $request->user()->id, $repeatBooking->booking_id, $cancellationId, $holdReopenId, null, $remarks);
+
+                    if ($status === 'on_hold' && $holdSchedule !== null && (string) ($previousServiceSchedule ?? '') !== (string) $holdSchedule) {
+                        $bookingRepeatScheduleHistory = $this->bookingScheduleHistory->newInstance();
+                        $bookingRepeatScheduleHistory->booking_id = $repeatBooking->booking_id;
+                        $bookingRepeatScheduleHistory->changed_by = $request->user()->id;
+                        $bookingRepeatScheduleHistory->schedule = $holdSchedule;
+                        $bookingRepeatScheduleHistory->booking_repeat_id = $repeatBooking->id;
+                        $bookingRepeatScheduleHistory->save();
+                    }
+
+                    $relatedRepeats = $this->bookingRepeat->where('booking_id', $repeatBooking->booking_id)->get();
+                    if ($relatedRepeats->every(fn ($repeat) => ! in_array($repeat->booking_status, ['pending', 'accepted', 'ongoing', 'on_hold'], true))) {
+                        $repeatBooking->booking->update(['booking_status' => 'completed', 'is_paid' => 1]);
+                    }
+
+                    $repeatSt = (string) $repeatBooking->booking_status;
+                    if (in_array($repeatSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
+                        $parentSt = (string) $repeatBooking->booking->booking_status;
+                        if (! in_array($parentSt, ['ongoing', 'on_hold', 'completed', 'canceled'], true)) {
+                            $repeatBooking->booking->booking_status = $repeatSt === 'on_hold' ? 'on_hold' : 'ongoing';
+                            $repeatBooking->booking->save();
+                        }
+                    }
+                });
+            } finally {
+                $defer->end();
+            }
+
+            $payload = response_formatter(DEFAULT_STATUS_UPDATE_200);
+            try {
+                if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                    $freshRepeat = $this->bookingRepeat->with([
+                        'booking.customer',
+                        'booking.service_address',
+                        'booking.detail',
+                        'booking.booking_partial_payments',
+                        'detail',
+                        'provider.owner',
+                        'serviceman.user',
+                        'booking',
+                    ])->find($repeatBooking->id);
+                    if ($freshRepeat) {
+                        $promptSvc = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class);
+                        $parts = [];
+                        if ($status === 'on_hold' && $holdSchedule !== null && (string) ($waRepeatScheduleBefore ?? '') !== (string) $holdSchedule) {
+                            $parts[] = $promptSvc->compileRepeatScheduleChangePrompt($freshRepeat, $waRepeatScheduleBefore !== null ? (string) $waRepeatScheduleBefore : null);
+                        }
+                        $parts[] = $promptSvc->compileRepeatStatusChangePrompt($freshRepeat, $previousRepeatStatus);
+
+                        $parentAfterStatus = (string) (Booking::query()->whereKey($parentBookingId)->value('booking_status') ?? '');
+                        if ($parentStatusBefore !== $parentAfterStatus) {
+                            $parentFresh = $this->booking->with([
+                                'customer',
+                                'provider.owner',
+                                'service_address',
+                                'detail',
+                                'booking_partial_payments',
+                            ])->find($parentBookingId);
+                            if ($parentFresh) {
+                                $parts[] = $promptSvc->compileStatusChangePrompt($parentFresh, $parentStatusBefore);
+                            }
+                        }
+
+                        $merged = $promptSvc->mergePromptCompilations(array_values(array_filter($parts)));
+                        $payload = $this->attachWhatsAppAdminPrompt($merged, $payload);
+                    }
                 }
             } catch (\Throwable $e) {
-                Log::warning('WhatsApp repeat booking status failed', [
+                Log::warning('WhatsApp admin repeat booking prompt build failed', [
                     'booking_repeat_id' => $repeatBooking->id ?? null,
                     'message' => $e->getMessage(),
                 ]);
             }
 
-            return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+            return response()->json($payload, 200);
         }
 
         return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -3963,13 +4034,18 @@ class BookingController extends Controller
                     'booking.booking_partial_payments',
                     'detail',
                     'provider.owner',
+                    'serviceman.user',
+                    'booking',
                 ])->find($repeatBooking->id);
-                if ($freshRepeat) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                        ->sendBookingRepeatStatusChange($freshRepeat, $previousRepeatStatus);
+                if ($freshRepeat && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                    $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                        ->buildRepeatStatusChangePrompt($freshRepeat, $previousRepeatStatus);
+                    if ($prompt) {
+                        session()->flash('whatsapp_admin_booking_prompt', $prompt);
+                    }
                 }
             } catch (\Throwable $e) {
-                Log::warning('WhatsApp repeat booking status (upComingBookingCancel) failed', [
+                Log::warning('WhatsApp repeat booking status prompt (upComingBookingCancel) failed', [
                     'booking_repeat_id' => $repeatBooking->id ?? null,
                     'message' => $e->getMessage(),
                 ]);
@@ -4165,16 +4241,18 @@ class BookingController extends Controller
                 $previousSchedule = $booking->getOriginal('service_schedule');
                 $booking->save();
                 $bookingScheduleHistory->save();
+                $payload = response_formatter(DEFAULT_STATUS_UPDATE_200);
                 try {
                     $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments', 'serviceman.user'])->find($booking->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingScheduleChange($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                    if ($fresh && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                        $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                            ->buildScheduleChangePrompt($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                        $payload = $this->attachWhatsAppAdminPrompt($prompt, $payload);
                     }
                 } catch (\Throwable $e) {
-                    Log::warning('WhatsApp booking schedule failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
+                    Log::warning('WhatsApp booking schedule prompt failed', ['booking_id' => $booking->id, 'message' => $e->getMessage()]);
                 }
-                return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+                return response()->json($payload, 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
         }
@@ -4192,19 +4270,21 @@ class BookingController extends Controller
                 $previousSchedule = $bookingRepeat->getOriginal('service_schedule');
                 $bookingRepeat->save();
                 $bookingRepeatScheduleHistory->save();
+                $payload = response_formatter(DEFAULT_STATUS_UPDATE_200);
                 try {
                     $fresh = $this->bookingRepeat->with([
                         'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
                         'detail', 'provider.owner', 'serviceman.user', 'booking',
                     ])->find($bookingRepeat->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingRepeatScheduleChange($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                    if ($fresh && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                        $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                            ->buildRepeatScheduleChangePrompt($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                        $payload = $this->attachWhatsAppAdminPrompt($prompt, $payload);
                     }
                 } catch (\Throwable $e) {
-                    Log::warning('WhatsApp repeat schedule failed', ['booking_repeat_id' => $bookingRepeat->id, 'message' => $e->getMessage()]);
+                    Log::warning('WhatsApp repeat schedule prompt failed', ['booking_repeat_id' => $bookingRepeat->id, 'message' => $e->getMessage()]);
                 }
-                return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+                return response()->json($payload, 200);
             }
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
         }
@@ -4247,12 +4327,15 @@ class BookingController extends Controller
                         'booking.customer', 'booking.service_address', 'booking.detail', 'booking.booking_partial_payments',
                         'detail', 'provider.owner', 'serviceman.user', 'booking',
                     ])->find($bookingRepeat->id);
-                    if ($fresh) {
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingRepeatScheduleChange($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                    if ($fresh && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                        $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                            ->buildRepeatScheduleChangePrompt($fresh, $previousSchedule ? (string) $previousSchedule : null);
+                        if ($prompt) {
+                            session()->flash('whatsapp_admin_booking_prompt', $prompt);
+                        }
                     }
                 } catch (\Throwable $e) {
-                    Log::warning('WhatsApp repeat schedule failed', ['booking_repeat_id' => $bookingRepeat->id, 'message' => $e->getMessage()]);
+                    Log::warning('WhatsApp repeat schedule prompt failed', ['booking_repeat_id' => $bookingRepeat->id, 'message' => $e->getMessage()]);
                 }
 
                 Toastr::success(translate(DEFAULT_UPDATE_200['message']));
@@ -4309,22 +4392,26 @@ class BookingController extends Controller
 
                 $booking->save();
 
+                $payload = response_formatter(DEFAULT_STATUS_UPDATE_200);
                 if ((string) $oldProviderId !== (string) $request->provider_id) {
                     try {
                         $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
                         $booking->refresh();
                         $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
-                        app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
-                            ->sendBookingProviderChange($booking, $previousProvider);
+                        if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                            $prompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                                ->buildProviderChangePrompt($booking, $previousProvider);
+                            $payload = $this->attachWhatsAppAdminPrompt($prompt, $payload);
+                        }
                     } catch (\Throwable $e) {
-                        Log::warning('WhatsApp provider change (admin booking providerUpdate) failed', [
+                        Log::warning('WhatsApp provider change prompt (admin booking providerUpdate) failed', [
                             'booking_id' => $booking->id,
                             'message' => $e->getMessage(),
                         ]);
                     }
                 }
 
-                return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+                return response()->json($payload, 200);
             }
 
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
@@ -6273,19 +6360,21 @@ class BookingController extends Controller
             }
         });
 
+        $waPaymentPrompt = null;
         try {
-            if ($partial && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+            if ($partial && class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
                 $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
                 if ($fresh) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingPaymentAdded($fresh, $partial, [
-                        'date' => $date,
-                        'payment_method' => (string) ($companyInflowForWhatsApp['ledger_payment_method'] ?? ''),
-                        'reference_id' => (string) ($companyInflowForWhatsApp['partial_transaction_id'] ?? ''),
-                    ]);
+                    $waPaymentPrompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                        ->buildPaymentAddedPrompt($fresh, $partial, [
+                            'date' => $date,
+                            'payment_method' => (string) ($companyInflowForWhatsApp['ledger_payment_method'] ?? ''),
+                            'reference_id' => (string) ($companyInflowForWhatsApp['partial_transaction_id'] ?? ''),
+                        ]);
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning('WhatsApp booking payment added failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
+            Log::warning('WhatsApp booking payment added prompt failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
         }
 
         if ($request->wantsJson()) {
@@ -6294,6 +6383,7 @@ class BookingController extends Controller
             if ($partial) {
                 $payload['booking_partial_payment_id'] = (string) $partial->id;
             }
+            $payload = $this->attachWhatsAppAdminPrompt($waPaymentPrompt, $payload);
 
             return response()->json($payload, 200);
         }
@@ -7252,23 +7342,27 @@ class BookingController extends Controller
             $booking->save();
         });
 
+        $waRefundPrompt = null;
         try {
-            if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)) {
+            if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
                 $fresh = $this->booking->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])->find($booking->id);
                 if ($fresh) {
-                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)->sendBookingRefundToCustomer($fresh, $amount, [
-                        'date' => $date,
-                        'transaction_id' => $transactionId,
-                        'reference_note' => $refundNote,
-                    ]);
+                    $waRefundPrompt = app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                        ->buildRefundPrompt($fresh, $amount, [
+                            'date' => $date,
+                            'transaction_id' => $transactionId,
+                            'reference_note' => $refundNote,
+                        ]);
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning('WhatsApp booking refund notification failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
+            Log::warning('WhatsApp booking refund prompt failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
         }
 
         if ($request->wantsJson()) {
-            return response()->json(response_formatter(DEFAULT_UPDATE_200, null), 200);
+            $payload = $this->attachWhatsAppAdminPrompt($waRefundPrompt, response_formatter(DEFAULT_UPDATE_200, null));
+
+            return response()->json($payload, 200);
         }
         $successMessage = $fullyRefundedAfter
             ? translate('Refund recorded successfully.')
@@ -8095,6 +8189,19 @@ class BookingController extends Controller
             }
             $row->save();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function attachWhatsAppAdminPrompt(?array $prompt, array $payload): array
+    {
+        if ($prompt !== null) {
+            $payload['whatsapp_admin_prompt'] = $prompt;
+        }
+
+        return $payload;
     }
 
 }
