@@ -33,6 +33,19 @@ class WhatsAppAiSettingsController extends Controller
     {
         $this->authorize('whatsapp_chat_view');
 
+        $siInboxCh = (string) ($request->route('channel') ?? 'whatsapp');
+        $waAiTabs = [
+            ['id' => 'summary', 'label' => __('whatsapp_ai.summary')],
+            ['id' => 'playground', 'label' => __('whatsapp_ai.tab_playground')],
+            ['id' => 'prompt', 'label' => __('whatsapp_ai.prompts')],
+            ['id' => 'executions', 'label' => __('whatsapp_ai.executions')],
+            ['id' => 'tools', 'label' => __('whatsapp_ai.tools')],
+            ['id' => 'ai_config', 'label' => __('whatsapp_ai.tab_ai_config')],
+            ['id' => 'business_config', 'label' => __('whatsapp_ai.tab_business_config')],
+            ['id' => 'message_config', 'label' => __('whatsapp_ai.tab_message_config')],
+            ['id' => 'access', 'label' => __('whatsapp_ai.access')],
+            ['id' => 'flow', 'label' => __('whatsapp_ai.visual_flow')],
+        ];
         $tab = $this->normalizeTab($request->query('tab'));
 
         if ($tab === 'business_config' && $request->boolean('edit')) {
@@ -99,6 +112,8 @@ class WhatsAppAiSettingsController extends Controller
         $playgroundScenarios = self::playgroundScenarioPresets();
 
         return view('whatsappmodule::admin.ai-settings', compact(
+            'siInboxCh',
+            'waAiTabs',
             'tab',
             'settings',
             'runtime',
