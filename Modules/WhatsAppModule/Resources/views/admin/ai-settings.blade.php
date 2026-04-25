@@ -2,23 +2,6 @@
 
 @section('title', __('whatsapp_ai.page_title'))
 
-@php($siInboxCh = $siInboxCh ?? (request()->route('channel') ?? 'whatsapp'))
-@php
-    // Used by layout / nav includes; must be defined outside sections.
-    $waAiTabs = $waAiTabs ?? [
-        ['id' => 'summary', 'label' => __('whatsapp_ai.summary')],
-        ['id' => 'playground', 'label' => __('whatsapp_ai.tab_playground')],
-        ['id' => 'prompt', 'label' => __('whatsapp_ai.prompts')],
-        ['id' => 'executions', 'label' => __('whatsapp_ai.executions')],
-        ['id' => 'tools', 'label' => __('whatsapp_ai.tools')],
-        ['id' => 'ai_config', 'label' => __('whatsapp_ai.tab_ai_config')],
-        ['id' => 'business_config', 'label' => __('whatsapp_ai.tab_business_config')],
-        ['id' => 'message_config', 'label' => __('whatsapp_ai.tab_message_config')],
-        ['id' => 'access', 'label' => __('whatsapp_ai.access')],
-        ['id' => 'flow', 'label' => __('whatsapp_ai.visual_flow')],
-    ];
-@endphp
-
 @push('css_or_js')
     @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
     <style>
