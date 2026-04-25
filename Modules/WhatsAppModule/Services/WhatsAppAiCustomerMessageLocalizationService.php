@@ -3,8 +3,8 @@
 namespace Modules\WhatsAppModule\Services;
 
 /**
- * Rewrites admin-configured template bodies and button labels to match the customer's
- * last message language/register (Roman script rules aligned with WhatsAppAiPromptBuilder).
+ * Rewrites admin-configured template bodies to match English vs Hinglish rules from the
+ * customer's last message. Session button labels are never rewritten here.
  */
 class WhatsAppAiCustomerMessageLocalizationService
 {
@@ -24,9 +24,9 @@ class WhatsAppAiCustomerMessageLocalizationService
         }
 
         $system = $this->systemPromptForBody();
-        $user = "The customer's last WhatsApp message (match this language, register, and script):\n\n"
+        $user = "The customer's last WhatsApp message (use only to decide English vs Hinglish vs other per system rules):\n\n"
             ."<<<\n".$ref."\n>>>\n\n"
-            .'Rewrite the following message for the customer in that same language and script. '
+            .'Rewrite the following message following the system rules (English vs Hinglish only; never Kashmiri; Roman letters only in your output). '
             .'Keep all factual details (phone numbers, times, schedule text, names, URLs, booking ids) exactly as in the original unless a transliteration is required for readability. '
             .'Use a single language only — do not add English or other translations in parentheses or extra lines. '
             ."Do not add a preamble or explanation. Output only the rewritten message:\n\n"
@@ -48,6 +48,9 @@ class WhatsAppAiCustomerMessageLocalizationService
     }
 
     /**
+     * Session quick-reply and template button labels are defined in admin and sent as-is.
+     * LLM relabeling corrupted payloads (e.g. appended "[act_human]") and must not run here.
+     *
      * @param  array<int, array<string, mixed>>  $metaButtons
      * @return array<int, array<string, mixed>>
      */
@@ -56,110 +59,20 @@ class WhatsAppAiCustomerMessageLocalizationService
         string $referenceUserMessage,
         ?WhatsAppAiExecutionRecorder $recorder = null
     ): array {
-        $ref = trim($referenceUserMessage);
-        if ($ref === '' || $metaButtons === []) {
-            return $metaButtons;
-        }
-
-        $labels = [];
-        $indexMap = [];
-        foreach ($metaButtons as $i => $b) {
-            if (!is_array($b)) {
-                continue;
-            }
-            $t = strtoupper((string) ($b['type'] ?? ''));
-            $label = trim((string) ($b['text'] ?? ''));
-            if ($label === '' || !in_array($t, ['QUICK_REPLY', 'URL', 'PHONE_NUMBER'], true)) {
-                continue;
-            }
-            $indexMap[] = $i;
-            $labels[] = $label;
-        }
-
-        if ($labels === []) {
-            return $metaButtons;
-        }
-
-        $translated = $this->localizeStringList($labels, $ref, $recorder);
-        if (count($translated) !== count($labels)) {
-            return $metaButtons;
-        }
-
-        $out = $metaButtons;
-        foreach ($indexMap as $j => $i) {
-            if (!isset($out[$i]) || !is_array($out[$i])) {
-                continue;
-            }
-            $out[$i]['text'] = $translated[$j];
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param  list<string>  $strings
-     * @return list<string>
-     */
-    private function localizeStringList(
-        array $strings,
-        string $referenceUserMessage,
-        ?WhatsAppAiExecutionRecorder $recorder
-    ): array {
-        $json = json_encode($strings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($json === false || $json === '') {
-            return $strings;
-        }
-
-        $system = $this->systemPromptForLabels()
-            .' Respond with ONLY a JSON array of strings, same length and order as the input. No markdown fences, no commentary.';
-        $user = "Customer's last message (match language and script):\n<<<\n".$referenceUserMessage."\n>>>\n\n"
-            ."Translate these short UI button labels to match:\n".$json;
-
-        $raw = $this->gemini->generatePlainText($system, $user, $recorder);
-        if ($raw === null || $raw === '') {
-            return $strings;
-        }
-
-        $parsed = json_decode($this->stripJsonFence($raw), true);
-        if (!is_array($parsed) || count($parsed) !== count($strings)) {
-            return $strings;
-        }
-
-        $out = [];
-        foreach ($strings as $i => $_) {
-            $item = $parsed[$i] ?? null;
-            $out[] = is_string($item) ? trim($item) : $strings[$i];
-        }
-
-        return $out;
-    }
-
-    private function stripJsonFence(string $s): string
-    {
-        $s = trim($s);
-        if (preg_match('/^```(?:json)?\s*(.*?)\s*```/s', $s, $m)) {
-            return trim($m[1]);
-        }
-
-        return $s;
+        return $metaButtons;
     }
 
     private function systemPromptForBody(): string
     {
         return <<<'SYS'
-You rewrite fixed WhatsApp support messages so they read naturally for the customer.
-Match the language, dialect, and script of the customer's last message.
-Use English when they wrote English. For Hindi/Urdu, use Roman letters only (Latin script) — never Devanagari.
-Match Hinglish or Roman Urdu when they mix languages. Keep phone numbers, times, and ids stable.
-Never send translations: output must match the customer's last message language only — no English gloss, no slash-separated duplicate, no second line with the same meaning in another language.
-SYS;
-    }
-
-    private function systemPromptForLabels(): string
-    {
-        return <<<'SYS'
-Rewrite each button label into the customer's last-message language only (Roman script for Hindi/Urdu; no Devanagari). Keep concise.
-Never add a second language, slash duplicate, or parenthetical translation on the same label.
+You rewrite fixed WhatsApp support messages so they read naturally on WhatsApp.
+Allowed output (STRICT): English, OR Hinglish (Hindi mixed with English) in Roman/Latin letters only.
+- If the customer's last message is clearly English → reply in English.
+- If it is Hinglish (Roman letters, Hindi-English mix) → reply in Hinglish.
+- If it is any other language or script (including Kashmiri, Hindi in Devanagari, Arabic/Persian script, etc.) → reply in natural Hinglish OR English (Roman letters only); pick one tone and stay consistent. Do not mirror Kashmiri or non-Latin scripts.
+Never use Kashmiri. Never use Devanagari. Never use Arabic/Persian script in your output.
+Keep phone numbers, times, schedule text, URLs, and booking ids exactly as in the original unless you must transliterate a fragment for clarity.
+Never send translations: one register only — no English gloss in parentheses, no slash-separated duplicate, no second line repeating the same meaning in another language.
 SYS;
     }
 }
