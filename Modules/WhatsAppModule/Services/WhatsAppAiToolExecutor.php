@@ -269,7 +269,7 @@ class WhatsAppAiToolExecutor
                 'attempt' => $n,
                 'max_clarify_rounds' => $maxClarify,
                 'brief_reason_echo' => $brief,
-                'assistant_instruction' => 'Reply with exactly ONE short, polite message in English or Roman Hinglish only (no Devanagari script). Ask one clarifying question — what they need (booking, job status, provider signup, etc.). Use Please / Thanks in English spelling. Do not call request_human_support_handoff. Do not call this tool again until the customer sends their next message.',
+                'assistant_instruction' => 'Reply with exactly ONE short, polite message in English or Roman Hinglish only (Roman letters — no Devanagari, no Arabic script, never Kashmiri). Ask one clarifying question — what they need (booking, job status, provider signup, etc.). Use Please / Thanks in English spelling. Do not call request_human_support_handoff. Do not call this tool again until the customer sends their next message.',
             ];
         }
 

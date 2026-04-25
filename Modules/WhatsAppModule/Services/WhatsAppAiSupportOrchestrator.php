@@ -515,6 +515,7 @@ class WhatsAppAiSupportOrchestrator
         $t = $this->stripLeadingModelReasoning($t);
         $t = $this->normalizeWhatsAppCustomerTextFormatting($t);
         $t = $this->stripDevanagariFromCustomerReply($t);
+        $t = $this->stripArabicScriptFromCustomerReply($t);
         $t = $this->stripTranslationArtifacts($t);
 
         return mb_substr(trim($t), 0, 3800);
@@ -675,6 +676,18 @@ class WhatsAppAiSupportOrchestrator
     }
 
     /**
+     * Models sometimes emit Arabic/Persian script (e.g. Kashmiri/Urdu style); customer copy must stay Roman (English/Hinglish).
+     */
+    private function stripArabicScriptFromCustomerReply(string $text): string
+    {
+        $t = preg_replace('/\p{Arabic}/u', '', $text) ?? $text;
+        $t = preg_replace('/[ \t]+/', ' ', $t) ?? $t;
+        $t = preg_replace("/\n{3,}/", "\n\n", $t) ?? $t;
+
+        return trim($t);
+    }
+
+    /**
      * WhatsApp uses *bold* (single asterisk pairs), not Markdown **bold**. Models often emit **…**
      * or "*   *Label:*" bullets, which show stray asterisks. Normalize before send.
      */
@@ -702,6 +715,8 @@ class WhatsAppAiSupportOrchestrator
         $t = preg_replace('/\[[^\]\n]{0,400}?\binsert\b[^\]\n]{0,400}?\]/iu', '', $t) ?? $t;
         $t = preg_replace('/\[[^\]\n]{0,120}?(?:otherwise skip|if available)[^\]\n]{0,320}?\]/iu', '', $t) ?? $t;
         $t = preg_replace('/\bget_public_business_info\b/iu', '', $t) ?? $t;
+        $t = preg_replace('/\s*\[act_[a-z0-9_]+\]/iu', '', $t) ?? $t;
+        $t = preg_replace('/\s*\[sess_qr_\d+\]/iu', '', $t) ?? $t;
         $t = preg_replace('/<thinking>[\s\S]*?<\/thinking>/iu', '', $t) ?? $t;
         $t = preg_replace("/\n{3,}/", "\n\n", $t) ?? $t;
 

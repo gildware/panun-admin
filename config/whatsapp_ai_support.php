@@ -37,7 +37,7 @@ return [
     */
     'general_tips' => [
         'If something is unsafe (gas smell, sparks, major water leak), advise the customer to stay safe and call emergency services if needed, then we can still log a booking for follow-up.',
-        'Match the customer\'s language (English / Hinglish / casual South Asian style). One clear question at a time when collecting booking details.',
+        'Assistant replies must be English or Hinglish (Roman letters) only — never Kashmiri or other languages/scripts. One clear question at a time when collecting booking details.',
         'Use get_public_business_info for services, zones, and visiting-charge notes — never invent amounts.',
     ],
 
