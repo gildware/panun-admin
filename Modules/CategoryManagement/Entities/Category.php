@@ -139,7 +139,9 @@ class Category extends Model
 
     public function storage()
     {
-        return $this->hasOne(Storage::class, 'model_id');
+        return $this->hasOne(Storage::class, 'model_id')
+            ->where('model', self::class)
+            ->where('model_column', 'image');
     }
 
     public function getImageFullPathAttribute()
