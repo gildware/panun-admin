@@ -151,10 +151,8 @@ if (!function_exists('file_uploader')) {
         $disk = getDisk();
         $dir  = rtrim($dir, '/') . '/';
 
-        // If old file exists, delete before uploading new
-        if ($old_image) {
-            Storage::disk($disk)->delete($dir . $old_image);
-        }
+        // Do not delete $old_image until a new file is stored successfully; otherwise a failed
+        // resize, S3 put, or non-image upload leaves the DB filename pointing at a removed file.
 
         /**
          * 🚫 If the file is NOT an image → upload normally (PDF, Doc, Zip, etc.)
@@ -173,6 +171,10 @@ if (!function_exists('file_uploader')) {
                     Toastr::error(translate('File upload failed. Please check S3 credentials.'));
                 }
                 return $old_image ?? 'def.png';
+            }
+
+            if ($old_image) {
+                Storage::disk($disk)->delete($dir . $old_image);
             }
 
             return $imageName; // RETURN HERE ✔
@@ -214,6 +216,10 @@ if (!function_exists('file_uploader')) {
                 return $old_image ?? 'def.png';
             }
             Storage::disk($disk)->put($dir . $imageName, file_get_contents($savePath));
+            if ($old_image) {
+                Storage::disk($disk)->delete($dir . $old_image);
+            }
+
             return $imageName;
         }
 
@@ -276,6 +282,10 @@ if (!function_exists('file_uploader')) {
         }
 
         Storage::disk($disk)->put($dir . $imageName, file_get_contents($savePath));
+
+        if ($old_image) {
+            Storage::disk($disk)->delete($dir . $old_image);
+        }
 
         return $imageName; // FINAL RETURN ✔
     }

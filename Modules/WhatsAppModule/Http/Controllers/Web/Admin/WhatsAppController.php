@@ -376,21 +376,40 @@ class WhatsAppController extends Controller
         }
 
         try {
-            $user = WhatsAppUser::where('phone', $phone)->firstOrFail();
-            $bookings = WhatsAppBooking::where('phone', $phone)
-                ->orderByDesc('created_at')
-                ->limit(50)
-                ->get()
-                ->map(fn ($b) => [
-                    'id' => $b->id,
-                    'booking_id' => $b->booking_id ?? $b->id,
-                    'service' => $b->service ?? '—',
-                    'status' => $b->status ?? '—',
-                    'created_at' => $b->created_at?->format('M j, Y H:i'),
-                ]);
-            $userPayload = $user->only(['phone', 'name', 'email', 'alternate_phone', 'address', 'type']);
-            $userPayload['created_at'] = $user->created_at?->format('M j, Y H:i');
-            $userPayload['updated_at'] = $user->updated_at?->format('M j, Y H:i');
+            $user = WhatsAppUser::where('phone', $phone)->first();
+            $bookings = collect();
+            if ($user !== null) {
+                $bookings = WhatsAppBooking::where('phone', $phone)
+                    ->orderByDesc('created_at')
+                    ->limit(50)
+                    ->get()
+                    ->map(fn ($b) => [
+                        'id' => $b->id,
+                        'booking_id' => $b->booking_id ?? $b->id,
+                        'service' => $b->service ?? '—',
+                        'status' => $b->status ?? '—',
+                        'created_at' => $b->created_at?->format('M j, Y H:i'),
+                    ]);
+            }
+
+            $userPayload = $user !== null
+                ? array_merge(
+                    $user->only(['phone', 'name', 'email', 'alternate_phone', 'address', 'type']),
+                    [
+                        'created_at' => $user->created_at?->format('M j, Y H:i'),
+                        'updated_at' => $user->updated_at?->format('M j, Y H:i'),
+                    ]
+                )
+                : [
+                    'phone' => $phone,
+                    'name' => null,
+                    'email' => null,
+                    'alternate_phone' => null,
+                    'address' => null,
+                    'type' => null,
+                    'created_at' => null,
+                    'updated_at' => null,
+                ];
             $normalized = $this->normalizeLeadPhone($phone);
             $leads = $normalized
                 ? Lead::where('phone_number', $normalized)
@@ -399,6 +418,7 @@ class WhatsAppController extends Controller
                 : collect();
             $leadStatusMap = $this->buildLeadStatusMap($leads);
             $lead = $leads->first();
+
             return response()->json([
                 'user' => $userPayload,
                 'system_link' => $this->resolveSystemLinkForRawPhone($phone),
@@ -421,7 +441,7 @@ class WhatsAppController extends Controller
                 ])->values(),
             ]);
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 404);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -771,12 +791,12 @@ class WhatsAppController extends Controller
                 foreach ($files as $index => $file) {
                     $path = $file->store('whatsapp_attachments', 'public');
                     $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($path, PATHINFO_EXTENSION));
-                    $storedMediaType = $this->whatsappMediaTypeFromExtension($ext);
+                    $storedMediaType = strtoupper($this->whatsAppCloud->mediaTypeFromExtension($ext));
 
                     $message = new WhatsAppMessage();
                     $message->phone = $threadPhone;
                     $message->direction = 'OUT';
-                    $message->message_type = strtoupper($storedMediaType);
+                    $message->message_type = $storedMediaType;
                     $message->media_path = $path;
                     $message->message_text = $body !== '' && $index === 0 ? $body : $file->getClientOriginalName();
                     $message->reply_to_wa_message_id = ($replyGraphId !== null && $index === 0) ? $replyGraphId : null;

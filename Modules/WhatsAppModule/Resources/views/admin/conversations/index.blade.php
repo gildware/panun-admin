@@ -1013,6 +1013,7 @@
                                         </div>
                                         <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 flex-shrink-0">
                                             <span id="whatsapp-chat-handled-pill" class="flex-shrink-0"></span>
+                                            <span id="whatsapp-chat-view-leads-slot" class="flex-shrink-0"></span>
                                             <span id="whatsapp-chat-override-slot"></span>
                                             <span id="whatsapp-chat-status-slot" class="flex-shrink-0"></span>
                                             <span id="whatsapp-chat-delete-slot"></span>
@@ -1179,6 +1180,19 @@
                         </div>
                     </div>
                 @endif
+                <div class="modal fade" id="wa-conversation-leads-modal" tabindex="-1" aria-labelledby="wa-conversation-leads-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="wa-conversation-leads-modal-label">{{ translate('User leads') }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('close') }}"></button>
+                            </div>
+                            <div class="modal-body" id="wa-conversation-leads-body">
+                                <div class="text-center py-4 text-muted">{{ translate('Loading…') }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 @push('script')
                 <script>
 (function() {
@@ -1213,6 +1227,7 @@
     var waTplSuggestSelected = -1;
     var waTplSuggestMatches = [];
     var messagesUrl = '{{ route("admin.whatsapp.conversations.chat.messages", ['channel' => $waInboxCh]) }}';
+    var waUserDetailsForLeadsUrl = '{{ route("admin.whatsapp.users.details", ['channel' => $waInboxCh]) }}';
     var replyUrl = '{{ route("admin.whatsapp.conversations.reply", ['channel' => $waInboxCh]) }}';
     var reactionUrl = '{{ route("admin.whatsapp.conversations.reaction", ['channel' => $waInboxCh]) }}';
     var handoffUrl = '{{ route("admin.whatsapp.conversations.handoff", ['channel' => $waInboxCh]) }}';
@@ -1232,6 +1247,10 @@
     var strWaNone = {!! json_encode(translate('whatsapp_not_in_system')) !!};
     var strHandlerAiLabel = {!! json_encode(translate('AI')) !!};
     var strOverrideChat = {!! json_encode(translate('Override chat')) !!};
+    var strViewLeads = {!! json_encode(translate('View leads')) !!};
+    var strViewLeadLink = {!! json_encode(translate('View lead')) !!};
+    var strConvLeadsEmpty = {!! json_encode(translate('No provider leads')) !!};
+    var strLoadingEllipsis = {!! json_encode(translate('Loading…')) !!};
     var strAssignBackAi = {!! json_encode(translate('Assign back to AI')) !!};
     var strDeleteChatTitle = {!! json_encode(translate('delete_chat')) !!};
     var strReply = {!! json_encode(translate('Reply')) !!};
@@ -2332,6 +2351,93 @@
         return inner;
     }
 
+    function waConvLeadsEscapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function waConvLeadsFormatPhoneDisplay(phoneRaw) {
+        var digits = String(phoneRaw || '').replace(/\D+/g, '');
+        if (!digits) return '—';
+        return digits.length > 10 ? digits.slice(-10) : digits;
+    }
+
+    function waConvLeadsRenderTable(leads) {
+        if (!leads || !leads.length) {
+            return '<p class="text-muted mb-0">' + waConvLeadsEscapeHtml(strConvLeadsEmpty) + '</p>';
+        }
+        function leadTypeMeta(type) {
+            var normalized = String(type || '').toLowerCase();
+            if (normalized === 'invalid') {
+                return { label: 'Invalid', badgeClass: 'bg-danger text-white' };
+            }
+            if (normalized === 'customer') {
+                return { label: 'Customer', badgeClass: 'bg-success text-white' };
+            }
+            if (normalized === 'provider') {
+                return { label: 'Provider', badgeClass: 'bg-primary text-white' };
+            }
+            if (normalized === 'future_customer') {
+                return { label: 'Future Customer', badgeClass: 'bg-info text-dark' };
+            }
+            if (normalized === 'unknown') {
+                return { label: 'Unknown', badgeClass: 'bg-warning text-dark' };
+            }
+            var fallbackLabel = String(type || '—').replace(/_/g, ' ');
+            return { label: fallbackLabel, badgeClass: 'bg-warning text-dark' };
+        }
+        var html = '<div class="table-responsive"><table class="table table-sm align-middle text-nowrap">';
+        html += '<thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Type</th><th>Status</th><th>Received</th><th class="text-end">Action</th></tr></thead><tbody>';
+        leads.forEach(function (lead) {
+            var typeMeta = leadTypeMeta(lead.lead_type);
+            html += '<tr>';
+            html += '<td>#' + waConvLeadsEscapeHtml(String(lead.id != null ? lead.id : '')) + '</td>';
+            html += '<td>' + waConvLeadsEscapeHtml(lead.name || '—') + '</td>';
+            html += '<td>' + waConvLeadsEscapeHtml(waConvLeadsFormatPhoneDisplay(lead.phone_number)) + '</td>';
+            html += '<td><span class="badge rounded-pill ' + typeMeta.badgeClass + '">' + waConvLeadsEscapeHtml(typeMeta.label) + '</span></td>';
+            var isOpen = !!lead.is_open;
+            var statusLabel = isOpen ? 'Open' : 'Closed';
+            var statusClass = isOpen ? 'bg-danger' : 'bg-success';
+            html += '<td><span class="badge rounded-pill ' + statusClass + '">' + waConvLeadsEscapeHtml(statusLabel) + '</span></td>';
+            html += '<td>' + waConvLeadsEscapeHtml(lead.received_at || '—') + '</td>';
+            html += '<td class="text-end"><a href="' + waConvLeadsEscapeHtml(lead.url || '#') + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">' + waConvLeadsEscapeHtml(strViewLeadLink) + '</a></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    function waOpenConversationLeadsModal(phoneRaw) {
+        var modalEl = document.getElementById('wa-conversation-leads-modal');
+        var bodyEl = document.getElementById('wa-conversation-leads-body');
+        if (!modalEl || !bodyEl || !phoneRaw) {
+            return;
+        }
+        bodyEl.innerHTML = '<div class="text-center py-4 text-muted">' + waConvLeadsEscapeHtml(strLoadingEllipsis) + '</div>';
+        var bsModal = new bootstrap.Modal(modalEl);
+        bsModal.show();
+        fetch(waUserDetailsForLeadsUrl + '?phone=' + encodeURIComponent(phoneRaw), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) {
+            return r.json().then(function (json) {
+                return { ok: r.ok, data: json };
+            });
+        }).then(function (result) {
+            var data = result.data || {};
+            if (data.error) {
+                bodyEl.innerHTML = '<div class="alert alert-danger">' + waConvLeadsEscapeHtml(data.error || 'Failed to load') + '</div>';
+                return;
+            }
+            bodyEl.innerHTML = waConvLeadsRenderTable(data.leads || []);
+        }).catch(function () {
+            bodyEl.innerHTML = '<div class="alert alert-danger">' + waConvLeadsEscapeHtml('Failed to load leads') + '</div>';
+        });
+    }
+
     function loadMessages(phone, isPoll) {
         var panel = document.getElementById('whatsapp-chat-messages');
         if (!panel) {
@@ -2574,10 +2680,22 @@
                 waCustomerName = (res.customer_name != null && res.customer_name !== undefined)
                     ? String(res.customer_name).trim()
                     : '';
+                var leadsViewSlot = document.getElementById('whatsapp-chat-view-leads-slot');
                 var overSlot = document.getElementById('whatsapp-chat-override-slot');
                 var delSlot = document.getElementById('whatsapp-chat-delete-slot');
+                if (leadsViewSlot) leadsViewSlot.innerHTML = '';
                 if (overSlot) overSlot.innerHTML = '';
                 if (delSlot) delSlot.innerHTML = '';
+                if (leadsViewSlot && phone) {
+                    var btnViewLeads = document.createElement('button');
+                    btnViewLeads.type = 'button';
+                    btnViewLeads.className = 'btn btn-sm btn-success text-white';
+                    btnViewLeads.textContent = strViewLeads;
+                    btnViewLeads.addEventListener('click', function () {
+                        waOpenConversationLeadsModal(phone);
+                    });
+                    leadsViewSlot.appendChild(btnViewLeads);
+                }
                 var skipMetaUi =
                     (document.getElementById('wa-chat-status-select') &&
                         !document.getElementById('wa-chat-status-select').classList.contains('d-none')) ||
