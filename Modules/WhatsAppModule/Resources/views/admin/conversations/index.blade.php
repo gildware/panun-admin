@@ -1295,7 +1295,15 @@
         if (!isoVal) return '';
         var d = new Date(isoVal);
         if (isNaN(d.getTime())) return '';
-        return d.toLocaleTimeString(waMsgTimeLocale, { timeZone: waMsgTimeZone, hour: 'numeric', minute: '2-digit', hour12: true });
+        return d.toLocaleString(waMsgTimeLocale, {
+            timeZone: waMsgTimeZone,
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
     }
     function waFormatChatMessageDateTimeNow() {
         var d = new Date();
