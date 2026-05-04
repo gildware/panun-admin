@@ -237,14 +237,14 @@
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">event_repeat</span>
                                     Booking Follow-ups- Pending Till Today's
                                     <span class="text-muted">
-                                        ({{ $data[5]['todays_pending_followups_total'] ?? 0 }})
+                                        ({{ $data[6]['todays_pending_followups_total'] ?? 0 }})
                                     </span>
                                 </h5>
                                 <a href="{{route('admin.booking.todays_followups')}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body p-0">
-                                @if(isset($data[5]['todays_pending_followups']) && $data[5]['todays_pending_followups']->isNotEmpty())
+                                @if(isset($data[6]['todays_pending_followups']) && $data[6]['todays_pending_followups']->isNotEmpty())
                                     <div class="table-responsive px-3 overflow-auto">
                                         <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
                                             <thead class="text-secondary border-bottom">
@@ -258,7 +258,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach($data[5]['todays_pending_followups'] as $followup)
+                                                @foreach($data[6]['todays_pending_followups'] as $followup)
                                                     <tr class="cursor-pointer todays-followup-redirect {{ $followup->date && !$followup->date->isToday() ? 'missed-followup-row' : '' }}"
                                                         data-route="{{ $followup->booking ? (route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups'])) : '#' }}">
                                                         <td>
@@ -323,14 +323,14 @@
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">contact_phone</span>
                                     Leads Follow-ups- Pending Till Today's
                                     <span class="text-muted">
-                                        ({{ $data[6]['todays_pending_lead_followups_total'] ?? 0 }})
+                                        ({{ $data[7]['todays_pending_lead_followups_total'] ?? 0 }})
                                     </span>
                                 </h5>
                                 <a href="{{ route('admin.lead.todays_followups') }}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
                             <div class="card-body p-0">
-                                @if(isset($data[6]['todays_pending_lead_followups']) && $data[6]['todays_pending_lead_followups']->isNotEmpty())
+                                @if(isset($data[7]['todays_pending_lead_followups']) && $data[7]['todays_pending_lead_followups']->isNotEmpty())
                                     <div class="table-responsive px-3 overflow-auto">
                                         <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
                                             <thead class="text-secondary border-bottom">
@@ -344,7 +344,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach($data[6]['todays_pending_lead_followups'] as $lead)
+                                                @foreach($data[7]['todays_pending_lead_followups'] as $lead)
                                                     <tr class="cursor-pointer todays-followup-redirect {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? 'missed-followup-row' : '' }}"
                                                         data-route="{{ route('admin.lead.show', $lead->id) }}">
                                                         <td>
@@ -611,12 +611,12 @@
                             </div>
                             <div class="card-body">
                                 <ul class="common-list">
-                                    @if(count($data[2]['bookings'] ?? []) < 1)
+                                    @if(count($data[3]['bookings'] ?? []) < 1)
                                         <div class="d-flex align-items-center justify-content-center h-100 w-100">
                                             <span class="opacity-50">{{translate('No Bookings Found')}}</span>
                                         </div>
                                     @endif
-                                    @foreach($data[2]['bookings'] ?? [] as $booking)
+                                    @foreach($data[3]['bookings'] ?? [] as $booking)
                                         <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer recent-booking-redirect"
                                             data-route="@if($booking->is_repeated) {{ route('admin.booking.repeat_details', [$booking->id]) }}?web_page=details @else {{ route('admin.booking.details', [$booking->id]) }}?web_page=details @endif">
                                             <div class="media align-items-center gap-3">
@@ -656,12 +656,12 @@
                             </div>
                             <div class="card-body">
                                 <ul class="common-list">
-                                    @if(count($data[6]['todays_pending_lead_followups'] ?? []) < 1)
+                                    @if(count($data[7]['todays_pending_lead_followups'] ?? []) < 1)
                                         <div class="d-flex align-items-center justify-content-center h-100 w-100">
                                             <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
                                         </div>
                                     @endif
-                                    @foreach($data[6]['todays_pending_lead_followups'] ?? [] as $lead)
+                                    @foreach($data[7]['todays_pending_lead_followups'] ?? [] as $lead)
                                         @php($leadInitial = $lead->name ? strtoupper(substr($lead->name, 0, 1)) : 'L')
                                         <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer todays-followup-redirect"
                                             data-route="{{ route('admin.lead.show', $lead->id) }}">
@@ -705,7 +705,7 @@
                             <div class="card-body">
                                 <div class="table-responsive">
                                     <div class="min-w-0" style="min-width: 500px;">
-                                @if(count($data[3]['top_providers'] ?? []) >= 1)
+                                @if(count($data[4]['top_providers'] ?? []) >= 1)
                                     <div class="d-flex align-items-end gap-3 pb-2 mb-2 border-bottom text-secondary fw-semibold fs-12">
                                         <div class="flex-grow-1 min-w-0" style="max-width: 200px;">{{ translate('Provider') }}</div>
                                         <div class="flex-shrink-0 text-end text-nowrap" style="min-width: 168px; width: 168px;">{{ translate('Performance_Score') }}</div>
@@ -713,12 +713,12 @@
                                     </div>
                                 @endif
                                 <ul class="common-list">
-                                    @if(count($data[3]['top_providers'] ?? []) < 1)
+                                    @if(count($data[4]['top_providers'] ?? []) < 1)
                                         <div class="d-flex align-items-center justify-content-center h-100 w-100">
                                             <span class="opacity-50">{{translate('No Bookings Found')}}</span>
                                         </div>
                                     @endif
-                                    @foreach($data[3]['top_providers'] ?? [] as $provider)
+                                    @foreach($data[4]['top_providers'] ?? [] as $provider)
                                         <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer provider-redirect"
                                             data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
                                             @php(
@@ -770,7 +770,7 @@
                             <div class="card-body">
                                 <div class="table-responsive">
                                     <div class="min-w-0" style="min-width: 360px;">
-                                @if(count($data[4]['top_customers'] ?? []) >= 1)
+                                @if(count($data[5]['top_customers'] ?? []) >= 1)
                                     <div class="d-flex align-items-end gap-3 pb-2 mb-2 border-bottom text-secondary fw-semibold fs-12">
                                         <div class="flex-grow-1 min-w-0">{{ translate('Customer') }}</div>
                                         <div class="flex-shrink-0 text-end text-nowrap" style="min-width: 168px; width: 168px;">{{ translate('Performance_Score') }}</div>
@@ -778,12 +778,12 @@
                                     </div>
                                 @endif
                                 <ul class="common-list">
-                                    @if(count($data[4]['top_customers'] ?? []) < 1)
+                                    @if(count($data[5]['top_customers'] ?? []) < 1)
                                         <div class="d-flex align-items-center justify-content-center h-100 w-100">
                                             <span class="opacity-50">{{translate('No Bookings Found')}}</span>
                                         </div>
                                     @endif
-                                    @foreach($data[4]['top_customers'] ?? [] as $customer)
+                                    @foreach($data[5]['top_customers'] ?? [] as $customer)
                                         <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer customer-redirect"
                                             data-route="{{route('admin.customer.detail',[$customer->id,'web_page'=>'overview'])}}">
                                             <div class="media gap-3 flex-grow-1 min-w-0">
