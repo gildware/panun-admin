@@ -57,6 +57,145 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Service area (WhatsApp AI booking guard — keyword hints)
+    |--------------------------------------------------------------------------
+    |
+    | High-confidence zone match from the DB always allows the address.
+    | Otherwise we block when an "outside" token appears and no "inside" token does.
+    | Adjust lists for your operational area (Kashmir valley vs full J&K, etc.).
+    |
+    | @var list<string>
+    */
+    'service_area_inside_keywords' => [
+        'jammu and kashmir',
+        'jammu & kashmir',
+        'j&k',
+        'jk ut',
+        'union territory of jammu',
+        'kashmir',
+        'srinagar',
+        'anantnag',
+        'kulgam',
+        'pulwama',
+        'shopian',
+        'budgam',
+        'ganderbal',
+        'bandipora',
+        'bandipore',
+        'baramulla',
+        'kupwara',
+        'handwara',
+        'sopore',
+        'pampore',
+        'awantipora',
+        'magam',
+        'jammu',
+        'rajouri',
+        'poonch',
+        'kathua',
+        'samba',
+        'udhampur',
+        'reasi',
+        'ramban',
+        'doda',
+        'kishtwar',
+        'leh',
+        'ladakh',
+    ],
+
+    /*
+    | Strong signals the customer is outside J&K / Kashmir operations.
+    | Keep multi-word phrases where helpful (e.g. "new delhi").
+    |
+    | @var list<string>
+    */
+    'service_area_outside_keywords' => [
+        'new delhi',
+        'south delhi',
+        'north delhi',
+        'east delhi',
+        'west delhi',
+        'delhi ncr',
+        'gurgaon',
+        'gurugram',
+        'noida',
+        'greater noida',
+        'faridabad',
+        'ghaziabad',
+        'mumbai',
+        'bombay',
+        'bangalore',
+        'bengaluru',
+        'chennai',
+        'madras',
+        'hyderabad',
+        'secunderabad',
+        'kolkata',
+        'calcutta',
+        'pune',
+        'ahmedabad',
+        'surat',
+        'jaipur',
+        'lucknow',
+        'kanpur',
+        'indore',
+        'bhopal',
+        'nagpur',
+        'kochi',
+        'cochin',
+        'thiruvananthapuram',
+        'trivandrum',
+        'goa',
+        'chandigarh',
+        'dehradun',
+        'haridwar',
+        'rishikesh',
+        'shimla',
+        'manali',
+        'amritsar',
+        'ludhiana',
+        'patna',
+        'ranchi',
+        'guwahati',
+        'visakhapatnam',
+        'vizag',
+        'coimbatore',
+        'madurai',
+        'tiruchirappalli',
+        'trichy',
+        'telangana',
+        'andhra pradesh',
+        'karnataka',
+        'tamil nadu',
+        'kerala',
+        'maharashtra',
+        'gujarat',
+        'rajasthan',
+        'west bengal',
+        'bihar',
+        'punjab',
+        'haryana',
+        'uttar pradesh',
+        'uttarakhand',
+        'himachal pradesh',
+        'assam',
+        'odisha',
+        'orissa',
+        'pakistan',
+        'lahore',
+        'karachi',
+    ],
+
+    /*
+    | Customer-safe sentence appended to get_public_business_info for the model.
+    */
+    'service_coverage_policy_note' => env(
+        'WHATSAPP_SERVICE_COVERAGE_NOTE',
+        'We currently operate only in Jammu & Kashmir (including Kashmir valley). Do not accept or submit bookings for service addresses outside this region.'
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | FAQs (keyword search over question + answer)
     |--------------------------------------------------------------------------
     |

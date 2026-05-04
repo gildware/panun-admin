@@ -26,6 +26,9 @@ class WhatsAppPublicCatalogService
         $zones = $this->safeActiveZoneNames();
         $zonesWithIds = $this->safeActiveZonesWithIds();
 
+        $coverageNote = config('whatsapp_ai_support.service_coverage_policy_note');
+        $coverageNote = is_string($coverageNote) ? trim($coverageNote) : '';
+
         $out = [
             'company' => $this->scalarBusinessValue('company_name', 'business_information')
                 ?? $this->scalarBusinessValue('business_name', 'business_information'),
@@ -34,6 +37,7 @@ class WhatsAppPublicCatalogService
             'email' => $this->scalarBusinessValue('email', 'business_information'),
             'address' => $this->scalarBusinessValue('address', 'business_information'),
             'visiting_charge_note' => $this->resolveVisitingChargeNote(),
+            'service_coverage_policy_note' => $coverageNote !== '' ? $coverageNote : null,
             'service_area_note' => $this->scalarBusinessValue('service_area', 'business_information'),
             'service_names_sample' => array_slice($services, 0, 40),
             'zone_names_sample' => array_slice($zones, 0, 30),

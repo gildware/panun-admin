@@ -24,6 +24,7 @@ class WhatsAppAiToolExecutor
         protected WhatsAppLeadLifecycleService $leadLifecycle,
         protected WhatsAppAiSupportKnowledgeService $supportKnowledge,
         protected WhatsAppZoneAddressMatcher $zoneAddressMatcher,
+        protected WhatsAppServiceAreaChecker $serviceAreaChecker,
         protected WhatsAppAiSettingsService $aiSettings,
         protected WhatsAppAiContactProfileResolver $contactProfile,
     ) {}
@@ -60,7 +61,7 @@ class WhatsAppAiToolExecutor
         return [
             [
                 'name' => 'get_public_business_info',
-                'description' => 'Returns public company info, services, zones with IDs, zones_for_address_matching (name + description/area lists), visiting-charge notes, and customer_message_placeholders (exact strings for {schedule}, {phone}, {brand}, etc. in canned messages). Use for FAQs. Never invent prices.',
+                'description' => 'REQUIRED before you mention any rupee amount, visiting charge, support phone number, or support hours in your reply: call this tool in the same turn and use ONLY fields from the result (visiting_charge_note, customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note). Never invent prices, waivers, or contact details.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => new \stdClass,
@@ -229,7 +230,15 @@ class WhatsAppAiToolExecutor
             return ['ok' => false, 'error' => 'missing_address'];
         }
 
-        return ['ok' => true, 'match' => $this->zoneAddressMatcher->match($addr)];
+        $match = $this->zoneAddressMatcher->match($addr);
+        $area = $this->serviceAreaChecker->assess($addr, $match);
+
+        return [
+            'ok' => true,
+            'match' => $match,
+            'service_area' => $area,
+            'assistant_hint' => (($area['in_service_area'] ?? true) ? null : 'This address does not appear to be in our Jammu & Kashmir service area. Do not use upsert_my_draft_booking to save it; explain we currently serve only Kashmir / J&K and ask for a local address if they are in the region.'),
+        ];
     }
 
     /**
@@ -625,6 +634,21 @@ class WhatsAppAiToolExecutor
 
         $booking->admin_prefill_json = $prefill !== [] ? $prefill : null;
 
+        $finalAddress = trim((string) ($booking->address ?? ''));
+        if ($finalAddress !== '') {
+            $zmFinal = $this->zoneAddressMatcher->match($finalAddress);
+            $areaCheck = $this->serviceAreaChecker->assess($finalAddress, $zmFinal);
+            if (!($areaCheck['in_service_area'] ?? true)) {
+                return [
+                    'ok' => false,
+                    'error' => 'outside_service_area',
+                    'service_area' => $areaCheck,
+                    'match' => $zmFinal,
+                    'assistant_instruction' => 'Do not save this booking. Tell the customer clearly that we currently serve only Jammu & Kashmir (Kashmir region operations). Do not call upsert_my_draft_booking again with this address. If they are local, ask for a full address that matches our coverage (or a landmark in Kashmir). Use get_public_business_info only if they ask how to reach support — never invent phone or hours.',
+                ];
+            }
+        }
+
         $booking->status = WhatsAppBooking::STATUS_DRAFT;
         $booking->save();
 
@@ -690,6 +714,21 @@ class WhatsAppAiToolExecutor
             ];
         }
 
+        $addrSubmit = trim((string) ($booking->address ?? ''));
+        if ($addrSubmit !== '') {
+            $zmSubmit = $this->zoneAddressMatcher->match($addrSubmit);
+            $areaSubmit = $this->serviceAreaChecker->assess($addrSubmit, $zmSubmit);
+            if (!($areaSubmit['in_service_area'] ?? true)) {
+                return [
+                    'ok' => false,
+                    'error' => 'outside_service_area',
+                    'service_area' => $areaSubmit,
+                    'match' => $zmSubmit,
+                    'assistant_instruction' => 'Cannot submit: address appears outside our Jammu & Kashmir service area. Ask for a valid local address or explain we only operate in Kashmir / J&K. Clear the wrong address with upsert_my_draft_booking (correct address) before submitting.',
+                ];
+            }
+        }
+
         $crmLead = $this->leadLifecycle->ensureLeadTypeForPhone($phone, Lead::TYPE_CUSTOMER, $booking->name);
         if ($crmLead && $booking->lead_id === null) {
             $booking->lead_id = $crmLead->id;
@@ -747,6 +786,22 @@ class WhatsAppAiToolExecutor
         if (isset($args['address'])) {
             $lead->address = $args['address'] === null ? null : (string) $args['address'];
         }
+
+        $leadAddr = trim((string) ($lead->address ?? ''));
+        if ($leadAddr !== '') {
+            $zmLead = $this->zoneAddressMatcher->match($leadAddr);
+            $areaLead = $this->serviceAreaChecker->assess($leadAddr, $zmLead);
+            if (!($areaLead['in_service_area'] ?? true)) {
+                return [
+                    'ok' => false,
+                    'error' => 'outside_service_area',
+                    'service_area' => $areaLead,
+                    'match' => $zmLead,
+                    'assistant_instruction' => 'Do not save this provider lead with this address. Explain we currently onboard providers for Jammu & Kashmir only. Ask for a local address or use get_public_business_info if they need support contact — never invent phone or hours.',
+                ];
+            }
+        }
+
         $lead->status = ProviderLead::STATUS_DRAFT;
         $lead->save();
 
