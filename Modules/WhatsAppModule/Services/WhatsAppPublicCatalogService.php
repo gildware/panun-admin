@@ -33,8 +33,7 @@ class WhatsAppPublicCatalogService
                 ?: $this->scalarBusinessValue('phone', 'business_information'),
             'email' => $this->scalarBusinessValue('email', 'business_information'),
             'address' => $this->scalarBusinessValue('address', 'business_information'),
-            'visiting_charge_note' => $this->scalarBusinessValue('visiting_charge', 'booking_setup')
-                ?? $this->scalarBusinessValue('extra_charge', 'booking_setup'),
+            'visiting_charge_note' => $this->resolveVisitingChargeNote(),
             'service_area_note' => $this->scalarBusinessValue('service_area', 'business_information'),
             'service_names_sample' => array_slice($services, 0, 40),
             'zone_names_sample' => array_slice($zones, 0, 30),
@@ -65,6 +64,25 @@ class WhatsAppPublicCatalogService
         }
 
         return $out;
+    }
+
+    private function resolveVisitingChargeNote(): string
+    {
+        $fromDb = $this->scalarBusinessValue('visiting_charge', 'booking_setup')
+            ?? $this->scalarBusinessValue('extra_charge', 'booking_setup');
+        $trimmed = $fromDb !== null ? trim($fromDb) : '';
+        if ($trimmed !== '') {
+            return $trimmed;
+        }
+
+        $fallback = config('whatsapp_ai_support.default_visiting_charge_note');
+        if (is_string($fallback)) {
+            $t = trim($fallback);
+
+            return $t !== '' ? $t : '';
+        }
+
+        return '';
     }
 
     private function scalarBusinessValue(string $key, string $type): ?string
