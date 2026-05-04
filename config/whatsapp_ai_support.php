@@ -43,6 +43,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default visiting charge text (when booking_setup has no visiting_charge)
+    |--------------------------------------------------------------------------
+    |
+    | Shown in get_public_business_info so the assistant always has customer-safe
+    | wording. Override per environment or set visiting_charge in admin instead.
+    |
+    */
+    'default_visiting_charge_note' => env(
+        'WHATSAPP_DEFAULT_VISITING_CHARGE_NOTE',
+        'Visiting charges are ₹100. Final repair or service cost is confirmed after the technician inspects the job.'
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | FAQs (keyword search over question + answer)
     |--------------------------------------------------------------------------
     |
@@ -59,7 +73,7 @@ return [
         ],
         [
             'q' => 'How much will it cost?',
-            'a' => 'Visiting or inspection charges may apply as shown in our business information (the assistant can fetch exact notes). Final price depends on the work after the technician assesses on site — we do not guess numbers not in our settings.',
+            'a' => 'Visiting charges are ₹100 (as in our business information). The full job price is fixed after the technician visits and assesses the work — we do not guess amounts beyond what is in our settings.',
         ],
     ],
 
