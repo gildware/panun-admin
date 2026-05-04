@@ -14,7 +14,8 @@ use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
 /**
- * Persists WhatsApp message rows and runs the same CRM bootstrap as the internal sync API.
+ * Persists WhatsApp message rows. Inbound (direction IN) runs CRM bootstrap (WhatsApp user + open unknown lead).
+ * Outbound automation persists messages only and does not create leads.
  */
 class WhatsAppMessagePersistenceService
 {
@@ -205,6 +206,9 @@ class WhatsAppMessagePersistenceService
     /**
      * Store outbound rows for booking automation, marketing, etc. so admin conversations show the same thread.
      * When $actingAdminUserId is set (e.g. logged-in admin triggered the booking action), assigns the thread to that admin.
+     *
+     * Does not run CRM lead bootstrap: outbound sends must not create {@see \Modules\LeadManagement\Entities\Lead} rows.
+     * Leads are created only for inbound traffic via {@see self::persist()} (direction IN).
      */
     public function persistOutboundAutomation(
         string $normalizedPhone,
@@ -215,8 +219,6 @@ class WhatsAppMessagePersistenceService
         string $messageType = 'TEXT',
         ?string $mediaPath = null
     ): WhatsAppMessage {
-        $this->crmBootstrap->bootstrapInboundThread($normalizedPhone);
-
         $msg = new WhatsAppMessage();
         $msg->fill([
             'phone' => $normalizedPhone,
