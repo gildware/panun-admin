@@ -167,7 +167,7 @@ class WhatsAppAiToolExecutor
             ],
             [
                 'name' => 'submit_my_booking_for_human_confirmation',
-                'description' => 'Marks the active draft booking as submitted for human review. The response includes **booking_id** — your next customer message MUST quote that exact id (see assistant_instruction). Do not claim the job is fully confirmed until staff confirms.',
+                'description' => 'Submits the draft as a **booking request** for staff only — you do **not** confirm bookings. The response includes **booking_id** — your next customer message MUST quote that exact id (see assistant_instruction). The customer must understand the **visit is not confirmed** until the human team contacts them and confirms.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -675,12 +675,12 @@ class WhatsAppAiToolExecutor
         $missingAfter = $this->bookingDraftMissingFields($booking);
         if ($missingAfter === [] && !$nameRejectedAsService) {
             $out['assistant_instruction'] = 'Booking draft is complete. Before calling submit_my_booking_for_human_confirmation, send one customer message in their language. '
-                .'Opening: short acknowledgment that details are updated/saved + ask if they want to confirm this booking request — do NOT cram the full time or full address into this opening. '
+                .'Opening: short acknowledgment that their **request details** are saved + ask them to **check that the lines below are correct** — you are **not** asking them to confirm a booking or a visit. Do NOT cram the full time or full address into this opening. '
                 .'Then a blank line, then exactly these three lines (use => as shown):'."\n"
                 ."Service => …\n"
                 ."Time => …\n"
                 ."Address => …\n"
-                .'Then a line like "please confirm karo" (or a natural equivalent in their language). Keep Service/Time/Address on separate lines; do not fold them into one paragraph.';
+                .'Then a line asking them to confirm the **details are correct** (e.g. "please confirm karo" meaning the information is right) — never "confirm the booking". Keep Service/Time/Address on separate lines; do not fold them into one paragraph.';
         }
 
         return $out;
@@ -748,8 +748,8 @@ class WhatsAppAiToolExecutor
             'ok' => true,
             'booking_id' => $bid,
             'status' => $booking->status,
-            'message' => 'Your reply MUST include this exact booking request id so the customer can save it: '.$bid.'. Also say our team will review and confirm; the request is not final until staff confirms.',
-            'assistant_instruction' => 'In your next customer-visible message you MUST include the booking request id exactly as returned in booking_id ('.$bid.'). Use WhatsApp bold for the label, e.g. a line like: *Booking request ID:* '.$bid.' — then briefly repeat that staff will confirm and it is pending until then.',
+            'message' => 'Your reply MUST include this exact booking request id: '.$bid.'. Thank the customer for confirming the **details** (not the booking). Say their **request was submitted** to the team for review. The **booking/visit is NOT confirmed** until staff contact them. Do NOT say booking confirmed, visit confirmed, or technician assigned.',
+            'assistant_instruction' => 'Compose the next customer-visible message in their language. You MUST include the id exactly as booking_id ('.$bid.') with WhatsApp bold, e.g. *Booking request ID:* '.$bid.'. Thank them for **confirming the details** — never "thank you for confirming your booking". Say we **received their request** / it was **sent to our team**; they will **hear from the team** to **confirm the visit** — the job is **not** final yet. Forbidden: "booking confirmed", "your booking is confirmed", "visit is confirmed".',
         ];
     }
 
