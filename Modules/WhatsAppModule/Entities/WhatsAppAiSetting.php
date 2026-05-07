@@ -51,6 +51,7 @@ class WhatsAppAiSetting extends Model
         'db_support_days',
         'db_support_timezone',
         'db_support_phone_display',
+        'db_visiting_charge_note',
         'db_ai_dispatch_sync',
         'db_queue_connection',
     ];

@@ -72,6 +72,11 @@ class WhatsAppPublicCatalogService
 
     private function resolveVisitingChargeNote(): string
     {
+        $override = $this->runtimeResolver->visitingChargeNoteOverride();
+        if ($override !== '') {
+            return $override;
+        }
+
         $fromDb = $this->scalarBusinessValue('visiting_charge', 'booking_setup')
             ?? $this->scalarBusinessValue('extra_charge', 'booking_setup');
         $trimmed = $fromDb !== null ? trim($fromDb) : '';

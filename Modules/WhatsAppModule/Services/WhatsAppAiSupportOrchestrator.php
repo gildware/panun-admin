@@ -187,9 +187,11 @@ class WhatsAppAiSupportOrchestrator
         $replyKind = 'gemini';
         $hadProductiveToolThisRun = false;
         $hadReportUnclearThisRun = false;
+        $hadPublicBusinessInfoThisRun = false;
         $toolFinalizeSessionMeta = null;
         /** @var ?string Set when submit_my_booking_for_human_confirmation succeeds; used if the model omits the id. */
         $pendingBookingRequestId = null;
+        $autoInjectedPublicBusinessInfo = false;
         $maxRounds = (int) config('whatsappmodule.ai_gemini_max_tool_rounds', 6);
         while ($iter < $maxRounds) {
             $iter++;
@@ -223,13 +225,104 @@ class WhatsAppAiSupportOrchestrator
             }
 
             if ($turn['type'] === 'text') {
-                $finalText = $this->sanitizeCustomerReply($turn['text']);
-                if ($finalText === '') {
+                $candidate = $this->sanitizeCustomerReply($turn['text']);
+                if ($candidate === '') {
                     Log::warning('WhatsApp AI: Gemini returned empty text after sanitize');
                     $finalText = $this->fallbackCustomerMessage();
                     $replyKind = 'fallback';
+
+                    break;
                 }
 
+                // Guardrail: if the model mentions money/fees/phone/hours but did not call get_public_business_info,
+                // inject the tool response and force a retry so the reply is anchored to authoritative config.
+                if (
+                    !$hadPublicBusinessInfoThisRun
+                    && !$autoInjectedPublicBusinessInfo
+                    && $this->customerReplyLooksLikeItMentionsPricingOrContact($candidate)
+                    && $tools !== []
+                ) {
+                    $autoInjectedPublicBusinessInfo = true;
+                    $recorder->step('gemini.guard', 'Detected pricing/contact mention without get_public_business_info; injecting tool + retry', 'info', []);
+
+                    $pub = $this->toolExecutor->execute('get_public_business_info', [], $phone);
+                    $contents[] = [
+                        'role' => 'model',
+                        'parts' => [[
+                            'functionCall' => [
+                                'name' => 'get_public_business_info',
+                                'args' => (object) [],
+                            ],
+                        ]],
+                    ];
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'functionResponse' => [
+                                'name' => 'get_public_business_info',
+                                'response' => $pub,
+                            ],
+                        ]],
+                    ];
+                    $hadProductiveToolThisRun = true;
+                    $hadPublicBusinessInfoThisRun = true;
+
+                    // Tell the model to answer again using only the authoritative fields.
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'text' => 'Rewrite your customer reply using ONLY get_public_business_info fields: visiting_charge_note, customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note. Do not invent any amounts, waivers, phone digits, or hours.',
+                        ]],
+                    ];
+
+                    continue;
+                }
+
+                // Second guardrail: even if the model called tools earlier (or tools are disabled),
+                // never allow a reply that contains mismatched phone/charges vs get_public_business_info.
+                if (
+                    !$autoInjectedPublicBusinessInfo
+                    && $this->customerReplyLooksLikeItMentionsPricingOrContact($candidate)
+                ) {
+                    $pub = $this->toolExecutor->execute('get_public_business_info', [], $phone);
+                    if ($this->customerReplyConflictsWithPublicBusinessInfo($candidate, $pub)) {
+                        $autoInjectedPublicBusinessInfo = true;
+                        $recorder->step('gemini.guard', 'Candidate reply conflicts with public business info; injecting tool + retry', 'info', []);
+
+                        $contents[] = [
+                            'role' => 'model',
+                            'parts' => [[
+                                'functionCall' => [
+                                    'name' => 'get_public_business_info',
+                                    'args' => (object) [],
+                                ],
+                            ]],
+                        ];
+                        $contents[] = [
+                            'role' => 'user',
+                            'parts' => [[
+                                'functionResponse' => [
+                                    'name' => 'get_public_business_info',
+                                    'response' => $pub,
+                                ],
+                            ]],
+                        ];
+
+                        $hadProductiveToolThisRun = true;
+                        $hadPublicBusinessInfoThisRun = true;
+
+                        $contents[] = [
+                            'role' => 'user',
+                            'parts' => [[
+                                'text' => 'Your last reply contained incorrect visiting charges or contact details. Rewrite the reply using ONLY get_public_business_info fields: visiting_charge_note, customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note. Copy phone and schedule exactly. Do not invent any amounts, waivers, or digits.',
+                            ]],
+                        ];
+
+                        continue;
+                    }
+                }
+
+                $finalText = $candidate;
                 break;
             }
 
@@ -260,6 +353,9 @@ class WhatsAppAiSupportOrchestrator
                 $toolName = (string) ($c['name'] ?? '');
                 if ($toolName === 'report_unclear_user_intent') {
                     $hadReportUnclearThisRun = true;
+                }
+                if ($toolName === 'get_public_business_info') {
+                    $hadPublicBusinessInfoThisRun = true;
                 }
                 if (in_array($toolName, self::PRODUCTIVE_TOOL_NAMES, true)) {
                     $hadProductiveToolThisRun = true;
@@ -1136,5 +1232,120 @@ class WhatsAppAiSupportOrchestrator
         $msg = $this->templateLocalization->localizeTemplate($msg, $lastCustomerText, $recorder);
 
         return $this->sanitizeCustomerReply($msg);
+    }
+
+    /**
+     * True when the candidate reply contains money/fees/contact/hours-like content that must be sourced from
+     * get_public_business_info (otherwise Gemini may hallucinate).
+     */
+    private function customerReplyLooksLikeItMentionsPricingOrContact(string $text): bool
+    {
+        $t = trim($text);
+        if ($t === '') {
+            return false;
+        }
+        // Currency / fees
+        if (preg_match('/(?:₹|\brs\.?\b|\brupees\b|\bfee\b|\bfees\b|\bcharge\b|\bcharges\b)/iu', $t)) {
+            return true;
+        }
+        // Phone-like patterns
+        if (preg_match('/\+\d{7,15}/u', $t) || preg_match('/\b\d{10}\b/u', $t)) {
+            return true;
+        }
+        // Hours / schedule hints
+        if (preg_match('/\b(?:mon|tue|wed|thu|fri|sat|sun)(?:day)?\b/iu', $t)) {
+            return true;
+        }
+        if (preg_match('/\b\d{1,2}\s*(?:am|pm)\b/iu', $t)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns true when candidate includes phone/₹ but disagrees with get_public_business_info().
+     *
+     * @param  array<string, mixed>  $pub  Tool result
+     */
+    private function customerReplyConflictsWithPublicBusinessInfo(string $candidate, array $pub): bool
+    {
+        $cand = trim($candidate);
+        if ($cand === '') {
+            return false;
+        }
+
+        $data = is_array($pub['data'] ?? null) ? $pub['data'] : [];
+        $placeholders = is_array($data['customer_message_placeholders'] ?? null) ? $data['customer_message_placeholders'] : [];
+        $authPhone = trim((string) ($placeholders['phone'] ?? ''));
+        $authSchedule = trim((string) ($placeholders['schedule'] ?? ''));
+        $authVisit = trim((string) ($data['visiting_charge_note'] ?? ''));
+
+        // If the model included any phone-like digits, require it to match the authoritative phone digits.
+        $candPhones = $this->extractPhoneLikeDigitRuns($cand);
+        if ($candPhones !== []) {
+            $authDigits = $this->digitsOnly($authPhone);
+            if ($authDigits === '') {
+                // If we don't have an authoritative phone, the model must not include one.
+                return true;
+            }
+            foreach ($candPhones as $ph) {
+                $d = $this->digitsOnly($ph);
+                if ($d !== '' && $d !== $authDigits) {
+                    return true;
+                }
+            }
+        }
+
+        // If the model mentioned hours/days, require schedule substring match (exact copy is safest).
+        if ($authSchedule !== '' && preg_match('/\b(?:mon|tue|wed|thu|fri|sat|sun)(?:day)?\b/iu', $cand)) {
+            if (!str_contains($cand, $authSchedule)) {
+                return true;
+            }
+        }
+        if ($authSchedule !== '' && preg_match('/\b\d{1,2}\s*(?:am|pm)\b/iu', $cand)) {
+            if (!str_contains($cand, $authSchedule)) {
+                return true;
+            }
+        }
+
+        // If the model mentioned money/charges, require it to include the authoritative visiting_charge_note text.
+        if (preg_match('/(?:₹|\brs\.?\b|\brupees\b|\bfee\b|\bfees\b|\bcharge\b|\bcharges\b)/iu', $cand)) {
+            if ($authVisit === '') {
+                return true;
+            }
+            if (!str_contains($cand, $authVisit)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Extract phone-like digit runs from a sentence.
+     *
+     * @return list<string>
+     */
+    private function extractPhoneLikeDigitRuns(string $text): array
+    {
+        $out = [];
+        if (preg_match_all('/(?:\+\d{7,15}|\b\d{10,15}\b)/u', $text, $m)) {
+            foreach (($m[0] ?? []) as $hit) {
+                $s = trim((string) $hit);
+                if ($s !== '') {
+                    $out[] = $s;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    private function digitsOnly(string $s): string
+    {
+        $d = preg_replace('/\D+/', '', $s);
+
+        return is_string($d) ? $d : '';
     }
 }

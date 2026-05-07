@@ -830,6 +830,31 @@
                         </div>
 
                         <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-body border-bottom py-3">
+                                <strong>Visiting charges</strong>
+                            </div>
+                            <div class="card-body">
+                                @php
+                                    $waVisitDefault = trim((string) config('whatsapp_ai_support.default_visiting_charge_note'));
+                                    $waVisitDb = trim((string) ($settings->db_visiting_charge_note ?? ''));
+                                    $waVisitEffective = $waVisitDb !== '' ? $waVisitDb : $waVisitDefault;
+                                @endphp
+                                <label class="form-label" for="db_visiting_charge_note">Visiting charges (customer message)</label>
+                                <textarea
+                                    name="db_visiting_charge_note"
+                                    id="db_visiting_charge_note"
+                                    class="form-control font-monospace"
+                                    rows="3"
+                                    placeholder="Example: Visiting charges are ₹100. Final repair or service cost is confirmed after inspection."
+                                >{{ old('db_visiting_charge_note', $waVisitEffective) }}</textarea>
+                                @error('db_visiting_charge_note')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+                                <div class="form-text">This is the exact text the AI will use for visiting charges.</div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm mb-3">
                         <div class="card-header bg-body border-bottom py-3">
                             <strong>{{ __('whatsapp_ai.business_config_placeholders_section') }}</strong>
                             <div class="text-muted small fw-normal mt-1">{{ __('whatsapp_ai.bc_save_row_hint') }}</div>
