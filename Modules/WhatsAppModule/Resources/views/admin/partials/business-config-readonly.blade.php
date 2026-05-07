@@ -3,6 +3,14 @@
     <div class="mb-1"><strong>{schedule}</strong> — {{ $placeholderResolved['schedule'] }}</div>
     <div><strong>{phone}</strong> — {{ $placeholderResolved['phone'] !== '' ? $placeholderResolved['phone'] : '—' }}</div>
 </div>
+<div class="alert alert-light border mb-3 small">
+    <div class="text-muted text-uppercase fs-12 mb-1">Visiting charges</div>
+    @php
+        $visit = (string) ($settings->db_visiting_charge_note ?? '');
+        $visit = trim($visit);
+    @endphp
+    <div class="text-break">{{ $visit !== '' ? $visit : '—' }}</div>
+</div>
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-header bg-body border-bottom py-3">
         <strong>{{ __('whatsapp_ai.business_config_placeholders_section') }}</strong>

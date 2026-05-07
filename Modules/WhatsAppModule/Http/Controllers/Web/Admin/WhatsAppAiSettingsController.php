@@ -316,6 +316,7 @@ class WhatsAppAiSettingsController extends Controller
                 'db_support_days' => ['required', 'array', 'min:1'],
                 'db_support_days.*' => ['integer', Rule::in([1, 2, 3, 4, 5, 6, 7])],
                 'db_support_phone_display' => 'nullable|string|max:512',
+                'db_visiting_charge_note' => 'nullable|string|max:2000',
             ]);
             if ($opValidator->fails()) {
                 return redirect()->route('admin.whatsapp.ai-settings.edit', $this->withSocialInboxChannel(['tab' => 'business_config', 'edit' => 1]))
@@ -371,6 +372,7 @@ class WhatsAppAiSettingsController extends Controller
             $row->db_support_hours_end = $end;
             $row->db_support_days = $days;
             $row->db_support_phone_display = $nullIfEmpty($request->input('db_support_phone_display'));
+            $row->db_visiting_charge_note = $nullIfEmpty($request->input('db_visiting_charge_note'));
             $row->db_support_timezone = null;
             $row->placeholder_schedule = null;
             $row->placeholder_phone = null;

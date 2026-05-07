@@ -106,6 +106,20 @@ final class WhatsAppAiRuntimeResolver
         return trim((string) config('whatsappmodule.support_phone_display', ''));
     }
 
+    /**
+     * Customer-safe visiting charge note override for WhatsApp AI replies.
+     * When set, this takes priority over booking_setup visiting_charge / extra_charge.
+     */
+    public function visitingChargeNoteOverride(): string
+    {
+        $v = $this->row()->db_visiting_charge_note;
+        if (is_string($v) && trim($v) !== '') {
+            return trim($v);
+        }
+
+        return '';
+    }
+
     public function aiDispatchUsesSync(): bool
     {
         $v = $this->row()->db_ai_dispatch_sync;
