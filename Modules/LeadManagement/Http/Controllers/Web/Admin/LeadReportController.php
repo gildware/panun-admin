@@ -23,6 +23,7 @@ use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Services\CustomerLeadReportAnalyticsService;
+use Modules\LeadManagement\Services\ProviderLeadReportAnalyticsService;
 use Modules\UserManagement\Entities\User;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -443,6 +444,10 @@ class LeadReportController extends Controller
             ? app(CustomerLeadReportAnalyticsService::class)->build($baseQuery, $dateFrom, $dateTo)
             : null;
 
+        $providerLeadAnalytics = $inboundReport === 'provider'
+            ? app(ProviderLeadReportAnalyticsService::class)->build($baseQuery, $dateFrom, $dateTo)
+            : null;
+
         return view('leadmanagement::admin.reports.index', [
             'tab' => 'inbound',
             'inboundReport' => $inboundReport,
@@ -480,6 +485,7 @@ class LeadReportController extends Controller
             'invalidReasonByLead' => $invalidReasonByLead,
             'futureCustomerReasonByLead' => $futureCustomerReasonByLead,
             'customerLeadAnalytics' => $customerLeadAnalytics,
+            'providerLeadAnalytics' => $providerLeadAnalytics,
         ]);
     }
 

@@ -173,6 +173,10 @@
 
                     {{-- Removed: Top widgets + Booking Statistics chart (per request) --}}
 
+                    @if(!empty($bookingReportAnalytics))
+                        @include('adminmodule::admin.report.partials.booking-insights', ['analytics' => $bookingReportAnalytics])
+                    @endif
+
                     <div class="card mt-2">
                         <div class="card-body">
                             <div class="row g-3">
@@ -762,5 +766,6 @@
                 grid: {strokeDashArray: 4}
             }).render();
         }
+    @include('adminmodule::admin.report.partials.booking-insights-charts')
     </script>
 @endpush
