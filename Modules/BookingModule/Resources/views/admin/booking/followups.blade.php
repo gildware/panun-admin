@@ -207,15 +207,19 @@
                                                                         <label class="form-label">{{ translate('Remarks') }} <span class="text-danger">*</span></label>
                                                                         <textarea name="remarks" class="form-control remarks-input" rows="4" placeholder="{{ translate('Add_remarks_from_follow_up') }}">{{ $followup->remarks }}</textarea>
                                                                     </div>
-                                                                    <div class="mb-3 add-another-wrap" id="add-another-wrap--{{ $followup->id }}" style="display: none;">
-                                                                        <div class="form-check mb-2">
-                                                                            <input type="checkbox" class="form-check-input add-another-checkbox" name="add_another_followup" value="1" id="add_another--{{ $followup->id }}" data-followup-id="{{ $followup->id }}">
-                                                                            <label class="form-check-label" for="add_another--{{ $followup->id }}">{{ translate('Schedule_another_follow_up') }}</label>
-                                                                        </div>
-                                                                        <div class="add-another-fields border rounded p-3 bg-light" id="add-another-fields--{{ $followup->id }}" style="display: none;">
+                                                                    @php($requiresMandatoryNextFollowup = $requiresMandatoryNextFollowup ?? $booking->requiresMandatoryNextFollowup())
+                                                                    <div class="mb-3 add-another-wrap" id="add-another-wrap--{{ $followup->id }}" style="display: none;" data-mandatory-next="{{ $requiresMandatoryNextFollowup ? '1' : '0' }}">
+                                                                        @if(!$requiresMandatoryNextFollowup)
+                                                                            <div class="form-check mb-2">
+                                                                                <input type="checkbox" class="form-check-input add-another-checkbox" name="add_another_followup" value="1" id="add_another--{{ $followup->id }}" data-followup-id="{{ $followup->id }}">
+                                                                                <label class="form-check-label" for="add_another--{{ $followup->id }}">{{ translate('Schedule_another_follow_up') }}</label>
+                                                                            </div>
+                                                                        @endif
+                                                                        <div class="add-another-fields border rounded p-3 bg-light" id="add-another-fields--{{ $followup->id }}" style="{{ $requiresMandatoryNextFollowup ? '' : 'display: none;' }}">
+                                                                            <label class="form-label fw-semibold">{{ translate('Next_Follow_up_Date') }} <span class="text-danger">*</span></label>
                                                                             <div class="mb-2">
                                                                                 <label class="form-label">{{ translate('Date_Time') }} <span class="text-danger">*</span></label>
-                                                                                <input type="datetime-local" name="add_another_date" class="form-control">
+                                                                                <input type="datetime-local" name="add_another_date" class="form-control add-another-date-input" value="{{ now()->addDay()->format('Y-m-d\TH:i') }}" {{ $requiresMandatoryNextFollowup ? 'required' : '' }}>
                                                                             </div>
                                                                             <div class="mb-2">
                                                                                 <label class="form-label">{{ translate('Reason') }}</label>
@@ -223,7 +227,7 @@
                                                                             </div>
                                                                             <div>
                                                                                 <label class="form-label">{{ translate('For') }} <span class="text-danger">*</span></label>
-                                                                                <select name="add_another_for" class="form-select">
+                                                                                <select name="add_another_for" class="form-select add-another-for-select" {{ $requiresMandatoryNextFollowup ? 'required' : '' }}>
                                                                                     <option value="customer" {{ $followup->for === 'customer' ? 'selected' : '' }}>{{ translate('Customer') }}</option>
                                                                                     <option value="provider" {{ $followup->for === 'provider' ? 'selected' : '' }}>{{ translate('Provider') }}</option>
                                                                                 </select>
@@ -231,6 +235,7 @@
                                                                         </div>
                                                                     </div>
                                                                 </div>
+
                                                                 <div class="modal-footer">
                                                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('cancel') }}</button>
                                                                     <button type="submit" class="btn btn--primary">{{ translate('submit') }}</button>
@@ -319,11 +324,28 @@
                     }
                 }
                 if (addAnotherWrap) {
+                    var mandatoryNext = addAnotherWrap.getAttribute('data-mandatory-next') === '1';
                     addAnotherWrap.style.display = status === 'completed' ? 'block' : 'none';
                     var checkbox = addAnotherWrap.querySelector('.add-another-checkbox');
                     var fields = document.getElementById('add-another-fields--' + followupId);
-                    if (checkbox) checkbox.checked = false;
-                    if (fields) { fields.style.display = 'none'; fields.querySelectorAll('input, select').forEach(function (el) { el.removeAttribute('required'); }); }
+                    if (status === 'completed' && fields) {
+                        fields.style.display = mandatoryNext ? 'block' : 'none';
+                        var dateInput = fields.querySelector('.add-another-date-input');
+                        var forSelect = fields.querySelector('.add-another-for-select');
+                        if (mandatoryNext) {
+                            if (dateInput) dateInput.setAttribute('required', 'required');
+                            if (forSelect) forSelect.setAttribute('required', 'required');
+                        } else if (checkbox) {
+                            checkbox.checked = false;
+                            fields.querySelectorAll('input, select').forEach(function (el) { el.removeAttribute('required'); });
+                        }
+                    } else {
+                        if (checkbox) checkbox.checked = false;
+                        if (fields) {
+                            fields.style.display = 'none';
+                            fields.querySelectorAll('input, select').forEach(function (el) { el.removeAttribute('required'); });
+                        }
+                    }
                 }
             }
             document.querySelectorAll('.followup-status-select').forEach(function (select) {
@@ -365,10 +387,14 @@
                         var remarks = form.querySelector('.remarks-input');
                         if (remarks && !remarks.value.trim()) { remarks.focus(); return false; }
                     }
+                    var addAnotherWrap = form.querySelector('.add-another-wrap');
+                    var mandatoryNext = addAnotherWrap && addAnotherWrap.getAttribute('data-mandatory-next') === '1';
                     var addAnother = form.querySelector('.add-another-checkbox');
-                    if (addAnother && addAnother.checked) {
+                    if (status && status.value === 'completed' && (mandatoryNext || (addAnother && addAnother.checked))) {
                         var dateInput = form.querySelector('input[name="add_another_date"]');
+                        var forSelect = form.querySelector('select[name="add_another_for"]');
                         if (dateInput && !dateInput.value) { dateInput.focus(); return false; }
+                        if (forSelect && !forSelect.value) { forSelect.focus(); return false; }
                     }
                     return true;
                 });

@@ -4,6 +4,7 @@ namespace Modules\WhatsAppModule\Services;
 
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
@@ -73,6 +74,7 @@ class WhatsAppLeadLifecycleService
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
             'created_by' => null,
+            'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
         ]);
     }
 
@@ -120,6 +122,7 @@ class WhatsAppLeadLifecycleService
             'date_time_of_lead_received' => now(),
             'handled_by' => 'AI',
             'created_by' => null,
+            'next_followup_at' => app(LeadFollowupService::class)->defaultNextFollowupAt(),
         ]);
         $this->seedDefaultTypeHistoryForTypedLead($lead);
 

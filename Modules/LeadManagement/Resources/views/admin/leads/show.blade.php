@@ -248,7 +248,7 @@
                                                 </div>
                                                 <div class="p-3 rounded c1-light-bg">
                                                     <label class="title-color d-block mb-2">{{ translate('Followup_On') }}</label>
-                                                    <input type="datetime-local" name="next_followup_at" class="form-control" value="{{ old('next_followup_at', $lead->next_followup_at?->format('Y-m-d\TH:i')) }}">
+                                                    <input type="datetime-local" name="next_followup_at" class="form-control" value="{{ old('next_followup_at', $lead->next_followup_at?->format('Y-m-d\TH:i')) }}" @if(!empty($leadOpenStatus)) required @endif>
                                                 </div>
                                                 <div class="d-flex justify-content-end gap-2">
                                                     <button type="button" class="btn btn--secondary btn-sm lead-card-cancel">{{ translate('Cancel') }}</button>
@@ -995,26 +995,18 @@
                                             <textarea name="remarks" class="form-control" rows="3" placeholder="{{ translate('Add_remarks_from_follow_up') }}"></textarea>
                                         </div>
 
-                                        <div class="form-check form-switch mb-3">
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   id="no-more-followup-toggle"
-                                                   name="no_more_followup"
-                                                   value="1">
-                                            <label class="form-check-label" for="no-more-followup-toggle">
-                                                No need for another follow-up
-                                            </label>
-                                        </div>
-
+                                        @if(!empty($leadOpenStatus))
                                         <div class="mb-0" id="next-followup-group">
-                                            <label class="form-label">{{ translate('Next_Follow_up_Date') }}</label>
+                                            <label class="form-label">{{ translate('Next_Follow_up_Date') }} <span class="text-danger">*</span></label>
                                             <input type="datetime-local"
                                                    name="next_followup_at"
                                                    id="next-followup-input"
                                                    class="form-control"
-                                                   data-default="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? now()->addDay()->format('Y-m-d\TH:i') }}"
-                                                   value="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? now()->addDay()->format('Y-m-d\TH:i') }}">
+                                                   required
+                                                   data-default="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i') }}"
+                                                   value="{{ $lead->next_followup_at?->format('Y-m-d\TH:i') ?? \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i') }}">
                                         </div>
+                                        @endif
                                     </div>
                                     <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
                                         <button type="button"
@@ -1027,36 +1019,7 @@
                                         </button>
                                     </div>
                                 </form>
-                                @push('script')
-                                    <script>
-                                        (function () {
-                                            const toggle = document.getElementById('no-more-followup-toggle');
-                                            const group = document.getElementById('next-followup-group');
-                                            const input = document.getElementById('next-followup-input');
 
-                                            if (!toggle || !group || !input) {
-                                                return;
-                                            }
-
-                                            function handleToggle() {
-                                                if (toggle.checked) {
-                                                    group.classList.add('d-none');
-                                                    input.disabled = true;
-                                                    input.value = '';
-                                                } else {
-                                                    group.classList.remove('d-none');
-                                                    input.disabled = false;
-                                                    if (!input.value && input.dataset.default) {
-                                                        input.value = input.dataset.default;
-                                                    }
-                                                }
-                                            }
-
-                                            handleToggle();
-                                            toggle.addEventListener('change', handleToggle);
-                                        })();
-                                    </script>
-                                @endpush
                             </div>
                         </div>
                     </div>
