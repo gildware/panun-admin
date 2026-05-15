@@ -650,10 +650,10 @@ class BookingReportController extends Controller
                 $q->whereNull('b.reopen_disputed_snapshot')
                     ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
             })
-            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
                 translate('Unknown'),
             ])
-            ->groupBy('service_id', 'service_name')
+            ->groupBy('d.service_id')
             ->orderByDesc('booking_count')
             ->limit(10)
             ->get()
@@ -686,10 +686,10 @@ class BookingReportController extends Controller
                 $q->whereNull('b.reopen_disputed_snapshot')
                     ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
             })
-            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
                 translate('Unknown'),
             ])
-            ->groupBy('service_id', 'service_name')
+            ->groupBy('d.service_id')
             ->orderByDesc('booking_count')
             ->limit(10)
             ->get()
@@ -715,10 +715,10 @@ class BookingReportController extends Controller
             ->leftJoin('services as s', 's.id', '=', 'd.service_id')
             ->whereIn('b.id', $baseBookingIdsQuery)
             ->whereRaw("b.reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'")
-            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
                 translate('Unknown'),
             ])
-            ->groupBy('service_id', 'service_name')
+            ->groupBy('d.service_id')
             ->orderByDesc('booking_count')
             ->limit(10)
             ->get()
@@ -793,10 +793,10 @@ class BookingReportController extends Controller
             ->leftJoin('services as s', 's.id', '=', 'd.service_id')
             ->whereIn('b.id', $baseBookingIdsQuery)
             ->where('b.booking_status', 'on_hold')
-            ->selectRaw('COALESCE(s.id, "") as service_id, COALESCE(s.name, ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
                 translate('Unknown'),
             ])
-            ->groupBy('service_id', 'service_name')
+            ->groupBy('d.service_id')
             ->orderByDesc('booking_count')
             ->limit(10)
             ->get()

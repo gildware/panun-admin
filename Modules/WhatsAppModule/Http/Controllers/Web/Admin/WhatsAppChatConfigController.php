@@ -44,9 +44,14 @@ class WhatsAppChatConfigController extends Controller
         return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
-    public function updateStatus(Request $request, WhatsAppChatStatus $status): RedirectResponse
+    public function updateStatus(Request $request): RedirectResponse
     {
         $this->authorize('whatsapp_message_template_update');
+
+        $status = $request->route('status');
+        $status = $status instanceof WhatsAppChatStatus
+            ? $status
+            : WhatsAppChatStatus::query()->findOrFail($status);
 
         $data = $request->validate([
             'status_name' => 'required|string|max:191',
@@ -66,9 +71,14 @@ class WhatsAppChatConfigController extends Controller
         return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
-    public function destroyStatus(WhatsAppChatStatus $status): RedirectResponse
+    public function destroyStatus(Request $request): RedirectResponse
     {
         $this->authorize('whatsapp_message_template_update');
+
+        $status = $request->route('status');
+        $status = $status instanceof WhatsAppChatStatus
+            ? $status
+            : WhatsAppChatStatus::query()->findOrFail($status);
 
         if ($status->threadMetas()->exists()) {
             Toastr::error(translate('whatsapp_chat_status_in_use'));
@@ -109,9 +119,14 @@ class WhatsAppChatConfigController extends Controller
         return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
-    public function updateTag(Request $request, WhatsAppChatTag $tag): RedirectResponse
+    public function updateTag(Request $request): RedirectResponse
     {
         $this->authorize('whatsapp_message_template_update');
+
+        $tag = $request->route('tag');
+        $tag = $tag instanceof WhatsAppChatTag
+            ? $tag
+            : WhatsAppChatTag::query()->findOrFail($tag);
 
         $data = $request->validate([
             'tag_name' => 'required|string|max:191',
@@ -131,9 +146,14 @@ class WhatsAppChatConfigController extends Controller
         return redirect()->route('admin.whatsapp.conversations.index', ['channel' => SocialInboxChannel::current(), 'tab' => 'chat_config']);
     }
 
-    public function destroyTag(WhatsAppChatTag $tag): RedirectResponse
+    public function destroyTag(Request $request): RedirectResponse
     {
         $this->authorize('whatsapp_message_template_update');
+
+        $tag = $request->route('tag');
+        $tag = $tag instanceof WhatsAppChatTag
+            ? $tag
+            : WhatsAppChatTag::query()->findOrFail($tag);
 
         $tag->delete();
         WhatsAppActiveChatsListCache::forgetAll();
