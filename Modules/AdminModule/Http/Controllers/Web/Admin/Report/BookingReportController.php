@@ -22,6 +22,7 @@ use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\AdminModule\Services\BookingReportAnalyticsService;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -828,7 +829,12 @@ class BookingReportController extends Controller
             ->values()
             ->all();
 
+        $bookingReportAnalytics = app(BookingReportAnalyticsService::class)->build(
+            self::filterQuery($this->booking->newQuery(), $request)
+        );
+
         return view('adminmodule::admin.report.booking', compact(
+            'bookingReportAnalytics',
             'zones',
             'providers',
             'categories',

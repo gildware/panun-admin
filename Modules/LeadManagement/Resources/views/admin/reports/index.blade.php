@@ -265,6 +265,10 @@
                 @include('leadmanagement::admin.reports.partials.customer-insights', ['analytics' => $customerLeadAnalytics])
             @endif
 
+            @if($inboundReport === 'provider' && !empty($providerLeadAnalytics))
+                @include('leadmanagement::admin.reports.partials.provider-insights', ['analytics' => $providerLeadAnalytics])
+            @endif
+
             <div class="row gy-3 pt-2">
                 <div class="col-lg-4">
                     <div class="d-flex flex-column gap-3 h-100">
@@ -968,6 +972,7 @@
             })();
 
             @include('leadmanagement::admin.reports.partials.customer-insights-charts')
+            @include('leadmanagement::admin.reports.partials.provider-insights-charts')
         })();
         @endif
     </script>
