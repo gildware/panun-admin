@@ -426,7 +426,8 @@
                                                 <div class="mb-30" id="lead-modal-create-followup-wrap">
                                                     <label class="form-label">{{ translate('Next_Follow_up_Date') }}</label>
                                                     <input type="datetime-local" class="form-control" name="next_followup_at" id="lead-modal-create-next-followup-input"
-                                                           value="{{ now()->addDay()->format('Y-m-d\TH:i') }}">
+                                                           value="{{ \Carbon\Carbon::tomorrow()->setTime(10, 0)->format('Y-m-d\TH:i') }}" readonly tabindex="-1">
+                                                    <div class="text-muted small mt-1">{{ translate('Auto_scheduled_next_day_at_10_am') }}</div>
                                                 </div>
                                             </div>
                                             <div class="col-12">
@@ -597,6 +598,7 @@
                 if ($futureReason.length) {
                     $futureReason.prop('required', isFuture);
                 }
+
             }
 
             $(document).on('change select2:select', '#lead-modal-create-type-select', leadModalCreateApplyTypeUi);

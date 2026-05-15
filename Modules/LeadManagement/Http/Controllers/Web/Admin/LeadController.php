@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\LeadManagement\Entities\LeadFollowup;
 use Modules\LeadManagement\Entities\Lead;
@@ -26,6 +27,7 @@ use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\District;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\UserManagement\Entities\User;
@@ -829,7 +831,7 @@ class LeadController extends Controller
             'ad_source_id' => 'nullable|exists:adsources,id',
             'handled_by' => 'nullable|string|max:64',
             'remarks' => 'nullable|string|max:1000',
-            'next_followup_at' => 'nullable|date',
+            'next_followup_at' => ['nullable', 'date'],
             'invalid_reason_id' => 'nullable|required_if:lead_type,invalid|exists:lead_invalid_reasons,id',
             'invalid_remarks' => 'nullable|string|max:1000',
             'future_customer_reason_id' => 'nullable|required_if:lead_type,future_customer|exists:lead_future_customer_reasons,id',
@@ -858,7 +860,10 @@ class LeadController extends Controller
             unset($validated['future_customer_reason_id'], $validated['future_customer_remarks']);
         }
 
-        if (in_array($validated['lead_type'], [Lead::TYPE_INVALID, Lead::TYPE_FUTURE_CUSTOMER], true)) {
+        $followupService = app(LeadFollowupService::class);
+        if ($followupService->leadTypeRequiresMandatoryFollowup($validated['lead_type'])) {
+            $validated['next_followup_at'] = $followupService->defaultNextFollowupAt();
+        } else {
             $validated['next_followup_at'] = null;
         }
 
@@ -938,7 +943,12 @@ class LeadController extends Controller
             'ad_source_id' => 'sometimes|nullable|exists:adsources,id',
             'handled_by' => 'sometimes|nullable|string|max:64',
             'remarks' => 'sometimes|nullable|string|max:1000',
-            'next_followup_at' => 'sometimes|nullable|date',
+            'next_followup_at' => [
+                Rule::requiredIf(fn () => $this->leadRequiresMandatoryFollowup($lead)),
+                'sometimes',
+                'nullable',
+                'date',
+            ],
         ];
 
         $validated = $request->validate($rules);
@@ -1784,35 +1794,44 @@ class LeadController extends Controller
         );
     }
 
+    protected function leadTypeRequiresMandatoryFollowup(string $leadType): bool
+    {
+        return app(LeadFollowupService::class)->leadTypeRequiresMandatoryFollowup($leadType);
+    }
+
+    protected function leadRequiresMandatoryFollowup(Lead $lead): bool
+    {
+        $typeHistory = LeadTypeHistory::where('lead_id', $lead->id)
+            ->where('type', $lead->lead_type)
+            ->latest()
+            ->first();
+
+        return $this->isLeadOpenByTypeHistory($lead, $typeHistory);
+    }
+
     public function storeFollowup(Request $request, int $leadId): RedirectResponse
     {
         $lead = Lead::findOrFail($leadId);
+        $requiresNext = $this->leadRequiresMandatoryFollowup($lead);
 
         $validated = $request->validate([
             'followup_at' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
-            'next_followup_at' => 'nullable|date',
+            'next_followup_at' => $requiresNext ? 'required|date' : 'nullable|date',
+        ], [
+            'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
         ]);
-
-        $noMoreFollowup = $request->boolean('no_more_followup');
-
-        if ($noMoreFollowup) {
-            $validated['next_followup_at'] = null;
-        }
 
         LeadFollowup::create([
             'lead_id' => $lead->id,
             'followup_at' => $validated['followup_at'],
             'remarks' => $validated['remarks'] ?? null,
-            'next_followup_at' => $noMoreFollowup ? null : ($validated['next_followup_at'] ?? null),
+            'next_followup_at' => $validated['next_followup_at'] ?? null,
             'created_by' => Auth::id(),
         ]);
 
-        if (!$noMoreFollowup && !empty($validated['next_followup_at'])) {
-            $lead->next_followup_at = $validated['next_followup_at'];
-            $lead->save();
-        } elseif ($noMoreFollowup) {
-            $lead->next_followup_at = null;
+        if ($requiresNext || ! empty($validated['next_followup_at'])) {
+            $lead->next_followup_at = $validated['next_followup_at'] ?? null;
             $lead->save();
         }
 

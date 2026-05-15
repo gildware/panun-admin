@@ -38,6 +38,19 @@ class Booking extends Model
      */
     public const STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS = ['pending', 'accepted', 'ongoing', 'on_hold'];
 
+    /**
+     * Active bookings must always have a scheduled next follow-up (except completed / canceled / refunded).
+     */
+    public function requiresMandatoryNextFollowup(): bool
+    {
+        $status = strtolower((string) ($this->booking_status ?? ''));
+        if ($status === 'cancelled') {
+            $status = 'canceled';
+        }
+
+        return ! in_array($status, ['completed', 'canceled', 'refunded'], true);
+    }
+
     protected $casts = [
         'readable_id' => 'string',
         'is_paid' => 'integer',

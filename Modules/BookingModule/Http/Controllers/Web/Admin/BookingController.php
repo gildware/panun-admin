@@ -43,6 +43,7 @@ use Modules\BookingModule\Entities\SubscriptionBookingType;
 use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingDisputeReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
+use Modules\BookingModule\Services\BookingFollowupService;
 use Modules\BookingModule\Services\AdminCompanyInflowPaymentService;
 use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Services\AdminBookingDeletionService;
@@ -1914,6 +1915,15 @@ class BookingController extends Controller
             $statusHistory->booking_status = 'accepted';
             $statusHistory->save();
 
+            if ($booking->requiresMandatoryNextFollowup()) {
+                app(BookingFollowupService::class)->schedule(
+                    $booking,
+                    $data['service_schedule'],
+                    'customer',
+                    translate('Follow_up_scheduled_on_booking_creation')
+                );
+            }
+
             if ($reopenSourceId && $reopenDraft) {
                 $sourceBooking = Booking::query()->whereKey($reopenSourceId)->lockForUpdate()->first();
                 if (!$sourceBooking || ($sourceBooking->booking_status ?? '') !== 'completed') {
@@ -2602,7 +2612,17 @@ class BookingController extends Controller
             $nextFollowupProvider = $scheduledNext->where('for', 'provider')->first();
             $customerName = $booking->customer ? trim(($booking->customer->first_name ?? '') . ' ' . ($booking->customer->last_name ?? '')) : ($booking->service_address->contact_person_name ?? '');
             $customerPhone = $booking->customer ? ($booking->customer->phone ?? '') : ($booking->service_address->contact_person_number ?? '');
-            return view('bookingmodule::admin.booking.followups', compact('booking', 'webPage', 'nextFollowupCustomer', 'nextFollowupProvider', 'customerName', 'customerPhone'));
+            $requiresMandatoryNextFollowup = $booking->requiresMandatoryNextFollowup();
+
+            return view('bookingmodule::admin.booking.followups', compact(
+                'booking',
+                'webPage',
+                'nextFollowupCustomer',
+                'nextFollowupProvider',
+                'customerName',
+                'customerPhone',
+                'requiresMandatoryNextFollowup'
+            ));
         }
 
         Toastr::success(translate(ACCESS_DENIED['message']));
@@ -3243,48 +3263,75 @@ class BookingController extends Controller
         $this->authorize('booking_view');
         $booking = $this->booking->findOrFail($id);
         $followup = $booking->followups()->findOrFail($followupId);
+        $requiresNext = $booking->requiresMandatoryNextFollowup();
+
         $validated = $request->validate([
             'status' => ['required', 'in:completed,rescheduled'],
             'remarks' => ['required_if:status,completed', 'nullable', 'string', 'max:2000'],
             'reschedule_reason' => ['required_if:status,rescheduled', 'nullable', 'string', 'max:500'],
             'reschedule_date' => ['required_if:status,rescheduled', 'nullable', 'date'],
             'add_another_followup' => ['nullable', 'in:1'],
-            'add_another_date' => ['required_if:add_another_followup,1', 'nullable', 'date'],
-            'add_another_for' => ['required_if:add_another_followup,1', 'nullable', 'in:customer,provider'],
+            'add_another_date' => [
+                $requiresNext ? 'required_if:status,completed' : 'required_if:add_another_followup,1',
+                'nullable',
+                'date',
+            ],
+            'add_another_for' => [
+                $requiresNext ? 'required_if:status,completed' : 'required_if:add_another_followup,1',
+                'nullable',
+                'in:customer,provider',
+            ],
             'add_another_reason' => ['nullable', 'string', 'max:500'],
+        ], [
+            'add_another_date.required_if' => translate('Next_follow_up_date_is_required'),
+            'add_another_for.required_if' => translate('Next_follow_up_for_is_required'),
         ]);
+
         if ($validated['status'] === 'completed') {
             $followup->update([
                 'status' => 'completed',
                 'remarks' => $validated['remarks'] ?? '',
             ]);
-            if (!empty($validated['add_another_followup']) && !empty($validated['add_another_date']) && !empty($validated['add_another_for'])) {
-                \Modules\BookingModule\Entities\BookingFollowup::create([
-                    'booking_id' => $booking->id,
-                    'date' => Carbon::parse($validated['add_another_date'])->format('Y-m-d H:i:s'),
-                    'reason' => $validated['add_another_reason'] ?? null,
-                    'for' => $validated['add_another_for'],
-                    'status' => 'scheduled',
-                    'created_by' => auth()->id(),
-                ]);
+
+            $shouldScheduleNext = $requiresNext
+                || (! empty($validated['add_another_followup'])
+                    && ! empty($validated['add_another_date'])
+                    && ! empty($validated['add_another_for']));
+
+            if ($shouldScheduleNext) {
+                if (empty($validated['add_another_date']) || empty($validated['add_another_for'])) {
+                    throw ValidationException::withMessages([
+                        'add_another_date' => [translate('Next_follow_up_date_is_required')],
+                    ]);
+                }
+
+                app(BookingFollowupService::class)->schedule(
+                    $booking,
+                    $validated['add_another_date'],
+                    $validated['add_another_for'],
+                    $validated['add_another_reason'] ?? null
+                );
             }
         } else {
             $followup->update([
                 'status' => 'rescheduled',
                 'reschedule_reason' => $validated['reschedule_reason'] ?? '',
             ]);
-            if (!empty($validated['reschedule_date'])) {
-                \Modules\BookingModule\Entities\BookingFollowup::create([
-                    'booking_id' => $booking->id,
-                    'date' => Carbon::parse($validated['reschedule_date'])->format('Y-m-d H:i:s'),
-                    'reason' => null,
-                    'for' => $followup->for,
-                    'status' => 'scheduled',
-                    'created_by' => auth()->id(),
+            if (! empty($validated['reschedule_date'])) {
+                app(BookingFollowupService::class)->schedule(
+                    $booking,
+                    $validated['reschedule_date'],
+                    $followup->for
+                );
+            } elseif ($requiresNext) {
+                throw ValidationException::withMessages([
+                    'reschedule_date' => [translate('Next_follow_up_date_is_required')],
                 ]);
             }
         }
+
         Toastr::success(translate('Follow_up_updated_successfully'));
+
         return redirect()->route('admin.booking.details', [$id, 'web_page' => 'followups']);
     }
 
