@@ -22,6 +22,7 @@ use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\BookingModule\Entities\Booking;
+use Modules\LeadManagement\Services\CustomerLeadReportAnalyticsService;
 use Modules\UserManagement\Entities\User;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -30,6 +31,14 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class LeadReportController extends Controller
 {
     use AuthorizesRequests;
+
+    private const INBOUND_REPORTS = [
+        'general',
+        'customer',
+        'provider',
+        'future_customer',
+        'invalid',
+    ];
 
     /**
      * @throws AuthorizationException
@@ -249,6 +258,22 @@ class LeadReportController extends Controller
             ]);
         }
 
+        $inboundReport = $this->resolveInboundReport($request);
+        if (
+            $inboundReport === 'general'
+            && $request->filled('lead_type')
+            && $request->input('lead_type') !== 'all'
+        ) {
+            $legacyMap = [
+                Lead::TYPE_CUSTOMER => 'customer',
+                Lead::TYPE_PROVIDER => 'provider',
+                Lead::TYPE_FUTURE_CUSTOMER => 'future_customer',
+                Lead::TYPE_INVALID => 'invalid',
+            ];
+            $inboundReport = $legacyMap[$request->input('lead_type')] ?? 'general';
+        }
+        $inboundReportLeadType = $this->leadTypeForInboundReport($inboundReport);
+
         $baseQuery = Lead::query()
             ->with(['source', 'adSource'])
             ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
@@ -257,8 +282,8 @@ class LeadReportController extends Controller
                     $dateTo->copy()->endOfDay(),
                 ]);
             })
-            ->when($request->filled('lead_type') && $request->input('lead_type') !== 'all', function ($q) use ($request) {
-                $q->where('lead_type', $request->input('lead_type'));
+            ->when($inboundReportLeadType !== null, function ($q) use ($inboundReportLeadType) {
+                $q->where('lead_type', $inboundReportLeadType);
             })
             ->when($request->filled('source_ids'), function ($q) use ($request) {
                 $q->whereIn('source_id', (array) $request->input('source_ids', []));
@@ -300,13 +325,20 @@ class LeadReportController extends Controller
 
         $handledByRaw = (clone $baseQuery)
             ->select('handled_by', DB::raw('count(*) as total'))
-            ->whereNotNull('handled_by')
             ->groupBy('handled_by')
             ->get();
 
-        $handledByIds = $handledByRaw->pluck('handled_by')->filter()->unique()->values()->all();
+        $handledByIds = $handledByRaw
+            ->pluck('handled_by')
+            ->filter(fn ($id) => Lead::assigneeIsHuman($id))
+            ->unique()
+            ->values()
+            ->all();
+
         $handledByUsers = $handledByIds !== []
-            ? User::whereIn('id', $handledByIds)->get(['id', 'first_name', 'last_name', 'email'])->keyBy('id')
+            ? User::whereIn('id', $handledByIds)
+                ->get(['id', 'first_name', 'last_name', 'email'])
+                ->keyBy(fn ($user) => (string) $user->id)
             : collect();
 
         $handledByNames = [];
@@ -316,13 +348,8 @@ class LeadReportController extends Controller
         }
 
         $userWise = $handledByRaw->map(function ($row) use ($handledByUsers) {
-            $user = $handledByUsers->get($row->handled_by);
-            $fullName = $user
-                ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''))
-                : null;
-            $label = $fullName ?: ($user->email ?? (string) $row->handled_by);
             return [
-                'label' => $label,
+                'label' => $this->resolveAssigneeLabel($row->handled_by, $handledByUsers),
                 'total' => (int) $row->total,
             ];
         })->sortByDesc('total')->values()->all();
@@ -387,9 +414,9 @@ class LeadReportController extends Controller
 
         $queryParams = [
             'tab' => 'inbound',
+            'inbound_report' => $inboundReport,
             'date_from' => $dateFrom?->toDateString(),
             'date_to' => $dateTo?->toDateString(),
-            'lead_type' => $request->input('lead_type', 'all'),
         ];
         if ($request->filled('source_ids')) {
             $queryParams['source_ids'] = (array) $request->input('source_ids', []);
@@ -412,8 +439,13 @@ class LeadReportController extends Controller
         [$customerStatusByLead, $providerStatusByLead, $invalidReasonByLead, $futureCustomerReasonByLead] =
             $this->buildPerLeadTypeDetails($leadIdsForTable);
 
+        $customerLeadAnalytics = $inboundReport === 'customer'
+            ? app(CustomerLeadReportAnalyticsService::class)->build($baseQuery, $dateFrom, $dateTo)
+            : null;
+
         return view('leadmanagement::admin.reports.index', [
             'tab' => 'inbound',
+            'inboundReport' => $inboundReport,
             'totalLeads' => $totalLeads,
             'leadsByType' => $leadsByType,
             'inboundOpenClosedLabels' => ['Open', 'Closed'],
@@ -434,7 +466,6 @@ class LeadReportController extends Controller
             'todayLeads' => $todayLeads,
             'dateFrom' => $dateFrom?->toDateString(),
             'dateTo' => $dateTo?->toDateString(),
-            'selectedLeadType' => $request->input('lead_type', 'all'),
             'selectedSourceIds' => (array) $request->input('source_ids', []),
             'selectedAdSourceIds' => (array) $request->input('ad_source_ids', []),
             'selectedHandledByIds' => (array) $request->input('handled_by_ids', []),
@@ -448,6 +479,7 @@ class LeadReportController extends Controller
             'providerStatusByLead' => $providerStatusByLead,
             'invalidReasonByLead' => $invalidReasonByLead,
             'futureCustomerReasonByLead' => $futureCustomerReasonByLead,
+            'customerLeadAnalytics' => $customerLeadAnalytics,
         ]);
     }
 
@@ -753,6 +785,7 @@ class LeadReportController extends Controller
         $this->authorize('report_export');
 
         [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+        $inboundReportLeadType = $this->leadTypeForInboundReport($this->resolveInboundReport($request));
 
         $query = Lead::query()
             ->with(['source', 'adSource', 'createdBy'])
@@ -762,8 +795,8 @@ class LeadReportController extends Controller
                     $dateTo->copy()->endOfDay(),
                 ]);
             })
-            ->when($request->filled('lead_type') && $request->input('lead_type') !== 'all', function ($q) use ($request) {
-                $q->where('lead_type', $request->input('lead_type'));
+            ->when($inboundReportLeadType !== null, function ($q) use ($inboundReportLeadType) {
+                $q->where('lead_type', $inboundReportLeadType);
             })
             ->when($request->filled('source_ids'), function ($q) use ($request) {
                 $q->whereIn('source_id', (array) $request->input('source_ids', []));
@@ -1242,6 +1275,44 @@ class LeadReportController extends Controller
         }
 
         return [$customerStatusByLead, $providerStatusByLead, $invalidReasonByLead, $futureCustomerReasonByLead];
+    }
+
+    private function resolveAssigneeLabel(?string $handledBy, Collection $usersById): string
+    {
+        if ($handledBy === null || $handledBy === '') {
+            return translate('Unassigned');
+        }
+
+        if ($handledBy === Lead::HANDLED_BY_AI) {
+            return translate('AI');
+        }
+
+        $user = $usersById->get((string) $handledBy);
+        if ($user) {
+            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+
+            return $fullName ?: ($user->email ?? translate('Unknown'));
+        }
+
+        return translate('Unknown') . ' (' . $handledBy . ')';
+    }
+
+    private function resolveInboundReport(Request $request): string
+    {
+        $report = (string) $request->input('inbound_report', 'general');
+
+        return in_array($report, self::INBOUND_REPORTS, true) ? $report : 'general';
+    }
+
+    private function leadTypeForInboundReport(string $inboundReport): ?string
+    {
+        return match ($inboundReport) {
+            'customer' => Lead::TYPE_CUSTOMER,
+            'provider' => Lead::TYPE_PROVIDER,
+            'future_customer' => Lead::TYPE_FUTURE_CUSTOMER,
+            'invalid' => Lead::TYPE_INVALID,
+            default => null,
+        };
     }
 }
 

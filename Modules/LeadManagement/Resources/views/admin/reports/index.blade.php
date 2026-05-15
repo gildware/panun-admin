@@ -42,6 +42,9 @@
                     <div class="mb-3 fz-16">{{ translate('Search_Data') }}</div>
                     <form action="{{ route('admin.lead.reports.index') }}" method="GET">
                         <input type="hidden" name="tab" value="{{ $activeTab }}">
+                        @if($activeTab === 'inbound')
+                            <input type="hidden" name="inbound_report" value="{{ $inboundReport ?? 'general' }}">
+                        @endif
                         <div class="row g-3 align-items-end">
                             <div class="col-lg-3 col-sm-6">
                                 <label class="mb-2">{{ translate('From_Date') }}</label>
@@ -51,19 +54,7 @@
                                 <label class="mb-2">{{ translate('To_Date') }}</label>
                                 <input type="date" name="date_to" class="form-control h-45" value="{{ $dateTo }}">
                             </div>
-                            @if($activeTab === 'inbound')
-                                <div class="col-lg-3 col-sm-6">
-                                    <label class="mb-2">{{ translate('Lead_Type') }}</label>
-                                    <select name="lead_type" class="js-select form-select">
-                                        <option value="all" {{ ($selectedLeadType ?? 'all') === 'all' ? 'selected' : '' }}>{{ translate('All') }}</option>
-                                        @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
-                                            <option value="{{ $value }}" {{ ($selectedLeadType ?? 'all') === $value ? 'selected' : '' }}>
-                                                {{ translate($label) }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @elseif($activeTab === 'outbound')
+                            @if($activeTab === 'outbound')
                                 <div class="col-lg-3 col-sm-6">
                                     <label class="mb-2">{{ translate('Contacted_Through') }}</label>
                                     <select name="contacted_throughs[]" class="js-select form-select" multiple>
@@ -114,12 +105,35 @@
                             @endif
                             <div class="col-lg-3 col-sm-6 d-flex gap-2">
                                 <button type="submit" class="btn btn--primary mt-4 flex-grow-1">{{ translate('Filter') }}</button>
-                                <a href="{{ route('admin.lead.reports.index', ['tab' => $activeTab]) }}" class="btn btn--secondary mt-4 flex-grow-1">{{ translate('Reset') }}</a>
+                                <a href="{{ route('admin.lead.reports.index', $activeTab === 'inbound' ? ['tab' => 'inbound', 'inbound_report' => $inboundReport ?? 'general'] : ['tab' => $activeTab]) }}" class="btn btn--secondary mt-4 flex-grow-1">{{ translate('Reset') }}</a>
                             </div>
                         </div>
                     </form>
                 </div>
             </div>
+
+            @if($activeTab === 'inbound')
+                @php
+                    $inboundReport = $inboundReport ?? 'general';
+                    $inboundReportTabs = [
+                        'general' => translate('General_Reports'),
+                        'customer' => translate('Customer_Lead_Reports'),
+                        'provider' => translate('Provider_Lead_Reports'),
+                        'future_customer' => translate('Future_Customer_Lead_Reports'),
+                        'invalid' => translate('Invalid_Lead_Reports'),
+                    ];
+                @endphp
+                <ul class="nav nav--tabs mb-3">
+                    @foreach($inboundReportTabs as $reportKey => $reportLabel)
+                        <li class="nav-item">
+                            <a class="nav-link {{ $inboundReport === $reportKey ? 'active' : '' }}"
+                               href="{{ route('admin.lead.reports.index', array_merge($queryParams ?? ['tab' => 'inbound'], ['tab' => 'inbound', 'inbound_report' => $reportKey])) }}">
+                                {{ $reportLabel }}
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
 
             @if($activeTab === 'outbound')
                 <div class="row gy-3 pt-2">
@@ -243,6 +257,14 @@
                     </div>
                 </div>
             @else
+            @php
+                $inboundReport = $inboundReport ?? 'general';
+            @endphp
+
+            @if($inboundReport === 'customer' && !empty($customerLeadAnalytics))
+                @include('leadmanagement::admin.reports.partials.customer-insights', ['analytics' => $customerLeadAnalytics])
+            @endif
+
             <div class="row gy-3 pt-2">
                 <div class="col-lg-4">
                     <div class="d-flex flex-column gap-3 h-100">
@@ -284,6 +306,7 @@
             </div>
 
             <div class="row gy-3 pt-4">
+                @if($inboundReport === 'general')
                 <div class="col-lg-6">
                     <div class="card h-100">
                         <div class="card-body ps-0">
@@ -292,6 +315,8 @@
                         </div>
                     </div>
                 </div>
+                @endif
+                @if(in_array($inboundReport, ['general', 'customer', 'provider'], true))
                 <div class="col-lg-6">
                     <div class="card h-100">
                         <div class="card-body ps-0">
@@ -300,10 +325,12 @@
                         </div>
                     </div>
                 </div>
+                @endif
                 <div class="col-lg-6">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h4 class="mb-3">{{ translate('User_Wise_Leads') }}</h4>
+                            <h4 class="mb-1">{{ translate('User_Wise_Leads') }}</h4>
+                            <p class="text-muted fz-12 mb-3">{{ translate('User_Wise_Leads_help') }}</p>
                             <div id="lead-user-chart" style="min-height: 260px;"></div>
                         </div>
                     </div>
@@ -329,8 +356,10 @@
                 </div>
             </div>
 
+            @if(in_array($inboundReport, ['general', 'customer', 'provider'], true))
             <div class="row gy-3 pt-4">
-                <div class="col-lg-6">
+                @if(in_array($inboundReport, ['general', 'customer'], true))
+                <div class="col-lg-{{ $inboundReport === 'general' ? '6' : '12' }}">
                     <div class="card h-100">
                         <div class="card-body">
                             <h4 class="mb-3">{{ translate('Customer_Status_Summary') }}</h4>
@@ -338,7 +367,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-6">
+                @endif
+                @if(in_array($inboundReport, ['general', 'provider'], true))
+                <div class="col-lg-{{ $inboundReport === 'general' ? '6' : '12' }}">
                     <div class="card h-100">
                         <div class="card-body">
                             <h4 class="mb-3">{{ translate('Provider_Status_Summary') }}</h4>
@@ -346,13 +377,20 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
+            @endif
 
+            @if(in_array($inboundReport, ['general', 'invalid', 'future_customer'], true))
             <div class="row gy-3 pt-4">
-                <div class="col-lg-6">
+                @if(in_array($inboundReport, ['general', 'invalid'], true))
+                <div class="col-lg-{{ in_array($inboundReport, ['general'], true) ? '6' : '12' }}">
                     <div class="card h-100">
                         <div class="card-body">
                             <h4 class="mb-3">{{ translate('Invalid_Lead_Reasons') }}</h4>
+                            @if($inboundReport === 'invalid')
+                            <div id="invalid-reason-chart" style="min-height: 280px;" class="mb-3"></div>
+                            @endif
                             <div class="table-responsive">
                                 <table class="table align-middle">
                                     <thead>
@@ -378,10 +416,15 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-6">
+                @endif
+                @if(in_array($inboundReport, ['general', 'future_customer'], true))
+                <div class="col-lg-{{ in_array($inboundReport, ['general'], true) ? '6' : '12' }}">
                     <div class="card h-100">
                         <div class="card-body">
                             <h4 class="mb-3">{{ translate('Future_Customer_Reasons') }}</h4>
+                            @if($inboundReport === 'future_customer')
+                            <div id="future-customer-reason-chart" style="min-height: 280px;" class="mb-3"></div>
+                            @endif
                             <div class="table-responsive">
                                 <table class="table align-middle">
                                     <thead>
@@ -407,10 +450,22 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
+            @endif
 
             <div class="card mt-4">
                 <div class="card-body">
+                    <h4 class="mb-3">
+                        @switch($inboundReport)
+                            @case('customer') {{ translate('Customer_Lead_Reports') }} @break
+                            @case('provider') {{ translate('Provider_Lead_Reports') }} @break
+                            @case('future_customer') {{ translate('Future_Customer_Lead_Reports') }} @break
+                            @case('invalid') {{ translate('Invalid_Lead_Reports') }} @break
+                            @default {{ translate('General_Reports') }}
+                        @endswitch
+                        — {{ translate('Leads') }}
+                    </h4>
                     <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between mb-3">
                         <div></div>
                         <div class="d-flex flex-wrap align-items-center gap-3">
@@ -439,7 +494,9 @@
                                 <th>{{ translate('ID') }}</th>
                                 <th>{{ translate('Name') }}</th>
                                 <th>{{ translate('Phone') }}</th>
+                                @if($inboundReport === 'general')
                                 <th>{{ translate('Lead_Type') }}</th>
+                                @endif
                                 <th>{{ translate('Source') }}</th>
                                 <th>{{ translate('Ad_Source') }}</th>
                                 <th>{{ translate('Recieved_On') }}</th>
@@ -447,10 +504,18 @@
                                 <th>{{ translate('Handled_By') }}</th>
                                 <th>{{ translate('Created_By') }}</th>
                                 <th>{{ translate('Remarks') }}</th>
+                                @if(in_array($inboundReport, ['general', 'customer'], true))
                                 <th>{{ translate('Customer_Status') }}</th>
+                                @endif
+                                @if(in_array($inboundReport, ['general', 'provider'], true))
                                 <th>{{ translate('Provider_Status') }}</th>
+                                @endif
+                                @if(in_array($inboundReport, ['general', 'invalid'], true))
                                 <th>{{ translate('Invalid_Reason') }}</th>
+                                @endif
+                                @if(in_array($inboundReport, ['general', 'future_customer'], true))
                                 <th>{{ translate('Future_Customer_Reason') }}</th>
+                                @endif
                             </tr>
                             </thead>
                             <tbody>
@@ -459,6 +524,7 @@
                                     <td>{{ $lead->id }}</td>
                                     <td>{{ $lead->name ?? '—' }}</td>
                                     <td>{{ $lead->phone_number }}</td>
+                                    @if($inboundReport === 'general')
                                     <td>
                                         @php
                                             $type = $lead->lead_type;
@@ -466,6 +532,7 @@
                                         @endphp
                                         {{ $label }}
                                     </td>
+                                    @endif
                                     <td>{{ $lead->source?->name ?? '—' }}</td>
                                     <td>{{ $lead->adSource?->name ?? '—' }}</td>
                                     <td>{{ $lead->date_time_of_lead_received?->format('d F Y h:i a') ?? '—' }}</td>
@@ -495,14 +562,22 @@
                                         @endif
                                     </td>
                                     <td>{{ $lead->remarks ?: '—' }}</td>
+                                    @if(in_array($inboundReport, ['general', 'customer'], true))
                                     <td>{{ $customerStatusByLead[$lead->id] ?? '—' }}</td>
+                                    @endif
+                                    @if(in_array($inboundReport, ['general', 'provider'], true))
                                     <td>{{ $providerStatusByLead[$lead->id] ?? '—' }}</td>
+                                    @endif
+                                    @if(in_array($inboundReport, ['general', 'invalid'], true))
                                     <td>{{ $invalidReasonByLead[$lead->id] ?? '—' }}</td>
+                                    @endif
+                                    @if(in_array($inboundReport, ['general', 'future_customer'], true))
                                     <td>{{ $futureCustomerReasonByLead[$lead->id] ?? '—' }}</td>
+                                    @endif
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="15" class="text-center py-4">{{ translate('No_leads_found') }}</td>
+                                    <td colspan="20" class="text-center py-4">{{ translate('No_leads_found') }}</td>
                                 </tr>
                             @endforelse
                             </tbody>
@@ -719,25 +794,57 @@
                 new ApexCharts(el, options).render();
             })();
 
-            // User wise leads (horizontal bar)
+            // User wise leads (horizontal bar — categories on xaxis for horizontal layout)
             (function () {
-                const baseLabels = {!! json_encode(array_column($userWise, 'label')) !!};
-                const values = {!! json_encode(array_column($userWise, 'total')) !!};
-                const labels = baseLabels.map(function (name, index) {
-                    const v = values[index] ?? 0;
-                    const shortName = name && name.length > 20 ? name.slice(0, 17) + '...' : (name || '');
-                    return shortName + ' (' + v + ')';
-                });
+                const leadsLabel = @json(translate('Leads'));
+                const userLabels = {!! json_encode(array_column($userWise ?? [], 'label')) !!};
+                const values = {!! json_encode(array_column($userWise ?? [], 'total')) !!};
                 const el = document.querySelector('#lead-user-chart');
                 if (!el) return;
+                if (!userLabels.length) {
+                    el.innerHTML = '<p class="text-muted fz-12 text-center py-4 mb-0">' + @json(translate('No_data_found')) + '</p>';
+                    return;
+                }
+                const chartHeight = Math.max(260, userLabels.length * 44);
                 const options = {
                     series: [{ name: "{{ translate('Leads') }}", data: values }],
-                    chart: { type: 'bar', height: 260, toolbar: { show: false } },
-                    plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
-                    xaxis: { labels: { style: { fontSize: '11px' } } },
-                    yaxis: { categories: labels, labels: { style: { fontSize: '11px' } } },
+                    chart: { type: 'bar', height: chartHeight, toolbar: { show: false } },
+                    plotOptions: {
+                        bar: {
+                            horizontal: true,
+                            barHeight: '65%',
+                            dataLabels: { position: 'right' },
+                        },
+                    },
+                    xaxis: {
+                        categories: userLabels,
+                        title: {
+                            text: "{{ translate('Leads') }}",
+                            style: { fontSize: '12px', fontWeight: 500 },
+                        },
+                        labels: { style: { fontSize: '11px' } },
+                    },
+                    yaxis: {
+                        labels: {
+                            style: { fontSize: '12px' },
+                            maxWidth: 220,
+                        },
+                    },
                     colors: ['#6F8AED'],
-                    dataLabels: { enabled: false },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function (val) { return val; },
+                        style: { fontSize: '11px' },
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function (val, opts) {
+                                const name = userLabels[opts.dataPointIndex] || '—';
+                                return name + ': ' + val + ' ' + leadsLabel;
+                            },
+                        },
+                    },
+                    legend: { show: false },
                 };
                 new ApexCharts(el, options).render();
             })();
@@ -821,6 +928,46 @@
                 };
                 new ApexCharts(el, options).render();
             })();
+
+            // Invalid reason summary (donut)
+            (function () {
+                const el = document.querySelector('#invalid-reason-chart');
+                if (!el) return;
+                const baseLabels = {!! json_encode(array_column($invalidReasonSummary ?? [], 'name')) !!};
+                const values = {!! json_encode(array_column($invalidReasonSummary ?? [], 'total')) !!};
+                const labels = baseLabels.map(function (name, index) {
+                    const v = values[index] ?? 0;
+                    return (name || '—') + ' (' + v + ')';
+                });
+                new ApexCharts(el, {
+                    series: values,
+                    chart: { type: 'donut', height: 280 },
+                    labels: labels,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                }).render();
+            })();
+
+            // Future customer reason summary (donut)
+            (function () {
+                const el = document.querySelector('#future-customer-reason-chart');
+                if (!el) return;
+                const baseLabels = {!! json_encode(array_column($futureCustomerReasonSummary ?? [], 'name')) !!};
+                const values = {!! json_encode(array_column($futureCustomerReasonSummary ?? [], 'total')) !!};
+                const labels = baseLabels.map(function (name, index) {
+                    const v = values[index] ?? 0;
+                    return (name || '—') + ' (' + v + ')';
+                });
+                new ApexCharts(el, {
+                    series: values,
+                    chart: { type: 'donut', height: 280 },
+                    labels: labels,
+                    legend: { position: 'bottom', fontSize: '11px' },
+                    dataLabels: { enabled: false },
+                }).render();
+            })();
+
+            @include('leadmanagement::admin.reports.partials.customer-insights-charts')
         })();
         @endif
     </script>
