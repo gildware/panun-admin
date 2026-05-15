@@ -12,10 +12,10 @@
             max-width: 100% !important;
         }
         #wa-waba-template-panel .select2-container--open {
-            z-index: 2005;
+            z-index: 10055;
         }
         body > .select2-container .select2-dropdown.select2-wa-session-tpl-dd {
-            z-index: 2010 !important;
+            z-index: 10050 !important;
             max-width: min(36rem, calc(100vw - 1rem));
             box-sizing: border-box;
         }
@@ -30,6 +30,31 @@
             max-height: 12.5rem !important;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch;
+        }
+        .select2-wa-session-tpl-dd .select2-results__option {
+            padding: 0.35rem 0.5rem;
+        }
+        .select2-wa-session-tpl-dd .select2-results__options > .select2-results__option:not(.select2-results__message):nth-child(odd) {
+            background-color: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.04);
+        }
+        .select2-wa-session-tpl-dd .select2-results__options > .select2-results__option:not(.select2-results__message):nth-child(even) {
+            background-color: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.09);
+        }
+        .select2-wa-session-tpl-dd .select2-results__option--highlighted {
+            background-color: var(--bs-primary) !important;
+            color: var(--bs-primary-color, #fff) !important;
+        }
+        .select2-wa-session-tpl-dd .select2-results__option--highlighted .text-muted {
+            color: inherit !important;
+            opacity: 0.92;
+        }
+        #wa-waba-template-panel .wa-waba-meta-select-shell {
+            max-width: 100%;
+            min-width: 0;
+        }
+        #wa-waba-template-panel .wa-waba-meta-select-shell .select2-container {
+            width: 100% !important;
+            max-width: 100% !important;
         }
     </style>
     <?php if (in_array(($tab ?? ''), ['chats', 'human_support', 'users'], true)): ?>
@@ -144,6 +169,14 @@
             .whatsapp-active-list-container .wa-chat-list-filter-btn {
                 white-space: nowrap;
             }
+            /* Phone (chats split): search card is moved into offcanvas; collapse empty default slot. */
+            @media (max-width: 767.98px) {
+                .wa-whatsapp-chats-split-page .wa-global-search-default-slot:not(:has(.wa-global-search-card)) {
+                    display: none !important;
+                    margin-bottom: 0 !important;
+                    min-height: 0 !important;
+                }
+            }
             .wa-sys-pill {
                 display: inline-flex;
                 align-items: center;
@@ -250,9 +283,51 @@
             .wa-conversation-header .wa-header-title {
                 max-width: 100%;
             }
+            .wa-conv-header-identity {
+                min-width: 0;
+            }
+            .wa-conv-header-sys-pills {
+                line-height: 1.2;
+            }
+            .wa-conv-header-tags-mobile .wa-chat-tag-pill {
+                font-size: 0.7rem;
+            }
             @media (min-width: 992px) {
                 .wa-conversation-header .wa-header-title {
                     max-width: min(100%, 560px);
+                }
+            }
+            /* Thread header: mobile collapsible “thread options”; desktop always shows tools. */
+            @media (min-width: 768px) {
+                .wa-conversation-header--responsive #wa-conv-header-extended.collapse {
+                    display: flex !important;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    flex: 1 1 280px;
+                    min-width: 0;
+                    border: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    overflow: visible;
+                }
+                .wa-conversation-header--responsive #wa-conv-header-extended .wa-conv-header-extended-inner {
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    border: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                .wa-conversation-header--responsive #wa-conv-header-extended .wa-conv-header-slot-row {
+                    border-top: 0 !important;
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                }
+                .wa-conversation-header--responsive .wa-conversation-header-row2 {
+                    align-self: stretch;
+                    width: 100%;
+                    max-width: min(100%, 900px);
                 }
             }
             /*
@@ -263,7 +338,14 @@
             .wa-chat-main-panel #whatsapp-chat-panel {
                 flex: 1 1 0%;
                 min-height: 0;
-                overflow: hidden;
+                /* Default: avoid clipping footer (composer + templates); md+ split row restores clip on messages only */
+                overflow-x: hidden;
+                overflow-y: visible;
+            }
+            @media (min-width: 768px) {
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout .wa-chat-main-panel #whatsapp-chat-panel {
+                    overflow: hidden;
+                }
             }
             /*
              * Scroll container: use block layout here — display:flex on the scrollport often breaks
@@ -285,6 +367,95 @@
                 .wa-whatsapp-chats-split-page .wa-chat-main-panel #whatsapp-chat-messages {
                     max-height: min(70vh, 560px);
                 }
+                /*
+                 * WhatsApp-like mobile: chat list fills the screen; opening a thread hides the list
+                 * and shows the conversation full-width (not a narrow column beside the list).
+                 */
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout > .wa-chat-column {
+                    display: none !important;
+                }
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout.wa-mobile-thread-open > .whatsapp-active-list-container {
+                    display: none !important;
+                }
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout.wa-mobile-thread-open > .wa-chat-column {
+                    display: flex !important;
+                    flex: 1 1 auto;
+                    width: 100%;
+                    max-width: 100%;
+                    min-height: 0;
+                }
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout.wa-mobile-thread-open > .wa-chat-column > .card {
+                    min-height: min(82dvh, 900px);
+                }
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout.wa-mobile-thread-open #whatsapp-chat-panel {
+                    flex: 1 1 auto !important;
+                    min-height: 0;
+                    display: flex !important;
+                    flex-direction: column;
+                }
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout.wa-mobile-thread-open .wa-chat-main-panel #whatsapp-chat-messages {
+                    max-height: none !important;
+                    flex: 1 1 0% !important;
+                    min-height: 12rem;
+                }
+                /* Override / assign-back: pinned above composer on mobile; header slot hidden. */
+                .wa-conversation-header--responsive #whatsapp-chat-override-slot {
+                    display: none !important;
+                }
+                .wa-chat-handoff-mobile-bar:not(.wa-handoff-mobile-visible) {
+                    display: none !important;
+                }
+                .wa-chat-handoff-mobile-bar.wa-handoff-mobile-visible {
+                    display: block !important;
+                    flex-shrink: 0;
+                }
+                #whatsapp-chat-override-slot-mobile .btn {
+                    width: 100%;
+                }
+                /* Applied tags: always visible under system pills; hide duplicate list in options drawer. */
+                .wa-conversation-header-row2 #whatsapp-chat-tags-row {
+                    display: none !important;
+                }
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout:not(.wa-mobile-thread-open) > .whatsapp-active-list-container {
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 0;
+                }
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout:not(.wa-mobile-thread-open) > .whatsapp-active-list-container > .card {
+                    flex: 1 1 auto;
+                    min-height: min(52dvh, 480px);
+                    max-height: min(72dvh, calc(100dvh - 13rem), 640px);
+                    overflow: hidden;
+                }
+                /*
+                 * Same flex scrollport as md+ split: without height:0 + flex:1 the list grows with
+                 * content and overflow-y:auto never engages (especially in fullscreen overflow:hidden).
+                 */
+                .wa-whatsapp-chats-split-page .wa-chats-split-layout:not(.wa-mobile-thread-open) .wa-active-chat-list-scroll {
+                    flex: 1 1 0%;
+                    height: 0;
+                    min-height: 0;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior-y: contain;
+                    touch-action: pan-y;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-chats-split-layout:not(.wa-mobile-thread-open) {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    display: flex;
+                    flex-direction: column;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-chats-split-layout:not(.wa-mobile-thread-open) > .whatsapp-active-list-container {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-chats-split-layout:not(.wa-mobile-thread-open) > .whatsapp-active-list-container > .card {
+                    min-height: 0;
+                    max-height: none;
+                    height: 100%;
+                }
             }
             /* Short threads: spacer grows so newest messages sit toward the bottom; long threads: spacer collapses. */
             .wa-chat-main-panel #whatsapp-chat-messages > .wa-chat-messages-inner {
@@ -302,14 +473,15 @@
             }
             .wa-chat-main-panel #whatsapp-chat-panel > .card-footer {
                 flex: 0 0 auto;
-            }
-            .wa-chat-main-panel #wa-session-window-banner {
-                max-height: 7.5rem;
-                overflow-y: auto;
+                position: relative;
+                z-index: 5;
             }
             .wa-chat-main-panel #wa-waba-template-panel {
-                max-height: min(14rem, 32vh);
+                max-height: min(28rem, 55vh);
                 overflow-y: auto;
+                overflow-x: visible;
+                position: relative;
+                z-index: 2;
             }
             /* Empty state fills the same vertical space as the open chat panel (no extra min-height mismatch). */
             .wa-chat-main-panel #whatsapp-chat-placeholder {
@@ -547,6 +719,76 @@
                 flex: 1 1 auto;
                 min-height: 0;
             }
+            /* Fullscreen: tab strip + exit live in <details>; mobile uses sticky chrome + always-open panel (see waSyncFsToolbarDetailsOpen). */
+            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details {
+                border-color: rgba(0, 0, 0, 0.08) !important;
+            }
+            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__summary {
+                cursor: pointer;
+                list-style: none;
+            }
+            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__summary::-webkit-details-marker {
+                display: none;
+            }
+            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__chevron {
+                transition: transform 0.2s ease;
+            }
+            body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details[open] .wa-fs-toolbar-details__chevron {
+                transform: rotate(180deg);
+            }
+            @media (max-width: 767.98px) {
+                body.wa-social-inbox-fullscreen-body .wa-fs-chrome-wrap {
+                    flex-shrink: 0;
+                    align-self: stretch;
+                    position: sticky;
+                    top: 0;
+                    z-index: 1030;
+                    background: var(--bs-body-bg, #fff);
+                    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+                }
+                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details {
+                    flex-shrink: 0;
+                    overflow: visible !important;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-global-search-default-slot {
+                    flex-shrink: 0;
+                }
+            }
+            @media (min-width: 768px) {
+                body.wa-social-inbox-fullscreen-body .wa-fs-chrome-wrap {
+                    display: contents;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details__summary {
+                    display: none !important;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details > .wa-fs-toolbar-details__panel {
+                    border-top: 0 !important;
+                    padding-top: 0 !important;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-fs-toolbar-details {
+                    border: 0 !important;
+                    border-radius: 0 !important;
+                    box-shadow: none !important;
+                    background: transparent !important;
+                    overflow: visible !important;
+                }
+            }
+            @media (max-width: 767.98px) {
+                body.wa-social-inbox-fullscreen-body .wa-chats-split-layout.wa-mobile-thread-open {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    display: flex;
+                    flex-direction: column;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-chats-split-layout.wa-mobile-thread-open > .wa-chat-column {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                }
+                body.wa-social-inbox-fullscreen-body .wa-chats-split-layout.wa-mobile-thread-open > .wa-chat-column > .card {
+                    min-height: 0;
+                    flex: 1 1 auto;
+                }
+            }
         </style>
     <?php endif; ?>
         @include('whatsappmodule::admin.partials.social-inbox-page-surface-css')
@@ -572,6 +814,9 @@
     @endphp
     <div class="main-content social-inbox-page social-inbox-page--{{ $socialInboxChannel }} {{ $waFs ? 'wa-social-inbox-fs-page' : '' }} {{ in_array(($tab ?? ''), ['chats', 'human_support'], true) ? 'wa-whatsapp-chats-split-page' : '' }}">
         <div class="container-fluid {{ $waFs ? 'py-2' : '' }}">
+            @if($waFs)
+                <div class="wa-fs-chrome-wrap">
+            @endif
             @unless($waFs)
                 <div class="page-title-wrap mb-3">
                     <h2 class="page-title d-flex gap-3 align-items-center flex-wrap">
@@ -638,26 +883,38 @@
                     </ul>
                 </div>
             @else
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 wa-si-fs-toolbar">
-                    <ul class="nav nav-pills wa-si-fs-pills mb-0">
-                        <li class="nav-item">
-                            <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
-                                {{ translate('Active Chats') }}
+                <details id="wa-fs-toolbar-details" class="wa-fs-toolbar-details mb-2 border rounded overflow-hidden bg-white shadow-sm">
+                    <summary class="wa-fs-toolbar-details__summary d-flex align-items-center justify-content-between gap-2 px-3 py-2 text-body-secondary small fw-semibold user-select-none"
+                             aria-label="{{ translate('whatsapp_fs_toolbar_accordion_label') }}">
+                        <span class="d-inline-flex align-items-center gap-2 text-body">
+                            <span class="material-icons" style="font-size: 20px;">menu_open</span>
+                            {{ translate('whatsapp_fs_toolbar_accordion_label') }}
+                        </span>
+                        <span class="material-icons wa-fs-toolbar-details__chevron" style="font-size: 22px;" aria-hidden="true">expand_more</span>
+                    </summary>
+                    <div class="wa-fs-toolbar-details__panel border-top px-2 py-2 bg-light">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 wa-si-fs-toolbar">
+                            <ul class="nav nav-pills wa-si-fs-pills mb-0">
+                                <li class="nav-item">
+                                    <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'chats' ? 'active' : '' }}"
+                                       href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'chats'], $waFsQuery)) }}">
+                                        {{ translate('Active Chats') }}
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
+                                       href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
+                                        {{ translate('Human support') }}
+                                    </a>
+                                </li>
+                            </ul>
+                            <a href="{{ $waExitFullscreenUrl }}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+                                <span class="material-icons" style="font-size:18px;">fullscreen_exit</span>
+                                {{ translate('whatsapp_exit_fullscreen') }}
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link py-1 px-3 {{ ($tab ?? '') === 'human_support' ? 'active' : '' }}"
-                               href="{{ route('admin.whatsapp.conversations.index', array_merge(['channel' => $waCh, 'tab' => 'human_support'], $waFsQuery)) }}">
-                                {{ translate('Human support') }}
-                            </a>
-                        </li>
-                    </ul>
-                    <a href="{{ $waExitFullscreenUrl }}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
-                        <span class="material-icons" style="font-size:18px;">fullscreen_exit</span>
-                        {{ translate('whatsapp_exit_fullscreen') }}
-                    </a>
-                </div>
+                        </div>
+                    </div>
+                </details>
             @endunless
 
             @php
@@ -678,25 +935,43 @@
                 }
             @endphp
             @if(in_array($tab ?? '', $waSearchableTabs, true))
-                <div class="card card-body mb-3 py-3">
-                    <label for="wa-global-search" class="form-label mb-2">{{ translate('Search here') }}</label>
-                    <div class="d-flex flex-nowrap align-items-start justify-content-between w-100 wa-global-search-toolbar"
-                         style="gap: clamp(0.5rem, 2vw, 1rem);">
-                        <div class="position-relative min-w-0 flex-grow-1" style="max-width: 100%;">
-                            <input type="search"
-                                   id="wa-global-search"
-                                   class="form-control"
-                                   placeholder="{{ translate('Search name, number, or message') }}…"
-                                   autocomplete="off"
-                                   aria-autocomplete="list"
-                                   aria-controls="wa-global-search-dropdown">
-                            <div id="wa-global-search-dropdown"
-                                 class="list-group position-absolute w-100 shadow-sm mt-1 rounded border bg-white"
-                                 style="z-index: 25; max-height: 420px; overflow-y: auto; display: none;"
-                                 role="listbox"></div>
+                <div id="wa-global-search-default-slot" class="mb-3 wa-global-search-default-slot">
+                    <div class="card card-body mb-0 py-3 wa-global-search-card">
+                        <label for="wa-global-search" class="form-label mb-2">{{ translate('Search here') }}</label>
+                        <div class="d-flex flex-nowrap align-items-start justify-content-between w-100 wa-global-search-toolbar"
+                             style="gap: clamp(0.5rem, 2vw, 1rem);">
+                            <div class="position-relative min-w-0 flex-grow-1" style="max-width: 100%;">
+                                <input type="search"
+                                       id="wa-global-search"
+                                       class="form-control"
+                                       placeholder="{{ translate('Search name, number, or message') }}…"
+                                       autocomplete="off"
+                                       aria-autocomplete="list"
+                                       aria-controls="wa-global-search-dropdown">
+                                <div id="wa-global-search-dropdown"
+                                     class="list-group position-absolute w-100 shadow-sm mt-1 rounded border bg-white"
+                                     style="z-index: 25; max-height: 420px; overflow-y: auto; display: none;"
+                                     role="listbox"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
+                @if($waFs)
+                    </div>{{-- .wa-fs-chrome-wrap: toolbar + search stay visible on mobile fullscreen --}}
+                @endif
+                @if(in_array($tab ?? '', ['chats', 'human_support'], true))
+                    <div class="offcanvas offcanvas-top wa-mobile-search-offcanvas border-bottom shadow-sm"
+                         tabindex="-1"
+                         id="wa-mobile-search-offcanvas"
+                         aria-labelledby="wa-mobile-search-offcanvas-label"
+                         style="height: auto; max-height: min(90dvh, 640px);">
+                        <div class="offcanvas-header py-2 border-bottom">
+                            <h5 class="offcanvas-title mb-0" id="wa-mobile-search-offcanvas-label">{{ translate('Search here') }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ translate('close') }}"></button>
+                        </div>
+                        <div class="offcanvas-body pt-3" id="wa-mobile-search-offcanvas-body"></div>
+                    </div>
+                @endif
                 @if(in_array($tab ?? '', ['chats', 'human_support'], true))
                     <input type="hidden" id="wa-initial-open-phone" value="{{ e(request()->query('phone', '')) }}">
                     <input type="hidden" id="wa-initial-focus-message-id" value="{{ e(request()->query('focus_message_id', '')) }}">
@@ -876,6 +1151,10 @@
                         </div>
                     </div>
                 @endif
+            @else
+                @if($waFs)
+                    </div>{{-- .wa-fs-chrome-wrap when tab has no search slot --}}
+                @endif
             @endif
 
             {{-- Tab: Active Chats / Human support — left: scrollable list, right: open chat --}}
@@ -885,16 +1164,28 @@
                         <div class="card h-100 d-flex flex-column wa-min-h-0">
                             <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2 min-w-0 flex-wrap">
                                 <strong class="flex-shrink-0 me-1">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
-                                <button type="button"
-                                        class="btn btn-outline-primary btn-sm wa-chat-list-filter-btn d-inline-flex align-items-center gap-1 flex-shrink-0"
-                                        data-bs-toggle="offcanvas"
-                                        data-bs-target="#wa-chats-filters-offcanvas"
-                                        aria-controls="wa-chats-filters-offcanvas">
-                                    {{ translate('Filters') }}
-                                    @if(($waFacetCount ?? 0) > 0)
-                                        <span class="badge bg-primary rounded-pill">{{ $waFacetCount }}</span>
-                                    @endif
-                                </button>
+                                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                    <button type="button"
+                                            id="wa-mobile-list-search-open"
+                                            class="btn btn-light border d-md-none d-inline-flex align-items-center justify-content-center rounded-circle p-2"
+                                            data-bs-toggle="offcanvas"
+                                            data-bs-target="#wa-mobile-search-offcanvas"
+                                            aria-controls="wa-mobile-search-offcanvas"
+                                            title="{{ translate('Search here') }}"
+                                            aria-label="{{ translate('Search here') }}">
+                                        <span class="material-icons" style="font-size: 20px; line-height: 1;">search</span>
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm wa-chat-list-filter-btn d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                            data-bs-toggle="offcanvas"
+                                            data-bs-target="#wa-chats-filters-offcanvas"
+                                            aria-controls="wa-chats-filters-offcanvas">
+                                        {{ translate('Filters') }}
+                                        @if(($waFacetCount ?? 0) > 0)
+                                            <span class="badge bg-primary rounded-pill">{{ $waFacetCount }}</span>
+                                        @endif
+                                    </button>
+                                </div>
                             </div>
                             <div class="card-body p-0 wa-active-chat-list-scroll">
                                 <?php $chatCollection = $chats ?? collect(); ?>
@@ -1005,33 +1296,66 @@
                                 <span>{{ translate('Select a chat') }}</span>
                             </div>
                             <div id="whatsapp-chat-panel" class="d-none flex-column flex-grow-1 w-100 wa-min-h-0">
-                                <div class="card-header wa-conversation-header">
-                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                                        <div class="d-flex flex-wrap align-items-center gap-2 min-w-0 flex-grow-1">
+                                <div class="card-header wa-conversation-header wa-conversation-header--responsive py-2 py-md-3 d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-start gap-2">
+                                    <div class="d-flex flex-nowrap align-items-start gap-2 w-100 wa-conv-header-top-row min-w-0">
+                                        <button type="button"
+                                                id="wa-mobile-back-to-chats"
+                                                class="btn btn-light border wa-mobile-back-chats-btn d-md-none flex-shrink-0 rounded-circle p-2"
+                                                aria-label="{{ translate('back') }}"
+                                                title="{{ translate('back') }}">
+                                            <span class="material-icons" style="font-size: 22px; line-height: 1;">arrow_back</span>
+                                        </button>
+                                        <div class="wa-conv-header-identity flex-grow-1 min-w-0 d-flex flex-column">
                                             <strong id="whatsapp-chat-phone-line" class="mb-0 text-truncate wa-header-title"></strong>
-                                            <span id="whatsapp-chat-system-pills" class="d-flex flex-wrap align-items-center gap-1 min-w-0"></span>
+                                            <span id="whatsapp-chat-system-pills" class="wa-conv-header-sys-pills d-flex flex-wrap align-items-center gap-1 min-w-0 mt-1"></span>
+                                            <div id="whatsapp-chat-tags-row-mobile" class="wa-conv-header-tags-mobile d-md-none flex-wrap align-items-center gap-1 min-w-0 mt-1 d-none"></div>
                                         </div>
-                                        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 flex-shrink-0">
-                                            <span id="whatsapp-chat-handled-pill" class="flex-shrink-0"></span>
-                                            <span id="whatsapp-chat-view-leads-slot" class="flex-shrink-0"></span>
-                                            <span id="whatsapp-chat-override-slot"></span>
-                                            <span id="whatsapp-chat-status-slot" class="flex-shrink-0"></span>
-                                            <span id="whatsapp-chat-delete-slot"></span>
-                                            <div id="whatsapp-chat-actions" class="d-flex flex-wrap align-items-center gap-1"></div>
-                                        </div>
+                                        <button type="button"
+                                                id="wa-mobile-chat-search-open"
+                                                class="btn btn-light border d-none flex-shrink-0 rounded-circle p-2 wa-mobile-chat-search-open"
+                                                data-bs-toggle="offcanvas"
+                                                data-bs-target="#wa-mobile-search-offcanvas"
+                                                aria-controls="wa-mobile-search-offcanvas"
+                                                title="{{ translate('whatsapp_mobile_chat_search_open') }}"
+                                                aria-label="{{ translate('whatsapp_mobile_chat_search_open') }}">
+                                            <span class="material-icons" style="font-size: 20px; line-height: 1;">search</span>
+                                        </button>
+                                        <button type="button"
+                                                id="wa-conv-header-more-btn"
+                                                class="btn btn-light border d-md-none flex-shrink-0 rounded-circle p-2"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#wa-conv-header-extended"
+                                                aria-expanded="false"
+                                                aria-controls="wa-conv-header-extended"
+                                                title="{{ translate('whatsapp_mobile_thread_options') }}"
+                                                aria-label="{{ translate('whatsapp_mobile_thread_options') }}">
+                                            <span class="material-icons" style="font-size: 20px; line-height: 1;">tune</span>
+                                        </button>
                                     </div>
-                                    <div class="wa-conversation-header-row2 d-none border-top mt-2 pt-2">
-                                        <div class="d-flex flex-wrap align-items-center gap-2 w-100">
-                                            <span class="small text-muted flex-shrink-0">{{ translate('whatsapp_chat_tags_label') }}</span>
-                                            <div id="whatsapp-chat-tags-row" class="d-flex flex-wrap align-items-center gap-1 flex-grow-1 min-w-0"></div>
-                                            <div class="flex-shrink-0 position-relative wa-manage-tags-wrap">
-                                                <button type="button" id="wa-manage-tags-btn" class="btn btn-sm btn-outline-secondary d-none">{{ translate('whatsapp_manage_tags') }}</button>
-                                                <div id="wa-manage-tags-panel" class="d-none border rounded bg-white shadow-sm p-2 position-absolute end-0 mt-1" style="z-index: 40; min-width: 260px; max-height: 320px;">
-                                                    <div class="form-label small mb-1" id="wa-manage-tags-field-label">{{ translate('whatsapp_manage_tags') }}</div>
-                                                    <div id="wa-manage-tags-checkboxes" class="d-flex flex-column gap-1 border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;" role="group" aria-labelledby="wa-manage-tags-field-label"></div>
-                                                    <div class="d-flex justify-content-end gap-1 mt-2">
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="wa-manage-tags-cancel">{{ translate('Cancel') }}</button>
-                                                        <button type="button" class="btn btn-sm btn--primary" id="wa-manage-tags-save">{{ translate('save') }}</button>
+                                    <div id="wa-conv-header-extended" class="collapse wa-conv-header-extended w-100">
+                                        <div class="wa-conv-header-extended-inner">
+                                            <div class="d-flex flex-wrap align-items-center justify-content-md-end gap-2 border-top mt-2 pt-2 wa-conv-header-slot-row">
+                                                <span id="whatsapp-chat-handled-pill" class="flex-shrink-0"></span>
+                                                <span id="whatsapp-chat-view-leads-slot" class="flex-shrink-0"></span>
+                                                <span id="whatsapp-chat-override-slot"></span>
+                                                <span id="whatsapp-chat-status-slot" class="flex-shrink-0"></span>
+                                                <span id="whatsapp-chat-delete-slot"></span>
+                                                <div id="whatsapp-chat-actions" class="d-flex flex-wrap align-items-center gap-1"></div>
+                                            </div>
+                                        </div>
+                                        <div class="wa-conversation-header-row2 d-none border-top mt-2 pt-2">
+                                            <div class="d-flex flex-wrap align-items-center gap-2 w-100">
+                                                <span class="small text-muted flex-shrink-0">{{ translate('whatsapp_chat_tags_label') }}</span>
+                                                <div id="whatsapp-chat-tags-row" class="d-flex flex-wrap align-items-center gap-1 flex-grow-1 min-w-0"></div>
+                                                <div class="flex-shrink-0 position-relative wa-manage-tags-wrap">
+                                                    <button type="button" id="wa-manage-tags-btn" class="btn btn-sm btn-outline-secondary d-none">{{ translate('whatsapp_manage_tags') }}</button>
+                                                    <div id="wa-manage-tags-panel" class="d-none border rounded bg-white shadow-sm p-2 position-absolute end-0 mt-1" style="z-index: 40; min-width: 260px; max-height: 320px;">
+                                                        <div class="form-label small mb-1" id="wa-manage-tags-field-label">{{ translate('whatsapp_manage_tags') }}</div>
+                                                        <div id="wa-manage-tags-checkboxes" class="d-flex flex-column gap-1 border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;" role="group" aria-labelledby="wa-manage-tags-field-label"></div>
+                                                        <div class="d-flex justify-content-end gap-1 mt-2">
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="wa-manage-tags-cancel">{{ translate('Cancel') }}</button>
+                                                            <button type="button" class="btn btn-sm btn--primary" id="wa-manage-tags-save">{{ translate('save') }}</button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1041,16 +1365,20 @@
                                 <div id="whatsapp-chat-messages" class="card-body flex-grow-1 wa-min-h-0 p-0">
                                     <div class="wa-chat-messages-inner px-3 pt-2"></div>
                                 </div>
+                                <div id="wa-chat-handoff-mobile-bar" class="wa-chat-handoff-mobile-bar d-md-none border-top px-3 py-2 bg-body">
+                                    <span id="whatsapp-chat-override-slot-mobile" class="d-grid"></span>
+                                </div>
                                 <?php if(auth()->check() && auth()->user()->can('whatsapp_chat_reply')): ?>
-                                    <div class="card-footer border-top">
-                                        <div id="wa-session-window-banner" class="alert alert-warning py-2 px-3 mb-2 d-none small" role="status"></div>
+                                    <div class="card-footer border-top wa-chat-reply-footer">
                                         <div id="wa-waba-template-panel" class="border rounded p-2 mb-2 bg-body-secondary d-none">
                                             <div class="row g-2 align-items-end">
                                                 <div class="col-12 col-md-6">
                                                     <label class="form-label small mb-0" for="wa-waba-template-select">{{ translate('whatsapp_session_window_select_template') }}</label>
-                                                    <select id="wa-waba-template-select" class="form-select form-select-sm">
-                                                        <option value="">{{ translate('whatsapp_session_window_select_template') }}</option>
-                                                    </select>
+                                                    <div class="wa-waba-meta-select-shell">
+                                                        <select id="wa-waba-template-select" class="form-control form-control-sm js-wa-waba-template-select">
+                                                            <option value="">{{ translate('whatsapp_session_window_select_template') }}</option>
+                                                        </select>
+                                                    </div>
                                                 </div>
                                                 <div class="col-12 col-md-6 d-flex flex-wrap gap-2 justify-content-md-end align-items-center">
                                                     <button type="button" class="btn btn-sm btn--primary" id="wa-waba-template-send-btn">{{ translate('whatsapp_session_window_send_template') }}</button>
@@ -1268,7 +1596,6 @@
     var activeChatsForForwardUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.active-chats-forward', ['channel' => $waInboxCh]) : '');
     var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates', ['channel' => $waInboxCh]) : '');
     var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]) : '');
-    var strSessionBanner = {!! json_encode(translate('whatsapp_session_window_banner')) !!};
     var strSessionTextareaPh = {!! json_encode(translate('whatsapp_session_window_textarea_placeholder')) !!};
     var strTplLoadFailed = {!! json_encode(translate('whatsapp_waba_templates_load_failed')) !!};
     var strTplSentOk = {!! json_encode(translate('whatsapp_template_sent_ok')) !!};
@@ -1278,6 +1605,7 @@
     var strTplBodyVars = {!! json_encode(translate('whatsapp_template_section_body_vars')) !!};
     var strTplMediaUrlLabel = {!! json_encode(translate('whatsapp_template_header_media_url_label')) !!};
     var strWaSessionTplSelectPlaceholder = {!! json_encode(translate('whatsapp_session_window_select_template')) !!};
+    var strSearchHere = {!! json_encode(translate('Search here')) !!};
     var waSessionWindowOpen = true;
     var waWabaTemplatesList = null;
     var waWabaTemplatesLoading = false;
@@ -1425,6 +1753,38 @@
         }
     }
 
+    /** Laravel JSON errors + custom { message } bodies; used by handoff Swal preConfirm. */
+    function waFormatJsonErrorBody(body, response) {
+        body = body || {};
+        var parts = [];
+        var errs = body.errors;
+        if (errs && typeof errs === 'object') {
+            Object.keys(errs).forEach(function (k) {
+                var arr = errs[k];
+                if (Array.isArray(arr)) {
+                    arr.forEach(function (m) {
+                        if (m) parts.push(String(m));
+                    });
+                } else if (arr) {
+                    parts.push(String(arr));
+                }
+            });
+        }
+        if (parts.length) {
+            return parts.join(' ');
+        }
+        if (body.message != null && String(body.message).trim() !== '') {
+            return String(body.message);
+        }
+        if (body.error != null && String(body.error).trim() !== '') {
+            return String(body.error);
+        }
+        if (response && response.status) {
+            return 'HTTP ' + response.status + (response.statusText ? ': ' + response.statusText : '');
+        }
+        return 'Request failed';
+    }
+
     function waRenderedSystemPills(link, compact) {
         var cust = link && link.customer;
         var prov = link && link.provider;
@@ -1512,6 +1872,12 @@
             if (row2) row2.classList.add('d-none');
             if (stSlot) stSlot.innerHTML = '';
             if (tagsRow) tagsRow.innerHTML = '';
+            var tagsRowMobileClear = document.getElementById('whatsapp-chat-tags-row-mobile');
+            if (tagsRowMobileClear) {
+                tagsRowMobileClear.innerHTML = '';
+                tagsRowMobileClear.classList.add('d-none');
+                tagsRowMobileClear.classList.remove('d-flex');
+            }
             if (manageBtn) manageBtn.classList.add('d-none');
             return;
         }
@@ -1592,6 +1958,17 @@
         });
         if (tagsRow) {
             tagsRow.innerHTML = tagHtml;
+        }
+        var tagsRowMobile = document.getElementById('whatsapp-chat-tags-row-mobile');
+        if (tagsRowMobile) {
+            tagsRowMobile.innerHTML = tagHtml;
+            if (tagHtml) {
+                tagsRowMobile.classList.remove('d-none');
+                tagsRowMobile.classList.add('d-flex');
+            } else {
+                tagsRowMobile.classList.add('d-none');
+                tagsRowMobile.classList.remove('d-flex');
+            }
         }
         if (manageBtn) {
             if (canWaThreadActions && res.chat_tags_all && res.chat_tags_all.length) {
@@ -1687,6 +2064,126 @@
         return found || wantPhone;
     }
 
+    function waMobileExitChat() {
+        var layout = document.querySelector('.wa-chats-split-layout');
+        if (layout) {
+            layout.classList.remove('wa-mobile-thread-open');
+        }
+        var phEl = document.getElementById('whatsapp-chat-placeholder');
+        var chatPanel = document.getElementById('whatsapp-chat-panel');
+        if (phEl) {
+            phEl.classList.remove('d-none');
+        }
+        if (chatPanel) {
+            chatPanel.classList.add('d-none');
+            chatPanel.classList.remove('d-flex');
+        }
+        currentPhone = null;
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+        if (activeListTimer) {
+            clearInterval(activeListTimer);
+            activeListTimer = null;
+        }
+        waClearReplyTarget();
+        var emPan = document.getElementById('wa-emoji-panel');
+        if (emPan) {
+            emPan.classList.add('d-none');
+        }
+        if (typeof waCloseTplSuggestPanelOnly === 'function') {
+            waCloseTplSuggestPanelOnly();
+        }
+        var hc = document.getElementById('wa-conv-header-extended');
+        if (hc) {
+            hc.classList.remove('show');
+            if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                var cInst = bootstrap.Collapse.getInstance(hc);
+                if (cInst) {
+                    cInst.hide();
+                }
+            }
+        }
+        var sysPillsEl = document.getElementById('whatsapp-chat-system-pills');
+        if (sysPillsEl) {
+            sysPillsEl.innerHTML = '';
+        }
+        waSetMobileThreadPageState(false);
+    }
+
+    function waIsWaMobileLayout() {
+        return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 767.98px)').matches;
+    }
+
+    function waHandoffActionSlot() {
+        if (waIsWaMobileLayout()) {
+            return document.getElementById('whatsapp-chat-override-slot-mobile');
+        }
+        return document.getElementById('whatsapp-chat-override-slot');
+    }
+
+    function waSyncHandoffMobileBarVisible(show) {
+        var bar = document.getElementById('wa-chat-handoff-mobile-bar');
+        if (!bar) {
+            return;
+        }
+        if (show && waIsWaMobileLayout()) {
+            bar.classList.add('wa-handoff-mobile-visible');
+        } else {
+            bar.classList.remove('wa-handoff-mobile-visible');
+        }
+    }
+
+    function waSyncGlobalSearchPlacement() {
+        var card = document.querySelector('.wa-global-search-card');
+        var defaultSlot = document.getElementById('wa-global-search-default-slot');
+        var offBody = document.getElementById('wa-mobile-search-offcanvas-body');
+        if (!card || !defaultSlot) {
+            return;
+        }
+        var splitPage = document.querySelector('.wa-whatsapp-chats-split-page');
+        if (splitPage && waIsWaMobileLayout() && offBody) {
+            offBody.appendChild(card);
+        } else {
+            defaultSlot.appendChild(card);
+        }
+    }
+
+    function waHideMobileSearchOffcanvas() {
+        var el = document.getElementById('wa-mobile-search-offcanvas');
+        if (!el || typeof bootstrap === 'undefined' || !bootstrap.Offcanvas) {
+            return;
+        }
+        var oc = bootstrap.Offcanvas.getInstance(el);
+        if (oc) {
+            oc.hide();
+        }
+    }
+
+    function waSetMobileThreadPageState(on) {
+        var root = document.querySelector('.wa-whatsapp-chats-split-page');
+        if (!root) {
+            return;
+        }
+        var searchBtn = document.getElementById('wa-mobile-chat-search-open');
+        if (on && waIsWaMobileLayout()) {
+            root.classList.add('wa-mobile-thread-open-page');
+            if (searchBtn) {
+                searchBtn.classList.remove('d-none');
+                searchBtn.classList.add('d-inline-flex');
+            }
+        } else {
+            root.classList.remove('wa-mobile-thread-open-page');
+            if (searchBtn) {
+                searchBtn.classList.add('d-none');
+                searchBtn.classList.remove('d-inline-flex');
+            }
+            waHideMobileSearchOffcanvas();
+        }
+        waSyncGlobalSearchPlacement();
+    }
+
     function openChat(phone, options) {
         options = options || {};
         if (!phone) return;
@@ -1719,6 +2216,11 @@
         phEl.classList.add('d-none');
         chatPanel.classList.remove('d-none');
         chatPanel.classList.add('d-flex');
+        var splitLayout = document.querySelector('.wa-chats-split-layout');
+        if (splitLayout) {
+            splitLayout.classList.add('wa-mobile-thread-open');
+        }
+        waSetMobileThreadPageState(true);
         // Clear unread styling immediately when opening this chat
         document.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
             var isCurrent = el.getAttribute('data-phone') === phone;
@@ -2026,7 +2528,6 @@
         }
         waSessionWindowOpen = open;
 
-        var banner = document.getElementById('wa-session-window-banner');
         var panel = document.getElementById('wa-waba-template-panel');
         var convWrap = document.getElementById('wa-conv-tpl-wrap');
         var openBlock = document.getElementById('wa-reply-session-open-block');
@@ -2037,14 +2538,12 @@
         var showComposer = handler.type === 'USER';
 
         if (!showComposer) {
-            if (banner) banner.classList.add('d-none');
             if (panel) panel.classList.add('d-none');
             if (openBlock) openBlock.classList.add('d-none');
             return;
         }
 
         if (open) {
-            if (banner) banner.classList.add('d-none');
             if (panel) panel.classList.add('d-none');
             if (openBlock) openBlock.classList.remove('d-none');
             if (convWrap) convWrap.classList.remove('d-none');
@@ -2061,10 +2560,6 @@
             return;
         }
 
-        if (banner) {
-            banner.textContent = strSessionBanner;
-            banner.classList.remove('d-none');
-        }
         if (panel) panel.classList.remove('d-none');
         if (openBlock) openBlock.classList.add('d-none');
         if (convWrap) convWrap.classList.add('d-none');
@@ -2102,17 +2597,87 @@
         }
     }
 
-    function waInitWabaTemplateSelect2() {
+    function waWabaTemplateSelectRawValue(sel) {
+        if (!sel) {
+            return '';
+        }
+        if (typeof jQuery !== 'undefined' && jQuery.fn && jQuery.fn.select2 && jQuery(sel).data('select2')) {
+            return String(jQuery(sel).val() || '');
+        }
+        return String(sel.value || '');
+    }
+
+    function waSyncWabaTemplateSelect2Layout($nativeSelect) {
+        if (typeof jQuery === 'undefined' || !$nativeSelect || !$nativeSelect.length) {
+            return;
+        }
+        var $c = $nativeSelect.next('.select2-container');
+        if ($c.length) {
+            $c.css({ width: '100%', maxWidth: '100%', minWidth: 0 });
+        }
+    }
+
+    function waBindWabaTemplateSelect2Chrome($s) {
+        if (!$s || !$s.length) {
+            return;
+        }
+        $s.off('select2:open.waWabaTplDd')
+            .on('select2:open.waWabaTplDd', function () {
+                requestAnimationFrame(function () {
+                    var $dd = jQuery('body > .select2-container--open .select2-dropdown.select2-wa-session-tpl-dd');
+                    if ($dd.length) {
+                        $dd.css({ maxWidth: 'min(36rem, calc(100vw - 1rem))', boxSizing: 'border-box' });
+                    }
+                    var $searchWrap = $dd.find('.select2-search--dropdown');
+                    var $search = $searchWrap.find('.select2-search__field');
+                    if ($search.length) {
+                        $search.attr('placeholder', strSearchHere || 'Search here');
+                        if (!$searchWrap.hasClass('select2-search-has-icon')) {
+                            $searchWrap.addClass('select2-search-has-icon')
+                                .append('<span class="material-icons select2-search__icon text-muted" style="font-size:18px;">search</span>');
+                        }
+                        $search.trigger('focus');
+                    }
+                });
+            });
+    }
+
+    function waPopulateWabaTemplateSelectOptions(sel) {
+        if (!sel || !waWabaTemplatesList) {
+            return;
+        }
+        sel.innerHTML = '<option value="">' + escapeHtml(strWaSessionTplSelectPlaceholder) + '</option>';
+        waWabaTemplatesList.forEach(function (t) {
+            var opt = document.createElement('option');
+            opt.value = waTemplateSelectValue(t);
+            opt.textContent = (t.name || '') + ' · ' + (t.language || '') + (t.category ? ' (' + t.category + ')' : '');
+            opt.setAttribute('data-n', String(t.body_placeholder_count != null ? t.body_placeholder_count : 0));
+            opt.setAttribute('data-wa-tpl-name', t.name || '');
+            opt.setAttribute('data-wa-tpl-language', t.language || '');
+            opt.setAttribute('data-wa-tpl-category', t.category || '');
+            sel.appendChild(opt);
+        });
+    }
+
+    function waInitWabaTemplateSelect2(forceReinit) {
         var sel = document.getElementById('wa-waba-template-select');
         if (!sel || typeof jQuery === 'undefined' || !jQuery.fn || !jQuery.fn.select2) {
             return;
         }
-        waDestroyWabaTemplateSelect2();
         var $s = jQuery(sel);
+        if (!forceReinit && $s.data('select2') && $s.hasClass('select2-hidden-accessible')) {
+            waBindWabaTemplateSelect2Chrome($s);
+            waSyncWabaTemplateSelect2Layout($s);
+            return;
+        }
+        waDestroyWabaTemplateSelect2();
+        $s = jQuery(sel);
         $s.select2({
             width: '100%',
             dropdownParent: jQuery('body'),
             dropdownCssClass: 'select2-wa-session-tpl-dd',
+            placeholder: strWaSessionTplSelectPlaceholder,
+            allowClear: true,
             minimumResultsForSearch: 0,
             matcher: function (params, data) {
                 if (jQuery.trim(params.term) === '') {
@@ -2165,6 +2730,15 @@
                 return name || state.text;
             },
         });
+        $s.off('change.waWabaTpl select2:select.waWabaTpl select2:clear.waWabaTpl')
+            .on('change.waWabaTpl select2:select.waWabaTpl select2:clear.waWabaTpl', function () {
+                waRebuildWabaTemplateFields();
+            });
+        waBindWabaTemplateSelect2Chrome($s);
+        waSyncWabaTemplateSelect2Layout($s);
+        requestAnimationFrame(function () {
+            waSyncWabaTemplateSelect2Layout($s);
+        });
     }
 
     function waLoadWabaTemplatesIfNeeded() {
@@ -2172,12 +2746,19 @@
         if (!sel || !wabaTemplatesUrl) {
             return;
         }
-        if (waWabaTemplatesList !== null || waWabaTemplatesLoading) {
+        if (waWabaTemplatesList !== null) {
+            /* Templates already in memory: only ensure Select2 is attached. Do not repopulate the
+             * <select> or force reinit — loadMessages polls every few seconds and calls this path,
+             * which was destroying Select2 and closing the dropdown while the user browsed. */
+            waInitWabaTemplateSelect2(false);
+            return;
+        }
+        if (waWabaTemplatesLoading) {
             return;
         }
         waWabaTemplatesLoading = true;
-        waDestroyWabaTemplateSelect2();
-        sel.innerHTML = '<option value="">…</option>';
+        sel.innerHTML = '<option value="">' + escapeHtml(strLoadingEllipsis) + '</option>';
+        waInitWabaTemplateSelect2(true);
         fetch(wabaTemplatesUrl, {
             headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         })
@@ -2192,22 +2773,12 @@
                         toastr.error(strTplLoadFailed);
                     }
                     sel.innerHTML = '<option value="">' + escapeHtml(strTplLoadFailed) + '</option>';
-                    waInitWabaTemplateSelect2();
+                    waInitWabaTemplateSelect2(true);
                     return;
                 }
                 waWabaTemplatesList = data.templates || [];
-                sel.innerHTML = '<option value="">' + escapeHtml(strWaSessionTplSelectPlaceholder) + '</option>';
-                waWabaTemplatesList.forEach(function (t) {
-                    var opt = document.createElement('option');
-                    opt.value = waTemplateSelectValue(t);
-                    opt.textContent = (t.name || '') + ' · ' + (t.language || '') + (t.category ? ' (' + t.category + ')' : '');
-                    opt.setAttribute('data-n', String(t.body_placeholder_count != null ? t.body_placeholder_count : 0));
-                    opt.setAttribute('data-wa-tpl-name', t.name || '');
-                    opt.setAttribute('data-wa-tpl-language', t.language || '');
-                    opt.setAttribute('data-wa-tpl-category', t.category || '');
-                    sel.appendChild(opt);
-                });
-                waInitWabaTemplateSelect2();
+                waPopulateWabaTemplateSelectOptions(sel);
+                waInitWabaTemplateSelect2(true);
             })
             .catch(function () {
                 waWabaTemplatesLoading = false;
@@ -2218,7 +2789,7 @@
                 if (sel) {
                     waDestroyWabaTemplateSelect2();
                     sel.innerHTML = '<option value="">' + escapeHtml(strTplLoadFailed) + '</option>';
-                    waInitWabaTemplateSelect2();
+                    waInitWabaTemplateSelect2(true);
                 }
             });
     }
@@ -2235,7 +2806,7 @@
             return;
         }
         host.innerHTML = '';
-        var raw = sel && sel.value ? sel.value : '';
+        var raw = waWabaTemplateSelectRawValue(sel);
         if (!raw || !waWabaTemplatesList || !waWabaTemplatesList.length) {
             return;
         }
@@ -2260,6 +2831,12 @@
         }
         var htc = parseInt(tpl.header_text_placeholder_count, 10) || 0;
         var bpc = parseInt(tpl.body_placeholder_count, 10) || 0;
+        if (htc === 0 && tpl.header_named_param_names && tpl.header_named_param_names.length) {
+            htc = tpl.header_named_param_names.length;
+        }
+        if (bpc === 0 && tpl.body_named_param_names && tpl.body_named_param_names.length) {
+            bpc = tpl.body_named_param_names.length;
+        }
         var hm = tpl.header_media_format || null;
         var i;
         if (htc > 0) {
@@ -2690,9 +3267,12 @@
                     : '';
                 var leadsViewSlot = document.getElementById('whatsapp-chat-view-leads-slot');
                 var overSlot = document.getElementById('whatsapp-chat-override-slot');
+                var overSlotMobile = document.getElementById('whatsapp-chat-override-slot-mobile');
                 var delSlot = document.getElementById('whatsapp-chat-delete-slot');
                 if (leadsViewSlot) leadsViewSlot.innerHTML = '';
                 if (overSlot) overSlot.innerHTML = '';
+                if (overSlotMobile) overSlotMobile.innerHTML = '';
+                waSyncHandoffMobileBarVisible(false);
                 if (delSlot) delSlot.innerHTML = '';
                 if (leadsViewSlot && phone) {
                     var btnViewLeads = document.createElement('button');
@@ -2734,11 +3314,14 @@
                 // Handler UI: who owns this chat, and override/assign-back controls
                 var handler = res.handler || currentHandler || { type: 'AI', id: null, name: 'AI' };
                 currentHandler = handler;
-                var replyForm = document.getElementById('whatsapp-reply-form');
-                var replyFooter = replyForm ? replyForm.closest('.card-footer') : null;
+                var replyOpenBlock = document.getElementById('wa-reply-session-open-block');
+                var replyFooter = document.querySelector('.wa-chat-reply-footer');
                 var canSend = handler.type === 'USER';
                 if (replyFooter) {
-                    replyFooter.style.display = canSend ? '' : 'none';
+                    replyFooter.style.display = '';
+                }
+                if (replyOpenBlock) {
+                    replyOpenBlock.style.display = canSend ? '' : 'none';
                 }
 
                 var handledPillEl = document.getElementById('whatsapp-chat-handled-pill');
@@ -2763,6 +3346,7 @@
                             confirmButtonText: '{{ translate('Yes') }}',
                             reverseButtons: true,
                             showLoaderOnConfirm: true,
+                            expectRejections: true,
                             allowOutsideClick: () => !Swal.isLoading(),
                             preConfirm: function () {
                                 return fetch(handoffUrl, {
@@ -2774,29 +3358,49 @@
                                         'X-Requested-With': 'XMLHttpRequest'
                                     },
                                     body: JSON.stringify({ phone: phone, mode: 'take' })
-                                }).then(function (response) {
-                                    return response.json().then(function (body) {
-                                        if (!response.ok) {
-                                            var msg = (body && (body.message || body.error)) ? String(body.message || body.error) : 'Request failed';
-                                            throw new Error(msg);
-                                        }
-                                        if (body && body.ok === false) {
-                                            throw new Error((body.message || body.error) ? String(body.message || body.error) : 'Request failed');
-                                        }
-                                        return body;
+                                })
+                                    .then(function (response) {
+                                        return response.json().then(
+                                            function (body) {
+                                                if (!response.ok) {
+                                                    return Promise.reject(waFormatJsonErrorBody(body, response));
+                                                }
+                                                if (body && body.ok === false) {
+                                                    return Promise.reject(waFormatJsonErrorBody(body, response));
+                                                }
+                                                return body;
+                                            },
+                                            function () {
+                                                return Promise.reject(
+                                                    response.ok
+                                                        ? 'Invalid response from server'
+                                                        : 'HTTP ' + response.status + (response.statusText ? ': ' + response.statusText : '')
+                                                );
+                                            }
+                                        );
+                                    })
+                                    .catch(function (err) {
+                                        var msg =
+                                            err && typeof err === 'string'
+                                                ? err
+                                                : err && err.message
+                                                  ? String(err.message)
+                                                  : 'Network error';
+                                        return Promise.reject(msg);
                                     });
-                                }).catch(function (error) {
-                                    Swal.showValidationMessage(error.message || 'Request failed');
-                                    throw error;
-                                });
                             }
                         }).then(function(result) {
                             if (!result.isConfirmed) return;
                             loadMessages(phone, false);
                         });
                     };
-                    if (overSlot) overSlot.appendChild(btnTake);
-                    else if (actions) actions.appendChild(btnTake);
+                    var handoffSlot = waHandoffActionSlot();
+                    if (handoffSlot) {
+                        handoffSlot.appendChild(btnTake);
+                        waSyncHandoffMobileBarVisible(true);
+                    } else if (actions) {
+                        actions.appendChild(btnTake);
+                    }
                 } else if (handler.type === 'USER' && String(handler.id) === String(currentAdminId) && canWaHandoff) {
                     var btnAI = document.createElement('button');
                     btnAI.type = 'button';
@@ -2814,6 +3418,7 @@
                             confirmButtonText: '{{ translate('Yes') }}',
                             reverseButtons: true,
                             showLoaderOnConfirm: true,
+                            expectRejections: true,
                             allowOutsideClick: () => !Swal.isLoading(),
                             preConfirm: function () {
                                 return fetch(handoffUrl, {
@@ -2825,29 +3430,49 @@
                                         'X-Requested-With': 'XMLHttpRequest'
                                     },
                                     body: JSON.stringify({ phone: phone, mode: 'ai' })
-                                }).then(function (response) {
-                                    return response.json().then(function (body) {
-                                        if (!response.ok) {
-                                            var msg = (body && (body.message || body.error)) ? String(body.message || body.error) : 'Request failed';
-                                            throw new Error(msg);
-                                        }
-                                        if (body && body.ok === false) {
-                                            throw new Error((body.message || body.error) ? String(body.message || body.error) : 'Request failed');
-                                        }
-                                        return body;
+                                })
+                                    .then(function (response) {
+                                        return response.json().then(
+                                            function (body) {
+                                                if (!response.ok) {
+                                                    return Promise.reject(waFormatJsonErrorBody(body, response));
+                                                }
+                                                if (body && body.ok === false) {
+                                                    return Promise.reject(waFormatJsonErrorBody(body, response));
+                                                }
+                                                return body;
+                                            },
+                                            function () {
+                                                return Promise.reject(
+                                                    response.ok
+                                                        ? 'Invalid response from server'
+                                                        : 'HTTP ' + response.status + (response.statusText ? ': ' + response.statusText : '')
+                                                );
+                                            }
+                                        );
+                                    })
+                                    .catch(function (err) {
+                                        var msg =
+                                            err && typeof err === 'string'
+                                                ? err
+                                                : err && err.message
+                                                  ? String(err.message)
+                                                  : 'Network error';
+                                        return Promise.reject(msg);
                                     });
-                                }).catch(function (error) {
-                                    Swal.showValidationMessage(error.message || 'Request failed');
-                                    throw error;
-                                });
                             }
                         }).then(function(result) {
                             if (!result.isConfirmed) return;
                             loadMessages(phone, false);
                         });
                     };
-                    if (overSlot) overSlot.appendChild(btnAI);
-                    else if (actions) actions.appendChild(btnAI);
+                    var handoffSlotAi = waHandoffActionSlot();
+                    if (handoffSlotAi) {
+                        handoffSlotAi.appendChild(btnAI);
+                        waSyncHandoffMobileBarVisible(true);
+                    } else if (actions) {
+                        actions.appendChild(btnAI);
+                    }
                 }
 
                 if (canDeleteChatHistory && deleteHistoryUrl) {
@@ -3012,6 +3637,38 @@
     var listCol = document.querySelector('.whatsapp-active-list-container');
     if (listCol) bindActiveChatListClicks(listCol);
 
+    window.addEventListener(
+        'resize',
+        function () {
+            waSyncGlobalSearchPlacement();
+        },
+        { passive: true }
+    );
+    waSyncGlobalSearchPlacement();
+
+    (function () {
+        var waMobileSearchOc = document.getElementById('wa-mobile-search-offcanvas');
+        if (!waMobileSearchOc || typeof bootstrap === 'undefined' || !bootstrap.Offcanvas) {
+            return;
+        }
+        waMobileSearchOc.addEventListener('shown.bs.offcanvas', function () {
+            var inp = document.getElementById('wa-global-search');
+            if (inp) {
+                try {
+                    inp.focus();
+                } catch (e) {}
+            }
+        });
+    })();
+
+    var waMobileBackBtn = document.getElementById('wa-mobile-back-to-chats');
+    if (waMobileBackBtn) {
+        waMobileBackBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            waMobileExitChat();
+        });
+    }
+
     document.addEventListener('click', function(e) {
         var tagPanel = document.getElementById('wa-manage-tags-panel');
         if (tagPanel && !tagPanel.classList.contains('d-none') && !e.target.closest('.wa-manage-tags-wrap')) {
@@ -3085,6 +3742,21 @@
     } else {
         requestAnimationFrame(waOpenChatFromQuery);
     }
+
+    (function () {
+        var fsDetails = document.getElementById('wa-fs-toolbar-details');
+        if (!fsDetails) {
+            return;
+        }
+        function waSyncFsToolbarDetailsOpen() {
+            try {
+                /* Keep open on small screens so tab links + exit are visible (flex layout used to clip the bar). */
+                fsDetails.open = true;
+            } catch (e) {}
+        }
+        waSyncFsToolbarDetailsOpen();
+        window.addEventListener('resize', waSyncFsToolbarDetailsOpen);
+    })();
 
     var replyFormEl = document.getElementById('whatsapp-reply-form');
     var replyBodyEl = document.getElementById('wa-reply-body');
@@ -3826,7 +4498,7 @@
                 var sel = document.getElementById('wa-waba-template-select');
                 var phoneEl = document.getElementById('whatsapp-reply-phone');
                 var phone = phoneEl ? phoneEl.value : '';
-                var raw = sel && sel.value ? sel.value : '';
+                var raw = waWabaTemplateSelectRawValue(sel);
                 if (!phone || !raw) {
                     if (typeof toastr !== 'undefined') {
                         toastr.warning({!! json_encode(translate('whatsapp_session_window_select_template')) !!});
@@ -3852,6 +4524,12 @@
                 }
                 var htc = tpl ? (parseInt(tpl.header_text_placeholder_count, 10) || 0) : 0;
                 var bpc = tpl ? (parseInt(tpl.body_placeholder_count, 10) || 0) : 0;
+                if (htc === 0 && tpl && tpl.header_named_param_names && tpl.header_named_param_names.length) {
+                    htc = tpl.header_named_param_names.length;
+                }
+                if (bpc === 0 && tpl && tpl.body_named_param_names && tpl.body_named_param_names.length) {
+                    bpc = tpl.body_named_param_names.length;
+                }
                 var headerTextParams = [];
                 var i;
                 for (i = 1; i <= htc; i++) {
