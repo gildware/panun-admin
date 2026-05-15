@@ -8274,4 +8274,7 @@ _Message' => 'Customer notification for provider bid offer
   'File' => 'File',
   'Refresh' => 'Refresh',
   'social_inbox_whatsapp' => 'Social inbox whatsapp',
+  'whatsapp_mobile_thread_options' => 'Whatsapp mobile thread options',
+  'whatsapp_mobile_chat_search_open' => 'Whatsapp mobile chat search open',
+  'whatsapp_fs_toolbar_accordion_label' => 'Whatsapp fs toolbar accordion label',
 );
