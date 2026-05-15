@@ -165,21 +165,6 @@
                     'title' => translate('Sub_Category'),
                     'colClass' => 'col-lg-4 col-md-6',
                 ])
-                @include('leadmanagement::admin.reports.partials._donut-chart-card', [
-                    'chartId' => 'customer-booking-hour-chart',
-                    'title' => translate('Booking_Time_of_Day'),
-                    'subtitle' => translate('When_bookings_are_created'),
-                    'colClass' => 'col-lg-4 col-md-6',
-                ])
-                <div class="col-lg-8 col-md-6">
-                    <div class="card h-100 customer-report-chart-card border">
-                        <div class="card-body p-3">
-                            <h6 class="fw-semibold mb-0">{{ translate('When_Bookings_Are_Created') }}</h6>
-                            <p class="text-muted fz-11 mb-2">{{ translate('Bookings_over_selected_period') }}</p>
-                            <div id="customer-booking-timeline-chart" style="min-height: 200px;"></div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
