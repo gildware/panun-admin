@@ -169,12 +169,21 @@
             .whatsapp-active-list-container .wa-chat-list-filter-btn {
                 white-space: nowrap;
             }
-            /* Phone (chats split): search card is moved into offcanvas; collapse empty default slot. */
+            /* Phone (chats split): search opens from list/thread icons; hide the top search bar. */
             @media (max-width: 767.98px) {
-                .wa-whatsapp-chats-split-page .wa-global-search-default-slot:not(:has(.wa-global-search-card)) {
+                .wa-whatsapp-chats-split-page #wa-global-search-default-slot {
                     display: none !important;
-                    margin-bottom: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                     min-height: 0 !important;
+                }
+                .wa-mobile-search-offcanvas .wa-global-search-card {
+                    border: 0 !important;
+                    box-shadow: none !important;
+                    padding-top: 0 !important;
+                }
+                .wa-mobile-search-offcanvas #wa-global-search-dropdown {
+                    z-index: 1060;
                 }
             }
             .wa-sys-pill {
@@ -750,8 +759,9 @@
                     flex-shrink: 0;
                     overflow: visible !important;
                 }
-                body.wa-social-inbox-fullscreen-body .wa-global-search-default-slot {
-                    flex-shrink: 0;
+                body.wa-social-inbox-fullscreen-body .wa-social-inbox-fs-page.wa-whatsapp-chats-split-page .wa-fs-chrome-wrap #wa-global-search-default-slot {
+                    display: none !important;
+                    margin: 0 !important;
                 }
             }
             @media (min-width: 768px) {
@@ -3651,6 +3661,10 @@
         if (!waMobileSearchOc || typeof bootstrap === 'undefined' || !bootstrap.Offcanvas) {
             return;
         }
+        function waPrepareMobileSearchOffcanvas() {
+            waSyncGlobalSearchPlacement();
+        }
+        waMobileSearchOc.addEventListener('show.bs.offcanvas', waPrepareMobileSearchOffcanvas);
         waMobileSearchOc.addEventListener('shown.bs.offcanvas', function () {
             var inp = document.getElementById('wa-global-search');
             if (inp) {
@@ -3659,6 +3673,14 @@
                 } catch (e) {}
             }
         });
+        var waListSearchBtn = document.getElementById('wa-mobile-list-search-open');
+        if (waListSearchBtn) {
+            waListSearchBtn.addEventListener('click', waPrepareMobileSearchOffcanvas);
+        }
+        var waThreadSearchBtn = document.getElementById('wa-mobile-chat-search-open');
+        if (waThreadSearchBtn) {
+            waThreadSearchBtn.addEventListener('click', waPrepareMobileSearchOffcanvas);
+        }
     })();
 
     var waMobileBackBtn = document.getElementById('wa-mobile-back-to-chats');

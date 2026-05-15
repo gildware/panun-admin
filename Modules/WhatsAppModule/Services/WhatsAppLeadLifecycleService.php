@@ -7,6 +7,7 @@ use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\Source;
+use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 
 /**
@@ -14,6 +15,15 @@ use Modules\WhatsAppModule\Support\SocialInboxChannel;
  */
 class WhatsAppLeadLifecycleService
 {
+    /**
+     * If the WhatsApp phone is already an onboarded provider-side user,
+     * we should not create a new CRM Lead row for their inbound messages.
+     */
+    protected function isProviderAccountPhone(string $leadPhone): bool
+    {
+        return User::findByContactPhoneScoped($leadPhone, PROVIDER_USER_TYPES) !== null;
+    }
+
     public function normalizeLeadPhone(?string $phone): ?string
     {
         if (!$phone) {
@@ -48,6 +58,11 @@ class WhatsAppLeadLifecycleService
 
         if ($existing) {
             return $this->touchAiOpenLead($existing, $name);
+        }
+
+        // Skip creation for already-onboarded providers.
+        if ($this->isProviderAccountPhone($leadPhone)) {
+            return null;
         }
 
         return Lead::create([
@@ -90,6 +105,11 @@ class WhatsAppLeadLifecycleService
             if ($unknownOpen) {
                 return $this->convertUnknownOpenLeadToType($unknownOpen, $leadType, $name);
             }
+        }
+
+        // Skip creation for already-onboarded providers.
+        if ($this->isProviderAccountPhone($leadPhone)) {
+            return null;
         }
 
         $lead = Lead::create([
