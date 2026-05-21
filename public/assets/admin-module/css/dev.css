@@ -1,5 +1,22 @@
-.active-menu {
-    color: #FF5E00;
+/* Sidebar: highlight the current page menu link */
+.aside-body .nav a.active-menu,
+.aside-body .nav li.active > a {
+    color: var(--bs-primary) !important;
+    font-weight: 600;
+}
+
+.aside-body .nav a.active-menu .material-icons,
+.aside-body .nav a.active-menu .material-symbols-outlined,
+.aside-body .nav li.active > a .material-icons,
+.aside-body .nav li.active > a .material-symbols-outlined {
+    color: var(--bs-primary) !important;
+}
+
+body.aside-folded .aside-body li.active > a .material-icons,
+body.aside-folded .aside-body li.active > a .material-symbols-outlined,
+body.aside-folded .aside-body li:has(> a.active-menu) > a .material-icons,
+body.aside-folded .aside-body li:has(> a.active-menu) > a .material-symbols-outlined {
+    color: var(--bs-primary) !important;
 }
 
 .hide-div {

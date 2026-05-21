@@ -12,6 +12,8 @@ use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\SubscriptionPackag
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\SubscriptionSettingsController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\SubscriberController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\ConfigurationController;
+use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\MobileAppConfigurationController;
+use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\MobileAppManagementController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Admin\PageAndMediaController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Provider\BusinessInformationController as ProviderBusinessInformationController;
 use Modules\BusinessSettingsModule\Http\Controllers\Web\Provider\SubscriptionPackageController as ProviderSubscriptionPackageController;
@@ -200,6 +202,26 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('ai-configuration', [ConfigurationController::class, 'AIConfiguration'])->name('ai-configuration');
         Route::post('ai-configuration-update', [ConfigurationController::class, 'AIConfigurationUpdate'])->name('ai-configuration.update');
         Route::post('ai-configuration/status-update', [ConfigurationController::class, 'AIConfigurationStatusUpdate'])->name('ai-configuration.status-update');
+    });
+
+    Route::group(['prefix' => 'mobile-app-management', 'as' => 'mobile-app-management.'], function () {
+        Route::get('ai', [MobileAppManagementController::class, 'ai'])->name('ai');
+        Route::post('ai-config', [MobileAppManagementController::class, 'updateAiConfig'])->name('ai-config.update');
+        Route::get('home-page', [MobileAppManagementController::class, 'homePage'])->name('home-page');
+        Route::post('home-page', [MobileAppManagementController::class, 'updateHomePage'])->name('home-page.update');
+        Route::get('home-page/search-services', [MobileAppManagementController::class, 'searchServices'])->name('home-page.search-services');
+        Route::get('home-page/search-providers', [MobileAppManagementController::class, 'searchProviders'])->name('home-page.search-providers');
+        Route::get('home-page/search-banners', [MobileAppManagementController::class, 'searchBanners'])->name('home-page.search-banners');
+        Route::get('home-page/search-categories', [MobileAppManagementController::class, 'searchCategories'])->name('home-page.search-categories');
+        Route::get('home-page/search-sub-categories', [MobileAppManagementController::class, 'searchSubCategories'])->name('home-page.search-sub-categories');
+        Route::get('icons', [MobileAppManagementController::class, 'icons'])->name('icons');
+        Route::post('icons', [MobileAppManagementController::class, 'updateIcons'])->name('icons.update');
+    });
+
+    Route::group(['prefix' => 'mobile-app-configuration', 'as' => 'mobile-app-configuration.'], function () {
+        Route::get('/', fn () => redirect()->route('admin.mobile-app-management.ai'))->name('index');
+        Route::get('/{any}', fn () => redirect()->route('admin.mobile-app-management.ai'))->where('any', '.*');
+        Route::post('ai-config', [MobileAppManagementController::class, 'updateAiConfig'])->name('ai-config.update');
     });
 
     Route::group(['prefix' => 'customer', 'as' => 'customer.'], function () {

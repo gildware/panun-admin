@@ -816,11 +816,12 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Zone') }}</label>
-                                                <select name="zone_id" id="lead-zone-select" class="form-control js-select">
+                                                <select name="zone_id" id="lead-zone-select" class="form-control zone-tree-select">
                                                     <option value="">{{ translate('Select_Zone') }}</option>
-                                                    @foreach($zoneTreeOptions as $zOpt)
-                                                        <option value="{{ $zOpt['id'] }}" {{ ($customerEditData['zone_id'] ?? '') == $zOpt['id'] ? 'selected' : '' }}>{{ $zOpt['label'] }}</option>
-                                                    @endforeach
+                                                    @include('zonemanagement::admin.partials._zone-select-options', [
+                                                        'zoneTreeOptions' => $zoneTreeOptions,
+                                                        'selected' => $customerEditData['zone_id'] ?? '',
+                                                    ])
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
@@ -930,9 +931,13 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Zone') }}</label>
-                                                <select name="zone_ids[]" id="provider-zone-select" class="form-select" multiple>
+                                                <select name="zone_ids[]" id="provider-zone-select" class="form-select zone-tree-select" multiple>
                                                     @foreach($zoneTreeOptions as $zOpt)
-                                                        <option value="{{ $zOpt['id'] }}" {{ in_array((string) $zOpt['id'], $providerZoneIdsForEdit, true) ? 'selected' : '' }}>{{ $zOpt['label'] }}</option>
+                                                        <option value="{{ $zOpt['id'] }}"
+                                                                data-zone-prefix="{{ $zOpt['prefix'] ?? '' }}"
+                                                                data-zone-name="{{ $zOpt['name'] ?? '' }}"
+                                                                data-zone-description="{{ $zOpt['description'] ?? '' }}"
+                                                                {{ in_array((string) $zOpt['id'], $providerZoneIdsForEdit, true) ? 'selected' : '' }}>{{ $zOpt['label'] }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -1133,6 +1138,7 @@
 @endif
 
 @push('css_or_js')
+    @include('zonemanagement::admin.partials._zone-select2-assets')
     <style>
         .btn-lead-type-invalid:hover:not(:disabled) {
             background-color: #dc3545; /* Bootstrap danger */
@@ -1170,6 +1176,16 @@
 @endpush
 
 @push('script')
+    <script>
+        (function ($) {
+            "use strict";
+            $(function () {
+                if (typeof initZoneTreeSelect2 === 'function') {
+                    initZoneTreeSelect2($('#lead-zone-select'));
+                }
+            });
+        })(jQuery);
+    </script>
     <script>
         (function ($) {
             "use strict";
@@ -1797,11 +1813,18 @@
 
             function initProviderZoneSelect() {
                 destroySelect2(providerZoneSelect);
-                providerZoneSelect.select2({
-                    width: '100%',
-                    placeholder: '{{ translate("Select_Zone") }}',
-                    closeOnSelect: false
-                });
+                if (typeof initZoneTreeSelect2 === 'function') {
+                    initZoneTreeSelect2(providerZoneSelect, {
+                        placeholder: '{{ translate("Select_Zone") }}',
+                        closeOnSelect: false
+                    });
+                } else {
+                    providerZoneSelect.select2({
+                        width: '100%',
+                        placeholder: '{{ translate("Select_Zone") }}',
+                        closeOnSelect: false
+                    });
+                }
             }
 
             function initProviderCategorySelect() {

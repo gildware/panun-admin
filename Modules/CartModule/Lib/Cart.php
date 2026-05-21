@@ -22,6 +22,7 @@ if (!function_exists('cart_clean')) {
     function cart_clean($user_id)
     {
         Cart::where(['customer_id' => $user_id])->delete();
+        CartServiceInfo::where(['customer_id' => $user_id])->delete();
         return [
             'flag' => 'success'
         ];

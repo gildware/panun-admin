@@ -19,6 +19,8 @@ use Modules\BusinessSettingsModule\Entities\LoginSetup;
 use Modules\CustomerModule\Traits\CustomerTrait;
 use Modules\PaymentModule\Entities\Setting;
 use Modules\UserManagement\Entities\User;
+use Modules\UserManagement\Entities\UserVerification;
+use Modules\UserManagement\Http\Controllers\Api\V1\OTPVerificationController;
 
 class LoginController extends Controller
 {
@@ -115,40 +117,150 @@ class LoginController extends Controller
             return response()->json(response_formatter(AUTH_LOGIN_401), 401);
         }
 
-        if ($user->provider->is_approved == '2') {
+        if ($blocked = $this->providerLoginEligibilityResponse($user)) {
             self::updateUserHitCount($user);
+            return $blocked;
+        }
+
+        return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, PROVIDER_PANEL_ACCESS)), 200);
+    }
+
+    /**
+     * Send OTP for provider app login (phone must belong to a provider-admin account).
+     */
+    public function providerSendLoginOtp(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $user = $this->findProviderAdminByPhone($request['phone']);
+        if (! $user) {
+            return response()->json(response_formatter(AUTH_LOGIN_404), 404);
+        }
+
+        return app(OTPVerificationController::class)->check(new Request([
+            'identity' => $request['phone'],
+            'identity_type' => 'phone',
+            'check_user' => 0,
+        ]));
+    }
+
+    /**
+     * Verify OTP and sign in to the provider app.
+     */
+    public function providerLoginOtpVerify(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required|string|max:255',
+            'otp' => 'required|max:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $maxOtpHit = business_config('maximum_otp_hit', 'otp_login_setup')->test_values ?? 5;
+        $maxOtpHitTime = business_config('otp_resend_time', 'otp_login_setup')->test_values ?? 60;
+        $tempBlockTime = business_config('temporary_otp_block_time', 'otp_login_setup')->test_values ?? 600;
+
+        $verify = UserVerification::where(['identity' => $request['phone'], 'otp' => $request['otp']])->first();
+
+        if ($verify) {
+            if (isset($verify->temp_block_time) && Carbon::parse($verify->temp_block_time)->DiffInSeconds() <= $tempBlockTime) {
+                $time = $tempBlockTime - Carbon::parse($verify->temp_block_time)->DiffInSeconds();
+
+                return response()->json(response_formatter([
+                    'response_code' => translate('auth_login_401'),
+                    'message' => translate('please_try_again_after_') . CarbonInterval::seconds($time)->cascade()->forHumans(),
+                ]), 403);
+            }
+
+            $verify->delete();
+
+            $user = $this->findProviderAdminByPhone($request['phone']);
+            if (! $user) {
+                return response()->json(response_formatter(AUTH_LOGIN_404), 404);
+            }
+
+            if ($blocked = $this->providerLoginEligibilityResponse($user)) {
+                return $blocked;
+            }
+
+            $user->is_phone_verified = 1;
+            $user->save();
+
+            return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, PROVIDER_PANEL_ACCESS)), 200);
+        }
+
+        return app(OTPVerificationController::class)->providerLoginOtpFailed($request);
+    }
+
+    private function findProviderAdminByPhone(string $phone): ?User
+    {
+        return $this->user->with('provider')
+            ->where('phone', $phone)
+            ->ofType(['provider-admin'])
+            ->first();
+    }
+
+    /**
+     * Shared provider login checks (password and OTP flows).
+     */
+    private function providerLoginEligibilityResponse(User $user): ?JsonResponse
+    {
+        $tempBlockTime = business_config('temporary_login_block_time', 'otp_login_setup')?->live_values ?? 600;
+
+        if ($user->is_temp_blocked) {
+            if (isset($user->temp_block_time) && Carbon::parse($user->temp_block_time)->DiffInSeconds() <= $tempBlockTime) {
+                $time = $tempBlockTime - Carbon::parse($user->temp_block_time)->DiffInSeconds();
+
+                return response()->json(response_formatter([
+                    'response_code' => 'auth_login_401',
+                    'message' => translate('Your account is temporarily blocked. Please_try_again_after_') . CarbonInterval::seconds($time)->cascade()->forHumans(),
+                ]), 401);
+            }
+
+            $user->login_hit_count = 0;
+            $user->is_temp_blocked = 0;
+            $user->temp_block_time = null;
+            $user->save();
+        }
+
+        if ($user->provider?->is_approved == '2') {
             return response()->json(response_formatter(PROVIDER_ACCOUNT_NOT_APPROVED), 401);
         }
 
-        if (!$user->is_active) {
-            self::updateUserHitCount($user);
+        if (! $user->is_active) {
             return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
         }
 
         if ($manualBlock = $this->resolveManualPerformanceBlockForProvider($user)) {
-            self::updateUserHitCount($user);
             return response()->json(response_formatter([
                 'response_code' => 'auth_login_401',
                 'message' => $manualBlock,
             ]), 401);
         }
 
-        if ($user){
-            $access = mobileAppCheck($user, 'mobile_app');
-            if (!$access){
-                return response()->json(response_formatter(SECTION_NOT_INCLUDE), 401);
-            }
+        $access = mobileAppCheck($user, 'mobile_app');
+        if (! $access) {
+            return response()->json(response_formatter(SECTION_NOT_INCLUDE), 401);
         }
 
         if (isset($user->temp_block_time) && Carbon::parse($user->temp_block_time)->DiffInSeconds() <= $tempBlockTime) {
             $time = $tempBlockTime - Carbon::parse($user->temp_block_time)->DiffInSeconds();
+
             return response()->json(response_formatter([
-                "response_code" => "auth_login_401",
-                "message" => translate('Try_again_after') . ' ' . CarbonInterval::seconds($time)->cascade()->forHumans()
+                'response_code' => 'auth_login_401',
+                'message' => translate('Try_again_after') . ' ' . CarbonInterval::seconds($time)->cascade()->forHumans(),
             ]), 401);
         }
 
-        return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, PROVIDER_PANEL_ACCESS)), 200);
+        return null;
     }
 
 
@@ -505,6 +617,29 @@ class LoginController extends Controller
 
         if ($existingUser) {
             if ($existingUser->phone === $request['phone']) {
+                if ($existingUser->user_type === 'provider-serviceman') {
+                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+                }
+
+                $existingUser = grant_customer_app_access_for_provider($existingUser);
+
+                if (user_can_use_customer_app($existingUser)) {
+                    $existingUser->first_name = $request->first_name;
+                    $existingUser->last_name = $request->last_name;
+                    if ($request['email']) {
+                        $existingUser->email = $request['email'];
+                    }
+                    $existingUser->is_email_verified = 1;
+                    $existingUser->is_active = 1;
+                    $existingUser->save();
+
+                    if ($request['guest_id']) {
+                        $this->updateAddressAndCartUser($existingUser->id, $request['guest_id']);
+                    }
+
+                    return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($existingUser, CUSTOMER_PANEL_ACCESS)), 200);
+                }
+
                 return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
             }
 

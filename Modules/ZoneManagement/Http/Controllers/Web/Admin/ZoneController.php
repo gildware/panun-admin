@@ -97,7 +97,7 @@ class ZoneController extends Controller
     {
         $parentZones = $this->zone->withoutGlobalScope('translate')
             ->orderBy('name')
-            ->get(['id', 'name', 'parent_id']);
+            ->get(['id', 'name', 'parent_id', 'description']);
 
         return Zone::flatTreeOptionsForSelect($parentZones);
     }
@@ -115,7 +115,7 @@ class ZoneController extends Controller
         $parentZones = $this->zone->withoutGlobalScope('translate')
             ->whereNotIn('id', $excludeIds)
             ->orderBy('name')
-            ->get(['id', 'name', 'parent_id']);
+            ->get(['id', 'name', 'parent_id', 'description']);
 
         return Zone::flatTreeOptionsForSelect($parentZones);
     }

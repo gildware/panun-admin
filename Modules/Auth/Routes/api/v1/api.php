@@ -16,6 +16,8 @@ Route::group(['prefix' => 'provider', 'as' => 'provider', 'namespace' => 'Api\V1
     Route::group(['prefix' => 'auth', 'as' => 'auth.'], function () {
         Route::post('registration', [RegisterController::class, 'providerRegister'])->name('registration');
         Route::post('login', [LoginController::class, 'providerLogin'])->name('login');
+        Route::post('send-login-otp', [LoginController::class, 'providerSendLoginOtp'])->name('send-login-otp');
+        Route::post('login-otp-verify', [LoginController::class, 'providerLoginOtpVerify'])->name('login-otp-verify');
     });
 });
 

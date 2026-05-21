@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CartModule\Entities\Cart;
+use Modules\CartModule\Entities\CartServiceInfo;
 use Modules\CartModule\Traits\AddedToCartTrait;
 use Modules\CartModule\Traits\CartTrait;
 use Modules\PromotionManagement\Entities\Coupon;
@@ -59,13 +60,16 @@ class CartController extends Controller
     public function addToCart(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'provider_id' => 'uuid',
+            'provider_id' => 'nullable|uuid',
             'service_id' => 'required|uuid',
             'category_id' => 'required|uuid',
             'sub_category_id' => 'required|uuid',
             'variant_key' => 'required',
             'quantity' => 'required|numeric|min:1|max:1000',
             'guest_id' => $this->isCustomerLoggedIn ? 'nullable' : 'required|uuid',
+            'zone_id' => 'nullable|uuid',
+            'service_address_id' => 'nullable|integer|exists:user_addresses,id',
+            'service_schedule' => 'nullable|date_format:Y-m-d H:i:s',
         ]);
 
         if ($validator->fails()) {
@@ -83,20 +87,36 @@ class CartController extends Controller
             }
         }
 
-        $variation = $this->variation
-            ->where(['zone_id' => Config::get('zone_id'), 'service_id' => $request['service_id']])
-            ->where(['variant_key' => $request['variant_key']])
-            ->first();
+        $zoneId = $request->filled('zone_id') ? $request['zone_id'] : Config::get('zone_id');
+        if (! $zoneId) {
+            return response()->json(response_formatter(ZONE_404), 401);
+        }
 
-        if (isset($variation)) {
+        $variation = Variation::firstForBookingZone(
+            (string) $request['service_id'],
+            (string) $request['variant_key'],
+            (string) $zoneId,
+            true
+        );
+
+        if ($variation !== null) {
             $service = $this->service->with(['category', 'subCategory'])->find($request['service_id']);
 
-            $checkCart = $this->cart->where([
-                'service_id' => $request['service_id'],
-                'variant_key' => $request['variant_key'],
-                'customer_id' => $customerUserId])->first();
-            $cart = $checkCart ?? $this->cart;
-            $quantity = $request['quantity'];
+            $normalizedSchedule = $request->filled('service_schedule')
+                ? date('Y-m-d H:i:s', strtotime($request['service_schedule']))
+                : null;
+
+            $existingCart = $this->findCartLineForBooking(
+                $customerUserId,
+                (string) $request['service_id'],
+                (string) $request['variant_key'],
+                (string) $zoneId,
+                $request->filled('service_address_id') ? (int) $request['service_address_id'] : null,
+                $normalizedSchedule
+            );
+
+            $cart = $existingCart ?? new Cart();
+            $quantity = (int) $request['quantity'];
 
             $basicDiscount = basic_discount_calculation($service, $variation->price * $quantity);
             $campaignDiscount = campaign_discount_calculation($service, $variation->price * $quantity);
@@ -125,6 +145,13 @@ class CartController extends Controller
             $cart->is_guest = !$this->isCustomerLoggedIn;
             $cart->tax_amount = round($tax, 2);
             $cart->total_cost = round($subtotal - $basicDiscount - $campaignDiscount + $tax, 2);
+            $cart->zone_id = $zoneId;
+            if ($request->filled('service_address_id')) {
+                $cart->service_address_id = $request['service_address_id'];
+            }
+            if ($normalizedSchedule !== null) {
+                $cart->service_schedule = $normalizedSchedule;
+            }
             $cart->save();
 
             if (!$this->isCustomerLoggedIn) {
@@ -157,72 +184,47 @@ class CartController extends Controller
         }
 
         $customerUserId = $this->customerUserId;
-        $cart = $this->cart
-            ->with(['customer', 'provider.owner', 'category', 'sub_category', 'service.category', 'service.subCategory'])
-            ->where(['customer_id' => $customerUserId])
-            ->latest()
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
-            ->withPath('');
+        $cartItems = $this->queryCustomerCart($customerUserId)->get();
 
-        $walletBalance = $this->user->find($customerUserId)?->wallet_balance ?? 0;
+        return response()->json(response_formatter(DEFAULT_200, $this->buildCartListContent($customerUserId, $cartItems)), 200);
+    }
 
-        $acComputed = compute_additional_charges_for_cart_items($cart);
-        $additionalCharge = $acComputed['total'];
-
-        foreach ($cart as $cartItem) {
-            if ($cartItem?->coupon_code && $cartItem?->coupon_id) {
-                $coupon = $this->coupon->where('id', $cartItem->coupon_id)->first();
-
-                $repeatCount = $this->booking->where('customer_id', $this->customerUserId)
-                    ->where('coupon_code', $coupon['coupon_code'])
-                    ->get()
-                    ->sum(function ($booking) use ($coupon) {
-                        $repeatCount = $booking->repeat()
-                            ->where('coupon_code', $coupon['coupon_code'])
-                            ->count();
-
-                        return $repeatCount > 0 ? $repeatCount : 1;
-                    });
-                $cartItem['used_count'] = $repeatCount;
-                $cartItem['remaining_uses'] = max(0, $coupon->discount->limit_per_user - $repeatCount);
-
-            }
-            if ($cartItem?->provider) {
-                $providerId = optional($cartItem->provider)->id;
-                $timeSchedule = provider_config('time_schedule', 'service_schedule', $providerId)->live_values ?? '';
-                $weekEnds = provider_config('weekends', 'service_schedule', $providerId)->live_values ?? '';
-                $weekEnds = json_decode($weekEnds);
-                $timeSchedule = json_decode($timeSchedule);
-                $serviceLocation = provider_config('service_location', 'provider_config', $providerId)->live_values ?? '';
-                $serviceLocations = json_decode($serviceLocation);
-                $cartItem->provider->weekends = $weekEnds ?? [];
-                $cartItem->provider->service_locations = $serviceLocations ?? [];
-                $cartItem->provider->time_schedule = $timeSchedule ?? null;
-                $cartItem->provider->nextBookingEligibility = nextBookingEligibility($providerId);
-                $cartItem->provider->scheduleBookingEligibility = scheduleBookingEligibility($providerId);
-
-            }
+    /**
+     * Store service address and schedule for the current cart session.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function updateOtherInfo(Request $request): JsonResponse
+    {
+        $payload = $request->all();
+        if ($this->isCustomerLoggedIn) {
+            unset($payload['guest_id']);
         }
 
-        $totalTax = $cart->sum('tax_amount');
-        $totalCost = $cart->sum('total_cost');
+        $validator = Validator::make($payload, [
+            'zone_id' => 'required|uuid',
+            'service_address_id' => 'required|integer|exists:user_addresses,id',
+            'service_schedule' => 'required|date_format:Y-m-d H:i:s',
+            'guest_id' => $this->isCustomerLoggedIn ? 'nullable' : 'required|uuid',
+        ]);
 
-        $referralAmount = $this->referralEarningEligiblityCheck($customerUserId, $totalCost - $totalTax);
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
 
-        $totalCost -= $referralAmount;
+        $customerUserId = $this->customerUserId;
 
-        $totalCost += $additionalCharge;
+        CartServiceInfo::updateOrCreate(
+            ['customer_id' => $customerUserId],
+            [
+                'zone_id' => $request['zone_id'],
+                'service_address_id' => $request['service_address_id'],
+                'service_schedule' => date('Y-m-d H:i:s', strtotime($request['service_schedule'])),
+            ]
+        );
 
-        return response()->json(response_formatter(DEFAULT_200, [
-            'total_cost' => $totalCost,
-            'referral_amount' => $referralAmount,
-            'wallet_balance' => with_decimal_point($walletBalance),
-            'additional_charges' => [
-                'total' => $additionalCharge,
-                'lines' => $acComputed['lines'],
-            ],
-            'cart' => $cart,
-        ]), 200);
+        return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }
 
     /**
@@ -245,49 +247,11 @@ class CartController extends Controller
         $this->updateCartQuantity($id, $request['quantity']);
 
         $customerUserId = $this->customerUserId;
-        $cart = $this->cart
-            ->with(['customer', 'provider.owner', 'category', 'sub_category', 'service.category', 'service.subCategory'])
-            ->where(['customer_id' => $customerUserId])
-            ->latest()
-            ->paginate(100, ['*'], 'offset', 1)
-            ->withPath('');
+        $cartItems = $this->queryCustomerCart($customerUserId)->get();
+        $content = $this->buildCartListContent($customerUserId, $cartItems);
+        unset($content['cart_service_info']);
 
-        foreach ($cart as $item) {
-            if ($item->provider) {
-                $providerId = $item->provider->id;
-                $timeSchedule = provider_config('time_schedule', 'service_schedule', $providerId)->live_values ?? '';
-                $weekEnds = provider_config('weekends', 'service_schedule', $providerId)->live_values ?? '';
-                $weekEnds = json_decode($weekEnds);
-                $timeSchedule = json_decode($timeSchedule);
-                $item->provider->weekends = $weekEnds ?? [];
-                $item->provider->time_schedule = $timeSchedule ?? null;
-                $item->provider->nextBookingEligibility = nextBookingEligibility($providerId);
-                $item->provider->scheduleBookingEligibility = scheduleBookingEligibility($providerId);
-            }
-        }
-
-        $acComputed = compute_additional_charges_for_cart_items($cart);
-        $additionalCharge = $acComputed['total'];
-        $totalCost = $cart->sum('total_cost');
-        $totalTax = $cart->sum('tax_amount');
-
-        $referralAmount = $this->referralEarningEligiblityCheck($customerUserId, $totalCost - $totalTax);
-
-        $totalCost -= $referralAmount;
-        $totalCost += $additionalCharge;
-
-        $walletBalance = $this->user->find($customerUserId)?->wallet_balance ?? 0;
-
-        return response()->json(response_formatter(DEFAULT_UPDATE_200, [
-            'total_cost' => $totalCost,
-            'referral_amount' => $referralAmount,
-            'wallet_balance' => with_decimal_point($walletBalance),
-            'additional_charges' => [
-                'total' => $additionalCharge,
-                'lines' => $acComputed['lines'],
-            ],
-            'cart' => $cart,
-        ]), 200);
+        return response()->json(response_formatter(DEFAULT_UPDATE_200, $content), 200);
     }
 
     /**
@@ -350,6 +314,7 @@ class CartController extends Controller
         $cart = $this->cart->where(['customer_id' => $this->customerUserId]);
         if ($cart->count() == 0) return response()->json(response_formatter(DEFAULT_204), 204);
         $cart->delete();
+        CartServiceInfo::where('customer_id', $this->customerUserId)->delete();
 
         return response()->json(response_formatter(DEFAULT_DELETE_200), 200);
     }
@@ -401,12 +366,17 @@ class CartController extends Controller
             if ($serviceData) {
                 $this->addedToCartUpdate($customerUserId, $detail->service_id, !$this->isCustomerLoggedIn);
 
-                $variation = $this->variation
-                    ->where(['zone_id' => Config::get('zone_id'), 'service_id' => $detail->service_id])
-                    ->where(['variant_key' => $detail->variant_key])
-                    ->first();
+                $zoneId = Config::get('zone_id');
+                $variation = $zoneId
+                    ? Variation::firstForBookingZone(
+                        (string) $detail->service_id,
+                        (string) $detail->variant_key,
+                        (string) $zoneId,
+                        true
+                    )
+                    : null;
 
-                if (isset($variation)) {
+                if ($variation !== null) {
                     DB::transaction(function () use ($detail, $customerUserId, $variation, $provider, $booking, $request) {
                         $service = $this->service->with(['category', 'subCategory'])->find($detail->service_id);
 
@@ -464,6 +434,103 @@ class CartController extends Controller
         return response()->json(response_formatter(DEFAULT_CART_STORE_200), 200);
     }
 
+    private function queryCustomerCart(string $customerUserId)
+    {
+        return $this->cart
+            ->with([
+                'customer',
+                'provider.owner',
+                'category',
+                'sub_category',
+                'service.category',
+                'service.subCategory',
+                'serviceAddress',
+            ])
+            ->where(['customer_id' => $customerUserId])
+            ->latest();
+    }
+
+    private function enrichCartItems(iterable $cartItems): void
+    {
+        foreach ($cartItems as $cartItem) {
+            if ($cartItem?->coupon_code && $cartItem?->coupon_id) {
+                $coupon = $this->coupon->where('id', $cartItem->coupon_id)->first();
+
+                $repeatCount = $this->booking->where('customer_id', $this->customerUserId)
+                    ->where('coupon_code', $coupon['coupon_code'])
+                    ->get()
+                    ->sum(function ($booking) use ($coupon) {
+                        $repeatCount = $booking->repeat()
+                            ->where('coupon_code', $coupon['coupon_code'])
+                            ->count();
+
+                        return $repeatCount > 0 ? $repeatCount : 1;
+                    });
+                $cartItem['used_count'] = $repeatCount;
+                $cartItem['remaining_uses'] = max(0, $coupon->discount->limit_per_user - $repeatCount);
+            }
+            if ($cartItem?->provider) {
+                $providerId = optional($cartItem->provider)->id;
+                $timeSchedule = provider_config('time_schedule', 'service_schedule', $providerId)->live_values ?? '';
+                $weekEnds = provider_config('weekends', 'service_schedule', $providerId)->live_values ?? '';
+                $weekEnds = json_decode($weekEnds);
+                $timeSchedule = json_decode($timeSchedule);
+                $serviceLocation = provider_config('service_location', 'provider_config', $providerId)->live_values ?? '';
+                $serviceLocations = json_decode($serviceLocation);
+                $cartItem->provider->weekends = $weekEnds ?? [];
+                $cartItem->provider->service_locations = $serviceLocations ?? [];
+                $cartItem->provider->time_schedule = $timeSchedule ?? null;
+                $cartItem->provider->nextBookingEligibility = nextBookingEligibility($providerId);
+                $cartItem->provider->scheduleBookingEligibility = scheduleBookingEligibility($providerId);
+            }
+
+            $service = $cartItem->service ?? null;
+            $basisExTax = max(0.0, (float) ($cartItem->total_cost ?? 0) - (float) ($cartItem->tax_amount ?? 0));
+            $itemAdditionalCharges = compute_additional_charges_for_service_basis($basisExTax, $service);
+            $cartItem['additional_charges'] = [
+                'total' => $itemAdditionalCharges['total'],
+                'lines' => $itemAdditionalCharges['lines'],
+            ];
+        }
+    }
+
+    private function buildCartListContent(string $customerUserId, $cartItems): array
+    {
+        $this->enrichCartItems($cartItems);
+
+        $walletBalance = $this->user->find($customerUserId)?->wallet_balance ?? 0;
+        $acComputed = compute_additional_charges_for_cart_items($cartItems);
+        $additionalCharge = $acComputed['total'];
+
+        $totalTax = collect($cartItems)->sum('tax_amount');
+        $totalCost = collect($cartItems)->sum('total_cost');
+
+        $referralAmount = $this->referralEarningEligiblityCheck($customerUserId, $totalCost - $totalTax);
+        $totalCost -= $referralAmount;
+        $totalCost += $additionalCharge;
+
+        $cartServiceInfo = CartServiceInfo::where('customer_id', $customerUserId)->first();
+        $itemCount = collect($cartItems)->count();
+
+        return [
+            'total_cost' => $totalCost,
+            'referral_amount' => $referralAmount,
+            'wallet_balance' => with_decimal_point($walletBalance),
+            'additional_charges' => [
+                'total' => $additionalCharge,
+                'lines' => $acComputed['lines'],
+            ],
+            'cart' => [
+                'current_page' => 1,
+                'data' => $cartItems,
+                'total' => $itemCount,
+                'per_page' => max($itemCount, 1),
+                'last_page' => 1,
+            ],
+            'cart_service_info' => $cartServiceInfo,
+        ];
+    }
+
     private function checkIfAllItemsInCart($details, $customerUserId): bool
     {
         foreach ($details as $detail) {
@@ -479,5 +546,38 @@ class CartController extends Controller
         }
 
         return true;
+    }
+
+    /**
+     * Match cart lines by service, variation, zone, address, and schedule (one booking per unique combination).
+     */
+    private function findCartLineForBooking(
+        string $customerUserId,
+        string $serviceId,
+        string $variantKey,
+        string $zoneId,
+        ?int $serviceAddressId,
+        ?string $serviceSchedule
+    ): ?Cart {
+        $query = $this->cart->where([
+            'service_id' => $serviceId,
+            'variant_key' => $variantKey,
+            'customer_id' => $customerUserId,
+            'zone_id' => $zoneId,
+        ]);
+
+        if ($serviceAddressId !== null) {
+            $query->where('service_address_id', $serviceAddressId);
+        } else {
+            $query->whereNull('service_address_id');
+        }
+
+        if ($serviceSchedule !== null) {
+            $query->where('service_schedule', $serviceSchedule);
+        } else {
+            $query->whereNull('service_schedule');
+        }
+
+        return $query->first();
     }
 }

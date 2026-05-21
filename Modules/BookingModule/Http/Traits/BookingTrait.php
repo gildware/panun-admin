@@ -55,6 +55,9 @@ trait BookingTrait
 
 
         $isPartials = $request['is_partial'] ? 1 : 0;
+        if (($request['payment_amount_type'] ?? 'full') === 'confirmation') {
+            $isPartials = 0;
+        }
         $customerWalletBalance = User::find($userId)?->wallet_balance;
         if ($isPartials && $isGuest && ($customerWalletBalance <= 0 || $customerWalletBalance >= $cartData->sum('total_cost'))) {
             return ['flag' => 'failed', 'message' => 'Invalid data'];
@@ -107,7 +110,10 @@ trait BookingTrait
                 $booking->sub_category_id = $subCategory;
                 $booking->zone_id = $zoneId;
                 $booking->booking_status = 'pending';
-                $booking->is_paid = $request['payment_method'] == 'cash_after_service' || $request['payment_method'] == 'offline_payment' ? 0 : 1;
+                $paymentAmountType = $request['payment_amount_type'] ?? 'full';
+                $booking->is_paid = ($paymentAmountType === 'confirmation')
+                    ? 0
+                    : ($request['payment_method'] == 'cash_after_service' || $request['payment_method'] == 'offline_payment' ? 0 : 1);
                 $booking->payment_method = $request['payment_method'];
                 $booking->transaction_id = $transactionId;
                 $booking->total_booking_amount = $totalBookingAmount - $extraFee;
@@ -199,17 +205,7 @@ trait BookingTrait
                 $statusHistory->booking_status = isset($booking->provider_id) ? 'accepted' : 'pending';
                 $statusHistory->save();
 
-                if ($booking->booking_partial_payments->isNotEmpty()) {
-                    if ($booking['payment_method'] == 'cash_after_service') {
-                        placeBookingTransactionForPartialCas($booking);  // waller + CAS payment
-                    } elseif ($booking['payment_method'] != 'wallet_payment') {
-                        placeBookingTransactionForPartialDigital($booking);  //wallet + digital payment
-                    }
-                } elseif ($booking['payment_method'] != 'cash_after_service' && $booking['payment_method'] != 'wallet_payment') {
-                    placeBookingTransactionForDigitalPayment($booking);  //digital payment
-                } elseif ($booking['payment_method'] != 'cash_after_service') {
-                    placeBookingTransactionForWalletPayment($booking);   //wallet payment
-                }
+                finalize_booking_checkout_transactions($booking, $cartData, $request, $totalBookingAmount);
 
                 //firebaseTopic
                 $bookingNotification = (int) (business_config('booking_notification', 'business_information'))?->live_values;

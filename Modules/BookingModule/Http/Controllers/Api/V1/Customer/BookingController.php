@@ -85,6 +85,7 @@ class BookingController extends Controller
             ] : '',
 
             'is_partial' => 'nullable|in:0,1',
+            'payment_amount_type' => 'nullable|in:confirmation,full',
             'service_location' => 'required|in:customer,provider',
             function ($attribute, $value, $fail) use ($serviceAtProviderPlace) {
                 if ($value == 'provider' && $serviceAtProviderPlace != 1) {
@@ -156,8 +157,38 @@ class BookingController extends Controller
             return response()->json(response_formatter(MINIMUM_BOOKING_AMOUNT_200), 200);
         }
 
+        if (!isset($request['post_id']) && require_booking_upfront_payment()) {
+            if ($request['payment_method'] === 'cash_after_service') {
+                return response()->json(response_formatter(DEFAULT_400, null, [
+                    ['error_code' => 'payment', 'message' => translate('Booking requires upfront payment. Please pay confirmation or full amount.')],
+                ]), 400);
+            }
+
+            $paymentAmountType = $request['payment_amount_type'] ?? '';
+            if (!in_array($paymentAmountType, ['confirmation', 'full'], true)) {
+                return response()->json(response_formatter(DEFAULT_400, null, [
+                    ['error_code' => 'payment_amount_type', 'message' => translate('Please select confirmation or full payment.')],
+                ]), 400);
+            }
+
+            $payAmount = resolve_checkout_payment_amount($customerUserId, $paymentAmountType);
+            if ($payAmount <= 0) {
+                return response()->json(response_formatter(DEFAULT_400, null, [
+                    ['error_code' => 'payment', 'message' => translate('Invalid payment amount.')],
+                ]), 400);
+            }
+        }
+
         if ($request['payment_method'] == 'wallet_payment') {
             if (!isset($request['post_id'])) {
+                $walletPayType = require_booking_upfront_payment()
+                    ? ($request['payment_amount_type'] ?? 'full')
+                    : 'full';
+                $walletRequired = resolve_checkout_payment_amount($customerUserId, $walletPayType);
+                $user = User::find($customerUserId);
+                if (isset($user) && $user->wallet_balance < $walletRequired) {
+                    return response()->json(response_formatter(INSUFFICIENT_WALLET_BALANCE_400), 400);
+                }
                 $response = $this->placeBookingRequest(userId: $customerUserId, request: $request, transactionId: 'wallet_payment', newUserInfo: $newUserInfo);
             } else {
                 $postBid = PostBid::with(['post.service.category', 'post.service.subCategory'])

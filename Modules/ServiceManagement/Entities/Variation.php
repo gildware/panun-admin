@@ -60,6 +60,14 @@ class Variation extends Model
     }
 
     /**
+     * Pricing/booking lookups must see all zone rows; the customer API global scope only applies to eager-loaded lists.
+     */
+    protected static function variantQuery(): Builder
+    {
+        return static::query()->withoutGlobalScopes();
+    }
+
+    /**
      * Stored per-variant flags on the service, or inferred for legacy rows (single price across zones => default pricing).
      *
      * @return array{use_zone_pricing: bool, default_price: float}
@@ -74,7 +82,7 @@ class Variation extends Model
             ];
         }
 
-        $prices = static::query()
+        $prices = static::variantQuery()
             ->where('service_id', $service->id)
             ->where('variant_key', $variantKey)
             ->pluck('price')
@@ -106,7 +114,7 @@ class Variation extends Model
      */
     public static function minPositivePriceAmongZones(string $serviceId, string $variantKey): float
     {
-        $v = static::query()
+        $v = static::variantQuery()
             ->where('service_id', $serviceId)
             ->where('variant_key', $variantKey)
             ->where('price', '>', 0)
@@ -137,13 +145,11 @@ class Variation extends Model
         string $variantKey,
         string $zoneId,
         float $price
-    ): ?self {
-        if (! $base) {
-            return null;
-        }
+    ): self {
+        $variantLabel = $base?->variant ?? ucwords(str_replace('-', ' ', $variantKey));
 
         return new Variation([
-            'variant' => $base->variant,
+            'variant' => $variantLabel,
             'variant_key' => $variantKey,
             'service_id' => $serviceId,
             'zone_id' => (string) $zoneId,
@@ -167,7 +173,7 @@ class Variation extends Model
 
         $config = static::variationPricingConfig($service, $variantKey);
 
-        $base = static::query()
+        $base = static::variantQuery()
             ->where('service_id', $serviceId)
             ->where('variant_key', $variantKey)
             ->first();
@@ -185,7 +191,7 @@ class Variation extends Model
 
         // 1) Prefer a positive-priced row for the booking zone (exact, then leaves).
         if ($zoneIds !== []) {
-            $hit = static::query()
+            $hit = static::variantQuery()
                 ->where('service_id', $serviceId)
                 ->where('variant_key', $variantKey)
                 ->whereIn('zone_id', $zoneIds)
@@ -205,7 +211,7 @@ class Variation extends Model
         }
 
         if ($requirePositivePrice) {
-            return static::query()
+            return static::variantQuery()
                 ->where('service_id', $serviceId)
                 ->where('variant_key', $variantKey)
                 ->where('price', '>', 0)
@@ -215,7 +221,7 @@ class Variation extends Model
 
         // Display / non-booking: prefer positive zone row; if zone row is 0, show default / min-positive instead of 0.
         if ($zoneIds !== []) {
-            $zoneRow = static::query()
+            $zoneRow = static::variantQuery()
                 ->where('service_id', $serviceId)
                 ->where('variant_key', $variantKey)
                 ->whereIn('zone_id', $zoneIds)
@@ -236,7 +242,7 @@ class Variation extends Model
             }
         }
 
-        return static::query()
+        return static::variantQuery()
             ->where('service_id', $serviceId)
             ->where('variant_key', $variantKey)
             ->orderBy('price')
@@ -255,7 +261,7 @@ class Variation extends Model
             return collect();
         }
 
-        $keys = static::query()
+        $keys = static::variantQuery()
             ->where('service_id', $serviceId)
             ->distinct()
             ->pluck('variant_key')
@@ -267,6 +273,50 @@ class Variation extends Model
             ->filter()
             ->sortBy('variant_key')
             ->values();
+    }
+
+    /**
+     * Customer-app payload: one row per variant for the booking zone (zone tree + default/fallback pricing).
+     *
+     * @return array{zone_id: string|null, default_price: float, zone_wise_variations: list<array{variant_key: string, variant_name: string, price: float}>}
+     */
+    public static function variationsAppFormatForCustomer(string $serviceId, ?string $zoneId = null): array
+    {
+        $zoneId = $zoneId ?? Config::get('zone_id');
+        $formatting = [
+            'zone_id' => $zoneId,
+            'default_price' => 0.0,
+            'zone_wise_variations' => [],
+        ];
+
+        if (! $zoneId) {
+            return $formatting;
+        }
+
+        $variantKeys = static::variantQuery()
+            ->where('service_id', $serviceId)
+            ->distinct()
+            ->pluck('variant_key')
+            ->filter();
+
+        foreach ($variantKeys as $variantKey) {
+            $variation = static::firstForBookingZone($serviceId, (string) $variantKey, (string) $zoneId, false);
+            if (! $variation) {
+                continue;
+            }
+
+            $formatting['zone_wise_variations'][] = [
+                'variant_key' => $variation->variant_key,
+                'variant_name' => $variation->variant,
+                'price' => (float) $variation->price,
+            ];
+        }
+
+        if ($formatting['zone_wise_variations'] !== []) {
+            $formatting['default_price'] = (float) $formatting['zone_wise_variations'][0]['price'];
+        }
+
+        return $formatting;
     }
 
     protected static function booted()

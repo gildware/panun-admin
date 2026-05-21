@@ -27,11 +27,12 @@ class WhatsAppGeminiSupportClient
         string $systemText,
         array $contents,
         array $functionDeclarations,
-        ?WhatsAppAiExecutionRecorder $recorder = null
+        ?WhatsAppAiExecutionRecorder $recorder = null,
+        ?string $modelOverride = null,
     ): array {
         $t0 = microtime(true);
         $withTools = $functionDeclarations !== [];
-        $turn = $this->generateTurnInternal($systemText, $contents, $functionDeclarations);
+        $turn = $this->generateTurnInternal($systemText, $contents, $functionDeclarations, $modelOverride);
         $ms = (int) round((microtime(true) - $t0) * 1000);
 
         if ($recorder !== null) {
@@ -96,10 +97,10 @@ class WhatsAppGeminiSupportClient
     /**
      * @return list<string>
      */
-    private function modelCandidates(): array
+    private function modelCandidates(?string $modelOverride = null): array
     {
         $primary = $this->normalizeGeminiModelId(
-            $this->runtimeResolver->geminiModel()
+            $modelOverride ?? $this->runtimeResolver->geminiModel()
         );
 
         $ordered = [];
@@ -139,7 +140,7 @@ class WhatsAppGeminiSupportClient
      * @param  list<array<string, mixed>>  $functionDeclarations
      * @return array{type: 'text', text: string}|array{type: 'function_calls', calls: list<array{name: string, args: array<string, mixed>}>}|array{type: 'blocked', reason: string}
      */
-    private function generateTurnInternal(string $systemText, array $contents, array $functionDeclarations): array
+    private function generateTurnInternal(string $systemText, array $contents, array $functionDeclarations, ?string $modelOverride = null): array
     {
         $key = (string) config('services.gemini.api_key');
         if ($key === '') {
@@ -170,7 +171,7 @@ class WhatsAppGeminiSupportClient
             ];
         }
 
-        $candidates = $this->modelCandidates();
+        $candidates = $this->modelCandidates($modelOverride);
         $last404Body = '';
 
         try {

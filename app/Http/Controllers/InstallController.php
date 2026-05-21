@@ -186,7 +186,7 @@ class InstallController extends Controller
             $adminEmail = '"' . $adminEmail . '"';
 
 
-            $output = 'APP_NAME=Demandium' . time() . '
+            $output = 'APP_NAME="Panun Kaergar"' . '
                     APP_ENV=live
                     APP_KEY=base64:' . $key . '
                     APP_DEBUG=false

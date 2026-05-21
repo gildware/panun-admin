@@ -3286,3 +3286,207 @@ if (!function_exists('ledger_record_out')) {
         return LedgerTransaction::create($data);
     }
 }
+
+if (!function_exists('booking_confirmation_amount_per_service')) {
+    function booking_confirmation_amount_per_service(): float
+    {
+        return max(0.0, (float) (business_config('booking_confirmation_amount_per_service', 'booking_setup')?->live_values ?? 100));
+    }
+}
+
+if (!function_exists('require_booking_upfront_payment')) {
+    function require_booking_upfront_payment(): bool
+    {
+        return (int) (business_config('require_booking_upfront_payment', 'booking_setup')?->live_values ?? 1) === 1;
+    }
+}
+
+if (!function_exists('booking_confirmation_units_for_cart')) {
+  /**
+   * Service units in cart (sum of line quantities).
+   */
+    function booking_confirmation_units_for_cart(string $customerUserId): int
+    {
+        return max(0, (int) \Modules\CartModule\Entities\Cart::query()
+            ->where('customer_id', $customerUserId)
+            ->sum('quantity'));
+    }
+}
+
+if (!function_exists('booking_confirmation_units_for_cart_items')) {
+    function booking_confirmation_units_for_cart_items(iterable $cartItems): int
+    {
+        $units = 0;
+        foreach ($cartItems as $item) {
+            $units += max(0, (int) ($item->quantity ?? 0));
+        }
+
+        return $units;
+    }
+}
+
+if (!function_exists('booking_confirmation_amount_for_customer')) {
+    function booking_confirmation_amount_for_customer(string $customerUserId): float
+    {
+        $units = booking_confirmation_units_for_cart($customerUserId);
+        if ($units <= 0) {
+            return 0.0;
+        }
+
+        return round(booking_confirmation_amount_per_service() * $units, 2);
+    }
+}
+
+if (!function_exists('booking_full_checkout_amount_for_customer')) {
+    function booking_full_checkout_amount_for_customer(string $customerUserId): float
+    {
+        return round((float) cart_total($customerUserId) + (float) getServiceFee($customerUserId), 2);
+    }
+}
+
+if (!function_exists('resolve_checkout_payment_amount')) {
+    /**
+     * @param  string  $paymentAmountType  confirmation|full
+     */
+    function resolve_checkout_payment_amount(string $customerUserId, string $paymentAmountType): float
+    {
+        $full = booking_full_checkout_amount_for_customer($customerUserId);
+        if ($paymentAmountType === 'confirmation') {
+            return min($full, booking_confirmation_amount_for_customer($customerUserId));
+        }
+
+        return $full;
+    }
+}
+
+if (!function_exists('map_booking_payment_paid_with')) {
+    function map_booking_payment_paid_with(string $paymentMethod): string
+    {
+        return match ($paymentMethod) {
+            'wallet_payment' => 'wallet',
+            'offline_payment' => 'offline',
+            default => 'digital',
+        };
+    }
+}
+
+if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
+    /**
+     * Record customer advance (booking confirmation) payment — not the full booking total.
+     */
+    function placeBookingTransactionForAdvanceDeposit($booking, float $paidAmount, string $paymentMethod): void
+    {
+        $paidAmount = round(max(0.0, $paidAmount), 2);
+        if ($paidAmount <= 0) {
+            return;
+        }
+
+        $adminUserId = \Modules\UserManagement\Entities\User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
+
+        DB::transaction(function () use ($booking, $paidAmount, $paymentMethod, $adminUserId) {
+            $account = \Modules\TransactionModule\Entities\Account::where('user_id', $adminUserId)->first();
+            $account->balance_pending += $paidAmount;
+            $account->save();
+
+            Transaction::create([
+                'ref_trx_id' => null,
+                'booking_id' => $booking->id,
+                'trx_type' => TRX_TYPE['booking_amount'],
+                'company_flow' => Transaction::FLOW_IN,
+                'debit' => 0,
+                'credit' => $paidAmount,
+                'balance' => $account->balance_pending,
+                'from_user_id' => $booking->customer_id,
+                'to_user_id' => $adminUserId,
+                'from_user_account' => null,
+                'to_user_account' => ACCOUNT_STATES[0]['value'],
+                'is_guest' => $booking->is_guest,
+            ]);
+
+            if ($paymentMethod === 'wallet_payment') {
+                $user = \Modules\UserManagement\Entities\User::find($booking->customer_id);
+                if ($user && $user->wallet_balance >= $paidAmount) {
+                    $user->wallet_balance -= $paidAmount;
+                    $user->save();
+                }
+
+                Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $booking->id,
+                    'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
+                    'company_flow' => Transaction::FLOW_NONE,
+                    'debit' => $paidAmount,
+                    'credit' => 0,
+                    'balance' => $user?->wallet_balance ?? 0,
+                    'from_user_id' => $booking->customer_id,
+                    'to_user_id' => $booking->customer_id,
+                    'from_user_account' => null,
+                    'to_user_account' => 'user_wallet',
+                    'is_guest' => $booking->is_guest,
+                ]);
+            }
+
+            ledger_record_in([
+                'amount' => $paidAmount,
+                'transaction_id' => $booking->transaction_id ?? null,
+                'booking_id' => $booking->id,
+                'payment_method' => $paymentMethod === 'wallet_payment' ? 'wallet_payment' : ($paymentMethod === 'offline_payment' ? 'offline_payment' : 'digital_payment'),
+                'date' => now()->toDateString(),
+                'received_by' => LedgerTransaction::RECEIVED_BY_COMPANY,
+            ]);
+        });
+    }
+}
+
+if (!function_exists('record_booking_advance_checkout_payment')) {
+    /**
+     * After booking create: store advance partial row + ledger when customer paid confirmation only.
+     */
+    function record_booking_advance_checkout_payment($booking, iterable $cartItems, $request, float $totalBookingAmount): void
+    {
+        $units = booking_confirmation_units_for_cart_items($cartItems);
+        $advancePaid = round(min($totalBookingAmount, booking_confirmation_amount_per_service() * max(1, $units)), 2);
+        $dueAmount = round(max(0.0, $totalBookingAmount - $advancePaid), 2);
+
+        $paidWith = map_booking_payment_paid_with((string) $request['payment_method']);
+
+        BookingPartialPayment::create([
+            'booking_id' => $booking->id,
+            'paid_with' => $paidWith,
+            'paid_amount' => $advancePaid,
+            'due_amount' => $dueAmount,
+            'received_by' => 'company',
+        ]);
+
+        placeBookingTransactionForAdvanceDeposit($booking, $advancePaid, (string) $request['payment_method']);
+    }
+}
+
+if (!function_exists('finalize_booking_checkout_transactions')) {
+    function finalize_booking_checkout_transactions($booking, iterable $cartItems, $request, float $totalBookingAmount): void
+    {
+        $paymentAmountType = $request['payment_amount_type'] ?? 'full';
+
+        if ($paymentAmountType === 'confirmation') {
+            record_booking_advance_checkout_payment($booking, $cartItems, $request, $totalBookingAmount);
+
+            return;
+        }
+
+        if ($booking->booking_partial_payments->isNotEmpty()) {
+            if ($booking['payment_method'] == 'cash_after_service') {
+                placeBookingTransactionForPartialCas($booking);
+            } elseif ($booking['payment_method'] != 'wallet_payment') {
+                placeBookingTransactionForPartialDigital($booking);
+            }
+
+            return;
+        }
+
+        if ($booking['payment_method'] != 'cash_after_service' && $booking['payment_method'] != 'wallet_payment') {
+            placeBookingTransactionForDigitalPayment($booking);
+        } elseif ($booking['payment_method'] != 'cash_after_service') {
+            placeBookingTransactionForWalletPayment($booking);
+        }
+    }
+}

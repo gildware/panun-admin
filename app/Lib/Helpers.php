@@ -17,6 +17,31 @@ use Modules\UserManagement\Entities\User;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Http\UploadedFile;
 
+if (!function_exists('use_dummy_login_otp')) {
+    /**
+     * When true, login OTP is a fixed code (default 123456) for customer/provider apps.
+     */
+    function use_dummy_login_otp(): bool
+    {
+        if (filter_var(config('app.use_dummy_otp', false), FILTER_VALIDATE_BOOLEAN)) {
+            return true;
+        }
+
+        return env('APP_ENV') !== 'live';
+    }
+}
+
+if (!function_exists('generate_login_otp')) {
+    function generate_login_otp(): string
+    {
+        if (use_dummy_login_otp()) {
+            return (string) config('app.dummy_login_otp', '123456');
+        }
+
+        return (string) rand(100000, 999999);
+    }
+}
+
 if (!function_exists('translate')) {
     function translate($key)
     {
@@ -371,6 +396,152 @@ if (!function_exists('get_add_money_bonus')) {
         }
 
         return $bonuses->max('applied_bonus_amount') ?? 0;
+    }
+}
+
+if (!function_exists('build_google_route_matrix_waypoint')) {
+    function build_google_route_matrix_waypoint(float $latitude, float $longitude): array
+    {
+        return [
+            'waypoint' => [
+                'location' => [
+                    'latLng' => [
+                        'latitude' => $latitude,
+                        'longitude' => $longitude,
+                    ],
+                ],
+            ],
+        ];
+    }
+}
+
+if (!function_exists('compute_google_route_matrix_distances_km')) {
+    /**
+     * Driving distances (km) from one origin to many destinations via Google Routes API.
+     * Falls back to haversine when the API key is missing or the request fails.
+     *
+     * @param array<int, array{latitude: float, longitude: float}> $destinations
+     * @return array<int, float|null> Distances in km, same order as $destinations
+     */
+    function compute_google_route_matrix_distances_km(float $originLat, float $originLng, array $destinations): array
+    {
+        $count = count($destinations);
+        if ($count === 0) {
+            return [];
+        }
+
+        $fallback = static function () use ($originLat, $originLng, $destinations): array {
+            return array_map(static function (array $destination) use ($originLat, $originLng) {
+                return round(get_distance(
+                    [$originLat, $originLng],
+                    [$destination['latitude'], $destination['longitude']]
+                ), 2);
+            }, $destinations);
+        };
+
+        $googleMap = business_config('google_map', 'third_party');
+        $apiKey = $googleMap?->live_values['map_api_key_server'] ?? null;
+        if (!$apiKey) {
+            return $fallback();
+        }
+
+        $url = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
+        $headers = [
+            'Content-Type' => 'application/json',
+            'X-Goog-Api-Key' => $apiKey,
+            'X-Goog-FieldMask' => 'originIndex,destinationIndex,distanceMeters,status,condition',
+        ];
+
+        $results = array_fill(0, $count, null);
+        $chunkSize = 25;
+
+        foreach (array_chunk($destinations, $chunkSize, true) as $chunk) {
+            $chunkKeys = array_keys($chunk);
+            $destWaypoints = [];
+            foreach ($chunk as $destination) {
+                $destWaypoints[] = build_google_route_matrix_waypoint(
+                    (float) $destination['latitude'],
+                    (float) $destination['longitude']
+                );
+            }
+
+            $payload = [
+                'origins' => [build_google_route_matrix_waypoint($originLat, $originLng)],
+                'destinations' => $destWaypoints,
+                'travelMode' => 'DRIVE',
+                'routingPreference' => 'TRAFFIC_AWARE',
+            ];
+
+            try {
+                $response = \Illuminate\Support\Facades\Http::withHeaders($headers)
+                    ->timeout(15)
+                    ->post($url, $payload);
+
+                if (!$response->successful()) {
+                    foreach ($chunkKeys as $globalIndex) {
+                        $destination = $destinations[$globalIndex];
+                        $results[$globalIndex] = round(get_distance(
+                            [$originLat, $originLng],
+                            [$destination['latitude'], $destination['longitude']]
+                        ), 2);
+                    }
+                    continue;
+                }
+
+                $body = $response->json();
+                if (!is_array($body)) {
+                    foreach ($chunkKeys as $globalIndex) {
+                        $destination = $destinations[$globalIndex];
+                        $results[$globalIndex] = round(get_distance(
+                            [$originLat, $originLng],
+                            [$destination['latitude'], $destination['longitude']]
+                        ), 2);
+                    }
+                    continue;
+                }
+
+                foreach ($body as $element) {
+                    if (!is_array($element)) {
+                        continue;
+                    }
+                    $destinationIndex = $element['destinationIndex'] ?? null;
+                    if ($destinationIndex === null || !isset($chunkKeys[$destinationIndex])) {
+                        continue;
+                    }
+                    $globalIndex = $chunkKeys[$destinationIndex];
+                    $meters = $element['distanceMeters'] ?? null;
+                    if ($meters === null) {
+                        $destination = $destinations[$globalIndex];
+                        $results[$globalIndex] = round(get_distance(
+                            [$originLat, $originLng],
+                            [$destination['latitude'], $destination['longitude']]
+                        ), 2);
+                        continue;
+                    }
+                    $results[$globalIndex] = round(((float) $meters) / 1000, 2);
+                }
+
+                foreach ($chunkKeys as $localIndex => $globalIndex) {
+                    if ($results[$globalIndex] === null) {
+                        $destination = $destinations[$globalIndex];
+                        $results[$globalIndex] = round(get_distance(
+                            [$originLat, $originLng],
+                            [$destination['latitude'], $destination['longitude']]
+                        ), 2);
+                    }
+                }
+            } catch (\Throwable) {
+                foreach ($chunkKeys as $globalIndex) {
+                    $destination = $destinations[$globalIndex];
+                    $results[$globalIndex] = round(get_distance(
+                        [$originLat, $originLng],
+                        [$destination['latitude'], $destination['longitude']]
+                    ), 2);
+                }
+            }
+        }
+
+        return $results;
     }
 }
 
@@ -1934,6 +2105,21 @@ if (!function_exists('user_can_use_customer_app')) {
         }
 
         return $user->user_type === 'provider-admin' && (bool) $user->customer_app_access;
+    }
+}
+
+if (!function_exists('grant_customer_app_access_for_provider')) {
+    /**
+     * Allow a provider-admin to use the customer app with the same phone (dual role).
+     */
+    function grant_customer_app_access_for_provider(User $user): User
+    {
+        if ($user->user_type === 'provider-admin' && ! $user->customer_app_access) {
+            $user->customer_app_access = true;
+            $user->save();
+        }
+
+        return $user->fresh() ?? $user;
     }
 }
 

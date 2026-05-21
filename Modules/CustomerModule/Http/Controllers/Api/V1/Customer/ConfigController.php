@@ -18,6 +18,7 @@ use Modules\BusinessSettingsModule\Entities\LoginSetup;
 use Modules\PaymentModule\Entities\Setting;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
+use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneGeometryService;
 
@@ -114,6 +115,13 @@ class ConfigController extends Controller
             $count = 1;
         }
 
+        if (use_dummy_login_otp()) {
+            $firebaseOtpStatus = 0;
+            if ($count < 1) {
+                $count = 1;
+            }
+        }
+
         $forgotPasswordVerificationMethod = [
             'phone' => $count,
             'email' => $emailConfig
@@ -172,6 +180,8 @@ class ConfigController extends Controller
             'otp_resend_time' => (int)(business_config('otp_resend_time', 'otp_login_setup'))?->live_values ?? null,
             'max_booking_amount' => (float)(business_config('max_booking_amount', 'booking_setup'))?->live_values ?? null,
             'min_booking_amount' => (float)(business_config('min_booking_amount', 'booking_setup'))?->live_values ?? null,
+            'require_booking_upfront_payment' => require_booking_upfront_payment() ? 1 : 0,
+            'booking_confirmation_amount_per_service' => booking_confirmation_amount_per_service(),
             'guest_checkout' => (int)(business_config('guest_checkout', 'service_setup'))?->live_values ?? null,
             'partial_payment' => (int)(business_config('partial_payment', 'service_setup'))?->live_values ?? null,
             'additional_charge_types' => \Modules\BusinessSettingsModule\Entities\AdditionalChargeType::query()
@@ -208,6 +218,9 @@ class ConfigController extends Controller
             }),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
+            'map_api_key_client' => $this->googleMap?->live_values['map_api_key_client'] ?? '',
+            'mobile_app_home' => app(MobileAppManagementService::class)->homeSectionsForApi(),
+            'mobile_app_icons' => app(MobileAppManagementService::class)->iconsForApi()['customer'] ?? [],
         ]), 200);
     }
 
@@ -280,21 +293,27 @@ class ConfigController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        $searchText = $request->input('search_text');
+        $apiKey = $this->googleMap->live_values['map_api_key_server'] ?? '';
+
         $url = 'https://places.googleapis.com/v1/places:autocomplete';
-
-        $data = [
-            'input' => $request->input('search_text'),
-        ];
-
         $headers = [
             'Content-Type' => 'application/json',
-            'X-Goog-Api-Key' => $this->googleMap->live_values['map_api_key_server'],
-            'X-Goog-FieldMask' => '*'
+            'X-Goog-Api-Key' => $apiKey,
+            'X-Goog-FieldMask' => '*',
         ];
 
-        $response = Http::withHeaders($headers)->post($url, $data);
+        $response = Http::withHeaders($headers)->post($url, ['input' => $searchText]);
+        $payload = $response->json();
 
-        return response()->json(response_formatter(DEFAULT_200, $response->json()), 200);
+        if ($response->successful() && empty($payload['error']) && !empty($payload['suggestions'])) {
+            return response()->json(response_formatter(DEFAULT_200, $payload), 200);
+        }
+
+        return response()->json(
+            response_formatter(DEFAULT_200, $this->legacyPlaceAutocomplete($searchText, $apiKey)),
+            200
+        );
     }
 
     public function distanceApi(Request $request): JsonResponse
@@ -362,17 +381,27 @@ class ConfigController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $url = 'https://places.googleapis.com/v1/places/'.  $request['placeid'];
+        $placeId = $request['placeid'];
+        $apiKey = $this->googleMap->live_values['map_api_key_server'] ?? '';
 
+        $url = 'https://places.googleapis.com/v1/places/' . $placeId;
         $headers = [
             'Content-Type' => 'application/json',
-            'X-Goog-Api-Key' => $this->googleMap->live_values['map_api_key_server'],
-            'X-Goog-FieldMask' => '*'
+            'X-Goog-Api-Key' => $apiKey,
+            'X-Goog-FieldMask' => '*',
         ];
 
         $response = Http::withHeaders($headers)->get($url);
+        $payload = $response->json();
 
-        return response()->json(response_formatter(DEFAULT_200, $response->json()), 200);
+        if ($response->successful() && empty($payload['error']) && !empty($payload['location'])) {
+            return response()->json(response_formatter(DEFAULT_200, $payload), 200);
+        }
+
+        return response()->json(
+            response_formatter(DEFAULT_200, $this->legacyPlaceDetails($placeId, $apiKey)),
+            200
+        );
     }
 
     public function geocodeApi(Request $request): JsonResponse
@@ -389,6 +418,66 @@ class ConfigController extends Controller
         return response()->json(response_formatter(DEFAULT_200, $response->json()), 200);
     }
 
+    /**
+     * Legacy Places Autocomplete (maps.googleapis.com) — used when Places API (New) is unavailable.
+     */
+    private function legacyPlaceAutocomplete(string $searchText, string $apiKey): array
+    {
+        $response = Http::get($this->googleMapBaseApi . '/place/autocomplete/json', [
+            'input' => $searchText,
+            'key' => $apiKey,
+        ]);
+
+        $body = $response->json();
+        $suggestions = [];
+
+        foreach ($body['predictions'] ?? [] as $prediction) {
+            $suggestions[] = [
+                'placePrediction' => [
+                    'placeId' => $prediction['place_id'] ?? '',
+                    'text' => [
+                        'text' => $prediction['description'] ?? '',
+                    ],
+                ],
+            ];
+        }
+
+        return ['suggestions' => $suggestions];
+    }
+
+    /**
+     * Legacy Place Details — normalized to the shape expected by mobile apps.
+     */
+    private function legacyPlaceDetails(string $placeId, string $apiKey): array
+    {
+        $response = Http::get($this->googleMapBaseApi . '/place/details/json', [
+            'place_id' => $placeId,
+            'key' => $apiKey,
+            'fields' => 'geometry,formatted_address,address_component',
+        ]);
+
+        $result = $response->json()['result'] ?? [];
+        $location = $result['geometry']['location'] ?? [];
+
+        $addressComponents = [];
+        foreach ($result['address_components'] ?? [] as $component) {
+            $addressComponents[] = [
+                'long_name' => $component['long_name'] ?? '',
+                'short_name' => $component['short_name'] ?? '',
+                'types' => $component['types'] ?? [],
+            ];
+        }
+
+        return [
+            'location' => [
+                'latitude' => $location['lat'] ?? 0,
+                'longitude' => $location['lng'] ?? 0,
+            ],
+            'formattedAddress' => $result['formatted_address'] ?? '',
+            'address_components' => $addressComponents,
+        ];
+    }
+
     private function getPaymentMethods(): array
     {
         // Check if the addon_settings table exists
@@ -396,7 +485,10 @@ class ConfigController extends Controller
             return [];
         }
 
-        $methods = DB::table('addon_settings')->where('settings_type', 'payment_config')->get();
+        $methods = DB::table('addon_settings')
+            ->where('settings_type', 'payment_config')
+            ->where('is_active', 1)
+            ->get();
         $env = env('APP_ENV') == 'live' ? 'live' : 'test';
         $credentials = $env . '_values';
 
@@ -405,11 +497,12 @@ class ConfigController extends Controller
             $gateway_image = getPaymentGatewayImageFullPath(key: $method->key_name, settingsType: $method->settings_type, defaultPath: null);
             $credentialsData = json_decode($method->$credentials);
             $additional_data = json_decode($method->additional_data);
-            if ($credentialsData->status == 1) {
+            if ($credentialsData && (int) ($credentialsData->status ?? 0) === 1) {
                 $data[] = [
                     'gateway' => $method->key_name,
                     'gateway_image_full_path' => $gateway_image,
                     'gateway_title' => $additional_data->gateway_title,
+                    'is_active' => 1,
                 ];
             }
         }

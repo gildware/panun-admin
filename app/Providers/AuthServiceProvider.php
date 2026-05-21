@@ -401,6 +401,30 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('ai_configuration_manage_status', fn () => $this->checkAccess('ai_configuration', 'can_manage_status'));
         Gate::define('ai_configuration_approve_or_deny', fn () => $this->checkAccess('ai_configuration', 'can_approve_or_deny'));
 
+        Gate::define('mobile_app_ai_view', fn () => $this->checkAccess('mobile_app_ai', 'can_view') || $this->checkAccess('ai_configuration', 'can_view'));
+        Gate::define('mobile_app_ai_add', fn () => $this->checkAccess('mobile_app_ai', 'can_add') || $this->checkAccess('ai_configuration', 'can_add'));
+        Gate::define('mobile_app_ai_update', fn () => $this->checkAccess('mobile_app_ai', 'can_update') || $this->checkAccess('ai_configuration', 'can_update'));
+        Gate::define('mobile_app_ai_delete', fn () => $this->checkAccess('mobile_app_ai', 'can_delete'));
+        Gate::define('mobile_app_ai_export', fn () => $this->checkAccess('mobile_app_ai', 'can_export'));
+        Gate::define('mobile_app_ai_manage_status', fn () => $this->checkAccess('mobile_app_ai', 'can_manage_status'));
+        Gate::define('mobile_app_ai_approve_or_deny', fn () => $this->checkAccess('mobile_app_ai', 'can_approve_or_deny'));
+
+        Gate::define('mobile_app_home_page_view', fn () => $this->checkAccess('mobile_app_home_page', 'can_view'));
+        Gate::define('mobile_app_home_page_add', fn () => $this->checkAccess('mobile_app_home_page', 'can_add'));
+        Gate::define('mobile_app_home_page_update', fn () => $this->checkAccess('mobile_app_home_page', 'can_update'));
+        Gate::define('mobile_app_home_page_delete', fn () => $this->checkAccess('mobile_app_home_page', 'can_delete'));
+        Gate::define('mobile_app_home_page_export', fn () => $this->checkAccess('mobile_app_home_page', 'can_export'));
+        Gate::define('mobile_app_home_page_manage_status', fn () => $this->checkAccess('mobile_app_home_page', 'can_manage_status'));
+        Gate::define('mobile_app_home_page_approve_or_deny', fn () => $this->checkAccess('mobile_app_home_page', 'can_approve_or_deny'));
+
+        Gate::define('mobile_app_icons_view', fn () => $this->checkAccess('mobile_app_icons', 'can_view'));
+        Gate::define('mobile_app_icons_add', fn () => $this->checkAccess('mobile_app_icons', 'can_add'));
+        Gate::define('mobile_app_icons_update', fn () => $this->checkAccess('mobile_app_icons', 'can_update'));
+        Gate::define('mobile_app_icons_delete', fn () => $this->checkAccess('mobile_app_icons', 'can_delete'));
+        Gate::define('mobile_app_icons_export', fn () => $this->checkAccess('mobile_app_icons', 'can_export'));
+        Gate::define('mobile_app_icons_manage_status', fn () => $this->checkAccess('mobile_app_icons', 'can_manage_status'));
+        Gate::define('mobile_app_icons_approve_or_deny', fn () => $this->checkAccess('mobile_app_icons', 'can_approve_or_deny'));
+
         Gate::define('configuration_view', fn () => $this->checkAccess('configuration', 'can_view'));
         Gate::define('configuration_add', fn () => $this->checkAccess('configuration', 'can_add'));
         Gate::define('configuration_update', fn () => $this->checkAccess('configuration', 'can_update'));

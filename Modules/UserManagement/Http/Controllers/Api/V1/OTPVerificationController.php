@@ -70,7 +70,7 @@ class OTPVerificationController extends Controller
             $count++;
         }
 
-        if ($request['identity_type'] == 'phone' && $count < 1){
+        if ($request['identity_type'] == 'phone' && $count < 1 && ! use_dummy_login_otp()) {
             return response()->json(response_formatter(SMS_GATEWAY_NOT_ACTIVE_400), 400);
         }
 
@@ -86,7 +86,7 @@ class OTPVerificationController extends Controller
             ]), 401);
         }
 
-        $otp = env('APP_ENV') != 'live' ? '123456' : rand(100000, 999999);
+        $otp = generate_login_otp();
         $this->userVerification->updateOrCreate([
                 'identity' => $request['identity'],
                 'identity_type'=> $request['identity_type']
@@ -100,7 +100,9 @@ class OTPVerificationController extends Controller
         ]);
 
         //send otp
-        if ($request['identity_type'] == 'phone') {
+        if (use_dummy_login_otp()) {
+            $response = 'success';
+        } elseif ($request['identity_type'] == 'phone') {
             $publishedStatus = 0;
             $paymentPublishedStatus = config('get_payment_publish_status');
             if (isset($paymentPublishedStatus[0]['is_published'])) {
@@ -203,27 +205,23 @@ class OTPVerificationController extends Controller
                 }
 
                 if($verificationData->is_temp_blocked == 1 && Carbon::parse($verificationData->updated_at)->DiffInSeconds() >= $maxOtpHitTime){
-
-                    $userVerify =  $this->userVerification->where(['identity' => $request['identity']])->first();
-                    if (!isset($userVerify)) {
-                        $userVerify =  $this->userVerification;
+                    $userVerify = $this->findUserVerification($request['identity']);
+                    if ($userVerify) {
+                        $userVerify->hit_count = 0;
+                        $userVerify->is_temp_blocked = 0;
+                        $userVerify->temp_block_time = null;
+                        $userVerify->save();
                     }
-                    $userVerify->hit_count = 0;
-                    $userVerify->is_temp_blocked = 0;
-                    $userVerify->temp_block_time = null;
-                    $userVerify->save();
                 }
 
 
                 if($verificationData->hit_count >= $maxOtpHit &&  Carbon::parse($verificationData->updated_at)->DiffInSeconds() < $maxOtpHitTime &&  $verificationData->is_temp_blocked == 0){
-
-                    $userVerify =  $this->userVerification->where(['identity' => $request['identity']])->first();
-                    if (!isset($userVerify)) {
-                        $userVerify =  $this->userVerification;
+                    $userVerify = $this->findUserVerification($request['identity']);
+                    if ($userVerify) {
+                        $userVerify->is_temp_blocked = 1;
+                        $userVerify->temp_block_time = now();
+                        $userVerify->save();
                     }
-                    $userVerify->is_temp_blocked = 1;
-                    $userVerify->temp_block_time = now();
-                    $userVerify->save();
 
                     $time= $tempBlockTime - Carbon::parse($verificationData->temp_block_time)->DiffInSeconds();
                     return response()->json(response_formatter([
@@ -234,13 +232,7 @@ class OTPVerificationController extends Controller
 
             }
 
-            $userVerify =  $this->userVerification->where(['identity' => $request['identity']])->first();
-            if (!isset($userVerify)) {
-                $userVerify =  $this->userVerification;
-            }
-            $userVerify->hit_count += 1;
-            $userVerify->temp_block_time = null;
-            $userVerify->save();
+            $this->incrementOtpHitCount($request['identity']);
         }
 
         return response()->json(response_formatter(OTP_VERIFICATION_FAIL_403), 403);
@@ -279,7 +271,13 @@ class OTPVerificationController extends Controller
 
             $isUserExist = $this->user->where('phone', $request['phone'])->first();
             if ($isUserExist) {
-                if ($isUserExist->user_type === 'provider-serviceman' || ($isUserExist->user_type === 'provider-admin' && ! user_can_use_customer_app($isUserExist))) {
+                if ($isUserExist->user_type === 'provider-serviceman') {
+                    return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+                }
+
+                $isUserExist = grant_customer_app_access_for_provider($isUserExist);
+
+                if (! user_can_use_customer_app($isUserExist)) {
                     return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
                 }
 
@@ -309,27 +307,23 @@ class OTPVerificationController extends Controller
                 }
 
                 if($verificationData->is_temp_blocked == 1 && Carbon::parse($verificationData->updated_at)->DiffInSeconds() >= $maxOtpHitTime){
-
-                    $userVerify =  $this->userVerification->where('identity', $request['phone'])->first();
-                    if (!isset($userVerify)) {
-                        $userVerify =  $this->userVerification;
+                    $userVerify = $this->findUserVerification($request['phone']);
+                    if ($userVerify) {
+                        $userVerify->hit_count = 0;
+                        $userVerify->is_temp_blocked = 0;
+                        $userVerify->temp_block_time = null;
+                        $userVerify->save();
                     }
-                    $userVerify->hit_count = 0;
-                    $userVerify->is_temp_blocked = 0;
-                    $userVerify->temp_block_time = null;
-                    $userVerify->save();
                 }
 
 
                 if($verificationData->hit_count >= $maxOtpHit &&  Carbon::parse($verificationData->updated_at)->DiffInSeconds() < $maxOtpHitTime &&  $verificationData->is_temp_blocked == 0){
-
-                    $userVerify =  $this->userVerification->where('identity' , $request['phone'])->first();
-                    if (!isset($userVerify)) {
-                        $userVerify =  $this->userVerification;
+                    $userVerify = $this->findUserVerification($request['phone']);
+                    if ($userVerify) {
+                        $userVerify->is_temp_blocked = 1;
+                        $userVerify->temp_block_time = now();
+                        $userVerify->save();
                     }
-                    $userVerify->is_temp_blocked = 1;
-                    $userVerify->temp_block_time = now();
-                    $userVerify->save();
 
                     $time= $tempBlockTime - Carbon::parse($verificationData->temp_block_time)->DiffInSeconds();
                     return response()->json(response_formatter([
@@ -339,14 +333,61 @@ class OTPVerificationController extends Controller
                 }
 
             }
-            $userVerify =  $this->userVerification->where(['identity' => $request['phone']])->first();
-            if (!isset($userVerify)) {
-                $userVerify =  $this->userVerification;
-            }
-            $userVerify->hit_count += 1;
-            $userVerify->temp_block_time = null;
-            $userVerify->save();
+            $this->incrementOtpHitCount($request['phone']);
         }
+
+        return response()->json(response_formatter(OTP_VERIFICATION_FAIL_403), 403);
+    }
+
+    /**
+     * Record a failed provider login OTP attempt and return the standard failure response.
+     */
+    public function providerLoginOtpFailed(Request $request): JsonResponse
+    {
+        $maxOtpHit = business_config('maximum_otp_hit', 'otp_login_setup')->test_values ?? 5;
+        $maxOtpHitTime = business_config('otp_resend_time', 'otp_login_setup')->test_values ?? 60;
+        $tempBlockTime = business_config('temporary_otp_block_time', 'otp_login_setup')->test_values ?? 600;
+
+        $verificationData = $this->userVerification->where('identity', $request['phone'])->first();
+
+        if (isset($verificationData)) {
+            if (isset($verificationData->temp_block_time) && Carbon::parse($verificationData->temp_block_time)->DiffInSeconds() <= $tempBlockTime) {
+                $time = $tempBlockTime - Carbon::parse($verificationData->temp_block_time)->DiffInSeconds();
+
+                return response()->json(response_formatter([
+                    'response_code' => translate('auth_login_401'),
+                    'message' => translate('please_try_again_after_') . CarbonInterval::seconds($time)->cascade()->forHumans(),
+                ]), 403);
+            }
+
+            if ($verificationData->is_temp_blocked == 1 && Carbon::parse($verificationData->updated_at)->DiffInSeconds() >= $maxOtpHitTime) {
+                $userVerify = $this->findUserVerification($request['phone']);
+                if ($userVerify) {
+                    $userVerify->hit_count = 0;
+                    $userVerify->is_temp_blocked = 0;
+                    $userVerify->temp_block_time = null;
+                    $userVerify->save();
+                }
+            }
+
+            if ($verificationData->hit_count >= $maxOtpHit && Carbon::parse($verificationData->updated_at)->DiffInSeconds() < $maxOtpHitTime && $verificationData->is_temp_blocked == 0) {
+                $userVerify = $this->findUserVerification($request['phone']);
+                if ($userVerify) {
+                    $userVerify->is_temp_blocked = 1;
+                    $userVerify->temp_block_time = now();
+                    $userVerify->save();
+                }
+
+                $time = $tempBlockTime - Carbon::parse($verificationData->temp_block_time)->DiffInSeconds();
+
+                return response()->json(response_formatter([
+                    'response_code' => translate('auth_login_401'),
+                    'message' => translate('Too_many_attempts. please_try_again_after_') . CarbonInterval::seconds($time)->cascade()->forHumans(),
+                ]), 403);
+            }
+        }
+
+        $this->incrementOtpHitCount($request['phone']);
 
         return response()->json(response_formatter(OTP_VERIFICATION_FAIL_403), 403);
     }
@@ -362,6 +403,44 @@ class OTPVerificationController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $existingUser = $this->user->where('phone', $request['phone'])->first();
+        if ($existingUser) {
+            if ($existingUser->user_type === 'provider-serviceman') {
+                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+            }
+
+            $existingUser = grant_customer_app_access_for_provider($existingUser);
+
+            if (! user_can_use_customer_app($existingUser)) {
+                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+            }
+
+            if ($request['email']) {
+                $emailTaken = $this->user->where('email', $request['email'])
+                    ->where('id', '!=', $existingUser->id)
+                    ->exists();
+                if ($emailTaken) {
+                    return response()->json(response_formatter(ALREADY_USE_EMAIL_ANOTHER_ACCOUNT), 403);
+                }
+            }
+
+            $existingUser->first_name = $request->first_name;
+            $existingUser->last_name = $request->last_name;
+            if ($request['email']) {
+                $existingUser->email = $request['email'];
+            }
+            $existingUser->language_code = $request->header('X-localization') ?? 'en';
+            $existingUser->is_phone_verified = 1;
+            $existingUser->is_active = 1;
+            $existingUser->save();
+
+            if ($request['guest_id']) {
+                $this->updateAddressAndCartUser($existingUser->id, $request['guest_id']);
+            }
+
+            return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($existingUser, CUSTOMER_PANEL_ACCESS)), 200);
         }
 
         if ($request['email']){
@@ -381,6 +460,7 @@ class OTPVerificationController extends Controller
             'language_code' => $request->header('X-localization') ?? 'en',
             'is_phone_verified' => 1,
             'is_active' => 1,
+            'customer_app_access' => true,
         ]);
 
         if ($request['guest_id']){
@@ -425,18 +505,20 @@ class OTPVerificationController extends Controller
         }
 
         if (isset($user)) {
-            $requestedType = $request->user_type;
-            $typeOk = ($user->user_type === $requestedType)
-                || ($requestedType === 'customer' && user_can_use_customer_app($user));
-
-            if ($typeOk) {
-                $user->is_phone_verified = 1;
-                $user->save();
-
-                return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, CUSTOMER_PANEL_ACCESS)), 200);
+            if ($user->user_type === 'provider-serviceman') {
+                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
             }
 
-            return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+            $user = grant_customer_app_access_for_provider($user);
+
+            if (! user_can_use_customer_app($user)) {
+                return response()->json(response_formatter(ALREADY_USE_NUMBER_ANOTHER_ACCOUNT), 403);
+            }
+
+            $user->is_phone_verified = 1;
+            $user->save();
+
+            return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, CUSTOMER_PANEL_ACCESS)), 200);
         }
 
         $tempToken = Str::random(120);
@@ -446,6 +528,23 @@ class OTPVerificationController extends Controller
     protected function authenticate($user, $access_type): array
     {
         return ['token' => $user->createToken($access_type)->accessToken, 'is_active' => $user['is_active']];
+    }
+
+    private function findUserVerification(string $identity): ?UserVerification
+    {
+        return $this->userVerification->where('identity', $identity)->first();
+    }
+
+    private function incrementOtpHitCount(string $identity): void
+    {
+        $userVerify = $this->findUserVerification($identity);
+        if (!$userVerify) {
+            return;
+        }
+
+        $userVerify->hit_count = ($userVerify->hit_count ?? 0) + 1;
+        $userVerify->temp_block_time = null;
+        $userVerify->save();
     }
 
     /**

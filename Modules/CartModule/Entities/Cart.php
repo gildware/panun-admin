@@ -11,6 +11,7 @@ use Modules\PromotionManagement\Entities\Coupon;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
+use Modules\UserManagement\Entities\UserAddress;
 
 class Cart extends Model
 {
@@ -26,6 +27,7 @@ class Cart extends Model
         'tax_amount' => 'float',
         'total_cost' => 'float',
         'referral_discount' => 'float',
+        'service_schedule' => 'datetime',
     ];
 
     protected $fillable = [];
@@ -57,5 +59,10 @@ class Cart extends Model
     public function service(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Service::class, 'service_id');
+    }
+
+    public function serviceAddress(): BelongsTo
+    {
+        return $this->belongsTo(UserAddress::class, 'service_address_id');
     }
 }

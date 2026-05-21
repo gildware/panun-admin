@@ -56,10 +56,20 @@ class Zone extends Model
     }
 
     /**
+     * Plain-text option label (name only; description is shown on a second line via Select2).
+     */
+    public static function selectOptionLabel(self $zone, string $prefix = ''): string
+    {
+        $name = trim((string) ($zone->name ?? ''));
+
+        return $prefix.($name !== '' ? $name : '—');
+    }
+
+    /**
      * Build ordered rows for a single HTML select: roots first, then depth-first children with indented labels.
      *
      * @param  Collection<int, self>  $zones
-     * @return array<int, array{id: string, label: string}>
+     * @return array<int, array{id: string, label: string, prefix: string, name: string, description: string}>
      */
     public static function flatTreeOptionsForSelect(Collection $zones): array
     {
@@ -93,7 +103,10 @@ class Zone extends Model
                 : '';
             $out[] = [
                 'id' => $zone->id,
-                'label' => $prefix.($zone->name ?? ''),
+                'prefix' => $prefix,
+                'name' => trim((string) ($zone->name ?? '')),
+                'description' => trim((string) ($zone->description ?? '')),
+                'label' => static::selectOptionLabel($zone, $prefix),
             ];
             $kids = $childrenByParent->get($zone->id, collect())->sortBy($sortName);
             foreach ($kids as $child) {

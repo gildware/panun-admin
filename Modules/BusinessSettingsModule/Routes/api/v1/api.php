@@ -6,7 +6,26 @@ use Modules\BusinessSettingsModule\Http\Controllers\Api\V1\Admin\BusinessInforma
 use Modules\BusinessSettingsModule\Http\Controllers\Api\V1\Provider\BusinessInformationController as ProviderBusinessInformationController;
 use Modules\BusinessSettingsModule\Http\Controllers\Api\V1\Provider\ConfigurationController;
 use Modules\BusinessSettingsModule\Http\Controllers\Api\V1\Provider\SubscriptionPackageController;
+use Modules\BusinessSettingsModule\Http\Controllers\Api\V1\Customer\MobileAppAiChatController;
+use Modules\BusinessSettingsModule\Http\Controllers\Api\V1\Customer\MobileAppHomeController;
 
+
+Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer'], function () {
+    Route::group(['prefix' => 'mobile-app-home'], function () {
+        Route::get('section/{key}/services', [MobileAppHomeController::class, 'sectionServices']);
+        Route::get('section/{key}/providers', [MobileAppHomeController::class, 'sectionProviders']);
+        Route::get('section/{key}/banners', [MobileAppHomeController::class, 'sectionBanners']);
+        Route::get('section/{key}/categories', [MobileAppHomeController::class, 'sectionCategories']);
+    });
+});
+
+Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer', 'middleware' => ['auth:api']], function () {
+    Route::group(['prefix' => 'ai-chat', 'as' => 'ai-chat.'], function () {
+        Route::get('conversation', [MobileAppAiChatController::class, 'conversation']);
+        Route::post('send', [MobileAppAiChatController::class, 'send']);
+        Route::post('clear', [MobileAppAiChatController::class, 'clear']);
+    });
+});
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'business-settings'], function () {
