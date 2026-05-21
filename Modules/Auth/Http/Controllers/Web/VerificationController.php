@@ -71,7 +71,7 @@ class VerificationController extends Controller
             return view('auth::verification.send-otp', compact('user'));
         }
 
-        $otp = env('APP_ENV') != 'live' ? '123456' : rand(100000, 999999);
+        $otp = generate_login_otp();
 
         $response = 'error';
         if ($request['identity_type'] == 'phone') {

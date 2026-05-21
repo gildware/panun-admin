@@ -69,7 +69,133 @@ We may release future updates so it will overwrite this file. it's better and sa
             .siblings("ul")
             .addClass("open")
             .show();
+
+        var $active = highlightAdminSidebarMenu();
+        scrollActiveAdminMenuIntoView($active);
     });
+
+    function getActiveAdminMenuLink($nav) {
+        if (!$nav || !$nav.length) {
+            return $();
+        }
+
+        var $subActive = $nav.find("ul.sub-menu a.active-menu").last();
+        if ($subActive.length) {
+            return $subActive;
+        }
+
+        return $nav.find("a.active-menu").not('[href="#"]').last();
+    }
+
+    function highlightAdminSidebarMenu() {
+        var $nav = $(".aside .aside-body .nav");
+        if (!$nav.length) {
+            return $();
+        }
+
+        $nav.find("a.active-menu").each(function () {
+            $(this).closest("li").addClass("active");
+        });
+
+        var $active = getActiveAdminMenuLink($nav);
+        if ($active.length) {
+            return $active;
+        }
+
+        var path = window.location.pathname.replace(/\/+$/, "") || "/";
+        var search = window.location.search;
+        var $best = null;
+        var bestScore = -1;
+
+        $nav.find("a[href]").each(function () {
+            var href = $(this).attr("href");
+            if (!href || href === "#") {
+                return;
+            }
+
+            var link;
+            try {
+                link = new URL(href, window.location.origin);
+            } catch (e) {
+                return;
+            }
+
+            var linkPath = link.pathname.replace(/\/+$/, "") || "/";
+            var score = -1;
+
+            if (link.search) {
+                if (path === linkPath && search === link.search) {
+                    score = linkPath.length + 1000;
+                }
+            } else if (path === linkPath) {
+                score = linkPath.length + 1000;
+            } else if (
+                linkPath.length > 1 &&
+                path.indexOf(linkPath + "/") === 0
+            ) {
+                score = linkPath.length;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                $best = $(this);
+            }
+        });
+
+        if (!$best) {
+            return $();
+        }
+
+        $best.addClass("active-menu").closest("li").addClass("active");
+        $best.parents(".has-sub-item").addClass("sub-menu-opened");
+        $best.parents(".has-sub-item").children("ul").addClass("open").show();
+
+        return $best;
+    }
+
+    function scrollActiveAdminMenuIntoView($active) {
+        var $container = $(".aside .aside-body");
+        var $nav = $container.find(".nav").first();
+
+        if (!$active || !$active.length) {
+            $active = getActiveAdminMenuLink($nav);
+        }
+
+        if (!$active.length || !$container.length) {
+            return;
+        }
+
+        var runScroll = function () {
+            var containerEl = $container[0];
+            var activeEl = $active[0];
+            var padding = 24;
+            var scrollTop =
+                $active.offset().top -
+                $container.offset().top +
+                $container.scrollTop() -
+                padding;
+
+            var maxScroll = containerEl.scrollHeight - containerEl.clientHeight;
+            scrollTop = Math.max(0, Math.min(scrollTop, maxScroll));
+
+            $container.scrollTop(scrollTop);
+
+            var ps = $container.data("ps");
+            if (ps && typeof ps.update === "function") {
+                ps.update();
+            }
+
+            if (containerEl.classList.length) {
+                localStorage.setItem(
+                    "ps." + containerEl.classList[0],
+                    scrollTop
+                );
+            }
+        };
+
+        setTimeout(runScroll, 50);
+        setTimeout(runScroll, 300);
+    }
 
     /* window resize trigger aide function */
     $(window).resize(function () {
@@ -188,13 +314,21 @@ We may release future updates so it will overwrite this file. it's better and sa
     if ($scrollBar.length) {
         $scrollBar.each(function () {
             var $ps, $pos;
+            var $el = $(this);
 
             $ps = new PerfectScrollbar(this);
+            $el.data("ps", $ps);
 
-            $pos = localStorage.getItem("ps." + this.classList[0]);
+            var isAsideMenu = $el.closest(".aside-body").length > 0;
+            var hasActiveMenu =
+                $(".aside .aside-body .nav a.active-menu").length > 0;
 
-            if ($pos !== null) {
-                $ps.element.scrollTop = $pos;
+            if (!isAsideMenu || !hasActiveMenu) {
+                $pos = localStorage.getItem("ps." + this.classList[0]);
+
+                if ($pos !== null) {
+                    $ps.element.scrollTop = parseInt($pos, 10) || 0;
+                }
             }
         });
 

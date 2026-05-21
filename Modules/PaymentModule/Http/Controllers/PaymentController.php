@@ -77,6 +77,7 @@ class PaymentController extends Controller
                 'post_id' => 'nullable|uuid',
                 'provider_id' => 'nullable|uuid',
                 'is_partial' => 'nullable:in:0,1',
+                'payment_amount_type' => 'nullable|in:confirmation,full',
                 'payment_platform' => 'nullable|in:web,app',
                 'service_location' => 'required|in:customer,provider',
                 function ($attribute, $value, $fail) use ($serviceAtProviderPlace) {
@@ -323,7 +324,23 @@ class PaymentController extends Controller
 
         $total_booking_amount = $this->find_total_Booking_amount($customer_user_id, $request['post_id'], $request['provider_id']);
         $customer_wallet_balance = User::find($customer_user_id)?->wallet_balance;
-        $amount_to_pay = $request['is_partial'] ? ($total_booking_amount - $customer_wallet_balance) : $total_booking_amount;
+
+        if (!isset($request['post_id']) && require_booking_upfront_payment()) {
+            if (($request['payment_amount_type'] ?? '') === '') {
+                if ($request->has('callback')) {
+                    return redirect($request['callback'] . '?flag=fail');
+                }
+
+                return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Please select confirmation or full payment.')]]), 400);
+            }
+        }
+
+        $paymentAmountType = $request['payment_amount_type'] ?? 'full';
+        if (!isset($request['post_id']) && require_booking_upfront_payment()) {
+            $amount_to_pay = resolve_checkout_payment_amount($customer_user_id, $paymentAmountType);
+        } else {
+            $amount_to_pay = $request['is_partial'] ? ($total_booking_amount - $customer_wallet_balance) : $total_booking_amount;
+        }
 
         //partial validation
         if (!$is_guest && $request['is_partial'] && ($customer_wallet_balance <= 0 || $customer_wallet_balance >= $total_booking_amount)) {

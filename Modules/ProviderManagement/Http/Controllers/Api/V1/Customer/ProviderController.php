@@ -272,7 +272,45 @@ class ProviderController extends Controller
                 ->where('provider_id', $provider->id)
                 ->exists() ? 1 : 0;
 
+            $providerId = $provider->id;
+            $timeSchedule = provider_config('time_schedule', 'service_schedule', $providerId)->live_values ?? '';
+            $weekEnds = provider_config('weekends', 'service_schedule', $providerId)->live_values ?? '';
+            $provider->weekends = json_decode($weekEnds) ?? [];
+            $provider->time_schedule = json_decode($timeSchedule);
+            $provider->nextBookingEligibility = nextBookingEligibility($providerId);
+            $provider->scheduleBookingEligibility = scheduleBookingEligibility($providerId);
+
             $eligibleProviders[] = $provider;
+        }
+
+        if ($request->filled(['origin_latitude', 'origin_longitude'])) {
+            $originLat = (float) $request['origin_latitude'];
+            $originLng = (float) $request['origin_longitude'];
+
+            $destinations = [];
+            $providerDestinationIndex = [];
+
+            foreach ($eligibleProviders as $providerIndex => $provider) {
+                $coordinates = $provider->coordinates;
+                if (empty($coordinates['latitude']) || empty($coordinates['longitude'])) {
+                    continue;
+                }
+
+                $destinations[] = [
+                    'latitude' => (float) $coordinates['latitude'],
+                    'longitude' => (float) $coordinates['longitude'],
+                ];
+                $providerDestinationIndex[$providerIndex] = count($destinations) - 1;
+            }
+
+            if (!empty($destinations)) {
+                $distancesKm = compute_google_route_matrix_distances_km($originLat, $originLng, $destinations);
+
+                foreach ($providerDestinationIndex as $providerIndex => $destinationIndex) {
+                    $distanceKm = $distancesKm[$destinationIndex] ?? null;
+                    $eligibleProviders[$providerIndex]['distance'] = $distanceKm;
+                }
+            }
         }
 
         return response()->json(response_formatter(DEFAULT_200, $eligibleProviders), 200);
@@ -289,18 +327,7 @@ class ProviderController extends Controller
 
     private function variationsAppFormat($service): array
     {
-        $formatting = [];
-        $filtered = $service['variations']->where('zone_id', Config::get('zone_id'));
-        $formatting['zone_id'] = Config::get('zone_id');
-        $formatting['default_price'] = $filtered->first() ? $filtered->first()->price : 0;
-        foreach ($filtered as $data) {
-            $formatting['zone_wise_variations'][] = [
-                'variant_key' => $data['variant_key'],
-                'variant_name' => $data['variant'],
-                'price' => $data['price']
-            ];
-        }
-        return $formatting;
+        return Variation::variationsAppFormatForCustomer((string) $service->id);
     }
 
     public function getAvailableProvider(Request $request): \Illuminate\Http\JsonResponse

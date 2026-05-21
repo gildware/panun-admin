@@ -60,7 +60,7 @@ class PasswordResetController extends Controller
             ]), 401);
         }
 
-        $otp = env('APP_ENV') != 'live' ? '123456' : rand(100000, 999999);
+        $otp = generate_login_otp();
         $this->userVerification->updateOrCreate([
             'identity' => $request['identity'],
             'identity_type' => $request['identity_type']
@@ -74,7 +74,9 @@ class PasswordResetController extends Controller
 
         $response = 'error';
         //send otp
-        if ($request['identity_type'] == 'phone') {
+        if (use_dummy_login_otp()) {
+            $response = 'success';
+        } elseif ($request['identity_type'] == 'phone') {
             $phonePermission = isNotificationActive(null, 'verification', 'sms', 'user');
             if ($phonePermission) {
                 $publishedStatus = 0;

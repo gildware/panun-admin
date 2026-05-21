@@ -43,6 +43,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Dummy OTP (development / testing)
+    |--------------------------------------------------------------------------
+    |
+    | When USE_DUMMY_OTP is true, login OTP is always 123456 and apps use
+    | backend verification instead of Firebase SMS.
+    |
+    */
+
+    'use_dummy_otp' => filter_var(env('USE_DUMMY_OTP', false), FILTER_VALIDATE_BOOLEAN),
+
+    'dummy_login_otp' => env('DUMMY_LOGIN_OTP', '123456'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

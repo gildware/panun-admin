@@ -809,7 +809,7 @@ class BookingController extends Controller
      */
     protected function buildBookingCreateView(Request $request, string $view, ?array $reopenNewBookingDraft = null): Factory|View|Application
     {
-        $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id')->get();
+        $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id', 'description')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
@@ -1914,15 +1914,6 @@ class BookingController extends Controller
             $statusHistory->booking_id = $booking->id;
             $statusHistory->booking_status = 'accepted';
             $statusHistory->save();
-
-            if ($booking->requiresMandatoryNextFollowup()) {
-                app(BookingFollowupService::class)->schedule(
-                    $booking,
-                    $data['service_schedule'],
-                    'customer',
-                    translate('Follow_up_scheduled_on_booking_creation')
-                );
-            }
 
             if ($reopenSourceId && $reopenDraft) {
                 $sourceBooking = Booking::query()->whereKey($reopenSourceId)->lockForUpdate()->first();

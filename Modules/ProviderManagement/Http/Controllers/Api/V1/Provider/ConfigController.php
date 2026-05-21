@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Modules\BusinessSettingsModule\Entities\BusinessPageSetting;
+use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
+use Modules\BusinessSettingsModule\Entities\LoginSetup;
 use Modules\PaymentModule\Entities\Setting;
 use Modules\UserManagement\Entities\User;
 use Grimzy\LaravelMysqlSpatial\Types\Point;
@@ -84,6 +86,9 @@ class ConfigController extends Controller
             $country[$key] = $item;
         }
 
+        $loginOptionsValue = LoginSetup::where(['key' => 'login_options'])?->first()?->value;
+        $loginOptions = json_decode($loginOptionsValue);
+
         $freeTrialType = ((business_config('free_trial_type', 'subscription_Setting'))->live_values ?? null);
         $freeTrialPeriod = (int)((business_config('free_trial_period', 'subscription_Setting'))->live_values ?? 0);
 
@@ -105,6 +110,13 @@ class ConfigController extends Controller
 
         if ($firebaseOtpStatus == 1){
             $count = 1;
+        }
+
+        if (use_dummy_login_otp()) {
+            $firebaseOtpStatus = 0;
+            if ($count < 1) {
+                $count = 1;
+            }
         }
 
         $forgotPasswordVerificationMethod = [
@@ -165,6 +177,9 @@ class ConfigController extends Controller
             'digital_payment' => (int)((business_config('digital_payment', 'service_setup'))->live_values ?? 0),
             'phone_verification' => (((login_setup('phone_verification'))->value ?? 0 ) == 1 && $count == 1 ? 1 : 0),
             'email_verification' => (int)((login_setup('email_verification'))->value ?? 0),
+            'login_setup' => [
+                'login_option' => $loginOptions,
+            ],
             'otp_resend_time' => (int)(business_config('otp_resend_time', 'otp_login_setup'))?->live_values ?? null,
             'booking_otp_verification' => (int)(business_config('booking_otp', 'booking_setup'))->live_values ?? null,
             'service_complete_photo_evidence' => (int)(business_config('service_complete_photo_evidence', 'booking_setup'))?->live_values ?? null,
@@ -196,6 +211,7 @@ class ConfigController extends Controller
             'serviceman_can_edit_booking' => (int)((business_config('serviceman_can_edit_booking', 'serviceman_config'))->live_values ?? 0 ),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
+            'mobile_app_icons' => app(MobileAppManagementService::class)->iconsForApi()['provider'] ?? [],
         ]), 200);
     }
 
@@ -212,7 +228,10 @@ class ConfigController extends Controller
             return [];
         }
 
-        $methods = DB::table('addon_settings')->where('settings_type', 'payment_config')->get();
+        $methods = DB::table('addon_settings')
+            ->where('settings_type', 'payment_config')
+            ->where('is_active', 1)
+            ->get();
         $env = env('APP_ENV') == 'live' ? 'live' : 'test';
         $credentials = $env . '_values';
 
@@ -221,11 +240,12 @@ class ConfigController extends Controller
             $gateway_image = getPaymentGatewayImageFullPath(key: $method->key_name, settingsType: $method->settings_type, defaultPath: null);
             $credentialsData = json_decode($method->$credentials);
             $additionalData = json_decode($method->additional_data);
-            if ($credentialsData->status == 1) {
+            if ($credentialsData && (int) ($credentialsData->status ?? 0) === 1) {
                 $data[] = [
                     'gateway' => $method->key_name,
                     'gateway_image_full_path' => $gateway_image,
                     'gateway_title' => $additionalData->gateway_title,
+                    'is_active' => 1,
                 ];
             }
         }

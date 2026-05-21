@@ -214,7 +214,7 @@
                     `Active Subscribers`
                 ],
                 series: [inactiveSubscribers, activeSubscribers],
-                colors: ["#4153B3", "#F3C278"],
+                colors: ["#25274D", "#F3C278"],
                 chart: {
                     width: 425,
                     height: 250,
@@ -257,7 +257,7 @@
 
 
         function barChart(categories, chartData) {
-            const colors = ["#4153B3"];
+            const colors = ["#25274D"];
             const options2 = {
                 series: [{
                     name: '{{ translate('total') }}',

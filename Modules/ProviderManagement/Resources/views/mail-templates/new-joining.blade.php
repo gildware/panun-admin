@@ -106,7 +106,7 @@
         }
 
         .btn--primary {
-            background-color: #4153b3;
+            background-color: #25274d;
             color: #fff !important;
         }
 

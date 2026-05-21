@@ -57,7 +57,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     @can('lead_view')
                         <li>
                             <a href="{{ route('admin.lead.index') }}"
-                               class="{{ request()->is('admin/lead') && !request()->is('admin/lead/create') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') ? 'active-menu' : '' }}">
+                               class="{{ (request()->is('admin/lead') || request()->is('admin/lead/*')) && !request()->is('admin/lead/create*') && !request()->is('admin/lead/configuration*') && !request()->is('admin/lead/reports*') && !request()->is('admin/lead/outbound-enquiry*') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Leads') }}</span>
                             </a>
                         </li>
@@ -226,7 +226,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </li>
                         <li>
                             <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
-                               class="{{ request()->is('admin/booking/list') && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') ? 'active-menu' : '' }}">
+                               class="{{ (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Booking_Requests') }}
                                     <span class="count">{{ $all_bookings_menu_count }}</span>
                                 </span>
@@ -331,7 +331,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 @can('transaction_view')
                     <li>
                         <a href="{{ route('admin.transaction.list', ['trx_type' => 'all']) }}"
-                           class="{{ request()->is('admin/transaction/list') ? 'active-menu' : '' }}">
+                           class="{{ request()->is('admin/transaction/list*') ? 'active-menu' : '' }}">
                             <span class="material-icons" title="Customers">article</span>
                             <span class="link-title">{{ translate('All Transactions') }}</span>
                         </a>
@@ -340,7 +340,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 @can('ledger_view')
                     <li>
                         <a href="{{ route('admin.ledger.index') }}"
-                           class="{{ request()->is('admin/ledger') ? 'active-menu' : '' }}">
+                           class="{{ request()->is('admin/ledger*') ? 'active-menu' : '' }}">
                             <span class="material-icons" title="{{ translate('Ledger') }}">book</span>
                             <span class="link-title">{{ translate('Ledger') }}</span>
                         </a>
@@ -571,7 +571,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         @can('provider_view')
                             <li>
                                 <a href="{{route('admin.provider.list', ['status'=>'all'])}}"
-                                   class="{{(request()->is('admin/provider/list'))?'active-menu':''}}">{{translate('Provider_List')}}</a>
+                                   class="{{(request()->is('admin/provider/list') || request()->is('admin/provider/details*') || request()->is('admin/provider/edit*') || request()->is('admin/provider/collect-cash*'))?'active-menu':''}}">{{translate('Provider_List')}}</a>
                             </li>
                         @endcan
                         @can('provider_add')
@@ -666,7 +666,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         @can('service_view')
                             <li>
                                 <a href="{{route('admin.service.index')}}"
-                                   class="{{request()->is('admin/service/list')?'active-menu':''}}">
+                                   class="{{request()->is('admin/service/list*') || request()->is('admin/service/edit*') || request()->is('admin/service/details*')?'active-menu':''}}">
                                     {{translate('service_list')}}
                                 </a>
                             </li>
@@ -691,6 +691,39 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
 
+            @canany(['mobile_app_ai_view', 'mobile_app_home_page_view', 'mobile_app_icons_view', 'ai_configuration_view'])
+                <li class="nav-category" title="{{ translate('mobile_app_management') }}">
+                    {{ translate('mobile_app_management') }}
+                </li>
+            @endcanany
+            @canany(['mobile_app_ai_view', 'ai_configuration_view'])
+                <li>
+                    <a href="{{ route('admin.mobile-app-management.ai') }}"
+                       class="{{ request()->is('admin/mobile-app-management/ai*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('AI') }}">smart_toy</span>
+                        <span class="link-title">{{ translate('AI') }}</span>
+                    </a>
+                </li>
+            @endcanany
+            @can('mobile_app_home_page_view')
+                <li>
+                    <a href="{{ route('admin.mobile-app-management.home-page') }}"
+                       class="{{ request()->is('admin/mobile-app-management/home-page*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Home_Page') }}">home</span>
+                        <span class="link-title">{{ translate('Home_Page') }}</span>
+                    </a>
+                </li>
+            @endcan
+            @can('mobile_app_icons_view')
+                <li>
+                    <a href="{{ route('admin.mobile-app-management.icons') }}"
+                       class="{{ request()->is('admin/mobile-app-management/icons*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Icons_and_images') }}">image</span>
+                        <span class="link-title">{{ translate('Icons_and_images') }}</span>
+                    </a>
+                </li>
+            @endcan
+
             @canany(['wallet_add','wallet_view','customer_view','customer_add','point_view', 'newsletter_view'])
                 <li class="nav-category" title="{{translate('customer_management')}}">
                     {{translate('customer_management')}}
@@ -708,7 +741,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         @can('customer_view')
                             <li>
                                 <a href="{{route('admin.customer.index')}}"
-                                   class="{{request()->is('admin/customer/list')?'active-menu':''}}">
+                                   class="{{request()->is('admin/customer/list') || request()->is('admin/customer/detail*') || request()->is('admin/customer/edit/*')?'active-menu':''}}">
                                     {{translate('customer_list')}}
                                 </a>
                             </li>
@@ -970,7 +1003,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
             @canany(['business_view', 'configuration_view', 'backup_view'])
                 <li>
                     <a href="{{ route('admin.system-logs.index') }}"
-                       class="{{ request()->is('admin/system-logs') ? 'active-menu' : '' }}">
+                       class="{{ request()->is('admin/system-logs*') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="{{ translate('System_Logs') }}">bug_report</span>
                         <span class="link-title">{{ translate('System_Logs') }}</span>
                     </a>
@@ -1035,7 +1068,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     {{translate('system_addon')}}
                 </li>
                 <li>
-                    <a class="{{Request::is('admin/addon')?'active-menu':''}}"
+                    <a class="{{Request::is('admin/addon*')?'active-menu':''}}"
                        href="{{route('admin.addon.index')}}" title="{{translate('system_addons')}}">
                         <span class="material-icons" title="add_circle_outline">add_circle_outline</span>
                         <span class="link-title">{{translate('system_addons')}}</span>

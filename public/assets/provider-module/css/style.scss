@@ -1,6 +1,6 @@
 /*
 	*******************
-	Template name:  Demandium
+	Template name:  Panun Kaergar
 	Version:        2.6
 	Author:         6amtech
 	Author url:     https://6amtech.com/
@@ -37,9 +37,9 @@
         4.1 Small Sections
     ********************/
 :root {
-    --bs-primary: #4153b3;
-    --bs-primary-rgb: 65, 83, 179;
-    --bs-primary-dark: #34428F;
+    --bs-primary: #25274d;
+    --bs-primary-rgb: 37, 39, 77;
+    --bs-primary-dark: #1A1C38;
     --bs-primary-dark-rgb: 52, 66, 143;
     /* --bs-primary: #ff6767; */
     --bg-color: #F7F8F9;
@@ -49,7 +49,7 @@
     --bs-body-color: #4b5864;
     /* --bs-primary: #ff5e00; */
     --input-border-color: #e4e4e4;
-    --input-border-color-active: rgba(65, 83, 179, 0.5);
+    --input-border-color-active: rgba(37, 39, 77, 0.5);
     --bs-dark: #18181a;
     --border-color: #EFF1F4;
     --bs-border-color: #EFF1F4;
@@ -60,7 +60,7 @@
     --shadow-color: rgba(0, 0, 0, 0.05);
     --shadow-color-rgb: 0, 0, 0;
     --dropdown-menu-color: #ffffff;
-    --bs-primary-light-bg: rgba(65, 83, 179, 0.05);
+    --bs-primary-light-bg: rgba(37, 39, 77, 0.05);
     --bs-success: #16b559;
     --bs-info: #3C76F1;
     --bs-info-rgb: 61, 119, 242;
@@ -69,7 +69,7 @@
     --text-dark-icon2: #FAFAFA;
     --chatbox-clr: #EDF4F9;
 
-    --bs-font-sans-serif: "Public Sans", sans-serif;
+    --bs-font-sans-serif: "Outfit", sans-serif;
     --bs-body-font-weight: 400;
     --bs-body-line-height: 1.4;
     /*Color Added*/
@@ -87,7 +87,7 @@
 }
 
 [data-bs-theme="dark"] {
-    --bs-primary: #4153b3;
+    --bs-primary: #25274d;
     // --bs-primary: #ff5e00;
     --bg-color: #232323;
     --bg-color2: #1f2023;
@@ -104,7 +104,7 @@
     --mobile-search-bg: #505050;
     --shadow-color: rgba(255, 255, 255, 0.05);
     --shadow-color-rgb: 255, 255, 255;
-    --bs-primary-light-bg: rgba(65, 83, 179, 0.1);
+    --bs-primary-light-bg: rgba(37, 39, 77, 0.1);
     --timeline-color: #484848;
     --bs-border-color: #404040;
     --secondary-btn-color: #535454;
@@ -713,8 +713,8 @@ a,
 .aside,
 .settings-sidebar,
 .filter-aside {
-    box-shadow: 0px 0px 0.125rem rgba(65, 83, 179, 0.05),
-        0px 0.75rem 1.5rem -0.25rem rgba(65, 83, 179, 0.05);
+    box-shadow: 0px 0px 0.125rem rgba(37, 39, 77, 0.05),
+        0px 0.75rem 1.5rem -0.25rem rgba(37, 39, 77, 0.05);
 }
 
 .setting-box,
@@ -1341,12 +1341,12 @@ input:-webkit-autofill:active {
 }
 
 .btn--light {
-    background-color: rgba(65, 83, 179, 0.05);
+    background-color: rgba(37, 39, 77, 0.05);
     color: var(--bs-primary);
 }
 
 .btn--light-primary {
-    background-color: rgba(65, 83, 179, 0.05);
+    background-color: rgba(37, 39, 77, 0.05);
     color: var(--bs-primary);
 }
 
@@ -2015,7 +2015,7 @@ table.dataTable {
 }
 
 .accordion-header {
-    background-color: rgba(65, 83, 179, 0.05);
+    background-color: rgba(37, 39, 77, 0.05);
     border: 1px solid var(--border-color);
     padding: 1rem;
 }
@@ -2097,8 +2097,8 @@ table.dataTable {
 
 .card-header {
     background-color: var(--bs-white);
-    box-shadow: 0px 0px 0.125rem rgba(65, 83, 179, 0.05),
-        0rem 0.375rem 0.75rem -0.1875rem rgba(65, 83, 179, 0.05);
+    box-shadow: 0px 0px 0.125rem rgba(37, 39, 77, 0.05),
+        0rem 0.375rem 0.75rem -0.1875rem rgba(37, 39, 77, 0.05);
     border-color: transparent;
 }
 
@@ -2210,17 +2210,17 @@ table.dataTable {
 .statistics-card__total-orders {
     background: linear-gradient(
         180deg,
-        rgba(65, 83, 179, 0.1) 0%,
+        rgba(37, 39, 77, 0.1) 0%,
         rgba(232, 235, 255, 0.1) 100%
     );
 }
 
 .statistics-card__total-orders h2 {
-    color: #4153b3;
+    color: #25274d;
 }
 
 .statistics-card__total-orders svg circle {
-    fill: #4153b3;
+    fill: #25274d;
 }
 
 .statistics-card h3,
@@ -2343,7 +2343,7 @@ table.dataTable {
 }
 
 .statistics-card__collect-cash {
-    border: 0.0625rem solid rgba(65, 83, 179, 0.3);
+    border: 0.0625rem solid rgba(37, 39, 77, 0.3);
     text-align: center;
 }
 
@@ -2356,19 +2356,19 @@ table.dataTable {
 .statistics-card__collect-cash h2 {
     -webkit-margin-after: 1.875rem;
     margin-block-end: 1.875rem;
-    color: #4153b3;
+    color: #25274d;
 }
 
 .statistics-card__collect-cash::after {
     background: linear-gradient(
         180deg,
-        rgba(65, 83, 179, 0.1) 0%,
+        rgba(37, 39, 77, 0.1) 0%,
         rgba(232, 235, 255, 0.1) 100%
     );
 }
 
 .statistics-card__order-overview {
-    border: 0.0625rem solid rgba(65, 83, 179, 0.3);
+    border: 0.0625rem solid rgba(37, 39, 77, 0.3);
     text-align: center;
 }
 
@@ -2574,12 +2574,12 @@ table.dataTable {
 }
 
 .badge-primary {
-    background-color: rgba(65, 83, 179, 0.1);
-    color: #4153b3;
+    background-color: rgba(37, 39, 77, 0.1);
+    color: #25274d;
 }
 
 .badge-primary .dot {
-    background-color: #4153b3;
+    background-color: #25274d;
 }
 
 .badge-success {
@@ -4067,7 +4067,7 @@ body.aside-folded.open-aside-folded .aside .aside-body li:hover i {
 /* Information Details Box */
 .information-details-box {
     background-color: var(--white-bg);
-    border: 1px solid rgba(65, 83, 179, 0.05);
+    border: 1px solid rgba(37, 39, 77, 0.05);
     box-shadow: 0px 0px 2px rgba(145, 158, 171, 0.2),
         0px 12px 24px -4px rgba(145, 158, 171, 0.1);
     padding: 1.875rem;
@@ -4102,12 +4102,12 @@ body.aside-folded.open-aside-folded .aside .aside-body li:hover i {
 }
 
 .service-man-list__item {
-    border: 1px solid rgba(65, 83, 179, 0.05);
+    border: 1px solid rgba(37, 39, 77, 0.05);
     box-shadow: 4px 4px 10px -4px rgba(145, 158, 171, 0.2);
 }
 
 .service-man-list__item_header {
-    background: rgba(65, 83, 179, 0.05);
+    background: rgba(37, 39, 77, 0.05);
     border-radius: 0.625rem 0.625rem 1.25rem 1.25rem;
     padding: 0.9375rem;
     text-align: center;
@@ -4718,7 +4718,7 @@ label {
     border-radius: 0.625rem;
 }
 .statistics-serviceman * {
-    color: #0461a5 !important;
+    color: #25274d !important;
 }
 .statistics-serviceman::after {
     background-color: rgba(243, 167, 53, 0.05);
@@ -4785,7 +4785,7 @@ label {
     min-inline-size: 2rem;
     block-size: 2rem;
     border-radius: 0.625rem;
-    background-color: rgba(65, 83, 179, 0.1);
+    background-color: rgba(37, 39, 77, 0.1);
     display: grid;
     place-items: center;
 }
@@ -4903,7 +4903,7 @@ label {
 }
 
 .bg-primary-light {
-    background-color: rgba(65, 83, 179, 0.05) !important;
+    background-color: rgba(37, 39, 77, 0.05) !important;
 }
 
 .dropdown-hover {
@@ -6386,7 +6386,7 @@ label.error {
 }
 
 .statistics-card.style__two {
-    border: 0.791px solid rgba(65, 83, 179, 0.3);
+    border: 0.791px solid rgba(37, 39, 77, 0.3);
     box-shadow: 0px 0px 1.582px 0px rgba(145, 158, 171, 0.2),
         0px 9.49px 18.98px -3.163px rgba(145, 158, 171, 0.1);
 }
@@ -6394,7 +6394,7 @@ label.error {
 .statistics-card.style__two::after {
     background: linear-gradient(
         180deg,
-        rgba(65, 83, 179, 0.06) 0%,
+        rgba(37, 39, 77, 0.06) 0%,
         rgba(232, 235, 255, 0.06) 100%
     );
     border-end-end-radius: 100rem;
@@ -6575,8 +6575,8 @@ g[filter="url(#filter6_d_4021_1338)"] {
 }
 
 .business-plan-option.active:not(.payment_methods_list_container) {
-    border-color: rgba(65, 83, 179, 0.5) !important;
-    background: rgba(65, 83, 179, 0.05);
+    border-color: rgba(37, 39, 77, 0.5) !important;
+    background: rgba(37, 39, 77, 0.05);
 }
 
 .payment_methods_list_container .payment_methods_list {
@@ -6960,7 +6960,7 @@ g[filter="url(#filter6_d_4021_1338)"] {
 }
 
 .btn--light-danger {
-    background-color: rgba(65, 83, 179, 0.05);
+    background-color: rgba(37, 39, 77, 0.05);
     color: var(--bs-primary);
     border-color: var(--bs-primary);
 }
@@ -7223,7 +7223,7 @@ g[filter="url(#filter6_d_4021_1338)"] {
     background: #fafafa;
 }
 :root {
-    --bs-primary-rgb: 65, 83, 179;
+    --bs-primary-rgb: 37, 39, 77;
 }
 .left-0 {
     left: 0;
@@ -7516,9 +7516,9 @@ g[filter="url(#filter6_d_4021_1338)"] {
 }
 
 .btn--secondary-two {
-    background-color: rgba(65, 83, 179, 0.05);
+    background-color: rgba(37, 39, 77, 0.05);
     color: var(--bs-primary);
-    border: 1px solid rgba(65, 83, 179, 0.2);
+    border: 1px solid rgba(37, 39, 77, 0.2);
 }
 
 .__bg-FAFAFA {

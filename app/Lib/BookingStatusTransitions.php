@@ -45,12 +45,12 @@ if (! function_exists('booking_admin_allowed_next_statuses_for_booking')) {
         $current = strtolower(trim((string) ($current ?? $statusFromBooking)));
         $next = booking_admin_allowed_next_statuses($current);
 
-        // Hold after visit (on_hold following ongoing): resume work or configure special settlement — not accept/cancel.
+        // Hold after visit (on_hold following ongoing): resume work, cancel, or use special settlement — not accept.
         if ($current === 'on_hold'
             && ($booking instanceof \Modules\BookingModule\Entities\Booking
                 || $booking instanceof \Modules\BookingModule\Entities\BookingRepeat)
             && booking_on_hold_is_after_visit_from_ongoing($booking)) {
-            $next = ['ongoing'];
+            $next = ['ongoing', 'canceled'];
         }
 
         // Open reopen ticket: hide Completed until unlock and disallow plain "Cancel booking".

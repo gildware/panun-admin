@@ -3320,7 +3320,7 @@
                         title: '{{ translate("Please select a system") }}!',
                         text: '{{ translate("You must select at least one system when activating Maintenance Mode.") }}',
                         confirmButtonText: '{{ translate("OK") }}',
-                        confirmButtonColor: '#4153b3',
+                        confirmButtonColor: '#25274d',
                     });
                     return false;
                 }

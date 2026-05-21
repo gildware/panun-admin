@@ -745,6 +745,15 @@ const SYSTEM_MODULES = [
             ['key' => 'service','value' => 'Services'],
         ]
     ],
+
+    ['key' => 'mobile_app_management', 'value' => 'Mobile App Management',
+        'submodules' => [
+            ['key' => 'mobile_app_ai', 'value' => 'AI'],
+            ['key' => 'mobile_app_home_page', 'value' => 'Home Page'],
+            ['key' => 'mobile_app_icons', 'value' => 'Icons and Images'],
+        ]
+    ],
+
     ['key' => 'customer_management', 'value' => 'Customer Management',
         'submodules' => [
             ['key' => 'customer','value' => 'Customers'],

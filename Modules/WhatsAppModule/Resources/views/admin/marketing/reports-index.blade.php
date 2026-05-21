@@ -110,7 +110,7 @@
                 chart: {type: 'line', height: 320, toolbar: {show: false}},
                 series: [{name: @json(translate('Sent')), data: dayCounts.map(v => parseInt(v, 10) || 0)}],
                 xaxis: {categories: dayLabels},
-                colors: ['#4153B3'],
+                colors: ['#25274D'],
                 stroke: {width: 3, curve: 'smooth'},
             }).render();
         }

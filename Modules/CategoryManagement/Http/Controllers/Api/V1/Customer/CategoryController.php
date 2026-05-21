@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ServiceManagement\Entities\FavoriteService;
 use Modules\ServiceManagement\Entities\RecentView;
+use Modules\ServiceManagement\Entities\Variation;
 
 class CategoryController extends Controller
 {
@@ -154,18 +155,7 @@ class CategoryController extends Controller
 
     private function variationsAppFormat($service): array
     {
-        $formatting = [];
-        $filtered = $service['variations']->where('zone_id', Config::get('zone_id'));
-        $formatting['zone_id'] = Config::get('zone_id');
-        $formatting['default_price'] = $filtered->first() ? $filtered->first()->price : 0;
-        foreach ($filtered as $data) {
-            $formatting['zone_wise_variations'][] = [
-                'variant_key' => $data['variant_key'],
-                'variant_name' => $data['variant'],
-                'price' => $data['price']
-            ];
-        }
-        return $formatting;
+        return Variation::variationsAppFormatForCustomer((string) $service->id);
     }
 
 }

@@ -3,6 +3,7 @@
 @section('title', translate('Add_New_Booking'))
 
 @push('css_or_js')
+    @include('zonemanagement::admin.partials._zone-select2-assets')
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/select2/select2.min.css"/>
     <style>
         .select2-results__option {
@@ -242,14 +243,13 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">{{ translate('Zone') }}</label>
-                                    <select name="zone_id" id="service-zone-select" class="form-control js-select" required>
+                                    <select name="zone_id" id="service-zone-select" class="form-control zone-tree-select" required>
                                         <option value="">{{ translate('Select_Zone') }}</option>
-                                        @foreach($zoneTreeOptions as $zOpt)
-                                            <option value="{{ $zOpt['id'] }}"
-                                                {{ (old('zone_id', request('zone_id')) == $zOpt['id'] || (count($zoneTreeOptions) === 1 && $loop->first)) ? 'selected' : '' }}>
-                                                {{ $zOpt['label'] }}
-                                            </option>
-                                        @endforeach
+                                        @include('zonemanagement::admin.partials._zone-select-options', [
+                                            'zoneTreeOptions' => $zoneTreeOptions,
+                                            'selected' => old('zone_id', request('zone_id')),
+                                            'autoSelectSingle' => true,
+                                        ])
                                     </select>
                                     @error('zone_id')
                                     <span class="text-danger">{{ $message }}</span>
@@ -628,6 +628,9 @@
         "use strict";
         $(document).ready(function () {
             $('.js-select').select2();
+            if (typeof initZoneTreeSelect2 === 'function') {
+                initZoneTreeSelect2($('#service-zone-select'));
+            }
 
             function renderBookingCustomerAlert(messages) {
                 var $wrap = $('#booking-customer-info-alert');
