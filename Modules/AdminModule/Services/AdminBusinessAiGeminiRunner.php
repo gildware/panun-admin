@@ -374,6 +374,30 @@ class AdminBusinessAiGeminiRunner
             $userMessage
         );
 
+        $isCategoryPerformanceQuestion = (bool) preg_match(
+            '/\b(category|categories|subcategory|subcategories|service type|service types)\b/i',
+            $userMessage
+        ) && (bool) preg_match(
+            '/\b(perform|performance|performing|doing well|do well|best|top|well|strong|weak|conversion|complete|completed|booked|revenue|volume|which|what)\b/i',
+            $userMessage
+        );
+
+        if ($isCategoryPerformanceQuestion) {
+            if (preg_match('/\b(lead|leads|conversion|pipeline|crm)\b/i', $userMessage)
+                && ! preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage)) {
+                $reportType = preg_match('/\b(provider|vendor)\b/i', $userMessage) ? 'provider' : 'customer';
+
+                return [['name' => 'get_lead_inbound_report', 'args' => ['report_type' => $reportType]]];
+            }
+
+            $tools = [['name' => 'get_business_reports', 'args' => ['report_type' => 'booking_analytics']]];
+            if (! preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage)) {
+                $tools[] = ['name' => 'get_lead_inbound_report', 'args' => ['report_type' => 'customer']];
+            }
+
+            return array_slice($tools, 0, $maxTools);
+        }
+
         if ($isCancellationReasonQuestion) {
             if (preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage) && ! preg_match('/\b(lead|leads|crm)\b/i', $userMessage)) {
                 return [['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']]];
@@ -592,12 +616,22 @@ class AdminBusinessAiGeminiRunner
                 continue;
             }
 
-            if (($result['report_type'] ?? '') === 'booking_analytics' || isset($result['data']['zone_wise'])) {
+            if (($result['report_type'] ?? '') === 'booking_analytics' || isset($result['data']['zone_wise']) || isset($result['data']['category_wise'])) {
                 $payload = ($result['report_type'] ?? '') === 'booking_analytics'
                     ? (is_array($result['data'] ?? null) ? $result['data'] : [])
                     : (is_array($result['data'] ?? null) ? $result['data'] : $result);
 
                 return $this->formatBookingAnalyticsFallback($payload, $userMessage);
+            }
+
+            if (in_array($result['report_type'] ?? '', ['customer', 'provider'], true)
+                && is_array($result['data']['category_wise'] ?? null)
+                && $result['data']['category_wise'] !== []) {
+                return $this->formatCategoryPerformanceFallback(
+                    $result['data'],
+                    $userMessage,
+                    'lead '.(string) ($result['report_type'] ?? 'customer')
+                );
             }
 
             if (in_array($result['analysis'] ?? '', [
@@ -819,12 +853,68 @@ class AdminBusinessAiGeminiRunner
     /**
      * @param  array<string, mixed>  $data
      */
+    private function formatCategoryPerformanceFallback(array $data, string $userMessage, string $contextLabel): string
+    {
+        $categories = is_array($data['category_wise'] ?? null) ? $data['category_wise'] : [];
+        $summary = is_array($data['summary'] ?? null) ? $data['summary'] : [];
+        $total = (int) ($summary['total'] ?? 0);
+
+        if ($categories === []) {
+            return "## Executive Summary\n"
+                ."No category breakdown is available yet for {$contextLabel}.\n\n"
+                ."## Key Metrics\n"
+                ."- Records in scope: **{$total}**";
+        }
+
+        $top = $categories[0];
+        $topLabel = (string) ($top['label'] ?? 'Unknown');
+        $topTotal = (int) ($top['total'] ?? 0);
+        $topShare = (float) ($top['share_percent'] ?? 0);
+        $topCompletion = (float) ($top['completion_rate'] ?? $top['conversion_rate'] ?? 0);
+
+        $lines = [
+            '## Executive Summary',
+            "**{$topLabel}** is the top-performing category in {$contextLabel} — **{$topTotal}** records (**{$topShare}%** share".($topCompletion > 0 ? sprintf(', %.1f%% completion/conversion', $topCompletion) : '').').',
+            '',
+            '## Key Metrics',
+            "- Total in scope: **{$total}**",
+            '',
+            '## Top categories',
+        ];
+
+        foreach (array_slice($categories, 0, 10) as $index => $row) {
+            $completion = (float) ($row['completion_rate'] ?? $row['conversion_rate'] ?? 0);
+            $lines[] = sprintf(
+                '%d. **%s** — %d (%.1f%% share, %.1f%% completed/converted, %d completed, %d cancelled, %d pending)',
+                $index + 1,
+                (string) ($row['label'] ?? 'Unknown'),
+                (int) ($row['total'] ?? 0),
+                (float) ($row['share_percent'] ?? 0),
+                $completion,
+                (int) ($row['completed'] ?? $row['booked'] ?? 0),
+                (int) ($row['cancelled'] ?? 0),
+                (int) ($row['pending'] ?? 0)
+            );
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
     private function formatBookingAnalyticsFallback(array $data, string $userMessage): string
     {
         $summary = is_array($data['summary'] ?? null) ? $data['summary'] : [];
+        $categories = is_array($data['category_wise'] ?? null) ? $data['category_wise'] : [];
         $zones = is_array($data['zone_wise'] ?? null) ? $data['zone_wise'] : [];
         $total = (int) ($summary['total'] ?? 0);
         $missingZone = (int) ($summary['missing_zone'] ?? 0);
+        $wantCategory = (bool) preg_match('/\b(category|categories|subcategory|service type)\b/i', $userMessage);
+
+        if ($wantCategory && $categories !== []) {
+            return $this->formatCategoryPerformanceFallback($data, $userMessage, 'bookings');
+        }
 
         if ($zones === []) {
             return "## Executive Summary\n"
@@ -1007,6 +1097,7 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
   - WhatsApp: get_whatsapp_conversations_overview, query_whatsapp_conversations, get_whatsapp_conversation_details — chat_handler (inbox assignee) vs lead_handler (CRM); linked_lead_is_customer; system bookings on thread.
   - Employees: analyze_employee_activity (workload, chats, bookings, incomplete leads per handler), query_incomplete_leads (unspecified/missing lead fields + who handles + booking link).
 - Lead cancellation reasons: analyze_leads customer_cancellation_reasons (returns by_reason ranked list). Provider: provider_cancellation_reasons. Booking cancellations: analyze_bookings cancellation_timing_report (timing.cancellation_reasons). NEVER use get_dashboard_snapshot or lead_pipeline for cancellation reasons.
+- Category performance (which categories do well): get_business_reports booking_analytics (category_wise: volume, completion rate, share). For lead conversion by category use get_lead_inbound_report. NEVER use get_business_dashboard_overview for category breakdowns.
 - Lead conversion/zone/category reports: get_lead_inbound_report (customer|provider).
 - Booking operational queues: get_booking_queues_overview + query_booking_queues (verify, offline_payment, special_scenarios, overdue_followup).
 - Financial ops: query_ledger, query_transactions, query_withdraw_requests, query_pending_provider_balances.

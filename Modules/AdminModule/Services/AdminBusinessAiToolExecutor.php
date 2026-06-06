@@ -296,7 +296,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'get_business_reports',
-                'description' => 'Aggregated analytics: booking_analytics (includes zone_wise / area breakdown), financial_summary, lead_pipeline, provider_performance, customer_overview, whatsapp_pipeline. Optional date_from/date_to (YYYY-MM-DD).',
+                'description' => 'Aggregated analytics. For category performance use booking_analytics (category_wise + subcategory_wise: total, completion rate, share). Also zone_wise in booking_analytics. Other: financial_summary, lead_pipeline, provider_performance, earning, expense. Optional date_from/date_to.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
