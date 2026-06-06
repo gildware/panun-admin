@@ -102,13 +102,13 @@ class WhatsAppController extends Controller
         if ($tab === 'chats' || $tab === 'human_support') {
             try {
                 $humanSupportTab = $tab === 'human_support';
-                $resolved = $this->resolveWhatsAppFilteredActiveChats($request, $humanSupportTab);
+                $perPage = (int) config('whatsappmodule.active_chats_per_page', 20);
+                $resolved = $this->resolveWhatsAppFilteredActiveChats($request, $humanSupportTab, 1, $perPage);
                 $chats = $resolved['chats'];
                 $chatHandlers = $resolved['chatHandlers'];
                 $handlerFilters = $resolved['handlerFilters'];
                 $handlerFilter = $resolved['handlerFilter'];
-                $chatCounts = $this->computeWhatsAppActiveChatCounts($chats);
-                $chats = $chats->take(20)->values();
+                $chatCounts = $resolved['list_counts'] ?? $this->computeWhatsAppActiveChatCounts($chats);
             } catch (\Throwable $e) {
                 Toastr::error('Could not load chats. ' . $e->getMessage());
                 $chats = collect();
@@ -1922,15 +1922,15 @@ class WhatsAppController extends Controller
 
         $humanSupportTab = $request->boolean('human_support');
         $page = max(1, (int) $request->get('page', 1));
-        $perPage = min(50, max(1, (int) $request->get('per_page', 20)));
+        $defaultPerPage = (int) config('whatsappmodule.active_chats_per_page', 20);
+        $perPage = min(50, max(1, (int) $request->get('per_page', $defaultPerPage)));
 
         try {
-            $resolved = $this->resolveWhatsAppFilteredActiveChats($request, $humanSupportTab);
-            $allChats = $resolved['chats'];
-            $counts = $this->computeWhatsAppActiveChatCounts($allChats);
-            $total = $counts['total'];
+            $resolved = $this->resolveWhatsAppFilteredActiveChats($request, $humanSupportTab, $page, $perPage);
+            $counts = $resolved['list_counts'] ?? $this->computeWhatsAppActiveChatCounts($resolved['chats']);
+            $total = (int) ($counts['total'] ?? 0);
+            $slice = $resolved['chats'];
             $offset = ($page - 1) * $perPage;
-            $slice = $allChats->slice($offset, $perPage)->values();
             $loaded = min($offset + $slice->count(), $total);
             $remaining = max(0, $total - $loaded);
 
@@ -2146,24 +2146,21 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * List of active chats: one row per phone with last message. Last 30 days, max 100 chats.
-     * Cached to reduce round trips to remote WhatsApp DB.
+     * Raw chat rows ordered by latest message (all time, no global cap). Optional SQL page slice.
+     *
+     * @return \Illuminate\Support\Collection<int, object>
      */
-    private function getActiveChatsList(): \Illuminate\Support\Collection
+    private function fetchActiveChatRows(?int $offset = null, ?int $limit = null): \Illuminate\Support\Collection
     {
-        $ttl = config('whatsappmodule.cache_ttl', 30);
-        $cacheKey = WhatsAppActiveChatsListCache::listCacheKey();
-
-        if ($ttl > 0) {
-            $cached = Cache::get($cacheKey);
-            if ($cached !== null) {
-                return $cached;
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        $ch = SocialInboxChannel::current();
+        $pageSql = '';
+        if ($limit !== null && $limit > 0) {
+            $pageSql = ' LIMIT '.(int) $limit;
+            if ($offset !== null && $offset > 0) {
+                $pageSql .= ' OFFSET '.(int) $offset;
             }
         }
-
-        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
-        $cutoff = now()->subDays(30)->format('Y-m-d H:i:s');
-        $ch = SocialInboxChannel::current();
         $rows = DB::select("
             SELECT m.phone,
                    m.direction,
@@ -2175,8 +2172,7 @@ class WhatsAppController extends Controller
             INNER JOIN (
                 SELECT phone, MAX(created_at) AS max_created
                 FROM {$table}
-                WHERE created_at >= ?
-                  AND channel = ?
+                WHERE channel = ?
                 GROUP BY phone
             ) t ON m.phone = t.phone AND m.created_at = t.max_created AND m.channel = ?
             LEFT JOIN (
@@ -2188,16 +2184,23 @@ class WhatsAppController extends Controller
                 GROUP BY phone
             ) unread ON unread.phone = m.phone
             WHERE m.channel = ?
-            ORDER BY m.created_at DESC
-            LIMIT 100
-        ", [$cutoff, $ch, $ch, $ch, $ch]);
-        $result = collect($rows);
+            ORDER BY m.created_at DESC{$pageSql}
+        ", [$ch, $ch, $ch, $ch]);
 
+        return collect($rows);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>  $result
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function enrichActiveChatRows(\Illuminate\Support\Collection $result): \Illuminate\Support\Collection
+    {
         $phones = $result->pluck('phone')->unique()->filter()->values()->all();
         $names = [];
         $handledByMap = [];
         $humanSupportAt = [];
-        if (!empty($phones)) {
+        if (! empty($phones)) {
             $waUsers = WhatsAppUser::whereIn('phone', $phones)->get(['phone', 'name', 'handled_by', 'human_support_requested_at']);
             foreach ($waUsers as $u) {
                 $names[$u->phone] = $u->name;
@@ -2207,15 +2210,14 @@ class WhatsAppController extends Controller
                 }
             }
         }
-        // Preload admin user names for handled_by IDs
         $adminNamesById = [];
-        if (!empty($handledByMap)) {
+        if (! empty($handledByMap)) {
             $adminIds = collect($handledByMap)
                 ->filter(fn ($v) => $v && $v !== 'AI')
                 ->unique()
                 ->values()
                 ->all();
-            if (!empty($adminIds)) {
+            if (! empty($adminIds)) {
                 $adminRows = DB::table('users')
                     ->whereIn('id', $adminIds)
                     ->get(['id', 'first_name', 'last_name']);
@@ -2246,13 +2248,122 @@ class WhatsAppController extends Controller
         });
 
         $result = $this->hydrateWhatsAppActiveChatThreadTimestamps($result);
-        $result = $this->attachChatMetaToPhoneRows($result);
 
-        if ($ttl > 0) {
-            Cache::put($cacheKey, $result, $ttl);
+        return $this->attachChatMetaToPhoneRows($result);
+    }
+
+    /**
+     * Full list for search/forward — all threads, all time (no SQL cap).
+     */
+    private function getActiveChatsList(): \Illuminate\Support\Collection
+    {
+        return $this->enrichActiveChatRows($this->fetchActiveChatRows());
+    }
+
+    /**
+     * @return array{total: int, unread: int, read: int}
+     */
+    private function countActiveChatPhoneStats(): array
+    {
+        $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
+        $ch = SocialInboxChannel::current();
+        $total = (int) (DB::table($table)
+            ->where('channel', $ch)
+            ->selectRaw('COUNT(DISTINCT phone) AS aggregate_count')
+            ->value('aggregate_count') ?? 0);
+        $unread = (int) (DB::table($table)
+            ->where('channel', $ch)
+            ->where('direction', 'IN')
+            ->whereNull('admin_seen_at')
+            ->selectRaw('COUNT(DISTINCT phone) AS aggregate_count')
+            ->value('aggregate_count') ?? 0);
+
+        return [
+            'total' => $total,
+            'unread' => $unread,
+            'read' => max(0, $total - $unread),
+        ];
+    }
+
+    /**
+     * @return array<int, array{key: string, label: string}>
+     */
+    private function buildActiveChatHandlerFilterOptions(bool $humanSupportTab): array
+    {
+        $chatHandlers = [[
+            'key' => 'all',
+            'label' => $humanSupportTab ? translate('Human support requests') : translate('All Chats'),
+        ]];
+
+        $handledByValues = WhatsAppUser::query()
+            ->pluck('handled_by')
+            ->unique()
+            ->filter(static fn ($v) => $v !== null && $v !== '');
+
+        if (! $humanSupportTab || $handledByValues->contains('AI')) {
+            $chatHandlers[] = ['key' => 'ai', 'label' => translate('Handled by AI')];
         }
 
-        return $result;
+        $adminIds = $handledByValues
+            ->reject(fn ($v) => $v === 'AI' || $v === null || $v === '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($adminIds !== []) {
+            $admins = DB::table('users')
+                ->whereIn('id', $adminIds)
+                ->get(['id', 'first_name', 'last_name']);
+            foreach ($admins as $admin) {
+                $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
+                $chatHandlers[] = [
+                    'key' => (string) $admin->id,
+                    'label' => translate('Handled by') . ' ' . ($fullName ?: $admin->id),
+                ];
+            }
+        }
+
+        return $chatHandlers;
+    }
+
+    private function hasActiveChatListFilters(Request $request): bool
+    {
+        if ($this->normalizeWaHandlerFilters($request) !== []) {
+            return true;
+        }
+        if ($this->normalizeWaUnreadStateFilter($request) !== []) {
+            return true;
+        }
+        if ($this->chatConfigurationTablesPresent()) {
+            if ($this->normalizeWaIntIdArray($request, 'chat_status_ids', $request->get('chat_status_id')) !== []) {
+                return true;
+            }
+            $tagIds = $request->get('chat_tag_ids', []);
+            if (! is_array($tagIds)) {
+                $tagIds = $tagIds !== null && $tagIds !== '' ? [(int) $tagIds] : [];
+            }
+            $tagIds = array_values(array_unique(array_filter(array_map('intval', $tagIds), static fn (int $id): bool => $id > 0)));
+            if ($tagIds !== []) {
+                return true;
+            }
+        }
+        if ($this->normalizeWaSystemKindsFilter($request) !== []) {
+            return true;
+        }
+        if ($this->parseWaFilterDateBoundary($request, 'last_inbound_from', false) !== null) {
+            return true;
+        }
+        if ($this->parseWaFilterDateBoundary($request, 'last_inbound_to', true) !== null) {
+            return true;
+        }
+        if ($this->parseWaFilterDateBoundary($request, 'chat_started_from', false) !== null) {
+            return true;
+        }
+        if ($this->parseWaFilterDateBoundary($request, 'chat_started_to', true) !== null) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -2787,51 +2898,37 @@ class WhatsAppController extends Controller
      *     chats: \Illuminate\Support\Collection<int, object>,
      *     chatHandlers: array<int, array{key: string, label: string}>,
      *     handlerFilters: array<int, string>,
-     *     handlerFilter: string
+     *     handlerFilter: string,
+     *     list_counts?: array{total: int, unread: int, read: int}
      * }
      */
-    private function resolveWhatsAppFilteredActiveChats(Request $request, bool $humanSupportTab): array
-    {
+    private function resolveWhatsAppFilteredActiveChats(
+        Request $request,
+        bool $humanSupportTab,
+        ?int $page = null,
+        ?int $perPage = null
+    ): array {
         $handlerFilters = $this->normalizeWaHandlerFilters($request);
         /** @deprecated Single-param UI; derived for header quick-select */
         $handlerFilter = $handlerFilters === [] ? 'all' : (count($handlerFilters) === 1 ? $handlerFilters[0] : 'all');
+        $chatHandlers = $this->buildActiveChatHandlerFilterOptions($humanSupportTab);
+
+        if ($page !== null && $perPage !== null && ! $humanSupportTab && ! $this->hasActiveChatListFilters($request)) {
+            $stats = $this->countActiveChatPhoneStats();
+            $offset = ($page - 1) * $perPage;
+
+            return [
+                'chats' => $this->enrichActiveChatRows($this->fetchActiveChatRows($offset, $perPage)),
+                'chatHandlers' => $chatHandlers,
+                'handlerFilters' => $handlerFilters,
+                'handlerFilter' => $handlerFilter,
+                'list_counts' => $stats,
+            ];
+        }
 
         $baseChats = $humanSupportTab
             ? $this->getHumanSupportChatsList()
             : $this->getActiveChatsList();
-
-        $handledByKeys = $baseChats
-            ->pluck('handled_by_key')
-            ->unique()
-            ->filter()
-            ->values();
-
-        $chatHandlers = [];
-        $chatHandlers[] = [
-            'key' => 'all',
-            'label' => $humanSupportTab ? translate('Human support requests') : translate('All Chats'),
-        ];
-
-        if ($handledByKeys->contains('AI')) {
-            $chatHandlers[] = ['key' => 'ai', 'label' => translate('Handled by AI')];
-        }
-
-        $adminIds = $handledByKeys->reject(function ($v) {
-            return $v === 'AI';
-        })->values();
-
-        if ($adminIds->isNotEmpty()) {
-            $admins = DB::table('users')
-                ->whereIn('id', $adminIds)
-                ->get(['id', 'first_name', 'last_name']);
-            foreach ($admins as $admin) {
-                $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
-                $chatHandlers[] = [
-                    'key' => (string) $admin->id,
-                    'label' => translate('Handled by') . ' ' . ($fullName ?: $admin->id),
-                ];
-            }
-        }
 
         $chats = $baseChats->filter(function ($chat) use ($handlerFilters) {
             if ($handlerFilters === []) {
@@ -2853,11 +2950,19 @@ class WhatsAppController extends Controller
         $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
         $chats = $this->applyWhatsAppSystemLinkAndDateFilters($chats, $request);
 
+        $listCounts = $this->computeWhatsAppActiveChatCounts($chats);
+
+        if ($page !== null && $perPage !== null) {
+            $offset = ($page - 1) * $perPage;
+            $chats = $chats->slice($offset, $perPage)->values();
+        }
+
         return [
             'chats' => $chats,
             'chatHandlers' => $chatHandlers,
             'handlerFilters' => $handlerFilters,
             'handlerFilter' => $handlerFilter,
+            'list_counts' => $listCounts,
         ];
     }
 

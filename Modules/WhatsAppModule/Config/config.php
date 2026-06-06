@@ -13,6 +13,8 @@ return [
     ],
     // Cache TTL in seconds for list/panel data. Set to 0 to disable.
     'cache_ttl' => (int) env('WHATSAPP_CACHE_TTL', 60),
+    // Chats per scroll page in admin inbox (SQL OFFSET/LIMIT; no global cap on total threads).
+    'active_chats_per_page' => max(10, min(100, (int) env('WHATSAPP_ACTIVE_CHATS_PER_PAGE', 20))),
     // Cache TTL for per-chat panel (messages + state). Shorter so replies feel fresh.
     'cache_ttl_chat' => (int) env('WHATSAPP_CACHE_TTL_CHAT', 20),
     // Max messages to load per chat (smaller = faster).
