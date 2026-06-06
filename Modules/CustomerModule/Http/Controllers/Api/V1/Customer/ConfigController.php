@@ -208,14 +208,7 @@ class ConfigController extends Controller
             'service_at_provider_place' => (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0),
             'newsletter_title' => DataSetting::where('type', 'landing_text_setup')->where('key', 'newsletter_title')->first()->value ?? '',
             'newsletter_description' => DataSetting::where('type', 'landing_text_setup')->where('key', 'newsletter_description')->first()->value ?? '',
-            'business_pages' => BusinessPageSetting::where('is_active', 1)->orderByDesc('is_default')->orderBy('created_at', 'ASC')->get()->map(function ($page){
-                return [
-                    'page_key'        => $page->page_key,
-                    'title'           => $page->title,
-                    'is_default'      => $page->is_default,
-                    'image_full_path' => $page->image_full_path,
-                ];
-            }),
+            'business_pages' => mobile_visible_business_pages(),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
             'map_api_key_client' => $this->googleMap?->live_values['map_api_key_client'] ?? '',
@@ -414,7 +407,15 @@ class ConfigController extends Controller
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
-        $response = Http::get('https://maps.googleapis.com/maps/api/geocode/json?latlng=' . $request->lat . ',' . $request->lng . '&key=' . $this->googleMap->live_values['map_api_key_server']);
+        $apiKey = $this->googleMap?->live_values['map_api_key_server'] ?? '';
+        if ($apiKey === '') {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'map_api_key', 'message' => 'Google Maps API key is not configured'],
+            ]), 400);
+        }
+
+        $response = Http::get('https://maps.googleapis.com/maps/api/geocode/json?latlng=' . $request->lat . ',' . $request->lng . '&key=' . $apiKey);
+
         return response()->json(response_formatter(DEFAULT_200, $response->json()), 200);
     }
 

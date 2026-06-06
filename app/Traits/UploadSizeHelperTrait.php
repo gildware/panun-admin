@@ -68,10 +68,13 @@ trait UploadSizeHelperTrait
      */
     private function uploadErrorResponse(Request $request, string $message, $fieldName): JsonResponse|RedirectResponse
     {
-        if ($request->ajax() || $request->expectsJson()) {
-            return response()->json([
-                'errors' => [['code' => $fieldName, 'message' => $message]]
-            ]);
+        if ($request->ajax() || $request->expectsJson() || $request->is('api/*')) {
+            return response()->json(
+                response_formatter(DEFAULT_400, null, [
+                    ['error_code' => $fieldName, 'message' => $message],
+                ]),
+                400
+            );
         }
 
         Toastr::error($message);

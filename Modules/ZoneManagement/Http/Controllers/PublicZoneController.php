@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Modules\ZoneManagement\Entities\Zone;
+use Modules\ZoneManagement\Services\ZoneTreeBuilder;
 
 class PublicZoneController extends Controller
 {
@@ -51,5 +52,18 @@ class PublicZoneController extends Controller
             }
 
         return response()->json(response_formatter(DEFAULT_204), 200);
+    }
+
+    /**
+     * Nested zone tree for provider registration / selection UIs.
+     */
+    public function tree(Request $request): JsonResponse
+    {
+        $forRegistration = $request->boolean('for_registration')
+            || $request->boolean('has_categories');
+
+        $nodes = app(ZoneTreeBuilder::class)->buildActiveZoneTree($forRegistration);
+
+        return response()->json(response_formatter(DEFAULT_200, ['nodes' => $nodes]), 200);
     }
 }

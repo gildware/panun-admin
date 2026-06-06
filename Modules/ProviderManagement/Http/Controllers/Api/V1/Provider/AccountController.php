@@ -2,11 +2,16 @@
 
 namespace Modules\ProviderManagement\Http\Controllers\Api\V1\Provider;
 
+use Carbon\Carbon;
+use Carbon\CarbonInterval;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Modules\UserManagement\Entities\UserVerification;
+use Modules\UserManagement\Http\Controllers\Api\V1\OTPVerificationController;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\BusinessSettingsModule\Entities\SubscriptionPackage;
@@ -50,7 +55,7 @@ class AccountController extends Controller
         ];
 
         $vat   = (int)((business_config('subscription_vat', 'subscription_Setting'))->live_values ?? 0);
-        $provider = $this->provider->with('owner','owner.account')->where('user_id', $request->user()->id)->first();
+        $provider = $this->provider->with('owner', 'owner.account', 'zones')->where('user_id', $request->user()->id)->first();
 
         if ($provider && $provider->owner) {
             $tutorial = $provider->owner->getTutorialByPlatform('app');
@@ -63,6 +68,7 @@ class AccountController extends Controller
 
         $limitStatus = provider_warning_amount_calculate($provider->owner->account->account_payable,$provider->owner->account->account_receivable);
         $provider['cash_limit_status'] = $limitStatus == false ? 'available' : $limitStatus;
+        $provider['zone_ids'] = $provider->coveredLeafZoneIds();
         $bookingOverview = DB::table('bookings')->where('provider_id', $request->user()->provider->id)
             ->select('booking_status', DB::raw('count(*) as total'))
             ->groupBy('booking_status')
@@ -113,11 +119,27 @@ class AccountController extends Controller
             'applicable_vat' => $vat
         ];
 
+        $pendingChangeQuery = \Modules\ProviderManagement\Entities\ProviderChangeRequest::where('provider_id', $provider->id)
+            ->where('status', \Modules\ProviderManagement\Entities\ProviderChangeRequest::STATUS_PENDING);
+
+        $hasPendingProfileChanges = (clone $pendingChangeQuery)->exists();
+        $hasPendingBrandingChanges = (clone $pendingChangeQuery)
+            ->where('change_type', 'branding')
+            ->exists();
+
+        $pendingBrandingPreview = $hasPendingBrandingChanges
+            ? app(\Modules\ProviderManagement\Services\ProviderProfileChangeRequestService::class)
+                ->pendingBrandingPreviewUrls($provider->id)
+            : ['logo_url' => null, 'cover_url' => null];
+
         return response()->json(response_formatter(DEFAULT_200, [
             'provider_info' => $provider,
             'booking_overview' => $bookingOverview,
             'promotional_cost_percentage' => $promotionalCostPercentage,
-            'subscription_info' => $packageInfo
+            'subscription_info' => $packageInfo,
+            'has_pending_profile_changes' => $hasPendingProfileChanges,
+            'has_pending_branding_changes' => $hasPendingBrandingChanges,
+            'pending_branding_preview' => $pendingBrandingPreview,
         ]), 200);
     }
 
@@ -223,5 +245,114 @@ class AccountController extends Controller
             ]), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);
+    }
+
+    public static function phoneChangeVerifiedCacheKey(string $userId, string $phone): string
+    {
+        return 'provider_phone_change_verified:' . $userId . ':' . User::normalizeContactPhoneDigits($phone);
+    }
+
+    /**
+     * Check contact phone/email uniqueness before profile update (excludes current account).
+     */
+    public function verifyContactUpdate(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'contact_person_email' => 'nullable|email|max:191',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $phone = trim((string) $request->input('contact_person_phone'));
+        $email = trim((string) $request->input('contact_person_email', ''));
+
+        $errors = [];
+        foreach (User::providerContactUpdateErrors($phone, $email, (string) $request->user()->id) as $field => $message) {
+            $errors[] = ['error_code' => $field, 'message' => $message];
+        }
+
+        if ($errors !== []) {
+            return response()->json(response_formatter(DEFAULT_400, null, $errors), 400);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200), 200);
+    }
+
+    /**
+     * Send OTP when changing contact phone on profile.
+     */
+    public function sendPhoneChangeOtp(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $phone = trim((string) $request->input('contact_person_phone'));
+
+        if (User::providerContactUpdateErrors($phone, '', (string) $request->user()->id) !== []) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'error_code' => 'contact_person_phone',
+                'message' => translate('The contact person phone has already been taken.'),
+            ]]), 400);
+        }
+
+        return app(OTPVerificationController::class)->check(new Request([
+            'identity' => $phone,
+            'identity_type' => 'phone',
+            'check_user' => 0,
+        ]));
+    }
+
+    /**
+     * Verify OTP after a contact phone change request.
+     */
+    public function verifyPhoneChangeOtp(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'otp' => 'required|max:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $phone = trim((string) $request->input('contact_person_phone'));
+        $userId = (string) $request->user()->id;
+
+        if (User::providerContactUpdateErrors($phone, '', $userId) !== []) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'error_code' => 'contact_person_phone',
+                'message' => translate('The contact person phone has already been taken.'),
+            ]]), 400);
+        }
+
+        $tempBlockTime = business_config('temporary_otp_block_time', 'otp_login_setup')->test_values ?? 600;
+        $verify = UserVerification::where(['identity' => $phone, 'otp' => $request->input('otp')])->first();
+
+        if (! $verify) {
+            return app(OTPVerificationController::class)->providerLoginOtpFailed($request);
+        }
+
+        if (isset($verify->temp_block_time) && Carbon::parse($verify->temp_block_time)->DiffInSeconds() <= $tempBlockTime) {
+            $time = $tempBlockTime - Carbon::parse($verify->temp_block_time)->DiffInSeconds();
+
+            return response()->json(response_formatter([
+                'response_code' => translate('auth_login_401'),
+                'message' => translate('please_try_again_after_') . CarbonInterval::seconds($time)->cascade()->forHumans(),
+            ]), 403);
+        }
+
+        $verify->delete();
+        Cache::put(self::phoneChangeVerifiedCacheKey($userId, $phone), true, now()->addMinutes(15));
+
+        return response()->json(response_formatter(DEFAULT_200), 200);
     }
 }

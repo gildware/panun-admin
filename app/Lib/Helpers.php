@@ -42,6 +42,27 @@ if (!function_exists('generate_login_otp')) {
     }
 }
 
+if (!function_exists('api_user')) {
+    /**
+     * Resolve the authenticated API user without throwing when the client sends
+     * Authorization: Bearer null (common for guest sessions in mobile apps).
+     */
+    function api_user(): ?User
+    {
+        $token = request()->bearerToken();
+
+        if ($token === null || $token === '' || in_array($token, ['null', 'undefined'], true)) {
+            return null;
+        }
+
+        try {
+            return auth('api')->user();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+}
+
 if (!function_exists('translate')) {
     function translate($key)
     {
@@ -961,66 +982,191 @@ if (!function_exists('saveBusinessImageDataToStorage')) {
     }
 }
 
+if (!function_exists('public_storage_asset_url')) {
+    /**
+     * Build a /storage/... URL using the current request host (works on localhost and production).
+     */
+    function public_storage_asset_url(string $relativePath): string
+    {
+        $relativePath = ltrim(str_replace(['storage/', '/storage/'], '', $relativePath), '/');
+
+        if (request()) {
+            $host = request()->getSchemeAndHttpHost();
+            if ($host !== '') {
+                return rtrim($host, '/') . '/storage/' . $relativePath;
+            }
+        }
+
+        $appUrl = rtrim((string) config('app.url', ''), '/');
+        if ($appUrl !== '') {
+            return $appUrl . '/storage/' . $relativePath;
+        }
+
+        return asset('storage/' . $relativePath);
+    }
+}
+
+if (!function_exists('normalize_identity_image_entries')) {
+    /**
+     * @param  mixed  $identityImages
+     * @return list<array{image: string, storage: string}>
+     */
+    function normalize_identity_image_entries(mixed $identityImages): array
+    {
+        if (is_string($identityImages)) {
+            $decoded = json_decode($identityImages, true);
+            $identityImages = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($identityImages)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($identityImages as $item) {
+            if (is_string($item) && $item !== '') {
+                $normalized[] = ['image' => $item, 'storage' => 'public'];
+                continue;
+            }
+            if (! is_array($item)) {
+                continue;
+            }
+            $image = $item['image'] ?? $item['file'] ?? $item['path'] ?? '';
+            if (is_string($image) && $image !== '') {
+                $normalized[] = [
+                    'image' => $image,
+                    'storage' => (string) ($item['storage'] ?? $item['storage_type'] ?? 'public'),
+                ];
+            }
+        }
+
+        return $normalized;
+    }
+}
+
+if (!function_exists('resolve_media_storage_url')) {
+    /**
+     * Resolve a public URL for a file stored on public or S3 disk.
+     *
+     * @param  string  $image  Filename or relative path (e.g. provider/logo/file.png)
+     * @param  string  $basePath  Directory prefix when $image is only a filename
+     */
+    function resolve_media_storage_url(
+        string $image,
+        string $basePath = '',
+        ?string $preferredStorage = null,
+        ?string $defaultPath = null
+    ): ?string {
+        $image = ltrim($image, '/');
+        if ($image === '') {
+            return $defaultPath;
+        }
+
+        $candidates = str_contains($image, '/')
+            ? [$image]
+            : [rtrim($basePath, '/') . '/' . $image];
+
+        $disks = array_values(array_unique(array_filter([
+            $preferredStorage,
+            function_exists('getDisk') ? getDisk() : null,
+            'public',
+            's3',
+        ])));
+
+        foreach ($candidates as $candidate) {
+            foreach ($disks as $disk) {
+                try {
+                    if (! $disk || ! \Illuminate\Support\Facades\Storage::disk($disk)->exists($candidate)) {
+                        continue;
+                    }
+
+                    if ($disk === 'public') {
+                        return public_storage_asset_url($candidate);
+                    }
+
+                    return \Illuminate\Support\Facades\Storage::disk($disk)->url($candidate);
+                } catch (\Throwable $e) {
+                    //
+                }
+            }
+
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($candidate)) {
+                return public_storage_asset_url($candidate);
+            }
+
+            if (str_starts_with($candidate, 'provider/')) {
+                return public_storage_asset_url($candidate);
+            }
+        }
+
+        return $defaultPath;
+    }
+}
+
 if (!function_exists('getSingleImageFullPath')) {
     function getSingleImageFullPath($imagePath, array|object|null $s3Storage = null, ?string $defaultPath = null, ?bool $page = null)
     {
-        try {
-            if ($s3Storage && $s3Storage->storage_type == 's3' && \Illuminate\Support\Facades\Storage::disk('s3')->exists($imagePath)) {
-                return Storage::disk('s3')->url($imagePath);
-//                $awsUrl = rtrim(config('filesystems.disks.s3.url'), '/');
-//                $awsBucket = config('filesystems.disks.s3.bucket');
-//                return $awsUrl . '/' . $awsBucket . '/' . $imagePath;
-            }
-        } catch (\Exception $exception) {
-            //
-        }
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return Storage::disk('public')->url($imagePath);
-        } else {
+        $preferred = ($s3Storage && ($s3Storage->storage_type ?? null) === 's3') ? 's3' : null;
+        $resolved = resolve_media_storage_url((string) $imagePath, '', $preferred, $defaultPath);
 
-            if (request()->is('api/*')) {
-                if ($page) {
-                    return $defaultPath;
-                }
-
-                return null;
-            }
-            return $defaultPath;
+        if ($resolved !== null && ($defaultPath === null || $resolved !== $defaultPath)) {
+            return $resolved;
         }
+
+        if (request()->is('api/*')) {
+            return $page ? $defaultPath : null;
+        }
+
+        return $defaultPath;
     }
 }
 
 if (!function_exists('getIdentityImageFullPath')) {
     function getIdentityImageFullPath($identityImages, $path, ?string $defaultPath = null)
     {
-
         $identityImageFullPath = [];
 
-        foreach ($identityImages as $identityImage) {
-            $identityImage = is_array($identityImage) ? $identityImage : ['image' => $identityImage, 'storage' => 'public'];
-            $imagePath = $path . $identityImage['image'];
-            $fullPath = $defaultPath;
-
-            try {
-                if ($identityImage['storage'] == 's3' && \Illuminate\Support\Facades\Storage::disk('s3')->exists($imagePath)) {
-                    $fullPath = Storage::disk('s3')->url($imagePath);
-                }
-            }catch(\Exception $exception){
-                //
-            }
-
-            if ($identityImage['storage'] == 'public' && \Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-                $fullPath = Storage::disk('public')->url($imagePath);
-            }
-
-            if (request()->is('api/*') && $fullPath == $defaultPath) {
+        foreach (normalize_identity_image_entries($identityImages) as $entry) {
+            $image = $entry['image'] ?? '';
+            if ($image === '') {
                 continue;
-            }else{
-                $identityImageFullPath[] = $fullPath;
             }
+
+            $fullPath = resolve_media_storage_url(
+                $image,
+                $path,
+                $entry['storage'] ?? null,
+                null
+            );
+
+            if ($fullPath === null || $fullPath === '') {
+                continue;
+            }
+
+            if (request()->is('api/*') && $defaultPath && $fullPath === $defaultPath) {
+                continue;
+            }
+
+            $identityImageFullPath[] = $fullPath;
         }
 
         return $identityImageFullPath;
+    }
+}
+
+if (!function_exists('mobile_app_icon_public_url')) {
+    /**
+     * Public URL for a file under storage/app/public (e.g. mobile-app/filename.webp).
+     */
+    function mobile_app_icon_public_url(string $imagePath): string
+    {
+        $imagePath = ltrim($imagePath, '/');
+
+        if (! app()->runningInConsole() && request()) {
+            return rtrim(request()->getSchemeAndHttpHost(), '/').'/storage/'.$imagePath;
+        }
+
+        return rtrim(config('app.url'), '/').'/storage/'.$imagePath;
     }
 }
 
@@ -1678,6 +1824,59 @@ if (!function_exists('getProviderSettings')) {
 
         return [];
 
+    }
+}
+
+if (!function_exists('hidden_mobile_business_page_keys')) {
+    /** Page keys excluded from customer/provider app menus. */
+    function hidden_mobile_business_page_keys(): array
+    {
+        return [
+            'cancellation-policy',
+            'refund-policy',
+            'cancellation_policy',
+            'refund_policy',
+        ];
+    }
+}
+
+if (!function_exists('mobile_visible_business_pages')) {
+    /**
+     * Active business pages exposed to mobile apps (cancellation/refund policies hidden).
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    function mobile_visible_business_pages()
+    {
+        return \Modules\BusinessSettingsModule\Entities\BusinessPageSetting::query()
+            ->where('is_active', 1)
+            ->whereNotIn('page_key', hidden_mobile_business_page_keys())
+            ->orderByDesc('is_default')
+            ->orderBy('created_at', 'ASC')
+            ->get()
+            ->map(static function ($page) {
+                return [
+                    'page_key' => $page->page_key,
+                    'title' => $page->title,
+                    'is_default' => $page->is_default,
+                    'image_full_path' => $page->image_full_path,
+                ];
+            });
+    }
+}
+
+if (!function_exists('provider_can_receive_bookings')) {
+    /**
+     * Only admin-approved, active providers may see or accept open booking requests.
+     */
+    function provider_can_receive_bookings(?\Modules\ProviderManagement\Entities\Provider $provider): bool
+    {
+        if (! $provider) {
+            return false;
+        }
+
+        return (string) ($provider->is_approved ?? '') === '1'
+            && (int) ($provider->is_active ?? 0) === 1;
     }
 }
 

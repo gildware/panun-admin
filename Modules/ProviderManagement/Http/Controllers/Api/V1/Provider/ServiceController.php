@@ -13,6 +13,7 @@ use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriberLimit;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 
 class ServiceController extends Controller
 {
@@ -69,30 +70,23 @@ class ServiceController extends Controller
                 if ($packageSubscriberLimit <= $categoryCount && $packageSubscriber && $isLimit && $isPackageEnded) {
                     return response()->json(response_formatter(CATEGORY_LIMIT_END), 400);
                 }
-
-                $subscribedService = new $this->subscribedService;
-                $subscribedService->is_subscribed = 1;
-
-            } elseif($subscribedService) {
-                if ($subscribedService->is_subscribed == 0){
-                    if ($packageSubscriberLimit <= $categoryCount && $packageSubscriber && $isLimit && $isPackageEnded) {
-                        return response()->json(response_formatter(CATEGORY_LIMIT_END), 400);
-                    }
+            } elseif ($subscribedService->is_subscribed == 0) {
+                if ($packageSubscriberLimit <= $categoryCount && $packageSubscriber && $isLimit && $isPackageEnded) {
+                    return response()->json(response_formatter(CATEGORY_LIMIT_END), 400);
                 }
-
-                $subscribedService->is_subscribed = !$subscribedService->is_subscribed;
             }
-            $subscribedService->provider_id = $request->user()->provider->id;
-            $subscribedService->sub_category_id = $id;
-
-            $parent = $this->category->where('id', $id)->first();
-            if ($parent) {
-                $subscribedService->category_id = $parent->parent_id;
-            }
-
-            $subscribedService->save();
         }
 
-        return response()->json(response_formatter(DEFAULT_200), 200);
+        app(ProviderProfileChangeRequestService::class)->submit(
+            $request->user()->provider->id,
+            'services',
+            ['sub_category_id' => $request['sub_category_id']]
+        );
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'submitted_for_review' => true,
+            'has_pending_profile_changes' => true,
+            'message' => translate('Profile changes submitted for admin review'),
+        ]), 200);
     }
 }

@@ -23,6 +23,8 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
     Route::group(['prefix' => 'ai-chat', 'as' => 'ai-chat.'], function () {
         Route::get('conversation', [MobileAppAiChatController::class, 'conversation']);
         Route::post('send', [MobileAppAiChatController::class, 'send']);
+        Route::post('booking-action', [MobileAppAiChatController::class, 'bookingAction']);
+        Route::post('quick-intent', [MobileAppAiChatController::class, 'quickIntent']);
         Route::post('clear', [MobileAppAiChatController::class, 'clear']);
     });
 });

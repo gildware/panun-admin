@@ -1,0 +1,28 @@
+<?php
+
+return [
+    'page_subtitle' => 'Business expert with live access to leads, bookings, providers, customers, and reports.',
+    'welcome_message' => "Hello! I'm your Business Expert AI with live access to leads, bookings, providers, customers, WhatsApp conversations, and reports.\n\nAsk for a full business analysis — I'll return structured insights with metrics, risks, recommendations, and improvement areas.",
+    'suggested_questions' => 'Try:',
+    'presets' => [
+        'Give me a complete business health analysis with recommendations',
+        'How many WhatsApp chats are open and unassigned? Who handles their leads?',
+        'Analyze our lead pipeline and WhatsApp inbox together',
+        'What are our booking completion and cancel rates? What should we fix?',
+        'Full operational report: leads, bookings, providers, and WhatsApp',
+    ],
+    'input_placeholder' => 'Ask about leads, bookings, providers, customers, revenue, or reports…',
+    'send' => 'Send',
+    'clear_chat' => 'Clear chat',
+    'thinking' => 'Analyzing live business data…',
+    'reset_confirm' => 'Clear this conversation? The AI will start fresh.',
+    'disabled' => 'Business AI is disabled. Set ADMIN_BUSINESS_AI_ENABLED=1 in .env.',
+    'missing_api_key' => 'Set GEMINI_API_KEY in .env to use Business AI.',
+    'empty_message' => 'Please enter a message.',
+    'empty_reply' => 'AI returned an empty response. Please try again.',
+    'gemini_error' => 'AI could not respond right now. Please try again or clear chat and ask a shorter question.',
+    'gemini_empty_turn' => 'AI returned an empty response after fetching data. Please tap Clear chat and try again — or ask one focused question at a time.',
+    'gemini_http_error' => 'AI request timed out or failed to reach Gemini. Please try again in a moment.',
+    'gemini_exception' => 'Something went wrong while running the AI. Please try again.',
+    'tool_rounds_exceeded' => 'Analysis took too many steps. Please ask a more specific question.',
+];

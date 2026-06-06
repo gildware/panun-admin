@@ -82,7 +82,7 @@ class BookingReportController extends Controller
         //Dropdown data
         $zones = $this->zone->ofStatus(1)->select('id', 'name')->get();
         $categories = $this->categories->ofType('main')->select('id', 'name')->get();
-        $subCategories = $this->categories->ofType('sub')->select('id', 'name')->get();
+        $subCategories = $this->categories->ofType('sub')->select('id', 'name', 'parent_id')->get();
 
         //params
         $search = $request['search'];
@@ -106,7 +106,8 @@ class BookingReportController extends Controller
 
         //** Table Data **
         $filteredBookings = self::filterQuery($this->booking, $request)
-            ->with(['customer:id,first_name,last_name', 'provider.owner'])
+            ->with(['customer:id,first_name,last_name', 'provider.owner', 'service_address'])
+            ->withCount('compensations')
             ->when($request->has('booking_status') && $request['booking_status'] != 'all', function ($query) use ($request) {
                 $query->where('booking_status', $request['booking_status']);
             })
@@ -136,26 +137,34 @@ class BookingReportController extends Controller
                 $booking->customer_info = $booking->customer;
             }
 
+            booking_append_provider_api_ui_fields($booking);
+
             return $booking;
         });
 
         //** Card Data **
+        $bookingStatusKeys = array_column(BOOKING_STATUSES, 'key');
         $bookingsForAmount = self::filterQuery($this->booking, $request)
             ->with(['customer', 'provider.owner'])
-            ->whereIn('booking_status', ['accepted', 'ongoing', 'completed', 'canceled'])
+            ->whereIn('booking_status', $bookingStatusKeys)
             ->get();
 
         $bookingsCount = [];
         $bookingsCount['total_bookings'] = $bookingsForAmount->count();
-        $bookingsCount['accepted'] = $bookingsForAmount->where('booking_status', 'accepted')->count();
-        $bookingsCount['ongoing'] = $bookingsForAmount->where('booking_status', 'ongoing')->count();
-        $bookingsCount['completed'] = $bookingsForAmount->where('booking_status', 'completed')->count();
-        $bookingsCount['canceled'] = $bookingsForAmount->where('booking_status', 'canceled')->count();
+        foreach ($bookingStatusKeys as $statusKey) {
+            $bookingsCount[$statusKey] = $bookingsForAmount->where('booking_status', $statusKey)->count();
+        }
 
         $bookingAmount = [];
         $bookingAmount['total_booking_amount'] = $bookingsForAmount->sum('total_booking_amount');
-        $bookingAmount['total_paid_booking_amount'] = $bookingsForAmount->where('booking_status', 'completed')->where('is_paid', 1)->sum('total_booking_amount');
-        $bookingAmount['total_unpaid_booking_amount'] = $bookingsForAmount->where('payment_method', '!=', 'cash_after_service')->sum('total_booking_amount');
+        $bookingAmount['total_paid_booking_amount'] = $bookingsForAmount
+            ->where('payment_method', '!=', 'cash_after_service')
+            ->where('booking_status', 'completed')
+            ->sum('total_booking_amount');
+        $bookingAmount['total_unpaid_booking_amount'] = $bookingsForAmount
+            ->where('payment_method', '!=', 'cash_after_service')
+            ->where('booking_status', '!=', 'completed')
+            ->sum('total_booking_amount');
 
         //** Chart Data **
 
@@ -187,8 +196,8 @@ class BookingReportController extends Controller
         $groupByDeterministic = $deterministic=='week'?'day':$deterministic;
 
         $amounts = $this->booking_details_amount
-            ->whereHas('booking', function ($query) use ($request) {
-                self::filterQuery($query, $request)->whereIn('booking_status', ['accepted', 'ongoing', 'completed', 'canceled']);
+            ->whereHas('booking', function ($query) use ($request, $bookingStatusKeys) {
+                self::filterQuery($query, $request)->whereIn('booking_status', $bookingStatusKeys);
             })
             ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
                 $query->select(
@@ -201,7 +210,7 @@ class BookingReportController extends Controller
             ->get()->toArray();
 
         $bookings = self::filterQuery($this->booking, $request)
-            ->whereIn('booking_status', ['accepted', 'ongoing', 'completed', 'canceled'])
+            ->whereIn('booking_status', $bookingStatusKeys)
             ->when(isset($groupByDeterministic), function ($query) use ($groupByDeterministic) {
                 $query->select(
                     DB::raw('sum(total_booking_amount) as total_booking_amount'),

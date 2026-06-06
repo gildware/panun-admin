@@ -42,7 +42,9 @@ class CategoryController extends Controller
             ->whereHas('zones', function ($query) use ($zoneIds) {
                 return $query->whereIn('category_zone.zone_id', $zoneIds);
             })
-            ->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+            ->mainWithActiveCatalog()
+            ->latest()
+            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
     }
@@ -65,13 +67,19 @@ class CategoryController extends Controller
         }
 
         $childes = $this->category->with('services')
+            ->withCount(['services' => function ($query) {
+                $query->where('is_active', 1);
+            }])
             ->when($request['id'] != 'all', function ($query) use ($request) {
                 return $query->where('parent_id', $request->id);
             })
             ->whereHas('parent.zones', function ($query) use ($request) {
                 return $query->whereIn('category_zone.zone_id', $request->user()->provider->coveredLeafZoneIds());
             })
-            ->ofStatus(1)->ofType('sub')->orderBY('name', 'asc')
+            ->ofStatus(1)
+            ->ofType('sub')
+            ->withActiveServices()
+            ->orderBY('name', 'asc')
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         $subSubCategoryIds = $this->subscribedService->where('provider_id', $request->user()->provider->id)

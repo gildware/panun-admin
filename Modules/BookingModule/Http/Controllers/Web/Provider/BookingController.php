@@ -1903,12 +1903,16 @@ class BookingController extends Controller
 
     public function calendarEvents(Request $request)
     {
-        $providerId = $request->user()?->provider?->id;
+        $provider = $request->user()?->provider;
+        $providerId = $provider?->id;
         if (!$providerId) {
             return response()->json([]);
         }
 
         $mode = $request->mode ?? 'dayGridMonth';
+        $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
+        $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
+        $serviceLocations = getProviderSettings(providerId: $providerId, key: 'service_location', type: 'provider_config') ?? ['customer'];
 
         /*
         |--------------------------------------------------------------------------
@@ -1938,25 +1942,41 @@ class BookingController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Load bookings (regular + repeat masters)
+        | Load bookings (assigned + available pending, same as booking list "all")
         |--------------------------------------------------------------------------
         */
-        $bookings = Booking::where('provider_id', $providerId)
-            ->where(function ($q) use ($sDate, $eDate) {
-
-                // Regular bookings
-                $q->where(function ($q1) use ($sDate, $eDate) {
-                    $q1->where('is_repeated', 0)
-                        ->whereBetween('service_schedule', [$sDate, $eDate]);
-                })
-
-                    // Repeat bookings (date comes from repeat table)
-                    ->orWhere(function ($q2) use ($sDate, $eDate) {
-                        $q2->where('is_repeated', 1)
-                            ->whereHas('repeat', function ($qr) use ($sDate, $eDate) {
-                                $qr->whereBetween('service_schedule', [$sDate, $eDate]);
+        $bookings = Booking::query()
+            ->where(function ($query) use ($providerId, $provider, $sDate, $eDate, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
+                $query->where(function ($assignedQuery) use ($providerId, $sDate, $eDate) {
+                    $assignedQuery->where('provider_id', $providerId)
+                        ->whereDoesntHave('ignores', function ($ignoreQuery) use ($providerId) {
+                            $ignoreQuery->where('provider_id', $providerId);
+                        })
+                        ->where(function ($scheduleQuery) use ($sDate, $eDate) {
+                            $scheduleQuery->where(function ($regularQuery) use ($sDate, $eDate) {
+                                $regularQuery->where('is_repeated', 0)
+                                    ->where(function ($dateQuery) use ($sDate, $eDate) {
+                                        $dateQuery->whereBetween('service_schedule', [$sDate, $eDate])
+                                            ->orWhere(function ($createdQuery) use ($sDate, $eDate) {
+                                                $createdQuery->whereNull('service_schedule')
+                                                    ->whereBetween('created_at', [$sDate, $eDate]);
+                                            });
+                                    });
+                            })->orWhere(function ($repeatQuery) use ($sDate, $eDate) {
+                                $repeatQuery->where('is_repeated', 1)
+                                    ->whereHas('repeat', function ($repeatScheduleQuery) use ($sDate, $eDate) {
+                                        $repeatScheduleQuery->whereBetween('service_schedule', [$sDate, $eDate]);
+                                    });
                             });
-                    });
+                        });
+                })->orWhere(function ($pendingQuery) use ($provider, $maxBookingAmount, $sDate, $eDate, $serviceAtProviderPlace, $serviceLocations) {
+                    $pendingQuery->providerPendingBookings($provider, $maxBookingAmount)
+                        ->when($serviceAtProviderPlace == 1, function ($locationQuery) use ($serviceLocations) {
+                            $locationQuery->whereIn('service_location', $serviceLocations);
+                        })
+                        ->where('is_repeated', 0)
+                        ->whereBetween('service_schedule', [$sDate, $eDate]);
+                });
             })
             ->when($request->filled('booking_status'), function ($q) use ($request) {
                 $statuses = explode(',', $request->booking_status);
@@ -1967,7 +1987,8 @@ class BookingController extends Controller
                 fn ($q) => $q->where('is_repeated', $request->booking_type === 'repeat' ? 1 : 0)
             )
             ->with('repeat')
-            ->get();
+            ->get()
+            ->unique('id');
 
         /*
         |--------------------------------------------------------------------------
@@ -1981,13 +2002,19 @@ class BookingController extends Controller
             // REGULAR BOOKING → single calendar entry
             if (!$booking->is_repeated) {
 
-                if (!$booking->service_schedule) {
+                $scheduleSource = $booking->service_schedule ?? $booking->created_at;
+                if (!$scheduleSource) {
+                    continue;
+                }
+
+                $schedule = Carbon::parse($scheduleSource);
+                if ($schedule->lt($sDate) || $schedule->gt($eDate)) {
                     continue;
                 }
 
                 $calendarItems[] = [
                     'booking_id' => $booking->id,
-                    'schedule'   => Carbon::parse($booking->service_schedule),
+                    'schedule'   => $schedule,
                 ];
 
                 continue;

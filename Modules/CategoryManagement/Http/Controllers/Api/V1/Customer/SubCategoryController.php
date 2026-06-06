@@ -33,8 +33,17 @@ class SubCategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $subCategories = $this->category->withCount('services')->with(['parent'])
-            ->ofStatus(1)->ofType('sub')->latest()->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        $subCategories = $this->category
+            ->withCount(['services' => function ($query) {
+                $query->where('is_active', 1);
+            }])
+            ->with(['parent'])
+            ->ofStatus(1)
+            ->ofType('sub')
+            ->withActiveServices()
+            ->latest()
+            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
+            ->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $subCategories), 200);
     }

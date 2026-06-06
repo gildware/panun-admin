@@ -41,8 +41,9 @@ class BookingController extends Controller
         $this->offlinePayment = $offlinePayment;
         $this->bookingRepeat = $bookingRepeat;
 
-        $this->isCustomerLoggedIn = (bool)auth('api')->user();
-        $this->customerUserId = $this->isCustomerLoggedIn ? auth('api')->user()->id : $request['guest_id'];
+        $user = api_user();
+        $this->isCustomerLoggedIn = (bool) $user;
+        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : $request['guest_id'];
     }
 
     /**

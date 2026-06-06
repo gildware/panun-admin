@@ -43,18 +43,24 @@
                                                                 $language = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name', 'system_language')->first();
                                                             @endphp
                                                             @if($language)
-                                                                <ul class="nav nav--tabs text-nowrap overflow-auto flex-nowrap border-color-primary mb-4">
-                                                                    <li class="nav-item">
-                                                                        <a class="nav-link lang_link active" href="#"
-                                                                        id="default-link">{{translate('default')}}</a>
-                                                                    </li>
-                                                                    @foreach ($language?->live_values as $lang)
+                                                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+                                                                    <ul class="nav nav--tabs text-nowrap overflow-auto flex-nowrap border-color-primary mb-0">
                                                                         <li class="nav-item">
-                                                                            <a class="nav-link lang_link" href="#"
-                                                                            id="{{ $lang['code'] }}-link">{{ get_language_name($lang['code']) }}</a>
+                                                                            <a class="nav-link lang_link active" href="#"
+                                                                            id="default-link">{{translate('default')}}</a>
                                                                         </li>
-                                                                    @endforeach
-                                                                </ul>
+                                                                        @foreach ($language?->live_values as $lang)
+                                                                            <li class="nav-item">
+                                                                                <a class="nav-link lang_link" href="#"
+                                                                                id="{{ $lang['code'] }}-link">{{ get_language_name($lang['code']) }}</a>
+                                                                            </li>
+                                                                        @endforeach
+                                                                    </ul>
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary js-service-mobile-preview flex-shrink-0">
+                                                                        <span class="material-icons fs-16 align-middle">phone_iphone</span>
+                                                                        {{ translate('Preview_in_mobile_app') }}
+                                                                    </button>
+                                                                </div>
                                                             @endif
                                                             @if($language)
                                                                 <div class="mb-30 lang-form" id="default-form">
@@ -568,6 +574,8 @@
                 </div>
             </div>
         </div>
+
+        @include('servicemanagement::admin.partials._service-mobile-preview-modal')
     </div>
 @endsection
 
@@ -577,7 +585,8 @@
     <script src="{{asset('assets/admin-module')}}/plugins/jquery-steps/jquery.steps.min.js"></script>
     <script src="{{asset('assets/provider-module')}}/plugins/jquery-validation/jquery.validate.min.js"></script>
     <script src="{{asset('assets/admin-module/plugins/tinymce/tinymce.min.js')}}"></script>
-    <script src="{{asset('assets/ckeditor/jquery.js')}}"></script>
+    <script src="{{asset('assets/admin-module/js/service-html-editor.js')}}"></script>
+    <script src="{{asset('assets/admin-module/js/service-mobile-preview.js')}}"></script>
 
     {{--AI--}}
     <script src="{{ asset('assets/admin-module/js/AI/products/ai-sidebar.js') }}"></script>
@@ -707,6 +716,10 @@
 
                     if (!isValid) {
                         return false;
+                    }
+
+                    if (window.syncServiceDescriptionEditors) {
+                        window.syncServiceDescriptionEditors();
                     }
 
                     let hasRows = $("#variation-table > tr").length > 0;
@@ -888,15 +901,18 @@
                 $("#short-description-" + lang + "-action-btn").removeClass('d-none');
                 $("#description-" + lang + "-action-btn").removeClass('d-none');
 
+                if (window.showServiceDescriptionEditorForLang) {
+                    setTimeout(function () {
+                        window.showServiceDescriptionEditorForLang(lang);
+                    }, 50);
+                }
+
             });
         });
 
 
 
         $(document).ready(function () {
-            tinymce.init({
-                selector: 'textarea.ckeditor'
-            });
             if (window.initZonePricingRowControls) {
                 window.initZonePricingRowControls('#variation-table');
             }

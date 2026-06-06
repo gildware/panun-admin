@@ -1,15 +1,3 @@
-$(document).ready(function () {
-    tinymce.init({
-        selector: 'textarea.ckeditor',
-        setup: function (editor) {
-            // Keep textarea value in sync with TinyMCE
-            editor.on('change keyup', function () {
-                tinymce.triggerSave();
-            });
-        }
-    });
-});
-
 $(document).on('click', '.general_setup_auto_fill', function () {
     const $button = $(this);
     const lang = $button.data('lang');

@@ -14,6 +14,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\Report\TransactionReportContr
 use Modules\AdminModule\Http\Controllers\Web\Admin\DataTransferController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemMaintenanceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemLogsController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\AdminBusinessAiController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
@@ -24,6 +25,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
     Route::post('search-routing', [AdminController::class, 'searchRouting'])->name('search.routing');
     Route::get('dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+    Route::get('business-ai', [AdminBusinessAiController::class, 'index'])->name('business-ai.index');
+    Route::get('business-ai/messages', [AdminBusinessAiController::class, 'messages'])->name('business-ai.messages');
+    Route::post('business-ai/chat', [AdminBusinessAiController::class, 'chat'])->name('business-ai.chat');
+    Route::post('business-ai/reset', [AdminBusinessAiController::class, 'reset'])->name('business-ai.reset');
 
     Route::get('system-logs', [SystemLogsController::class, 'index'])->name('system-logs.index');
     Route::post('system-logs/clear', [SystemLogsController::class, 'clear'])->name('system-logs.clear');

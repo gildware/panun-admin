@@ -2,7 +2,6 @@
 
 namespace Modules\BusinessSettingsModule\Services;
 
-use Illuminate\Support\Facades\Log;
 use Modules\BusinessSettingsModule\Entities\MobileAppAiConversation;
 use Modules\BusinessSettingsModule\Entities\MobileAppAiMessage;
 use Modules\UserManagement\Entities\User;
@@ -11,12 +10,20 @@ class MobileAppAiSupportService
 {
     public function __construct(
         protected MobileAppAiRuntimeResolver $runtime,
-        protected MobileAppAiGeminiRunner $runner,
+        protected MobileAppAiGeminiHealthService $geminiHealth,
+        protected MobileAppAiOrchestrator $orchestrator,
     ) {}
 
-    public function isEnabled(): bool
+    /**
+     * AI chat is available only when configured AND Gemini responds to a health probe.
+     */
+    public function isEnabled(bool $forceHealthProbe = false): bool
     {
-        return $this->runtime->enabled();
+        if (! $this->runtime->enabled()) {
+            return false;
+        }
+
+        return $this->geminiHealth->isHealthy($forceHealthProbe);
     }
 
     public function getOrCreateConversation(User $user): MobileAppAiConversation
@@ -28,15 +35,12 @@ class MobileAppAiSupportService
     }
 
     /**
-     * @return array{reply: string, messages: list<array<string, mixed>>}
+     * @return array{reply: string, messages: list<array<string, mixed>>, cart_updated: bool, ui?: mixed}
      */
     public function sendMessage(User $user, string $messageText): array
     {
-        if (!$this->isEnabled()) {
-            return [
-                'reply' => __('mobile_app_ai.disabled'),
-                'messages' => [],
-            ];
+        if (! $this->isEnabled()) {
+            return $this->unavailablePayload($user);
         }
 
         $text = trim($messageText);
@@ -44,41 +48,40 @@ class MobileAppAiSupportService
             return [
                 'reply' => '',
                 'messages' => $this->formatMessagesForApi($user),
+                'cart_updated' => false,
             ];
         }
 
         $conversation = $this->getOrCreateConversation($user);
 
-        MobileAppAiMessage::query()->create([
-            'conversation_id' => $conversation->id,
-            'role' => 'user',
-            'source' => MobileAppAiMessage::SOURCE_MOBILE_APP,
-            'body' => $text,
-        ]);
+        return $this->orchestrator->handleUserMessage($user, $conversation, $text);
+    }
 
-        try {
-            $reply = $this->runner->generateReply($user, $conversation);
-        } catch (\Throwable $e) {
-            Log::error('Mobile app AI failed', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-            ]);
-            $reply = __('mobile_app_ai.fallback_reply');
+    /**
+     * @return array{reply: string, messages: list<array<string, mixed>>, cart_updated: bool, ui?: mixed}
+     */
+    public function quickIntent(User $user, string $intent, ?string $query = null): array
+    {
+        if (! $this->isEnabled()) {
+            return $this->unavailablePayload($user);
         }
 
-        MobileAppAiMessage::query()->create([
-            'conversation_id' => $conversation->id,
-            'role' => 'assistant',
-            'source' => MobileAppAiMessage::SOURCE_MOBILE_APP,
-            'body' => $reply,
-        ]);
+        $conversation = $this->getOrCreateConversation($user);
+        $message = match ($intent) {
+            'start_booking' => $query !== null && trim($query) !== ''
+                ? 'book '.trim($query)
+                : 'I want to book a service',
+            'booking_status' => $query !== null && trim($query) !== ''
+                ? 'booking status '.trim($query)
+                : 'show my bookings',
+            'human_support' => 'talk to human support',
+            'troubleshoot' => $query !== null && trim($query) !== ''
+                ? trim($query)
+                : 'help with the app',
+            default => trim((string) $query) !== '' ? trim((string) $query) : $intent,
+        };
 
-        $conversation->update(['last_message_at' => now()]);
-
-        return [
-            'reply' => $reply,
-            'messages' => $this->formatMessagesForApi($user),
-        ];
+        return $this->orchestrator->handleUserMessage($user, $conversation, $message);
     }
 
     /**
@@ -86,33 +89,13 @@ class MobileAppAiSupportService
      */
     public function formatMessagesForApi(User $user): array
     {
-        $conversation = MobileAppAiConversation::query()->where('user_id', $user->id)->first();
-        if (!$conversation) {
-            return [];
-        }
-
-        $limit = $this->runtime->maxHistoryMessages();
-
-        return MobileAppAiMessage::query()
-            ->where('conversation_id', $conversation->id)
-            ->where('source', MobileAppAiMessage::SOURCE_MOBILE_APP)
-            ->orderBy('id')
-            ->limit($limit)
-            ->get()
-            ->map(static fn (MobileAppAiMessage $m): array => [
-                'id' => $m->id,
-                'role' => $m->role,
-                'body' => $m->body,
-                'created_at' => $m->created_at?->toIso8601String(),
-            ])
-            ->values()
-            ->all();
+        return $this->orchestrator->formatMessages($user);
     }
 
     public function clearConversation(User $user): void
     {
         $conversation = MobileAppAiConversation::query()->where('user_id', $user->id)->first();
-        if (!$conversation) {
+        if (! $conversation) {
             return;
         }
 
@@ -120,6 +103,21 @@ class MobileAppAiSupportService
             ->where('conversation_id', $conversation->id)
             ->where('source', MobileAppAiMessage::SOURCE_MOBILE_APP)
             ->delete();
-        $conversation->update(['last_message_at' => now()]);
+        $conversation->update([
+            'last_message_at' => now(),
+            'booking_draft' => null,
+        ]);
+    }
+
+    /**
+     * @return array{reply: string, messages: list<array<string, mixed>>, cart_updated: bool}
+     */
+    private function unavailablePayload(User $user): array
+    {
+        return [
+            'reply' => __('mobile_app_ai.service_unavailable'),
+            'messages' => $this->formatMessagesForApi($user),
+            'cart_updated' => false,
+        ];
     }
 }

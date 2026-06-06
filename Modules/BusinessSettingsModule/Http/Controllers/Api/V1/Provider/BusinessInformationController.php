@@ -8,6 +8,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Modules\ProviderManagement\Entities\ProviderSetting;
+use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 
 class BusinessInformationController extends Controller
 {
@@ -76,54 +77,17 @@ class BusinessInformationController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, $error), 400);
         }
 
-        $serviceLocation = [];
+        $decoded = collect(json_decode($request['data'], true));
+        app(ProviderProfileChangeRequestService::class)->submit(
+            $request->user()->provider->id,
+            'business_settings',
+            ['data' => $decoded->all()]
+        );
 
-        foreach (collect(json_decode($request['data'], true)) as $key => $item) {
-            $key = $item['key'];
-            $value = $item['value'];
-
-            $settingType = in_array($item['key'], ['provider_serviceman_can_edit_booking', 'provider_serviceman_can_cancel_booking']) ? 'serviceman_config' : null;
-
-            if (!is_null($settingType)) {
-                $this->providerSetting->updateOrCreate(['key_name' => $item['key'], 'provider_id' => $request->user()->provider->id], [
-                    'key_name' => $item['key'],
-                    'live_values' => $item['value'],
-                    'test_values' => $item['value'],
-                    'settings_type' => $settingType,
-                    'mode' => 'live',
-                    'is_active' => 1,
-                ]);
-            }
-
-            // Collect service location settings
-            if ($key == 'customer_location' && $value == '1') {
-                $serviceLocation[] = 'customer';
-            }
-            if ($key === 'provider_location' && $value == '1') {
-                $serviceLocation[] = 'provider';
-            }
-        }
-
-        $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
-
-        if($serviceAtProviderPlace == 0){
-            return response()->json(response_formatter(SERVICE_LOCATION_400), 200);
-        }
-
-        if (!empty($serviceLocation)) {
-            $this->providerSetting->updateOrCreate(
-                ['key_name' => 'service_location', 'provider_id' => $request->user()->provider->id, 'settings_type' => 'provider_config'],
-                [
-                    'key_name' => 'service_location',
-                    'live_values' => json_encode($serviceLocation),
-                    'test_values' => json_encode($serviceLocation),
-                    'settings_type' => 'provider_config',
-                    'mode' => 'live',
-                    'is_active' => 1,
-                ]
-            );
-        }
-
-        return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+        return response()->json(response_formatter(DEFAULT_200, [
+            'submitted_for_review' => true,
+            'has_pending_profile_changes' => true,
+            'message' => translate('Profile changes submitted for admin review'),
+        ]), 200);
     }
 }

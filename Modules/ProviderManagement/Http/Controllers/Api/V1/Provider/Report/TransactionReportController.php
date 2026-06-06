@@ -96,7 +96,7 @@ class TransactionReportController extends Controller
 
         $filteredTransactions = $this->transaction
             ->with(['booking', 'from_user.provider', 'to_user.provider'])
-            ->when($request->has('transaction_type') && $request->transaction_type != 'all', function ($query) use($request) {
+            ->when($request->has('transaction_type') && $request->transaction_type != 'all', function ($query) use ($request) {
                 if ($request->transaction_type == 'debit') {
                     $query->where('debit', '!=', 0);
                 } elseif ($request->transaction_type == 'credit') {
@@ -106,57 +106,38 @@ class TransactionReportController extends Controller
             ->where(function ($query) use ($request) {
                 $query->where('to_user_id', $request->user()->id)->orWhere('from_user_id', $request->user()->id);
             })
-            ->when($request->has('date_range') && $request['date_range'] == 'custom_date', function ($query) use($request) {
+            ->when($request->has('zone_ids'), function ($query) use ($request) {
+                $query->whereHas('booking', function ($bookingQuery) use ($request) {
+                    $bookingQuery->whereIn('zone_id', $request['zone_ids']);
+                });
+            })
+            ->when($request->has('date_range') && $request['date_range'] == 'custom_date', function ($query) use ($request) {
                 $query->whereBetween('created_at', [Carbon::parse($request['from'])->startOfDay(), Carbon::parse($request['to'])->endOfDay()]);
             })
-            ->when($request->has('date_range') && $request['date_range'] != 'custom_date', function ($query) use($request) {
-                //DATE RANGE
-                if($request['date_range'] == 'this_week') {
-                    //this week
+            ->when($request->has('date_range') && $request['date_range'] != 'custom_date', function ($query) use ($request) {
+                if ($request['date_range'] == 'this_week') {
                     $query->whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
-
                 } elseif ($request['date_range'] == 'last_week') {
-                    //last week
                     $query->whereBetween('created_at', [Carbon::now()->subWeek()->startOfWeek(), Carbon::now()->subWeek()->endOfWeek()]);
-
                 } elseif ($request['date_range'] == 'this_month') {
-                    //this month
                     $query->whereMonth('created_at', Carbon::now()->month);
-
                 } elseif ($request['date_range'] == 'last_month') {
-                    //last month
                     $query->whereMonth('created_at', Carbon::now()->subMonth()->month);
-
                 } elseif ($request['date_range'] == 'last_15_days') {
-                    //last 15 days
                     $query->whereBetween('created_at', [Carbon::now()->subDay(15), Carbon::now()]);
-
                 } elseif ($request['date_range'] == 'this_year') {
-                    //this year
                     $query->whereYear('created_at', Carbon::now()->year);
-
                 } elseif ($request['date_range'] == 'last_year') {
-                    //last year
                     $query->whereYear('created_at', Carbon::now()->subYear()->year);
-
                 } elseif ($request['date_range'] == 'last_6_month') {
-                    //last 6month
                     $query->whereBetween('created_at', [Carbon::now()->subMonth(6), Carbon::now()]);
-
                 } elseif ($request['date_range'] == 'this_year_1st_quarter') {
-                    //this year 1st quarter
                     $query->whereBetween('created_at', [Carbon::now()->month(1)->startOfQuarter(), Carbon::now()->month(1)->endOfQuarter()]);
-
                 } elseif ($request['date_range'] == 'this_year_2nd_quarter') {
-                    //this year 2nd quarter
                     $query->whereBetween('created_at', [Carbon::now()->month(4)->startOfQuarter(), Carbon::now()->month(4)->endOfQuarter()]);
-
                 } elseif ($request['date_range'] == 'this_year_3rd_quarter') {
-                    //this year 3rd quarter
                     $query->whereBetween('created_at', [Carbon::now()->month(7)->startOfQuarter(), Carbon::now()->month(7)->endOfQuarter()]);
-
                 } elseif ($request['date_range'] == 'this_year_4th_quarter') {
-                    //this year 4th quarter
                     $query->whereBetween('created_at', [Carbon::now()->month(10)->startOfQuarter(), Carbon::now()->month(10)->endOfQuarter()]);
                 }
             })
@@ -281,7 +262,7 @@ class TransactionReportController extends Controller
             ->latest()->get();
 
 
-        return (new FastExcel($filteredTransactions))->download(time().'-provider-report.xlsx', function ($transaction) {
+        return (new FastExcel($filteredTransactions))->download(time() . '-provider-report.xlsx', function ($transaction) {
             return [
                 'Transaction ID' => $transaction->id,
                 'Transaction Date' => date('d-M-Y h:ia',strtotime($transaction->created_at)),

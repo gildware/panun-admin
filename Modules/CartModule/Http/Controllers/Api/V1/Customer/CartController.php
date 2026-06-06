@@ -49,8 +49,9 @@ class CartController extends Controller
         $this->booking = $booking;
         $this->coupon = $coupon;
 
-        $this->isCustomerLoggedIn = (bool)auth('api')->user();
-        $this->customerUserId = $this->isCustomerLoggedIn ? auth('api')->user()->id : $request['guest_id'];
+        $user = api_user();
+        $this->isCustomerLoggedIn = (bool) $user;
+        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : $request['guest_id'];
     }
 
     /**
@@ -225,6 +226,43 @@ class CartController extends Controller
         );
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+    }
+
+    /**
+     * Update preferable schedule for a single cart line.
+     *
+     * @param Request $request
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function updateSchedule(Request $request, string $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'guest_id' => $this->isCustomerLoggedIn ? 'nullable' : 'required|uuid',
+            'service_schedule' => 'required|date_format:Y-m-d H:i:s',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $customerUserId = $this->customerUserId;
+        $cart = $this->cart->where(['id' => $id, 'customer_id' => $customerUserId])->first();
+
+        if (!isset($cart)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $normalizedSchedule = date('Y-m-d H:i:s', strtotime($request['service_schedule']));
+
+        $this->cart
+            ->where(['id' => $id, 'customer_id' => $customerUserId])
+            ->update(['service_schedule' => $normalizedSchedule]);
+
+        $cartItems = $this->queryCustomerCart($customerUserId)->get();
+        $content = $this->buildCartListContent($customerUserId, $cartItems);
+
+        return response()->json(response_formatter(DEFAULT_UPDATE_200, $content), 200);
     }
 
     /**

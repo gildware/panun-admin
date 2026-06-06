@@ -58,6 +58,11 @@ class Advertisement extends Model
         return $this->hasOne(AdvertisementSettings::class, 'advertisement_id', 'id')->where('key', 'review');
     }
 
+    public function showcase()
+    {
+        return $this->hasOne(AdvertisementSettings::class, 'advertisement_id', 'id')->where('key', 'showcase');
+    }
+
     public function getStartDateAttribute($value): Carbon
     {
         return Carbon::parse($value);

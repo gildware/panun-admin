@@ -152,7 +152,8 @@
                                                                accept=".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }}, |image/*"
                                                                data-maxFileSize="{{ readableUploadMaxFileSize('image') }}">
                                                         <div class="upload-file__img">
-                                                            <img src="{{ $provider->logo_full_path }}" alt="{{translate('image')}}">
+                                                            <img src="{{ $provider->logo_full_path }}" alt="{{translate('image')}}"
+                                                                 onerror="this.src='{{ asset('assets/provider-module/img/user2x.png') }}'">
                                                         </div>
                                                         <span class="upload-file__edit">
                                                             <span class="material-icons">edit</span>
@@ -201,16 +202,19 @@
                                         <div class="upload-file w-100">
                                             <h3 class="mb-3">{{translate('Identification_Image')}}</h3>
                                             <div id="old_company_multi_image_picker">
-                                                @foreach($provider->company_identity_images_full_path ?? [] as $image)
+                                                @forelse($provider->company_identity_images_full_path ?? [] as $image)
                                                     @php
                                                         $ext = strtolower(pathinfo(parse_url($image, PHP_URL_PATH), PATHINFO_EXTENSION));
                                                     @endphp
                                                     @if($ext === 'pdf')
                                                         <a class="p-1 text-decoration-none" href="{{ $image }}" target="_blank" rel="noopener">PDF</a>
                                                     @else
-                                                        <img class="p-1" height="150" src="{{ $image }}" alt="{{translate('image')}}">
+                                                        <img class="p-1" height="150" src="{{ $image }}" alt="{{translate('image')}}"
+                                                             onerror="this.onerror=null;this.src='{{ asset('assets/admin-module/img/media/provider-id.png') }}'">
                                                     @endif
-                                                @endforeach
+                                                @empty
+                                                    <span class="text-muted small">{{ translate('No_data_found') }}</span>
+                                                @endforelse
                                             </div>
                                         </div>
 
@@ -264,16 +268,19 @@
                                             <div class="upload-file w-100">
                                                 <h3 class="mb-3">{{translate('Identification_Image')}}</h3>
                                                 <div id="old_multi_image_picker">
-                                                    @foreach($provider->owner->identification_image_full_path as $image)
+                                                    @forelse($provider->owner->identification_image_full_path ?? [] as $image)
                                                         @php
                                                             $ext = strtolower(pathinfo(parse_url($image, PHP_URL_PATH), PATHINFO_EXTENSION));
                                                         @endphp
                                                         @if($ext === 'pdf')
                                                             <a class="p-1 text-decoration-none" href="{{ $image }}" target="_blank" rel="noopener">PDF</a>
                                                         @else
-                                                            <img class="p-1" height="150" src="{{ $image }}" alt="{{translate('image')}}">
+                                                            <img class="p-1" height="150" src="{{ $image }}" alt="{{translate('image')}}"
+                                                                 onerror="this.onerror=null;this.src='{{ asset('assets/admin-module/img/media/provider-id.png') }}'">
                                                         @endif
-                                                    @endforeach
+                                                    @empty
+                                                        <span class="text-muted small">{{ translate('No_data_found') }}</span>
+                                                    @endforelse
                                                 </div>
                                             </div>
                                         </div>
@@ -345,11 +352,9 @@
                                                    accept=".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }}, |image/*"
                                                    data-maxFileSize="{{ readableUploadMaxFileSize('image') }}">
                                             <div class="upload-file__img">
-                                                <img src="{{onErrorImage($provider->contact_person_photo,
-                                                        asset('storage/provider/contact_person_photo').'/' . $provider->contact_person_photo,
-                                                        asset('assets/admin-module/img/placeholder.png'),
-                                                        'provider/contact_person_photo/')}}"
-                                                     alt="{{translate('image')}}">
+                                                <img src="{{ $provider->contact_person_photo_full_path }}"
+                                                     alt="{{translate('image')}}"
+                                                     onerror="this.onerror=null;this.src='{{ asset('assets/admin-module/img/placeholder.png') }}'">
                                             </div>
                                             <span class="upload-file__edit">
                                                 <span class="material-icons">edit</span>

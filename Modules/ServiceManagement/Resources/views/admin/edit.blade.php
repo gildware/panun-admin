@@ -75,20 +75,26 @@
                                                         </div>
                                                         <div class="bg-light p-xxl-20 p-12px rounded">
                                                             @if($language)
-                                                                <ul class="nav nav--tabs border-color-primary mb-5 flex-nowrap text-nowrap overflow-auto">
-                                                                    <li class="nav-item">
-                                                                        <a class="nav-link lang_link active"
-                                                                        href="#"
-                                                                        id="default-link">{{translate('default')}}</a>
-                                                                    </li>
-                                                                    @foreach ($language?->live_values as $lang)
+                                                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+                                                                    <ul class="nav nav--tabs border-color-primary mb-0 flex-nowrap text-nowrap overflow-auto">
                                                                         <li class="nav-item">
-                                                                            <a class="nav-link lang_link"
+                                                                            <a class="nav-link lang_link active"
                                                                             href="#"
-                                                                            id="{{ $lang['code'] }}-link">{{ get_language_name($lang['code']) }}</a>
+                                                                            id="default-link">{{translate('default')}}</a>
                                                                         </li>
-                                                                    @endforeach
-                                                                </ul>
+                                                                        @foreach ($language?->live_values as $lang)
+                                                                            <li class="nav-item">
+                                                                                <a class="nav-link lang_link"
+                                                                                href="#"
+                                                                                id="{{ $lang['code'] }}-link">{{ get_language_name($lang['code']) }}</a>
+                                                                            </li>
+                                                                        @endforeach
+                                                                    </ul>
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary js-service-mobile-preview flex-shrink-0">
+                                                                        <span class="material-icons fs-16 align-middle">phone_iphone</span>
+                                                                        {{ translate('Preview_in_mobile_app') }}
+                                                                    </button>
+                                                                </div>
                                                             @endif
                                                             <!-- Language End -->
                                                             @if($language)
@@ -703,6 +709,11 @@
                 </div>
             </div>
         </div>
+
+        @include('servicemanagement::admin.partials._service-mobile-preview-modal', [
+            'service' => $service,
+            'previewCurrencySymbol' => $previewCurrencySymbol ?? null,
+        ])
     </div>
 @endsection
 
@@ -711,7 +722,8 @@
     <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
     <script src="{{asset('assets/admin-module')}}/plugins/jquery-steps/jquery.steps.min.js"></script>
     <script src="{{asset('assets/admin-module/plugins/tinymce/tinymce.min.js')}}"></script>
-    <script src="{{asset('assets/ckeditor/jquery.js')}}"></script>
+    <script src="{{asset('assets/admin-module/js/service-html-editor.js')}}"></script>
+    <script src="{{asset('assets/admin-module/js/service-mobile-preview.js')}}"></script>
 
     {{--AI--}}
     <script src="{{ asset('assets/admin-module/js/AI/products/ai-sidebar.js') }}"></script>
@@ -771,6 +783,10 @@
 
                 if (!isValid) {
                     return false; // Stop form submission if validation fails
+                }
+
+                if (window.syncServiceDescriptionEditors) {
+                    window.syncServiceDescriptionEditors();
                 }
 
                 $("#service-add-form")[0].submit();
@@ -915,9 +931,6 @@
         }
 
         $(document).ready(function () {
-            tinymce.init({
-                selector: 'textarea.ckeditor'
-            });
             if (window.initZonePricingRowControls) {
                 window.initZonePricingRowControls('#variation-update-table');
             }
@@ -1217,6 +1230,12 @@
                 $(".from_part_2").removeClass('d-none');
             } else {
                 $(".from_part_2").addClass('d-none');
+            }
+
+            if (window.showServiceDescriptionEditorForLang) {
+                setTimeout(function () {
+                    window.showServiceDescriptionEditorForLang(lang);
+                }, 50);
             }
         });
 

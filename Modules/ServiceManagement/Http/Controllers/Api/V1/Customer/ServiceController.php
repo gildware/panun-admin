@@ -52,8 +52,9 @@ class ServiceController extends Controller
         $this->favoriteService = $favoriteService;
         $this->category = $category;
 
-        $this->is_customer_logged_in = (bool)auth('api')->user();
-        $this->customer_user_id = $this->is_customer_logged_in ? auth('api')->user()->id : $request['guest_id'];
+        $user = api_user();
+        $this->is_customer_logged_in = (bool) $user;
+        $this->customer_user_id = $this->is_customer_logged_in ? $user->id : $request['guest_id'];
     }
 
     /**

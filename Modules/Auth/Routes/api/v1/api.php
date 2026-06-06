@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Auth\Http\Controllers\Api\V1\LoginController;
 use Modules\Auth\Http\Controllers\Api\V1\RegisterController;
+use Modules\Auth\Http\Controllers\Api\V1\RegistrationCatalogController;
 
 Route::group(['prefix' => 'admin', 'as' => 'admin', 'namespace' => 'Api\V1'], function () {
 
@@ -14,6 +15,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin', 'namespace' => 'Api\V1'], fu
 
 Route::group(['prefix' => 'provider', 'as' => 'provider', 'namespace' => 'Api\V1'], function () {
     Route::group(['prefix' => 'auth', 'as' => 'auth.'], function () {
+        Route::post('verify-credentials', [RegisterController::class, 'verifyProviderCredentials'])->name('verify-credentials');
+        Route::get('registration/draft', [RegisterController::class, 'getProviderRegistrationDraft'])->name('registration.draft');
+        Route::get('registration/categories', [RegistrationCatalogController::class, 'categories'])->name('registration.categories');
+        Route::get('registration/sub-categories', [RegistrationCatalogController::class, 'subCategories'])->name('registration.sub-categories');
+        Route::post('registration/save-step', [RegisterController::class, 'saveProviderRegistrationStep'])->name('registration.save-step');
         Route::post('registration', [RegisterController::class, 'providerRegister'])->name('registration');
         Route::post('login', [LoginController::class, 'providerLogin'])->name('login');
         Route::post('send-login-otp', [LoginController::class, 'providerSendLoginOtp'])->name('send-login-otp');

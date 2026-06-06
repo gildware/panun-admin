@@ -9,9 +9,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\AccountController as ProviderAccountController;
 use Modules\BidModule\Entities\IgnoredPost;
 use Modules\BidModule\Entities\Post;
 use Modules\BookingModule\Entities\Booking;
@@ -482,7 +484,7 @@ class ProviderController extends Controller
      */
     public function updateProfile(Request $request): JsonResponse
     {
-        $check = $this->validateUploadedFile($request, ['logo', 'cover_image']);
+        $check = $this->validateUploadedFile($request, ['logo', 'cover_image', 'contact_person_photo']);
         if ($check !== true) {
             return $check;
         }
@@ -496,7 +498,8 @@ class ProviderController extends Controller
                 'min:8',
                 User::uniquePhoneAmongUserTypesRule((string) $request->user()->id, PROVIDER_USER_TYPES),
             ],
-            'contact_person_email' => 'required|email|unique:users,email,' . $request->user()->id,
+            'contact_person_email' => 'nullable|email|max:191|unique:users,email,' . $request->user()->id,
+            'contact_person_photo' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'zone_ids' => 'required|array|min:1',
             'zone_ids.*' => 'uuid',
 
@@ -505,23 +508,30 @@ class ProviderController extends Controller
 
             'company_name' => $providerType === 'company' ? 'required' : 'nullable',
             'company_phone' => $providerType === 'company' ? 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8' : 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+            'company_email' => 'nullable|email',
             'company_address' => 'required',
+            'street' => 'nullable|string|max:191',
+            'city' => 'nullable|string|max:191',
+            'pincode' => 'nullable|string|max:32',
             'logo' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
             'cover_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'latitude' => 'required',
             'longitude' => 'required',
 
-            'identity_type' => 'required|in:passport,driving_license,nid,trade_license,company_id',
+            'identity_type' => 'required|in:passport,driving_license,nid',
             'identity_number' => 'required',
-           // 'identity_images' => 'required|array',
-          //  'identity_images.*' => 'image|mimes:jpeg,jpg,png,gif',
 
             'uploaded_identity_images'   => 'nullable',
             'uploaded_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
 
             'deleted_identity_images'    => 'nullable',
-            'deleted_identity_images.*'  => 'string', // filenames to delete
+
+            'company_identity_type' => $providerType === 'company' ? 'required|in:trade_license,company_id' : 'nullable',
+            'company_identity_number' => $providerType === 'company' ? 'required|string|max:191' : 'nullable|string|max:191',
+            'uploaded_company_identity_images' => 'nullable|array',
+            'uploaded_company_identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'deleted_company_identity_images' => 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -536,90 +546,69 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Select_Zone')]]), 400);
         }
 
-        $previousLeafIds = $provider->zones()->pluck('zones.id')->sort()->values()->all();
-        if ($previousLeafIds !== collect($leafZoneIds)->sort()->values()->all()) {
-            DB::table('subscribed_services')->where('provider_id', $provider->id)->update(['is_subscribed' => 0]);
-        }
-
-        if ($providerType === 'company') {
-            $provider->company_name = $request->company_name;
-            $provider->company_phone = $request->company_phone;
-        } else {
-            $provider->company_name = $request->contact_person_name;
-            $provider->company_phone = $request->contact_person_phone;
-            $provider->company_email = $request->contact_person_email;
-        }
-
-        if ($request->has('logo')) {
-            $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'), $provider->logo);
-        }
-
-        if ($request->has('cover_image')) {
-            $provider->cover_image = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('cover_image'), $provider->cover_image);
-        }
-
-        $provider->company_address = $request->company_address;
-        $provider->contact_person_name = $request->contact_person_name;
-        $provider->contact_person_phone = $request->contact_person_phone;
-        $provider->contact_person_email = $request->contact_person_email;
-        $provider->zone_id = $leafZoneIds[0];
-        $provider->coordinates = ['latitude' => $request['latitude'], 'longitude' => $request['longitude']];
-
         $owner = $this->user->where('id', $request->user()->id)->first();
-        // Account (owner) info defaults to contact person details.
-        $owner->email = $request->contact_person_email;
-        $owner->phone = $request->contact_person_phone;
-        if ($request->has('password')) {
-            $owner->password = bcrypt($request->password);
-        }
-
-
-        $existingImages = is_string($owner->identification_image) ? json_decode($owner->identification_image, true) : ($owner->identification_image ?? []);
-        $deletedImages = is_string($request->deleted_identity_images) ? json_decode($request->deleted_identity_images, true) : ($request->deleted_identity_images ?? []);
-        $newImages = $request->uploaded_identity_images ?? [];
-
-        $filteredImages = [];
-
-        foreach ($existingImages as $item) {
-            if (is_string($item)) {
-                if (in_array($item, $deletedImages)) {
-                    file_remover('provider/identity',  $item);
-                    continue;
-                }
-
-                $filteredImages[] = [
-                    'image' => $item,
-                    'storage' => getDisk()
-                ];
-            } elseif (is_array($item) && isset($item['image'])) {
-                if (in_array($item['image'], $deletedImages)) {
-                    file_remover('provider/identity',  $item);
-                    continue;
-                }
-
-                $filteredImages[] = $item;
+        $newPhone = trim((string) $request->contact_person_phone);
+        if (User::normalizeContactPhoneDigits((string) $owner->phone) !== User::normalizeContactPhoneDigits($newPhone)) {
+            $cacheKey = ProviderAccountController::phoneChangeVerifiedCacheKey((string) $request->user()->id, $newPhone);
+            if (! Cache::get($cacheKey)) {
+                return response()->json(response_formatter(DEFAULT_400, null, [[
+                    'error_code' => 'contact_person_phone',
+                    'message' => translate('Please verify your phone number with OTP before saving'),
+                ]]), 400);
             }
+            Cache::forget($cacheKey);
         }
 
-        foreach ($newImages as $image) {
-            $imageName = file_uploader('provider/identity/', APPLICATION_IMAGE_FORMAT, $image);
-            $filteredImages[] = ['image'=>$imageName, 'storage'=> getDisk()];
+        $changeService = app(\Modules\ProviderManagement\Services\ProviderProfileChangeRequestService::class);
+        $payload = $changeService->buildProfilePayload($request, $provider, $owner);
+        $changeService->submit($provider->id, 'profile', $payload);
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'submitted_for_review' => true,
+            'has_pending_profile_changes' => true,
+            'message' => translate('Profile changes submitted for admin review'),
+        ]), 200);
+    }
+
+    public function updateBranding(Request $request): JsonResponse
+    {
+        $check = $this->validateUploadedFile($request, ['logo', 'cover_image']);
+        if ($check !== true) {
+            return $check;
         }
 
-        $owner->identification_image = array_values($filteredImages);
-        $owner->identification_number = $request->identity_number;
-        $owner->identification_type = $request->identity_type;
+        if (!$request->hasFile('logo') && !$request->hasFile('cover_image')) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'message' => translate('Please upload logo or cover image'),
+            ]]), 400);
+        }
 
-        DB::transaction(function () use ($provider, $owner, $leafZoneIds) {
-            $owner->zones()->sync($leafZoneIds);
-            $owner->save();
-            $provider->save();
-            $provider->zones()->sync(
-                collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
-            );
-        });
+        $validator = Validator::make($request->all(), [
+            'logo' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'cover_image' => 'nullable|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+        ]);
 
-        return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $provider = $this->provider::where('user_id', $request->user()->id)->first();
+        if (!$provider) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $changeService = app(\Modules\ProviderManagement\Services\ProviderProfileChangeRequestService::class);
+        $payload = $changeService->buildBrandingPayload($request);
+        $changeService->submit($provider->id, 'branding', $payload);
+        $pendingPreview = $changeService->pendingBrandingPreviewUrls($provider->id);
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'submitted_for_review' => true,
+            'has_pending_profile_changes' => true,
+            'has_pending_branding_changes' => true,
+            'pending_branding_preview' => $pendingPreview,
+            'message' => translate('Logo and cover submitted for admin review'),
+        ]), 200);
     }
 
     /**
@@ -859,9 +848,14 @@ class ProviderController extends Controller
         }
 
         $subscribed = $this->subscribedService->where('provider_id', $request->user()->provider->id)
-            ->with(['sub_category' => function ($query) {
-                return $query->withCount('services')->with(['services']);
-            }])
+            ->with([
+                'category' => function ($query) {
+                    return $query->select('id', 'name', 'parent_id', 'is_active');
+                },
+                'sub_category' => function ($query) {
+                    return $query->withCount('services')->with(['services']);
+                },
+            ])
             ->whereHas('category', function ($query) {
                 $query->where('is_active', 1);
             })

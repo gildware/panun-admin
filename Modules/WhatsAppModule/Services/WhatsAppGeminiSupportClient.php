@@ -29,10 +29,12 @@ class WhatsAppGeminiSupportClient
         array $functionDeclarations,
         ?WhatsAppAiExecutionRecorder $recorder = null,
         ?string $modelOverride = null,
+        ?int $maxOutputTokensOverride = null,
+        ?int $httpTimeoutOverride = null,
     ): array {
         $t0 = microtime(true);
         $withTools = $functionDeclarations !== [];
-        $turn = $this->generateTurnInternal($systemText, $contents, $functionDeclarations, $modelOverride);
+        $turn = $this->generateTurnInternal($systemText, $contents, $functionDeclarations, $modelOverride, $maxOutputTokensOverride, $httpTimeoutOverride);
         $ms = (int) round((microtime(true) - $t0) * 1000);
 
         if ($recorder !== null) {
@@ -140,14 +142,20 @@ class WhatsAppGeminiSupportClient
      * @param  list<array<string, mixed>>  $functionDeclarations
      * @return array{type: 'text', text: string}|array{type: 'function_calls', calls: list<array{name: string, args: array<string, mixed>}>}|array{type: 'blocked', reason: string}
      */
-    private function generateTurnInternal(string $systemText, array $contents, array $functionDeclarations, ?string $modelOverride = null): array
-    {
+    private function generateTurnInternal(
+        string $systemText,
+        array $contents,
+        array $functionDeclarations,
+        ?string $modelOverride = null,
+        ?int $maxOutputTokensOverride = null,
+        ?int $httpTimeoutOverride = null,
+    ): array {
         $key = (string) config('services.gemini.api_key');
         if ($key === '') {
             return ['type' => 'blocked', 'reason' => 'missing_api_key'];
         }
 
-        $maxOut = (int) config('whatsappmodule.gemini_max_output_tokens', 896);
+        $maxOut = $maxOutputTokensOverride ?? (int) config('whatsappmodule.gemini_max_output_tokens', 896);
         $temp = (float) config('whatsappmodule.gemini_temperature', 0.35);
         $gen = [
             'maxOutputTokens' => $maxOut,
@@ -180,7 +188,7 @@ class WhatsAppGeminiSupportClient
                     . rawurlencode($model)
                     . ':generateContent';
 
-                $timeout = (int) config('whatsappmodule.gemini_http_timeout', 32);
+                $timeout = $httpTimeoutOverride ?? (int) config('whatsappmodule.gemini_http_timeout', 32);
                 $response = Http::timeout($timeout)
                     ->withQueryParameters(['key' => $key])
                     ->acceptJson()
@@ -272,7 +280,14 @@ class WhatsAppGeminiSupportClient
                 return ['type' => 'blocked', 'reason' => 'finish_' . $finish];
             }
 
-            return ['type' => 'blocked', 'reason' => 'no_parts'];
+            Log::warning('Gemini candidate missing content.parts', [
+                'model' => $modelUsed,
+                'finishReason' => $finish,
+                'candidate_keys' => array_keys($candidate),
+            ]);
+
+            // STOP with empty/missing parts happens intermittently with tool calling; treat as empty text so callers can retry.
+            return ['type' => 'text', 'text' => ''];
         }
 
         $calls = [];

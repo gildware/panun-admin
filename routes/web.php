@@ -39,6 +39,16 @@ Route::get('business-page/{slug}', [LandingController::class, 'dynamicPage'])->n
 Route::get('maintenance-mode', [LandingController::class, 'maintenanceMode'])->name('maintenance-mode');
 Route::post('subscribe-newsletter',[LandingController::class, 'subscribeNewsletter'])->name('subscribe-newsletter');
 
+Route::get('/storage/{path}', function (string $path) {
+    $path = str_replace(['..', '\\'], '', $path);
+    $fullPath = storage_path('app/public/'.$path);
+    if (! is_file($fullPath)) {
+        abort(404);
+    }
+
+    return response()->file($fullPath);
+})->where('path', '.*');
+
 Route::fallback(function () {
     return redirect('admin/auth/login');
 });

@@ -7,6 +7,8 @@ $special_scenarios_menu_count = \Modules\BookingModule\Entities\Booking::query()
     ->where('settlement_outcome', '!=', '')
     ->count();
 $pending_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(2)->count();
+$pending_showcase_items = \Modules\ProviderManagement\Entities\ProviderShowcaseItem::where('is_approved', 2)->count();
+$pending_profile_changes = \Modules\ProviderManagement\Entities\ProviderChangeRequest::where('status', 2)->count();
 $denied_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(0)->count();
 $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/', defaultPath: 'assets/placeholder.png');
 ?>
@@ -557,6 +559,22 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         <span class="material-icons" title="{{translate('Onboarding_Request')}}">description</span>
                         <span class="link-title">{{translate('Onboarding_Request')}} <span
                                 class="count">{{$pending_providers + $denied_providers}}</span></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{route('admin.provider.showcase_approval', ['status'=>'pending'])}}"
+                       class="{{request()->is('admin/provider/showcase-approval*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('Work_Showcase_Approvals')}}">collections</span>
+                        <span class="link-title">{{translate('Work_Showcase_Approvals')}} <span
+                                class="count">{{$pending_showcase_items}}</span></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{route('admin.provider.profile_change_request', ['status'=>'pending'])}}"
+                       class="{{request()->is('admin/provider/profile-change*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('Profile_Update_Requests')}}">manage_accounts</span>
+                        <span class="link-title">{{translate('Profile_Update_Requests')}} <span
+                                class="count">{{$pending_profile_changes}}</span></span>
                     </a>
                 </li>
             @endcan

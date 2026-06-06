@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/dataTables/select.dataTables.min.css"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/plugins/wysiwyg-editor/froala_editor.min.css"/>
+    <style>
+        .service-long-description-html img { max-width: 100%; height: auto; }
+        .service-long-description-html table { width: 100%; border-collapse: collapse; }
+        .service-long-description-html table td,
+        .service-long-description-html table th { border: 1px solid var(--bs-border-color); padding: 0.5rem; }
+    </style>
 @endpush
 
 @section('content')
@@ -119,7 +125,9 @@
 
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="long-description-tab-pane">
-                                    {!! $service->description !!}
+                                    <div class="service-long-description-html">
+                                        {!! $service->description !!}
+                                    </div>
                                 </div>
                                 <div class="tab-pane fade" id="price-table-tab-pane">
                                     <div class="row justify-content-center">

@@ -327,6 +327,10 @@ trait BookingScopes
 
     public function scopeProviderPendingBookings($query, Provider $provider, $maxBookingAmount)
     {
+        if (! provider_can_receive_bookings($provider)) {
+            return $query->whereRaw('1 = 0');
+        }
+
         $providerId = $provider->id;
         $packageSubscriber = PackageSubscriber::where('provider_id', $providerId)->first();
         $endDate = optional($packageSubscriber)->package_end_date;
