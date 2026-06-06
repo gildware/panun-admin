@@ -119,7 +119,7 @@ class WhatsAppController extends Controller
                 $handlerFilter = 'all';
                 $handlerFilters = [];
                 $humanSupportTab = $tab === 'human_support';
-                $chatCounts = ['total' => 0, 'unread' => 0, 'read' => 0, 'filtered_total' => 0, 'show_counts' => false];
+                $chatCounts = ['total' => 0, 'unread' => 0, 'read' => 0, 'filtered_total' => 0];
             }
 
             $chatStatusesForFilter = collect();
@@ -1948,7 +1948,6 @@ class WhatsAppController extends Controller
                     'total' => (int) ($counts['total'] ?? 0),
                     'unread' => (int) ($counts['unread'] ?? 0),
                     'read' => (int) ($counts['read'] ?? 0),
-                    'show_counts' => (bool) ($counts['show_counts'] ?? false),
                 ],
                 'unread_count' => (int) ($counts['unread'] ?? 0),
                 'read_count' => (int) ($counts['read'] ?? 0),
@@ -2407,7 +2406,7 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * @return array{total: int, unread: int, read: int, filtered_total: int, show_counts: bool}
+     * @return array{total: int, unread: int, read: int, filtered_total: int}
      */
     private function buildActiveChatListCounts(?string $unreadState = null): array
     {
@@ -2423,7 +2422,6 @@ class WhatsAppController extends Controller
             'unread' => $global['unread'],
             'read' => $global['read'],
             'filtered_total' => $filteredTotal,
-            'show_counts' => false,
         ];
     }
 
@@ -3026,7 +3024,6 @@ class WhatsAppController extends Controller
         $facetChats = $this->applyWhatsAppConversationFacetFilters($chats, $request);
         $facetChats = $this->applyWhatsAppSystemLinkAndDateFilters($facetChats, $request);
         $facetCounts = $this->computeWhatsAppActiveChatUnreadSplit($facetChats);
-        $showCounts = $this->hasBlockingActiveChatListFilters($request);
 
         $chats = $this->applyWhatsAppUnreadStateFilter($facetChats, $request);
         $filteredTotal = $chats->count();
@@ -3035,7 +3032,6 @@ class WhatsAppController extends Controller
             'unread' => $facetCounts['unread'],
             'read' => $facetCounts['read'],
             'filtered_total' => $filteredTotal,
-            'show_counts' => $showCounts,
         ];
 
         if ($page !== null && $perPage !== null) {
