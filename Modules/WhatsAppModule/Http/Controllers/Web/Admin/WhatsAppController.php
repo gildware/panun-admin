@@ -102,66 +102,13 @@ class WhatsAppController extends Controller
         if ($tab === 'chats' || $tab === 'human_support') {
             try {
                 $humanSupportTab = $tab === 'human_support';
-                $handlerFilters = $this->normalizeWaHandlerFilters($request);
-                /** @deprecated Single-param UI; derived for header quick-select */
-                $handlerFilter = $handlerFilters === [] ? 'all' : (count($handlerFilters) === 1 ? $handlerFilters[0] : 'all');
-
-                $baseChats = $humanSupportTab
-                    ? $this->getHumanSupportChatsList()
-                    : $this->getActiveChatsList();
-
-                $handledByKeys = $baseChats
-                    ->pluck('handled_by_key')
-                    ->unique()
-                    ->filter()
-                    ->values();
-
-                $chatHandlers = [];
-                $chatHandlers[] = [
-                    'key' => 'all',
-                    'label' => $humanSupportTab ? translate('Human support requests') : translate('All Chats'),
-                ];
-
-                if ($handledByKeys->contains('AI')) {
-                    $chatHandlers[] = ['key' => 'ai', 'label' => translate('Handled by AI')];
-                }
-
-                $adminIds = $handledByKeys->reject(function ($v) {
-                    return $v === 'AI';
-                })->values();
-
-                if ($adminIds->isNotEmpty()) {
-                    $admins = DB::table('users')
-                        ->whereIn('id', $adminIds)
-                        ->get(['id', 'first_name', 'last_name']);
-                    foreach ($admins as $admin) {
-                        $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
-                        $chatHandlers[] = [
-                            'key' => (string) $admin->id,
-                            'label' => translate('Handled by') . ' ' . ($fullName ?: $admin->id),
-                        ];
-                    }
-                }
-
-                $chats = $baseChats->filter(function ($chat) use ($handlerFilters) {
-                    if ($handlerFilters === []) {
-                        return true;
-                    }
-                    foreach ($handlerFilters as $hf) {
-                        if ($hf === 'ai' && ($chat->handled_by_key ?? '') === 'AI') {
-                            return true;
-                        }
-                        if ($hf !== 'ai' && (string) ($chat->handled_by_key ?? '') === (string) $hf) {
-                            return true;
-                        }
-                    }
-
-                    return false;
-                })->values();
-
-                $chats = $this->applyWhatsAppConversationFacetFilters($chats, $request);
-                $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
-                $chats = $this->applyWhatsAppSystemLinkAndDateFilters($chats, $request);
+                $resolved = $this->resolveWhatsAppFilteredActiveChats($request, $humanSupportTab);
+                $chats = $resolved['chats'];
+                $chatHandlers = $resolved['chatHandlers'];
+                $handlerFilters = $resolved['handlerFilters'];
+                $handlerFilter = $resolved['handlerFilter'];
+                $chatCounts = $this->computeWhatsAppActiveChatCounts($chats);
+                $chats = $chats->take(20)->values();
             } catch (\Throwable $e) {
                 Toastr::error('Could not load chats. ' . $e->getMessage());
                 $chats = collect();
@@ -172,6 +119,7 @@ class WhatsAppController extends Controller
                 $handlerFilter = 'all';
                 $handlerFilters = [];
                 $humanSupportTab = $tab === 'human_support';
+                $chatCounts = ['total' => 0, 'unread' => 0, 'read' => 0];
             }
 
             $chatStatusesForFilter = collect();
@@ -216,6 +164,7 @@ class WhatsAppController extends Controller
                 'handlerFilter',
                 'handlerFilters',
                 'humanSupportTab',
+                'chatCounts',
                 'conversationQuickTemplates',
                 'waAgentDisplayNameForTemplates',
                 'waQuickTplPayload',
@@ -1965,6 +1914,53 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * Paginated active chat list for lazy loading (20 per page by default).
+     */
+    public function activeChatsPage(Request $request): JsonResponse
+    {
+        $this->authorize('whatsapp_chat_view');
+
+        $humanSupportTab = $request->boolean('human_support');
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = min(50, max(1, (int) $request->get('per_page', 20)));
+
+        try {
+            $resolved = $this->resolveWhatsAppFilteredActiveChats($request, $humanSupportTab);
+            $allChats = $resolved['chats'];
+            $counts = $this->computeWhatsAppActiveChatCounts($allChats);
+            $total = $counts['total'];
+            $offset = ($page - 1) * $perPage;
+            $slice = $allChats->slice($offset, $perPage)->values();
+            $loaded = min($offset + $slice->count(), $total);
+            $remaining = max(0, $total - $loaded);
+
+            $html = view('whatsappmodule::admin.conversations.partials.active-chat-items', [
+                'chats' => $slice,
+                'humanSupportTab' => $humanSupportTab,
+            ])->render();
+
+            return response()->json([
+                'html' => $html,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'unread_count' => $counts['unread'],
+                'read_count' => $counts['read'],
+                'loaded' => $loaded,
+                'remaining' => $remaining,
+                'has_more' => $remaining > 0,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('WhatsApp activeChatsPage failed.', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'html' => '',
+                'error' => 'Failed to load chats',
+            ], 500);
+        }
+    }
+
+    /**
      * Active chats for forwarding a message (same pool as the left list; optional exclude = current thread).
      */
     public function activeChatsForForward(Request $request): JsonResponse
@@ -2784,6 +2780,101 @@ class WhatsAppController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * @return array{
+     *     chats: \Illuminate\Support\Collection<int, object>,
+     *     chatHandlers: array<int, array{key: string, label: string}>,
+     *     handlerFilters: array<int, string>,
+     *     handlerFilter: string
+     * }
+     */
+    private function resolveWhatsAppFilteredActiveChats(Request $request, bool $humanSupportTab): array
+    {
+        $handlerFilters = $this->normalizeWaHandlerFilters($request);
+        /** @deprecated Single-param UI; derived for header quick-select */
+        $handlerFilter = $handlerFilters === [] ? 'all' : (count($handlerFilters) === 1 ? $handlerFilters[0] : 'all');
+
+        $baseChats = $humanSupportTab
+            ? $this->getHumanSupportChatsList()
+            : $this->getActiveChatsList();
+
+        $handledByKeys = $baseChats
+            ->pluck('handled_by_key')
+            ->unique()
+            ->filter()
+            ->values();
+
+        $chatHandlers = [];
+        $chatHandlers[] = [
+            'key' => 'all',
+            'label' => $humanSupportTab ? translate('Human support requests') : translate('All Chats'),
+        ];
+
+        if ($handledByKeys->contains('AI')) {
+            $chatHandlers[] = ['key' => 'ai', 'label' => translate('Handled by AI')];
+        }
+
+        $adminIds = $handledByKeys->reject(function ($v) {
+            return $v === 'AI';
+        })->values();
+
+        if ($adminIds->isNotEmpty()) {
+            $admins = DB::table('users')
+                ->whereIn('id', $adminIds)
+                ->get(['id', 'first_name', 'last_name']);
+            foreach ($admins as $admin) {
+                $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
+                $chatHandlers[] = [
+                    'key' => (string) $admin->id,
+                    'label' => translate('Handled by') . ' ' . ($fullName ?: $admin->id),
+                ];
+            }
+        }
+
+        $chats = $baseChats->filter(function ($chat) use ($handlerFilters) {
+            if ($handlerFilters === []) {
+                return true;
+            }
+            foreach ($handlerFilters as $hf) {
+                if ($hf === 'ai' && ($chat->handled_by_key ?? '') === 'AI') {
+                    return true;
+                }
+                if ($hf !== 'ai' && (string) ($chat->handled_by_key ?? '') === (string) $hf) {
+                    return true;
+                }
+            }
+
+            return false;
+        })->values();
+
+        $chats = $this->applyWhatsAppConversationFacetFilters($chats, $request);
+        $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
+        $chats = $this->applyWhatsAppSystemLinkAndDateFilters($chats, $request);
+
+        return [
+            'chats' => $chats,
+            'chatHandlers' => $chatHandlers,
+            'handlerFilters' => $handlerFilters,
+            'handlerFilter' => $handlerFilter,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>  $chats
+     * @return array{total: int, unread: int, read: int}
+     */
+    private function computeWhatsAppActiveChatCounts(\Illuminate\Support\Collection $chats): array
+    {
+        $total = $chats->count();
+        $unread = $chats->filter(static fn ($chat) => (int) ($chat->unread_count ?? 0) > 0)->count();
+
+        return [
+            'total' => $total,
+            'unread' => $unread,
+            'read' => max(0, $total - $unread),
+        ];
     }
 
     /**

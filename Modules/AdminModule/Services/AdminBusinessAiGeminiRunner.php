@@ -270,13 +270,68 @@ class AdminBusinessAiGeminiRunner
         $question = $userMessage !== '' ? $userMessage : 'the admin question';
 
         return 'Using ONLY the tool results above, answer: "'.$question.'". '
+            .'The data is live from the database right now. NEVER say "data is not available" or "the report does not contain" if ok:true was returned — use the numbers and lists provided. '
+            .'If a count is 0 or a list is empty, state that explicitly (e.g. "0 cancelled leads") instead of claiming missing data. '
             .'Reply in markdown with ## headings. For focused questions, ## Executive Summary, ## Key Metrics, and a short ## Detailed Analysis are enough. '
             .'Do not call any more tools — write the final answer now.';
     }
 
     private function shouldUseServerToolFallback(string $userMessage): bool
     {
-        return $this->inferToolsForQuestion($userMessage) !== [];
+        $text = trim($userMessage);
+        if ($text === '') {
+            return false;
+        }
+
+        if ($this->inferToolsForQuestion($text) !== []) {
+            return true;
+        }
+
+        return str_word_count($text) >= 3;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function extractQueryIdentifiers(string $userMessage): array
+    {
+        $ids = [];
+
+        if (preg_match('/(?:\+91[\s-]?)?[6-9]\d{9}\b/', $userMessage, $phoneMatch)) {
+            $digits = preg_replace('/\D/', '', $phoneMatch[0]) ?? '';
+            $ids['phone'] = strlen($digits) > 10 ? substr($digits, -10) : $digits;
+        }
+
+        if (preg_match('/\b(PK-\d+)\b/i', $userMessage, $readableMatch)) {
+            $ids['readable_id'] = strtoupper($readableMatch[1]);
+        }
+
+        if (preg_match('/\blead\s*(?:id|#|:)?\s*(\d+)\b/i', $userMessage, $leadMatch)) {
+            $ids['lead_id'] = (int) $leadMatch[1];
+        }
+
+        if (preg_match('/\bbooking\s*(?:id|#|:)?\s*([a-f0-9-]{36}|\d+)\b/i', $userMessage, $bookingMatch)) {
+            $ids['booking_id'] = $bookingMatch[1];
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param  list<array{name: string, args: array<string, mixed>}>  $tools
+     * @param  array{name: string, args: array<string, mixed>}  $tool
+     * @return list<array{name: string, args: array<string, mixed>}>
+     */
+    private function pushTool(array $tools, array $tool): array
+    {
+        foreach ($tools as $existing) {
+            if (($existing['name'] ?? '') === ($tool['name'] ?? '')) {
+                return $tools;
+            }
+        }
+        $tools[] = $tool;
+
+        return $tools;
     }
 
     /**
@@ -290,62 +345,198 @@ class AdminBusinessAiGeminiRunner
         }
 
         $tools = [];
+        $ids = $this->extractQueryIdentifiers($userMessage);
+        $maxTools = 3;
 
-        if (preg_match('/\b(zone|zones|area|areas|region|regions|location|locations|city|cities|locality|localities)\b/i', $userMessage)
-            && preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_business_reports', 'args' => ['report_type' => 'booking_analytics']];
+        if ($ids !== []) {
+            if (! empty($ids['lead_id']) && preg_match('/\b(detail|history|timeline|activity|show|tell|about)\b/i', $userMessage)) {
+                return [['name' => 'get_lead_details', 'args' => ['lead_id' => $ids['lead_id']]]];
+            }
+            if (! empty($ids['readable_id']) || ! empty($ids['booking_id'])) {
+                $bookingArgs = ! empty($ids['readable_id'])
+                    ? ['readable_id' => $ids['readable_id']]
+                    : ['booking_id' => $ids['booking_id']];
+                if (preg_match('/\b(detail|history|timeline|show|tell|about|status)\b/i', $userMessage)) {
+                    return [['name' => 'get_booking_details', 'args' => $bookingArgs]];
+                }
+            }
+            $tools = $this->pushTool($tools, ['name' => 'get_entity_relations', 'args' => $ids]);
+        }
+
+        $isCancellationReasonQuestion = (bool) preg_match(
+            '/\b(cancel+lation|cancel+led?)\b.*\b(reason|reasons|why)\b/i',
+            $userMessage
+        ) || (bool) preg_match(
+            '/\b(reason|reasons)\b.*\b(cancel+lation|cancel+led?)\b/i',
+            $userMessage
+        ) || (bool) preg_match(
+            '/\b(top|main|common|frequent|biggest)\b.*\b(cancel+lation|cancel+led?)\b/i',
+            $userMessage
+        );
+
+        if ($isCancellationReasonQuestion) {
+            if (preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage) && ! preg_match('/\b(lead|leads|crm)\b/i', $userMessage)) {
+                return [['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']]];
+            }
+            if (preg_match('/\b(invalid)\b/i', $userMessage)) {
+                return [['name' => 'analyze_leads', 'args' => ['analysis' => 'invalid_reasons', 'lead_type' => 'invalid']]];
+            }
+            if (preg_match('/\b(future customer|future_customer)\b/i', $userMessage)) {
+                return [['name' => 'analyze_leads', 'args' => ['analysis' => 'future_customer_reasons', 'lead_type' => 'future_customer']]];
+            }
+            if (preg_match('/\b(provider|vendor|technician|partner)\b/i', $userMessage) && preg_match('/\b(lead|leads|crm|pipeline)\b/i', $userMessage)) {
+                return [['name' => 'analyze_leads', 'args' => ['analysis' => 'provider_cancellation_reasons', 'lead_type' => 'provider']]];
+            }
+
+            return [['name' => 'analyze_leads', 'args' => ['analysis' => 'customer_cancellation_reasons', 'lead_type' => 'customer']]];
+        }
+
+        if (preg_match('/\b(withdraw|withdrawal|payout|payouts)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'query_withdraw_requests', 'args' => []]);
+        }
+
+        if (preg_match('/\b(ledger|company balance|in\/out)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'query_ledger', 'args' => []]);
+        }
+
+        if (preg_match('/\b(transaction|transactions|payment history)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'query_transactions', 'args' => []]);
+        }
+
+        if (preg_match('/\b(pending balance|collect cash|owe|owing provider)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'query_pending_provider_balances', 'args' => []]);
+        }
+
+        if (preg_match('/\b(verify requests?|offline payments?|special scenarios?|booking queues?|overdue bookings?)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'get_booking_queues_overview', 'args' => []]);
+            if (preg_match('/\b(list|show|which|who)\b/i', $userMessage)) {
+                $queue = 'overdue_followups';
+                if (preg_match('/\b(verify)\b/i', $userMessage)) {
+                    $queue = 'verify_requests';
+                } elseif (preg_match('/\b(offline payment|offline)\b/i', $userMessage)) {
+                    $queue = 'offline_payments';
+                } elseif (preg_match('/\b(special scenario|loss|scaled)\b/i', $userMessage)) {
+                    $queue = 'special_scenarios';
+                }
+                $tools = $this->pushTool($tools, ['name' => 'query_booking_queues', 'args' => ['queue' => $queue]]);
+            }
+        }
+
+        if (preg_match('/\b(outbound|enquiry|enquiries)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'query_outbound_enquiries', 'args' => []]);
+        }
+
+        if (preg_match('/\b(conversion|inbound report|lead report|category wise|zone wise)\b/i', $userMessage)
+            && preg_match('/\b(lead|leads)\b/i', $userMessage)) {
+            $reportType = preg_match('/\b(provider|vendor)\b/i', $userMessage) ? 'provider' : 'customer';
+            $tools = $this->pushTool($tools, ['name' => 'get_lead_inbound_report', 'args' => ['report_type' => $reportType]]);
+        }
+
+        if (preg_match('/\b(productivity|handled leads|leads handled)\b/i', $userMessage)
+            && preg_match('/\b(employee|staff|agent|user)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'get_employee_lead_productivity', 'args' => []]);
+        }
+
+        if ((preg_match('/\b(zone|zones|area|areas|region|category|categories)\b/i', $userMessage)
+                && preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage))
+            || preg_match('/\b(booking analytics|booking report)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'get_business_reports', 'args' => ['report_type' => 'booking_analytics']]);
         }
 
         if (preg_match('/\b(whatsapp|chat|chats|inbox|unassigned|human support)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_whatsapp_conversations_overview', 'args' => []];
+            $tools = $this->pushTool($tools, ['name' => 'get_whatsapp_conversations_overview', 'args' => []]);
         }
 
         if (preg_match('/\b(employee|staff|agent|handled by|who is handling|workload|incomplete|unspecified|missing data|not filled)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'analyze_employee_activity', 'args' => ['analysis' => 'full_employee_overview']];
-        }
-
-        if (preg_match('/\b(lead|leads|pipeline|crm|followup|follow-up)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_business_reports', 'args' => ['report_type' => 'lead_pipeline']];
+            $tools = $this->pushTool($tools, ['name' => 'analyze_employee_activity', 'args' => ['analysis' => 'full_employee_overview']]);
         }
 
         if (preg_match('/\b(no response|unresponsive|not responding|no reply)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'analyze_leads', 'args' => ['analysis' => 'no_response_timing_report', 'lead_type' => 'all']];
+            $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'no_response_timing_report', 'lead_type' => 'all']]);
         }
 
         if (preg_match('/\b(lag|delay|response time|when.*(come|arrive|received|created)|what time|peak hour|followup.*time|updat(e|ing).*time)\b/i', $userMessage)) {
             if (preg_match('/\b(booking|bookings|order|orders|cancel|accepted|pending)\b/i', $userMessage)) {
-                $cohort = 'all';
                 if (preg_match('/\b(cancel+ed?|cancellation)\b/i', $userMessage)) {
-                    $cohort = 'canceled';
-                    $tools[] = ['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']];
+                    $tools = $this->pushTool($tools, ['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']]);
                 } elseif (preg_match('/\b(overdue|followup|follow-up)\b/i', $userMessage)) {
-                    $tools[] = ['name' => 'analyze_bookings', 'args' => ['analysis' => 'followup_timing_report']];
+                    $tools = $this->pushTool($tools, ['name' => 'analyze_bookings', 'args' => ['analysis' => 'followup_timing_report']]);
                 } else {
-                    $tools[] = ['name' => 'analyze_bookings', 'args' => ['analysis' => 'booking_timing_report', 'cohort' => $cohort]];
+                    $tools = $this->pushTool($tools, ['name' => 'analyze_bookings', 'args' => ['analysis' => 'booking_timing_report', 'cohort' => 'all']]);
                 }
             } else {
-                $tools[] = ['name' => 'analyze_leads', 'args' => ['analysis' => 'lead_timing_report', 'lead_type' => 'all', 'cohort' => 'all']];
+                $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'lead_timing_report', 'lead_type' => 'all', 'cohort' => 'all']]);
             }
         }
 
-        if (preg_match('/\b(dashboard|widget|ledger|followup|follow-up|top provider|top customer)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_dashboard_snapshot', 'args' => []];
+        if (preg_match('/\b(provider|providers|vendor|technicians)\b/i', $userMessage)) {
+            if (preg_match('/\b(search|list|show|find|pending approval|onboarding)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'query_providers', 'args' => []]);
+            } else {
+                $tools = $this->pushTool($tools, ['name' => 'analyze_providers', 'args' => ['analysis' => 'full_provider_overview']]);
+            }
+        }
+
+        if (preg_match('/\b(customer|customers|client|clients)\b/i', $userMessage)
+            && ! preg_match('/\b(lead|leads|cancellation)\b/i', $userMessage)) {
+            if (preg_match('/\b(search|list|show|find)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'query_customers', 'args' => []]);
+            } else {
+                $tools = $this->pushTool($tools, ['name' => 'analyze_customers', 'args' => ['analysis' => 'full_customer_overview']]);
+            }
+        }
+
+        if (preg_match('/\b(lead|leads|pipeline|crm)\b/i', $userMessage)
+            && ! preg_match('/\b(conversion|inbound report|lead report|category wise|zone wise)\b/i', $userMessage)) {
+            if (preg_match('/\b(status|breakdown|distribution|type)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'full_lead_overview', 'lead_type' => 'all']]);
+            } elseif (preg_match('/\b(list|search|show|find|pending|open)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'query_leads', 'args' => ['limit' => 25]]);
+            } else {
+                $tools = $this->pushTool($tools, ['name' => 'get_business_reports', 'args' => ['report_type' => 'lead_pipeline']]);
+            }
+        }
+
+        if (preg_match('/\b(booking|bookings|order|orders)\b/i', $userMessage)
+            && ! preg_match('/\b(analytics|zone|area|timing|lag|cancel)\b/i', $userMessage)) {
+            if (preg_match('/\b(status|breakdown|overview|summary)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'analyze_bookings', 'args' => ['analysis' => 'full_booking_overview']]);
+            } elseif (preg_match('/\b(list|search|show|find|pending|overdue)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'query_bookings', 'args' => ['limit' => 25]]);
+            }
+        }
+
+        if (preg_match('/\b(earning|expense|commission|profit|revenue|financial|money|payable)\b/i', $userMessage)) {
+            if (preg_match('/\b(earning|revenue)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'get_business_reports', 'args' => ['report_type' => 'earning']]);
+            } elseif (preg_match('/\b(expense)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'get_business_reports', 'args' => ['report_type' => 'expense']]);
+            } elseif (preg_match('/\b(commission)\b/i', $userMessage)) {
+                $tools = $this->pushTool($tools, ['name' => 'get_business_reports', 'args' => ['report_type' => 'commission_earning']]);
+            } else {
+                $tools = $this->pushTool($tools, ['name' => 'get_business_dashboard_overview', 'args' => []]);
+            }
+        }
+
+        if (preg_match('/\b(dashboard|widget|snapshot|today|followup|follow-up)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'get_dashboard_snapshot', 'args' => []]);
         }
 
         if (preg_match('/\b(relation|related|linked|connect|connection|same phone|who handles)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_entity_relations', 'args' => []];
-        }
-
-        if (preg_match('/\b(revenue|earning|earnings|financial|profit|payable|money)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_business_dashboard_overview', 'args' => []];
+            $tools = $this->pushTool($tools, ['name' => 'get_entity_relations', 'args' => $ids]);
         }
 
         if (preg_match('/\b(full|complete|health|overview|analysis|report|summary)\b/i', $userMessage)
-            && ! preg_match('/\b(zone|area|booking|lead|whatsapp|customer|provider)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_dashboard_snapshot', 'args' => []];
+            && $tools === []) {
+            $tools = $this->pushTool($tools, ['name' => 'get_dashboard_snapshot', 'args' => []]);
+            $tools = $this->pushTool($tools, ['name' => 'get_business_dashboard_overview', 'args' => []]);
         }
 
-        return array_slice($tools, 0, 2);
+        if ($tools === []) {
+            $tools = $this->pushTool($tools, ['name' => 'get_business_dashboard_overview', 'args' => []]);
+        }
+
+        return array_slice($tools, 0, $maxTools);
     }
 
     /**
@@ -408,9 +599,221 @@ class AdminBusinessAiGeminiRunner
 
                 return $this->formatBookingAnalyticsFallback($payload, $userMessage);
             }
+
+            if (in_array($result['analysis'] ?? '', [
+                'customer_cancellation_reasons',
+                'provider_cancellation_reasons',
+                'invalid_reasons',
+                'future_customer_reasons',
+            ], true)) {
+                return $this->formatLeadCancellationReasonsFallback($result);
+            }
+
+            if (isset($result['timing']['insights']) && is_array($result['timing']['insights']) && $result['timing']['insights'] !== []) {
+                return $this->formatTimingInsightsFallback($result);
+            }
+        }
+
+        foreach ($toolResultsBag as $entry) {
+            $result = $entry['result'] ?? [];
+            if ($result['ok'] ?? false) {
+                $generic = $this->formatGenericToolFallback((string) ($entry['name'] ?? 'tool'), $result);
+                if ($generic !== '') {
+                    return $generic;
+                }
+            }
         }
 
         return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function formatTimingInsightsFallback(array $result): string
+    {
+        $insights = is_array($result['timing']['insights'] ?? null) ? $result['timing']['insights'] : [];
+        $cohort = (string) ($result['cohort'] ?? $result['analysis'] ?? 'cohort');
+        $size = (int) ($result['cohort_size'] ?? $result['leads_in_scope'] ?? $result['bookings_in_scope'] ?? 0);
+
+        $lines = [
+            '## Executive Summary',
+            $insights[0] ?? "Timing analysis for {$cohort} ({$size} records).",
+            '',
+            '## Key Metrics',
+            "- Records analyzed: **{$size}**",
+        ];
+
+        foreach (array_slice($insights, 0, 8) as $insight) {
+            $lines[] = '- '.$insight;
+        }
+
+        if (isset($result['timing']['lag_hours']) && is_array($result['timing']['lag_hours'])) {
+            $lines[] = '';
+            $lines[] = '## Lag statistics (hours)';
+            foreach ($result['timing']['lag_hours'] as $label => $stats) {
+                if (! is_array($stats) || ($stats['median_hours'] ?? null) === null) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '- %s: median **%.2f**h, p90 **%.2f**h (%d samples)',
+                    str_replace('_', ' ', (string) $label),
+                    (float) $stats['median_hours'],
+                    (float) ($stats['p90_hours'] ?? 0),
+                    (int) ($stats['count'] ?? 0)
+                );
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function formatGenericToolFallback(string $toolName, array $result): string
+    {
+        $lines = ['## Executive Summary', 'Live data pulled from **'.$toolName.'**.', '', '## Key Metrics'];
+        $metricCount = 0;
+
+        $countKeys = [
+            'total', 'count', 'leads_in_scope', 'bookings_in_scope', 'cancelled_customer_leads',
+            'cancelled_provider_leads', 'cohort_size', 'overdue_scheduled_followups', 'paid_count',
+            'unpaid_count', 'reopened_count', 'pending_approval_count', 'total_customers',
+            'total_providers', 'total_bookings', 'total_leads', 'open_chats', 'unassigned_chats',
+        ];
+        foreach ($countKeys as $key) {
+            if (isset($result[$key]) && is_numeric($result[$key])) {
+                $lines[] = '- '.str_replace('_', ' ', ucfirst($key)).': **'.$result[$key].'**';
+                $metricCount++;
+            }
+        }
+
+        if (isset($result['metrics']) && is_array($result['metrics'])) {
+            foreach ($result['metrics'] as $label => $value) {
+                if (is_scalar($value)) {
+                    $lines[] = '- '.str_replace('_', ' ', (string) $label).': **'.$value.'**';
+                    $metricCount++;
+                }
+            }
+        }
+
+        if (isset($result['by_reason']) && is_array($result['by_reason']) && $result['by_reason'] !== []) {
+            $lines[] = '';
+            $lines[] = '## Breakdown';
+            foreach (array_slice($result['by_reason'], 0, 10) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '%d. **%s** — %s',
+                    $index + 1,
+                    (string) ($row['reason'] ?? $row['label'] ?? 'Unknown'),
+                    (string) ($row['count'] ?? $row['total'] ?? 0)
+                );
+                $metricCount++;
+            }
+        }
+
+        if (isset($result['by_status']) && is_array($result['by_status'])) {
+            $lines[] = '';
+            $lines[] = '## By status';
+            foreach ($result['by_status'] as $status => $count) {
+                $lines[] = '- **'.$status.'**: '.$count;
+                $metricCount++;
+            }
+        }
+
+        if (isset($result['data']['cancellation']['reasons']) && is_array($result['data']['cancellation']['reasons'])) {
+            $lines[] = '';
+            $lines[] = '## Cancellation reasons';
+            foreach (array_slice($result['data']['cancellation']['reasons'], 0, 10) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '%d. **%s** — %s',
+                    $index + 1,
+                    (string) ($row['label'] ?? $row['reason'] ?? 'Unknown'),
+                    (string) ($row['total'] ?? $row['count'] ?? 0)
+                );
+                $metricCount++;
+            }
+        }
+
+        if (isset($result['queues']) && is_array($result['queues'])) {
+            $lines[] = '';
+            $lines[] = '## Queues';
+            foreach ($result['queues'] as $queue => $count) {
+                $lines[] = '- **'.str_replace('_', ' ', (string) $queue).'**: '.$count;
+                $metricCount++;
+            }
+        }
+
+        if ($metricCount === 0) {
+            return '';
+        }
+
+        $lines[] = '';
+        $lines[] = '## Detailed Analysis';
+        $lines[] = 'Figures above are real-time from the admin database.';
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function formatLeadCancellationReasonsFallback(array $result): string
+    {
+        $analysis = (string) ($result['analysis'] ?? '');
+        $reasons = is_array($result['by_reason'] ?? null) ? $result['by_reason'] : [];
+        $total = (int) ($result['cancelled_customer_leads'] ?? $result['cancelled_provider_leads'] ?? $result['leads_in_scope'] ?? 0);
+        $withoutReason = (int) ($result['without_recorded_reason'] ?? 0);
+
+        $title = match ($analysis) {
+            'provider_cancellation_reasons' => 'provider lead cancellation reasons',
+            'invalid_reasons' => 'invalid lead reasons',
+            'future_customer_reasons' => 'future customer lead reasons',
+            default => 'customer lead cancellation reasons',
+        };
+
+        if ($reasons === []) {
+            return "## Executive Summary\n"
+                ."No {$title} were found in the analyzed lead set.\n\n"
+                ."## Key Metrics\n"
+                ."- Leads in scope: **{$total}**";
+        }
+
+        $top = $reasons[0];
+        $topReason = (string) ($top['reason'] ?? 'Unknown');
+        $topCount = (int) ($top['count'] ?? 0);
+
+        $lines = [
+            '## Executive Summary',
+            "**{$topReason}** is the top {$title} with **{$topCount}** leads.",
+            '',
+            '## Key Metrics',
+            "- Cancelled/analyzed leads: **{$total}**",
+        ];
+
+        if ($withoutReason > 0) {
+            $lines[] = "- Without recorded reason: **{$withoutReason}**";
+        }
+
+        $lines[] = '';
+        $lines[] = '## Top reasons';
+
+        foreach (array_slice($reasons, 0, 10) as $index => $row) {
+            $lines[] = sprintf(
+                '%d. **%s** — %d',
+                $index + 1,
+                (string) ($row['reason'] ?? 'Unknown'),
+                (int) ($row['count'] ?? 0)
+            );
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -587,8 +990,10 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
 
 ## Data rules
 - Always call tools before stating any count, revenue figure, status, name, or trend. Never guess.
-- For broad questions, call at most 2–3 tools per turn, then write your analysis.
-- **Full admin-tab data is available via tools:**
+- All tool results are **live, real-time** database reads. NEVER tell the admin "data is not available", "the report does not contain", or "I cannot determine" when a tool returned ok:true — use the fields provided. If a list is empty or count is 0, say so explicitly.
+- If the first tool lacks a specific field, call the correct specialized tool (e.g. customer_cancellation_reasons for lead cancel reasons, get_lead_inbound_report for conversion, query_booking_queues for verify/offline queues) before concluding.
+- For broad questions, call 2–3 relevant tools, then write your analysis.
+- **Full admin-tab data is available via tools (30 tools, all read-only):**
   - Leads timing/lag: analyze_leads no_response_timing_report — full cohort stats for No Response leads: peak receive hours, reply/followup/update hours, median/p90 lag hours, handler breakdown, never-replied counts. no_response_leads also includes timing_summary. lead_timing_report with cohort filter for other segments (invalid, customer_pending, etc). lead_activity_report includes timing aggregates.
   - Leads: query_leads non_responsive_only=true for list. get_lead_details for single-lead activity_summary.
   - Leads: get_lead_details returns all_fields — zone, categories, service, cancellation reason/remarks, received date, every followup, handler, tags, district/zones (provider). query_leads filters by zone, category, source, tag. get_lead_inbound_report mirrors admin Lead Reports (customer|provider). get_employee_lead_productivity mirrors per-user lead report.
@@ -601,11 +1006,16 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
   - Relations: get_entity_relations — link phone/lead/booking/customer/provider/WhatsApp/outbound enquiry in one call.
   - WhatsApp: get_whatsapp_conversations_overview, query_whatsapp_conversations, get_whatsapp_conversation_details — chat_handler (inbox assignee) vs lead_handler (CRM); linked_lead_is_customer; system bookings on thread.
   - Employees: analyze_employee_activity (workload, chats, bookings, incomplete leads per handler), query_incomplete_leads (unspecified/missing lead fields + who handles + booking link).
-- For cancellation reason questions: analyze_leads with analysis=customer_cancellation_reasons (or provider_cancellation_reasons).
+- Lead cancellation reasons: analyze_leads customer_cancellation_reasons (returns by_reason ranked list). Provider: provider_cancellation_reasons. Booking cancellations: analyze_bookings cancellation_timing_report (timing.cancellation_reasons). NEVER use get_dashboard_snapshot or lead_pipeline for cancellation reasons.
+- Lead conversion/zone/category reports: get_lead_inbound_report (customer|provider).
+- Booking operational queues: get_booking_queues_overview + query_booking_queues (verify, offline_payment, special_scenarios, overdue_followup).
+- Financial ops: query_ledger, query_transactions, query_withdraw_requests, query_pending_provider_balances.
+- Entity lookup: get_entity_relations — ALWAYS pass phone, lead_id, booking_id, or readable_id when the user mentions one.
 - For employee performance / who handles chats / incomplete data: analyze_employee_activity or query_incomplete_leads.
-- For geography / zone booking questions: get_business_reports report_type=booking_analytics (zone_wise).
+- For geography / zone booking questions: get_business_reports report_type=booking_analytics (zone_wise, category_wise).
 - Cross-reference domains: use get_entity_relations when asked how records connect; report chat_handler vs lead_handler for WhatsApp.
 - You are read-only — never claim you changed data.
+- Not yet in tools (say which admin tab to check): promotions/coupons, subscriptions, service catalog config, WhatsApp marketing campaigns, system settings.
 
 ## Analysis depth
 - For narrow questions (top zone, one metric, single report), answer with Executive Summary + Key Metrics + short analysis — skip empty sections.

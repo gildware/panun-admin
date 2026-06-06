@@ -169,6 +169,17 @@
             .whatsapp-active-list-container .wa-chat-list-filter-btn {
                 white-space: nowrap;
             }
+            .wa-active-chat-counts {
+                font-size: 0.75rem;
+                font-weight: 500;
+            }
+            .wa-active-chat-counts .badge {
+                font-size: 0.7rem;
+                font-weight: 600;
+            }
+            #wa-active-chat-list-footer {
+                border-top: 1px solid rgba(0, 0, 0, 0.06);
+            }
             /* Phone (chats split): search opens from list/thread icons; hide the top search bar. */
             @media (max-width: 767.98px) {
                 .wa-whatsapp-chats-split-page #wa-global-search-default-slot {
@@ -1170,132 +1181,75 @@
             {{-- Tab: Active Chats / Human support — left: scrollable list, right: open chat --}}
             <?php if (($tab ?? '') === 'chats' || ($tab ?? '') === 'human_support'): ?>
                 <div class="row g-3 align-items-stretch wa-chats-split-layout">
-                    <div class="col-12 col-md-5 col-lg-4 col-xl-4 whatsapp-active-list-container wa-chats-split-col">
+                    <div class="col-12 col-md-5 col-lg-4 col-xl-4 whatsapp-active-list-container wa-chats-split-col"
+                         data-total="{{ (int) ($chatCounts['total'] ?? 0) }}"
+                         data-unread="{{ (int) ($chatCounts['unread'] ?? 0) }}"
+                         data-read="{{ (int) ($chatCounts['read'] ?? 0) }}"
+                         data-loaded="{{ (int) ($chats ?? collect())->count() }}"
+                         data-page="1"
+                         data-has-more="{{ ((int) ($chatCounts['total'] ?? 0)) > ((int) ($chats ?? collect())->count()) ? '1' : '0' }}">
                         <div class="card h-100 d-flex flex-column wa-min-h-0">
-                            <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2 min-w-0 flex-wrap">
-                                <strong class="flex-shrink-0 me-1">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
-                                <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                                    <button type="button"
-                                            id="wa-mobile-list-search-open"
-                                            class="btn btn-light border d-md-none d-inline-flex align-items-center justify-content-center rounded-circle p-2"
-                                            data-bs-toggle="offcanvas"
-                                            data-bs-target="#wa-mobile-search-offcanvas"
-                                            aria-controls="wa-mobile-search-offcanvas"
-                                            title="{{ translate('Search here') }}"
-                                            aria-label="{{ translate('Search here') }}">
-                                        <span class="material-icons" style="font-size: 20px; line-height: 1;">search</span>
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn-outline-primary btn-sm wa-chat-list-filter-btn d-inline-flex align-items-center gap-1 flex-shrink-0"
-                                            data-bs-toggle="offcanvas"
-                                            data-bs-target="#wa-chats-filters-offcanvas"
-                                            aria-controls="wa-chats-filters-offcanvas">
-                                        {{ translate('Filters') }}
-                                        @if(($waFacetCount ?? 0) > 0)
-                                            <span class="badge bg-primary rounded-pill">{{ $waFacetCount }}</span>
-                                        @endif
-                                    </button>
+                            <div class="card-header py-2 d-flex flex-column gap-1 min-w-0">
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                    <strong class="flex-shrink-0 me-1">{{ !empty($humanSupportTab ?? false) ? translate('Human support requests') : translate('Chats') }}</strong>
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                        <button type="button"
+                                                id="wa-mobile-list-search-open"
+                                                class="btn btn-light border d-md-none d-inline-flex align-items-center justify-content-center rounded-circle p-2"
+                                                data-bs-toggle="offcanvas"
+                                                data-bs-target="#wa-mobile-search-offcanvas"
+                                                aria-controls="wa-mobile-search-offcanvas"
+                                                title="{{ translate('Search here') }}"
+                                                aria-label="{{ translate('Search here') }}">
+                                            <span class="material-icons" style="font-size: 20px; line-height: 1;">search</span>
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm wa-chat-list-filter-btn d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                                data-bs-toggle="offcanvas"
+                                                data-bs-target="#wa-chats-filters-offcanvas"
+                                                aria-controls="wa-chats-filters-offcanvas">
+                                            {{ translate('Filters') }}
+                                            @if(($waFacetCount ?? 0) > 0)
+                                                <span class="badge bg-primary rounded-pill">{{ $waFacetCount }}</span>
+                                            @endif
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="wa-active-chat-counts" class="wa-active-chat-counts d-flex flex-wrap align-items-center gap-1 text-muted">
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" id="wa-active-chat-count-total">
+                                        {{ str_replace(':count', (string) (int) ($chatCounts['total'] ?? 0), translate('whatsapp_active_chats_total')) }}
+                                    </span>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle" id="wa-active-chat-count-unread">
+                                        {{ str_replace(':count', (string) (int) ($chatCounts['unread'] ?? 0), translate('whatsapp_active_chats_unread')) }}
+                                    </span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle" id="wa-active-chat-count-read">
+                                        {{ str_replace(':count', (string) (int) ($chatCounts['read'] ?? 0), translate('whatsapp_active_chats_read')) }}
+                                    </span>
                                 </div>
                             </div>
                             <div class="card-body p-0 wa-active-chat-list-scroll">
                                 <?php $chatCollection = $chats ?? collect(); ?>
                                 <div id="wa-active-chat-items">
                                 <?php if ($chatCollection->isNotEmpty()): ?>
-                                    <?php foreach ($chatCollection as $chat): ?>
-                                        <?php
-                                            $created = $chat->created_at ?? null;
-                                            $phone = $chat->phone ?? '';
-                                            $name = trim($chat->name ?? '');
-                                            $phoneDisplay = $displayPhone($phone);
-                                            $displayLine = $chat->display_line ?? ($name !== '' ? $name . ' (' . $phoneDisplay . ')' : $phoneDisplay);
-                                            $direction = strtoupper($chat->direction ?? '');
-                                            $status = strtolower($chat->status ?? '');
-                                            $statusIcon = '';
-                                            $hasUnread = !empty($chat->unread_count);
-                                            if ($direction === 'OUT') {
-                                                if ($status === 'sent') {
-                                                    $statusIcon = '✓';
-                                                } elseif ($status === 'delivered') {
-                                                    $statusIcon = '✓✓';
-                                                } elseif ($status === 'read') {
-                                                    $statusIcon = '✓✓';
-                                                }
-                                            }
-                                        ?>
-                                        <?php
-                                            $handledByLabel = $chat->handled_by_label ?? 'AI';
-                                            $handledByKey = $chat->handled_by_key ?? 'AI';
-                                            $lastMessageAt = \Modules\WhatsAppModule\Support\WhatsAppMessageTime::formatListLabel($created);
-                                        ?>
-                                        <?php
-                                            $chatSt = isset($chat->chat_status) && is_array($chat->chat_status) ? $chat->chat_status : null;
-                                            $chatTagList = isset($chat->chat_tags) && is_array($chat->chat_tags) ? $chat->chat_tags : [];
-                                        ?>
-                                        <div class="whatsapp-chat-item border-bottom p-3 cursor-pointer{{ $hasUnread ? ' bg-primary text-white' : '' }}"
-                                             data-phone="{{ e($phone) }}"
-                                             data-wa-display-line="{{ e($displayLine) }}"
-                                             title="{{ e($phone) }}"
-                                             role="button">
-                                            {{-- Row 1: name (number) | system type pills --}}
-                                            <div class="d-flex justify-content-between align-items-center gap-2">
-                                                <strong class="text-truncate min-w-0{{ $hasUnread ? ' text-white' : '' }}" title="{{ e($displayLine) }}">{{ $displayLine }}</strong>
-                                                <div class="flex-shrink-0">
-                                                    @include('whatsappmodule::admin.conversations.partials.system-link-pills', [
-                                                        'systemLink' => $chat->system_link ?? [],
-                                                        'onUnread' => $hasUnread,
-                                                        'showNames' => false,
-                                                    ])
-                                                </div>
-                                            </div>
-                                            {{-- Row 2: message (max 2 lines) | unread + status --}}
-                                            <div class="d-flex justify-content-between align-items-start gap-2 mt-2">
-                                                <div class="wa-chat-preview fz-12 flex-grow-1 min-w-0{{ $hasUnread ? ' text-white' : ' text-muted' }}">
-                                                    {{ $chat->message_text ?? '' }}
-                                                </div>
-                                                <div class="flex-shrink-0 d-flex align-items-center gap-1 pt-0">
-                                                    <?php if (!empty($chat->unread_count)): ?>
-                                                        <span class="badge wa-unread-count-badge {{ $hasUnread ? 'bg-light text-primary' : 'bg-danger-subtle text-danger border border-danger-subtle' }}">
-                                                            {{ (int) $chat->unread_count }}
-                                                        </span>
-                                                    <?php endif; ?>
-                                                    <?php if ($statusIcon): ?>
-                                                        <span class="fz-12 {{ $hasUnread ? 'text-white' : ($status === 'read' ? 'text-primary' : 'text-muted') }}">{{ $statusIcon }}</span>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                            {{-- Row 3: handled by | last message time --}}
-                                            <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
-                                                <div class="min-w-0">
-                                                    @include('whatsappmodule::admin.conversations.partials.handled-by-pill', [
-                                                        'handledByKey' => $handledByKey,
-                                                        'handledByLabel' => $handledByLabel,
-                                                        'onUnread' => $hasUnread,
-                                                    ])
-                                                </div>
-                                                <span class="wa-chat-item-row3-time {{ $hasUnread ? 'text-white-50' : 'text-muted' }}">{{ $lastMessageAt }}</span>
-                                            </div>
-                                            <?php if (!empty($chat->human_support_requested_at) && empty($humanSupportTab ?? false)): ?>
-                                                <div class="fz-11 mt-1">
-                                                    <span class="badge bg-warning text-dark">{{ translate('Wants human') }}</span>
-                                                </div>
-                                            <?php endif; ?>
-                                            <?php if ($chatSt || !empty($chatTagList)): ?>
-                                                <div class="wa-chat-item-meta mt-2 d-flex flex-wrap align-items-center gap-1">
-                                                    <?php if ($chatSt): ?>
-                                                        <?php $bucket = $chatSt['bucket'] ?? 'open'; ?>
-                                                        <span class="badge fz-11 {{ $bucket === 'closed' ? 'bg-secondary' : 'bg-success' }}{{ $hasUnread ? ' text-white' : '' }}">{{ e($chatSt['name'] ?? '') }}</span>
-                                                    <?php endif; ?>
-                                                    <?php foreach ($chatTagList as $tg): ?>
-                                                        <?php $tc = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) ($tg['color'] ?? '')) ? $tg['color'] : '#6c757d'; ?>
-                                                        <span class="badge fz-11 wa-chat-tag-pill" style="background:{{ e($tc) }};color:#fff;">{{ e($tg['name'] ?? '') }}</span>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php endforeach; ?>
+                                    @include('whatsappmodule::admin.conversations.partials.active-chat-items', [
+                                        'chats' => $chatCollection,
+                                        'displayPhone' => $displayPhone,
+                                        'humanSupportTab' => $humanSupportTab ?? false,
+                                    ])
                                 <?php else: ?>
                                     <div class="p-4 text-center text-muted wa-no-chats-msg">{{ !empty($humanSupportTab ?? false) ? translate('No human support requests') : translate('No active chats') }}</div>
                                 <?php endif; ?>
+                                </div>
+                                <div id="wa-active-chat-list-footer" class="px-3 py-2 text-center small text-muted{{ ($chatCollection->isEmpty() || ((int) ($chatCounts['total'] ?? 0)) <= $chatCollection->count()) ? ' d-none' : '' }}">
+                                    <div id="wa-active-chat-remaining">
+                                        @if($chatCollection->isNotEmpty() && ((int) ($chatCounts['total'] ?? 0)) > $chatCollection->count())
+                                            {{ str_replace(':count', (string) max(0, (int) ($chatCounts['total'] ?? 0) - $chatCollection->count()), translate('whatsapp_active_chats_remaining')) }}
+                                        @endif
+                                    </div>
+                                    <div id="wa-active-chat-loading" class="d-none">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                        {{ translate('Loading…') }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1604,6 +1558,13 @@
     var strForwardSentMultiple = {!! json_encode(translate('WhatsApp_forward_sent_multiple')) !!};
     var strForwardSelectedCount = {!! json_encode(translate('WhatsApp_forward_selected_count')) !!};
     var activeChatsForForwardUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.active-chats-forward', ['channel' => $waInboxCh]) : '');
+    var activeChatsListUrl = @json(route('admin.whatsapp.conversations.active-chats', ['channel' => $waInboxCh]));
+    var waHumanSupportTab = @json(!empty($humanSupportTab ?? false));
+    var waChatListPerPage = 20;
+    var strWaActiveChatsTotal = {!! json_encode(translate('whatsapp_active_chats_total')) !!};
+    var strWaActiveChatsUnread = {!! json_encode(translate('whatsapp_active_chats_unread')) !!};
+    var strWaActiveChatsRead = {!! json_encode(translate('whatsapp_active_chats_read')) !!};
+    var strWaActiveChatsRemaining = {!! json_encode(translate('whatsapp_active_chats_remaining')) !!};
     var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates', ['channel' => $waInboxCh]) : '');
     var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]) : '');
     var strSessionTextareaPh = {!! json_encode(translate('whatsapp_session_window_textarea_placeholder')) !!};
@@ -2040,10 +2001,172 @@
     function bindActiveChatListClicks(scope) {
         var root = scope || document;
         root.querySelectorAll('.whatsapp-chat-item').forEach(function(el) {
+            if (el.dataset.waClickBound === '1') {
+                return;
+            }
+            el.dataset.waClickBound = '1';
             el.addEventListener('click', function() {
                 openChat(this.getAttribute('data-phone'));
             });
         });
+    }
+
+    function waFormatCountLabel(template, count) {
+        return String(template || '').replace(':count', String(count));
+    }
+
+    function waUpdateActiveChatCounts(listContainer, meta) {
+        if (!listContainer || !meta) {
+            return;
+        }
+        listContainer.dataset.total = String(meta.total || 0);
+        listContainer.dataset.unread = String(meta.unread_count || 0);
+        listContainer.dataset.read = String(meta.read_count || 0);
+        listContainer.dataset.loaded = String(meta.loaded || 0);
+        listContainer.dataset.hasMore = meta.has_more ? '1' : '0';
+        var totalEl = document.getElementById('wa-active-chat-count-total');
+        var unreadEl = document.getElementById('wa-active-chat-count-unread');
+        var readEl = document.getElementById('wa-active-chat-count-read');
+        if (totalEl) {
+            totalEl.textContent = waFormatCountLabel(strWaActiveChatsTotal, meta.total || 0);
+        }
+        if (unreadEl) {
+            unreadEl.textContent = waFormatCountLabel(strWaActiveChatsUnread, meta.unread_count || 0);
+        }
+        if (readEl) {
+            readEl.textContent = waFormatCountLabel(strWaActiveChatsRead, meta.read_count || 0);
+        }
+    }
+
+    function waUpdateActiveChatRemainingFooter(meta) {
+        var footer = document.getElementById('wa-active-chat-list-footer');
+        var remainingEl = document.getElementById('wa-active-chat-remaining');
+        var loadingEl = document.getElementById('wa-active-chat-loading');
+        if (!footer || !remainingEl) {
+            return;
+        }
+        if (loadingEl) {
+            loadingEl.classList.add('d-none');
+        }
+        var remaining = meta && typeof meta.remaining === 'number' ? meta.remaining : 0;
+        if (remaining > 0) {
+            footer.classList.remove('d-none');
+            remainingEl.textContent = waFormatCountLabel(strWaActiveChatsRemaining, remaining);
+        } else {
+            remainingEl.textContent = '';
+            footer.classList.add('d-none');
+        }
+    }
+
+    function waBuildActiveChatsListQuery(page, perPage) {
+        var url = new URL(activeChatsListUrl, window.location.origin);
+        var cur = new URL(window.location.href);
+        cur.searchParams.forEach(function(val, key) {
+            if (key === 'page' || key === 'tab' || key === 'fullscreen') {
+                return;
+            }
+            url.searchParams.append(key, val);
+        });
+        url.searchParams.set('page', String(page || 1));
+        url.searchParams.set('per_page', String(perPage || waChatListPerPage));
+        if (waHumanSupportTab) {
+            url.searchParams.set('human_support', '1');
+        }
+        return url.toString();
+    }
+
+    var waChatListLoading = false;
+    var waChatListCurrentPage = 1;
+
+    function waFetchActiveChatsPage(page, perPage, mode) {
+        if (!activeChatsListUrl || waChatListLoading) {
+            return Promise.resolve(null);
+        }
+        waChatListLoading = true;
+        var footer = document.getElementById('wa-active-chat-list-footer');
+        var loadingEl = document.getElementById('wa-active-chat-loading');
+        var remainingEl = document.getElementById('wa-active-chat-remaining');
+        if (mode === 'append' && footer && loadingEl) {
+            footer.classList.remove('d-none');
+            loadingEl.classList.remove('d-none');
+            if (remainingEl) {
+                remainingEl.textContent = '';
+            }
+        }
+        return fetch(waBuildActiveChatsListQuery(page, perPage), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                waChatListLoading = false;
+                if (!data || data.error) {
+                    waUpdateActiveChatRemainingFooter({ remaining: 0 });
+                    return null;
+                }
+                var listContainer = document.querySelector('.whatsapp-active-list-container');
+                var itemsEl = document.getElementById('wa-active-chat-items');
+                if (!listContainer || !itemsEl) {
+                    return data;
+                }
+                if (mode === 'replace') {
+                    if (data.html) {
+                        itemsEl.innerHTML = data.html;
+                    } else if ((data.total || 0) === 0) {
+                        itemsEl.innerHTML = '<div class="p-4 text-center text-muted wa-no-chats-msg">' + (waHumanSupportTab ? 'No human support requests' : 'No active chats') + '</div>';
+                    }
+                    bindActiveChatListClicks(listContainer);
+                    waChatListCurrentPage = Math.max(1, Math.ceil((data.loaded || 0) / waChatListPerPage));
+                    listContainer.dataset.page = String(waChatListCurrentPage);
+                } else if (mode === 'append' && data.html) {
+                    var wrap = document.createElement('div');
+                    wrap.innerHTML = data.html;
+                    var appended = [];
+                    wrap.querySelectorAll('.whatsapp-chat-item').forEach(function(node) {
+                        itemsEl.appendChild(node);
+                        appended.push(node);
+                    });
+                    if (appended.length) {
+                        bindActiveChatListClicks(itemsEl);
+                    }
+                    waChatListCurrentPage = data.page || page;
+                    listContainer.dataset.page = String(waChatListCurrentPage);
+                }
+                waUpdateActiveChatCounts(listContainer, data);
+                waUpdateActiveChatRemainingFooter(data);
+                return data;
+            })
+            .catch(function() {
+                waChatListLoading = false;
+                waUpdateActiveChatRemainingFooter({ remaining: 0 });
+                return null;
+            });
+    }
+
+    function waLoadMoreActiveChatsIfNeeded() {
+        var listContainer = document.querySelector('.whatsapp-active-list-container');
+        var scrollEl = waActiveListScrollParent(listContainer);
+        if (!listContainer || !scrollEl || listContainer.dataset.hasMore !== '1' || waChatListLoading) {
+            return;
+        }
+        if (scrollEl.scrollTop + scrollEl.clientHeight < scrollEl.scrollHeight - 80) {
+            return;
+        }
+        var nextPage = waChatListCurrentPage + 1;
+        waFetchActiveChatsPage(nextPage, waChatListPerPage, 'append');
+    }
+
+    function waInitActiveChatLazyLoad() {
+        var listContainer = document.querySelector('.whatsapp-active-list-container');
+        if (!listContainer || !activeChatsListUrl) {
+            return;
+        }
+        waChatListCurrentPage = parseInt(listContainer.dataset.page || '1', 10) || 1;
+        var scrollEl = waActiveListScrollParent(listContainer);
+        if (scrollEl) {
+            scrollEl.addEventListener('scroll', function() {
+                waLoadMoreActiveChatsIfNeeded();
+            }, { passive: true });
+        }
     }
 
     function formatPhoneDisplay(phone) {
@@ -3531,17 +3654,10 @@
                             loadMessages(phone, false);
                             try {
                                 var listContainer = document.querySelector('.whatsapp-active-list-container');
-                                if (!listContainer) return;
-                                var url = new URL(window.location.href);
-                                fetch(url.toString(), {
-                                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                                }).then(function(r) { return r.text(); })
-                                  .then(function(html) {
-                                    var newList = waParseConversationsIndexHtml(html);
-                                    if (newList) {
-                                        waApplyActiveChatListHtml(listContainer, newList);
-                                    }
-                                  });
+                                if (!listContainer || !activeChatsListUrl) return;
+                                var loaded = parseInt(listContainer.dataset.loaded || String(waChatListPerPage), 10) || waChatListPerPage;
+                                var perPage = Math.max(waChatListPerPage, loaded);
+                                waFetchActiveChatsPage(1, perPage, 'replace');
                             } catch (e) {}
                         });
                     };
@@ -3564,15 +3680,6 @@
             });
     }
 
-    function waParseConversationsIndexHtml(html) {
-        try {
-            var doc = new DOMParser().parseFromString(html, 'text/html');
-            return doc.querySelector('.whatsapp-active-list-container');
-        } catch (e) {
-            return null;
-        }
-    }
-
     function waActiveListScrollParent(listContainer) {
         if (!listContainer) return null;
         var items = listContainer.querySelector('#wa-active-chat-items');
@@ -3586,29 +3693,6 @@
         return listContainer.querySelector('.wa-active-chat-list-scroll')
             || listContainer.querySelector('.card-body.overflow-auto')
             || listContainer.querySelector('.card-body');
-    }
-
-    /** Refresh list items without replacing the scrollable .card-body (avoids scroll jump). Fallback: full replace + restore scroll. */
-    function waApplyActiveChatListHtml(listContainer, newListFragment) {
-        if (!listContainer || !newListFragment) return;
-        var curItems = listContainer.querySelector('#wa-active-chat-items');
-        var nextItems = newListFragment.querySelector('#wa-active-chat-items');
-        if (curItems && nextItems) {
-            curItems.innerHTML = nextItems.innerHTML;
-            bindActiveChatListClicks(listContainer);
-            return;
-        }
-        var scrollEl = waActiveListScrollParent(listContainer);
-        var prevTop = scrollEl ? scrollEl.scrollTop : 0;
-        listContainer.innerHTML = newListFragment.innerHTML;
-        bindActiveChatListClicks(listContainer);
-        var nextScroll = waActiveListScrollParent(listContainer);
-        if (nextScroll) {
-            nextScroll.scrollTop = prevTop;
-            requestAnimationFrame(function () {
-                nextScroll.scrollTop = prevTop;
-            });
-        }
     }
 
     function startPolling() {
@@ -3628,24 +3712,21 @@
         activeListTimer = setInterval(function() {
             try {
                 var listContainer = document.querySelector('.whatsapp-active-list-container');
-                if (!listContainer) return;
-                var url = new URL(window.location.href);
-                fetch(url.toString(), {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                }).then(function(r) { return r.text(); })
-                  .then(function(html) {
-                    var newList = waParseConversationsIndexHtml(html);
-                    if (newList) {
-                        waApplyActiveChatListHtml(listContainer, newList);
-                    }
-                  })
-                  .catch(function() {});
+                if (!listContainer || !activeChatsListUrl) {
+                    return;
+                }
+                var loaded = parseInt(listContainer.dataset.loaded || String(waChatListPerPage), 10) || waChatListPerPage;
+                var perPage = Math.max(waChatListPerPage, loaded);
+                waFetchActiveChatsPage(1, perPage, 'replace');
             } catch (e) {}
         }, 5000);
     }
 
     var listCol = document.querySelector('.whatsapp-active-list-container');
-    if (listCol) bindActiveChatListClicks(listCol);
+    if (listCol) {
+        bindActiveChatListClicks(listCol);
+        waInitActiveChatLazyLoad();
+    }
 
     window.addEventListener(
         'resize',

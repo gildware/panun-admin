@@ -7,9 +7,9 @@ return [
 
     'max_tool_rounds' => max(4, min(16, (int) env('ADMIN_BUSINESS_AI_MAX_TOOL_ROUNDS', 10))),
 
-    'max_output_tokens' => max(512, min(8192, (int) env('ADMIN_BUSINESS_AI_MAX_OUTPUT_TOKENS', 2048))),
+    'max_output_tokens' => max(512, min(8192, (int) env('ADMIN_BUSINESS_AI_MAX_OUTPUT_TOKENS', 4096))),
 
-    'max_tool_response_bytes' => max(4000, min(32000, (int) env('ADMIN_BUSINESS_AI_MAX_TOOL_RESPONSE_BYTES', 14000))),
+    'max_tool_response_bytes' => max(4000, min(32000, (int) env('ADMIN_BUSINESS_AI_MAX_TOOL_RESPONSE_BYTES', 20000))),
 
     'gemini_http_timeout' => max(15, min(180, (int) env('ADMIN_BUSINESS_AI_HTTP_TIMEOUT', 90))),
 

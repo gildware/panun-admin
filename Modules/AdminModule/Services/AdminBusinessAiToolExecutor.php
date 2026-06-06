@@ -312,7 +312,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_leads',
-                'description' => 'Aggregate lead intelligence. Key analyses: no_response_timing_report (hour peaks + reply/update lag for No Response cohort), lead_timing_report (cohort: all|non_responsive|invalid|invalid_no_response|customer|provider|customer_cancelled|customer_pending), no_response_leads (includes timing_summary), lead_activity_report, cancellation/status breakdowns. Use date_from/date_to for range. Scans up to 5000 leads.',
+                'description' => 'Aggregate lead intelligence. For cancellation reason questions use customer_cancellation_reasons or provider_cancellation_reasons (returns by_reason ranked list). Also: invalid_reasons, future_customer_reasons, no_response_timing_report, lead_timing_report, no_response_leads, lead_activity_report, status breakdowns. Use date_from/date_to for range. Scans up to 5000 leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
