@@ -122,6 +122,39 @@
             overflow: auto;
         }
 
+        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table {
+            table-layout: fixed;
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table thead th {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--bs-secondary);
+            white-space: nowrap;
+            padding-top: 0;
+            padding-bottom: 0.625rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table tbody td {
+            padding-top: 0.625rem;
+            padding-bottom: 0.625rem;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table .col-score {
+            width: 4.5rem;
+        }
+        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table .col-bookings {
+            width: 5rem;
+        }
+        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table tbody tr {
+            cursor: pointer;
+        }
+
     </style>
 @endpush
 
@@ -706,62 +739,60 @@
                         <div class="card top-providers">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">emoji_events</span>
-                                    Top Providers
+                                    <span class="material-icons dashboard-widget-title__icon text-primary" aria-hidden="true">emoji_events</span>
+                                    {{ translate('top_providers') }}
                                 </h5>
                                 <a href="{{route('admin.provider.top-providers')}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <div class="min-w-0" style="min-width: 500px;">
-                                @if(count($data[4]['top_providers'] ?? []) >= 1)
-                                    <div class="d-flex align-items-end gap-3 pb-2 mb-2 border-bottom text-secondary fw-semibold fs-12">
-                                        <div class="flex-grow-1 min-w-0" style="max-width: 200px;">{{ translate('Provider') }}</div>
-                                        <div class="flex-shrink-0 text-end text-nowrap" style="min-width: 168px; width: 168px;">{{ translate('Performance_Score') }}</div>
-                                        <div class="flex-shrink-0 text-end" style="min-width: 96px; width: 96px;">{{ translate('Bookings') }}</div>
-                                    </div>
-                                @endif
-                                <ul class="common-list">
-                                    @if(count($data[4]['top_providers'] ?? []) < 1)
-                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
-                                            <span class="opacity-50">{{translate('No Bookings Found')}}</span>
-                                        </div>
-                                    @endif
-                                    @foreach($data[4]['top_providers'] ?? [] as $provider)
-                                        <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer provider-redirect"
-                                            data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
-                                            @php(
-                                                $widgetCategoryNames = $provider->subscribed_services
-                                                    ? $provider->subscribed_services->pluck('category.name')->filter()->unique()->values()->all()
-                                                    : []
-                                            )
-                                            <div class="media gap-3 flex-grow-1 min-w-0" style="max-width: 200px;">
-                                                <div class="avatar avatar-lg flex-shrink-0">
-                                                    <img class="avatar-img rounded-circle"
-                                                         src="{{ $provider->logo_full_path }}"
-                                                         alt="{{ translate('logo') }}">
-                                                </div>
-                                                <div class="media-body min-w-0">
-                                                    <h5 class="mb-0 text-truncate">{{ $provider->company_name ?? '—' }}</h5>
-                                                    <p class="m-0 fs-12 opacity-75 text-truncate">
-                                                        {{ $provider->company_address ?? '—' }}
-                                                    </p>
-                                                    <p class="m-0 fs-12 opacity-75 text-truncate">{{ $widgetCategoryNames[0] ?? '—' }}</p>
-                                                </div>
-                                            </div>
-
-                                            <div class="text-end flex-shrink-0 text-nowrap" style="min-width: 168px; width: 168px;">
-                                                <p class="m-0 fs-12 fw-medium">{{ (int) ($provider->performance_score ?? 0) }}</p>
-                                            </div>
-
-                                            <div class="text-end flex-shrink-0" style="min-width: 96px; width: 96px;">
-                                                <p class="m-0 fs-12 fw-medium">{{ $provider->completed_bookings_count ?? 0 }}</p>
-                                            </div>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                                    </div>
+                            <div class="card-body p-0">
+                                @php($topProviders = $data[4]['top_providers'] ?? [])
+                                <div class="table-responsive px-3">
+                                    <table class="table table-hover align-middle dashboard-ranking-widget-table">
+                                        <colgroup>
+                                            <col>
+                                            <col class="col-score">
+                                            <col class="col-bookings">
+                                        </colgroup>
+                                        <thead>
+                                        <tr>
+                                            <th>{{ translate('Provider') }}</th>
+                                            <th class="text-end col-score">{{ translate('Score') }}</th>
+                                            <th class="text-end col-bookings">{{ translate('Bookings') }}</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        @forelse($topProviders as $provider)
+                                            <tr class="provider-redirect"
+                                                data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
+                                                <td>
+                                                    <div class="media align-items-center gap-2 min-w-0">
+                                                        <div class="avatar flex-shrink-0">
+                                                            <img class="avatar-img rounded-circle"
+                                                                 src="{{ $provider->logo_full_path }}"
+                                                                 alt="{{ translate('logo') }}">
+                                                        </div>
+                                                        <div class="media-body min-w-0">
+                                                            <h5 class="mb-0 fs-12 text-truncate">{{ $provider->company_name ?? '—' }}</h5>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end text-nowrap col-score">
+                                                    <span class="fs-12 fw-medium">{{ (int) ($provider->performance_score ?? 0) }}</span>
+                                                </td>
+                                                <td class="text-end text-nowrap col-bookings">
+                                                    <span class="fs-12 fw-medium">{{ $provider->completed_bookings_count ?? 0 }}</span>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="3" class="text-center opacity-50 py-4">
+                                                    {{ translate('No Bookings Found') }}
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -771,55 +802,62 @@
                         <div class="card top-providers">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">groups</span>
-                                    Top Customers
+                                    <span class="material-icons dashboard-widget-title__icon text-primary" aria-hidden="true">groups</span>
+                                    {{ translate('top_customers') }}
                                 </h5>
                                 <a href="{{route('admin.customer.top-customers')}}"
                                    class="btn-link">{{translate('view_all')}}</a>
                             </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <div class="min-w-0" style="min-width: 360px;">
-                                @if(count($data[5]['top_customers'] ?? []) >= 1)
-                                    <div class="d-flex align-items-end gap-3 pb-2 mb-2 border-bottom text-secondary fw-semibold fs-12">
-                                        <div class="flex-grow-1 min-w-0">{{ translate('Customer') }}</div>
-                                        <div class="flex-shrink-0 text-end text-nowrap" style="min-width: 168px; width: 168px;">{{ translate('Performance_Score') }}</div>
-                                        <div class="flex-shrink-0 text-end" style="min-width: 96px; width: 96px;">{{ translate('Bookings') }}</div>
-                                    </div>
-                                @endif
-                                <ul class="common-list">
-                                    @if(count($data[5]['top_customers'] ?? []) < 1)
-                                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
-                                            <span class="opacity-50">{{translate('No Bookings Found')}}</span>
-                                        </div>
-                                    @endif
-                                    @foreach($data[5]['top_customers'] ?? [] as $customer)
-                                        <li class="d-flex align-items-center justify-content-between gap-3 cursor-pointer customer-redirect"
-                                            data-route="{{route('admin.customer.detail',[$customer->id,'web_page'=>'overview'])}}">
-                                            <div class="media gap-3 flex-grow-1 min-w-0">
-                                                <div class="avatar avatar-lg">
-                                                    <img class="avatar-img rounded-circle"
-                                                         src="{{ $customer->profile_image_full_path }}"
-                                                         alt="{{ $customer->first_name ?? 'Customer' }}">
-                                                </div>
-                                                <div class="media-body">
-                                                    <h5 class="mb-0">
-                                                        {{\Illuminate\Support\Str::limit(trim(($customer->first_name ?? '').' '.($customer->last_name ?? '')), 20)}}
-                                                    </h5>
-                                                </div>
-                                            </div>
-
-                                            <div class="text-end flex-shrink-0 text-nowrap" style="min-width: 168px; width: 168px;">
-                                                <p class="m-0 fs-12 fw-medium">{{ (int) ($customer->performance_score ?? 0) }}</p>
-                                            </div>
-
-                                            <div class="text-end flex-shrink-0" style="min-width: 96px; width: 96px;">
-                                                <p class="m-0 fs-12 fw-medium">{{ $customer->completed_bookings_count ?? 0 }}</p>
-                                            </div>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                                    </div>
+                            <div class="card-body p-0">
+                                @php($topCustomers = $data[5]['top_customers'] ?? [])
+                                <div class="table-responsive px-3">
+                                    <table class="table table-hover align-middle dashboard-ranking-widget-table">
+                                        <colgroup>
+                                            <col>
+                                            <col class="col-score">
+                                            <col class="col-bookings">
+                                        </colgroup>
+                                        <thead>
+                                        <tr>
+                                            <th>{{ translate('Customer') }}</th>
+                                            <th class="text-end col-score">{{ translate('Score') }}</th>
+                                            <th class="text-end col-bookings">{{ translate('Bookings') }}</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        @forelse($topCustomers as $customer)
+                                            <tr class="customer-redirect"
+                                                data-route="{{route('admin.customer.detail',[$customer->id,'web_page'=>'overview'])}}">
+                                                <td>
+                                                    <div class="media align-items-center gap-2 min-w-0">
+                                                        <div class="avatar flex-shrink-0">
+                                                            <img class="avatar-img rounded-circle"
+                                                                 src="{{ $customer->profile_image_full_path }}"
+                                                                 alt="{{ $customer->first_name ?? 'Customer' }}">
+                                                        </div>
+                                                        <div class="media-body min-w-0">
+                                                            <h5 class="mb-0 fs-12 text-truncate">
+                                                                {{ trim(($customer->first_name ?? '').' '.($customer->last_name ?? '')) ?: '—' }}
+                                                            </h5>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end text-nowrap col-score">
+                                                    <span class="fs-12 fw-medium">{{ (int) ($customer->performance_score ?? 0) }}</span>
+                                                </td>
+                                                <td class="text-end text-nowrap col-bookings">
+                                                    <span class="fs-12 fw-medium">{{ $customer->completed_bookings_count ?? 0 }}</span>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="3" class="text-center opacity-50 py-4">
+                                                    {{ translate('No Bookings Found') }}
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
