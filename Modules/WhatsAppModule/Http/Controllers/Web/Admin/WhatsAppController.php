@@ -119,7 +119,7 @@ class WhatsAppController extends Controller
                 $handlerFilter = 'all';
                 $handlerFilters = [];
                 $humanSupportTab = $tab === 'human_support';
-                $chatCounts = ['total' => 0, 'unread' => 0, 'read' => 0];
+                $chatCounts = ['total' => 0, 'unread' => 0, 'read' => 0, 'filtered_total' => 0, 'show_counts' => false];
             }
 
             $chatStatusesForFilter = collect();
@@ -1948,6 +1948,7 @@ class WhatsAppController extends Controller
                     'total' => (int) ($counts['total'] ?? 0),
                     'unread' => (int) ($counts['unread'] ?? 0),
                     'read' => (int) ($counts['read'] ?? 0),
+                    'show_counts' => (bool) ($counts['show_counts'] ?? false),
                 ],
                 'unread_count' => (int) ($counts['unread'] ?? 0),
                 'read_count' => (int) ($counts['read'] ?? 0),
@@ -2406,7 +2407,7 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * @return array{total: int, unread: int, read: int, filtered_total: int}
+     * @return array{total: int, unread: int, read: int, filtered_total: int, show_counts: bool}
      */
     private function buildActiveChatListCounts(?string $unreadState = null): array
     {
@@ -2422,6 +2423,23 @@ class WhatsAppController extends Controller
             'unread' => $global['unread'],
             'read' => $global['read'],
             'filtered_total' => $filteredTotal,
+            'show_counts' => false,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>  $chats
+     * @return array{total: int, unread: int, read: int}
+     */
+    private function computeWhatsAppActiveChatUnreadSplit(\Illuminate\Support\Collection $chats): array
+    {
+        $total = $chats->count();
+        $unread = $chats->filter(static fn ($chat) => (int) ($chat->unread_count ?? 0) > 0)->count();
+
+        return [
+            'total' => $total,
+            'unread' => $unread,
+            'read' => max(0, $total - $unread),
         ];
     }
 
@@ -3005,17 +3023,19 @@ class WhatsAppController extends Controller
             return false;
         })->values();
 
-        $chats = $this->applyWhatsAppConversationFacetFilters($chats, $request);
-        $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
-        $chats = $this->applyWhatsAppSystemLinkAndDateFilters($chats, $request);
+        $facetChats = $this->applyWhatsAppConversationFacetFilters($chats, $request);
+        $facetChats = $this->applyWhatsAppSystemLinkAndDateFilters($facetChats, $request);
+        $facetCounts = $this->computeWhatsAppActiveChatUnreadSplit($facetChats);
+        $showCounts = $this->hasBlockingActiveChatListFilters($request);
 
-        $globalCounts = $this->countActiveChatPhoneStats();
+        $chats = $this->applyWhatsAppUnreadStateFilter($facetChats, $request);
         $filteredTotal = $chats->count();
         $listCounts = [
-            'total' => $globalCounts['total'],
-            'unread' => $globalCounts['unread'],
-            'read' => $globalCounts['read'],
+            'total' => $facetCounts['total'],
+            'unread' => $facetCounts['unread'],
+            'read' => $facetCounts['read'],
             'filtered_total' => $filteredTotal,
+            'show_counts' => $showCounts,
         ];
 
         if ($page !== null && $perPage !== null) {
@@ -3038,14 +3058,7 @@ class WhatsAppController extends Controller
      */
     private function computeWhatsAppActiveChatCounts(\Illuminate\Support\Collection $chats): array
     {
-        $total = $chats->count();
-        $unread = $chats->filter(static fn ($chat) => (int) ($chat->unread_count ?? 0) > 0)->count();
-
-        return [
-            'total' => $total,
-            'unread' => $unread,
-            'read' => max(0, $total - $unread),
-        ];
+        return $this->computeWhatsAppActiveChatUnreadSplit($chats);
     }
 
     /**

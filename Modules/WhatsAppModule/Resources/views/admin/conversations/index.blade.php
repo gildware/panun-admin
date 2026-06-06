@@ -1194,11 +1194,18 @@
                         if (count($unreadStateFilter ?? []) === 1) {
                             $waActiveUnreadFilter = (string) $unreadStateFilter[0];
                         }
+                        $waShowFacetCounts = (bool) ($chatCounts['show_counts'] ?? false);
+                        $waFilterAllLabel = $waShowFacetCounts
+                            ? str_replace(':count', (string) (int) ($chatCounts['total'] ?? 0), translate('whatsapp_active_chats_filter_all'))
+                            : translate('whatsapp_active_chats_filter_all_plain');
+                        $waFilterUnreadLabel = $waShowFacetCounts
+                            ? str_replace(':count', (string) (int) ($chatCounts['unread'] ?? 0), translate('whatsapp_active_chats_filter_unread'))
+                            : translate('whatsapp_active_chats_filter_unread_plain');
                     ?>
                     <div class="col-12 col-md-5 col-lg-4 col-xl-4 whatsapp-active-list-container wa-chats-split-col"
                          data-total="{{ $waListFilteredTotal }}"
                          data-unread="{{ (int) ($chatCounts['unread'] ?? 0) }}"
-                         data-read="{{ (int) ($chatCounts['read'] ?? 0) }}"
+                         data-show-counts="{{ $waShowFacetCounts ? '1' : '0' }}"
                          data-unread-filter="{{ e($waActiveUnreadFilter) }}"
                          data-loaded="{{ (int) ($chats ?? collect())->count() }}"
                          data-page="1"
@@ -1235,19 +1242,13 @@
                                             class="btn btn-sm btn-outline-secondary wa-chat-read-filter-btn{{ $waActiveUnreadFilter === '' ? ' active' : '' }}"
                                             id="wa-active-chat-filter-all"
                                             data-unread-state="">
-                                        {{ str_replace(':count', (string) (int) ($chatCounts['total'] ?? 0), translate('whatsapp_active_chats_filter_all')) }}
+                                        {{ $waFilterAllLabel }}
                                     </button>
                                     <button type="button"
                                             class="btn btn-sm btn-outline-danger wa-chat-read-filter-btn{{ $waActiveUnreadFilter === 'unread' ? ' active' : '' }}"
                                             id="wa-active-chat-filter-unread"
                                             data-unread-state="unread">
-                                        {{ str_replace(':count', (string) (int) ($chatCounts['unread'] ?? 0), translate('whatsapp_active_chats_filter_unread')) }}
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-success wa-chat-read-filter-btn{{ $waActiveUnreadFilter === 'read' ? ' active' : '' }}"
-                                            id="wa-active-chat-filter-read"
-                                            data-unread-state="read">
-                                        {{ str_replace(':count', (string) (int) ($chatCounts['read'] ?? 0), translate('whatsapp_active_chats_filter_read')) }}
+                                        {{ $waFilterUnreadLabel }}
                                     </button>
                                 </div>
                             </div>
@@ -1587,7 +1588,8 @@
     var waChatListPerPage = @json((int) config('whatsappmodule.active_chats_per_page', 20));
     var strWaActiveChatsFilterAll = {!! json_encode(translate('whatsapp_active_chats_filter_all')) !!};
     var strWaActiveChatsFilterUnread = {!! json_encode(translate('whatsapp_active_chats_filter_unread')) !!};
-    var strWaActiveChatsFilterRead = {!! json_encode(translate('whatsapp_active_chats_filter_read')) !!};
+    var strWaActiveChatsFilterAllPlain = {!! json_encode(translate('whatsapp_active_chats_filter_all_plain')) !!};
+    var strWaActiveChatsFilterUnreadPlain = {!! json_encode(translate('whatsapp_active_chats_filter_unread_plain')) !!};
     var strWaActiveChatsRemaining = {!! json_encode(translate('whatsapp_active_chats_remaining')) !!};
     var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates', ['channel' => $waInboxCh]) : '');
     var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]) : '');
@@ -2039,6 +2041,13 @@
         return String(template || '').replace(':count', String(count));
     }
 
+    function waFormatFilterButtonLabel(plainLabel, countTemplate, count, showCounts) {
+        if (showCounts) {
+            return waFormatCountLabel(countTemplate, count);
+        }
+        return plainLabel || '';
+    }
+
     function waConversationCountsFromMeta(meta) {
         if (meta && meta.conversation_counts) {
             return meta.conversation_counts;
@@ -2048,7 +2057,8 @@
                 ? ((meta.total || 0) + 0)
                 : 0,
             unread: meta ? (meta.unread_count || 0) : 0,
-            read: meta ? (meta.read_count || 0) : 0
+            read: meta ? (meta.read_count || 0) : 0,
+            show_counts: false
         };
     }
 
@@ -2096,22 +2106,19 @@
             return;
         }
         var conv = waConversationCountsFromMeta(meta);
+        var showCounts = conv.show_counts === true;
         listContainer.dataset.total = String(meta.total || 0);
         listContainer.dataset.unread = String(conv.unread || 0);
-        listContainer.dataset.read = String(conv.read || 0);
+        listContainer.dataset.showCounts = showCounts ? '1' : '0';
         listContainer.dataset.loaded = String(meta.loaded || 0);
         listContainer.dataset.hasMore = meta.has_more ? '1' : '0';
         var allBtn = document.getElementById('wa-active-chat-filter-all');
         var unreadBtn = document.getElementById('wa-active-chat-filter-unread');
-        var readBtn = document.getElementById('wa-active-chat-filter-read');
         if (allBtn) {
-            allBtn.textContent = waFormatCountLabel(strWaActiveChatsFilterAll, conv.total || 0);
+            allBtn.textContent = waFormatFilterButtonLabel(strWaActiveChatsFilterAllPlain, strWaActiveChatsFilterAll, conv.total || 0, showCounts);
         }
         if (unreadBtn) {
-            unreadBtn.textContent = waFormatCountLabel(strWaActiveChatsFilterUnread, conv.unread || 0);
-        }
-        if (readBtn) {
-            readBtn.textContent = waFormatCountLabel(strWaActiveChatsFilterRead, conv.read || 0);
+            unreadBtn.textContent = waFormatFilterButtonLabel(strWaActiveChatsFilterUnreadPlain, strWaActiveChatsFilterUnread, conv.unread || 0, showCounts);
         }
     }
 
