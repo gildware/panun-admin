@@ -9,6 +9,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
+use Modules\LeadManagement\Entities\District;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\LeadCancellationReason;
 use Modules\LeadManagement\Entities\LeadChangeLog;
@@ -17,10 +18,13 @@ use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\LeadProviderChecklist;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\ProviderCancellationReason;
 use Modules\LeadManagement\Entities\ProviderChecklistItem;
 use Modules\LeadManagement\Entities\ProviderLeadStatus;
+use Modules\LeadManagement\Services\CustomerLeadReportAnalyticsService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
+use Modules\LeadManagement\Services\ProviderLeadReportAnalyticsService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
@@ -30,6 +34,8 @@ class AdminBusinessAiLeadInsightService
 {
     public function __construct(
         protected LeadOpenStatusService $leadOpenStatus,
+        protected CustomerLeadReportAnalyticsService $customerLeadReports,
+        protected ProviderLeadReportAnalyticsService $providerLeadReports,
     ) {}
 
     /**
@@ -53,6 +59,7 @@ class AdminBusinessAiLeadInsightService
                 'source' => $lead->source?->name,
                 'ad_source' => $lead->adSource?->name,
                 'handled_by' => $lead->handled_by,
+                'handled_by_name' => $this->resolveHandlerName($lead->handled_by),
                 'received_at' => $lead->date_time_of_lead_received?->toIso8601String(),
                 'next_followup_at' => $lead->next_followup_at?->toIso8601String(),
                 'remarks' => $lead->remarks,
@@ -92,34 +99,49 @@ class AdminBusinessAiLeadInsightService
             ->values()
             ->all();
         $adminNames = $this->adminNamesById($adminIds);
+        $lookup = $this->buildLookupTables($histories, collect([$lead]));
+        $checklistItems = ProviderChecklistItem::query()
+            ->whereIn('id', $lead->providerChecklist->pluck('provider_checklist_item_id')->filter()->all())
+            ->get()
+            ->keyBy('id');
 
-        return [
+        $resolvedHistory = $histories->map(
+            fn (LeadTypeHistory $h) => $this->resolveTypeHistoryEntry($h, $lookup, $adminNames)
+        )->values()->all();
+
+        $detail = [
             'id' => $lead->id,
             'name' => $lead->name,
             'phone' => $lead->phone_number,
             'lead_type' => $lead->lead_type,
             'source' => $lead->source?->name,
+            'source_id' => $lead->source_id,
             'ad_source' => $lead->adSource?->name,
+            'ad_source_id' => $lead->ad_source_id,
             'handled_by' => $lead->handled_by,
+            'handled_by_name' => $this->resolveHandlerName($lead->handled_by),
             'remarks' => $lead->remarks,
             'received_at' => $lead->date_time_of_lead_received?->toIso8601String(),
             'next_followup_at' => $lead->next_followup_at?->toIso8601String(),
+            'created_at' => $lead->created_at?->toIso8601String(),
+            'updated_at' => $lead->updated_at?->toIso8601String(),
             'created_by' => $lead->createdBy ? trim($lead->createdBy->first_name.' '.$lead->createdBy->last_name) : null,
             'is_open' => (bool) ($meta['is_open'] ?? false),
             'pipeline_status_label' => $meta['label'] ?? null,
-            'tags' => $lead->customerLeadTags->pluck('name')->all(),
-            'type_profile' => $profile,
-            'type_history' => $histories->map(fn (LeadTypeHistory $h) => [
-                'type' => $h->type,
-                'at' => $h->created_at?->toIso8601String(),
-                'created_by' => $adminNames[(string) $h->created_by] ?? null,
-                'data' => is_array($h->data) ? $h->data : [],
+            'tags' => $lead->customerLeadTags->map(fn ($t) => [
+                'name' => $t->name,
+                'color' => $t->color ?? null,
             ])->values()->all(),
+            'type_profile' => $profile,
+            'all_fields' => $this->flattenLeadAdminFields($lead, $profile),
+            'type_history' => $resolvedHistory,
             'followups' => $lead->followups->map(fn (LeadFollowup $f) => [
-                'at' => $f->followup_at?->toIso8601String(),
+                'id' => $f->id,
+                'followup_at' => $f->followup_at?->toIso8601String(),
                 'remarks' => $f->remarks,
                 'next_followup_at' => $f->next_followup_at?->toIso8601String(),
                 'created_by' => $adminNames[(string) $f->created_by] ?? null,
+                'created_at' => $f->created_at?->toIso8601String(),
             ])->values()->all(),
             'change_logs' => $lead->changeLogs->take(30)->map(fn (LeadChangeLog $c) => [
                 'at' => $c->created_at?->toIso8601String(),
@@ -130,6 +152,7 @@ class AdminBusinessAiLeadInsightService
             ])->values()->all(),
             'provider_checklist' => $lead->providerChecklist->map(fn (LeadProviderChecklist $c) => [
                 'item_id' => $c->provider_checklist_item_id,
+                'item_name' => $checklistItems->get($c->provider_checklist_item_id)?->name,
                 'is_done' => (bool) $c->is_done,
             ])->values()->all(),
             'linked_bookings' => Booking::query()
@@ -146,12 +169,11 @@ class AdminBusinessAiLeadInsightService
                 ->values()
                 ->all(),
             'activity_summary' => $this->buildActivitySummary($lead, $histories, $lead->followups, $lead->changeLogs),
-            'status_timeline' => $this->buildStatusTimeline(
-                $histories,
-                $this->buildLookupTables($histories, collect([$lead]))
-            ),
+            'status_timeline' => $this->buildStatusTimeline($histories, $lookup),
             'whatsapp_activity' => $this->buildWhatsAppActivity($lead->phone_number),
         ];
+
+        return $detail;
     }
 
     /**
@@ -199,6 +221,115 @@ class AdminBusinessAiLeadInsightService
      * @param  Builder<Lead>  $q
      * @param  array<string, mixed>  $args
      */
+    public function applyDimensionFilters(Builder $q, array $args): void
+    {
+        if (! empty($args['source'])) {
+            $name = trim((string) $args['source']);
+            $sourceId = Source::query()->where('name', 'like', '%'.$name.'%')->value('id');
+            if ($sourceId) {
+                $q->where('source_id', $sourceId);
+            } else {
+                $q->whereRaw('1 = 0');
+            }
+        }
+        if (! empty($args['tag'])) {
+            $tag = trim((string) $args['tag']);
+            $q->whereHas('customerLeadTags', fn ($tq) => $tq->where('name', 'like', '%'.$tag.'%'));
+        }
+        if (! empty($args['zone']) || ! empty($args['category'])) {
+            $leadIds = $this->leadIdsMatchingDimensions(
+                (string) ($args['zone'] ?? ''),
+                (string) ($args['category'] ?? ''),
+                (string) ($args['lead_type'] ?? '')
+            );
+            $q->whereIn('id', $leadIds !== [] ? $leadIds : [-1]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    public function inboundLeadReport(array $args): array
+    {
+        $reportType = strtolower(trim((string) ($args['report_type'] ?? 'customer')));
+        $from = ! empty($args['date_from']) ? Carbon::parse((string) $args['date_from'])->startOfDay() : null;
+        $to = ! empty($args['date_to']) ? Carbon::parse((string) $args['date_to'])->endOfDay() : null;
+
+        $base = Lead::query();
+        if ($from) {
+            $base->where('date_time_of_lead_received', '>=', $from);
+        }
+        if ($to) {
+            $base->where('date_time_of_lead_received', '<=', $to);
+        }
+
+        $data = match ($reportType) {
+            'customer' => $this->customerLeadReports->build(clone $base, $from, $to),
+            'provider' => $this->providerLeadReports->build(clone $base, $from, $to),
+            default => null,
+        };
+
+        if ($data === null) {
+            return [
+                'ok' => false,
+                'error' => 'unknown_report_type',
+                'allowed' => ['customer', 'provider'],
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'report_type' => $reportType,
+            'date_from' => $from?->toDateString(),
+            'date_to' => $to?->toDateString(),
+            'data' => $data,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    public function employeeLeadProductivity(array $args): array
+    {
+        $userId = ! empty($args['employee_id']) ? (string) $args['employee_id'] : null;
+        if (! $userId) {
+            return ['ok' => false, 'error' => 'employee_id_required'];
+        }
+
+        $from = ! empty($args['date_from']) ? Carbon::parse((string) $args['date_from'])->startOfDay() : null;
+        $to = ! empty($args['date_to']) ? Carbon::parse((string) $args['date_to'])->endOfDay() : null;
+
+        $user = User::query()->find($userId);
+        $base = Lead::query()
+            ->where('handled_by', $userId)
+            ->when($from, fn ($q) => $q->where('date_time_of_lead_received', '>=', $from))
+            ->when($to, fn ($q) => $q->where('date_time_of_lead_received', '<=', $to));
+
+        $byType = (clone $base)->selectRaw('lead_type, count(*) as cnt')->groupBy('lead_type')->pluck('cnt', 'lead_type');
+        $leadIds = (clone $base)->pluck('id')->all();
+        $bookingsFromLeads = $leadIds !== [] ? Booking::query()->whereIn('lead_id', $leadIds)->count() : 0;
+        $overdueFollowups = (clone $base)->whereNotNull('next_followup_at')->where('next_followup_at', '<', now())->count();
+        $upcomingFollowups = (clone $base)->whereNotNull('next_followup_at')->where('next_followup_at', '>=', now())->count();
+        $openMeta = $this->leadOpenStatus->buildLeadStatusMeta((clone $base)->get(['id', 'lead_type']));
+        $openCount = collect($openMeta)->filter(fn ($m) => (bool) ($m['is_open'] ?? false))->count();
+
+        return [
+            'ok' => true,
+            'employee_id' => $userId,
+            'employee_name' => $user ? trim($user->first_name.' '.$user->last_name) : null,
+            'date_from' => $from?->toDateString(),
+            'date_to' => $to?->toDateString(),
+            'leads_handled' => (clone $base)->count(),
+            'open_leads' => $openCount,
+            'by_lead_type' => $byType,
+            'bookings_from_leads' => $bookingsFromLeads,
+            'overdue_followups' => $overdueFollowups,
+            'upcoming_followups' => $upcomingFollowups,
+        ];
+    }
+
     public function applyStatusFilters(Builder $q, array $args): void
     {
         if (! empty($args['customer_status'])) {
@@ -243,8 +374,12 @@ class AdminBusinessAiLeadInsightService
         }
 
         $q = Lead::query();
-        if ($leadType !== '') {
+        if ($analysis !== 'no_response_leads' && $leadType !== '') {
             $q->where('lead_type', $leadType);
+        } elseif ($analysis === 'no_response_leads' && $leadType !== '' && $leadType !== 'all') {
+            $q->where('lead_type', $leadType);
+        } elseif ($analysis === 'no_response_leads') {
+            $q->whereIn('lead_type', [Lead::TYPE_CUSTOMER, Lead::TYPE_INVALID, Lead::TYPE_PROVIDER]);
         }
         if (! empty($args['date_from'])) {
             $q->where('date_time_of_lead_received', '>=', Carbon::parse((string) $args['date_from'])->startOfDay());
@@ -356,6 +491,7 @@ class AdminBusinessAiLeadInsightService
         $invalidReasonIds = [];
         $futureReasonIds = [];
         $bookingIds = [];
+        $districtIds = [];
 
         foreach ($histories as $h) {
             $d = is_array($h->data) ? $h->data : [];
@@ -400,6 +536,9 @@ class AdminBusinessAiLeadInsightService
             if (! empty($d['booking_id'])) {
                 $bookingIds[] = $d['booking_id'];
             }
+            if (! empty($d['district_id'])) {
+                $districtIds[] = (int) $d['district_id'];
+            }
         }
 
         return [
@@ -412,6 +551,7 @@ class AdminBusinessAiLeadInsightService
             'provider_cancel_reasons' => $providerCancelIds !== [] ? ProviderCancellationReason::query()->whereIn('id', array_unique($providerCancelIds))->get()->keyBy('id') : collect(),
             'invalid_reasons' => $invalidReasonIds !== [] ? LeadInvalidReason::query()->whereIn('id', array_unique($invalidReasonIds))->get()->keyBy('id') : collect(),
             'future_reasons' => $futureReasonIds !== [] ? LeadFutureCustomerReason::query()->whereIn('id', array_unique($futureReasonIds))->get()->keyBy('id') : collect(),
+            'districts' => $districtIds !== [] ? District::query()->whereIn('id', array_unique($districtIds))->get()->keyBy('id') : collect(),
             'bookings' => $bookingIds !== [] ? Booking::query()->whereIn('id', array_unique($bookingIds))->get(['id', 'readable_id', 'booking_status'])->keyBy('id') : collect(),
             'latest_booking_by_lead' => Booking::query()
                 ->whereIn('lead_id', $leads->pluck('id')->all())
@@ -481,9 +621,12 @@ class AdminBusinessAiLeadInsightService
                 }
             }
 
+            $district = $lookup['districts']->get((int) ($d['district_id'] ?? 0));
+
             $profile['provider'] = [
                 'status' => $status?->name,
                 'status_base_type' => $status?->base_type,
+                'district' => $district?->name,
                 'district_id' => $d['district_id'] ?? null,
                 'zones' => array_values(array_unique($zoneNames)),
                 'full_address' => $d['full_address'] ?? null,
@@ -808,44 +951,187 @@ class AdminBusinessAiLeadInsightService
      */
     private function aggregateNoResponseLeads(Collection $leads, array $profiles): array
     {
-        $needles = ['no response', 'unresponsive', 'not responding', 'no reply'];
-        $matches = [];
+        $invalidLeads = [];
+        $customerCancelled = [];
+        $customerStatus = [];
+        $providerCancelled = [];
 
-        foreach ($leads->where('lead_type', Lead::TYPE_CUSTOMER) as $lead) {
-            $block = $profiles[(int) $lead->id]['customer'] ?? null;
-            if (! is_array($block)) {
-                continue;
-            }
-            $status = strtolower((string) ($block['status'] ?? ''));
-            $matched = false;
-            foreach ($needles as $needle) {
-                if ($status !== '' && str_contains($status, $needle)) {
-                    $matched = true;
-                    break;
-                }
-            }
-            if (! $matched) {
+        foreach ($leads as $lead) {
+            $profile = $profiles[(int) $lead->id] ?? [];
+            $match = $this->detectNonResponsiveMatch($lead, $profile);
+            if ($match === null) {
                 continue;
             }
 
-            $matches[] = $this->leadActivityRow($lead, $block);
+            $profileBlock = match ($lead->lead_type) {
+                Lead::TYPE_CUSTOMER => $profile['customer'] ?? [],
+                Lead::TYPE_PROVIDER => $profile['provider'] ?? [],
+                Lead::TYPE_INVALID => $profile['invalid'] ?? [],
+                default => [],
+            };
+            $row = array_merge(
+                $this->leadActivityRow($lead, is_array($profileBlock) ? $profileBlock : []),
+                $match
+            );
+
+            match ($match['category']) {
+                'invalid_reason' => $invalidLeads[] = $row,
+                'customer_cancellation_reason' => $customerCancelled[] = $row,
+                'customer_status' => $customerStatus[] = $row,
+                'provider_cancellation_reason' => $providerCancelled[] = $row,
+                default => null,
+            };
         }
 
-        $configuredStatuses = CustomerLeadStatus::query()
-            ->where(function ($q) use ($needles) {
-                foreach ($needles as $needle) {
-                    $q->orWhereRaw('LOWER(name) LIKE ?', ['%'.$needle.'%']);
-                }
-            })
-            ->pluck('name')
-            ->all();
+        $all = array_merge($invalidLeads, $customerCancelled, $customerStatus, $providerCancelled);
+        $configured = $this->configuredNonResponsiveReasons();
 
         return [
-            'configured_no_response_statuses' => $configuredStatuses,
-            'matching_leads' => count($matches),
-            'leads' => array_slice($matches, 0, 30),
-            'note' => 'Matches customer leads whose CRM status name contains no response / unresponsive. Also use query_leads with customer_status filter.',
+            'summary' => [
+                'total_non_responsive' => count($all),
+                'invalid_leads_no_response' => count($invalidLeads),
+                'customer_cancelled_no_response' => count($customerCancelled),
+                'customer_status_no_response' => count($customerStatus),
+                'provider_cancelled_no_response' => count($providerCancelled),
+            ],
+            'configured_reasons' => $configured,
+            'configured_no_response_statuses' => $configured['customer_statuses'],
+            'matching_leads' => count($all),
+            'by_category' => [
+                'invalid_leads' => array_slice($invalidLeads, 0, 25),
+                'customer_cancelled' => array_slice($customerCancelled, 0, 25),
+                'customer_status' => array_slice($customerStatus, 0, 25),
+                'provider_cancelled' => array_slice($providerCancelled, 0, 25),
+            ],
+            'leads' => array_slice($all, 0, 40),
+            'note' => 'Non-responsive includes: invalid lead reason "No Response", customer cancellation "No Response From Customer", and any CRM status name containing no response/unresponsive.',
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $profile
+     * @return array<string, mixed>|null
+     */
+    public function detectNonResponsiveMatch(Lead $lead, array $profile): ?array
+    {
+        if ($lead->lead_type === Lead::TYPE_INVALID) {
+            $block = $profile['invalid'] ?? null;
+            if (is_array($block) && $this->textMatchesNonResponsive((string) ($block['reason'] ?? ''))) {
+                return [
+                    'category' => 'invalid_reason',
+                    'category_label' => 'Invalid lead — No Response reason',
+                    'reason' => $block['reason'],
+                    'remarks' => $block['remarks'] ?? null,
+                ];
+            }
+        }
+
+        if ($lead->lead_type === Lead::TYPE_CUSTOMER) {
+            $block = $profile['customer'] ?? null;
+            if (! is_array($block)) {
+                return null;
+            }
+
+            if (($block['is_cancelled'] ?? false) && $this->textMatchesNonResponsive((string) ($block['cancellation_reason'] ?? ''))) {
+                return [
+                    'category' => 'customer_cancellation_reason',
+                    'category_label' => 'Customer lead cancelled — no response',
+                    'reason' => $block['cancellation_reason'],
+                    'remarks' => $block['cancellation_remarks'] ?? null,
+                    'pipeline_status' => $block['status'] ?? null,
+                ];
+            }
+
+            if ($this->textMatchesNonResponsive((string) ($block['status'] ?? ''))) {
+                return [
+                    'category' => 'customer_status',
+                    'category_label' => 'Customer lead status — no response',
+                    'reason' => $block['status'],
+                    'pipeline_status' => $block['status'] ?? null,
+                ];
+            }
+        }
+
+        if ($lead->lead_type === Lead::TYPE_PROVIDER) {
+            $block = $profile['provider'] ?? null;
+            if (is_array($block) && ($block['is_cancelled'] ?? false)
+                && $this->textMatchesNonResponsive((string) ($block['cancellation_reason'] ?? ''))) {
+                return [
+                    'category' => 'provider_cancellation_reason',
+                    'category_label' => 'Provider lead cancelled — no response',
+                    'reason' => $block['cancellation_reason'],
+                    'remarks' => $block['cancellation_remarks'] ?? null,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function configuredNonResponsiveReasons(): array
+    {
+        $needles = $this->nonResponsiveNeedles();
+
+        $like = function ($q) use ($needles) {
+            foreach ($needles as $needle) {
+                $q->orWhereRaw('LOWER(name) LIKE ?', ['%'.$needle.'%']);
+            }
+        };
+
+        return [
+            'invalid_reasons' => LeadInvalidReason::query()->where($like)->pluck('name')->all(),
+            'customer_cancellation_reasons' => LeadCancellationReason::query()->where($like)->pluck('name')->all(),
+            'provider_cancellation_reasons' => ProviderCancellationReason::query()->where($like)->pluck('name')->all(),
+            'customer_statuses' => CustomerLeadStatus::query()->where($like)->pluck('name')->all(),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function nonResponsiveNeedles(): array
+    {
+        return ['no response', 'unresponsive', 'not responding', 'no reply'];
+    }
+
+    private function textMatchesNonResponsive(string $text): bool
+    {
+        $hay = strtolower(trim($text));
+        if ($hay === '') {
+            return false;
+        }
+        foreach ($this->nonResponsiveNeedles() as $needle) {
+            if (str_contains($hay, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  Builder<Lead>  $q
+     */
+    public function applyNonResponsiveFilter(Builder $q): void
+    {
+        $leads = Lead::query()
+            ->whereIn('lead_type', [Lead::TYPE_CUSTOMER, Lead::TYPE_INVALID, Lead::TYPE_PROVIDER])
+            ->orderByDesc('date_time_of_lead_received')
+            ->limit(3000)
+            ->get(['id', 'lead_type']);
+        if ($leads->isEmpty()) {
+            $q->whereRaw('1 = 0');
+
+            return;
+        }
+        $profiles = $this->buildProfilesForLeads($leads);
+        $ids = $leads->filter(function (Lead $lead) use ($profiles) {
+            return $this->detectNonResponsiveMatch($lead, $profiles[(int) $lead->id] ?? []) !== null;
+        })->pluck('id')->all();
+        $q->whereIn('id', $ids !== [] ? $ids : [-1]);
     }
 
     /**
@@ -880,19 +1166,34 @@ class AdminBusinessAiLeadInsightService
     {
         $booking = Booking::query()->where('lead_id', $lead->id)->orderByDesc('created_at')->first(['readable_id', 'booking_status']);
         $wa = $this->buildWhatsAppActivity($lead->phone_number);
+        $handler = $lead->handled_by;
+        $handlerName = 'Unassigned';
+        if ($handler === Lead::HANDLED_BY_AI) {
+            $handlerName = 'AI';
+        } elseif (Lead::assigneeIsHuman($handler)) {
+            $user = User::query()->find((string) $handler, ['first_name', 'last_name', 'email']);
+            $handlerName = $user
+                ? (trim($user->first_name.' '.$user->last_name) ?: ($user->email ?? 'Staff'))
+                : 'Staff';
+        }
 
         return [
             'lead_id' => $lead->id,
             'name' => $lead->name,
             'phone' => $lead->phone_number,
             'lead_type' => $lead->lead_type,
-            'status' => $profileBlock['status'] ?? null,
-            'handled_by' => $lead->handled_by,
+            'status' => $profileBlock['status'] ?? ($profileBlock['reason'] ?? null),
+            'invalid_reason' => $profileBlock['reason'] ?? null,
+            'cancellation_reason' => $profileBlock['cancellation_reason'] ?? null,
+            'cancellation_remarks' => $profileBlock['cancellation_remarks'] ?? ($profileBlock['remarks'] ?? null),
+            'handled_by' => $handler,
+            'handled_by_name' => $handlerName,
             'received_at' => $lead->date_time_of_lead_received?->toIso8601String(),
             'next_followup_at' => $lead->next_followup_at?->toIso8601String(),
             'has_booking' => $booking !== null,
             'booking_readable_id' => $booking?->readable_id,
             'first_whatsapp_reply_at' => $wa['first_outbound_reply_at'] ?? null,
+            'last_whatsapp_reply_at' => $wa['last_outbound_at'] ?? null,
             'last_customer_whatsapp_at' => $wa['last_inbound_at'] ?? null,
         ];
     }
@@ -917,5 +1218,183 @@ class AdminBusinessAiLeadInsightService
         }
 
         return substr($digits, -10);
+    }
+
+    private function resolveHandlerName(mixed $handledBy): string
+    {
+        if (! Lead::assigneeIsHuman($handledBy)) {
+            return $handledBy === Lead::HANDLED_BY_AI ? 'AI' : 'Unassigned';
+        }
+        $user = User::query()->find((string) $handledBy, ['first_name', 'last_name', 'email']);
+
+        return $user ? (trim($user->first_name.' '.$user->last_name) ?: ($user->email ?? 'Staff')) : 'Staff';
+    }
+
+    /**
+     * @param  array<string, mixed>  $lookup
+     * @param  array<string, string>  $adminNames
+     * @return array<string, mixed>
+     */
+    private function resolveTypeHistoryEntry(LeadTypeHistory $h, array $lookup, array $adminNames): array
+    {
+        $d = is_array($h->data) ? $h->data : [];
+        $resolved = ['type' => $h->type];
+
+        if ($h->type === Lead::TYPE_CUSTOMER) {
+            $resolved = array_merge($resolved, [
+                'zone' => $this->resolveName($lookup['zones'], $d['zone_id'] ?? null),
+                'category' => $this->resolveName($lookup['categories'], $d['service_category'] ?? null),
+                'sub_category' => $this->resolveName($lookup['categories'], $d['service_subcategory'] ?? null),
+                'service' => $this->resolveName($lookup['services'], $d['service_name'] ?? null),
+                'variant_key' => $d['variant_key'] ?? null,
+                'service_description' => $d['service_description'] ?? null,
+                'estimated_service_at' => $d['estimated_service_at'] ?? null,
+                'status' => $lookup['customer_statuses']->get((int) ($d['customer_lead_status_id'] ?? 0))?->name,
+                'cancellation_reason' => $lookup['customer_cancel_reasons']->get((int) ($d['cancellation_reason_id'] ?? 0))?->name,
+                'cancellation_remarks' => $d['cancellation_remarks'] ?? null,
+                'booking_status' => $d['booking_status'] ?? null,
+                'booking_id' => $lookup['bookings']->get($d['booking_id'] ?? '')?->readable_id ?? ($d['booking_id'] ?? null),
+            ]);
+        } elseif ($h->type === Lead::TYPE_PROVIDER) {
+            $zoneNames = [];
+            foreach ((array) ($d['zone_ids'] ?? [$d['zone_id'] ?? null]) as $zid) {
+                if ($zid && ($zn = $lookup['zones']->get($zid)?->name)) {
+                    $zoneNames[] = $zn;
+                }
+            }
+            $resolved = array_merge($resolved, [
+                'district' => $lookup['districts']->get((int) ($d['district_id'] ?? 0))?->name,
+                'zones' => array_values(array_unique($zoneNames)),
+                'full_address' => $d['full_address'] ?? null,
+                'service_areas' => $d['service_areas'] ?? null,
+                'service_category' => $this->resolveName($lookup['categories'], $d['provider_service_category'] ?? null),
+                'service_subcategory' => $this->resolveName($lookup['categories'], $d['provider_service_subcategory'] ?? null),
+                'service_details' => $d['provider_service_details'] ?? null,
+                'status' => $lookup['provider_statuses']->get((int) ($d['provider_lead_status_id'] ?? 0))?->name,
+                'cancellation_reason' => $lookup['provider_cancel_reasons']->get((int) ($d['provider_cancellation_reason_id'] ?? 0))?->name,
+                'cancellation_remarks' => $d['provider_cancellation_remarks'] ?? null,
+            ]);
+        } elseif ($h->type === Lead::TYPE_INVALID) {
+            $resolved = array_merge($resolved, [
+                'invalid_reason' => $lookup['invalid_reasons']->get((int) ($d['invalid_reason_id'] ?? 0))?->name,
+                'invalid_remarks' => $d['invalid_remarks'] ?? null,
+            ]);
+        } elseif ($h->type === Lead::TYPE_FUTURE_CUSTOMER) {
+            $resolved = array_merge($resolved, [
+                'future_customer_reason' => $lookup['future_reasons']->get((int) ($d['future_customer_reason_id'] ?? 0))?->name,
+                'future_customer_remarks' => $d['future_customer_remarks'] ?? null,
+            ]);
+        }
+
+        return array_merge($resolved, [
+            'at' => $h->created_at?->toIso8601String(),
+            'created_by' => $adminNames[(string) $h->created_by] ?? null,
+            'raw_data' => $d,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $profile
+     * @return array<string, mixed>
+     */
+    /**
+     * @return list<int>
+     */
+    private function leadIdsMatchingDimensions(string $zoneSearch, string $categorySearch, string $leadTypeFilter): array
+    {
+        if ($zoneSearch === '' && $categorySearch === '') {
+            return [];
+        }
+
+        $zoneId = null;
+        if ($zoneSearch !== '') {
+            $zoneId = Zone::withoutGlobalScopes()->where('name', 'like', '%'.trim($zoneSearch).'%')->value('id');
+            if (! $zoneId) {
+                return [];
+            }
+        }
+
+        $categoryId = null;
+        if ($categorySearch !== '') {
+            $categoryId = Category::withoutGlobalScopes()->where('name', 'like', '%'.trim($categorySearch).'%')->value('id');
+            if (! $categoryId) {
+                return [];
+            }
+        }
+
+        $types = $leadTypeFilter !== '' && $leadTypeFilter !== 'all'
+            ? [$leadTypeFilter]
+            : [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER];
+
+        $leads = Lead::query()
+            ->whereIn('lead_type', $types)
+            ->orderByDesc('date_time_of_lead_received')
+            ->limit(3000)
+            ->get(['id', 'lead_type']);
+
+        if ($leads->isEmpty()) {
+            return [];
+        }
+
+        $profiles = $this->buildProfilesForLeads($leads);
+
+        return $leads->filter(function (Lead $lead) use ($profiles, $zoneId, $categoryId) {
+            $key = $lead->lead_type === Lead::TYPE_PROVIDER ? 'provider' : 'customer';
+            $block = $profiles[(int) $lead->id][$key] ?? null;
+            if (! is_array($block)) {
+                return false;
+            }
+            if ($zoneId !== null) {
+                if ($key === 'customer') {
+                    $leadZone = Zone::withoutGlobalScopes()->find($zoneId)?->name;
+                    if (! $leadZone || ($block['zone'] ?? '') !== $leadZone) {
+                        return false;
+                    }
+                } else {
+                    $zones = (array) ($block['zones'] ?? []);
+                    $leadZone = Zone::withoutGlobalScopes()->find($zoneId)?->name;
+                    if (! $leadZone || ! in_array($leadZone, $zones, true)) {
+                        return false;
+                    }
+                }
+            }
+            if ($categoryId !== null) {
+                $catName = Category::withoutGlobalScopes()->find($categoryId)?->name;
+                $leadCat = $block['service_category'] ?? $block['service_subcategory'] ?? null;
+                if (! $catName || stripos((string) $leadCat, (string) $catName) === false) {
+                    return false;
+                }
+            }
+
+            return true;
+        })->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    private function flattenLeadAdminFields(Lead $lead, array $profile): array
+    {
+        $flat = [
+            'id' => $lead->id,
+            'name' => $lead->name,
+            'phone' => $lead->phone_number,
+            'lead_type' => $lead->lead_type,
+            'source' => $lead->source?->name,
+            'ad_source' => $lead->adSource?->name,
+            'handled_by' => $this->resolveHandlerName($lead->handled_by),
+            'remarks' => $lead->remarks,
+            'received_at' => $lead->date_time_of_lead_received?->toIso8601String(),
+            'next_followup_at' => $lead->next_followup_at?->toIso8601String(),
+            'is_open' => $profile['is_open'] ?? null,
+            'pipeline_status' => $profile['pipeline_status'] ?? null,
+        ];
+
+        foreach (['customer', 'provider', 'invalid', 'future_customer'] as $block) {
+            if (! empty($profile[$block]) && is_array($profile[$block])) {
+                foreach ($profile[$block] as $key => $value) {
+                    $flat[$block.'_'.$key] = $value;
+                }
+            }
+        }
+
+        return $flat;
     }
 }
