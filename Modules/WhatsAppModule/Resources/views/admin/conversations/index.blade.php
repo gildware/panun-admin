@@ -304,6 +304,11 @@
                 font-size: 0.7rem;
                 white-space: nowrap;
             }
+            .wa-chat-item-lead-counts {
+                font-size: 0.68rem;
+                line-height: 1.35;
+                word-break: break-word;
+            }
             .wa-conversation-header {
                 border-bottom: 1px solid var(--bs-border-color, #dee2e6);
             }

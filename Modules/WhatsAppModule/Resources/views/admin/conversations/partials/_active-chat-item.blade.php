@@ -80,4 +80,8 @@
             @endforeach
         </div>
     @endif
+    @include('whatsappmodule::admin.conversations.partials._active-chat-item-lead-counts', [
+        'leadTypeCounts' => $chat->lead_type_counts ?? [],
+        'onUnread' => $hasUnread,
+    ])
 </div>
