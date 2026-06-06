@@ -300,8 +300,20 @@ class AdminBusinessAiGeminiRunner
             $tools[] = ['name' => 'get_whatsapp_conversations_overview', 'args' => []];
         }
 
+        if (preg_match('/\b(employee|staff|agent|handled by|who is handling|workload|incomplete|unspecified|missing data|not filled)\b/i', $userMessage)) {
+            $tools[] = ['name' => 'analyze_employee_activity', 'args' => ['analysis' => 'full_employee_overview']];
+        }
+
         if (preg_match('/\b(lead|leads|pipeline|crm|followup|follow-up)\b/i', $userMessage)) {
             $tools[] = ['name' => 'get_business_reports', 'args' => ['report_type' => 'lead_pipeline']];
+        }
+
+        if (preg_match('/\b(dashboard|widget|ledger|followup|follow-up|top provider|top customer)\b/i', $userMessage)) {
+            $tools[] = ['name' => 'get_dashboard_snapshot', 'args' => []];
+        }
+
+        if (preg_match('/\b(relation|related|linked|connect|connection|same phone|who handles)\b/i', $userMessage)) {
+            $tools[] = ['name' => 'get_entity_relations', 'args' => []];
         }
 
         if (preg_match('/\b(revenue|earning|earnings|financial|profit|payable|money)\b/i', $userMessage)) {
@@ -309,8 +321,8 @@ class AdminBusinessAiGeminiRunner
         }
 
         if (preg_match('/\b(full|complete|health|overview|analysis|report|summary)\b/i', $userMessage)
-            && ! preg_match('/\b(zone|area|booking|lead|whatsapp)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'get_business_dashboard_overview', 'args' => []];
+            && ! preg_match('/\b(zone|area|booking|lead|whatsapp|customer|provider)\b/i', $userMessage)) {
+            $tools[] = ['name' => 'get_dashboard_snapshot', 'args' => []];
         }
 
         return array_slice($tools, 0, 2);
@@ -492,10 +504,22 @@ class AdminBusinessAiGeminiRunner
                 $compact['data']['zone_wise'] = array_slice($compact['data']['zone_wise'], 0, 8);
             }
         }
-        foreach (['leads', 'bookings', 'providers', 'customers', 'conversations'] as $listKey) {
+        foreach (['leads', 'bookings', 'providers', 'customers', 'conversations', 'outbound_enquiries', 'incomplete_leads', 'employees'] as $listKey) {
             if (isset($compact[$listKey]) && is_array($compact[$listKey]) && count($compact[$listKey]) > 15) {
                 $compact[$listKey] = array_slice($compact[$listKey], 0, 15);
                 $compact[$listKey.'_truncated'] = true;
+            }
+        }
+        foreach (['recent_ledger_transactions', 'pending_bookings_sample', 'top_providers', 'top_customers', 'todays_pending_booking_followups', 'todays_pending_lead_followups'] as $dashKey) {
+            if (isset($compact[$dashKey]) && is_array($compact[$dashKey]) && count($compact[$dashKey]) > 10) {
+                $compact[$dashKey] = array_slice($compact[$dashKey], 0, 10);
+            }
+        }
+        if (isset($compact['booking']) && is_array($compact['booking'])) {
+            foreach (['followups', 'partial_payments', 'status_history', 'change_logs', 'reopen_events', 'incidents'] as $nested) {
+                if (isset($compact['booking'][$nested]) && is_array($compact['booking'][$nested]) && count($compact['booking'][$nested]) > 12) {
+                    $compact['booking'][$nested] = array_slice($compact['booking'][$nested], 0, 12);
+                }
             }
         }
         if (isset($compact['unassigned_chat_samples_with_lead_handlers']) && is_array($compact['unassigned_chat_samples_with_lead_handlers'])) {
@@ -516,10 +540,20 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
 
 ## Data rules
 - Always call tools before stating any count, revenue figure, status, name, or trend. Never guess.
-- For broad questions, call at most 2–3 tools per turn, then write your analysis. Prefer: get_business_dashboard_overview + one get_business_reports type, or get_whatsapp_conversations_overview for inbox questions.
-- For geography / area / zone booking questions, call get_business_reports with report_type=booking_analytics and use the zone_wise breakdown.
-- Cross-reference domains: link WhatsApp unassigned chats to CRM lead handlers, overdue leads to booking conversion, etc.
-- WhatsApp vs CRM lead: chat_handler owns the inbox thread; lead_handler owns the CRM lead — report both when relevant.
+- For broad questions, call at most 2–3 tools per turn, then write your analysis.
+- **Full admin-tab data is available via tools:**
+  - Leads: query_leads, get_lead_details, analyze_leads, query_outbound_enquiries — includes type_history (cancellation reasons/remarks), followups, checklist, pipeline status.
+  - Bookings: query_bookings, get_booking_details, analyze_bookings — followups, partial payments, settlement, repeats, compensations, reopen, status/change history, lead link.
+  - Customers: query_customers, get_customer_details, analyze_customers — overview, addresses, wallet/loyalty, performance, incidents, reviews, payments.
+  - Providers: query_providers, get_provider_details, analyze_providers — zones, bank, services, servicemen, performance, incidents, bookings.
+  - Dashboard: get_business_dashboard_overview (KPIs) or get_dashboard_snapshot (full widgets: ledger, followups, top lists, earning chart).
+  - Relations: get_entity_relations — link phone/lead/booking/customer/provider/WhatsApp/outbound enquiry in one call.
+  - WhatsApp: get_whatsapp_conversations_overview, query_whatsapp_conversations, get_whatsapp_conversation_details — chat_handler (inbox assignee) vs lead_handler (CRM); linked_lead_is_customer; system bookings on thread.
+  - Employees: analyze_employee_activity (workload, chats, bookings, incomplete leads per handler), query_incomplete_leads (unspecified/missing lead fields + who handles + booking link).
+- For cancellation reason questions: analyze_leads with analysis=customer_cancellation_reasons (or provider_cancellation_reasons).
+- For employee performance / who handles chats / incomplete data: analyze_employee_activity or query_incomplete_leads.
+- For geography / zone booking questions: get_business_reports report_type=booking_analytics (zone_wise).
+- Cross-reference domains: use get_entity_relations when asked how records connect; report chat_handler vs lead_handler for WhatsApp.
 - You are read-only — never claim you changed data.
 
 ## Analysis depth

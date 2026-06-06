@@ -8,9 +8,9 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\ProviderManagement\Entities\Provider;
-use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
 
@@ -22,8 +22,14 @@ class AdminBusinessAiToolExecutor
     public function __construct(
         protected BookingReportAnalyticsService $bookingAnalytics,
         protected LeadOpenStatusService $leadOpenStatus,
-        protected ProviderPerformanceService $providerPerformance,
         protected AdminBusinessAiWhatsAppInsightService $whatsAppInsights,
+        protected AdminBusinessAiLeadInsightService $leadInsights,
+        protected AdminBusinessAiBookingInsightService $bookingInsights,
+        protected AdminBusinessAiCustomerInsightService $customerInsights,
+        protected AdminBusinessAiProviderInsightService $providerInsights,
+        protected AdminBusinessAiDashboardInsightService $dashboardInsights,
+        protected AdminBusinessAiEntityRelationService $entityRelations,
+        protected AdminBusinessAiEmployeeInsightService $employeeInsights,
     ) {}
 
     /**
@@ -36,14 +42,23 @@ class AdminBusinessAiToolExecutor
 
         return match ($name) {
             'get_business_dashboard_overview' => $this->getBusinessDashboardOverview(),
+            'get_dashboard_snapshot' => $this->dashboardInsights->snapshot(),
+            'get_entity_relations' => $this->entityRelations->resolve($args),
+            'analyze_employee_activity' => $this->employeeInsights->analyze($args),
+            'query_incomplete_leads' => $this->employeeInsights->queryIncompleteLeads($args),
             'query_leads' => $this->queryLeads($args),
             'get_lead_details' => $this->getLeadDetails($args),
+            'analyze_leads' => $this->leadInsights->analyze($args),
+            'query_outbound_enquiries' => $this->queryOutboundEnquiries($args),
             'query_bookings' => $this->queryBookings($args),
             'get_booking_details' => $this->getBookingDetails($args),
+            'analyze_bookings' => $this->bookingInsights->analyze($args),
             'query_providers' => $this->queryProviders($args),
             'get_provider_details' => $this->getProviderDetails($args),
+            'analyze_providers' => $this->providerInsights->analyze($args),
             'query_customers' => $this->queryCustomers($args),
             'get_customer_details' => $this->getCustomerDetails($args),
+            'analyze_customers' => $this->customerInsights->analyze($args),
             'get_business_reports' => $this->getBusinessReports($args),
             'get_whatsapp_conversations_overview' => $this->whatsAppInsights->overview(),
             'query_whatsapp_conversations' => $this->whatsAppInsights->queryConversations($args),
@@ -64,8 +79,55 @@ class AdminBusinessAiToolExecutor
                 'parameters' => ['type' => 'object', 'properties' => new \stdClass],
             ],
             [
+                'name' => 'get_dashboard_snapshot',
+                'description' => 'Full admin dashboard mirror: top cards, financial summary, compensation, recent ledger, pending bookings, top providers/customers, today booking+lead followups, monthly earning chart.',
+                'parameters' => ['type' => 'object', 'properties' => new \stdClass],
+            ],
+            [
+                'name' => 'analyze_employee_activity',
+                'description' => 'Employee workload and data quality: leads handled (customer/provider), open leads, bookings as assignee, WhatsApp chats assigned, outbound enquiries, incomplete leads under each handler. analysis: workload_by_employee|chat_assignments|incomplete_leads_by_handler|full_employee_overview.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'employee_id' => ['type' => 'string', 'description' => 'Filter to one admin employee'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
+                'name' => 'query_incomplete_leads',
+                'description' => 'Leads with unspecified/missing data (zone, category, status, handler, etc.): who handles them, lead type (customer/provider), whether they have a system booking.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'lead_type' => ['type' => 'string', 'description' => 'customer|provider|all'],
+                        'handled_by' => ['type' => 'string', 'description' => 'Employee user id'],
+                        'open_only' => ['type' => 'boolean'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'get_entity_relations',
+                'description' => 'Cross-link entities by phone, lead_id, booking_id, readable_id, customer_id, or provider_id. Returns CRM leads, bookings, customer, provider, WhatsApp threads, outbound enquiries, and relation map.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'phone' => ['type' => 'string'],
+                        'lead_id' => ['type' => 'integer'],
+                        'booking_id' => ['type' => 'string'],
+                        'readable_id' => ['type' => 'string'],
+                        'customer_id' => ['type' => 'string'],
+                        'provider_id' => ['type' => 'string'],
+                    ],
+                ],
+            ],
+            [
                 'name' => 'query_leads',
-                'description' => 'Search CRM leads with filters. Returns summary rows (id, name, phone, type, source, handled_by, next_followup_at, remarks snippet).',
+                'description' => 'Search CRM leads with full type-specific data: customer status/zone/service/cancellation reason, provider status/zones/cancellation, invalid/future reasons, tags, remarks, pipeline open/closed.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -82,7 +144,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'get_lead_details',
-                'description' => 'Full lead record with followups and tags by lead id or phone.',
+                'description' => 'Complete lead dossier: all fields, type profile (status, cancellation reason/remarks, service, booking link), full type_history timeline, followups, change_logs, provider checklist, tags.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -108,8 +170,22 @@ class AdminBusinessAiToolExecutor
                 ],
             ],
             [
+                'name' => 'analyze_bookings',
+                'description' => 'Aggregate booking intelligence: status_breakdown, followup_backlog, settlement_overview, full_booking_overview.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'booking_status' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
                 'name' => 'get_booking_details',
-                'description' => 'One booking with customer, provider, amounts, schedule, status by readable_id or uuid.',
+                'description' => 'Complete booking dossier (admin booking tab): followups, partial payments, settlement, repeats, compensations, reopen, status/change history, lead link, services, financial amounts.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -132,8 +208,21 @@ class AdminBusinessAiToolExecutor
                 ],
             ],
             [
+                'name' => 'analyze_providers',
+                'description' => 'Aggregate provider intelligence: approval_overview, incident_overview, full_provider_overview.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
                 'name' => 'get_provider_details',
-                'description' => 'Provider profile, zones, ratings, booking counts, incidents summary.',
+                'description' => 'Complete provider dossier (admin provider tabs): owner, zones, bank, subscribed services, servicemen, performance, incidents, bookings, ratings, linked CRM leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -154,8 +243,21 @@ class AdminBusinessAiToolExecutor
                 ],
             ],
             [
+                'name' => 'analyze_customers',
+                'description' => 'Aggregate customer intelligence: registration_overview, incident_overview, full_customer_overview.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
                 'name' => 'get_customer_details',
-                'description' => 'Customer profile with booking history summary.',
+                'description' => 'Complete customer dossier (admin customer tabs): overview, addresses, wallet/loyalty, performance, incidents, reviews, payments/ledger, linked CRM leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -181,18 +283,34 @@ class AdminBusinessAiToolExecutor
                 ],
             ],
             [
+                'name' => 'analyze_leads',
+                'description' => 'Aggregate lead intelligence across many leads. Use for cancellation reasons, status breakdowns, invalid/future reasons. analysis: customer_cancellation_reasons|provider_cancellation_reasons|invalid_reasons|future_customer_reasons|customer_status_breakdown|provider_status_breakdown|full_lead_overview.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'lead_type' => ['type' => 'string', 'description' => 'customer|provider|invalid|future_customer|unknown|all'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
                 'name' => 'get_whatsapp_conversations_overview',
                 'description' => 'WhatsApp inbox snapshot: open/closed chats, unread, AI vs human assignment, unassigned chats, human-support queue, CRM lead linkage, and who handles linked leads for unassigned chats.',
                 'parameters' => ['type' => 'object', 'properties' => new \stdClass],
             ],
             [
                 'name' => 'query_whatsapp_conversations',
-                'description' => 'Search/filter WhatsApp threads with CRM lead relation. Filters: chat_handler (ai|human|unassigned|human_support_pending|all), status_bucket (open|closed|all), has_linked_lead, lead_handler_unassigned, unread_only.',
+                'description' => 'Search/filter WhatsApp threads: who is assigned (chat_handler), linked CRM lead type (customer/provider), lead handler. Filters: chat_handler (ai|human|unassigned|human_support_pending|all), linked_lead_type (customer|provider), chat_handler_employee_id, status_bucket, has_linked_lead, lead_handler_unassigned, unread_only.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
                         'search' => ['type' => 'string'],
                         'chat_handler' => ['type' => 'string'],
+                        'linked_lead_type' => ['type' => 'string', 'description' => 'customer|provider'],
+                        'chat_handler_employee_id' => ['type' => 'string'],
                         'status_bucket' => ['type' => 'string'],
                         'has_linked_lead' => ['type' => 'boolean'],
                         'lead_handler_unassigned' => ['type' => 'boolean'],
@@ -212,6 +330,21 @@ class AdminBusinessAiToolExecutor
                     'required' => ['phone'],
                 ],
             ],
+            [
+                'name' => 'query_outbound_enquiries',
+                'description' => 'Search outbound lead enquiries (admin outbound tab): name, phone, status, contacted_through, handler.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'search' => ['type' => 'string'],
+                        'status' => ['type' => 'string'],
+                        'handled_by' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -228,23 +361,6 @@ class AdminBusinessAiToolExecutor
         }
 
         return $args;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function performanceMetricsArray(mixed $metrics): array
-    {
-        if (is_array($metrics)) {
-            return $metrics;
-        }
-        if (is_object($metrics)) {
-            $decoded = json_decode(json_encode($metrics), true);
-
-            return is_array($decoded) ? $decoded : [];
-        }
-
-        return [];
     }
 
     private function limit(array $args): int
@@ -339,7 +455,7 @@ class AdminBusinessAiToolExecutor
             'ok' => true,
             'total_matching' => $total,
             'returned' => $rows->count(),
-            'leads' => $rows->map(fn (Lead $l) => $this->leadSummary($l))->values()->all(),
+            'leads' => $this->leadInsights->enrichSummaries($rows),
         ];
     }
 
@@ -380,26 +496,6 @@ class AdminBusinessAiToolExecutor
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    private function leadSummary(Lead $l): array
-    {
-        return [
-            'id' => $l->id,
-            'name' => $l->name,
-            'phone' => $l->phone_number,
-            'lead_type' => $l->lead_type,
-            'source' => $l->source?->name,
-            'ad_source' => $l->adSource?->name,
-            'handled_by' => $l->handled_by,
-            'received_at' => $l->date_time_of_lead_received?->toIso8601String(),
-            'next_followup_at' => $l->next_followup_at?->toIso8601String(),
-            'tags' => $l->customerLeadTags->pluck('name')->all(),
-            'remarks_snippet' => mb_substr((string) ($l->remarks ?? ''), 0, 200),
-        ];
-    }
-
-    /**
      * @param  array<string, mixed>  $args
      * @return array<string, mixed>
      */
@@ -407,10 +503,10 @@ class AdminBusinessAiToolExecutor
     {
         $lead = null;
         if (! empty($args['lead_id'])) {
-            $lead = Lead::query()->with(['source', 'adSource', 'customerLeadTags', 'followups', 'createdBy'])->find((int) $args['lead_id']);
+            $lead = Lead::query()->find((int) $args['lead_id']);
         } elseif (! empty($args['phone'])) {
             $phone = preg_replace('/\D+/', '', (string) $args['phone']) ?? '';
-            $lead = Lead::query()->with(['source', 'adSource', 'customerLeadTags', 'followups', 'createdBy'])
+            $lead = Lead::query()
                 ->where('phone_number', 'like', '%'.$phone.'%')
                 ->orderByDesc('id')
                 ->first();
@@ -422,15 +518,7 @@ class AdminBusinessAiToolExecutor
 
         return [
             'ok' => true,
-            'lead' => array_merge($this->leadSummary($lead), [
-                'remarks' => $lead->remarks,
-                'created_by' => $lead->createdBy ? trim($lead->createdBy->first_name.' '.$lead->createdBy->last_name) : null,
-                'followups' => $lead->followups->take(15)->map(fn ($f) => [
-                    'at' => $f->followup_at?->toIso8601String(),
-                    'note' => mb_substr((string) ($f->note ?? ''), 0, 500),
-                    'next_followup_at' => $f->next_followup_at?->toIso8601String(),
-                ])->values()->all(),
-            ]),
+            'lead' => $this->leadInsights->enrichDetail($lead),
         ];
     }
 
@@ -450,7 +538,7 @@ class AdminBusinessAiToolExecutor
             'ok' => true,
             'total_matching' => $total,
             'returned' => $rows->count(),
-            'bookings' => $rows->map(fn (Booking $b) => $this->bookingSummary($b))->values()->all(),
+            'bookings' => $this->bookingInsights->enrichSummaries($rows),
         ];
     }
 
@@ -492,31 +580,6 @@ class AdminBusinessAiToolExecutor
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    private function bookingSummary(Booking $b): array
-    {
-        return [
-            'id' => $b->id,
-            'readable_id' => $b->readable_id,
-            'status' => $b->booking_status,
-            'total_amount' => (float) ($b->total_booking_amount ?? 0),
-            'is_paid' => (bool) $b->is_paid,
-            'payment_method' => $b->payment_method,
-            'scheduled_at' => $b->service_schedule,
-            'created_at' => $b->created_at?->toIso8601String(),
-            'customer' => $b->customer ? [
-                'name' => trim($b->customer->first_name.' '.$b->customer->last_name),
-                'phone' => $b->customer->phone,
-            ] : null,
-            'provider' => $b->provider ? [
-                'company' => $b->provider->company_name,
-                'contact' => $b->provider->contact_person_name,
-            ] : null,
-        ];
-    }
-
-    /**
      * @param  array<string, mixed>  $args
      * @return array<string, mixed>
      */
@@ -525,14 +588,9 @@ class AdminBusinessAiToolExecutor
         $booking = null;
         if (! empty($args['readable_id'])) {
             $rid = trim((string) $args['readable_id']);
-            $booking = Booking::query()
-                ->with(['customer', 'provider', 'zone', 'category', 'subCategory', 'detail.service', 'booking_partial_payments'])
-                ->where('readable_id', $rid)
-                ->first();
+            $booking = Booking::query()->where('readable_id', $rid)->first();
         } elseif (! empty($args['booking_id'])) {
-            $booking = Booking::query()
-                ->with(['customer', 'provider', 'zone', 'category', 'subCategory', 'detail.service', 'booking_partial_payments'])
-                ->find((string) $args['booking_id']);
+            $booking = Booking::query()->find((string) $args['booking_id']);
         }
 
         if (! $booking) {
@@ -541,16 +599,7 @@ class AdminBusinessAiToolExecutor
 
         return [
             'ok' => true,
-            'booking' => array_merge($this->bookingSummary($booking), [
-                'zone' => $booking->zone?->name,
-                'category' => $booking->category?->name,
-                'sub_category' => $booking->subCategory?->name,
-                'service_address' => $booking->service_address_location,
-                'customer_email' => $booking->customer?->email,
-                'provider_phone' => $booking->provider?->company_phone,
-                'partial_payments_count' => $booking->booking_partial_payments?->count() ?? 0,
-                'services' => $booking->detail?->map(fn ($d) => $d->service?->name)->filter()->values()->all() ?? [],
-            ]),
+            'booking' => $this->bookingInsights->enrichDetail($booking),
         ];
     }
 
@@ -579,32 +628,12 @@ class AdminBusinessAiToolExecutor
 
         $total = (clone $q)->count();
         $rows = $q->orderByDesc('created_at')->limit($this->limit($args))->get();
-        $perf = $this->providerPerformance->getAggregatedProviderPerformanceMetrics(
-            $rows->pluck('id')->map(fn ($id) => (string) $id)->all()
-        );
 
         return [
             'ok' => true,
             'total_matching' => $total,
             'returned' => $rows->count(),
-            'providers' => $rows->map(function (Provider $p) use ($perf) {
-                $m = $this->performanceMetricsArray($perf->get((string) $p->id));
-
-                return [
-                    'id' => $p->id,
-                    'company_name' => $p->company_name,
-                    'contact' => $p->contact_person_name,
-                    'phone' => $p->company_phone,
-                    'zone' => $p->zone?->name,
-                    'is_approved' => (bool) $p->is_approved,
-                    'is_active' => (bool) $p->is_active,
-                    'avg_rating' => (float) ($p->avg_rating ?? 0),
-                    'order_count' => (int) ($p->order_count ?? 0),
-                    'performance_score' => $m['performance_score'] ?? null,
-                    'complaints_count' => $m['complaints_count'] ?? null,
-                    'bookings_completed_count' => $m['bookings_completed_count'] ?? null,
-                ];
-            })->values()->all(),
+            'providers' => $this->providerInsights->enrichSummaries($rows),
         ];
     }
 
@@ -630,31 +659,9 @@ class AdminBusinessAiToolExecutor
             return ['ok' => false, 'error' => 'provider_not_found'];
         }
 
-        $perf = $this->performanceMetricsArray(
-            $this->providerPerformance->getAggregatedProviderPerformanceMetrics([(string) $provider->id])->first()
-        );
-        $completedBookings = Booking::query()
-            ->where('provider_id', $provider->id)
-            ->where('booking_status', 'completed')
-            ->count();
-
         return [
             'ok' => true,
-            'provider' => [
-                'id' => $provider->id,
-                'company_name' => $provider->company_name,
-                'contact' => $provider->contact_person_name,
-                'phone' => $provider->company_phone,
-                'email' => $provider->company_email,
-                'zone' => $provider->zone?->name,
-                'zones_served' => $provider->zones?->pluck('name')->all() ?? [],
-                'is_approved' => (bool) $provider->is_approved,
-                'is_active' => (bool) $provider->is_active,
-                'avg_rating' => (float) ($provider->avg_rating ?? 0),
-                'rating_count' => (int) ($provider->rating_count ?? 0),
-                'completed_bookings' => $completedBookings,
-                'performance' => $perf,
-            ],
+            'provider' => $this->providerInsights->enrichDetail($provider),
         ];
     }
 
@@ -682,14 +689,7 @@ class AdminBusinessAiToolExecutor
             'ok' => true,
             'total_matching' => $total,
             'returned' => $rows->count(),
-            'customers' => $rows->map(fn (User $u) => [
-                'id' => $u->id,
-                'name' => trim($u->first_name.' '.$u->last_name),
-                'phone' => $u->phone,
-                'email' => $u->email,
-                'is_active' => (bool) $u->is_active,
-                'created_at' => $u->created_at?->toIso8601String(),
-            ])->values()->all(),
+            'customers' => $this->customerInsights->enrichSummaries($rows),
         ];
     }
 
@@ -711,36 +711,60 @@ class AdminBusinessAiToolExecutor
             return ['ok' => false, 'error' => 'customer_not_found'];
         }
 
-        $bookings = Booking::query()->where('customer_id', $customer->id);
-        $bookingStats = [
-            'total' => (clone $bookings)->count(),
-            'completed' => (clone $bookings)->where('booking_status', 'completed')->count(),
-            'pending' => (clone $bookings)->whereIn('booking_status', ['pending', 'accepted', 'ongoing'])->count(),
-            'cancelled' => (clone $bookings)->whereIn('booking_status', ['canceled', 'cancelled'])->count(),
+        return [
+            'ok' => true,
+            'customer' => $this->customerInsights->enrichDetail($customer),
         ];
-        $recent = Booking::query()
-            ->where('customer_id', $customer->id)
-            ->orderByDesc('created_at')
-            ->limit(8)
-            ->get(['readable_id', 'booking_status', 'total_booking_amount', 'created_at']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function queryOutboundEnquiries(array $args): array
+    {
+        $q = LeadOutboundEnquiry::query()->with(['createdBy', 'handledBy', 'statusConfig']);
+        if (! empty($args['search'])) {
+            $s = '%'.trim((string) $args['search']).'%';
+            $q->where(function ($w) use ($s) {
+                $w->where('customer_name', 'like', $s)
+                    ->orWhere('phone_number', 'like', $s)
+                    ->orWhere('remarks', 'like', $s);
+            });
+        }
+        if (! empty($args['status'])) {
+            $q->where('status', trim((string) $args['status']));
+        }
+        if (! empty($args['handled_by'])) {
+            $q->where('handled_by', 'like', '%'.trim((string) $args['handled_by']).'%');
+        }
+        if (! empty($args['date_from'])) {
+            $q->where('contacted_at', '>=', Carbon::parse((string) $args['date_from'])->startOfDay());
+        }
+        if (! empty($args['date_to'])) {
+            $q->where('contacted_at', '<=', Carbon::parse((string) $args['date_to'])->endOfDay());
+        }
+
+        $total = (clone $q)->count();
+        $rows = $q->orderByDesc('contacted_at')->limit($this->limit($args))->get();
 
         return [
             'ok' => true,
-            'customer' => [
-                'id' => $customer->id,
-                'name' => trim($customer->first_name.' '.$customer->last_name),
-                'phone' => $customer->phone,
-                'email' => $customer->email,
-                'is_active' => (bool) $customer->is_active,
-                'created_at' => $customer->created_at?->toIso8601String(),
-                'booking_stats' => $bookingStats,
-                'recent_bookings' => $recent->map(fn (Booking $b) => [
-                    'readable_id' => $b->readable_id,
-                    'status' => $b->booking_status,
-                    'amount' => (float) ($b->total_booking_amount ?? 0),
-                    'created_at' => $b->created_at?->toIso8601String(),
-                ])->values()->all(),
-            ],
+            'total_matching' => $total,
+            'returned' => $rows->count(),
+            'outbound_enquiries' => $rows->map(fn (LeadOutboundEnquiry $e) => [
+                'id' => $e->id,
+                'name' => $e->customer_name,
+                'phone' => $e->phone_number,
+                'status' => $e->status,
+                'status_label' => $e->statusConfig?->name,
+                'contacted_through' => $e->contacted_through,
+                'remarks' => $e->remarks,
+                'handled_by' => $e->handledBy
+                    ? trim($e->handledBy->first_name.' '.$e->handledBy->last_name)
+                    : null,
+                'contacted_at' => $e->contacted_at?->toIso8601String(),
+            ])->values()->all(),
         ];
     }
 

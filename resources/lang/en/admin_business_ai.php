@@ -7,6 +7,7 @@ return [
     'presets' => [
         'Give me a complete business health analysis with recommendations',
         'How many WhatsApp chats are open and unassigned? Who handles their leads?',
+        'What are the top customer lead cancellation reasons?',
         'Analyze our lead pipeline and WhatsApp inbox together',
         'What are our booking completion and cancel rates? What should we fix?',
         'Full operational report: leads, bookings, providers, and WhatsApp',
