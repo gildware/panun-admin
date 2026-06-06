@@ -47,6 +47,7 @@ Route::group([
         Route::get('conversations/chat/waba-templates', [WhatsAppController::class, 'chatWabaTemplates'])->middleware(['can:whatsapp_chat_view'])->name('conversations.chat.waba-templates');
         Route::post('conversations/chat/send-template', [WhatsAppController::class, 'sendChatTemplate'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.chat.send-template');
         Route::get('conversations/search', [WhatsAppController::class, 'conversationsSearch'])->middleware(['can:whatsapp_chat_view'])->name('conversations.search');
+        Route::get('conversations/active-chats', [WhatsAppController::class, 'activeChatsPage'])->middleware(['can:whatsapp_chat_view'])->name('conversations.active-chats');
         Route::get('conversations/active-chats-forward', [WhatsAppController::class, 'activeChatsForForward'])->middleware(['can:whatsapp_chat_reply'])->name('conversations.active-chats-forward');
         Route::post('conversations/handoff', [WhatsAppController::class, 'handoff'])->middleware(['can:whatsapp_chat_assign'])->name('conversations.handoff');
         Route::post('conversations/delete-history', [WhatsAppController::class, 'deleteChatHistory'])->middleware(['can:whatsapp_chat_delete'])->name('conversations.delete-history');
