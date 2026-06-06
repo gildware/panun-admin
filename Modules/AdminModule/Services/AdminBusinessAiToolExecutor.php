@@ -310,12 +310,13 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_leads',
-                'description' => 'Aggregate lead intelligence. analysis: no_response_leads (invalid reason No Response + customer cancellation No Response From Customer + status match), lead_activity_report, customer_cancellation_reasons, customer_status_breakdown, full_lead_overview, etc. Use lead_type=all for no_response_leads.',
+                'description' => 'Aggregate lead intelligence. Key analyses: no_response_timing_report (hour peaks + reply/update lag for No Response cohort), lead_timing_report (cohort: all|non_responsive|invalid|invalid_no_response|customer|provider|customer_cancelled|customer_pending), no_response_leads (includes timing_summary), lead_activity_report, cancellation/status breakdowns. Use date_from/date_to for range. Scans up to 5000 leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
-                        'analysis' => ['type' => 'string'],
+                        'analysis' => ['type' => 'string', 'description' => 'no_response_timing_report|lead_timing_report|no_response_leads|lead_activity_report|customer_cancellation_reasons|customer_status_breakdown|invalid_reasons|full_lead_overview|etc'],
                         'lead_type' => ['type' => 'string', 'description' => 'customer|provider|invalid|future_customer|unknown|all'],
+                        'cohort' => ['type' => 'string', 'description' => 'For lead_timing_report: all|non_responsive|invalid|invalid_no_response|customer|provider|customer_cancelled|customer_pending'],
                         'date_from' => ['type' => 'string'],
                         'date_to' => ['type' => 'string'],
                     ],

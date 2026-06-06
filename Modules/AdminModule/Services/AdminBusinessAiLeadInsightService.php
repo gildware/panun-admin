@@ -32,6 +32,11 @@ use Modules\ZoneManagement\Entities\Zone;
 
 class AdminBusinessAiLeadInsightService
 {
+    private const TIMING_ANALYSIS_SCAN_LIMIT = 5000;
+
+    /** @var array<string, Collection<int, WhatsAppMessage>> */
+    private array $waMessagesByNormPhone = [];
+
     public function __construct(
         protected LeadOpenStatusService $leadOpenStatus,
         protected CustomerLeadReportAnalyticsService $customerLeadReports,
@@ -373,22 +378,7 @@ class AdminBusinessAiLeadInsightService
             $leadType = '';
         }
 
-        $q = Lead::query();
-        if ($analysis !== 'no_response_leads' && $leadType !== '') {
-            $q->where('lead_type', $leadType);
-        } elseif ($analysis === 'no_response_leads' && $leadType !== '' && $leadType !== 'all') {
-            $q->where('lead_type', $leadType);
-        } elseif ($analysis === 'no_response_leads') {
-            $q->whereIn('lead_type', [Lead::TYPE_CUSTOMER, Lead::TYPE_INVALID, Lead::TYPE_PROVIDER]);
-        }
-        if (! empty($args['date_from'])) {
-            $q->where('date_time_of_lead_received', '>=', Carbon::parse((string) $args['date_from'])->startOfDay());
-        }
-        if (! empty($args['date_to'])) {
-            $q->where('date_time_of_lead_received', '<=', Carbon::parse((string) $args['date_to'])->endOfDay());
-        }
-
-        $leads = $q->orderByDesc('date_time_of_lead_received')->limit(2000)->get();
+        [$leads, $scanNote] = $this->resolveLeadsForAnalysis($args, $analysis, $leadType);
         $profiles = $this->buildProfilesForLeads($leads);
 
         $payload = [
@@ -396,6 +386,8 @@ class AdminBusinessAiLeadInsightService
             'analysis' => $analysis,
             'leads_in_scope' => $leads->count(),
             'lead_type_filter' => $leadType !== '' ? $leadType : 'all',
+            'cohort' => ! empty($args['cohort']) ? (string) $args['cohort'] : null,
+            'scan_note' => $scanNote,
         ];
 
         return match ($analysis) {
@@ -406,7 +398,17 @@ class AdminBusinessAiLeadInsightService
             'customer_status_breakdown' => array_merge($payload, $this->aggregateStatusBreakdown($leads, $profiles, Lead::TYPE_CUSTOMER)),
             'provider_status_breakdown' => array_merge($payload, $this->aggregateStatusBreakdown($leads, $profiles, Lead::TYPE_PROVIDER)),
             'no_response_leads' => array_merge($payload, $this->aggregateNoResponseLeads($leads, $profiles)),
-            'lead_activity_report' => array_merge($payload, $this->aggregateLeadActivityReport($leads)),
+            'no_response_timing_report' => array_merge($payload, $this->aggregateLeadTimingReport(
+                $leads,
+                $profiles,
+                fn (Lead $lead, array $profile) => $this->detectNonResponsiveMatch($lead, $profile) !== null
+            )),
+            'lead_timing_report' => array_merge($payload, $this->aggregateLeadTimingReport(
+                $leads,
+                $profiles,
+                fn (Lead $lead, array $profile) => $this->leadMatchesTimingCohort($lead, $profile, (string) ($args['cohort'] ?? 'all'))
+            )),
+            'lead_activity_report' => array_merge($payload, $this->aggregateLeadActivityReport($leads, $profiles)),
             'full_lead_overview' => array_merge($payload, [
                 'customer_cancellation_reasons' => $this->aggregateCustomerCancellations(
                     $leads->where('lead_type', Lead::TYPE_CUSTOMER),
@@ -428,11 +430,64 @@ class AdminBusinessAiLeadInsightService
                     'customer_status_breakdown',
                     'provider_status_breakdown',
                     'no_response_leads',
+                    'no_response_timing_report',
+                    'lead_timing_report',
                     'lead_activity_report',
                     'full_lead_overview',
                 ],
             ],
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array{0: Collection<int, Lead>, 1: string|null}
+     */
+    private function resolveLeadsForAnalysis(array $args, string $analysis, string $leadType): array
+    {
+        $timingAnalyses = [
+            'no_response_leads',
+            'no_response_timing_report',
+            'lead_timing_report',
+            'lead_activity_report',
+        ];
+        $limit = in_array($analysis, $timingAnalyses, true)
+            ? self::TIMING_ANALYSIS_SCAN_LIMIT
+            : 2000;
+
+        $q = Lead::query();
+        $multiTypeAnalyses = ['no_response_leads', 'no_response_timing_report', 'lead_timing_report'];
+
+        if (in_array($analysis, $multiTypeAnalyses, true)) {
+            if ($leadType !== '' && $leadType !== 'all') {
+                $q->where('lead_type', $leadType);
+            } else {
+                $q->whereIn('lead_type', [
+                    Lead::TYPE_CUSTOMER,
+                    Lead::TYPE_INVALID,
+                    Lead::TYPE_PROVIDER,
+                    Lead::TYPE_FUTURE_CUSTOMER,
+                    Lead::TYPE_UNKNOWN,
+                ]);
+            }
+        } elseif ($leadType !== '') {
+            $q->where('lead_type', $leadType);
+        }
+
+        if (! empty($args['date_from'])) {
+            $q->where('date_time_of_lead_received', '>=', Carbon::parse((string) $args['date_from'])->startOfDay());
+        }
+        if (! empty($args['date_to'])) {
+            $q->where('date_time_of_lead_received', '<=', Carbon::parse((string) $args['date_to'])->endOfDay());
+        }
+
+        $totalMatching = (clone $q)->count();
+        $leads = $q->orderByDesc('date_time_of_lead_received')->limit($limit)->get();
+        $note = $totalMatching > $leads->count()
+            ? "Analyzed newest {$leads->count()} of {$totalMatching} matching leads (scan cap {$limit}). Totals and timing stats are for the analyzed set."
+            : null;
+
+        return [$leads, $note];
     }
 
     /**
@@ -985,6 +1040,13 @@ class AdminBusinessAiLeadInsightService
 
         $all = array_merge($invalidLeads, $customerCancelled, $customerStatus, $providerCancelled);
         $configured = $this->configuredNonResponsiveReasons();
+        $matchedLeadIds = collect($all)->pluck('lead_id')->filter()->unique()->values();
+        $matchedLeads = $leads->filter(fn (Lead $l) => $matchedLeadIds->contains($l->id))->values();
+        $timingSummary = $this->aggregateLeadTimingReport(
+            $matchedLeads,
+            $profiles,
+            fn (Lead $lead, array $profile) => $this->detectNonResponsiveMatch($lead, $profile) !== null
+        );
 
         return [
             'summary' => [
@@ -997,6 +1059,7 @@ class AdminBusinessAiLeadInsightService
             'configured_reasons' => $configured,
             'configured_no_response_statuses' => $configured['customer_statuses'],
             'matching_leads' => count($all),
+            'timing_summary' => $timingSummary['timing'] ?? $timingSummary,
             'by_category' => [
                 'invalid_leads' => array_slice($invalidLeads, 0, 25),
                 'customer_cancelled' => array_slice($customerCancelled, 0, 25),
@@ -1004,7 +1067,7 @@ class AdminBusinessAiLeadInsightService
                 'provider_cancelled' => array_slice($providerCancelled, 0, 25),
             ],
             'leads' => array_slice($all, 0, 40),
-            'note' => 'Non-responsive includes: invalid lead reason "No Response", customer cancellation "No Response From Customer", and any CRM status name containing no response/unresponsive.',
+            'note' => 'Non-responsive includes: invalid lead reason "No Response", customer cancellation "No Response From Customer", and any CRM status name containing no response/unresponsive. Use no_response_timing_report for full hour/lag analysis.',
         ];
     }
 
@@ -1120,7 +1183,7 @@ class AdminBusinessAiLeadInsightService
         $leads = Lead::query()
             ->whereIn('lead_type', [Lead::TYPE_CUSTOMER, Lead::TYPE_INVALID, Lead::TYPE_PROVIDER])
             ->orderByDesc('date_time_of_lead_received')
-            ->limit(3000)
+            ->limit(self::TIMING_ANALYSIS_SCAN_LIMIT)
             ->get(['id', 'lead_type']);
         if ($leads->isEmpty()) {
             $q->whereRaw('1 = 0');
@@ -1136,26 +1199,472 @@ class AdminBusinessAiLeadInsightService
 
     /**
      * @param  Collection<int, Lead>  $leads
+     * @param  array<string, array<string, mixed>>  $profiles
      * @return array<string, mixed>
      */
-    private function aggregateLeadActivityReport(Collection $leads): array
+    private function aggregateLeadActivityReport(Collection $leads, array $profiles): array
     {
-        $rows = [];
-        foreach ($leads->take(100) as $lead) {
-            $lead->load(['followups', 'changeLogs']);
-            $histories = LeadTypeHistory::query()->where('lead_id', $lead->id)->orderByDesc('created_at')->get();
-            $profile = $this->buildProfilesForLeads(collect([$lead]))[(int) $lead->id] ?? [];
-            $block = $profile['customer'] ?? $profile['provider'] ?? [];
-
-            $rows[] = array_merge($this->leadActivityRow($lead, is_array($block) ? $block : []), [
-                'activity' => $this->buildActivitySummary($lead, $histories, $lead->followups, $lead->changeLogs),
-            ]);
-        }
+        $timing = $this->aggregateLeadTimingReport($leads, $profiles);
+        $rows = array_slice($timing['sample_leads'] ?? [], 0, 50);
 
         return [
             'returned' => count($rows),
+            'timing' => $timing['timing'] ?? $timing,
             'leads' => $rows,
         ];
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     * @param  array<string, array<string, mixed>>  $profiles
+     * @param  callable(Lead, array<string, mixed>): bool|null  $filter
+     * @return array<string, mixed>
+     */
+    private function aggregateLeadTimingReport(Collection $leads, array $profiles, ?callable $filter = null): array
+    {
+        $this->waMessagesByNormPhone = [];
+        $bulk = $this->preloadTimingBulkData($leads);
+        $rows = [];
+
+        foreach ($leads as $lead) {
+            $profile = $profiles[(int) $lead->id] ?? [];
+            if ($filter !== null && ! $filter($lead, $profile)) {
+                continue;
+            }
+            $rows[] = $this->computeLeadTimingRow($lead, $profile, $bulk);
+        }
+
+        if ($rows === []) {
+            return [
+                'cohort_size' => 0,
+                'timing' => null,
+                'sample_leads' => [],
+                'note' => 'No leads matched this timing cohort.',
+            ];
+        }
+
+        return [
+            'cohort_size' => count($rows),
+            'timing' => $this->summarizeTimingRows($rows),
+            'sample_leads' => array_slice($rows, 0, 30),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $profile
+     */
+    private function leadMatchesTimingCohort(Lead $lead, array $profile, string $cohort): bool
+    {
+        return match (strtolower(trim($cohort))) {
+            'non_responsive', 'no_response' => $this->detectNonResponsiveMatch($lead, $profile) !== null,
+            'invalid' => $lead->lead_type === Lead::TYPE_INVALID,
+            'invalid_no_response' => $lead->lead_type === Lead::TYPE_INVALID
+                && $this->textMatchesNonResponsive((string) (($profile['invalid']['reason'] ?? ''))),
+            'customer' => $lead->lead_type === Lead::TYPE_CUSTOMER,
+            'provider' => $lead->lead_type === Lead::TYPE_PROVIDER,
+            'customer_cancelled' => $lead->lead_type === Lead::TYPE_CUSTOMER
+                && (bool) (($profile['customer']['is_cancelled'] ?? false)),
+            'customer_pending' => $lead->lead_type === Lead::TYPE_CUSTOMER
+                && ! (bool) (($profile['customer']['is_cancelled'] ?? false))
+                && strtolower((string) (($profile['customer']['status_base_type'] ?? 'pending'))) === 'pending',
+            default => true,
+        };
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     * @return array<string, mixed>
+     */
+    private function preloadTimingBulkData(Collection $leads): array
+    {
+        $leadIds = $leads->pluck('id')->all();
+        if ($leadIds === []) {
+            return ['followups' => collect(), 'change_logs' => collect(), 'histories' => collect()];
+        }
+
+        $followups = LeadFollowup::query()
+            ->whereIn('lead_id', $leadIds)
+            ->orderBy('followup_at')
+            ->get()
+            ->groupBy('lead_id');
+
+        $changeLogs = LeadChangeLog::query()
+            ->whereIn('lead_id', $leadIds)
+            ->orderBy('created_at')
+            ->get()
+            ->groupBy('lead_id');
+
+        $histories = LeadTypeHistory::query()
+            ->whereIn('lead_id', $leadIds)
+            ->orderBy('created_at')
+            ->get()
+            ->groupBy('lead_id');
+
+        $this->preloadWhatsAppMessages($leads);
+
+        return compact('followups', 'changeLogs', 'histories');
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     */
+    private function preloadWhatsAppMessages(Collection $leads): void
+    {
+        $phones = $leads->pluck('phone_number')->filter()->unique()->values();
+        if ($phones->isEmpty()) {
+            return;
+        }
+
+        $messages = WhatsAppMessage::query()
+            ->where(function ($q) use ($phones) {
+                foreach ($phones as $phone) {
+                    $q->orWhere('phone', $phone);
+                    $norm = $this->normalizePhone($phone);
+                    if ($norm) {
+                        $q->orWhere('phone', 'like', '%'.$norm);
+                    }
+                }
+            })
+            ->orderBy('created_at')
+            ->get(['phone', 'direction', 'created_at']);
+
+        foreach ($messages as $message) {
+            $key = $this->normalizePhone($message->phone) ?? (string) $message->phone;
+            if (! isset($this->waMessagesByNormPhone[$key])) {
+                $this->waMessagesByNormPhone[$key] = collect();
+            }
+            $this->waMessagesByNormPhone[$key]->push($message);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function whatsAppActivityFromPreload(?string $phone): array
+    {
+        $key = $this->normalizePhone($phone);
+        if ($key === null || ! isset($this->waMessagesByNormPhone[$key])) {
+            return ['has_whatsapp_thread' => false];
+        }
+
+        $messages = $this->waMessagesByNormPhone[$key];
+        $inbound = $messages->where('direction', 'IN');
+        $outbound = $messages->where('direction', 'OUT');
+
+        return [
+            'has_whatsapp_thread' => true,
+            'first_inbound_at' => $inbound->first()?->created_at?->toIso8601String(),
+            'last_inbound_at' => $inbound->last()?->created_at?->toIso8601String(),
+            'first_outbound_reply_at' => $outbound->first()?->created_at?->toIso8601String(),
+            'last_outbound_at' => $outbound->last()?->created_at?->toIso8601String(),
+            'inbound_message_count' => $inbound->count(),
+            'outbound_message_count' => $outbound->count(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $bulk
+     * @param  array<string, mixed>  $profile
+     * @return array<string, mixed>
+     */
+    private function computeLeadTimingRow(Lead $lead, array $profile, array $bulk): array
+    {
+        $leadId = (int) $lead->id;
+        $followups = $bulk['followups']->get($leadId, collect());
+        $changeLogs = $bulk['changeLogs']->get($leadId, collect());
+        $histories = $bulk['histories']->get($leadId, collect());
+
+        $receivedAt = $lead->date_time_of_lead_received;
+        $firstFollowup = $followups->sortBy('followup_at')->first();
+        $firstChange = $changeLogs->sortBy('created_at')->first();
+        $firstHistory = $histories->sortBy('created_at')->first();
+        $lastHistory = $histories->sortByDesc('created_at')->first();
+        $invalidHistory = $histories->first(fn (LeadTypeHistory $h) => $h->type === Lead::TYPE_INVALID);
+
+        $wa = $this->whatsAppActivityFromPreload($lead->phone_number);
+        $profileBlock = match ($lead->lead_type) {
+            Lead::TYPE_CUSTOMER => $profile['customer'] ?? [],
+            Lead::TYPE_PROVIDER => $profile['provider'] ?? [],
+            Lead::TYPE_INVALID => $profile['invalid'] ?? [],
+            default => [],
+        };
+        $profileBlock = is_array($profileBlock) ? $profileBlock : [];
+
+        $touchpoints = collect([
+            $receivedAt,
+            $firstFollowup?->followup_at,
+            $firstChange?->created_at,
+            $firstHistory?->created_at,
+            $lastHistory?->created_at,
+            $invalidHistory?->created_at,
+            isset($wa['first_outbound_reply_at']) ? Carbon::parse($wa['first_outbound_reply_at']) : null,
+            $lead->updated_at,
+        ])->filter();
+
+        $handler = $lead->handled_by;
+        $handlerName = $this->resolveHandlerName($handler);
+
+        $nonResponsive = $this->detectNonResponsiveMatch($lead, $profile);
+
+        return [
+            'lead_id' => $lead->id,
+            'name' => $lead->name,
+            'phone' => $lead->phone_number,
+            'lead_type' => $lead->lead_type,
+            'status' => $profileBlock['status'] ?? ($profileBlock['reason'] ?? null),
+            'handled_by_name' => $handlerName,
+            'received_at' => $receivedAt?->toIso8601String(),
+            'received_hour' => $receivedAt ? (int) $receivedAt->format('G') : null,
+            'received_day' => $receivedAt?->format('D'),
+            'first_whatsapp_reply_at' => $wa['first_outbound_reply_at'] ?? null,
+            'first_staff_followup_at' => $firstFollowup?->followup_at?->toIso8601String(),
+            'first_data_update_at' => $firstHistory?->created_at?->toIso8601String(),
+            'marked_invalid_at' => $invalidHistory?->created_at?->toIso8601String(),
+            'last_updated_at' => $touchpoints->max() instanceof Carbon ? $touchpoints->max()->toIso8601String() : null,
+            'lag_hours_to_first_whatsapp_reply' => $this->hoursBetween($receivedAt, isset($wa['first_outbound_reply_at']) ? Carbon::parse($wa['first_outbound_reply_at']) : null),
+            'lag_hours_to_first_followup' => $this->hoursBetween($receivedAt, $firstFollowup?->followup_at),
+            'lag_hours_to_first_update' => $this->hoursBetween($receivedAt, $firstHistory?->created_at),
+            'lag_hours_to_marked_invalid' => $this->hoursBetween($receivedAt, $invalidHistory?->created_at),
+            'lag_hours_to_last_touch' => $this->hoursBetween($receivedAt, $touchpoints->max()),
+            'has_whatsapp_thread' => (bool) ($wa['has_whatsapp_thread'] ?? false),
+            'never_whatsapp_replied' => ($wa['has_whatsapp_thread'] ?? false) && empty($wa['first_outbound_reply_at']),
+            'never_staff_followup' => $followups->isEmpty(),
+            'non_responsive_category' => $nonResponsive['category'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    private function summarizeTimingRows(array $rows): array
+    {
+        $receivedHours = $this->hourDistribution(array_column($rows, 'received_at'));
+        $replyHours = $this->hourDistribution(
+            array_values(array_filter(array_column($rows, 'first_whatsapp_reply_at')))
+        );
+        $followupHours = $this->hourDistribution(
+            array_values(array_filter(array_column($rows, 'first_staff_followup_at')))
+        );
+        $invalidHours = $this->hourDistribution(
+            array_values(array_filter(array_column($rows, 'marked_invalid_at')))
+        );
+        $dayDist = [];
+        foreach ($rows as $row) {
+            $day = $row['received_day'] ?? null;
+            if ($day) {
+                $dayDist[$day] = ($dayDist[$day] ?? 0) + 1;
+            }
+        }
+        arsort($dayDist);
+
+        return [
+            'received_by_hour' => $receivedHours,
+            'peak_received_hours' => $this->topHours($receivedHours, 5),
+            'first_whatsapp_reply_by_hour' => $replyHours,
+            'peak_reply_hours' => $this->topHours($replyHours, 5),
+            'first_followup_by_hour' => $followupHours,
+            'marked_invalid_by_hour' => $invalidHours,
+            'received_by_day' => $dayDist,
+            'lag_hours' => [
+                'to_first_whatsapp_reply' => $this->lagStats(array_map(
+                    fn ($r) => $r['lag_hours_to_first_whatsapp_reply'],
+                    array_filter($rows, fn ($r) => $r['lag_hours_to_first_whatsapp_reply'] !== null)
+                )),
+                'to_first_staff_followup' => $this->lagStats(array_map(
+                    fn ($r) => $r['lag_hours_to_first_followup'],
+                    array_filter($rows, fn ($r) => $r['lag_hours_to_first_followup'] !== null)
+                )),
+                'to_first_data_update' => $this->lagStats(array_map(
+                    fn ($r) => $r['lag_hours_to_first_update'],
+                    array_filter($rows, fn ($r) => $r['lag_hours_to_first_update'] !== null)
+                )),
+                'to_marked_invalid' => $this->lagStats(array_map(
+                    fn ($r) => $r['lag_hours_to_marked_invalid'],
+                    array_filter($rows, fn ($r) => $r['lag_hours_to_marked_invalid'] !== null)
+                )),
+                'to_last_touch' => $this->lagStats(array_map(
+                    fn ($r) => $r['lag_hours_to_last_touch'],
+                    array_filter($rows, fn ($r) => $r['lag_hours_to_last_touch'] !== null)
+                )),
+            ],
+            'coverage' => [
+                'with_whatsapp_thread' => count(array_filter($rows, fn ($r) => $r['has_whatsapp_thread'] ?? false)),
+                'never_whatsapp_replied' => count(array_filter($rows, fn ($r) => $r['never_whatsapp_replied'] ?? false)),
+                'never_staff_followup' => count(array_filter($rows, fn ($r) => $r['never_staff_followup'] ?? false)),
+                'no_reply_and_no_followup' => count(array_filter(
+                    $rows,
+                    fn ($r) => ($r['never_whatsapp_replied'] ?? false) && ($r['never_staff_followup'] ?? false)
+                )),
+            ],
+            'by_handler' => $this->handlerTimingBreakdown($rows),
+            'by_non_responsive_category' => collect($rows)
+                ->filter(fn ($r) => ! empty($r['non_responsive_category']))
+                ->groupBy('non_responsive_category')
+                ->map(fn ($group, $cat) => [
+                    'category' => $cat,
+                    'count' => $group->count(),
+                    'median_lag_hours_to_reply' => $this->lagStats(
+                        $group->pluck('lag_hours_to_first_whatsapp_reply')->filter()->values()->all()
+                    )['median_hours'] ?? null,
+                    'median_lag_hours_to_invalid' => $this->lagStats(
+                        $group->pluck('lag_hours_to_marked_invalid')->filter()->values()->all()
+                    )['median_hours'] ?? null,
+                ])
+                ->values()
+                ->all(),
+            'insights' => $this->buildTimingInsights($rows, $receivedHours),
+        ];
+    }
+
+    /**
+     * @param  list<float|null>  $values
+     * @return array<string, mixed>
+     */
+    private function lagStats(array $values): array
+    {
+        $hours = array_values(array_filter($values, fn ($v) => $v !== null && is_numeric($v)));
+        sort($hours, SORT_NUMERIC);
+        $n = count($hours);
+        if ($n === 0) {
+            return ['count' => 0, 'median_hours' => null, 'p90_hours' => null, 'avg_hours' => null, 'min_hours' => null, 'max_hours' => null];
+        }
+
+        return [
+            'count' => $n,
+            'median_hours' => round((float) $hours[intval(floor(($n - 1) / 2))], 2),
+            'p90_hours' => round((float) $hours[intval(floor(($n - 1) * 0.9))], 2),
+            'avg_hours' => round(array_sum($hours) / $n, 2),
+            'min_hours' => round((float) $hours[0], 2),
+            'max_hours' => round((float) $hours[$n - 1], 2),
+        ];
+    }
+
+    /**
+     * @param  list<string|null>  $timestamps
+     * @return array{labels: list<string>, counts: list<int>, total: int}
+     */
+    private function hourDistribution(array $timestamps): array
+    {
+        $counts = array_fill(0, 24, 0);
+        foreach ($timestamps as $ts) {
+            if (! $ts) {
+                continue;
+            }
+            try {
+                $counts[(int) Carbon::parse($ts)->format('G')]++;
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        $labels = [];
+        for ($h = 0; $h < 24; $h++) {
+            $labels[] = sprintf('%02d:00', $h);
+        }
+
+        return ['labels' => $labels, 'counts' => array_values($counts), 'total' => array_sum($counts)];
+    }
+
+    /**
+     * @param  array{labels: list<string>, counts: list<int>}  $dist
+     * @return list<array{hour: string, count: int}>
+     */
+    private function topHours(array $dist, int $limit): array
+    {
+        $pairs = [];
+        foreach ($dist['labels'] as $i => $label) {
+            $pairs[] = ['hour' => $label, 'count' => (int) ($dist['counts'][$i] ?? 0)];
+        }
+        usort($pairs, fn ($a, $b) => $b['count'] <=> $a['count']);
+
+        return array_values(array_filter(array_slice($pairs, 0, $limit), fn ($p) => $p['count'] > 0));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function handlerTimingBreakdown(array $rows): array
+    {
+        return collect($rows)
+            ->groupBy(fn ($r) => (string) ($r['handled_by_name'] ?? 'Unassigned'))
+            ->map(function ($group, $handler) {
+                $replyLags = $group->pluck('lag_hours_to_first_whatsapp_reply')->filter()->values()->all();
+                $followupLags = $group->pluck('lag_hours_to_first_followup')->filter()->values()->all();
+
+                return [
+                    'handler' => $handler,
+                    'leads' => $group->count(),
+                    'never_whatsapp_replied' => $group->where('never_whatsapp_replied', true)->count(),
+                    'never_staff_followup' => $group->where('never_staff_followup', true)->count(),
+                    'median_lag_hours_to_reply' => $this->lagStats($replyLags)['median_hours'] ?? null,
+                    'median_lag_hours_to_followup' => $this->lagStats($followupLags)['median_hours'] ?? null,
+                ];
+            })
+            ->sortByDesc('leads')
+            ->values()
+            ->take(15)
+            ->all();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array{labels: list<string>, counts: list<int>}  $receivedHours
+     * @return list<string>
+     */
+    private function buildTimingInsights(array $rows, array $receivedHours): array
+    {
+        $insights = [];
+        $peak = $this->topHours($receivedHours, 1)[0] ?? null;
+        if ($peak) {
+            $insights[] = "Most leads were received around {$peak['hour']} ({$peak['count']} leads).";
+        }
+
+        $replyLag = $this->lagStats(array_map(
+            fn ($r) => $r['lag_hours_to_first_whatsapp_reply'],
+            array_filter($rows, fn ($r) => $r['lag_hours_to_first_whatsapp_reply'] !== null)
+        ));
+        if (($replyLag['median_hours'] ?? null) !== null) {
+            $insights[] = "Median time from received to first WhatsApp reply: {$replyLag['median_hours']} hours (p90: {$replyLag['p90_hours']}h).";
+        } else {
+            $never = count(array_filter($rows, fn ($r) => $r['never_whatsapp_replied'] ?? false));
+            if ($never > 0) {
+                $insights[] = "{$never} leads had WhatsApp threads but no outbound staff/AI reply recorded.";
+            }
+        }
+
+        $invalidLag = $this->lagStats(array_map(
+            fn ($r) => $r['lag_hours_to_marked_invalid'],
+            array_filter($rows, fn ($r) => $r['lag_hours_to_marked_invalid'] !== null)
+        ));
+        if (($invalidLag['median_hours'] ?? null) !== null) {
+            $insights[] = "Median time from received to marked invalid: {$invalidLag['median_hours']} hours.";
+        }
+
+        $noTouch = count(array_filter(
+            $rows,
+            fn ($r) => ($r['never_whatsapp_replied'] ?? false) && ($r['never_staff_followup'] ?? false)
+        ));
+        if ($noTouch > 0) {
+            $insights[] = "{$noTouch} leads had no WhatsApp reply and no staff followup — highest lag risk.";
+        }
+
+        return $insights;
+    }
+
+    private function hoursBetween(mixed $from, mixed $to): ?float
+    {
+        if (! $from || ! $to) {
+            return null;
+        }
+        $start = $from instanceof Carbon ? $from : Carbon::parse((string) $from);
+        $end = $to instanceof Carbon ? $to : Carbon::parse((string) $to);
+        if ($end->lessThan($start)) {
+            return null;
+        }
+
+        return round($start->diffInMinutes($end) / 60, 2);
     }
 
     /**
@@ -1329,7 +1838,7 @@ class AdminBusinessAiLeadInsightService
         $leads = Lead::query()
             ->whereIn('lead_type', $types)
             ->orderByDesc('date_time_of_lead_received')
-            ->limit(3000)
+            ->limit(self::TIMING_ANALYSIS_SCAN_LIMIT)
             ->get(['id', 'lead_type']);
 
         if ($leads->isEmpty()) {
