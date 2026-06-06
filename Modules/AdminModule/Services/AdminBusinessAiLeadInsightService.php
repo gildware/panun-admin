@@ -23,6 +23,7 @@ use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
+use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\ZoneManagement\Entities\Zone;
 
 class AdminBusinessAiLeadInsightService
@@ -144,7 +145,89 @@ class AdminBusinessAiLeadInsightService
                 ])
                 ->values()
                 ->all(),
+            'activity_summary' => $this->buildActivitySummary($lead, $histories, $lead->followups, $lead->changeLogs),
+            'status_timeline' => $this->buildStatusTimeline(
+                $histories,
+                $this->buildLookupTables($histories, collect([$lead]))
+            ),
+            'whatsapp_activity' => $this->buildWhatsAppActivity($lead->phone_number),
         ];
+    }
+
+    /**
+     * Resolve lead IDs whose current status name matches (e.g. "No Response", "Pending").
+     *
+     * @return list<int>
+     */
+    public function leadIdsMatchingStatus(string $leadType, string $statusSearch, int $maxScan = 2000): array
+    {
+        $needle = strtolower(trim($statusSearch));
+        if ($needle === '') {
+            return [];
+        }
+
+        $leads = Lead::query()
+            ->where('lead_type', $leadType)
+            ->orderByDesc('date_time_of_lead_received')
+            ->limit($maxScan)
+            ->get(['id', 'lead_type']);
+
+        if ($leads->isEmpty()) {
+            return [];
+        }
+
+        $profiles = $this->buildProfilesForLeads($leads);
+        $key = $leadType === Lead::TYPE_PROVIDER ? 'provider' : 'customer';
+
+        return $leads
+            ->filter(function (Lead $lead) use ($profiles, $key, $needle) {
+                $block = $profiles[(int) $lead->id][$key] ?? null;
+                if (! is_array($block)) {
+                    return false;
+                }
+                $status = strtolower((string) ($block['status'] ?? ''));
+
+                return $status !== '' && str_contains($status, $needle);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Builder<Lead>  $q
+     * @param  array<string, mixed>  $args
+     */
+    public function applyStatusFilters(Builder $q, array $args): void
+    {
+        if (! empty($args['customer_status'])) {
+            $ids = $this->leadIdsMatchingStatus(Lead::TYPE_CUSTOMER, (string) $args['customer_status']);
+            $q->whereIn('id', $ids !== [] ? $ids : [-1]);
+        }
+        if (! empty($args['provider_status'])) {
+            $ids = $this->leadIdsMatchingStatus(Lead::TYPE_PROVIDER, (string) $args['provider_status']);
+            $q->whereIn('id', $ids !== [] ? $ids : [-1]);
+        }
+        if (! empty($args['status_search'])) {
+            $needle = strtolower(trim((string) $args['status_search']));
+            $leads = Lead::query()
+                ->whereIn('lead_type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
+                ->orderByDesc('date_time_of_lead_received')
+                ->limit(2000)
+                ->get(['id', 'lead_type']);
+            $profiles = $this->buildProfilesForLeads($leads);
+            $ids = $leads->filter(function (Lead $lead) use ($profiles, $needle) {
+                $key = $lead->lead_type === Lead::TYPE_PROVIDER ? 'provider' : 'customer';
+                $block = $profiles[(int) $lead->id][$key] ?? null;
+                if (! is_array($block)) {
+                    return false;
+                }
+
+                return str_contains(strtolower((string) ($block['status'] ?? '')), $needle);
+            })->pluck('id')->all();
+            $q->whereIn('id', $ids !== [] ? $ids : [-1]);
+        }
     }
 
     /**
@@ -187,6 +270,8 @@ class AdminBusinessAiLeadInsightService
             'future_customer_reasons' => array_merge($payload, $this->aggregateSimpleReasons($leads, $profiles, 'future_customer_reason', Lead::TYPE_FUTURE_CUSTOMER)),
             'customer_status_breakdown' => array_merge($payload, $this->aggregateStatusBreakdown($leads, $profiles, Lead::TYPE_CUSTOMER)),
             'provider_status_breakdown' => array_merge($payload, $this->aggregateStatusBreakdown($leads, $profiles, Lead::TYPE_PROVIDER)),
+            'no_response_leads' => array_merge($payload, $this->aggregateNoResponseLeads($leads, $profiles)),
+            'lead_activity_report' => array_merge($payload, $this->aggregateLeadActivityReport($leads)),
             'full_lead_overview' => array_merge($payload, [
                 'customer_cancellation_reasons' => $this->aggregateCustomerCancellations(
                     $leads->where('lead_type', Lead::TYPE_CUSTOMER),
@@ -207,6 +292,8 @@ class AdminBusinessAiLeadInsightService
                     'future_customer_reasons',
                     'customer_status_breakdown',
                     'provider_status_breakdown',
+                    'no_response_leads',
+                    'lead_activity_report',
                     'full_lead_overview',
                 ],
             ],
@@ -594,5 +681,241 @@ class AdminBusinessAiLeadInsightService
                 (string) $u->id => trim($u->first_name.' '.$u->last_name) ?: 'Staff',
             ])
             ->all();
+    }
+
+    /**
+     * @param  Collection<int, LeadTypeHistory>  $histories
+     * @param  Collection<int, LeadFollowup>  $followups
+     * @param  Collection<int, LeadChangeLog>  $changeLogs
+     * @return array<string, mixed>
+     */
+    private function buildActivitySummary(
+        Lead $lead,
+        Collection $histories,
+        Collection $followups,
+        Collection $changeLogs,
+    ): array {
+        $receivedAt = $lead->date_time_of_lead_received;
+        $firstFollowup = $followups->sortBy('followup_at')->first();
+        $lastFollowup = $followups->sortByDesc('followup_at')->first();
+        $firstChange = $changeLogs->sortBy('created_at')->first();
+        $lastChange = $changeLogs->sortByDesc('created_at')->first();
+        $firstHistory = $histories->sortBy('created_at')->first();
+        $lastHistory = $histories->sortByDesc('created_at')->first();
+
+        $touchpoints = collect([
+            $receivedAt,
+            $firstFollowup?->followup_at,
+            $lastFollowup?->followup_at,
+            $firstChange?->created_at,
+            $lastChange?->created_at,
+            $firstHistory?->created_at,
+            $lastHistory?->created_at,
+            $lead->updated_at,
+        ])->filter();
+
+        $lastUpdated = $touchpoints->max();
+
+        $wa = $this->buildWhatsAppActivity($lead->phone_number);
+
+        return [
+            'received_at' => $receivedAt?->toIso8601String(),
+            'last_updated_at' => $lastUpdated instanceof Carbon ? $lastUpdated->toIso8601String() : null,
+            'first_staff_followup_at' => $firstFollowup?->followup_at?->toIso8601String(),
+            'last_staff_followup_at' => $lastFollowup?->followup_at?->toIso8601String(),
+            'first_data_update_at' => $firstHistory?->created_at?->toIso8601String(),
+            'last_data_update_at' => $lastHistory?->created_at?->toIso8601String(),
+            'first_change_log_at' => $firstChange?->created_at?->toIso8601String(),
+            'last_change_log_at' => $lastChange?->created_at?->toIso8601String(),
+            'first_whatsapp_reply_at' => $wa['first_outbound_reply_at'] ?? null,
+            'last_whatsapp_reply_at' => $wa['last_outbound_at'] ?? null,
+            'last_customer_whatsapp_at' => $wa['last_inbound_at'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, LeadTypeHistory>  $histories
+     * @param  array<string, mixed>  $lookup
+     * @return list<array<string, mixed>>
+     */
+    private function buildStatusTimeline(Collection $histories, array $lookup): array
+    {
+        return $histories
+            ->sortBy('created_at')
+            ->map(function (LeadTypeHistory $h) use ($lookup) {
+                $d = is_array($h->data) ? $h->data : [];
+                $statusName = null;
+                if ($h->type === Lead::TYPE_CUSTOMER && ! empty($d['customer_lead_status_id'])) {
+                    $statusName = $lookup['customer_statuses']->get((int) $d['customer_lead_status_id'])?->name;
+                }
+                if ($h->type === Lead::TYPE_PROVIDER && ! empty($d['provider_lead_status_id'])) {
+                    $statusName = $lookup['provider_statuses']->get((int) $d['provider_lead_status_id'])?->name;
+                }
+
+                return [
+                    'at' => $h->created_at?->toIso8601String(),
+                    'lead_type' => $h->type,
+                    'status' => $statusName,
+                    'updated_fields' => array_keys($d),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildWhatsAppActivity(?string $phone): array
+    {
+        $norm = $this->normalizePhone($phone);
+        if ($norm === null) {
+            return [];
+        }
+
+        $messages = WhatsAppMessage::query()
+            ->where(function ($q) use ($norm, $phone) {
+                $q->where('phone', 'like', '%'.$norm.'%');
+                if ($phone) {
+                    $q->orWhere('phone', $phone);
+                }
+            })
+            ->orderBy('created_at')
+            ->get(['direction', 'created_at', 'message_text']);
+
+        if ($messages->isEmpty()) {
+            return ['has_whatsapp_thread' => false];
+        }
+
+        $inbound = $messages->where('direction', 'IN');
+        $outbound = $messages->where('direction', 'OUT');
+
+        return [
+            'has_whatsapp_thread' => true,
+            'first_inbound_at' => $inbound->first()?->created_at?->toIso8601String(),
+            'last_inbound_at' => $inbound->last()?->created_at?->toIso8601String(),
+            'first_outbound_reply_at' => $outbound->first()?->created_at?->toIso8601String(),
+            'last_outbound_at' => $outbound->last()?->created_at?->toIso8601String(),
+            'inbound_message_count' => $inbound->count(),
+            'outbound_message_count' => $outbound->count(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     * @param  array<string, array<string, mixed>>  $profiles
+     * @return array<string, mixed>
+     */
+    private function aggregateNoResponseLeads(Collection $leads, array $profiles): array
+    {
+        $needles = ['no response', 'unresponsive', 'not responding', 'no reply'];
+        $matches = [];
+
+        foreach ($leads->where('lead_type', Lead::TYPE_CUSTOMER) as $lead) {
+            $block = $profiles[(int) $lead->id]['customer'] ?? null;
+            if (! is_array($block)) {
+                continue;
+            }
+            $status = strtolower((string) ($block['status'] ?? ''));
+            $matched = false;
+            foreach ($needles as $needle) {
+                if ($status !== '' && str_contains($status, $needle)) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if (! $matched) {
+                continue;
+            }
+
+            $matches[] = $this->leadActivityRow($lead, $block);
+        }
+
+        $configuredStatuses = CustomerLeadStatus::query()
+            ->where(function ($q) use ($needles) {
+                foreach ($needles as $needle) {
+                    $q->orWhereRaw('LOWER(name) LIKE ?', ['%'.$needle.'%']);
+                }
+            })
+            ->pluck('name')
+            ->all();
+
+        return [
+            'configured_no_response_statuses' => $configuredStatuses,
+            'matching_leads' => count($matches),
+            'leads' => array_slice($matches, 0, 30),
+            'note' => 'Matches customer leads whose CRM status name contains no response / unresponsive. Also use query_leads with customer_status filter.',
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     * @return array<string, mixed>
+     */
+    private function aggregateLeadActivityReport(Collection $leads): array
+    {
+        $rows = [];
+        foreach ($leads->take(100) as $lead) {
+            $lead->load(['followups', 'changeLogs']);
+            $histories = LeadTypeHistory::query()->where('lead_id', $lead->id)->orderByDesc('created_at')->get();
+            $profile = $this->buildProfilesForLeads(collect([$lead]))[(int) $lead->id] ?? [];
+            $block = $profile['customer'] ?? $profile['provider'] ?? [];
+
+            $rows[] = array_merge($this->leadActivityRow($lead, is_array($block) ? $block : []), [
+                'activity' => $this->buildActivitySummary($lead, $histories, $lead->followups, $lead->changeLogs),
+            ]);
+        }
+
+        return [
+            'returned' => count($rows),
+            'leads' => $rows,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $profileBlock
+     * @return array<string, mixed>
+     */
+    private function leadActivityRow(Lead $lead, array $profileBlock): array
+    {
+        $booking = Booking::query()->where('lead_id', $lead->id)->orderByDesc('created_at')->first(['readable_id', 'booking_status']);
+        $wa = $this->buildWhatsAppActivity($lead->phone_number);
+
+        return [
+            'lead_id' => $lead->id,
+            'name' => $lead->name,
+            'phone' => $lead->phone_number,
+            'lead_type' => $lead->lead_type,
+            'status' => $profileBlock['status'] ?? null,
+            'handled_by' => $lead->handled_by,
+            'received_at' => $lead->date_time_of_lead_received?->toIso8601String(),
+            'next_followup_at' => $lead->next_followup_at?->toIso8601String(),
+            'has_booking' => $booking !== null,
+            'booking_readable_id' => $booking?->readable_id,
+            'first_whatsapp_reply_at' => $wa['first_outbound_reply_at'] ?? null,
+            'last_customer_whatsapp_at' => $wa['last_inbound_at'] ?? null,
+        ];
+    }
+
+    private function normalizePhone(?string $phone): ?string
+    {
+        if (! $phone) {
+            return null;
+        }
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        if ($digits === '') {
+            return null;
+        }
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+        if (strlen($digits) === 12 && str_starts_with($digits, '91')) {
+            $digits = substr($digits, 2);
+        }
+        if (strlen($digits) < 10) {
+            return null;
+        }
+
+        return substr($digits, -10);
     }
 }

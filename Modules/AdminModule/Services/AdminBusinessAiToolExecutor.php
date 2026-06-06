@@ -127,12 +127,15 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'query_leads',
-                'description' => 'Search CRM leads with full type-specific data: customer status/zone/service/cancellation reason, provider status/zones/cancellation, invalid/future reasons, tags, remarks, pipeline open/closed.',
+                'description' => 'Search CRM leads with status, timestamps, zone/service/cancellation data. Filter by customer_status or provider_status name (e.g. No Response, Pending) or status_search.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
                         'search' => ['type' => 'string', 'description' => 'Name or phone substring'],
                         'lead_type' => ['type' => 'string', 'description' => 'customer|provider|unknown|invalid|future_customer|all'],
+                        'customer_status' => ['type' => 'string', 'description' => 'Customer lead status name substring, e.g. No Response, Pending, Booked'],
+                        'provider_status' => ['type' => 'string', 'description' => 'Provider lead status name substring'],
+                        'status_search' => ['type' => 'string', 'description' => 'Match customer or provider status name'],
                         'handled_by' => ['type' => 'string', 'description' => 'Employee name/email or AI or __unassigned__'],
                         'open_only' => ['type' => 'boolean', 'description' => 'Only open leads per pipeline status'],
                         'overdue_followup' => ['type' => 'boolean', 'description' => 'next_followup_at before now'],
@@ -144,7 +147,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'get_lead_details',
-                'description' => 'Complete lead dossier: all fields, type profile (status, cancellation reason/remarks, service, booking link), full type_history timeline, followups, change_logs, provider checklist, tags.',
+                'description' => 'Complete lead dossier: status timeline, activity_summary (received_at, last_updated_at, staff followups, data updates, WhatsApp reply times), type_history, followups, change_logs, booking link.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -284,7 +287,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_leads',
-                'description' => 'Aggregate lead intelligence across many leads. Use for cancellation reasons, status breakdowns, invalid/future reasons. analysis: customer_cancellation_reasons|provider_cancellation_reasons|invalid_reasons|future_customer_reasons|customer_status_breakdown|provider_status_breakdown|full_lead_overview.',
+                'description' => 'Aggregate lead intelligence. analysis: customer_cancellation_reasons|provider_cancellation_reasons|invalid_reasons|future_customer_reasons|customer_status_breakdown|provider_status_breakdown|no_response_leads|lead_activity_report|full_lead_overview. no_response_leads = status contains No Response/unresponsive + received/reply times.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -493,6 +496,7 @@ class AdminBusinessAiToolExecutor
         if (! empty($args['date_to'])) {
             $q->where('date_time_of_lead_received', '<=', Carbon::parse((string) $args['date_to'])->endOfDay());
         }
+        $this->leadInsights->applyStatusFilters($q, $args);
     }
 
     /**
