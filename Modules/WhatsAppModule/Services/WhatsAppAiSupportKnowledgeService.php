@@ -28,6 +28,9 @@ class WhatsAppAiSupportKnowledgeService
                 if ($fq === '' && $fa === '') {
                     continue;
                 }
+                if ($this->faqIsPriceRelated($row) && !$this->customerMessageAsksAboutPrice($q)) {
+                    continue;
+                }
                 if (str_contains($fq, $q) || str_contains($fa, $q)
                     || $this->tokenOverlap($q, $fq.' '.$fa) >= 1) {
                     $matchedFaqs[] = [
@@ -86,5 +89,49 @@ class WhatsAppAiSupportKnowledgeService
         }
 
         return $hit;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function faqIsPriceRelated(array $row): bool
+    {
+        $fq = mb_strtolower((string) ($row['q'] ?? ''));
+        $fa = mb_strtolower((string) ($row['a'] ?? ''));
+
+        if (str_contains($fa, 'visiting charge') || str_contains($fa, '₹')) {
+            return true;
+        }
+
+        foreach (['how much', 'cost', 'price', 'charge', 'fee', 'kitna', 'rate'] as $needle) {
+            if (str_contains($fq, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function customerMessageAsksAboutPrice(string $query): bool
+    {
+        if ($query === '') {
+            return false;
+        }
+
+        if (preg_match('/₹|\brs\.?\b/iu', $query)) {
+            return true;
+        }
+
+        foreach ([
+            'how much', 'kitna', 'kitne', 'price', 'cost', 'charge', 'charges', 'fee', 'fees',
+            'rate', 'rupee', 'rupees', 'visiting charge', 'visit charge', 'padega', 'lagega',
+            'expensive', 'quote', 'estimate', 'afford',
+        ] as $needle) {
+            if (str_contains($query, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

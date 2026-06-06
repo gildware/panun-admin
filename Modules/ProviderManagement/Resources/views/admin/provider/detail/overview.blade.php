@@ -607,6 +607,10 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="row g-3 mt-1">
+                        @include('providermanagement::admin.provider.detail._pending-showcase')
+                    </div>
                 </div>
             </div>
         </div>
@@ -617,6 +621,17 @@
 
     <script>
         "use strict";
+
+        $('.showcase_deny').on('click', function () {
+            let id = $(this).data('id');
+            let route = '{{ route('admin.provider.showcase_approval_update', ['id' => ':id', 'status' => 'deny']) }}'.replace(':id', id);
+            route_alert_reload(route, '{{ translate('want_to_deny') }}', true);
+        });
+        $('.showcase_approve').on('click', function () {
+            let id = $(this).data('id');
+            let route = '{{ route('admin.provider.showcase_approval_update', ['id' => ':id', 'status' => 'approve']) }}'.replace(':id', id);
+            route_alert_reload(route, '{{ translate('want_to_approve') }}', true);
+        });
 
         $('.provider_approval').on('click', function () {
             let itemId = $(this).data('approve');

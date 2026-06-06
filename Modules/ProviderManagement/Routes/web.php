@@ -86,6 +86,13 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('onboarding-details/{id}', [ProviderController::class, 'onboardingDetails'])->name('onboarding_details');
         Route::get('update-approval/{id}/{status}', [ProviderController::class, 'updateApproval'])->name('update-approval');
 
+        Route::any('showcase-approval', [ProviderController::class, 'showcaseApprovalRequest'])->name('showcase_approval');
+        Route::get('showcase-approval/update/{id}/{status}', [ProviderController::class, 'updateShowcaseApproval'])->name('showcase_approval_update');
+
+        Route::any('profile-change-request', [ProviderController::class, 'profileChangeRequest'])->name('profile_change_request');
+        Route::get('profile-change-details/{id}', [ProviderController::class, 'profileChangeDetails'])->name('profile_change_details');
+        Route::get('profile-change/update/{id}/{status}', [ProviderController::class, 'updateProfileChangeApproval'])->name('profile_change_update');
+
         Route::group(['prefix' => 'collect-cash', 'as' => 'collect_cash.'], function () {
             Route::get('/{id}', [CollectCashController::class, 'index'])->name('list');
             Route::post('/', [CollectCashController::class, 'collectCash'])->name('store');

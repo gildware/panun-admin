@@ -130,23 +130,21 @@
                                         </div>
                                     </div>
                                     <div class="mb-30">
-                                        <h5 class="mb-3">{{ translate('company_logo') }} (1:1) <span class="text-danger">*</span></h5>
-                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                                            <div>
-                                                <div class="form-error-wrap upload-file">
-                                                    <input type="file" class="upload-file__input"
-                                                            name="logo"
-                                                           accept=".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }}, |image/*"
-                                                           data-maxFileSize="{{ readableUploadMaxFileSize('image') }}">
-                                                    <span class="upload-file__edit">
-                                                            <span class="material-icons">edit</span>
-                                                        </span>
-                                                    <div class="upload-file__img">
-                                                        <img src="{{asset('assets/provider-module')}}/img/media/upload-file.png" alt="">
-                                                    </div>
+                                        <div class="d-flex flex-column align-items-center gap-3 text-center">
+                                            <h5 class="mb-0">{{ translate('company_logo') }} (1:1) <span class="text-danger">*</span></h5>
+                                            <div class="form-error-wrap upload-file">
+                                                <input type="file" class="upload-file__input"
+                                                        name="logo"
+                                                       accept=".{{ implode(',.', array_column(IMAGEEXTENSION, 'key')) }}, |image/*"
+                                                       data-maxFileSize="{{ readableUploadMaxFileSize('image') }}">
+                                                <span class="upload-file__edit">
+                                                        <span class="material-icons">edit</span>
+                                                    </span>
+                                                <div class="upload-file__img">
+                                                    <img src="{{asset('assets/provider-module')}}/img/media/upload-file.png" alt="">
                                                 </div>
                                             </div>
-                                            <p class="opacity-75 max-w220">
+                                            <p class="opacity-75 max-w220 mb-0">
                                                 {{ translate('Image format')}} - {{ implode(', ', array_column(IMAGEEXTENSION, 'key')) }}
                                                 {{ translate("Image Size") }} - {{ translate('maximum size') }} {{ readableUploadMaxFileSize('image') }}
                                                 {{ translate('Image Ratio') }} - 1:1

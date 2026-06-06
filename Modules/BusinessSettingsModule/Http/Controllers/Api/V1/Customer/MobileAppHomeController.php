@@ -294,6 +294,7 @@ class MobileAppHomeController extends Controller
             }])
                 ->ofStatus(1)
                 ->ofType('main')
+                ->mainWithActiveCatalog()
                 ->whereIn('id', $pageIds)
                 ->orderByRaw($orderSql)
                 ->get();
@@ -307,14 +308,22 @@ class MobileAppHomeController extends Controller
         } else {
             // Admin-picked IDs must resolve regardless of customer zone (same as category/childes APIs).
             $with = $categoryType === 'sub' ? ['parent'] : ['zones'];
-            $collection = $this->category->withoutGlobalScope('zone_wise_data')
-                ->withCount('services')
+            $collectionQuery = $this->category->withoutGlobalScope('zone_wise_data')
+                ->withCount(['services' => function ($query) {
+                    $query->where('is_active', 1);
+                }])
                 ->with($with)
                 ->ofStatus(1)
                 ->ofType($categoryType)
-                ->whereIn('id', $pageIds)
-                ->orderByRaw($orderSql)
-                ->get();
+                ->whereIn('id', $pageIds);
+
+            if ($categoryType === 'sub') {
+                $collectionQuery->withActiveServices();
+            } else {
+                $collectionQuery->mainWithActiveCatalog();
+            }
+
+            $collection = $collectionQuery->orderByRaw($orderSql)->get();
         }
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(

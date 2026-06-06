@@ -47,7 +47,7 @@ class Provider extends Model
 
     protected $hidden = [];
 
-    protected $appends = ['logo_full_path', 'cover_image_full_path', 'company_identity_images_full_path'];
+    protected $appends = ['logo_full_path', 'cover_image_full_path', 'company_identity_images_full_path', 'contact_person_photo_full_path'];
 
     public function scopeOfStatus($query, $status)
     {
@@ -189,6 +189,11 @@ class Provider extends Model
         return $this->hasMany(\Modules\ProviderManagement\Entities\ProviderIncident::class, 'provider_id', 'id');
     }
 
+    public function showcaseItems(): HasMany
+    {
+        return $this->hasMany(ProviderShowcaseItem::class, 'provider_id', 'id');
+    }
+
     public function storage()
     {
         return $this->hasOne(Storage::class, 'model_id');
@@ -204,54 +209,83 @@ class Provider extends Model
     }
 
 
-    public function getLogoFullPathAttribute()
+    public function getLogoFullPathAttribute(): ?string
     {
+        $defaultPath = asset('assets/provider-module/img/user2x.png');
         $image = $this->logo;
-        $defaultPath =  asset('assets/provider-module/img/user2x.png');
 
-        if (!$image) {
-            if (request()->is('api/*')) {
-                $defaultPath = null;
-            }
-            return $defaultPath;
+        if (! $image || strlen((string) $image) < 2) {
+            return request()->is('api/*') ? null : $defaultPath;
         }
 
-        $s3Storage = $this->storage;
-        $path = 'provider/logo/';
-        $imagePath = $path . $image;
+        $resolved = resolve_media_storage_url(
+            (string) $image,
+            'provider/logo/',
+            $this->storage?->storage_type,
+            request()->is('api/*') ? null : $defaultPath
+        );
 
-        return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
+        if (request()->is('api/*') && ($resolved === null || $resolved === '' || $resolved === $defaultPath)) {
+            return null;
+        }
+
+        return $resolved ?? (request()->is('api/*') ? null : $defaultPath);
     }
 
-    public function getCoverImageFullPathAttribute()
+    public function getCoverImageFullPathAttribute(): ?string
     {
+        $defaultPath = asset('assets/provider-module/img/user2x.png');
         $image = $this->cover_image;
-        $defaultPath =  asset('assets/provider-module/img/user2x.png');
 
-        if (!$image) {
-            if (request()->is('api/*')) {
-                $defaultPath = null;
-            }
-            return $defaultPath;
+        if (! $image || strlen((string) $image) < 2) {
+            return request()->is('api/*') ? null : $defaultPath;
         }
 
-        $s3Storage = $this->storage;
-        $path = 'provider/logo/';
-        $imagePath = $path . $image;
+        $resolved = resolve_media_storage_url(
+            (string) $image,
+            'provider/logo/',
+            $this->storage?->storage_type,
+            request()->is('api/*') ? null : $defaultPath
+        );
 
-        return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
+        if (request()->is('api/*') && ($resolved === null || $resolved === '' || $resolved === $defaultPath)) {
+            return null;
+        }
+
+        return $resolved ?? (request()->is('api/*') ? null : $defaultPath);
+    }
+
+    public function getContactPersonPhotoFullPathAttribute(): ?string
+    {
+        $defaultPath = asset('assets/admin-module/img/placeholder.png');
+        $photo = $this->contact_person_photo;
+
+        if (! $photo || strlen((string) $photo) < 2) {
+            return request()->is('api/*') ? null : $defaultPath;
+        }
+
+        $resolved = resolve_media_storage_url(
+            (string) $photo,
+            'provider/contact_person_photo/',
+            null,
+            request()->is('api/*') ? null : $defaultPath
+        );
+
+        if (request()->is('api/*') && ($resolved === null || $resolved === '' || $resolved === $defaultPath)) {
+            return null;
+        }
+
+        return $resolved ?? (request()->is('api/*') ? null : $defaultPath);
     }
 
     public function getCompanyIdentityImagesFullPathAttribute()
     {
-        $identityImages = $this->company_identity_images ?? [];
-        $defaultImagePath = asset('assets/admin-module/img/media/provider-id.png');
         $path = 'provider/company-identity/';
 
         return getIdentityImageFullPath(
-            identityImages: $identityImages,
+            identityImages: $this->company_identity_images ?? [],
             path: $path,
-            defaultPath: $defaultImagePath
+            defaultPath: null
         );
     }
 

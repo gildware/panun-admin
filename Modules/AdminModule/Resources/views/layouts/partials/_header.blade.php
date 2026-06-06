@@ -48,6 +48,12 @@
             <div class="col-10">
                 <div class="header-right">
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
+                        <li class="nav-item max-sm-m-0">
+                            <a href="{{ route('admin.business-ai.index') }}" class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">
+                                <span class="material-symbols-outlined" aria-hidden="true">psychology</span>
+                                <span class="d-none d-md-block">{{ translate('Talk_With_AI') }}</span>
+                            </a>
+                        </li>
                         @can('booking_view')
                         <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.booking.create') }}" class="title-color bg--secondary border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">

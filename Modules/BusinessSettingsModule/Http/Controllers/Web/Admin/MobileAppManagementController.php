@@ -9,7 +9,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
-use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Entities\MobileAppAiConversation;
 use Modules\BusinessSettingsModule\Entities\MobileAppAiMessage;
 use Modules\BusinessSettingsModule\Services\MobileAppAiSettingsService;
@@ -25,6 +24,8 @@ class MobileAppManagementController extends Controller
     use AuthorizesRequests;
 
     public const AI_TABS = ['ai_config', 'ai_chat'];
+
+    public const ICON_TABS = ['logos', 'customer', 'provider'];
 
     public function __construct(
         protected MobileAppAiSettingsService $settingsService,
@@ -286,24 +287,35 @@ class MobileAppManagementController extends Controller
         return redirect()->route('admin.mobile-app-management.home-page');
     }
 
-    public function icons(): View
+    public function icons(Request $request): View
     {
         $this->authorize('mobile_app_icons_view');
 
+        $tab = $this->normalizeIconTab($request->query('tab'));
         $groups = MobileAppManagementService::iconGroupDefinitions();
         $icons = $this->managementService->getIcons();
 
         $iconPreviews = ['customer' => [], 'provider' => []];
         foreach (['customer', 'provider'] as $app) {
-            foreach ($icons[$app] ?? [] as $key => $filename) {
-                $iconPreviews[$app][$key] = $this->managementService->iconFullPath($filename);
+            foreach ($icons[$app] ?? [] as $key => $variants) {
+                $iconPreviews[$app][$key] = [
+                    'light' => $this->managementService->iconFullPath($variants['light'] ?? null),
+                    'dark' => $this->managementService->iconFullPath($variants['dark'] ?? null),
+                ];
             }
         }
 
         return view('businesssettingsmodule::admin.mobile-app-management.icons', [
-            'groups' => $groups,
+            'tab' => $tab,
+            'tabs' => [
+                ['id' => 'logos', 'label' => translate('Logos')],
+                ['id' => 'customer', 'label' => translate('Customer_icons')],
+                ['id' => 'provider', 'label' => translate('Provider_icons')],
+            ],
+            'tabIconItems' => $this->iconItemsForTab($tab, $groups),
             'icons' => $icons,
             'iconPreviews' => $iconPreviews,
+            'iconVariants' => MobileAppManagementService::ICON_VARIANTS,
         ]);
     }
 
@@ -324,37 +336,77 @@ class MobileAppManagementController extends Controller
 
         foreach (['customer', 'provider'] as $app) {
             foreach ($allKeys[$app] ?? [] as $key) {
-                $field = "icon_{$app}_{$key}";
-                if (!$request->hasFile($field)) {
-                    continue;
-                }
-
-                $existing = $stored[$app][$key] ?? null;
-                if ($existing) {
-                    file_remover('mobile-app/', $existing);
-                }
-
-                $filename = file_uploader('mobile-app/', APPLICATION_IMAGE_FORMAT, $request->file($field), $existing ?? '');
-
-                $storageType = getDisk();
-                if ($filename && $storageType !== 'public') {
-                    $model = BusinessSettings::query()
-                        ->where('key_name', MobileAppManagementService::ICONS_KEY)
-                        ->where('settings_type', MobileAppManagementService::SETTINGS_TYPE)
-                        ->first();
-                    if ($model) {
-                        saveBusinessImageDataToStorage(model: $model, modelColumn: $key, storageType: $storageType);
+                foreach (MobileAppManagementService::ICON_VARIANTS as $variant) {
+                    $field = "icon_{$app}_{$key}_{$variant}";
+                    if (!$request->hasFile($field)) {
+                        continue;
                     }
-                }
 
-                $stored[$app][$key] = $filename;
+                    $existing = $stored[$app][$key][$variant] ?? null;
+                    if ($existing) {
+                        file_remover('mobile-app/', $existing);
+                    }
+
+                    $filename = file_uploader('mobile-app/', APPLICATION_IMAGE_FORMAT, $request->file($field), $existing ?? '');
+
+                    if (!$filename || $filename === 'def.png') {
+                        continue;
+                    }
+
+                    $stored[$app][$key][$variant] = $filename;
+                }
             }
         }
 
         $this->managementService->saveIcons($stored);
         Toastr::success(translate('settings_updated'));
 
-        return redirect()->route('admin.mobile-app-management.icons');
+        return redirect()->route('admin.mobile-app-management.icons', [
+            'tab' => $this->normalizeIconTab($request->input('tab')),
+        ]);
+    }
+
+    /**
+     * @param array<string, array<string, list<array{key: string, label: string}>>> $groups
+     * @return list<array{appKey: string, def: array{key: string, label: string}}>
+     */
+    private function iconItemsForTab(string $tab, array $groups): array
+    {
+        if ($tab === 'logos') {
+            $items = [];
+            foreach (['customer', 'provider'] as $appKey) {
+                foreach ($groups['logos'][$appKey] ?? [] as $def) {
+                    $items[] = ['appKey' => $appKey, 'def' => $def];
+                }
+            }
+
+            return $items;
+        }
+
+        if ($tab === 'customer') {
+            return array_map(
+                fn (array $def) => ['appKey' => 'customer', 'def' => $def],
+                $groups['menu']['customer'] ?? [],
+            );
+        }
+
+        return array_map(
+            fn (array $def) => ['appKey' => 'provider', 'def' => $def],
+            array_merge(
+                $groups['menu']['provider'] ?? [],
+                $groups['bottom_navigation']['provider'] ?? [],
+            ),
+        );
+    }
+
+    private function normalizeIconTab(?string $tab): string
+    {
+        $tab = (string) $tab;
+        if (in_array($tab, self::ICON_TABS, true)) {
+            return $tab;
+        }
+
+        return 'logos';
     }
 
     private function normalizeAiTab(?string $tab): string

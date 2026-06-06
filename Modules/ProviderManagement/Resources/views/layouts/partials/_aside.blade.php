@@ -293,7 +293,8 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     <span class="link-title">{{translate('business_settings')}}</span>
                 </a>
             </li>
-            <li>
+            {{-- Business plan, payment information, and notification channel hidden --}}
+            {{-- <li>
                 <a href="{{route('provider.subscription-package.details')}}"
                    class="{{request()->is('provider/subscription-package/*')?'active-menu':''}}">
                     <span class="material-symbols-outlined">tune</span>
@@ -313,7 +314,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                     <span class="material-icons" title="Subscription Management">campaign</span>
                     <span class="link-title">{{translate('Notification Channel')}}</span>
                 </a>
-            </li>
+            </li> --}}
 
             <li>
                 <div class="card" data-bg-img="{{asset('assets/provider-module')}}/img/media/create-ads-bg-vertical.png">

@@ -9,6 +9,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::post('add', [CartController::class, 'addToCart']);
         Route::get('list', [CartController::class, 'list']);
         Route::put('update-quantity/{id}', [CartController::class, 'updateQty']);
+        Route::put('update-schedule/{id}', [CartController::class, 'updateSchedule']);
         Route::put('update/provider', [CartController::class, 'updateProvider']);
         Route::delete('remove/{id}', [CartController::class, 'remove']);
         Route::delete('data/empty', [CartController::class, 'emptyCart']);

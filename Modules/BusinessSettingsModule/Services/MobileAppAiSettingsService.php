@@ -4,7 +4,6 @@ namespace Modules\BusinessSettingsModule\Services;
 
 use Modules\BusinessSettingsModule\Entities\MobileAppAiSetting;
 use Modules\WhatsAppModule\Services\WhatsAppAiSettingsService;
-use Modules\WhatsAppModule\Services\WhatsAppAiToolExecutor;
 
 class MobileAppAiSettingsService
 {
@@ -41,6 +40,8 @@ class MobileAppAiSettingsService
             $parts[] = "### Additional mobile app instructions\n".trim((string) $row->prompt_addendum);
         }
 
+        $parts[] = MobileAppAiPromptBuilder::channelEnforcementAppendix();
+
         return implode("\n\n", $parts);
     }
 
@@ -49,10 +50,18 @@ class MobileAppAiSettingsService
      */
     public function mergedToolDeclarations(): array
     {
-        $base = $this->settings()->inherit_whatsapp_ai
-            ? $this->whatsappAiSettings->mergedToolDeclarations()
-            : WhatsAppAiToolExecutor::functionDeclarations();
+        $declarations = MobileAppAiToolExecutor::functionDeclarations();
+        if ($this->settings()->inherit_whatsapp_ai) {
+            $byName = [];
+            foreach (array_merge($this->whatsappAiSettings->mergedToolDeclarations(), $declarations) as $decl) {
+                $name = (string) ($decl['name'] ?? '');
+                if ($name !== '') {
+                    $byName[$name] = $decl;
+                }
+            }
+            $declarations = array_values($byName);
+        }
 
-        return $this->supportToolPolicy->filterDeclarations($base);
+        return $this->supportToolPolicy->filterDeclarations($declarations);
     }
 }

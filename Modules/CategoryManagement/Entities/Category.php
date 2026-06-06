@@ -51,6 +51,37 @@ class Category extends Model
         $query->where(['position' => $value]);
     }
 
+    /**
+     * Sub-categories that have at least one active bookable service.
+     */
+    public function scopeWithActiveServices($query)
+    {
+        return $query->whereHas('services', function ($serviceQuery) {
+            $serviceQuery->where('is_active', 1);
+        });
+    }
+
+    /**
+     * Main categories visible to customers: at least one active sub-category and at least one active service
+     * (on the main category or any of its sub-categories).
+     */
+    public function scopeMainWithActiveCatalog($query)
+    {
+        return $query
+            ->whereHas('children', function ($childQuery) {
+                $childQuery->ofStatus(1)->ofType('sub');
+            })
+            ->where(function ($catalogQuery) {
+                $catalogQuery
+                    ->whereHas('services_by_category', function ($serviceQuery) {
+                        $serviceQuery->where('is_active', 1);
+                    })
+                    ->orWhereHas('children', function ($childQuery) {
+                        $childQuery->ofStatus(1)->ofType('sub')->withActiveServices();
+                    });
+            });
+    }
+
     public function zones(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Zone::class, 'category_zone');

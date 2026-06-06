@@ -9,9 +9,11 @@ use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\Report\BusinessR
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\Report\TransactionReportController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\TimeScheduleController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderController as ProviderProviderController;
+use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderShowcaseController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ServiceController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\AccountController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\WithdrawController;
+use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderPaymentController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Admin\ProviderController as AdminProviderController;
 
 
@@ -38,12 +40,18 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     Route::get('notifications', [ProviderProviderController::class, 'notifications']);
     Route::put('update/fcm-token', [ProviderProviderController::class, 'updateFcmToken']);
     Route::put('update/profile', [ProviderProviderController::class, 'updateProfile']);
+    Route::put('update/branding', [ProviderProviderController::class, 'updateBranding']);
     Route::put('update/password', [ProviderProviderController::class, 'updatePassword']);
     Route::post('update/tutorial', [ProviderProviderController::class, 'updateTutorial']);
     Route::get('config/get-routes', [ProviderConfigController::class, 'getRoutes']);
     Route::delete('delete', [ProviderProviderController::class, 'deleteProvider']);
     Route::get('transaction', [ProviderProviderController::class, 'transaction']);
     Route::get('subscribed/sub-categories', [ProviderProviderController::class, 'subscribedSubCategories']);
+
+    Route::group(['prefix' => 'payment', 'as' => 'payment.'], function () {
+        Route::get('overview', [ProviderPaymentController::class, 'overview']);
+        Route::get('list', [ProviderPaymentController::class, 'list']);
+    });
 
     Route::group(['prefix' => 'service', 'as' => 'service.',], function () {
         Route::post('update-subscription', [ServiceController::class, 'updateSubscription']);
@@ -54,6 +62,9 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
         Route::get('account-edit', [AccountController::class, 'accountEdit']);
         Route::put('account-update', [AccountController::class, 'accountUpdate']);
         Route::get('commission-info', [AccountController::class, 'commissionInfo']);
+        Route::post('verify-contact-update', [AccountController::class, 'verifyContactUpdate']);
+        Route::post('send-phone-change-otp', [AccountController::class, 'sendPhoneChangeOtp']);
+        Route::post('verify-phone-change-otp', [AccountController::class, 'verifyPhoneChangeOtp']);
     });
 
 //    Route::resource('withdraw', 'WithdrawController', ['only' => ['index', 'store']]);
@@ -71,6 +82,13 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     });
 
     Route::get('review', [ProviderProviderController::class, 'review']);
+
+    Route::group(['prefix' => 'showcase', 'as' => 'showcase.'], function () {
+        Route::get('/', [ProviderShowcaseController::class, 'index']);
+        Route::post('/', [ProviderShowcaseController::class, 'store']);
+        Route::post('update/{id}', [ProviderShowcaseController::class, 'update']);
+        Route::delete('delete/{id}', [ProviderShowcaseController::class, 'destroy']);
+    });
 
     Route::get('available-time-schedule', [TimeScheduleController::class, 'getAvailableTimeSchedule']);
     Route::put('available-time-schedule', [TimeScheduleController::class, 'setAvailableTimeSchedule']);

@@ -199,6 +199,37 @@ class User extends Authenticatable
     /**
      * @return array<string, string> field => message
      */
+    public static function normalizeContactPhoneDigits(string $phone): string
+    {
+        return preg_replace('/\D+/', '', trim($phone)) ?? '';
+    }
+
+    /**
+     * Uniqueness checks for profile contact update (exclude the signed-in provider owner).
+     *
+     * @return array<string, string> field => message
+     */
+    public static function providerContactUpdateErrors(string $phone, string $email, string $ignoreUserId): array
+    {
+        $errors = [];
+        $existingPhone = self::findByContactPhoneScoped($phone, PROVIDER_USER_TYPES);
+        if ($existingPhone && (string) $existingPhone->id !== (string) $ignoreUserId) {
+            $errors['contact_person_phone'] = translate('The contact person phone has already been taken.');
+        }
+
+        $email = Str::lower(trim($email));
+        if ($email !== '') {
+            $byEmail = self::findByContactEmail($email);
+            if ($byEmail
+                && (string) $byEmail->id !== (string) $ignoreUserId
+                && ! $byEmail->qualifiesForCustomerToProviderUpgrade()) {
+                $errors['contact_person_email'] = translate('The contact person email has already been taken.');
+            }
+        }
+
+        return $errors;
+    }
+
     public static function providerContactRegistrationErrors(string $phone, string $email): array
     {
         $errors = [];
@@ -336,26 +367,18 @@ class User extends Authenticatable
 
     public function getIdentificationImageFullPathAttribute()
     {
-        $identityImages = $this->identification_image ?? [];
-        $defaultImagePath = asset('assets/admin-module/img/media/provider-id.png');
+        $path = match ($this->user_type) {
+            'admin-employee' => 'employee/identity/',
+            'provider-admin' => 'provider/identity/',
+            'provider-serviceman' => 'serviceman/identity/',
+            default => 'provider/identity/',
+        };
 
-        if (empty($identityImages)) {
-            if (request()->is('api/*')) {
-                $defaultImagePath = null;
-            }
-            return $defaultImagePath ? [$defaultImagePath] : [];
-        }
-
-        $path = '';
-        if($this->user_type == 'admin-employee'){
-            $path = 'employee/identity/';
-        }else if($this->user_type == 'provider-admin'){
-            $path = 'provider/identity/';
-        }else if($this->user_type == 'provider-serviceman'){
-            $path = 'serviceman/identity/';
-        }
-
-        return getIdentityImageFullPath(identityImages: $identityImages, path: $path, defaultPath: $defaultImagePath);
+        return getIdentityImageFullPath(
+            identityImages: $this->identification_image ?? [],
+            path: $path,
+            defaultPath: request()->is('api/*') ? null : asset('assets/admin-module/img/media/provider-id.png')
+        );
     }
 
     public function tutorials()

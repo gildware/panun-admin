@@ -16,6 +16,11 @@ class MobileAppAiMessage extends Model
         'role',
         'source',
         'body',
+        'meta',
+    ];
+
+    protected $casts = [
+        'meta' => 'array',
     ];
 
     protected $attributes = [

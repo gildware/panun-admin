@@ -38,6 +38,7 @@ class WhatsAppAiSupportOrchestrator
         protected WhatsAppAiRuntimeResolver $aiRuntime,
         protected WhatsAppSessionInteractiveSequence $sessionInteractiveSequence,
         protected WhatsAppAiCustomerMessageLocalizationService $templateLocalization,
+        protected WhatsAppAiSupportKnowledgeService $supportKnowledge,
     ) {}
 
     public function handleInboundMessageId(int $messageId, WhatsAppAiExecutionRecorder $recorder): void
@@ -192,6 +193,7 @@ class WhatsAppAiSupportOrchestrator
         /** @var ?string Set when submit_my_booking_for_human_confirmation succeeds; used if the model omits the id. */
         $pendingBookingRequestId = null;
         $autoInjectedPublicBusinessInfo = false;
+        $unpromptedPricingRetry = false;
         $maxRounds = (int) config('whatsappmodule.ai_gemini_max_tool_rounds', 6);
         while ($iter < $maxRounds) {
             $iter++;
@@ -271,7 +273,7 @@ class WhatsAppAiSupportOrchestrator
                     $contents[] = [
                         'role' => 'user',
                         'parts' => [[
-                            'text' => 'Rewrite your customer reply using ONLY get_public_business_info fields: visiting_charge_note, customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note. Do not invent any amounts, waivers, phone digits, or hours.',
+                            'text' => 'Rewrite your customer reply. Include visiting_charge_note ONLY if the customer asked about price, cost, charges, or fees; otherwise omit all rupee amounts and visiting charges. For phone or hours you mentioned, use ONLY get_public_business_info: customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note. Do not invent amounts, waivers, phone digits, or hours.',
                         ]],
                     ];
 
@@ -314,12 +316,30 @@ class WhatsAppAiSupportOrchestrator
                         $contents[] = [
                             'role' => 'user',
                             'parts' => [[
-                                'text' => 'Your last reply contained incorrect visiting charges or contact details. Rewrite the reply using ONLY get_public_business_info fields: visiting_charge_note, customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note. Copy phone and schedule exactly. Do not invent any amounts, waivers, or digits.',
+                                'text' => 'Your last reply contained incorrect visiting charges or contact details. Rewrite the reply. Include visiting_charge_note ONLY if the customer asked about price, cost, charges, or fees; otherwise omit all rupee amounts and visiting charges. For phone or hours, copy exactly from get_public_business_info: customer_message_placeholders.phone, customer_message_placeholders.schedule. Use service_coverage_policy_note when relevant. Do not invent amounts, waivers, or digits.',
                             ]],
                         ];
 
                         continue;
                     }
+                }
+
+                if (
+                    !$unpromptedPricingRetry
+                    && $this->customerReplyMentionsMoneyOrCharges($candidate)
+                    && !$this->supportKnowledge->customerMessageAsksAboutPrice(mb_strtolower($text))
+                ) {
+                    $unpromptedPricingRetry = true;
+                    $recorder->step('gemini.guard', 'Unprompted pricing in reply; forcing rewrite without charges', 'info', []);
+
+                    $contents[] = [
+                        'role' => 'user',
+                        'parts' => [[
+                            'text' => 'The customer did NOT ask about price, cost, charges, fees, or kitna. Rewrite your reply: remove ALL rupee amounts, visiting charges, and fee lines. Answer only what they asked (service, booking, status, troubleshooting, etc.). Do not mention visiting_charge_note.',
+                        ]],
+                    ];
+
+                    continue;
                 }
 
                 $finalText = $candidate;
@@ -1232,6 +1252,16 @@ class WhatsAppAiSupportOrchestrator
         $msg = $this->templateLocalization->localizeTemplate($msg, $lastCustomerText, $recorder);
 
         return $this->sanitizeCustomerReply($msg);
+    }
+
+    /**
+     * True when the reply mentions currency or charge wording (not phone/hours alone).
+     */
+    private function customerReplyMentionsMoneyOrCharges(string $text): bool
+    {
+        $t = trim($text);
+
+        return $t !== '' && (bool) preg_match('/(?:₹|\brs\.?\b|\brupees\b|\bfee\b|\bfees\b|\bcharge\b|\bcharges\b)/iu', $t);
     }
 
     /**

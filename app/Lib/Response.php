@@ -191,6 +191,16 @@ const AUTH_LOGIN_404 = [
     'message' => 'User does not exist'
 ];
 
+const PROVIDER_ONBOARDING_200 = [
+    'response_code' => 'provider_onboarding_200',
+    'message' => 'Phone verified. Complete provider registration.',
+];
+
+const PROVIDER_REGISTRATION_STEP_SAVED = [
+    'response_code' => 'provider_registration_step_saved_200',
+    'message' => 'Registration step saved.',
+];
+
 const ACCESS_DENIED = [
     'response_code' => 'access_denied_403',
     'message' => 'access denied'

@@ -84,9 +84,10 @@ class AdvertisementsController extends Controller
 
             $advertisement->provider_review = $advertisement?->review?->value;
             $advertisement->provider_rating = $advertisement?->rating?->value;
+            $advertisement->provider_showcase = $advertisement?->showcase?->value;
             $advertisement->additional_note = $advertisement->note ? $advertisement->note->note : null;
 
-            unset($advertisement->attachments, $advertisement->attachment, $advertisement->review, $advertisement->rating, $advertisement->note);
+            unset($advertisement->attachments, $advertisement->attachment, $advertisement->review, $advertisement->rating, $advertisement->showcase, $advertisement->note);
         }
 
         return response()->json(response_formatter(DEFAULT_200, $advertisements), 200);
@@ -171,17 +172,7 @@ class AdvertisementsController extends Controller
                     ]);
                 }
 
-                $this->advertisementSettings->create([
-                    'advertisement_id' => $advertisement->id,
-                    'key' => 'review',
-                    'value' => $request->has('review') ? 1 : 0
-                ]);
-
-                $this->advertisementSettings->create([
-                    'advertisement_id' => $advertisement->id,
-                    'key' => 'rating',
-                    'value' => $request->has('rating') ? 1 : 0
-                ]);
+                $this->saveProfilePromotionSettings($advertisement->id, $request);
             }
 
             $defaultLang = str_replace('_', '-', app()->getLocale());
@@ -283,7 +274,7 @@ class AdvertisementsController extends Controller
      */
     public function details($id): JsonResponse
     {
-        $advertisement = $this->advertisement->withoutGlobalScope('translate')->with(['attachments', 'attachment', 'provider:id,company_name,company_phone,company_address,company_email,logo', 'attachments', 'attachment', 'review', 'rating', 'note'])->find($id);
+        $advertisement = $this->advertisement->withoutGlobalScope('translate')->with(['attachments', 'attachment', 'provider:id,company_name,company_phone,company_address,company_email,logo', 'attachments', 'attachment', 'review', 'rating', 'showcase', 'note'])->find($id);
 
         if (isset($advertisement)) {
             foreach ($advertisement->attachments as $attachment){
@@ -294,9 +285,10 @@ class AdvertisementsController extends Controller
 
             $advertisement->provider_review = $advertisement?->review?->value;
             $advertisement->provider_rating = $advertisement?->rating?->value;
+            $advertisement->provider_showcase = $advertisement?->showcase?->value;
             $advertisement->additional_note = $advertisement->note ? $advertisement->note->note : null;
 
-            unset($advertisement->attachments, $advertisement->attachment, $advertisement->review, $advertisement->rating, $advertisement->note);
+            unset($advertisement->attachments, $advertisement->attachment, $advertisement->review, $advertisement->rating, $advertisement->showcase, $advertisement->note);
 
             return response()->json(response_formatter(DEFAULT_200, $advertisement), 200);
         }
@@ -428,17 +420,7 @@ class AdvertisementsController extends Controller
                     }
                 }
 
-                $this->advertisementSettings->create([
-                    'advertisement_id' => $advertisement->id,
-                    'key' => 'review',
-                    'value' => $request->has('review') ? 1 : 0
-                ]);
-
-                $this->advertisementSettings->create([
-                    'advertisement_id' => $advertisement->id,
-                    'key' => 'rating',
-                    'value' => $request->has('rating') ? 1 : 0
-                ]);
+                $this->saveProfilePromotionSettings($advertisement->id, $request);
             }
 
             $defaultLang = str_replace('_', '-', app()->getLocale());
@@ -628,18 +610,9 @@ class AdvertisementsController extends Controller
 
                 $advertisement->rating?->delete();
                 $advertisement->review?->delete();
+                $advertisement->showcase?->delete();
 
-                $this->advertisementSettings->create([
-                    'advertisement_id' => $advertisement->id,
-                    'key' => 'review',
-                    'value' => $request->has('review') ? 1 : 0
-                ]);
-
-                $this->advertisementSettings->create([
-                    'advertisement_id' => $advertisement->id,
-                    'key' => 'rating',
-                    'value' => $request->has('rating') ? 1 : 0
-                ]);
+                $this->saveProfilePromotionSettings($advertisement->id, $request);
             }
 
             $defaultLang = str_replace('_', '-', app()->getLocale());
@@ -735,6 +708,32 @@ class AdvertisementsController extends Controller
             return response()->json(response_formatter(DEFAULT_DELETE_200), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 200);
+    }
+
+    private function saveProfilePromotionSettings(string $advertisementId, Request $request): void
+    {
+        foreach (['review', 'rating', 'showcase'] as $key) {
+            $this->advertisementSettings->create([
+                'advertisement_id' => $advertisementId,
+                'key' => $key,
+                'value' => $this->advertisementSettingValue($request, $key),
+            ]);
+        }
+    }
+
+    private function advertisementSettingValue(Request $request, string $key): int
+    {
+        if (!$request->exists($key)) {
+            return 0;
+        }
+
+        $value = $request->input($key);
+
+        if (in_array($value, [true, 1, '1', 'true', 'on'], true)) {
+            return 1;
+        }
+
+        return 0;
     }
 
 }

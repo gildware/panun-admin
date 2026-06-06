@@ -5,6 +5,7 @@ namespace Modules\Auth\Http\Controllers\Api\V1;
 use App\Traits\UploadSizeHelperTrait;
 use Grimzy\LaravelMysqlSpatial\Types\Point;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,10 @@ use Modules\PaymentModule\Traits\SubscriptionTrait;
 use Modules\PromotionManagement\Entities\PushNotification;
 use Modules\PromotionManagement\Entities\PushNotificationUser;
 use Modules\ProviderManagement\Emails\NewJoiningRequestMail;
+use Modules\Auth\Services\ProviderRegistrationDraftService;
+use Modules\Auth\Services\ProviderRegistrationSubscriptionService;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Entities\ProviderRegistrationDraft;
 use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
@@ -142,52 +146,402 @@ class RegisterController extends Controller
 
 
     /**
+     * Validate provider contact phone/email before multi-step registration continues.
+     */
+    public function verifyProviderCredentials(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'account_email' => 'nullable|email|max:191',
+            'account_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $phone = trim((string) $request->input('account_phone'));
+        $email = trim((string) $request->input('account_email', ''));
+
+        $errors = [];
+        foreach (User::providerContactRegistrationErrors($phone, $email) as $field => $message) {
+            if ($field === 'contact_person_phone') {
+                $errors[] = ['error_code' => 'contact_person_phone', 'message' => $message];
+                $errors[] = ['error_code' => 'phone', 'message' => $message];
+                $errors[] = ['error_code' => 'account_phone', 'message' => $message];
+            } elseif ($field === 'contact_person_email') {
+                $errors[] = ['error_code' => 'contact_person_email', 'message' => $message];
+                $errors[] = ['error_code' => 'email', 'message' => $message];
+                $errors[] = ['error_code' => 'account_email', 'message' => $message];
+            }
+        }
+
+        if ($errors !== []) {
+            return response()->json(response_formatter(DEFAULT_400, null, $errors), 400);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200), 200);
+    }
+
+    /**
+     * Save one step of provider self-registration (resume later via registration_token).
+     */
+    public function getProviderRegistrationDraft(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'registration_token' => 'required|string|max:64',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $draft = ProviderRegistrationDraft::query()
+            ->where('registration_token', $request->input('registration_token'))
+            ->first();
+
+        if (! $draft) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(
+            response_formatter(DEFAULT_200, app(ProviderRegistrationDraftService::class)->toApiPayload($draft)),
+            200
+        );
+    }
+
+    public function saveProviderRegistrationStep(Request $request): JsonResponse
+    {
+        $allSteps = array_merge(
+            ProviderRegistrationDraftService::STEPS_INDIVIDUAL,
+            ProviderRegistrationDraftService::STEPS_COMPANY
+        );
+        $allSteps = array_values(array_unique($allSteps));
+
+        $validator = Validator::make($request->all(), [
+            'registration_token' => 'nullable|string|max:64',
+            'step' => 'required|string|in:' . implode(',', $allSteps),
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $draft = null;
+        if ($request->filled('registration_token')) {
+            $draft = ProviderRegistrationDraft::query()
+                ->where('registration_token', $request->input('registration_token'))
+                ->first();
+        }
+
+        if (! $draft && $request->input('step') === 'contact_info' && $request->filled('contact_person_phone')) {
+            $draft = app(ProviderRegistrationDraftService::class)->findOrCreateForPhone(
+                (string) $request->input('contact_person_phone')
+            );
+        }
+
+        if (! $draft) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $step = (string) $request->input('step');
+        $this->normalizeCompanyIdentityImageUploads($request);
+
+        if ($step === 'company_documents') {
+            $formData = is_array($draft->form_data) ? $draft->form_data : [];
+            $filePaths = is_array($formData['file_paths'] ?? null) ? $formData['file_paths'] : [];
+            $existing = is_array($filePaths['company_identity_images'] ?? null)
+                ? array_values(array_filter($filePaths['company_identity_images']))
+                : [];
+            $hasNewUpload = $request->hasFile('company_identity_image')
+                || $request->hasFile('company_identity_images');
+            if (! $hasNewUpload && $existing === []) {
+                return response()->json(
+                    response_formatter(DEFAULT_400, null, [[
+                        'error_code' => 'company_identity_image',
+                        'message' => translate('Company identity document is required'),
+                    ]]),
+                    400
+                );
+            }
+        }
+
+        $uploadCheck = $this->validateCompanyIdentityUploadSize($request, $step);
+        if ($uploadCheck !== true) {
+            return $uploadCheck;
+        }
+
+        $check = $this->validateUploadedFile($request, $this->draftUploadFieldsForStep($step));
+        if ($check !== true) {
+            return $check instanceof RedirectResponse
+                ? response()->json(response_formatter(DEFAULT_400), 400)
+                : $check;
+        }
+
+        $draft = app(ProviderRegistrationDraftService::class)->saveStep($draft, $request);
+
+        return response()->json(
+            response_formatter(PROVIDER_REGISTRATION_STEP_SAVED, app(ProviderRegistrationDraftService::class)->toApiPayload($draft)),
+            200
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function normalizeIdentityImageUploads(Request $request): void
+    {
+        if ($request->hasFile('identity_images')) {
+            return;
+        }
+
+        $files = array_values(array_filter([
+            $request->file('identity_image_front'),
+            $request->file('identity_image_back'),
+        ]));
+
+        if ($files !== []) {
+            $request->files->set('identity_images', $files);
+        }
+    }
+
+    private function normalizeCompanyIdentityImageUploads(Request $request): void
+    {
+        if ($request->hasFile('company_identity_image')) {
+            $request->files->set('company_identity_images', [$request->file('company_identity_image')]);
+
+            return;
+        }
+
+        if ($request->hasFile('company_identity_images')) {
+            $files = $request->file('company_identity_images');
+            $request->files->set('company_identity_images', array_values(array_filter(
+                is_array($files) ? $files : [$files]
+            )));
+
+            return;
+        }
+
+        $collected = [];
+        foreach ($request->allFiles() as $key => $file) {
+            if ($key === 'company_identity_images' || preg_match('/^company_identity_images(\.\d+|\[\d+\])?$/', (string) $key)) {
+                if (is_array($file)) {
+                    foreach ($file as $item) {
+                        if ($item) {
+                            $collected[] = $item;
+                        }
+                    }
+                } elseif ($file) {
+                    $collected[] = $file;
+                }
+            }
+        }
+
+        for ($i = 0; $i < 5; $i++) {
+            if ($request->hasFile("company_identity_images.$i")) {
+                $collected[] = $request->file("company_identity_images.$i");
+            }
+        }
+
+        if ($collected !== []) {
+            $request->files->set('company_identity_images', array_slice($collected, 0, 1));
+        }
+    }
+
+    private function countUploadedIdentityImages(Request $request): int
+    {
+        if ($request->hasFile('identity_images')) {
+            $images = $request->file('identity_images');
+
+            return count(array_filter(is_array($images) ? $images : [$images]));
+        }
+
+        return count(array_filter([
+            $request->file('identity_image_front'),
+            $request->file('identity_image_back'),
+        ]));
+    }
+
+    private function draftUploadFieldsForStep(string $step): array
+    {
+        return match ($step) {
+            'contact_info' => ['contact_person_photo'],
+            'identity_verification' => ['identity_image_front', 'identity_image_back', 'identity_images'],
+            'company_information' => ['logo'],
+            'company_documents' => ['company_identity_image', 'company_identity_images'],
+            'service_categories', 'service_subcategories' => [],
+            default => [],
+        };
+    }
+
+    private function validateCompanyIdentityUploadSize(Request $request, string $step): true|JsonResponse
+    {
+        if ($step !== 'company_documents') {
+            return true;
+        }
+
+        $maxBytes = 10 * 1024 * 1024;
+        $files = array_filter([
+            $request->file('company_identity_image'),
+            ...($request->hasFile('company_identity_images')
+                ? (is_array($request->file('company_identity_images'))
+                    ? $request->file('company_identity_images')
+                    : [$request->file('company_identity_images')])
+                : []),
+        ]);
+
+        foreach ($files as $file) {
+            if ($file && $file->getSize() > $maxBytes) {
+                return response()->json(
+                    response_formatter(DEFAULT_400, null, [[
+                        'error_code' => 'company_identity_image',
+                        'message' => translate('Company identity image must be 10 MB or less'),
+                    ]]),
+                    400
+                );
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Store a newly created resource in storage.
      * @param Request $request
      * @return JsonResponse
      */
     public function providerRegister(Request $request): JsonResponse
     {
-        $check = $this->validateUploadedFile($request, ['logo', 'cover_image']);
+        $draft = null;
+        $draftService = app(ProviderRegistrationDraftService::class);
+
+        if ($request->filled('registration_token')) {
+            $draft = ProviderRegistrationDraft::query()
+                ->where('registration_token', $request->input('registration_token'))
+                ->first();
+            if ($draft) {
+                $draftService->mergeDraftIntoRegistrationRequest($request, $draft);
+            }
+        }
+
+        $this->normalizeIdentityImageUploads($request);
+
+        $request->merge([
+            'provider_type' => strtolower(trim((string) $request->input('provider_type', ''))),
+        ]);
+
+        if ($request->provider_type === 'individual') {
+            $request->merge([
+                'company_name' => null,
+                'company_phone' => null,
+                'company_email' => null,
+                'company_identity_type' => null,
+                'company_identity_number' => null,
+            ]);
+        }
+
+        $zoneIds = $request->input('zone_ids', []);
+        if (! is_array($zoneIds)) {
+            $zoneIds = [];
+        }
+        $zoneIds = array_values(array_filter($zoneIds));
+        if ($zoneIds === [] && $request->filled('zone_id')) {
+            $request->merge(['zone_ids' => [(string) $request->input('zone_id')]]);
+            $zoneIds = [(string) $request->input('zone_id')];
+        }
+
+        if (! $request->filled('contact_person_email')) {
+            $request->merge(['contact_person_email' => null]);
+        }
+
+        $uploadFields = $request->provider_type === 'company'
+            ? ['logo', 'contact_person_photo']
+            : ['contact_person_photo'];
+        $check = $this->validateUploadedFile($request, $uploadFields);
         if ($check !== true) {
             return $check;
         }
 
-        $validator = Validator::make($request->all(), [
+        $identityIn = 'passport,driving_license,nid';
+        $allowedImageMimes = implode(',', array_column(IMAGEEXTENSION, 'key'));
+        $imageMaxRule = 'max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . $allowedImageMimes;
+
+        $rules = [
             'provider_type' => 'required|in:company,individual',
 
-            'contact_person_name' => 'required',
+            'contact_person_name' => 'required|string|max:191',
             'contact_person_phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
-            'contact_person_email' => 'required|email',
+            'contact_person_email' => 'nullable|email|max:191',
 
-            'account_first_name' => 'nullable|max:191',
-            'account_last_name' => 'nullable|max:191',
-            'zone_id' => 'required|uuid',
             'account_email' => 'nullable|email',
             'account_phone' => 'nullable|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
 
-            'company_name' => 'required_if:provider_type,company',
-            'company_phone' => 'required_if:provider_type,company|regex:/^([0-9\s\-\+\(\)]*)$/|min:8',
-            'company_address' => 'required',
-            'company_email' => 'required_if:provider_type,company|email',
-            'logo' => 'required|image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
-            'cover_image' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'company_address' => 'required|string',
 
-            'identity_type' => 'required|in:passport,driving_license,nid,trade_license,company_id',
-            'identity_number' => 'required',
-            'identity_images' => 'required|array',
-            'identity_images.*' => 'image|max:'. uploadMaxFileSizeInKB('image') .'|mimes:' . implode(',', array_column(IMAGEEXTENSION, 'key')),
+            'contact_person_photo' => 'nullable|image|'.$imageMaxRule,
+
+            'identity_type' => 'required|in:'.$identityIn,
+            'identity_number' => 'required|string|max:191',
+            'identity_images' => 'array',
+            'identity_images.*' => 'image|'.$imageMaxRule,
 
             'latitude' => 'required',
             'longitude' => 'required',
-        ]);
 
-        $validator->after(function ($v) use ($request) {
+            'zone_ids' => 'required|array|min:1',
+            'zone_ids.*' => 'uuid',
+            'zone_id' => 'nullable|uuid',
+        ];
+
+        if ($request->provider_type === 'company') {
+            $rules['company_name'] = 'required|string|max:191';
+            $rules['company_phone'] = 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:8';
+            $rules['company_email'] = 'nullable|email|max:191';
+            $rules['logo'] = 'nullable|image|'.$imageMaxRule;
+            $rules['company_identity_type'] = 'required|in:trade_license,company_id';
+            $rules['company_identity_number'] = 'required|string|max:191';
+            $rules['company_identity_images'] = 'array';
+            $rules['company_identity_images.*'] = 'image|'.$imageMaxRule;
+        } else {
+            $rules['company_name'] = 'nullable';
+            $rules['company_phone'] = 'nullable';
+            $rules['company_email'] = 'nullable|email|max:191';
+            $rules['logo'] = 'nullable';
+            $rules['company_identity_type'] = 'nullable';
+            $rules['company_identity_number'] = 'nullable';
+            $rules['company_identity_images'] = 'nullable|array';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        $validator->after(function ($v) use ($request, $draft, $draftService) {
+            if (! $this->registrationHasUpload($request, $draft, $draftService, 'contact_person_photo')) {
+                $v->errors()->add(
+                    'contact_person_photo',
+                    translate('The contact person photo field is required.')
+                );
+            }
+
+            if ($request->provider_type === 'company' && ! $this->registrationHasUpload($request, $draft, $draftService, 'logo')) {
+                $v->errors()->add('logo', translate('The logo field is required.'));
+            }
+
             foreach (User::providerContactRegistrationErrors(
                 (string) $request->contact_person_phone,
                 (string) $request->contact_person_email
             ) as $field => $message) {
                 $v->errors()->add($field, $message);
+            }
+
+            $identityImageCount = $this->countUploadedIdentityImages($request);
+            if ($identityImageCount < 2 && $draft) {
+                $identityImageCount = count($draftService->draftIdentityFilePaths($draft));
+            }
+            if ($identityImageCount < 2) {
+                $v->errors()->add('identity_images', translate('Please upload front and back of identity document'));
+            }
+
+            if ($request->provider_type === 'company' && ! $this->registrationHasCompanyIdentityUpload($request, $draft, $draftService)) {
+                $v->errors()->add('company_identity_images', translate('Please upload at least one company identity image'));
             }
         });
 
@@ -195,9 +549,19 @@ class RegisterController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds([(string) $request->zone_id], []);
+        $excluded = $request->input('zone_excluded_ids', []);
+        if (! is_array($excluded)) {
+            $excluded = [];
+        }
+        $leafZoneIds = app(ZoneCoverageNormalizationService::class)->normalizeToLeafZoneIds(
+            $request->input('zone_ids', []),
+            $excluded
+        );
         if ($leafZoneIds === []) {
-            $leafZoneIds = [(string) $request->zone_id];
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'error_code' => 'zone_ids',
+                'message' => translate('Select_Zone'),
+            ]]), 400);
         }
 
         if ($request->choose_business_plan == 'subscription_base'){
@@ -214,11 +578,8 @@ class RegisterController extends Controller
             $vatWithPrice       = $price + $vatAmount;
         }
 
-        $identityImages = [];
-        foreach ($request->identity_images as $image) {
-            $imageName = file_uploader('provider/identity/', APPLICATION_IMAGE_FORMAT, $image);
-            $identityImages[] = ['image'=>$imageName, 'storage'=> getDisk()];
-        }
+        $identityImages = $this->buildIdentityImagesFromRegistration($request, $draft, $draftService);
+        $companyIdentityImages = $this->buildCompanyIdentityImagesFromRegistration($request, $draft, $draftService);
 
         $provider = $this->provider;
         $provider->provider_type = $request->provider_type;
@@ -231,17 +592,48 @@ class RegisterController extends Controller
             $provider->company_phone = $request->contact_person_phone;
             $provider->company_email = $request->contact_person_email;
         }
-        $provider->logo = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('logo'));
 
-        if ($request->has('cover_image')) {
-            $provider->cover_image = file_uploader('provider/logo/', APPLICATION_IMAGE_FORMAT, $request->file('cover_image'));
+        $logoName = $this->resolveRegistrationFileName(
+            $request,
+            $draft,
+            $draftService,
+            'logo',
+            'provider/logo/'
+        );
+        if ($logoName) {
+            $provider->logo = $logoName;
         }
 
         $provider->company_address = $request->company_address;
+        $provider->street = $request->filled('street') ? trim((string) $request->street) : null;
+        $provider->city = $request->filled('city') ? trim((string) $request->city) : null;
+        $provider->pincode = $request->filled('pincode') ? trim((string) $request->pincode) : null;
 
         $provider->contact_person_name = $request->contact_person_name;
         $provider->contact_person_phone = $request->contact_person_phone;
         $provider->contact_person_email = $request->contact_person_email;
+
+        $contactPhotoName = $this->resolveRegistrationFileName(
+            $request,
+            $draft,
+            $draftService,
+            'contact_person_photo',
+            'provider/contact_person_photo/'
+        );
+        if ($contactPhotoName) {
+            $provider->contact_person_photo = $contactPhotoName;
+        }
+
+        if ($request->provider_type === 'company') {
+            $provider->company_identity_type = $request->company_identity_type;
+            $provider->company_identity_number = $request->company_identity_number;
+            $provider->company_identity_images = $companyIdentityImages;
+        } else {
+            $provider->company_identity_type = null;
+            $provider->company_identity_number = null;
+            $provider->company_identity_images = [];
+        }
+
         $provider->is_approved = 2;
         $provider->is_active = 0;
         $provider->zone_id = $leafZoneIds[0];
@@ -259,9 +651,9 @@ class RegisterController extends Controller
             $owner->customer_app_access = false;
         }
 
-        $owner->first_name = $request->account_first_name;
-        $owner->last_name = $request->account_last_name;
-        // Account info defaults to contact person details.
+        $nameParts = preg_split('/\s+/u', trim((string) $request->contact_person_name), 2, PREG_SPLIT_NO_EMPTY);
+        $owner->first_name = $nameParts[0] ?? '';
+        $owner->last_name = $nameParts[1] ?? '';
         $owner->email = $request->contact_person_email;
         $owner->phone = $request->contact_person_phone;
         $owner->identification_number = $request->identity_number;
@@ -271,13 +663,26 @@ class RegisterController extends Controller
         $owner->user_type = 'provider-admin';
         $owner->is_active = 0;
 
-        DB::transaction(function () use ($provider, $owner, $request, $leafZoneIds) {
+        // Phone was verified via OTP before onboarding (registration_token flow).
+        if ($request->filled('registration_token')) {
+            $owner->is_phone_verified = 1;
+        }
+
+        DB::transaction(function () use ($provider, $owner, $leafZoneIds, $request) {
             $owner->save();
             $provider->user_id = $owner->id;
             $provider->save();
             $owner->zones()->sync($leafZoneIds);
             $provider->zones()->sync(
                 collect($leafZoneIds)->mapWithKeys(fn (string $zid) => [$zid => []])->all()
+            );
+
+            $subCategoryIds = app(ProviderRegistrationSubscriptionService::class)
+                ->requestedIdsFromMixedInput($request->input('subscribed_sub_category_ids', []));
+            app(ProviderRegistrationSubscriptionService::class)->syncForProvider(
+                $provider,
+                $leafZoneIds,
+                $subCategoryIds
             );
 
             $serviceLocation = ['customer'];
@@ -310,6 +715,7 @@ class RegisterController extends Controller
                     return response()->json(response_formatter(DEFAULT_FAIL_200), 400);
                 }
             }elseif ($request->free_trial_or_payment == 'payment') {
+                app(ProviderRegistrationDraftService::class)->deleteByToken($request->input('registration_token'));
                 $paymentUrl = url('payment/subscription') . '?' .
                     'provider_id=' . $provider_id . '&' .
                     'access_token=' . base64_encode($owner->id) . '&' .
@@ -321,6 +727,8 @@ class RegisterController extends Controller
                 return response()->json(response_formatter(PROVIDER_STORE_200, $paymentUrl), 200);
             }
         }
+
+        app(ProviderRegistrationDraftService::class)->deleteByToken($request->input('registration_token'));
 
         return response()->json(response_formatter(PROVIDER_STORE_200), 200);
     }
@@ -360,6 +768,148 @@ class RegisterController extends Controller
         }
 
         return response()->json(response_formatter(DEFAULT_404), 200);
+    }
+
+    private function registrationHasUpload(
+        Request $request,
+        ?ProviderRegistrationDraft $draft,
+        ProviderRegistrationDraftService $draftService,
+        string $field
+    ): bool {
+        if ($request->hasFile($field)) {
+            $file = $request->file($field);
+            if ($file && $file->isValid()) {
+                return true;
+            }
+        }
+
+        return $draft !== null && $draftService->draftFileExists($draft, $field);
+    }
+
+    private function registrationHasCompanyIdentityUpload(
+        Request $request,
+        ?ProviderRegistrationDraft $draft,
+        ProviderRegistrationDraftService $draftService
+    ): bool {
+        if ($request->hasFile('company_identity_images')) {
+            $images = $request->file('company_identity_images');
+            foreach (is_array($images) ? $images : [$images] as $image) {
+                if ($image && $image->isValid()) {
+                    return true;
+                }
+            }
+        }
+
+        return $draft !== null && $draftService->draftCompanyIdentityFilePaths($draft) !== [];
+    }
+
+    private function resolveRegistrationFileName(
+        Request $request,
+        ?ProviderRegistrationDraft $draft,
+        ProviderRegistrationDraftService $draftService,
+        string $field,
+        string $destinationDir
+    ): ?string {
+        if ($request->hasFile($field)) {
+            $file = $request->file($field);
+            if ($file && $file->isValid()) {
+                return file_uploader($destinationDir, APPLICATION_IMAGE_FORMAT, $file);
+            }
+        }
+
+        if ($draft === null) {
+            return null;
+        }
+
+        $path = $draftService->getDraftFilePath($draft, $field);
+
+        return $path
+            ? $draftService->copyDraftFileToProviderStorage($path, $destinationDir, APPLICATION_IMAGE_FORMAT)
+            : null;
+    }
+
+    /**
+     * @return list<array{image: string, storage: string}>
+     */
+    private function buildIdentityImagesFromRegistration(
+        Request $request,
+        ?ProviderRegistrationDraft $draft,
+        ProviderRegistrationDraftService $draftService
+    ): array {
+        $identityImages = [];
+
+        if ($request->hasFile('identity_images')) {
+            foreach ($request->file('identity_images') as $image) {
+                if (! $image || ! $image->isValid()) {
+                    continue;
+                }
+                $imageName = file_uploader('provider/identity/', APPLICATION_IMAGE_FORMAT, $image);
+                $identityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+            }
+        }
+
+        if (count($identityImages) >= 2 || $draft === null) {
+            return $identityImages;
+        }
+
+        foreach ($draftService->draftIdentityFilePaths($draft) as $path) {
+            $imageName = $draftService->copyDraftFileToProviderStorage(
+                $path,
+                'provider/identity/',
+                APPLICATION_IMAGE_FORMAT
+            );
+            if ($imageName) {
+                $identityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+            }
+        }
+
+        return $identityImages;
+    }
+
+    /**
+     * @return list<array{image: string, storage: string}>
+     */
+    private function buildCompanyIdentityImagesFromRegistration(
+        Request $request,
+        ?ProviderRegistrationDraft $draft,
+        ProviderRegistrationDraftService $draftService
+    ): array {
+        $companyIdentityImages = [];
+
+        if ($request->hasFile('company_identity_image')) {
+            $image = $request->file('company_identity_image');
+            if ($image && $image->isValid()) {
+                $imageName = file_uploader('provider/company-identity/', APPLICATION_IMAGE_FORMAT, $image);
+                $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+            }
+        }
+
+        if ($request->has('company_identity_images')) {
+            foreach ($request->company_identity_images as $image) {
+                if (! $image || ! $image->isValid()) {
+                    continue;
+                }
+                $imageName = file_uploader('provider/company-identity/', APPLICATION_IMAGE_FORMAT, $image);
+                $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+            }
+        }
+
+        if ($companyIdentityImages !== [] || $draft === null) {
+            return $companyIdentityImages;
+        }
+
+        foreach ($draftService->draftCompanyIdentityFilePaths($draft) as $path) {
+            $imageName = $draftService->copyDraftFileToProviderStorage(
+                $path,
+                'provider/company-identity/',
+                APPLICATION_IMAGE_FORMAT
+            );
+            if ($imageName) {
+                $companyIdentityImages[] = ['image' => $imageName, 'storage' => getDisk()];
+            }
+        }
+
+        return $companyIdentityImages;
     }
 
 }

@@ -83,6 +83,7 @@ class AddressController extends Controller
             'address_label' => 'required',
             'house' => 'nullable',
             'floor' => 'nullable',
+            'landmark' => 'nullable|string|max:500',
             'guest_id' => $this->isCustomerLoggedIn ? 'nullable' : 'required|uuid',
         ]);
 
@@ -104,7 +105,8 @@ class AddressController extends Controller
         $address->city = $request->city;
         $address->street = $request->street ?? '';
         $address->zip_code = $request->zip_code;
-        $address->country = $request->country;
+        $address->country = $request->country ?? '';
+        $address->landmark = $request->landmark ?? '';
         $address->address = $request->address;
         $address->zone_id = $zone_id;
         $address->address_type = $request->address_type;
@@ -159,6 +161,7 @@ class AddressController extends Controller
             'address_label' => 'required',
             'house' => 'nullable',
             'floor' => 'nullable',
+            'landmark' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -182,7 +185,8 @@ class AddressController extends Controller
         $address->city = $request->city;
         $address->street = $request->has('street') ? $request->street : $address->street;
         $address->zip_code = $request->zip_code;
-        $address->country = $request->country;
+        $address->country = $request->country ?? $address->country;
+        $address->landmark = $request->has('landmark') ? $request->landmark : $address->landmark;
         $address->address = $request->address;
         $address->zone_id = $zone_id;
         $address->address_type = $request->address_type;

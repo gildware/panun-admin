@@ -118,14 +118,7 @@ class ConfigController extends Controller
             'firebase_otp_verification' => $firebaseOtpStatus,
             'forgot_password_verification_method' => $forgotPasswordVerificationMethod,
             'app_environment' => env('APP_ENV'),
-            'business_pages' => BusinessPageSetting::where('is_active', 1)->orderByDesc('is_default')->orderBy('created_at', 'ASC')->get()->map(function ($page){
-                return [
-                    'page_key'        => $page->page_key,
-                    'title'           => $page->title,
-                    'is_default'      => $page->is_default,
-                    'image_full_path' => $page->image_full_path,
-                ];
-            }),
+            'business_pages' => mobile_visible_business_pages(),
             'max_image_upload_size' => uploadMaxFileSize('image'),
             'max_video_upload_size' => uploadMaxFileSize('file'),
         ]), 200);

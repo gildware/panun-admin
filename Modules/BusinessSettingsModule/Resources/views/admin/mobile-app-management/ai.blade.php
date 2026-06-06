@@ -44,7 +44,7 @@
                                                {{ $settings->inherit_whatsapp_ai ? 'checked' : '' }}>
                                         <span class="form-check-label fw-semibold">{{ translate('Use_WhatsApp_AI_prompt_layers') }}</span>
                                     </label>
-                                    <div class="form-text">{{ translate('Mobile_AI_inherits_prompt_only_support_tools') }}</div>
+                                    <div class="form-text">{{ translate('Mobile_AI_inherits_prompt_catalog_cart_tools_filtered') }}</div>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-check form-switch">

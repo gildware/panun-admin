@@ -65,26 +65,43 @@ trait BookingTrait
 
         $loginToken = null;
         $bookingIds = [];
+        $readableIds = [];
+        $lastBooking = null;
+        $guestRegistered = false;
+        $referralDiscountApplied = false;
+        $zoneIdDefault = config('zone_id') == null ? $request['zone_id'] : config('zone_id');
 
-        foreach ($cartData->pluck('sub_category_id')->unique() as $subCategory) {
-
+        foreach ($cartData as $cartItem) {
+            $subCategory = $cartItem->sub_category_id;
             $booking = new Booking();
 
-            DB::transaction(function () use ($subCategory, $booking, $transactionId, $request, $cartData, $isGuest, $isPartials, $customerWalletBalance,
-                &$userId, // Pass by reference
-                &$loginToken, // Pass by reference,
-                $newUserInfo) {
-
-                if ($newUserInfo != null){
+            DB::transaction(function () use (
+                $cartItem,
+                $subCategory,
+                $zoneIdDefault,
+                $booking,
+                $transactionId,
+                $request,
+                $isGuest,
+                $isPartials,
+                &$customerWalletBalance,
+                &$userId,
+                &$loginToken,
+                $newUserInfo,
+                &$guestRegistered,
+                &$referralDiscountApplied
+            ) {
+                if ($newUserInfo != null && !$guestRegistered) {
                     $response = $this->registerUserFromCheckoutPage($newUserInfo);
 
                     $user = $response['user'];
                     $userId = $user->id;
                     $loginToken = $response['loginToken'];
                     $isGuest = 0;
+                    $guestRegistered = true;
                 }
 
-                $cartData = $cartData->where('sub_category_id', $subCategory);
+                $cartData = collect([$cartItem]);
 
                 if ($request->has('payment_method') && $request['payment_method'] == 'cash_after_service') {
                     $transactionId = 'cash-payment';
@@ -96,8 +113,11 @@ trait BookingTrait
                 $totalBookingAmount = $cartData->sum('total_cost');
 
                 $referralDiscount = 0;
-                $zoneId = config('zone_id') == null ? $request['zone_id'] : config('zone_id');
-                $referralDiscount += $this->referralEarningCalculationForFirstBooking($userId, $totalBookingAmount - $cartData->sum('tax_amount'), $zoneId);
+                $zoneId = $cartItem->zone_id ?? $zoneIdDefault;
+                if (!$referralDiscountApplied) {
+                    $referralDiscount += $this->referralEarningCalculationForFirstBooking($userId, $totalBookingAmount - $cartData->sum('tax_amount'), $zoneId);
+                    $referralDiscountApplied = true;
+                }
                 $totalBookingAmount -= $referralDiscount;
 
                 $chargeRes = compute_additional_charges_for_cart_items($cartData);
@@ -105,8 +125,8 @@ trait BookingTrait
                 $totalBookingAmount += $extraFee;
 
                 $booking->customer_id = $userId;
-                $booking->provider_id = $cartData->first()->provider_id;
-                $booking->category_id = $cartData->first()->category_id;
+                $booking->provider_id = $cartItem->provider_id;
+                $booking->category_id = $cartItem->category_id;
                 $booking->sub_category_id = $subCategory;
                 $booking->zone_id = $zoneId;
                 $booking->booking_status = 'pending';
@@ -121,15 +141,19 @@ trait BookingTrait
                 $booking->total_discount_amount = $cartData->sum('discount_amount');
                 $booking->total_campaign_discount_amount = $cartData->sum('campaign_discount');
                 $booking->total_coupon_discount_amount = $cartData->sum('coupon_discount');
-                $booking->coupon_code = $cartData->first()->coupon_code;
-                $booking->service_schedule = date('Y-m-d H:i:s', strtotime($request['service_schedule'])) ?? now()->addHours(5);
-                $booking->service_address_id = $request['service_address_id'] ?? '';
+                $booking->coupon_code = $cartItem->coupon_code;
+                $itemSchedule = $cartItem->service_schedule ?? $request['service_schedule'] ?? null;
+                $booking->service_schedule = $itemSchedule
+                    ? date('Y-m-d H:i:s', strtotime($itemSchedule))
+                    : now()->addHours(5);
+                $itemAddressId = $cartItem->service_address_id ?? $request['service_address_id'] ?? '';
+                $booking->service_address_id = $itemAddressId;
                 $booking->booking_otp = rand(100000, 999999);
                 $booking->is_guest = $isGuest;
                 $booking->extra_fee = $extraFee;
                 $booking->additional_charges_breakdown = count($chargeRes['lines']) ? $chargeRes['lines'] : null;
                 $booking->total_referral_discount_amount = $referralDiscount;
-                $booking->service_address_location = json_encode(UserAddress::find($request['service_address_id'])) ?? null;
+                $booking->service_address_location = json_encode(UserAddress::find($itemAddressId)) ?: null;
                 $booking->service_location = $request['service_location'];
                 $booking->save();
 
@@ -195,7 +219,9 @@ trait BookingTrait
                 $schedule->booking_id = $booking->id;
                 $schedule->changed_by = $userId;
                 $schedule->is_guest = $isGuest;
-                $schedule->schedule = date('Y-m-d H:i:s', strtotime($request['service_schedule'])) ?? now()->addHours(5);
+                $schedule->schedule = $itemSchedule
+                    ? date('Y-m-d H:i:s', strtotime($itemSchedule))
+                    : now()->addHours(5);
                 $schedule->save();
 
                 $statusHistory = new BookingStatusHistory();
@@ -354,15 +380,24 @@ trait BookingTrait
                 ]);
             }
             $bookingIds[] = $booking->id;
+            if (!empty($booking->readable_id)) {
+                $readableIds[] = $booking->readable_id;
+            }
+            $lastBooking = $booking;
+            event(new BookingRequested($booking));
+
+            if ($isPartials) {
+                $customerWalletBalance = User::find($userId)?->wallet_balance ?? 0;
+            }
         }
 
         cart_clean($oldUserId);
-        event(new BookingRequested($booking));
 
         return [
             'flag' => 'success',
             'booking_id' => $bookingIds,
-            'readable_id' => $booking->readable_id,
+            'readable_id' => $lastBooking?->readable_id,
+            'readable_ids' => $readableIds,
             'token' => $loginToken,
         ];
     }

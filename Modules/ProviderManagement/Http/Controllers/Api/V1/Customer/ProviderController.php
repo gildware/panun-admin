@@ -12,6 +12,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\ServiceManagement\Entities\FavoriteService;
@@ -42,8 +43,9 @@ class ProviderController extends Controller
         $this->favoriteService = $favoriteService;
         $this->review = $review;
 
-        $this->is_customer_logged_in = (bool)auth('api')->user();
-        $this->customer_user_id = $this->is_customer_logged_in ? auth('api')->user()->id : $request['guest_id'];
+        $user = api_user();
+        $this->is_customer_logged_in = (bool) $user;
+        $this->customer_user_id = $this->is_customer_logged_in ? $user->id : $request['guest_id'];
     }
 
     /**
@@ -233,7 +235,21 @@ class ProviderController extends Controller
             'rating_group_count' => $ratingGroupCount,
         ];
 
-        return response()->json(response_formatter(DEFAULT_200, ['provider' => $provider, 'sub_categories' => $subCategories, 'reviews' => $review, 'rating' => $ratingInfo]), 200);
+        $showcaseItems = ProviderShowcaseItem::where('provider_id', $provider->id)
+            ->with('storage')
+            ->where('is_active', 1)
+            ->where('is_approved', ProviderShowcaseItem::STATUS_APPROVED)
+            ->orderByDesc('sort_order')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'provider' => $provider,
+            'sub_categories' => $subCategories,
+            'reviews' => $review,
+            'rating' => $ratingInfo,
+            'showcase_items' => $showcaseItems,
+        ]), 200);
     }
 
     /**

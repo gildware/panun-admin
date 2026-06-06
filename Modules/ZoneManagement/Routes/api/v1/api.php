@@ -16,3 +16,4 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
 });
 
 Route::get('zones', [PublicZoneController::class, 'index']);
+Route::get('zones/tree', [PublicZoneController::class, 'tree']);

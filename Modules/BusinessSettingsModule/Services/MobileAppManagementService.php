@@ -18,6 +18,9 @@ class MobileAppManagementService
 
     public const ICONS_KEY = 'mobile_app_icons';
 
+    /** @var list<string> */
+    public const ICON_VARIANTS = ['light', 'dark'];
+
     public const DATA_MODE_DEFAULT = 'default';
 
     public const DATA_MODE_MANUAL = 'manual';
@@ -405,7 +408,8 @@ class MobileAppManagementService
                     ['key' => 'customer_app_logo', 'label' => 'Customer app logo'],
                 ],
                 'provider' => [
-                    ['key' => 'provider_app_logo', 'label' => 'Provider app logo'],
+                    ['key' => 'provider_app_login_logo', 'label' => 'Provider logo (login & splash)'],
+                    ['key' => 'provider_app_home_logo', 'label' => 'Provider logo (home / app bar)'],
                 ],
             ],
             'menu' => [
@@ -435,6 +439,7 @@ class MobileAppManagementService
                 'provider' => [
                     ['key' => 'profile', 'label' => 'Profile'],
                     ['key' => 'subscription', 'label' => 'My subscription'],
+                    ['key' => 'services', 'label' => 'Services'],
                     ['key' => 'chat', 'label' => 'Chat'],
                     ['key' => 'settings', 'label' => 'Settings'],
                     ['key' => 'payment_info', 'label' => 'Payment information'],
@@ -451,6 +456,15 @@ class MobileAppManagementService
                     ['key' => 'refund_policy', 'label' => 'Refund policy (page)'],
                     ['key' => 'other_pages', 'label' => 'Other business pages'],
                     ['key' => 'logout', 'label' => 'Logout / sign in'],
+                ],
+            ],
+            'bottom_navigation' => [
+                'customer' => [],
+                'provider' => [
+                    ['key' => 'bottom_dashboard', 'label' => 'Dashboard (bottom navigation)'],
+                    ['key' => 'bottom_requests', 'label' => 'Requests (bottom navigation)'],
+                    ['key' => 'post', 'label' => 'Post (bottom navigation)'],
+                    ['key' => 'bottom_more', 'label' => 'More (bottom navigation)'],
                 ],
             ],
         ];
@@ -1053,27 +1067,156 @@ class MobileAppManagementService
     }
 
     /**
-     * @return array<string, array<string, string|null>>
+     * @return array<string, array<string, array{light: ?string, dark: ?string}>>
      */
     public function getIcons(): array
     {
-        return $this->getJsonSetting(self::ICONS_KEY) ?: ['customer' => [], 'provider' => []];
+        $raw = $this->getJsonSetting(self::ICONS_KEY) ?: ['customer' => [], 'provider' => []];
+        $out = ['customer' => [], 'provider' => []];
+
+        foreach (['customer', 'provider'] as $app) {
+            foreach ($raw[$app] ?? [] as $key => $value) {
+                $out[$app][$key] = self::normalizeIconEntry($value);
+            }
+        }
+
+        $legacy = $out['provider']['provider_app_logo'] ?? null;
+        if ($legacy && ($legacy['light'] || $legacy['dark'])) {
+            foreach (['provider_app_login_logo', 'provider_app_home_logo'] as $logoKey) {
+                $current = $out['provider'][$logoKey] ?? ['light' => null, 'dark' => null];
+                if (! $current['light'] && ! $current['dark']) {
+                    $out['provider'][$logoKey] = $legacy;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**
-     * @param array<string, array<string, string|null>> $icons
+     * @param array<string, array<string, array{light: ?string, dark: ?string}|string|null>> $icons
      */
     public function saveIcons(array $icons): void
     {
-        $this->persistJsonSetting(self::ICONS_KEY, [
-            'customer' => $icons['customer'] ?? [],
-            'provider' => $icons['provider'] ?? [],
-        ]);
+        $normalized = ['customer' => [], 'provider' => []];
+
+        foreach (['customer', 'provider'] as $app) {
+            foreach ($icons[$app] ?? [] as $key => $value) {
+                $normalized[$app][$key] = self::normalizeIconEntry($value);
+            }
+        }
+
+        $this->persistJsonSetting(self::ICONS_KEY, $normalized);
+    }
+
+    /**
+     * @return array{light: ?string, dark: ?string}
+     */
+    public static function normalizeIconEntry(mixed $value): array
+    {
+        if (is_string($value) && $value !== '') {
+            return ['light' => $value, 'dark' => $value];
+        }
+
+        if (!is_array($value)) {
+            return ['light' => null, 'dark' => null];
+        }
+
+        $light = $value['light'] ?? null;
+        $dark = $value['dark'] ?? null;
+
+        return [
+            'light' => is_string($light) && $light !== '' ? $light : null,
+            'dark' => is_string($dark) && $dark !== '' ? $dark : null,
+        ];
+    }
+
+    public function iconFilenameFor(string $app, string $key, string $variant): ?string
+    {
+        $icons = $this->getIcons();
+
+        return $icons[$app][$key][$variant] ?? null;
+    }
+
+    /**
+     * Bundled asset filename used when no custom upload exists (for admin hints).
+     */
+    public static function defaultIconAssetName(string $app, string $key): string
+    {
+        $map = $app === 'provider' ? self::providerDefaultIconAssets() : self::customerDefaultIconAssets();
+
+        return $map[$key] ?? 'icon.png';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function customerDefaultIconAssets(): array
+    {
+        return [
+            'customer_app_logo' => 'logo.png',
+            'profile' => 'profile_icon.png',
+            'inbox' => 'chat_image.png',
+            'language' => 'select_language.png',
+            'settings' => 'settings.png',
+            'bookings' => 'bookings_icon.png',
+            'vouchers' => 'voucher_icon.png',
+            'my_favorite' => 'my_favorite.png',
+            'custom_post' => 'custom_post_icon.png',
+            'wallet' => 'wallet_menu.png',
+            'loyalty_point' => 'my_point.png',
+            'refer_and_earn' => 'share_icon.png',
+            'service_area' => 'area_menu_icon.png',
+            'help_support' => 'help_icon.png',
+            'become_provider' => 'provider_image.png',
+            'logout' => 'logout.png',
+            'about_us' => 'about_us.png',
+            'terms' => 'terms_icon.png',
+            'privacy_policy' => 'privacy_policy_icon.png',
+            'cancellation_policy' => 'cancellation_policy.png',
+            'refund_policy' => 'refund_policy.png',
+            'other_pages' => 'others_page.png',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function providerDefaultIconAssets(): array
+    {
+        return [
+            'provider_app_login_logo' => 'logo.png',
+            'provider_app_home_logo' => 'appbar_logo.png',
+            'provider_app_logo' => 'logo.png',
+            'profile' => 'profile_icon.png',
+            'subscription' => 'my_subscription.png',
+            'services' => 'services.png',
+            'post' => 'create_post_icon_1.png',
+            'bottom_dashboard' => 'dashboard.png',
+            'bottom_requests' => 'requests.png',
+            'bottom_more' => 'moree.png',
+            'chat' => 'chat_image.png',
+            'settings' => 'settings.png',
+            'payment_info' => 'payment_info_icon.png',
+            'notification_channel' => 'notification_setup.png',
+            'withdraw_list' => 'transaction.png',
+            'reports' => 'report_overview2.png',
+            'advertisements' => 'menu_advertisement.png',
+            'business_plan' => 'business_plan_icon.png',
+            'help_support' => 'help_icon.png',
+            'about_us' => 'about_us.png',
+            'terms' => 'termsCondition.png',
+            'privacy_policy' => 'privacyPolicy.png',
+            'cancellation_policy' => 'cancellation.png',
+            'refund_policy' => 'refund.png',
+            'other_pages' => 'no-results.png',
+            'logout' => 'logout.png',
+        ];
     }
 
     public function iconFullPath(?string $filename): ?string
     {
-        if (!$filename) {
+        if (!$filename || $filename === 'def.png') {
             return null;
         }
 
@@ -1088,14 +1231,41 @@ class MobileAppManagementService
         }
 
         if (Storage::disk('public')->exists($imagePath)) {
-            return Storage::disk('public')->url($imagePath);
+            return mobile_app_icon_public_url($imagePath);
         }
 
         return null;
     }
 
     /**
-     * @return array{customer: array<string, string|null>, provider: array<string, string|null>}
+     * Relative or absolute URL for mobile apps — paths like /storage/mobile-app/file.webp
+     * so the app can prefix its own API base URL (fixes local / emulator host mismatches).
+     */
+    public function iconPathForApi(?string $filename): ?string
+    {
+        if (!$filename || $filename === 'def.png') {
+            return null;
+        }
+
+        $imagePath = 'mobile-app/'.$filename;
+
+        try {
+            if (Storage::disk('s3')->exists($imagePath)) {
+                return Storage::disk('s3')->url($imagePath);
+            }
+        } catch (\Throwable) {
+            //
+        }
+
+        if (Storage::disk('public')->exists($imagePath)) {
+            return '/storage/'.$imagePath;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{customer: array<string, array{light: ?string, dark: ?string}>, provider: array<string, array{light: ?string, dark: ?string}>}
      */
     public function iconsForApi(): array
     {
@@ -1103,8 +1273,11 @@ class MobileAppManagementService
         $out = ['customer' => [], 'provider' => []];
 
         foreach (['customer', 'provider'] as $app) {
-            foreach ($icons[$app] ?? [] as $key => $filename) {
-                $out[$app][$key] = $this->iconFullPath($filename);
+            foreach ($icons[$app] ?? [] as $key => $variants) {
+                $out[$app][$key] = [
+                    'light' => $this->iconPathForApi($variants['light'] ?? null),
+                    'dark' => $this->iconPathForApi($variants['dark'] ?? null),
+                ];
             }
         }
 

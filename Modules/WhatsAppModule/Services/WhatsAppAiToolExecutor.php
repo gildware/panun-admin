@@ -61,7 +61,7 @@ class WhatsAppAiToolExecutor
         return [
             [
                 'name' => 'get_public_business_info',
-                'description' => 'REQUIRED before you mention any rupee amount, visiting charge, support phone number, or support hours in your reply: call this tool in the same turn and use ONLY fields from the result (visiting_charge_note, customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note). Never invent prices, waivers, or contact details.',
+                'description' => 'Public business snapshot: services, zones, coverage, contact placeholders. Call when you need catalog/zone data, or before quoting support phone/hours. Use visiting_charge_note ONLY when the customer asked about price/cost/charges/fees/kitna — do not volunteer visiting charges in booking or general replies. When you do mention money or contact info, use ONLY fields from the result (visiting_charge_note, customer_message_placeholders.phone, customer_message_placeholders.schedule, service_coverage_policy_note). Never invent prices, waivers, or contact details.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => new \stdClass,

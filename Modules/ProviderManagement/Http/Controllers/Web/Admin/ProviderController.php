@@ -47,7 +47,11 @@ use Modules\ProviderManagement\Emails\RegistrationDeniedMail;
 use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
+use Modules\ProviderManagement\Entities\ProviderChangeRequest;
 use Modules\ProviderManagement\Entities\ProviderSetting;
+use Modules\ProviderManagement\Entities\ProviderShowcaseItem;
+use Modules\ProviderManagement\Services\ProviderProfileChangeDiffService;
+use Modules\ProviderManagement\Services\ProviderProfileChangeRequestService;
 use Modules\ProviderManagement\Entities\ProviderIncident;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Support\ProviderPhoneUpdateNormalizer;
@@ -979,6 +983,11 @@ class ProviderController extends Controller
                     ->groupBy('document_id');
             }
 
+            $pendingShowcaseItems = ProviderShowcaseItem::where('provider_id', $id)
+                ->where('is_approved', ProviderShowcaseItem::STATUS_PENDING)
+                ->orderByDesc('created_at')
+                ->get();
+
             return view('providermanagement::admin.provider.detail.overview', compact(
                 'provider',
                 'webPage',
@@ -992,7 +1001,8 @@ class ProviderController extends Controller
                 'scaledLossProviderShareTotal',
                 'scaledLossCompanyShareTotal',
                 'additionalDocuments',
-                'additionalDocumentFiles'
+                'additionalDocumentFiles',
+                'pendingShowcaseItems'
             ));
 
         } //subscribed_services
@@ -2091,7 +2101,7 @@ class ProviderController extends Controller
 
         $zones = $this->zone->ofStatus(1)->get();
         $zoneTree = $this->zoneTreeForProviderForm();
-        $provider = $this->provider->with(['owner', 'zone', 'zones'])->find($id);
+        $provider = $this->provider->with(['owner', 'zone', 'zones', 'storage'])->find($id);
         $commission = (int)((business_config('provider_commision', 'provider_config'))->live_values ?? null);
         $subscription = (int)((business_config('provider_subscription', 'provider_config'))->live_values ?? null);
         $duration = (int)((business_config('free_trial_period', 'subscription_Setting'))->live_values ?? null);
@@ -3004,8 +3014,192 @@ class ProviderController extends Controller
     public function onboardingDetails($id, Request $request): View|\Illuminate\Foundation\Application|Factory|Application
     {
         $this->authorize('onboarding_request_view');
-        $provider = $this->provider->with('owner.account')->withCount(['bookings'])->find($id);
-        return view('providermanagement::admin.provider.detail.onboarding-details', compact('provider'));
+        $provider = $this->provider
+            ->with(['owner', 'owner.account', 'zone', 'zones.parentZone', 'storage'])
+            ->withCount(['bookings'])
+            ->findOrFail($id);
+
+        $leafZoneIds = method_exists($provider, 'coveredLeafZoneIds') ? $provider->coveredLeafZoneIds() : [];
+        $leafZones = collect();
+        if ($leafZoneIds !== []) {
+            $leafZones = $this->zone->withoutGlobalScope('translate')
+                ->with('parentZone')
+                ->whereIn('id', $leafZoneIds)
+                ->get();
+        }
+
+        $serviceZoneLines = [];
+        $groupedZones = [];
+        foreach ($leafZones as $leafZone) {
+            $parentName = $leafZone->parentZone?->name ?? $leafZone->name;
+            $groupedZones[$parentName] = $groupedZones[$parentName] ?? [];
+            $groupedZones[$parentName][] = $leafZone->name;
+        }
+        foreach ($groupedZones as $parentName => $childNames) {
+            $childNames = array_values(array_unique($childNames));
+            $serviceZoneLines[] = $parentName . ': ' . implode(', ', $childNames);
+        }
+
+        $subscribedServicesByCategory = DB::table('subscribed_services as ss')
+            ->leftJoin('categories as parent_cat', 'parent_cat.id', '=', 'ss.category_id')
+            ->leftJoin('categories as sub_cat', 'sub_cat.id', '=', 'ss.sub_category_id')
+            ->where('ss.provider_id', $id)
+            ->where('ss.is_subscribed', 1)
+            ->select(
+                'ss.category_id',
+                DB::raw('MAX(parent_cat.name) as category_name'),
+                DB::raw('MAX(sub_cat.name) as subcategory_name')
+            )
+            ->groupBy('ss.category_id', 'ss.sub_category_id')
+            ->orderBy('category_name')
+            ->orderBy('subcategory_name')
+            ->get()
+            ->groupBy('category_id')
+            ->map(function ($rows) {
+                $first = $rows->first();
+
+                return [
+                    'category_name' => $first->category_name ?: translate('Category'),
+                    'subcategories' => $rows->pluck('subcategory_name')->filter()->unique()->values()->all(),
+                ];
+            })
+            ->values();
+
+        $pendingShowcaseItems = ProviderShowcaseItem::where('provider_id', $id)
+            ->where('is_approved', ProviderShowcaseItem::STATUS_PENDING)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('providermanagement::admin.provider.detail.onboarding-details', compact(
+            'provider',
+            'serviceZoneLines',
+            'subscribedServicesByCategory',
+            'pendingShowcaseItems'
+        ));
+    }
+
+    public function showcaseApprovalRequest(Request $request): Factory|View|Application
+    {
+        $this->authorize('onboarding_request_view');
+
+        $status = $request->status === 'denied' ? 'denied' : 'pending';
+        $search = $request['search'];
+        $queryParam = ['status' => $status, 'search' => $request['search']];
+
+        $query = ProviderShowcaseItem::with('provider.owner')
+            ->when($request->has('search'), function ($q) use ($request) {
+                $keys = explode(' ', $request['search']);
+                $q->whereHas('provider', function ($pq) use ($keys) {
+                    foreach ($keys as $key) {
+                        $pq->orWhere('company_name', 'LIKE', '%' . $key . '%')
+                            ->orWhere('contact_person_name', 'LIKE', '%' . $key . '%');
+                    }
+                });
+            });
+
+        if ($status === 'denied') {
+            $query->where('is_approved', ProviderShowcaseItem::STATUS_DENIED);
+        } else {
+            $query->where('is_approved', ProviderShowcaseItem::STATUS_PENDING);
+        }
+
+        $items = $query->latest()->paginate(pagination_limit())->appends($queryParam);
+
+        $counts = [
+            'pending' => ProviderShowcaseItem::where('is_approved', ProviderShowcaseItem::STATUS_PENDING)->count(),
+            'denied' => ProviderShowcaseItem::where('is_approved', ProviderShowcaseItem::STATUS_DENIED)->count(),
+        ];
+
+        return view('providermanagement::admin.provider.showcase-approval', compact('items', 'search', 'status', 'counts'));
+    }
+
+    public function updateShowcaseApproval(string $id, string $status): JsonResponse
+    {
+        $this->authorize('onboarding_request_manage_status');
+
+        $item = ProviderShowcaseItem::findOrFail($id);
+        if ($status === 'approve') {
+            $item->is_approved = ProviderShowcaseItem::STATUS_APPROVED;
+        } elseif ($status === 'deny') {
+            $item->is_approved = ProviderShowcaseItem::STATUS_DENIED;
+        } else {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+        $item->save();
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
+    }
+
+    public function profileChangeRequest(Request $request): Factory|View|Application
+    {
+        $this->authorize('onboarding_request_view');
+
+        $status = $request->status === 'denied' ? 'denied' : 'pending';
+        $search = $request['search'];
+        $queryParam = ['status' => $status, 'search' => $request['search']];
+
+        $query = ProviderChangeRequest::with('provider.owner')
+            ->when($request->has('search'), function ($q) use ($request) {
+                $keys = explode(' ', $request['search']);
+                $q->whereHas('provider', function ($pq) use ($keys) {
+                    foreach ($keys as $key) {
+                        $pq->orWhere('company_name', 'LIKE', '%' . $key . '%')
+                            ->orWhere('contact_person_name', 'LIKE', '%' . $key . '%');
+                    }
+                });
+            });
+
+        if ($status === 'denied') {
+            $query->where('status', ProviderChangeRequest::STATUS_DENIED);
+        } else {
+            $query->where('status', ProviderChangeRequest::STATUS_PENDING);
+        }
+
+        $requests = $query->latest()->paginate(pagination_limit())->appends($queryParam);
+
+        $counts = [
+            'pending' => ProviderChangeRequest::where('status', ProviderChangeRequest::STATUS_PENDING)->count(),
+            'denied' => ProviderChangeRequest::where('status', ProviderChangeRequest::STATUS_DENIED)->count(),
+        ];
+
+        return view('providermanagement::admin.provider.profile-change-request', compact('requests', 'search', 'status', 'counts'));
+    }
+
+    public function profileChangeDetails(string $id): Factory|View|Application
+    {
+        $this->authorize('onboarding_request_view');
+
+        $changeRequest = ProviderChangeRequest::with('provider.owner', 'provider.zones.parentZone')
+            ->findOrFail($id);
+
+        $proposedChanges = app(ProviderProfileChangeDiffService::class)->build($changeRequest);
+
+        return view('providermanagement::admin.provider.detail.profile-change-details', compact('changeRequest', 'proposedChanges'));
+    }
+
+    public function updateProfileChangeApproval(string $id, string $status): JsonResponse
+    {
+        $this->authorize('onboarding_request_manage_status');
+
+        $changeRequest = ProviderChangeRequest::findOrFail($id);
+        if ($changeRequest->status !== ProviderChangeRequest::STATUS_PENDING) {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        if ($status === 'approve') {
+            app(ProviderProfileChangeRequestService::class)->apply($changeRequest);
+            $changeRequest->status = ProviderChangeRequest::STATUS_APPROVED;
+        } elseif ($status === 'deny') {
+            $changeRequest->status = ProviderChangeRequest::STATUS_DENIED;
+        } else {
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        $changeRequest->reviewed_by = auth()->id();
+        $changeRequest->reviewed_at = now();
+        $changeRequest->save();
+
+        return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }
 
     public function updateApproval($id, $status, Request $request): JsonResponse

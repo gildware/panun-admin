@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
 use Modules\BusinessSettingsModule\Entities\LoginSetup;
 use Modules\CustomerModule\Traits\CustomerTrait;
 use Modules\PaymentModule\Entities\Setting;
+use Modules\Auth\Services\ProviderRegistrationDraftService;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserVerification;
 use Modules\UserManagement\Http\Controllers\Api\V1\OTPVerificationController;
@@ -139,7 +140,9 @@ class LoginController extends Controller
         }
 
         $user = $this->findProviderAdminByPhone($request['phone']);
-        if (! $user) {
+        $selfRegistration = (int) (business_config('provider_self_registration', 'provider_config')?->live_values ?? 0);
+
+        if (! $user && $selfRegistration !== 1) {
             return response()->json(response_formatter(AUTH_LOGIN_404), 404);
         }
 
@@ -183,18 +186,32 @@ class LoginController extends Controller
             $verify->delete();
 
             $user = $this->findProviderAdminByPhone($request['phone']);
-            if (! $user) {
-                return response()->json(response_formatter(AUTH_LOGIN_404), 404);
+            $selfRegistration = (int) (business_config('provider_self_registration', 'provider_config')?->live_values ?? 0);
+
+            if ($user) {
+                if ($blocked = $this->providerLoginEligibilityResponse($user)) {
+                    return $blocked;
+                }
+
+                $user->is_phone_verified = 1;
+                $user->save();
+
+                return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, PROVIDER_PANEL_ACCESS)), 200);
             }
 
-            if ($blocked = $this->providerLoginEligibilityResponse($user)) {
-                return $blocked;
+            if ($selfRegistration === 1) {
+                $draft = app(ProviderRegistrationDraftService::class)->findOrCreateForPhone($request['phone']);
+                $payload = app(ProviderRegistrationDraftService::class)->toApiPayload($draft);
+
+                return response()->json(response_formatter(PROVIDER_ONBOARDING_200, [
+                    'phone' => $request['phone'],
+                    'is_registered' => false,
+                    'registration_token' => $payload['registration_token'],
+                    'draft' => $payload,
+                ]), 200);
             }
 
-            $user->is_phone_verified = 1;
-            $user->save();
-
-            return response()->json(response_formatter(AUTH_LOGIN_200, self::authenticate($user, PROVIDER_PANEL_ACCESS)), 200);
+            return response()->json(response_formatter(AUTH_LOGIN_404), 404);
         }
 
         return app(OTPVerificationController::class)->providerLoginOtpFailed($request);
@@ -231,11 +248,17 @@ class LoginController extends Controller
             $user->save();
         }
 
-        if ($user->provider?->is_approved == '2') {
-            return response()->json(response_formatter(PROVIDER_ACCOUNT_NOT_APPROVED), 401);
+        if ((string) ($user->provider?->is_approved ?? '') === '0') {
+            return response()->json(response_formatter(ACCOUNT_REJECTED), 401);
         }
 
-        if (! $user->is_active) {
+        $pendingAdminApproval = (string) ($user->provider?->is_approved ?? '') === '2';
+
+        if (! $user->is_active && ! $pendingAdminApproval) {
+            return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
+        }
+
+        if ($user->provider && ! $user->provider->is_active && ! $pendingAdminApproval) {
             return response()->json(response_formatter(ACCOUNT_DISABLED), 401);
         }
 

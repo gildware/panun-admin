@@ -15,10 +15,12 @@ class MobileAppAiConversation extends Model
     protected $fillable = [
         'user_id',
         'last_message_at',
+        'booking_draft',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
+        'booking_draft' => 'array',
     ];
 
     public function user(): BelongsTo

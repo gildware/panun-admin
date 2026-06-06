@@ -27,8 +27,9 @@ class CategoryController extends Controller
         $this->recentView = $recentView;
         $this->favoriteService = $favoriteService;
 
-        $this->is_customer_logged_in = (bool)auth('api')->user();
-        $this->customer_user_id = $this->is_customer_logged_in ? auth('api')->user()->id : $request['guest_id'];
+        $user = api_user();
+        $this->is_customer_logged_in = (bool) $user;
+        $this->customer_user_id = $this->is_customer_logged_in ? $user->id : $request['guest_id'];
     }
 
     /**
@@ -47,7 +48,11 @@ class CategoryController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $categories = $this->category->with(['zones'])->ofStatus(1)->ofType('main')->latest()
+        $categories = $this->category->with(['zones'])
+            ->ofStatus(1)
+            ->ofType('main')
+            ->mainWithActiveCatalog()
+            ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $categories), 200);
@@ -78,6 +83,7 @@ class CategoryController extends Controller
         }
 
         $childes = $this->category->ofStatus(1)->ofType('sub')->withoutGlobalScopes(['zone_wise_data'])
+            ->withActiveServices()
             ->withCount(['services' => function ($query) {
                 $query->where('is_active', 1);
             }])
@@ -133,6 +139,7 @@ class CategoryController extends Controller
             ->ofStatus(1)
             ->ofFeatured(1)
             ->ofType('main')
+            ->mainWithActiveCatalog()
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
