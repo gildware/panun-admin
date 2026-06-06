@@ -1928,7 +1928,7 @@ class WhatsAppController extends Controller
         try {
             $resolved = $this->resolveWhatsAppFilteredActiveChats($request, $humanSupportTab, $page, $perPage);
             $counts = $resolved['list_counts'] ?? $this->computeWhatsAppActiveChatCounts($resolved['chats']);
-            $total = (int) ($counts['total'] ?? 0);
+            $total = (int) ($counts['filtered_total'] ?? $counts['total'] ?? 0);
             $slice = $resolved['chats'];
             $offset = ($page - 1) * $perPage;
             $loaded = min($offset + $slice->count(), $total);
@@ -1944,8 +1944,13 @@ class WhatsAppController extends Controller
                 'page' => $page,
                 'per_page' => $perPage,
                 'total' => $total,
-                'unread_count' => $counts['unread'],
-                'read_count' => $counts['read'],
+                'conversation_counts' => [
+                    'total' => (int) ($counts['total'] ?? 0),
+                    'unread' => (int) ($counts['unread'] ?? 0),
+                    'read' => (int) ($counts['read'] ?? 0),
+                ],
+                'unread_count' => (int) ($counts['unread'] ?? 0),
+                'read_count' => (int) ($counts['read'] ?? 0),
                 'loaded' => $loaded,
                 'remaining' => $remaining,
                 'has_more' => $remaining > 0,
@@ -2150,7 +2155,7 @@ class WhatsAppController extends Controller
      *
      * @return \Illuminate\Support\Collection<int, object>
      */
-    private function fetchActiveChatRows(?int $offset = null, ?int $limit = null): \Illuminate\Support\Collection
+    private function fetchActiveChatRows(?int $offset = null, ?int $limit = null, ?string $unreadState = null): \Illuminate\Support\Collection
     {
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $ch = SocialInboxChannel::current();
@@ -2160,6 +2165,12 @@ class WhatsAppController extends Controller
             if ($offset !== null && $offset > 0) {
                 $pageSql .= ' OFFSET '.(int) $offset;
             }
+        }
+        $unreadWhere = '';
+        if ($unreadState === 'unread') {
+            $unreadWhere = ' AND COALESCE(unread.unread_count, 0) > 0';
+        } elseif ($unreadState === 'read') {
+            $unreadWhere = ' AND COALESCE(unread.unread_count, 0) = 0';
         }
         $rows = DB::select("
             SELECT m.phone,
@@ -2183,7 +2194,7 @@ class WhatsAppController extends Controller
                   AND channel = ?
                 GROUP BY phone
             ) unread ON unread.phone = m.phone
-            WHERE m.channel = ?
+            WHERE m.channel = ?{$unreadWhere}
             ORDER BY m.created_at DESC{$pageSql}
         ", [$ch, $ch, $ch, $ch]);
 
@@ -2326,12 +2337,31 @@ class WhatsAppController extends Controller
         return $chatHandlers;
     }
 
-    private function hasActiveChatListFilters(Request $request): bool
+    private function normalizeWaUnreadStateFilterForSql(Request $request): ?string
+    {
+        $states = $this->normalizeWaUnreadStateFilter($request);
+        if ($states === [] || count($states) > 1) {
+            return null;
+        }
+
+        return $states[0];
+    }
+
+    private function canUseSqlPaginatedActiveChats(Request $request, bool $humanSupportTab): bool
+    {
+        if ($humanSupportTab) {
+            return false;
+        }
+
+        return ! $this->hasBlockingActiveChatListFilters($request);
+    }
+
+    /**
+     * Filters that require loading the full chat list in PHP (excluding read/unread quick filters).
+     */
+    private function hasBlockingActiveChatListFilters(Request $request): bool
     {
         if ($this->normalizeWaHandlerFilters($request) !== []) {
-            return true;
-        }
-        if ($this->normalizeWaUnreadStateFilter($request) !== []) {
             return true;
         }
         if ($this->chatConfigurationTablesPresent()) {
@@ -2364,6 +2394,35 @@ class WhatsAppController extends Controller
         }
 
         return false;
+    }
+
+    private function hasActiveChatListFilters(Request $request): bool
+    {
+        if ($this->normalizeWaUnreadStateFilterForSql($request) !== null) {
+            return true;
+        }
+
+        return $this->hasBlockingActiveChatListFilters($request);
+    }
+
+    /**
+     * @return array{total: int, unread: int, read: int, filtered_total: int}
+     */
+    private function buildActiveChatListCounts(?string $unreadState = null): array
+    {
+        $global = $this->countActiveChatPhoneStats();
+        $filteredTotal = match ($unreadState) {
+            'unread' => $global['unread'],
+            'read' => $global['read'],
+            default => $global['total'],
+        };
+
+        return [
+            'total' => $global['total'],
+            'unread' => $global['unread'],
+            'read' => $global['read'],
+            'filtered_total' => $filteredTotal,
+        ];
     }
 
     /**
@@ -2913,16 +2972,16 @@ class WhatsAppController extends Controller
         $handlerFilter = $handlerFilters === [] ? 'all' : (count($handlerFilters) === 1 ? $handlerFilters[0] : 'all');
         $chatHandlers = $this->buildActiveChatHandlerFilterOptions($humanSupportTab);
 
-        if ($page !== null && $perPage !== null && ! $humanSupportTab && ! $this->hasActiveChatListFilters($request)) {
-            $stats = $this->countActiveChatPhoneStats();
+        if ($page !== null && $perPage !== null && $this->canUseSqlPaginatedActiveChats($request, $humanSupportTab)) {
+            $unreadState = $this->normalizeWaUnreadStateFilterForSql($request);
             $offset = ($page - 1) * $perPage;
 
             return [
-                'chats' => $this->enrichActiveChatRows($this->fetchActiveChatRows($offset, $perPage)),
+                'chats' => $this->enrichActiveChatRows($this->fetchActiveChatRows($offset, $perPage, $unreadState)),
                 'chatHandlers' => $chatHandlers,
                 'handlerFilters' => $handlerFilters,
                 'handlerFilter' => $handlerFilter,
-                'list_counts' => $stats,
+                'list_counts' => $this->buildActiveChatListCounts($unreadState),
             ];
         }
 
@@ -2950,7 +3009,14 @@ class WhatsAppController extends Controller
         $chats = $this->applyWhatsAppUnreadStateFilter($chats, $request);
         $chats = $this->applyWhatsAppSystemLinkAndDateFilters($chats, $request);
 
-        $listCounts = $this->computeWhatsAppActiveChatCounts($chats);
+        $globalCounts = $this->countActiveChatPhoneStats();
+        $filteredTotal = $chats->count();
+        $listCounts = [
+            'total' => $globalCounts['total'],
+            'unread' => $globalCounts['unread'],
+            'read' => $globalCounts['read'],
+            'filtered_total' => $filteredTotal,
+        ];
 
         if ($page !== null && $perPage !== null) {
             $offset = ($page - 1) * $perPage;

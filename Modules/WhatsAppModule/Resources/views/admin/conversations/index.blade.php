@@ -169,13 +169,20 @@
             .whatsapp-active-list-container .wa-chat-list-filter-btn {
                 white-space: nowrap;
             }
-            .wa-active-chat-counts {
-                font-size: 0.75rem;
-                font-weight: 500;
+            .wa-active-chat-count-filters {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
             }
-            .wa-active-chat-counts .badge {
-                font-size: 0.7rem;
+            .wa-active-chat-count-filters .wa-chat-read-filter-btn {
+                font-size: 0.72rem;
                 font-weight: 600;
+                padding: 0.2rem 0.55rem;
+                border-radius: 999px;
+                line-height: 1.35;
+            }
+            .wa-active-chat-count-filters .wa-chat-read-filter-btn.active {
+                box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
             }
             #wa-active-chat-list-footer {
                 border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -1181,13 +1188,21 @@
             {{-- Tab: Active Chats / Human support — left: scrollable list, right: open chat --}}
             <?php if (($tab ?? '') === 'chats' || ($tab ?? '') === 'human_support'): ?>
                 <div class="row g-3 align-items-stretch wa-chats-split-layout">
+                    <?php
+                        $waListFilteredTotal = (int) ($chatCounts['filtered_total'] ?? $chatCounts['total'] ?? 0);
+                        $waActiveUnreadFilter = '';
+                        if (count($unreadStateFilter ?? []) === 1) {
+                            $waActiveUnreadFilter = (string) $unreadStateFilter[0];
+                        }
+                    ?>
                     <div class="col-12 col-md-5 col-lg-4 col-xl-4 whatsapp-active-list-container wa-chats-split-col"
-                         data-total="{{ (int) ($chatCounts['total'] ?? 0) }}"
+                         data-total="{{ $waListFilteredTotal }}"
                          data-unread="{{ (int) ($chatCounts['unread'] ?? 0) }}"
                          data-read="{{ (int) ($chatCounts['read'] ?? 0) }}"
+                         data-unread-filter="{{ e($waActiveUnreadFilter) }}"
                          data-loaded="{{ (int) ($chats ?? collect())->count() }}"
                          data-page="1"
-                         data-has-more="{{ ((int) ($chatCounts['total'] ?? 0)) > ((int) ($chats ?? collect())->count()) ? '1' : '0' }}">
+                         data-has-more="{{ $waListFilteredTotal > ((int) ($chats ?? collect())->count()) ? '1' : '0' }}">
                         <div class="card h-100 d-flex flex-column wa-min-h-0">
                             <div class="card-header py-2 d-flex flex-column gap-1 min-w-0">
                                 <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
@@ -1215,16 +1230,25 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div id="wa-active-chat-counts" class="wa-active-chat-counts d-flex flex-wrap align-items-center gap-1 text-muted">
-                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" id="wa-active-chat-count-total">
-                                        {{ str_replace(':count', (string) (int) ($chatCounts['total'] ?? 0), translate('whatsapp_active_chats_total')) }}
-                                    </span>
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle" id="wa-active-chat-count-unread">
-                                        {{ str_replace(':count', (string) (int) ($chatCounts['unread'] ?? 0), translate('whatsapp_active_chats_unread')) }}
-                                    </span>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle" id="wa-active-chat-count-read">
-                                        {{ str_replace(':count', (string) (int) ($chatCounts['read'] ?? 0), translate('whatsapp_active_chats_read')) }}
-                                    </span>
+                                <div id="wa-active-chat-counts" class="wa-active-chat-count-filters" role="group" aria-label="{{ translate('whatsapp_chat_filters_read_state') }}">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary wa-chat-read-filter-btn{{ $waActiveUnreadFilter === '' ? ' active' : '' }}"
+                                            id="wa-active-chat-filter-all"
+                                            data-unread-state="">
+                                        {{ str_replace(':count', (string) (int) ($chatCounts['total'] ?? 0), translate('whatsapp_active_chats_filter_all')) }}
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger wa-chat-read-filter-btn{{ $waActiveUnreadFilter === 'unread' ? ' active' : '' }}"
+                                            id="wa-active-chat-filter-unread"
+                                            data-unread-state="unread">
+                                        {{ str_replace(':count', (string) (int) ($chatCounts['unread'] ?? 0), translate('whatsapp_active_chats_filter_unread')) }}
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success wa-chat-read-filter-btn{{ $waActiveUnreadFilter === 'read' ? ' active' : '' }}"
+                                            id="wa-active-chat-filter-read"
+                                            data-unread-state="read">
+                                        {{ str_replace(':count', (string) (int) ($chatCounts['read'] ?? 0), translate('whatsapp_active_chats_filter_read')) }}
+                                    </button>
                                 </div>
                             </div>
                             <div class="card-body p-0 wa-active-chat-list-scroll">
@@ -1240,10 +1264,10 @@
                                     <div class="p-4 text-center text-muted wa-no-chats-msg">{{ !empty($humanSupportTab ?? false) ? translate('No human support requests') : translate('No active chats') }}</div>
                                 <?php endif; ?>
                                 </div>
-                                <div id="wa-active-chat-list-footer" class="px-3 py-2 text-center small text-muted{{ ($chatCollection->isEmpty() || ((int) ($chatCounts['total'] ?? 0)) <= $chatCollection->count()) ? ' d-none' : '' }}">
+                                <div id="wa-active-chat-list-footer" class="px-3 py-2 text-center small text-muted{{ ($chatCollection->isEmpty() || $waListFilteredTotal <= $chatCollection->count()) ? ' d-none' : '' }}">
                                     <div id="wa-active-chat-remaining">
-                                        @if($chatCollection->isNotEmpty() && ((int) ($chatCounts['total'] ?? 0)) > $chatCollection->count())
-                                            {{ str_replace(':count', (string) max(0, (int) ($chatCounts['total'] ?? 0) - $chatCollection->count()), translate('whatsapp_active_chats_remaining')) }}
+                                        @if($chatCollection->isNotEmpty() && $waListFilteredTotal > $chatCollection->count())
+                                            {{ str_replace(':count', (string) max(0, $waListFilteredTotal - $chatCollection->count()), translate('whatsapp_active_chats_remaining')) }}
                                         @endif
                                     </div>
                                     <div id="wa-active-chat-loading" class="d-none">
@@ -1561,9 +1585,9 @@
     var activeChatsListUrl = @json(route('admin.whatsapp.conversations.active-chats', ['channel' => $waInboxCh]));
     var waHumanSupportTab = @json(!empty($humanSupportTab ?? false));
     var waChatListPerPage = @json((int) config('whatsappmodule.active_chats_per_page', 20));
-    var strWaActiveChatsTotal = {!! json_encode(translate('whatsapp_active_chats_total')) !!};
-    var strWaActiveChatsUnread = {!! json_encode(translate('whatsapp_active_chats_unread')) !!};
-    var strWaActiveChatsRead = {!! json_encode(translate('whatsapp_active_chats_read')) !!};
+    var strWaActiveChatsFilterAll = {!! json_encode(translate('whatsapp_active_chats_filter_all')) !!};
+    var strWaActiveChatsFilterUnread = {!! json_encode(translate('whatsapp_active_chats_filter_unread')) !!};
+    var strWaActiveChatsFilterRead = {!! json_encode(translate('whatsapp_active_chats_filter_read')) !!};
     var strWaActiveChatsRemaining = {!! json_encode(translate('whatsapp_active_chats_remaining')) !!};
     var wabaTemplatesUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_view') ? route('admin.whatsapp.conversations.chat.waba-templates', ['channel' => $waInboxCh]) : '');
     var sendTemplateUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.chat.send-template', ['channel' => $waInboxCh]) : '');
@@ -2015,26 +2039,79 @@
         return String(template || '').replace(':count', String(count));
     }
 
+    function waConversationCountsFromMeta(meta) {
+        if (meta && meta.conversation_counts) {
+            return meta.conversation_counts;
+        }
+        return {
+            total: meta && meta.unread_count !== undefined && meta.read_count !== undefined
+                ? ((meta.total || 0) + 0)
+                : 0,
+            unread: meta ? (meta.unread_count || 0) : 0,
+            read: meta ? (meta.read_count || 0) : 0
+        };
+    }
+
+    function waUpdateUnreadFilterButtons(activeState) {
+        document.querySelectorAll('.wa-chat-read-filter-btn').forEach(function(btn) {
+            var state = btn.getAttribute('data-unread-state') || '';
+            var isActive = (activeState || '') === state;
+            btn.classList.toggle('active', isActive);
+        });
+        var listContainer = document.querySelector('.whatsapp-active-list-container');
+        if (listContainer) {
+            listContainer.dataset.unreadFilter = activeState || '';
+        }
+    }
+
+    function waSyncUnreadFilterSelect(activeState) {
+        var sel = document.getElementById('wa-filter-unread');
+        if (!sel || !window.jQuery) {
+            return;
+        }
+        var $sel = window.jQuery(sel);
+        $sel.val(activeState ? [activeState] : []).trigger('change');
+    }
+
+    function waApplyUnreadStateFilter(activeState) {
+        var url = new URL(window.location.href);
+        url.searchParams.delete('unread_state[]');
+        url.searchParams.delete('unread_state');
+        if (activeState === 'unread' || activeState === 'read') {
+            url.searchParams.append('unread_state[]', activeState);
+        }
+        window.history.replaceState({}, '', url.toString());
+        waUpdateUnreadFilterButtons(activeState || '');
+        waSyncUnreadFilterSelect(activeState || '');
+        waChatListCurrentPage = 0;
+        var listContainer = document.querySelector('.whatsapp-active-list-container');
+        if (listContainer) {
+            listContainer.dataset.page = '0';
+        }
+        return waFetchActiveChatsPage(1, waChatListPerPage, 'replace');
+    }
+
     function waUpdateActiveChatCounts(listContainer, meta) {
         if (!listContainer || !meta) {
             return;
         }
+        var conv = waConversationCountsFromMeta(meta);
         listContainer.dataset.total = String(meta.total || 0);
-        listContainer.dataset.unread = String(meta.unread_count || 0);
-        listContainer.dataset.read = String(meta.read_count || 0);
+        listContainer.dataset.unread = String(conv.unread || 0);
+        listContainer.dataset.read = String(conv.read || 0);
         listContainer.dataset.loaded = String(meta.loaded || 0);
         listContainer.dataset.hasMore = meta.has_more ? '1' : '0';
-        var totalEl = document.getElementById('wa-active-chat-count-total');
-        var unreadEl = document.getElementById('wa-active-chat-count-unread');
-        var readEl = document.getElementById('wa-active-chat-count-read');
-        if (totalEl) {
-            totalEl.textContent = waFormatCountLabel(strWaActiveChatsTotal, meta.total || 0);
+        var allBtn = document.getElementById('wa-active-chat-filter-all');
+        var unreadBtn = document.getElementById('wa-active-chat-filter-unread');
+        var readBtn = document.getElementById('wa-active-chat-filter-read');
+        if (allBtn) {
+            allBtn.textContent = waFormatCountLabel(strWaActiveChatsFilterAll, conv.total || 0);
         }
-        if (unreadEl) {
-            unreadEl.textContent = waFormatCountLabel(strWaActiveChatsUnread, meta.unread_count || 0);
+        if (unreadBtn) {
+            unreadBtn.textContent = waFormatCountLabel(strWaActiveChatsFilterUnread, conv.unread || 0);
         }
-        if (readEl) {
-            readEl.textContent = waFormatCountLabel(strWaActiveChatsRead, meta.read_count || 0);
+        if (readBtn) {
+            readBtn.textContent = waFormatCountLabel(strWaActiveChatsFilterRead, conv.read || 0);
         }
     }
 
@@ -2161,6 +2238,21 @@
             return;
         }
         waChatListCurrentPage = parseInt(listContainer.dataset.page || '1', 10) || 1;
+        waUpdateUnreadFilterButtons(listContainer.dataset.unreadFilter || '');
+        document.querySelectorAll('.wa-chat-read-filter-btn').forEach(function(btn) {
+            if (btn.dataset.waUnreadFilterBound === '1') {
+                return;
+            }
+            btn.dataset.waUnreadFilterBound = '1';
+            btn.addEventListener('click', function() {
+                var next = btn.getAttribute('data-unread-state') || '';
+                var current = listContainer.dataset.unreadFilter || '';
+                if (next === current) {
+                    return;
+                }
+                waApplyUnreadStateFilter(next);
+            });
+        });
         var scrollEl = waActiveListScrollParent(listContainer);
         if (scrollEl) {
             scrollEl.addEventListener('scroll', function() {
