@@ -32,22 +32,101 @@
             100% { transform: rotate(360deg); }
         }
 
+        .header-right {
+            width: 100%;
+            min-width: 0;
+        }
+        .header-right > .nav {
+            flex-wrap: nowrap;
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .header-right > .nav > .nav-item,
+        .header-right > .nav > li {
+            flex-shrink: 0;
+        }
+        .staff-header-status-pill {
+            font-size: inherit;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .staff-header-status-pill::after {
+            margin-inline-start: 0.35rem;
+        }
+        .staff-header-status-pill .staff-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: currentColor;
+            opacity: 0.95;
+        }
+        .staff-presence-menu {
+            min-width: 11rem;
+        }
+        .staff-presence-menu .dropdown-item.active {
+            font-weight: 600;
+        }
+
     </style>
 
 @endpush
 <header class="header fixed-top">
     <div class="container-fluid">
         <div class="row align-items-center justify-content-between">
-            <div class="col-2">
+            <div class="col-auto">
                 <div class="header-toogle-menu">
                     <button class="toggle-menu-button aside-toggle border-0 bg-transparent p-0 dark-color">
                         <span class="material-icons">menu</span>
                     </button>
                 </div>
             </div>
-            <div class="col-10">
+            <div class="col min-w-0">
                 <div class="header-right">
+                    @php
+                        $headerPresenceService = app(\Modules\AdminModule\Services\StaffPresenceService::class);
+                        $currentHeaderPresence = $headerPresenceService->resolveDisplayStatus(auth()->user());
+                    @endphp
                     <ul class="nav justify-content-end align-items-center gap-3 gap-md-4">
+                        <li class="nav-item max-sm-m-0">
+                            <div class="dropdown">
+                                <button type="button"
+                                        id="staff-header-status-pill"
+                                        class="staff-header-status-pill dropdown-toggle border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 {{ $headerPresenceService->statusPillClass($currentHeaderPresence) }}"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-offset="0,12"
+                                        data-presence-status="{{ $currentHeaderPresence }}"
+                                        aria-expanded="false"
+                                        title="{{ translate('Your_Status') }}">
+                                    <span class="staff-status-dot"></span>
+                                    <span id="staff-header-presence-label" class="d-none d-md-block">{{ $headerPresenceService->statusLabel($currentHeaderPresence) }}</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end staff-presence-menu py-2">
+                                    <li class="px-3 pb-2 mb-1 border-bottom">
+                                        <span class="small text-muted">{{ translate('Your_Status') }}</span>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 staff-presence-btn {{ $currentHeaderPresence === 'online' ? 'active' : '' }}" data-status="online">
+                                            <span class="rounded-circle bg-success" style="width:8px;height:8px;"></span>
+                                            {{ translate('Online') }}
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 staff-presence-btn {{ $currentHeaderPresence === 'away' ? 'active' : '' }}" data-status="away">
+                                            <span class="rounded-circle bg-warning" style="width:8px;height:8px;"></span>
+                                            {{ translate('Away') }}
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 staff-presence-btn {{ $currentHeaderPresence === 'on_break' ? 'active' : '' }}" data-status="on_break">
+                                            <span class="rounded-circle bg-info" style="width:8px;height:8px;"></span>
+                                            {{ translate('On_Break') }}
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
                         <li class="nav-item max-sm-m-0">
                             <a href="{{ route('admin.business-ai.index') }}" class="btn btn--success border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 text-decoration-none">
                                 <span class="material-symbols-outlined" aria-hidden="true">psychology</span>
@@ -70,62 +149,20 @@
                             </button>
                         </li>
                         <li class="nav-item max-sm-m-0">
-                            <div class="hs-unfold">
-                                <div>
-                                    @php($local = session()->has('local') ? session('local'):null)
-                                    @php($lang = Modules\BusinessSettingsModule\Entities\BusinessSettings::where('key_name','system_language')->first())
-                                    @if ($lang)
-                                        <div class="topbar-text dropdown d-flex">
-                                            <a class="topbar-link dropdown-toggle d-flex align-items-center title-color gap-1 justify-content-between lagn-drop-btn"
-                                               href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-offset="0,20">
-                                                @foreach ($lang['live_values'] as $data)
-                                                    @if(is_null($local) && $data['default'])
-                                                        @php($local = $data['code'])
-                                                    @endif
-
-                                                    @if($data['code']==$local)
-                                                        @php($language = collect(LANGUAGES)->where('code', $data['code'])->first())
-                                                        <span class="material-icons">language</span>
-                                                        @if($language)
-                                                            <span class="d-none d-md-block">{{ $language['nativeName'] }}</span>
-                                                            <span class="fz-10 d-none d-md-block">({{ $data['code'] }})</span>
-                                                        @else
-                                                            <span class="d-none d-md-block">({{ $data['code'] }})</span>
-                                                        @endif
-                                                    @endif
-                                                @endforeach
-                                            </a>
-                                            <ul class="dropdown-menu lang-menu">
-                                                @foreach($lang['live_values'] as $key =>$data)
-                                                    @if($data['status']==1)
-                                                        @php($language = collect(LANGUAGES)->where('code', $data['code'])->first())
-                                                        <li>
-                                                            <a class="dropdown-item d-flex gap-2 align-items-center py-2 justify-content-between"
-                                                               href="{{route('admin.lang',[$data['code']])}}">
-                                                                @if($language)
-                                                                    <div class="d-flex gap-2 align-items-center">
-                                                                        <span class="text-capitalize">{{ $language['nativeName'] }}</span>
-                                                                        <span class="fz-10">({{ $data['code'] }})</span>
-                                                                    </div>
-                                                                    @if($local == $data['code'])
-                                                                        <span class="material-symbols-outlined text-muted">check_circle</span>
-                                                                    @endif
-                                                                @else
-                                                                    <span class="text-capitalize">{{ $data['code'] }}</span>
-                                                                @endif
-
-                                                            </a>
-                                                        </li>
-                                                    @endif
-                                                @endforeach
-                                            </ul>
-                                        </div>
-                                    @endif
-                                </div>
+                            <div class="messages pe--12">
+                                <a href="{{ route('admin.chat.index', ['user_type' => 'staff']) }}"
+                                   class="header-icon count-btn"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="bottom"
+                                   title="{{ translate('Staff_Conversation') }}"
+                                   aria-label="{{ translate('Staff_Conversation') }}">
+                                    <span class="material-symbols-outlined">chat</span>
+                                    <span class="count" id="staff_message_count" @if(($staffUnreadCount ?? 0) < 1) style="display:none;" @endif>{{ $staffUnreadCount ?? 0 }}</span>
+                                </a>
                             </div>
                         </li>
                         @can('whatsapp_chat_view')
-                        <li>
+                        <li class="nav-item max-sm-m-0">
                             <div class="whatsapp-header-messages pe--12">
                                 <a href="{{ route('admin.whatsapp.conversations.index', ['channel' => 'whatsapp', 'tab' => 'chats']) }}"
                                    class="header-icon count-btn wa-header-icon-link"
@@ -143,15 +180,7 @@
                             </div>
                         </li>
                         @endcan
-                        <li>
-                            <div class="messages pe--12">
-                                <a href="{{route('admin.chat.index', ['user_type' => 'customer'])}}" class="header-icon count-btn">
-                                    <span class="material-icons">sms</span>
-                                    <span class="count" id="message_count">0</span>
-                                </a>
-                            </div>
-                        </li>
-                        <li>
+                        <li class="nav-item max-sm-m-0">
                             <div class="user mt-n1">
                                 <a href="#" class="header-icon user-icon" data-bs-toggle="dropdown">
                                     <img width="30" height="30"

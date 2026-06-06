@@ -9,9 +9,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('index', [ChattingController::class, 'index'])->name('index');
         Route::get('channel-list', [ChattingController::class, 'channelList']);
         Route::get('referenced-channel-list', [ChattingController::class, 'referencedChannelList']);
+        Route::get('open-staff/{staffId}', [ChattingController::class, 'openStaffConversation'])->name('open-staff');
+        Route::get('open-staff-ajax/{staffId}', [ChattingController::class, 'openStaffConversationAjax'])->name('open-staff-ajax');
         Route::post('create-channel', [ChattingController::class, 'createChannel'])->name('create-channel');
         Route::post('send-message', [ChattingController::class, 'sendMessage'])->name('send-message');
         Route::get('ajax-conversation', [ChattingController::class, 'conversation'])->name('ajax-conversation');
+        Route::get('entity-search', [ChattingController::class, 'entitySearch'])->name('entity-search');
     });
 });
 

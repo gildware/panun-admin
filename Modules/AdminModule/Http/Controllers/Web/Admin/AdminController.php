@@ -39,6 +39,7 @@ use Modules\ProviderManagement\Services\ProviderPerformanceService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\AdminModule\Entities\RouteSearchHistory;
+use Modules\AdminModule\Services\StaffPresenceService;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingCompensation;
@@ -446,11 +447,21 @@ class AdminController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function getUpdatedData(Request $request): JsonResponse
+    public function getUpdatedData(Request $request, StaffPresenceService $staffPresenceService): JsonResponse
     {
-        $message = $this->channelList->wherehas('channelUsers', function ($query) use ($request) {
-            $query->where('user_id', $request->user()->id)->where('is_read', 0);
+        $userId = $request->user()->id;
+
+        $message = $this->channelList->wherehas('channelUsers', function ($query) use ($userId) {
+            $query->where('user_id', $userId)->where('is_read', 0);
         })->count();
+
+        $staffMessage = $this->channelList
+            ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
+            ->whereHas('channelUsers', function ($query) use ($userId) {
+                $query->where('user_id', '!=', $userId)
+                    ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', ADMIN_USER_TYPES));
+            })
+            ->count();
 
         $whatsappUnreadChats = 0;
         $whatsappUnreadMessages = 0;
@@ -458,12 +469,18 @@ class AdminController extends Controller
             [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
         }
 
+        $presenceStatus = $staffPresenceService->resolveDisplayStatus($request->user());
+        $presenceLabel = $staffPresenceService->statusLabel($presenceStatus);
+
         return response()->json([
             'status' => 1,
             'data' => [
                 'message' => $message,
+                'staff_message' => $staffMessage,
                 'whatsapp_unread_chats' => $whatsappUnreadChats,
                 'whatsapp_unread_messages' => $whatsappUnreadMessages,
+                'presence_status' => $presenceStatus,
+                'presence_label' => $presenceLabel,
             ]
         ]);
     }

@@ -274,7 +274,17 @@
         opts = opts || {};
         var skipSound = !!opts.skipSound;
         let data = response.data;
-        document.getElementById("message_count").innerHTML = data.message;
+        var staffCountEl = document.getElementById("staff_message_count");
+        if (staffCountEl) {
+            var staffCount = parseInt(data.staff_message, 10);
+            if (isNaN(staffCount)) staffCount = 0;
+            staffCountEl.innerHTML = staffCount;
+            staffCountEl.style.display = staffCount > 0 ? 'flex' : 'none';
+        }
+
+        if (data.presence_label) {
+            window.pkUpdateStaffPresenceUI(data);
+        }
 
         var waCountEl = document.getElementById("whatsapp_unread_count");
         if (waCountEl) {
@@ -330,6 +340,78 @@
                 success: handleAdminUpdatedDataResponse,
             });
         }, adminHeaderPollMs);
+    })();
+
+    window.pkStaffPresencePillClass = function (status) {
+        return ({
+            online: 'bg-success text-white',
+            away: 'bg-warning text-dark',
+            on_break: 'bg-info text-dark',
+            offline: 'bg-secondary text-white',
+        })[status] || 'bg-secondary text-white';
+    };
+
+    window.pkUpdateStaffPresenceUI = function (data) {
+        if (!data || !data.presence_label) return;
+        var labelEl = document.getElementById('staff-header-presence-label');
+        if (labelEl) {
+            labelEl.textContent = data.presence_label;
+        }
+        var pillEl = document.getElementById('staff-header-status-pill');
+        if (pillEl) {
+            pillEl.className = 'staff-header-status-pill dropdown-toggle border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 ' + window.pkStaffPresencePillClass(data.presence_status);
+            pillEl.setAttribute('data-presence-status', data.presence_status || '');
+            if (labelEl) {
+                labelEl.classList.add('d-none', 'd-md-block');
+            }
+        }
+        document.querySelectorAll('.staff-presence-btn').forEach(function (btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-status') === data.presence_status);
+        });
+    };
+
+    (function () {
+        var heartbeatMs = 30000;
+        function pkCurrentAdminPageLabel() {
+            var title = (document.title || '').replace(/\s*[|\-–].*$/, '').trim();
+            return title || window.location.pathname || '';
+        }
+        function sendStaffHeartbeat() {
+            $.ajax({
+                url: '{{ route('admin.staff-presence.heartbeat') }}',
+                type: 'POST',
+                dataType: 'json',
+                data: { page: pkCurrentAdminPageLabel() },
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            });
+        }
+        sendStaffHeartbeat();
+        setInterval(sendStaffHeartbeat, heartbeatMs);
+
+        $(document).on('click', '.staff-presence-btn', function (e) {
+            e.preventDefault();
+            var status = $(this).data('status');
+            var $btn = $(this);
+            $.ajax({
+                url: '{{ route('admin.staff-presence.status') }}',
+                type: 'POST',
+                dataType: 'json',
+                data: { status: status },
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                success: function (response) {
+                    if (response.data) {
+                        window.pkUpdateStaffPresenceUI(response.data);
+                    }
+                    var $dropdown = $btn.closest('.dropdown');
+                    if ($dropdown.length) {
+                        var toggle = $dropdown.find('[data-bs-toggle="dropdown"]')[0];
+                        if (toggle && window.bootstrap && bootstrap.Dropdown) {
+                            bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
+                        }
+                    }
+                },
+            });
+        });
     })();
 
 

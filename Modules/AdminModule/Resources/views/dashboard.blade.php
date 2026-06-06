@@ -116,6 +116,11 @@
             max-height: 420px;
             overflow: auto;
         }
+        .dashboard-widget-staff-presence .card-body {
+            min-height: 320px;
+            max-height: 420px;
+            overflow: auto;
+        }
 
     </style>
 @endpush
@@ -227,6 +232,11 @@
                             <h3>{{ translate('Company_compensation_to_providers') }}</h3>
                             <span class="material-symbols-outlined absolute-img dashboard-kpi-deco-icon" aria-hidden="true">handshake</span>
                         </div>
+                    </div>
+                </div>
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        @include('adminmodule::admin.partials._staff-presence-widget')
                     </div>
                 </div>
                 <div class="row g-4 mb-4">
@@ -992,5 +1002,46 @@
             var route = $(this).data('route');
             if (route && route !== '#') location.href = route;
         });
+
+        function refreshStaffPresenceWidget() {
+            $.getJSON('{{ route('admin.staff-presence.list') }}', function (response) {
+                if (!response.data || !response.data.staff) return;
+                var summary = response.data.summary || {};
+                ['online', 'away', 'on_break', 'offline'].forEach(function (key) {
+                    var el = document.querySelector('[data-summary="' + key + '"]');
+                    if (el) el.textContent = summary[key] || 0;
+                });
+                response.data.staff.forEach(function (member) {
+                    var row = document.querySelector('#staff-presence-tbody tr[data-staff-id="' + member.id + '"]');
+                    if (!row) return;
+                    var badge = row.querySelector('.staff-presence-badge');
+                    if (badge) {
+                        badge.textContent = member.presence_label;
+                        badge.className = 'badge rounded-pill staff-presence-badge ' + ({
+                            online: 'bg-success',
+                            away: 'bg-warning text-dark',
+                            on_break: 'bg-info text-dark',
+                            offline: 'bg-secondary'
+                        }[member.presence_status] || 'bg-secondary');
+                    }
+                    var dot = row.querySelector('.staff-presence-dot');
+                    if (dot) {
+                        dot.className = 'position-absolute bottom-0 end-0 rounded-circle border border-white staff-presence-dot ' + ({
+                            online: 'bg-success',
+                            away: 'bg-warning',
+                            on_break: 'bg-info',
+                            offline: 'bg-secondary'
+                        }[member.presence_status] || 'bg-secondary');
+                    }
+                    var pageCell = row.querySelector('.staff-last-visited-page');
+                    if (pageCell) {
+                        pageCell.textContent = member.last_visited_page_label || '—';
+                        pageCell.setAttribute('title', member.last_visited_page || '');
+                    }
+                });
+            });
+        }
+        refreshStaffPresenceWidget();
+        setInterval(refreshStaffPresenceWidget, 30000);
     </script>
 @endpush
