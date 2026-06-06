@@ -1560,7 +1560,7 @@
     var activeChatsForForwardUrl = @json(auth()->check() && auth()->user()->can('whatsapp_chat_reply') ? route('admin.whatsapp.conversations.active-chats-forward', ['channel' => $waInboxCh]) : '');
     var activeChatsListUrl = @json(route('admin.whatsapp.conversations.active-chats', ['channel' => $waInboxCh]));
     var waHumanSupportTab = @json(!empty($humanSupportTab ?? false));
-    var waChatListPerPage = 20;
+    var waChatListPerPage = @json((int) config('whatsappmodule.active_chats_per_page', 20));
     var strWaActiveChatsTotal = {!! json_encode(translate('whatsapp_active_chats_total')) !!};
     var strWaActiveChatsUnread = {!! json_encode(translate('whatsapp_active_chats_unread')) !!};
     var strWaActiveChatsRead = {!! json_encode(translate('whatsapp_active_chats_read')) !!};
@@ -2166,6 +2166,7 @@
             scrollEl.addEventListener('scroll', function() {
                 waLoadMoreActiveChatsIfNeeded();
             }, { passive: true });
+            waLoadMoreActiveChatsIfNeeded();
         }
     }
 

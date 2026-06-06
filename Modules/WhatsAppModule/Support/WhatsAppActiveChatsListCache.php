@@ -13,7 +13,7 @@ final class WhatsAppActiveChatsListCache
 
     public static function listCacheKey(): string
     {
-        return 'whatsapp_active_chats_list_v4_' . SocialInboxChannel::current();
+        return 'whatsapp_active_chats_list_v5_' . SocialInboxChannel::current();
     }
 
     public static function chatFullCacheKey(string $phone): string
@@ -28,6 +28,7 @@ final class WhatsAppActiveChatsListCache
             Cache::forget('whatsapp_active_chats_list_v2');
             Cache::forget('whatsapp_active_chats_list_v3_' . $ch);
             Cache::forget('whatsapp_active_chats_list_v4_' . $ch);
+            Cache::forget('whatsapp_active_chats_list_v5_' . $ch);
         }
     }
 
