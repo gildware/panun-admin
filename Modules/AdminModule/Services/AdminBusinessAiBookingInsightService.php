@@ -11,12 +11,15 @@ use Modules\BookingModule\Entities\BookingFollowup;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingReopenEvent;
+use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\UserManagement\Entities\User;
 
 class AdminBusinessAiBookingInsightService
 {
+    private const TIMING_ANALYSIS_SCAN_LIMIT = 5000;
     /**
      * @param  Collection<int, Booking>  $bookings
      * @return list<array<string, mixed>>
@@ -297,6 +300,11 @@ class AdminBusinessAiBookingInsightService
     public function analyze(array $args): array
     {
         $analysis = strtolower(trim((string) ($args['analysis'] ?? 'full_booking_overview')));
+
+        if (in_array($analysis, ['booking_timing_report', 'cancellation_timing_report', 'followup_timing_report'], true)) {
+            return $this->analyzeBookingTiming($args, $analysis);
+        }
+
         $q = Booking::query();
         if (! empty($args['date_from'])) {
             $q->where('created_at', '>=', Carbon::parse((string) $args['date_from'])->startOfDay());
@@ -351,9 +359,476 @@ class AdminBusinessAiBookingInsightService
             default => [
                 'ok' => false,
                 'error' => 'unknown_analysis',
-                'allowed' => ['status_breakdown', 'followup_backlog', 'settlement_overview', 'full_booking_overview'],
+                'allowed' => [
+                    'status_breakdown', 'followup_backlog', 'settlement_overview', 'full_booking_overview',
+                    'booking_timing_report', 'cancellation_timing_report', 'followup_timing_report',
+                ],
             ],
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function analyzeBookingTiming(array $args, string $analysis): array
+    {
+        $cohort = match ($analysis) {
+            'cancellation_timing_report' => 'canceled',
+            'followup_timing_report' => 'overdue_followup',
+            default => (string) ($args['cohort'] ?? 'all'),
+        };
+
+        [$bookings, $scanNote] = $this->resolveBookingsForTimingAnalysis($args);
+        $report = $this->aggregateBookingTimingReport(
+            $bookings,
+            fn (Booking $b) => $this->bookingMatchesTimingCohort($b, $cohort),
+            $cohort
+        );
+
+        return array_merge([
+            'ok' => true,
+            'analysis' => $analysis,
+            'cohort' => $cohort,
+            'bookings_in_scope' => $bookings->count(),
+            'scan_note' => $scanNote,
+        ], $report);
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array{0: Collection<int, Booking>, 1: string|null}
+     */
+    private function resolveBookingsForTimingAnalysis(array $args): array
+    {
+        $q = Booking::query()->with(['zone:id,name', 'assignee:id,first_name,last_name', 'category:id,name']);
+        if (! empty($args['date_from'])) {
+            $q->where('created_at', '>=', Carbon::parse((string) $args['date_from'])->startOfDay());
+        }
+        if (! empty($args['date_to'])) {
+            $q->where('created_at', '<=', Carbon::parse((string) $args['date_to'])->endOfDay());
+        }
+        if (! empty($args['booking_status'])) {
+            $q->where('booking_status', strtolower(trim((string) $args['booking_status'])));
+        }
+        if (! empty($args['zone'])) {
+            $q->whereHas('zone', fn ($zq) => $zq->where('name', 'like', '%'.trim((string) $args['zone']).'%'));
+        }
+
+        $total = (clone $q)->count();
+        $bookings = $q->orderByDesc('created_at')->limit(self::TIMING_ANALYSIS_SCAN_LIMIT)->get();
+        $note = $total > $bookings->count()
+            ? "Analyzed newest {$bookings->count()} of {$total} matching bookings (scan cap ".self::TIMING_ANALYSIS_SCAN_LIMIT.').'
+            : null;
+
+        return [$bookings, $note];
+    }
+
+    /**
+     * @param  Collection<int, Booking>  $bookings
+     * @param  callable(Booking): bool  $filter
+     * @return array<string, mixed>
+     */
+    private function aggregateBookingTimingReport(Collection $bookings, callable $filter, string $cohort): array
+    {
+        $bulk = $this->preloadBookingTimingBulkData($bookings->pluck('id')->all());
+        $rows = [];
+
+        foreach ($bookings as $booking) {
+            if (! $filter($booking)) {
+                continue;
+            }
+            $rows[] = $this->computeBookingTimingRow($booking, $bulk);
+        }
+
+        if ($rows === []) {
+            return [
+                'cohort_size' => 0,
+                'timing' => null,
+                'sample_bookings' => [],
+                'note' => "No bookings matched cohort \"{$cohort}\".",
+            ];
+        }
+
+        return [
+            'cohort_size' => count($rows),
+            'timing' => $this->summarizeBookingTimingRows($rows),
+            'sample_bookings' => array_slice($rows, 0, 30),
+        ];
+    }
+
+    private function bookingMatchesTimingCohort(Booking $booking, string $cohort): bool
+    {
+        $status = strtolower((string) $booking->booking_status);
+
+        return match (strtolower(trim($cohort))) {
+            'pending' => $status === 'pending',
+            'accepted' => $status === 'accepted',
+            'ongoing' => $status === 'ongoing',
+            'on_hold' => $status === 'on_hold',
+            'completed' => $status === 'completed',
+            'canceled', 'cancelled' => in_array($status, ['canceled', 'cancelled'], true),
+            'overdue_followup' => $this->bookingHasOverdueFollowup($booking),
+            'loss_making' => $booking->settlement_outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS,
+            'after_visit_cancel' => (bool) $booking->after_visit_cancel,
+            'unpaid' => ! (bool) $booking->is_paid,
+            'reopened' => $booking->isReopenedTagged(),
+            'verify_pending' => $this->bookingIsVerifyPending($booking),
+            'offline_payment' => $this->bookingIsOfflinePaymentPending($booking),
+            default => true,
+        };
+    }
+
+    private function bookingHasOverdueFollowup(Booking $booking): bool
+    {
+        if (! in_array($booking->booking_status, Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS, true)) {
+            return false;
+        }
+
+        return BookingFollowup::query()
+            ->where('booking_id', $booking->id)
+            ->where('status', 'scheduled')
+            ->whereDate('date', '<=', Carbon::today())
+            ->exists();
+    }
+
+    private function bookingIsVerifyPending(Booking $booking): bool
+    {
+        $max = (business_config('max_booking_amount', 'booking_setup'))?->live_values ?? 0;
+
+        return $booking->payment_method === 'cash_after_service'
+            && (float) ($booking->total_booking_amount ?? 0) > (float) $max
+            && (int) $booking->is_verified === 0
+            && in_array($booking->booking_status, ['pending', 'accepted'], true);
+    }
+
+    private function bookingIsOfflinePaymentPending(Booking $booking): bool
+    {
+        if (! in_array($booking->booking_status, ['pending', 'accepted'], true)) {
+            return false;
+        }
+
+        return $booking->payment_method === 'offline_payment' && ! (bool) $booking->is_paid;
+    }
+
+    /**
+     * @param  list<string|int>  $bookingIds
+     * @return array<string, mixed>
+     */
+    private function preloadBookingTimingBulkData(array $bookingIds): array
+    {
+        if ($bookingIds === []) {
+            return [
+                'followups' => collect(),
+                'status_histories' => collect(),
+                'change_logs' => collect(),
+                'partial_payments' => collect(),
+                'schedule_histories' => collect(),
+            ];
+        }
+
+        return [
+            'followups' => BookingFollowup::query()->whereIn('booking_id', $bookingIds)->orderBy('date')->get()->groupBy('booking_id'),
+            'status_histories' => BookingStatusHistory::query()
+                ->whereIn('booking_id', $bookingIds)
+                ->with('cancellationReason')
+                ->orderBy('created_at')
+                ->get()
+                ->groupBy('booking_id'),
+            'change_logs' => BookingChangeLog::query()->whereIn('booking_id', $bookingIds)->orderBy('created_at')->get()->groupBy('booking_id'),
+            'partial_payments' => BookingPartialPayment::query()->whereIn('booking_id', $bookingIds)->orderBy('created_at')->get()->groupBy('booking_id'),
+            'schedule_histories' => BookingScheduleHistory::query()
+                ->whereIn('booking_id', $bookingIds)
+                ->orderBy('created_at')
+                ->get()
+                ->groupBy('booking_id'),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $bulk
+     * @return array<string, mixed>
+     */
+    private function computeBookingTimingRow(Booking $booking, array $bulk): array
+    {
+        $id = (string) $booking->id;
+        $followups = $bulk['followups']->get($id, collect());
+        $statusHistories = $bulk['status_histories']->get($id, collect());
+        $changeLogs = $bulk['change_logs']->get($id, collect());
+        $payments = $bulk['partial_payments']->get($id, collect());
+        $schedules = $bulk['schedule_histories']->get($id, collect());
+
+        $createdAt = $booking->created_at;
+        $firstFollowup = $followups->sortBy('date')->first();
+        $firstStatus = $statusHistories->sortBy('created_at')->first();
+        $acceptedAt = $statusHistories->first(fn ($h) => strtolower((string) $h->booking_status) === 'accepted')?->created_at;
+        $ongoingAt = $statusHistories->first(fn ($h) => strtolower((string) $h->booking_status) === 'ongoing')?->created_at;
+        $completedAt = $statusHistories->first(fn ($h) => strtolower((string) $h->booking_status) === 'completed')?->created_at;
+        $canceledHistory = $statusHistories->first(fn ($h) => in_array(strtolower((string) $h->booking_status), ['canceled', 'cancelled'], true));
+        $firstPayment = $payments->sortBy('created_at')->first();
+        $firstSchedule = $schedules->sortBy('created_at')->first();
+        $firstChange = $changeLogs->sortBy('created_at')->first();
+
+        $assignee = $booking->assignee
+            ? trim($booking->assignee->first_name.' '.$booking->assignee->last_name)
+            : null;
+
+        $touchpoints = collect([
+            $createdAt,
+            $firstFollowup?->date,
+            $firstStatus?->created_at,
+            $acceptedAt,
+            $ongoingAt,
+            $completedAt,
+            $canceledHistory?->created_at,
+            $firstPayment?->created_at,
+            $firstSchedule?->created_at,
+            $firstChange?->created_at,
+            $booking->updated_at,
+            $booking->service_schedule ? Carbon::parse($booking->service_schedule) : null,
+        ])->filter();
+
+        return [
+            'readable_id' => $booking->readable_id,
+            'status' => $booking->booking_status,
+            'zone' => $booking->zone?->name,
+            'category' => $booking->category?->name,
+            'assignee' => $assignee,
+            'created_at' => $createdAt?->toIso8601String(),
+            'created_hour' => $createdAt ? (int) $createdAt->format('G') : null,
+            'created_day' => $createdAt?->format('D'),
+            'scheduled_at' => $booking->service_schedule,
+            'first_followup_at' => $firstFollowup?->date?->toIso8601String(),
+            'first_status_change_at' => $firstStatus?->created_at?->toIso8601String(),
+            'accepted_at' => $acceptedAt?->toIso8601String(),
+            'ongoing_at' => $ongoingAt?->toIso8601String(),
+            'completed_at' => $completedAt?->toIso8601String(),
+            'canceled_at' => $canceledHistory?->created_at?->toIso8601String(),
+            'cancellation_reason' => $canceledHistory?->cancellationReason?->name,
+            'first_payment_at' => $firstPayment?->created_at?->toIso8601String(),
+            'first_schedule_change_at' => $firstSchedule?->created_at?->toIso8601String(),
+            'last_updated_at' => $touchpoints->max() instanceof Carbon ? $touchpoints->max()->toIso8601String() : null,
+            'lag_hours_to_first_followup' => $this->hoursBetween($createdAt, $firstFollowup?->date),
+            'lag_hours_to_first_status_change' => $this->hoursBetween($createdAt, $firstStatus?->created_at),
+            'lag_hours_to_accepted' => $this->hoursBetween($createdAt, $acceptedAt),
+            'lag_hours_to_ongoing' => $this->hoursBetween($createdAt, $ongoingAt),
+            'lag_hours_to_completed' => $this->hoursBetween($createdAt, $completedAt),
+            'lag_hours_to_canceled' => $this->hoursBetween($createdAt, $canceledHistory?->created_at),
+            'lag_hours_to_first_payment' => $this->hoursBetween($createdAt, $firstPayment?->created_at),
+            'lag_hours_to_last_touch' => $this->hoursBetween($createdAt, $touchpoints->max()),
+            'lag_hours_scheduled_to_completed' => $this->hoursBetween(
+                $booking->service_schedule ? Carbon::parse($booking->service_schedule) : null,
+                $completedAt
+            ),
+            'never_followup' => $followups->isEmpty(),
+            'never_status_change' => $statusHistories->isEmpty(),
+            'is_paid' => (bool) $booking->is_paid,
+            'settlement_outcome' => $booking->settlement_outcome,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    private function summarizeBookingTimingRows(array $rows): array
+    {
+        $createdHours = $this->hourDistribution(array_column($rows, 'created_at'));
+        $followupHours = $this->hourDistribution(array_values(array_filter(array_column($rows, 'first_followup_at'))));
+        $cancelHours = $this->hourDistribution(array_values(array_filter(array_column($rows, 'canceled_at'))));
+        $dayDist = [];
+        foreach ($rows as $row) {
+            if (! empty($row['created_day'])) {
+                $dayDist[$row['created_day']] = ($dayDist[$row['created_day']] ?? 0) + 1;
+            }
+        }
+        arsort($dayDist);
+
+        $cancelReasons = collect($rows)
+            ->filter(fn ($r) => ! empty($r['cancellation_reason']))
+            ->groupBy('cancellation_reason')
+            ->map(fn ($g, $reason) => [
+                'reason' => $reason,
+                'count' => $g->count(),
+                'median_lag_hours_to_cancel' => $this->lagStats($g->pluck('lag_hours_to_canceled')->filter()->values()->all())['median_hours'] ?? null,
+            ])
+            ->sortByDesc('count')
+            ->values()
+            ->take(10)
+            ->all();
+
+        return [
+            'created_by_hour' => $createdHours,
+            'peak_created_hours' => $this->topHours($createdHours, 5),
+            'first_followup_by_hour' => $followupHours,
+            'peak_followup_hours' => $this->topHours($followupHours, 5),
+            'canceled_by_hour' => $cancelHours,
+            'created_by_day' => $dayDist,
+            'lag_hours' => [
+                'to_first_followup' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_first_followup'], array_filter($rows, fn ($r) => $r['lag_hours_to_first_followup'] !== null))),
+                'to_first_status_change' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_first_status_change'], array_filter($rows, fn ($r) => $r['lag_hours_to_first_status_change'] !== null))),
+                'to_accepted' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_accepted'], array_filter($rows, fn ($r) => $r['lag_hours_to_accepted'] !== null))),
+                'to_ongoing' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_ongoing'], array_filter($rows, fn ($r) => $r['lag_hours_to_ongoing'] !== null))),
+                'to_completed' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_completed'], array_filter($rows, fn ($r) => $r['lag_hours_to_completed'] !== null))),
+                'to_canceled' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_canceled'], array_filter($rows, fn ($r) => $r['lag_hours_to_canceled'] !== null))),
+                'to_first_payment' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_first_payment'], array_filter($rows, fn ($r) => $r['lag_hours_to_first_payment'] !== null))),
+                'to_last_touch' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_to_last_touch'], array_filter($rows, fn ($r) => $r['lag_hours_to_last_touch'] !== null))),
+                'scheduled_to_completed' => $this->lagStats(array_map(fn ($r) => $r['lag_hours_scheduled_to_completed'], array_filter($rows, fn ($r) => $r['lag_hours_scheduled_to_completed'] !== null))),
+            ],
+            'coverage' => [
+                'never_followup' => count(array_filter($rows, fn ($r) => $r['never_followup'] ?? false)),
+                'never_status_change' => count(array_filter($rows, fn ($r) => $r['never_status_change'] ?? false)),
+                'unpaid' => count(array_filter($rows, fn ($r) => ! ($r['is_paid'] ?? false))),
+            ],
+            'by_assignee' => collect($rows)
+                ->groupBy(fn ($r) => (string) ($r['assignee'] ?? 'Unassigned'))
+                ->map(fn ($group, $assignee) => [
+                    'assignee' => $assignee,
+                    'bookings' => $group->count(),
+                    'never_followup' => $group->where('never_followup', true)->count(),
+                    'median_lag_hours_to_followup' => $this->lagStats($group->pluck('lag_hours_to_first_followup')->filter()->values()->all())['median_hours'] ?? null,
+                    'median_lag_hours_to_accepted' => $this->lagStats($group->pluck('lag_hours_to_accepted')->filter()->values()->all())['median_hours'] ?? null,
+                ])
+                ->sortByDesc('bookings')
+                ->values()
+                ->take(15)
+                ->all(),
+            'by_zone' => collect($rows)
+                ->groupBy(fn ($r) => (string) ($r['zone'] ?? 'Unknown'))
+                ->map(fn ($group, $zone) => [
+                    'zone' => $zone,
+                    'bookings' => $group->count(),
+                    'peak_created_hour' => $this->topHours($this->hourDistribution($group->pluck('created_at')->all()), 1)[0]['hour'] ?? null,
+                ])
+                ->sortByDesc('bookings')
+                ->values()
+                ->take(12)
+                ->all(),
+            'cancellation_reasons' => $cancelReasons,
+            'insights' => $this->buildBookingTimingInsights($rows, $createdHours),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array{labels: list<string>, counts: list<int>}  $createdHours
+     * @return list<string>
+     */
+    private function buildBookingTimingInsights(array $rows, array $createdHours): array
+    {
+        $insights = [];
+        $peak = $this->topHours($createdHours, 1)[0] ?? null;
+        if ($peak) {
+            $insights[] = "Most bookings were created around {$peak['hour']} ({$peak['count']} bookings).";
+        }
+
+        $acceptLag = $this->lagStats(array_map(
+            fn ($r) => $r['lag_hours_to_accepted'],
+            array_filter($rows, fn ($r) => $r['lag_hours_to_accepted'] !== null)
+        ));
+        if (($acceptLag['median_hours'] ?? null) !== null) {
+            $insights[] = "Median time from created to accepted: {$acceptLag['median_hours']} hours (p90: {$acceptLag['p90_hours']}h).";
+        }
+
+        $followupLag = $this->lagStats(array_map(
+            fn ($r) => $r['lag_hours_to_first_followup'],
+            array_filter($rows, fn ($r) => $r['lag_hours_to_first_followup'] !== null)
+        ));
+        if (($followupLag['median_hours'] ?? null) !== null) {
+            $insights[] = "Median time from created to first followup: {$followupLag['median_hours']} hours.";
+        } else {
+            $never = count(array_filter($rows, fn ($r) => $r['never_followup'] ?? false));
+            if ($never > 0) {
+                $insights[] = "{$never} bookings never had a staff followup logged.";
+            }
+        }
+
+        $cancelLag = $this->lagStats(array_map(
+            fn ($r) => $r['lag_hours_to_canceled'],
+            array_filter($rows, fn ($r) => $r['lag_hours_to_canceled'] !== null)
+        ));
+        if (($cancelLag['median_hours'] ?? null) !== null) {
+            $insights[] = "Median time from created to canceled: {$cancelLag['median_hours']} hours.";
+        }
+
+        return $insights;
+    }
+
+    /**
+     * @param  list<float|null>  $values
+     * @return array<string, mixed>
+     */
+    private function lagStats(array $values): array
+    {
+        $hours = array_values(array_filter($values, fn ($v) => $v !== null && is_numeric($v)));
+        sort($hours, SORT_NUMERIC);
+        $n = count($hours);
+        if ($n === 0) {
+            return ['count' => 0, 'median_hours' => null, 'p90_hours' => null, 'avg_hours' => null, 'min_hours' => null, 'max_hours' => null];
+        }
+
+        return [
+            'count' => $n,
+            'median_hours' => round((float) $hours[intval(floor(($n - 1) / 2))], 2),
+            'p90_hours' => round((float) $hours[intval(floor(($n - 1) * 0.9))], 2),
+            'avg_hours' => round(array_sum($hours) / $n, 2),
+            'min_hours' => round((float) $hours[0], 2),
+            'max_hours' => round((float) $hours[$n - 1], 2),
+        ];
+    }
+
+    /**
+     * @param  list<string|null>  $timestamps
+     * @return array{labels: list<string>, counts: list<int>, total: int}
+     */
+    private function hourDistribution(array $timestamps): array
+    {
+        $counts = array_fill(0, 24, 0);
+        foreach ($timestamps as $ts) {
+            if (! $ts) {
+                continue;
+            }
+            try {
+                $counts[(int) Carbon::parse($ts)->format('G')]++;
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+        $labels = [];
+        for ($h = 0; $h < 24; $h++) {
+            $labels[] = sprintf('%02d:00', $h);
+        }
+
+        return ['labels' => $labels, 'counts' => array_values($counts), 'total' => array_sum($counts)];
+    }
+
+    /**
+     * @param  array{labels: list<string>, counts: list<int>}  $dist
+     * @return list<array{hour: string, count: int}>
+     */
+    private function topHours(array $dist, int $limit): array
+    {
+        $pairs = [];
+        foreach ($dist['labels'] as $i => $label) {
+            $pairs[] = ['hour' => $label, 'count' => (int) ($dist['counts'][$i] ?? 0)];
+        }
+        usort($pairs, fn ($a, $b) => $b['count'] <=> $a['count']);
+
+        return array_values(array_filter(array_slice($pairs, 0, $limit), fn ($p) => $p['count'] > 0));
+    }
+
+    private function hoursBetween(mixed $from, mixed $to): ?float
+    {
+        if (! $from || ! $to) {
+            return null;
+        }
+        $start = $from instanceof Carbon ? $from : Carbon::parse((string) $from);
+        $end = $to instanceof Carbon ? $to : Carbon::parse((string) $to);
+        if ($end->lessThan($start)) {
+            return null;
+        }
+
+        return round($start->diffInMinutes($end) / 60, 2);
     }
 
     /**

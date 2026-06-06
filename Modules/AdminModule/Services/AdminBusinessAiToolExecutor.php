@@ -197,12 +197,14 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_bookings',
-                'description' => 'Aggregate booking intelligence: status_breakdown, followup_backlog, settlement_overview, full_booking_overview.',
+                'description' => 'Aggregate booking intelligence. Key: booking_timing_report (peak hours + lag: created→followup/accepted/completed/canceled/payment), cancellation_timing_report, followup_timing_report. Also: status_breakdown, followup_backlog, settlement_overview. cohort: all|pending|accepted|ongoing|completed|canceled|overdue_followup|loss_making|unpaid|verify_pending|offline_payment|reopened|after_visit_cancel. Scans up to 5000 bookings.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
-                        'analysis' => ['type' => 'string'],
+                        'analysis' => ['type' => 'string', 'description' => 'booking_timing_report|cancellation_timing_report|followup_timing_report|status_breakdown|followup_backlog|settlement_overview|full_booking_overview'],
+                        'cohort' => ['type' => 'string', 'description' => 'For booking_timing_report'],
                         'booking_status' => ['type' => 'string'],
+                        'zone' => ['type' => 'string'],
                         'date_from' => ['type' => 'string'],
                         'date_to' => ['type' => 'string'],
                     ],
