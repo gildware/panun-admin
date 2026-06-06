@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Modules\BookingModule\Entities\Booking;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\UserManagement\Entities\User;
@@ -47,6 +48,9 @@ class AdminBusinessAiWhatsAppInsightService
             $withLead = 0;
             $withoutLead = 0;
             $leadHandlerBreakdown = [];
+            $chatHandlerBreakdown = [];
+            $customerLeadChats = 0;
+            $providerLeadChats = 0;
             $unassignedChatLeadSamples = [];
 
             foreach ($enriched as $row) {
@@ -77,6 +81,16 @@ class AdminBusinessAiWhatsAppInsightService
                 $lh = (string) ($row->lead_handler_label ?? 'Unassigned');
                 $leadHandlerBreakdown[$lh] = ($leadHandlerBreakdown[$lh] ?? 0) + 1;
 
+                $ch = (string) ($row->chat_handler_label ?? 'AI');
+                $chatHandlerBreakdown[$ch] = ($chatHandlerBreakdown[$ch] ?? 0) + 1;
+
+                if (($row->linked_lead_type ?? '') === Lead::TYPE_CUSTOMER) {
+                    $customerLeadChats++;
+                }
+                if (($row->linked_lead_type ?? '') === Lead::TYPE_PROVIDER) {
+                    $providerLeadChats++;
+                }
+
                 if (! $row->chat_assigned_to_human && count($unassignedChatLeadSamples) < 20) {
                     $unassignedChatLeadSamples[] = [
                         'phone' => $row->phone,
@@ -96,6 +110,7 @@ class AdminBusinessAiWhatsAppInsightService
             }
 
             arsort($leadHandlerBreakdown);
+            arsort($chatHandlerBreakdown);
 
             return [
                 'ok' => true,
@@ -113,6 +128,9 @@ class AdminBusinessAiWhatsAppInsightService
                 'chats_with_linked_crm_lead' => $withLead,
                 'chats_without_linked_crm_lead' => $withoutLead,
                 'lead_handlers_for_active_chats' => $leadHandlerBreakdown,
+                'chat_handlers_for_active_chats' => $chatHandlerBreakdown,
+                'chats_with_customer_crm_lead' => $customerLeadChats,
+                'chats_with_provider_crm_lead' => $providerLeadChats,
                 'unassigned_chat_samples_with_lead_handlers' => $unassignedChatLeadSamples,
                 'notes' => [
                     'chat_not_assigned_to_human' => 'WhatsApp thread handled_by is empty, null, or AI — no admin employee owns the chat.',
@@ -182,6 +200,21 @@ class AdminBusinessAiWhatsAppInsightService
                 $rows = $rows->filter(fn ($r) => (int) ($r->unread_count ?? 0) > 0);
             }
 
+            $leadTypeFilter = strtolower(trim((string) ($args['linked_lead_type'] ?? '')));
+            if ($leadTypeFilter !== '' && $leadTypeFilter !== 'all') {
+                $rows = $rows->filter(fn ($r) => ($r->linked_lead_type ?? '') === $leadTypeFilter);
+            }
+
+            if (! empty($args['chat_handler_employee_id'])) {
+                $empId = (string) $args['chat_handler_employee_id'];
+                $rows = $rows->filter(function ($r) use ($empId) {
+                    $phone = (string) ($r->phone ?? '');
+                    $wa = WhatsAppUser::query()->where('phone', $phone)->first(['handled_by']);
+
+                    return $wa && (string) $wa->handled_by === $empId;
+                });
+            }
+
             $total = $rows->count();
             $items = $rows->take($limit)->map(fn ($r) => $this->rowToSummary($r))->values()->all();
 
@@ -233,6 +266,27 @@ class AdminBusinessAiWhatsAppInsightService
                 ->limit(8)
                 ->get(['booking_id', 'service', 'status', 'lead_id', 'system_booking_id', 'created_at']);
 
+            $leadIds = $leads->pluck('id')->all();
+            $systemBookings = ($norm || $leadIds !== [])
+                ? Booking::query()
+                    ->where(function ($q) use ($norm, $leadIds) {
+                        if ($norm) {
+                            $q->whereHas('customer', function ($cq) use ($norm) {
+                                $cq->where('phone', 'like', '%'.$norm.'%');
+                            });
+                        }
+                        if ($leadIds !== []) {
+                            $q->orWhereIn('lead_id', $leadIds);
+                        }
+                    })
+                    ->orderByDesc('created_at')
+                    ->limit(8)
+                    ->get(['id', 'readable_id', 'booking_status', 'lead_id', 'assignee_id', 'created_at'])
+                : collect();
+
+            $assigneeIds = $systemBookings->pluck('assignee_id')->merge($leads->pluck('handled_by'))->filter(fn ($v) => Lead::assigneeIsHuman($v))->unique()->all();
+            $assigneeNames = $this->resolveAdminNames($assigneeIds);
+
             $chatRow = $this->enrichRows($this->fetchActiveChatRows()->filter(fn ($r) => (string) ($r->phone ?? '') === $phone))->first();
 
             return [
@@ -258,11 +312,22 @@ class AdminBusinessAiWhatsAppInsightService
                     'id' => $l->id,
                     'name' => $l->name,
                     'lead_type' => $l->lead_type,
-                    'handled_by' => $this->handlerLabel($l->handled_by, $adminNames),
+                    'is_customer_lead' => $l->lead_type === Lead::TYPE_CUSTOMER,
+                    'is_provider_lead' => $l->lead_type === Lead::TYPE_PROVIDER,
+                    'lead_handler' => $this->handlerLabel($l->handled_by, $adminNames),
+                    'lead_handler_id' => Lead::assigneeIsHuman($l->handled_by) ? (string) $l->handled_by : null,
                     'is_open' => (bool) ($leadMeta[$l->id]['is_open'] ?? false),
                     'status_label' => $leadMeta[$l->id]['label'] ?? null,
                     'next_followup_at' => $l->next_followup_at?->toIso8601String(),
                     'received_at' => $l->date_time_of_lead_received?->toIso8601String(),
+                    'has_system_booking' => Booking::query()->where('lead_id', $l->id)->exists(),
+                ])->values()->all(),
+                'system_bookings' => $systemBookings->map(fn (Booking $b) => [
+                    'readable_id' => $b->readable_id,
+                    'status' => $b->booking_status,
+                    'lead_id' => $b->lead_id,
+                    'assignee' => $b->assignee_id ? ($assigneeNames[(string) $b->assignee_id] ?? 'Agent') : null,
+                    'created_at' => $b->created_at?->toIso8601String(),
                 ])->values()->all(),
                 'whatsapp_booking_requests' => $waBookings->map(fn ($b) => [
                     'booking_id' => $b->booking_id,
@@ -418,9 +483,13 @@ class AdminBusinessAiWhatsAppInsightService
             'human_support_pending' => (bool) ($row->human_support_pending ?? false),
             'linked_lead_id' => $row->linked_lead_id ?? null,
             'linked_lead_type' => $row->linked_lead_type ?? null,
+            'linked_lead_is_customer' => ($row->linked_lead_type ?? '') === Lead::TYPE_CUSTOMER,
+            'linked_lead_is_provider' => ($row->linked_lead_type ?? '') === Lead::TYPE_PROVIDER,
             'linked_lead_open' => $row->linked_lead_open ?? null,
             'lead_handler' => $row->lead_handler_label ?? null,
             'lead_assigned_to_human' => (bool) ($row->lead_assigned_to_human ?? false),
+            'chat_handler_differs_from_lead_handler' => ($row->chat_handler_label ?? '') !== ($row->lead_handler_label ?? '')
+                && ($row->lead_handler_label ?? '') !== 'No linked lead',
         ];
     }
 
