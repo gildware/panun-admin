@@ -15,6 +15,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\DataTransferController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemMaintenanceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemLogsController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminBusinessAiController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\StaffPresenceController;
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin', 'middleware' => ['admin']], function () {
@@ -44,6 +45,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('profile-update', [AdminController::class, 'profileInfo'])->name('profile_update');
     Route::post('profile-update', [AdminController::class, 'updateProfile']);
     Route::get('get-updated-data', [AdminController::class, 'getUpdatedData'])->name('get_updated_data');
+
+    Route::group(['prefix' => 'staff-presence', 'as' => 'staff-presence.'], function () {
+        Route::post('heartbeat', [StaffPresenceController::class, 'heartbeat'])->name('heartbeat');
+        Route::post('status', [StaffPresenceController::class, 'updateStatus'])->name('status');
+        Route::get('list', [StaffPresenceController::class, 'list'])->name('list');
+    });
     Route::post('store/search-routing', [AdminController::class, 'storeClickedRoute'])->name('search.routing.store');
     Route::get('recent-search', [AdminController::class, 'recentSearch'])->name('recent.search');
 

@@ -1,9 +1,15 @@
+@php
+    $isStaffGroup = $isStaffGroup ?? false;
+    $isStaffChat = ! $isStaffGroup && isset($fromUser->user) && in_array($fromUser->user->user_type, ADMIN_USER_TYPES, true);
+@endphp
 <div
     class="inbox_msg_header d-flex flex-wrap gap-3 justify-content-between align-items-center border px-3 py-2 rounded mb-4">
     <div class="media align-items-center gap-3">
         <div class="position-relative">
-            <img class="avatar rounded-circle"
-                 @if(isset($fromUser->user) && $fromUser->user->user_type == 'customer')
+            <img class="avatar rounded-circle {{ $isStaffGroup ? 'd-none' : '' }}"
+                 @if(isset($fromUser->user) && in_array($fromUser->user->user_type, ADMIN_USER_TYPES, true))
+                     src="{{ $fromUser->user->profile_image_full_path }}"
+                 @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'customer')
                      src="{{$fromUser->user->profile_image_full_path}}"
                  @elseif(isset($fromUser->user) && $fromUser->user->user_type == 'provider-admin')
                      src="{{$fromUser->user->provider->logo_full_path}}"
@@ -21,12 +27,38 @@
                         'serviceman/profile/')}}"
                  @endif
                  alt="{{ translate('profile_image') }}">
-            <span class="avatar-status bg-success"></span>
+            @if($isStaffGroup)
+                <span class="staff-group-header-icon d-inline-flex align-items-center justify-content-center rounded-circle bg-light">
+                    <span class="material-symbols-outlined text-primary">groups</span>
+                </span>
+            @elseif($isStaffChat && ($staffPresence ?? null) && ($presenceService ?? null))
+                <span class="avatar-status {{ $presenceService->statusDotClass($staffPresence['presence_status']) }}"></span>
+            @else
+                <span class="avatar-status bg-success"></span>
+            @endif
         </div>
         <div class="media-body">
-            @if(isset($fromUser->user) && isset($fromUser->user->provider))
+            @if($isStaffGroup)
+                <h5 class="profile-name mb-1">{{ translate('General_Staff_Group') }}</h5>
+                <span class="fz-12 text-muted">{{ $memberCount ?? 0 }} {{ translate('members') }}</span>
+            @elseif(isset($fromUser->user) && isset($fromUser->user->provider))
                 <h5 class="profile-name">{{ $fromUser->user->provider->company_name }}</h5>
                 <span class="fz-12">{{$fromUser->user->provider->company_phone}}</span>
+            @elseif($isStaffChat && ($staffPresence ?? null) && ($presenceService ?? null))
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <h5 class="profile-name mb-0">{{ $staffPresence['name'] }}</h5>
+                    <span class="badge rounded-pill {{ $presenceService->statusBadgeClass($staffPresence['presence_status']) }}">
+                        {{ $staffPresence['presence_label'] }}
+                    </span>
+                </div>
+                <span class="fz-12 text-muted staff-chat-last-seen d-block">
+                    {{ translate('Last_Seen') }}:
+                    @if(!empty($staffPresence['last_seen_at']))
+                        {{ \Carbon\Carbon::parse($staffPresence['last_seen_at'])->diffForHumans() }}
+                    @else
+                        —
+                    @endif
+                </span>
             @else
                 <h5 class="profile-name">{{ isset($fromUser->user) ? $fromUser->user->first_name : translate('no_user_found') }}</h5>
                 <span class="fz-12">{{isset($fromUser->user)?$fromUser->user->phone:''}}</span>
@@ -40,76 +72,25 @@
     <div class="inbox_msg d-flex flex-column-reverse" data-trigger="scrollbar">
         <div class="upload_img"></div>
         <div class="upload_file"></div>
-        @php($format=['jpg','png','jpeg','JPG','PNG','JPEG'])
-        @foreach($conversation as $chat)
-            @if($chat->user->id==auth()->user()->id)
-                <div class="outgoing_msg">
-                    @if($chat->message!=null)
-                        <p class="message_text">
-                            {{$chat->message}}
-                        </p>
-                    @endif
-
-                    @if(count($chat->conversationFiles)>0)
-                        <div class="inbox-img-grid">
-                            @foreach($chat->conversationFiles as $file)
-                                @if(in_array($file->file_type,$format))
-                                    <div class="conv-img-wrap">
-                                        <a data-lightbox="mygallery"
-                                           href="{{$file->stored_file_name_full_path}}">
-                                        <img width="150"
-                                             src="{{$file->stored_file_name_full_path}}">
-                                        </a>
-                                    </div>
-                                @else
-                                    <div class="d-flex align-items-center flex-column gap-1">
-                                        <img width="50" src="{{asset('assets/admin-module/img/icons/folder.png')}}" alt="">
-                                        <a class="fs-12" href="{{$file->stored_file_name_full_path}}" download>
-                                            {{$file->original_file_name}}
-                                        </a>
-                                    </div>
-                                @endif
-                            @endforeach
-                        </div>
-                    @endif
-
-                    <span class="time_date d-flex justify-content-end">
-                        {{date('H:i a | M d Y',strtotime($chat->created_at))}}
-                    </span>
-                </div>
-            @else
-                <div class="received_msg">
-                    @if($chat->message!=null)
-                        <p class="message_text">
-                            {{$chat->message}}
-                        </p>
-                    @endif
-
-                    @if(count($chat->conversationFiles)>0)
-                        @foreach($chat->conversationFiles as $file)
-                                @if(in_array($file->file_type,$format))
-                                <img width="150"
-                                     src="{{$file->stored_file_name_full_path}}" alt="{{translate('image')}}">
-                            @else
-                                <a href="{{$file->stored_file_name_full_path}}"
-                                   download>{{$file->original_file_name}}</a>
-                            @endif
-                        @endforeach
-                    @endif
-                    <span class="time_date"> {{date('H:i a | M d Y',strtotime($chat->created_at))}}</span>
-                </div>
-            @endif
-        @endforeach
+        @include('chattingmodule::admin.partials._chat-messages-list', [
+            'conversation' => $conversation,
+            'enableStaffMessaging' => $enableStaffMessaging ?? false,
+            'isStaffGroup' => $isStaffGroup ?? false,
+        ])
 
     </div>
 
     <div class="type_msg">
         <form class="mt-4" id="send-sms-form">
             <div class="input_msg_write border rounded p-3">
+                @include('chattingmodule::admin.partials._chat-reply-bar')
                 <input name="channel_id" class="hide-div" value="{{$channelId}}"
                        id="chat-channel-id">
-                <textarea class="border-0 w-100 resize-none pb-0" id="msgInputValue" type="text"
-                          placeholder="{{translate('type_here...')}}"
+                @if($enableStaffMessaging ?? false)
+                    @include('chattingmodule::admin.partials._staff-chat-compose-toolbar')
+                @endif
+                <textarea class="border-0 w-100 resize-none pb-0 {{ ($enableStaffMessaging ?? false) ? 'staff-chat-message-input' : '' }}" id="msgInputValue" type="text"
+                          placeholder="{{ ($enableStaffMessaging ?? false) ? translate('Type_@_to_tag_staff_or_use_buttons_above') : translate('type_here...') }}"
                           aria-label="Search" name="message"></textarea>
 
 
@@ -210,6 +191,10 @@
 
         var form = $('#send-sms-form')[0];
         var formData = new FormData(form);
+        var messageInput = document.getElementById('msgInputValue');
+        if (messageInput && typeof window.resolveStaffChatTags === 'function') {
+            formData.set('message', window.resolveStaffChatTags(messageInput.value));
+        }
         $.ajaxSetup({
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -228,6 +213,10 @@
                 $('.upload__img-wrap').html('')
                 $(".filearray").empty();
                 selectedFiles = [];
+                window.staffChatTagRegistry = [];
+                if (typeof window.clearChatReply === 'function') {
+                    window.clearChatReply();
+                }
                 toastr.success("{{translate('Message sent successfully')}}", {
                     CloseButton: true,
                     ProgressBar: true

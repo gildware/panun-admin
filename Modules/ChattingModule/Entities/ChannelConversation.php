@@ -5,6 +5,7 @@ namespace Modules\ChattingModule\Entities;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,7 +15,17 @@ class ChannelConversation extends Model
 {
     use HasFactory, SoftDeletes, HasUuid;
 
-    protected $fillable = [];
+    protected $fillable = [
+        'channel_id',
+        'message',
+        'user_id',
+        'reply_to_conversation_id',
+    ];
+
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reply_to_conversation_id');
+    }
 
     //relation
     public function conversationFiles(): HasMany

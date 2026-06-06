@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
+use Modules\AdminModule\Services\StaffPresenceService;
 use Modules\UserManagement\Entities\User;
 
 class LoginController extends Controller
@@ -103,6 +104,8 @@ class LoginController extends Controller
                     if (!adminSetupGuideWelcomeAcknowledged($user->id)) {
                         session(['admin_show_setup_welcome' => true]);
                     }
+                    app(StaffPresenceService::class)->markOnlineOnLogin(auth()->user());
+                    app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser(auth()->user());
                     return redirect()->route('admin.dashboard');
                 }
             }
@@ -418,7 +421,9 @@ class LoginController extends Controller
         if (auth()->user()) {
             $redirect_route = in_array(auth()->user()->user_type, ADMIN_USER_TYPES) ? 'admin.auth.login' : 'provider.auth.login';
 
-            if (!in_array(auth()->user()->user_type, ADMIN_USER_TYPES)) {
+            if (in_array(auth()->user()->user_type, ADMIN_USER_TYPES)) {
+                app(StaffPresenceService::class)->markOffline(auth()->user());
+            } else {
                 $request->session()->forget('modalClosed');
             }
 

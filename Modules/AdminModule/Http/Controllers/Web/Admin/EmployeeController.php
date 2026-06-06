@@ -151,7 +151,9 @@ class EmployeeController extends Controller
             return back()->withInput();
         }
 
-        DB::transaction(function () use ($request) {
+        $employeeId = null;
+
+        DB::transaction(function () use ($request, &$employeeId) {
 
             $employee = $this->employee;
             $employee->first_name = $request->first_name;
@@ -168,6 +170,7 @@ class EmployeeController extends Controller
             $employee->user_type = 'admin-employee';
             $employee->is_active = 1;
             $employee->save();
+            $employeeId = $employee->id;
 
             $employee->zones()->sync($request['zone_ids']);
 
@@ -203,6 +206,13 @@ class EmployeeController extends Controller
                 }
             }
         });
+
+        if ($employeeId) {
+            $employee = $this->employee->find($employeeId);
+            if ($employee) {
+                app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser($employee);
+            }
+        }
 
         Toastr::success(translate(DEFAULT_STORE_200['message']));
         return redirect('/admin/employee/list');
@@ -487,6 +497,14 @@ class EmployeeController extends Controller
         $this->authorize('employee_manage_status');
         $user = $this->employee->where('id', $id)->first();
         $this->employee->where('id', $id)->update(['is_active' => !$user->is_active]);
+        $user->refresh();
+
+        $staffGroupService = app(\Modules\ChattingModule\Services\StaffGroupChannelService::class);
+        if ($user->is_active) {
+            $staffGroupService->ensureGroupForUser($user);
+        } else {
+            $staffGroupService->removeMember($user->id);
+        }
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
     }

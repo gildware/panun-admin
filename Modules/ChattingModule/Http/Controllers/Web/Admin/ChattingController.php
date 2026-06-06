@@ -16,6 +16,11 @@ use Modules\ChattingModule\Entities\ChannelConversation;
 use Modules\ChattingModule\Entities\ChannelList;
 use Modules\ChattingModule\Entities\ChannelUser;
 use Modules\ChattingModule\Entities\ConversationFile;
+use Modules\AdminModule\Services\StaffPresenceService;
+use Modules\BookingModule\Entities\Booking;
+use Modules\ChattingModule\Services\StaffGroupChannelService;
+use Modules\ProviderManagement\Entities\Provider;
+use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
 use Ramsey\Uuid\Nonstandard\Uuid;
 
@@ -26,14 +31,18 @@ class ChattingController extends Controller
     protected ChannelConversation $channelConversation;
     protected ConversationFile $conversationFile;
     protected User $user;
+    protected StaffPresenceService $staffPresenceService;
+    protected StaffGroupChannelService $staffGroupChannelService;
 
-    public function __construct(User $user, ChannelList $channelList, ChannelUser $channelUser, ChannelConversation $channelConversation, ConversationFile $conversationFile)
+    public function __construct(User $user, ChannelList $channelList, ChannelUser $channelUser, ChannelConversation $channelConversation, ConversationFile $conversationFile, StaffPresenceService $staffPresenceService, StaffGroupChannelService $staffGroupChannelService)
     {
         $this->channelList = $channelList;
         $this->channelUser = $channelUser;
         $this->channelConversation = $channelConversation;
         $this->conversationFile = $conversationFile;
         $this->user = $user;
+        $this->staffPresenceService = $staffPresenceService;
+        $this->staffGroupChannelService = $staffGroupChannelService;
     }
 
     /**
@@ -44,7 +53,7 @@ class ChattingController extends Controller
     public function index(Request $request): Factory|View|Application
     {
         $request->validate([
-            'user_type' => 'nullable|in:customer,provider_admin,provider_serviceman'
+            'user_type' => 'nullable|in:customer,provider_admin,provider_serviceman,staff'
         ]);
 
         $chatList = $this->channelList->withCount(['channelUsers'])
@@ -54,22 +63,27 @@ class ChattingController extends Controller
             })
             ->when($request->has('user_type'), function ($query) use ($request) {
                 $type = $request['user_type'];
-                $query->whereHas('channelUsers.user', function ($query) use ($type) {
-                    $query->where(function ($query) use ($type) {
-                        if ($type == 'customer') {
-                            $query->where(function ($q) {
-                                $q->whereIn('user_type', CUSTOMER_USER_TYPES)
-                                    ->orWhere(function ($q2) {
-                                        $q2->where('user_type', 'provider-admin')
-                                            ->where('customer_app_access', 1);
+                $query->whereHas('channelUsers', function ($channelQuery) use ($type, $request) {
+                    $channelQuery->where('user_id', '!=', $request->user()->id)
+                        ->whereHas('user', function ($userQuery) use ($type) {
+                            $userQuery->where(function ($query) use ($type) {
+                                if ($type == 'customer') {
+                                    $query->where(function ($q) {
+                                        $q->whereIn('user_type', CUSTOMER_USER_TYPES)
+                                            ->orWhere(function ($q2) {
+                                                $q2->where('user_type', 'provider-admin')
+                                                    ->where('customer_app_access', 1);
+                                            });
                                     });
+                                } elseif ($type == 'provider_admin') {
+                                    $query->where('user_type', 'provider-admin');
+                                } elseif ($type == 'provider_serviceman') {
+                                    $query->where('user_type', 'provider-serviceman');
+                                } elseif ($type == 'staff') {
+                                    $query->whereIn('user_type', ADMIN_USER_TYPES);
+                                }
                             });
-                        } elseif ($type == 'provider_admin') {
-                            $query->where('user_type', 'provider-admin');
-                        } elseif ($type == 'provider_serviceman') {
-                            $query->where('user_type', 'provider-serviceman');
-                        }
-                    });
+                        });
                 });
             })
             ->orderBy('updated_at', 'DESC')->get();
@@ -78,12 +92,157 @@ class ChattingController extends Controller
             $chat['is_read'] = $chat->channelUsers->where('user_id', $request->user()->id)->first()->is_read;
         });
 
-        $type = $request['user_type'];
+        $type = $request['user_type'] ?? 'customer';
+        $staffGroupChannel = null;
+        $staffGroupMemberCount = 0;
+
+        if ($type === 'staff' && in_array($request->user()->user_type, ADMIN_USER_TYPES, true)) {
+            $staffGroupChannel = $this->staffGroupChannelService->ensureGroupForUser($request->user());
+
+            if ($staffGroupChannel) {
+                $staffGroupMemberCount = $this->staffGroupChannelService->memberCount($staffGroupChannel);
+                $staffGroupChannel['is_read'] = $staffGroupChannel->channelUsers
+                    ->where('user_id', $request->user()->id)
+                    ->first()
+                    ->is_read ?? 1;
+            }
+
+            $chatList = $chatList
+                ->filter(fn ($chat) => ! $this->staffGroupChannelService->isStaffGroupChannel($chat))
+                ->values();
+        }
         $customers = $this->user->ofStatus(1)->inCustomerDirectory()->get();
         $providers = $this->user->ofStatus(1)->where(['user_type' => 'provider-admin'])->with(['provider'])->get();
         $servicemen = $this->user->ofStatus(1)->where(['user_type' => 'provider-serviceman'])->get();
+        $staffMembers = $this->staffPresenceService->listStaffPresence($request->user()->id);
+        $staffPresenceById = $staffMembers->keyBy('id');
 
-        return view('chattingmodule::admin.index', compact('chatList', 'customers', 'providers', 'servicemen', 'type'));
+        $openChannelId = $request->query('channel_id');
+
+        return view('chattingmodule::admin.index', compact('chatList', 'customers', 'providers', 'servicemen', 'staffMembers', 'staffPresenceById', 'type', 'openChannelId', 'staffGroupChannel', 'staffGroupMemberCount'));
+    }
+
+    public function openStaffConversation(Request $request, string $staffId): RedirectResponse
+    {
+        $staffUser = $this->user->where('id', $staffId)->whereIn('user_type', ADMIN_USER_TYPES)->first();
+
+        if (! $staffUser) {
+            Toastr::error(translate('Receiver not found'));
+            return back();
+        }
+
+        if ((string) $staffId === (string) $request->user()->id) {
+            Toastr::error(translate('You cannot start a conversation with yourself'));
+            return back();
+        }
+
+        $result = $this->findOrCreateChannelBetween($request->user()->id, $staffId);
+
+        return redirect()->route('admin.chat.index', [
+            'user_type' => 'staff',
+            'channel_id' => $result['channel']->id,
+        ]);
+    }
+
+    public function openStaffConversationAjax(Request $request, string $staffId): JsonResponse
+    {
+        $staffUser = $this->user->where('id', $staffId)->whereIn('user_type', ADMIN_USER_TYPES)->first();
+
+        if (! $staffUser) {
+            return response()->json(response_formatter(DEFAULT_404, null, [['message' => translate('Receiver not found')]]), 404);
+        }
+
+        if ((string) $staffId === (string) $request->user()->id) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('You cannot start a conversation with yourself')]]), 400);
+        }
+
+        $result = $this->findOrCreateChannelBetween($request->user()->id, $staffId);
+        $channel = $result['channel'];
+
+        $this->channelUser->where('channel_id', $channel->id)->where('user_id', $request->user()->id)
+            ->update(['is_read' => 1]);
+
+        $conversation = $this->channelConversation->where(['channel_id' => $channel->id])
+            ->with($this->conversationEagerLoads())->whereHas('channel.channelUsers', function ($query) use ($request) {
+                $query->where(['user_id' => $request->user()->id]);
+            })->latest()->paginate(100, ['*'], 'offset', 1);
+
+        $fromUser = $this->channelUser->where('channel_id', $channel->id)
+            ->where('user_id', '!=', $request->user()->id)
+            ->with('user')
+            ->first();
+
+        $channelId = $channel->id;
+        $presenceContext = $this->staffPresenceContextForFromUser($fromUser);
+        $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
+
+        $response = [
+            'channel_id' => $channelId,
+            'ajax_route' => route('admin.chat.ajax-conversation', ['channel_id' => $channelId, 'offset' => 1]),
+            'template' => view('chattingmodule::admin.partials._conversations', array_merge(
+                compact('fromUser', 'conversation', 'channelId'),
+                $presenceContext,
+                $messagingContext
+            ))->render(),
+        ];
+
+        $staffPresence = $presenceContext['staffPresence'] ?? null;
+
+        if ($result['created']) {
+            $chat = $this->channelList->with(['channelUsers.user'])->find($channel->id);
+            $presenceService = $this->staffPresenceService;
+            $response['list_item'] = view('chattingmodule::admin.partials._staff-conversation-list-item', compact('chat', 'fromUser', 'staffPresence', 'presenceService'))->render();
+        }
+
+        return response()->json($response);
+    }
+
+    /**
+     * @return array{channel: ChannelList, created: bool}
+     */
+    private function findOrCreateChannelBetween(string $currentUserId, string $otherUserId): array
+    {
+        $channelIds = $this->channelUser->where('user_id', $currentUserId)->pluck('channel_id')->toArray();
+
+        $existing = $this->channelList->whereIn('id', $channelIds)
+            ->where(function ($query) {
+                $query->whereNull('reference_type')
+                    ->orWhere('reference_type', '!=', StaffGroupChannelService::REFERENCE_TYPE);
+            })
+            ->whereHas('channelUsers', function ($query) use ($otherUserId) {
+                $query->where('user_id', $otherUserId);
+            })
+            ->has('channelUsers', '=', 2)
+            ->latest()
+            ->first();
+
+        if ($existing) {
+            return ['channel' => $existing, 'created' => false];
+        }
+
+        $channel = $this->channelList;
+        $channel->reference_id = null;
+        $channel->reference_type = null;
+        $channel->save();
+
+        $this->channelUser->insert([
+            [
+                'id' => Uuid::uuid4(),
+                'channel_id' => $channel->id,
+                'user_id' => $currentUserId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => Uuid::uuid4(),
+                'channel_id' => $channel->id,
+                'user_id' => $otherUserId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        return ['channel' => $channel, 'created' => true];
     }
 
     /**
@@ -150,7 +309,7 @@ class ChattingController extends Controller
         $request->validate([
             'reference_id' => '',
             'reference_type' => 'in:booking_id',
-            'user_type' => 'in:customer,provider-admin,provider-serviceman',
+            'user_type' => 'in:customer,provider-admin,provider-serviceman,staff',
         ]);
 
         if ($request['user_type'] == 'customer') {
@@ -159,6 +318,8 @@ class ChattingController extends Controller
             $request['to_user'] = $request['provider_id'];
         } elseif ($request['user_type'] == 'provider-serviceman') {
             $request['to_user'] = $request['serviceman_id'];
+        } elseif ($request['user_type'] == 'staff') {
+            $request['to_user'] = $request['staff_id'];
         }
 
         if (!$this->user->where('id', $request['to_user'])->exists()) {
@@ -166,32 +327,18 @@ class ChattingController extends Controller
             return back();
         }
 
-        $channelIds = $this->channelUser->where(['user_id' => $request->user()->id])->pluck('channel_id')->toArray();
-        $findChannel = $this->channelList->whereIn('id', $channelIds)->whereHas('channelUsers', function ($query) use ($request) {
-            $query->where(['user_id' => $request['to_user']]);
-        })->latest()->first();
+        if ((string) $request['to_user'] === (string) $request->user()->id) {
+            Toastr::error(translate('You cannot start a conversation with yourself'));
+            return back();
+        }
 
-        if (!isset($findChannel)) {
-            $channel = $this->channelList;
-            $channel->reference_id = $request['reference_id'] ?? null;
-            $channel->reference_type = $request['reference_type'] ?? null;
-            $channel->save();
+        $result = $this->findOrCreateChannelBetween($request->user()->id, $request['to_user']);
+        $channel = $result['channel'];
 
-            $this->channelUser->insert([
-                [
-                    'id' => Uuid::uuid4(),
-                    'channel_id' => $channel->id,
-                    'user_id' => $request->user()->id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ],
-                [
-                    'id' => Uuid::uuid4(),
-                    'channel_id' => $channel->id,
-                    'user_id' => $request['to_user'],
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]
+        if ($request['reference_id'] ?? null) {
+            $channel->update([
+                'reference_id' => $request['reference_id'],
+                'reference_type' => $request['reference_type'] ?? null,
             ]);
         }
 
@@ -201,6 +348,7 @@ class ChattingController extends Controller
             'customer' => 'customer',
             'provider-admin' => 'provider_admin',
             'provider-serviceman' => 'provider_serviceman',
+            'staff' => 'staff',
         ];
 
         $userType = $request['user_type'];
@@ -222,6 +370,7 @@ class ChattingController extends Controller
         $validator = Validator::make($request->all(), [
             'message' => is_null($request['files']) ? 'required' : '',
             'channel_id' => 'required|uuid',
+            'reply_to_conversation_id' => 'nullable|uuid',
             'files' => is_null($request['message']) ? 'required|array' : 'array',
             'files.*' => 'max:'. uploadMaxFileSizeInKB('file') .'|mimes:' . implode(',', array_column(FILE_TYPE, 'key'))
         ], [
@@ -236,7 +385,18 @@ class ChattingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        DB::transaction(function () use ($request) {
+        $replyToId = $this->resolveReplyToConversationId(
+            $request['channel_id'],
+            $request->input('reply_to_conversation_id')
+        );
+
+        if ($request->filled('reply_to_conversation_id') && ! $replyToId) {
+            return response()->json(response_formatter(DEFAULT_400, null, [[
+                'message' => translate('Invalid_reply_message'),
+            ]]), 400);
+        }
+
+        DB::transaction(function () use ($request, $replyToId) {
             $this->channelList->where('id', $request['channel_id'])->update([
                 'updated_at' => now()
             ]);
@@ -249,6 +409,7 @@ class ChattingController extends Controller
             $channelConversation->channel_id = $request->channel_id;
             $channelConversation->message = $request['message'];
             $channelConversation->user_id = $request->user()->id;
+            $channelConversation->reply_to_conversation_id = $replyToId;
             $channelConversation->save();
 
             if ($request->has('files')) {
@@ -267,13 +428,118 @@ class ChattingController extends Controller
         });
 
         $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])
-            ->with(['user', 'conversationFiles'])->whereHas('channel.channelUsers', function ($query) use ($request) {
+            ->with($this->conversationEagerLoads())->whereHas('channel.channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             })->latest()->paginate(100, ['*'], 'offset', $request['offset']);
 
+        $channel = $this->channelList->find($request['channel_id']);
+        $fromUser = $this->channelUser->where('channel_id', $request['channel_id'])
+            ->where('user_id', '!=', $request->user()->id)
+            ->with('user')
+            ->first();
+        $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
+
         return response()->json([
-            'template' => view('chattingmodule::admin.partials._conversation-messages-only', compact('conversation'))->render()
+            'template' => view('chattingmodule::admin.partials._conversation-messages-only', array_merge(
+                compact('conversation'),
+                $messagingContext
+            ))->render(),
         ]);
+    }
+
+    public function entitySearch(Request $request): JsonResponse
+    {
+        $request->validate([
+            'q' => 'nullable|string|max:120',
+            'type' => 'required|in:staff,customer,provider,booking,service',
+        ]);
+
+        $query = trim((string) $request->input('q', ''));
+        $type = $request->type;
+        $like = $query !== '' ? '%'.$query.'%' : null;
+
+        $results = match ($type) {
+            'staff' => $this->staffPresenceService->listStaffPresence($request->user()->id)
+                ->when($like, fn ($c) => $c->filter(fn ($m) => stripos($m['name'], $query) !== false))
+                ->take(12)
+                ->map(fn ($m) => [
+                    'type' => 'staff',
+                    'id' => $m['id'],
+                    'label' => $m['name'],
+                    'subtitle' => $m['presence_label'],
+                ])
+                ->values(),
+            'customer' => $this->user->ofStatus(1)->inCustomerDirectory()
+                ->when($like, function ($q) use ($like) {
+                    $q->where(function ($inner) use ($like) {
+                        $inner->where('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('email', 'like', $like);
+                    });
+                })
+                ->orderBy('first_name')
+                ->limit(12)
+                ->get()
+                ->map(fn (User $user) => [
+                    'type' => 'customer',
+                    'id' => $user->id,
+                    'label' => trim($user->first_name.' '.$user->last_name),
+                    'subtitle' => $user->phone,
+                ])
+                ->values(),
+            'provider' => Provider::query()
+                ->when($like, fn ($q) => $q->where(function ($inner) use ($like) {
+                    $inner->where('company_name', 'like', $like)
+                        ->orWhere('company_phone', 'like', $like)
+                        ->orWhere('contact_person_name', 'like', $like);
+                }))
+                ->orderBy('company_name')
+                ->limit(12)
+                ->get()
+                ->map(fn (Provider $provider) => [
+                    'type' => 'provider',
+                    'id' => $provider->id,
+                    'label' => $provider->company_name,
+                    'subtitle' => $provider->company_phone,
+                ])
+                ->values(),
+            'booking' => Booking::query()
+                ->when($like, fn ($q) => $q->where(function ($inner) use ($like, $query) {
+                    $inner->where('readable_id', 'like', $like)
+                        ->orWhere('id', 'like', $like);
+                    if (ctype_digit($query)) {
+                        $inner->orWhere('readable_id', 'like', '%'.$query.'%');
+                    }
+                }))
+                ->latest()
+                ->limit(12)
+                ->get(['id', 'readable_id', 'booking_status'])
+                ->map(fn (Booking $booking) => [
+                    'type' => 'booking',
+                    'id' => $booking->id,
+                    'label' => $booking->readable_id ?: translate('booking'),
+                    'subtitle' => translate($booking->booking_status),
+                ])
+                ->values(),
+            'service' => Service::query()
+                ->with('category')
+                ->where('is_active', 1)
+                ->when($like, fn ($q) => $q->where('name', 'like', $like))
+                ->orderBy('name')
+                ->limit(12)
+                ->get(['id', 'name', 'category_id'])
+                ->map(fn (Service $service) => [
+                    'type' => 'service',
+                    'id' => $service->id,
+                    'label' => $service->name,
+                    'subtitle' => $service->category?->name,
+                ])
+                ->values(),
+            default => collect(),
+        };
+
+        return response()->json(['results' => $results]);
     }
 
     /**
@@ -298,16 +564,87 @@ class ChattingController extends Controller
             ]);
 
         $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])
-            ->with(['user', 'conversationFiles'])->whereHas('channel.channelUsers', function ($query) use ($request) {
+            ->with($this->conversationEagerLoads())->whereHas('channel.channelUsers', function ($query) use ($request) {
                 $query->where(['user_id' => $request->user()->id]);
             })->latest()->paginate(100, ['*'], 'offset', $request['offset']);
 
-        $fromUser = $this->channelUser->where('channel_id', $request['channel_id'])->where('user_id', '!=', $request->user()->id)->first();
+        $fromUser = $this->channelUser->where('channel_id', $request['channel_id'])
+            ->where('user_id', '!=', $request->user()->id)
+            ->with('user')
+            ->first();
 
         $channelId = $request['channel_id'];
+        $channel = $this->channelList->withCount('channelUsers')->find($channelId);
+        $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
+        $presenceContext = ($messagingContext['isStaffGroup'] ?? false)
+            ? []
+            : $this->staffPresenceContextForFromUser($fromUser);
 
         return response()->json([
-            'template' => view('chattingmodule::admin.partials._conversations', compact('fromUser', 'conversation', 'channelId'))->render()
+            'template' => view('chattingmodule::admin.partials._conversations', array_merge(
+                compact('fromUser', 'conversation', 'channelId'),
+                $presenceContext,
+                $messagingContext
+            ))->render(),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function conversationEagerLoads(): array
+    {
+        return ['user', 'conversationFiles', 'replyTo.user', 'replyTo.conversationFiles'];
+    }
+
+    private function resolveReplyToConversationId(string $channelId, ?string $replyToId): ?string
+    {
+        if (! $replyToId) {
+            return null;
+        }
+
+        $parent = $this->channelConversation
+            ->where('id', $replyToId)
+            ->where('channel_id', $channelId)
+            ->first();
+
+        return $parent?->id;
+    }
+
+    /**
+     * @return array{enableStaffMessaging: bool, isStaffGroup: bool, memberCount: int}
+     */
+    private function staffMessagingViewContext(?ChannelList $channel, ?ChannelUser $fromUser = null): array
+    {
+        $isStaffGroup = $channel && $this->staffGroupChannelService->isStaffGroupChannel($channel);
+        $enableStaffMessaging = $isStaffGroup
+            || ($fromUser?->user && in_array($fromUser->user->user_type, ADMIN_USER_TYPES, true));
+
+        return [
+            'enableStaffMessaging' => $enableStaffMessaging,
+            'isStaffGroup' => (bool) $isStaffGroup,
+            'memberCount' => ($isStaffGroup && $channel) ? $this->staffGroupChannelService->memberCount($channel) : 0,
+        ];
+    }
+
+    /**
+     * @return array{staffPresence: ?array, presenceService: StaffPresenceService}
+     */
+    private function staffPresenceContextForFromUser(?ChannelUser $fromUser): array
+    {
+        $presenceService = $this->staffPresenceService;
+        $staffPresence = null;
+
+        if ($fromUser?->user && in_array($fromUser->user->user_type, ADMIN_USER_TYPES, true)) {
+            $staffUser = $this->user
+                ->select(['id', 'first_name', 'last_name', 'email', 'phone', 'profile_image', 'user_type', 'staff_presence_status', 'last_seen_at'])
+                ->find($fromUser->user->id);
+
+            if ($staffUser) {
+                $staffPresence = $presenceService->formatStaffMember($staffUser);
+            }
+        }
+
+        return compact('staffPresence', 'presenceService');
     }
 }

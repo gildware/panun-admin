@@ -83,7 +83,9 @@ class EmployeeController extends Controller
             $identity_images[] = ['image'=>$imageName, 'storage'=> getDisk()];
         }
 
-        DB::transaction(function () use ($request, $identity_images) {
+        $employeeId = null;
+
+        DB::transaction(function () use ($request, $identity_images, &$employeeId) {
             $employee = $this->employee;
             $employee->first_name = $request->first_name;
             $employee->last_name = $request->last_name;
@@ -97,6 +99,7 @@ class EmployeeController extends Controller
             $employee->user_type = 'admin-employee';
             $employee->is_active = 1;
             $employee->save();
+            $employeeId = $employee->id;
 
             $employee->roles()->sync([$request['role_id']]);
             $employee->zones()->sync($request['zone_ids']);
@@ -106,6 +109,13 @@ class EmployeeController extends Controller
             $address->address = $request->address;
             $address->save();
         });
+
+        if ($employeeId) {
+            $employee = $this->employee->find($employeeId);
+            if ($employee) {
+                app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser($employee);
+            }
+        }
 
         return response()->json(response_formatter(DEFAULT_STORE_200), 200);
     }

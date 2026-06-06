@@ -28,6 +28,9 @@ class ChattingModuleServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+        $this->commands([
+            \Modules\ChattingModule\Console\SyncStaffGroupChannelCommand::class,
+        ]);
     }
 
     /**
