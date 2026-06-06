@@ -30,6 +30,8 @@ class AdminBusinessAiToolExecutor
         protected AdminBusinessAiDashboardInsightService $dashboardInsights,
         protected AdminBusinessAiEntityRelationService $entityRelations,
         protected AdminBusinessAiEmployeeInsightService $employeeInsights,
+        protected AdminBusinessAiFinancialInsightService $financialInsights,
+        protected AdminBusinessAiBookingQueueInsightService $bookingQueueInsights,
     ) {}
 
     /**
@@ -63,6 +65,14 @@ class AdminBusinessAiToolExecutor
             'get_whatsapp_conversations_overview' => $this->whatsAppInsights->overview(),
             'query_whatsapp_conversations' => $this->whatsAppInsights->queryConversations($args),
             'get_whatsapp_conversation_details' => $this->whatsAppInsights->conversationDetails($args),
+            'query_ledger' => $this->financialInsights->queryLedger($args),
+            'query_transactions' => $this->financialInsights->queryTransactions($args),
+            'query_withdraw_requests' => $this->financialInsights->queryWithdrawRequests($args),
+            'query_pending_provider_balances' => $this->financialInsights->queryPendingProviderBalances($args),
+            'query_booking_queues' => $this->bookingQueueInsights->query($args),
+            'get_booking_queues_overview' => $this->bookingQueueInsights->overview(),
+            'get_lead_inbound_report' => $this->leadInsights->inboundLeadReport($args),
+            'get_employee_lead_productivity' => $this->leadInsights->employeeLeadProductivity($args),
             default => ['ok' => false, 'error' => 'unknown_tool'],
         };
     }
@@ -127,7 +137,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'query_leads',
-                'description' => 'Search CRM leads with status, timestamps, zone/service/cancellation data. Filter by customer_status or provider_status name (e.g. No Response, Pending) or status_search.',
+                'description' => 'Search CRM leads with all admin-tab fields: zone, categories, service, status, cancellation reason/remarks, received date, followups, handler, tags. Filter by customer_status or provider_status name (e.g. No Response, Pending) or status_search.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -136,9 +146,14 @@ class AdminBusinessAiToolExecutor
                         'customer_status' => ['type' => 'string', 'description' => 'Customer lead status name substring, e.g. No Response, Pending, Booked'],
                         'provider_status' => ['type' => 'string', 'description' => 'Provider lead status name substring'],
                         'status_search' => ['type' => 'string', 'description' => 'Match customer or provider status name'],
+                        'non_responsive_only' => ['type' => 'boolean', 'description' => 'Invalid reason No Response, customer cancellation No Response From Customer, or status containing no response'],
                         'handled_by' => ['type' => 'string', 'description' => 'Employee name/email or AI or __unassigned__'],
                         'open_only' => ['type' => 'boolean', 'description' => 'Only open leads per pipeline status'],
                         'overdue_followup' => ['type' => 'boolean', 'description' => 'next_followup_at before now'],
+                        'zone' => ['type' => 'string', 'description' => 'Zone name substring'],
+                        'category' => ['type' => 'string', 'description' => 'Category/subcategory name substring'],
+                        'source' => ['type' => 'string', 'description' => 'Lead source name substring'],
+                        'tag' => ['type' => 'string', 'description' => 'Customer lead tag name'],
                         'date_from' => ['type' => 'string', 'description' => 'YYYY-MM-DD received from'],
                         'date_to' => ['type' => 'string', 'description' => 'YYYY-MM-DD received to'],
                         'limit' => ['type' => 'integer'],
@@ -147,7 +162,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'get_lead_details',
-                'description' => 'Complete lead dossier: status timeline, activity_summary (received_at, last_updated_at, staff followups, data updates, WhatsApp reply times), type_history, followups, change_logs, booking link.',
+                'description' => 'Complete lead dossier with all_fields (zone, categories, service, cancellation reason/remarks, received date, followups, handler, tags, district/zones for provider). Includes type_history, activity_summary, status_timeline, followups, change_logs, provider checklist, linked bookings.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -166,6 +181,14 @@ class AdminBusinessAiToolExecutor
                         'booking_status' => ['type' => 'string', 'description' => 'pending|accepted|ongoing|completed|canceled|etc'],
                         'customer_search' => ['type' => 'string'],
                         'provider_search' => ['type' => 'string'],
+                        'zone' => ['type' => 'string', 'description' => 'Zone name substring'],
+                        'category' => ['type' => 'string', 'description' => 'Category name substring'],
+                        'assignee_search' => ['type' => 'string', 'description' => 'Booking assignee employee name/email'],
+                        'assignee_id' => ['type' => 'string', 'description' => 'Booking assignee user UUID'],
+                        'lead_id' => ['type' => 'integer'],
+                        'is_paid' => ['type' => 'boolean'],
+                        'settlement_outcome' => ['type' => 'string', 'description' => 'e.g. scaled_to_payments'],
+                        'overdue_followup' => ['type' => 'boolean', 'description' => 'Bookings with scheduled followup on or before today'],
                         'date_from' => ['type' => 'string'],
                         'date_to' => ['type' => 'string'],
                         'limit' => ['type' => 'integer'],
@@ -174,12 +197,14 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_bookings',
-                'description' => 'Aggregate booking intelligence: status_breakdown, followup_backlog, settlement_overview, full_booking_overview.',
+                'description' => 'Aggregate booking intelligence. Key: booking_timing_report (peak hours + lag: created→followup/accepted/completed/canceled/payment), cancellation_timing_report, followup_timing_report. Also: status_breakdown, followup_backlog, settlement_overview. cohort: all|pending|accepted|ongoing|completed|canceled|overdue_followup|loss_making|unpaid|verify_pending|offline_payment|reopened|after_visit_cancel. Scans up to 5000 bookings.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
-                        'analysis' => ['type' => 'string'],
+                        'analysis' => ['type' => 'string', 'description' => 'booking_timing_report|cancellation_timing_report|followup_timing_report|status_breakdown|followup_backlog|settlement_overview|full_booking_overview'],
+                        'cohort' => ['type' => 'string', 'description' => 'For booking_timing_report'],
                         'booking_status' => ['type' => 'string'],
+                        'zone' => ['type' => 'string'],
                         'date_from' => ['type' => 'string'],
                         'date_to' => ['type' => 'string'],
                     ],
@@ -188,7 +213,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'get_booking_details',
-                'description' => 'Complete booking dossier (admin booking tab): followups, partial payments, settlement, repeats, compensations, reopen, status/change history, lead link, services, financial amounts.',
+                'description' => 'Complete booking dossier with all_fields: zone, category, services/variants, cancellation/hold/dispute reasons+remarks, schedule history, followups, partial payments (paid_with, due, received_by), settlement, repeats, compensations, reopen, status/change history, lead link, financial breakdown.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -277,7 +302,7 @@ class AdminBusinessAiToolExecutor
                     'properties' => [
                         'report_type' => [
                             'type' => 'string',
-                            'description' => 'booking_analytics|financial_summary|lead_pipeline|provider_performance|customer_overview|whatsapp_pipeline',
+                            'description' => 'booking_analytics|financial_summary|lead_pipeline|provider_performance|customer_overview|whatsapp_pipeline|earning|expense|commission_earning|transaction_summary',
                         ],
                         'date_from' => ['type' => 'string'],
                         'date_to' => ['type' => 'string'],
@@ -287,12 +312,13 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_leads',
-                'description' => 'Aggregate lead intelligence. analysis: customer_cancellation_reasons|provider_cancellation_reasons|invalid_reasons|future_customer_reasons|customer_status_breakdown|provider_status_breakdown|no_response_leads|lead_activity_report|full_lead_overview. no_response_leads = status contains No Response/unresponsive + received/reply times.',
+                'description' => 'Aggregate lead intelligence. Key analyses: no_response_timing_report (hour peaks + reply/update lag for No Response cohort), lead_timing_report (cohort: all|non_responsive|invalid|invalid_no_response|customer|provider|customer_cancelled|customer_pending), no_response_leads (includes timing_summary), lead_activity_report, cancellation/status breakdowns. Use date_from/date_to for range. Scans up to 5000 leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
-                        'analysis' => ['type' => 'string'],
+                        'analysis' => ['type' => 'string', 'description' => 'no_response_timing_report|lead_timing_report|no_response_leads|lead_activity_report|customer_cancellation_reasons|customer_status_breakdown|invalid_reasons|full_lead_overview|etc'],
                         'lead_type' => ['type' => 'string', 'description' => 'customer|provider|invalid|future_customer|unknown|all'],
+                        'cohort' => ['type' => 'string', 'description' => 'For lead_timing_report: all|non_responsive|invalid|invalid_no_response|customer|provider|customer_cancelled|customer_pending'],
                         'date_from' => ['type' => 'string'],
                         'date_to' => ['type' => 'string'],
                     ],
@@ -331,6 +357,111 @@ class AdminBusinessAiToolExecutor
                         'phone' => ['type' => 'string', 'description' => 'WhatsApp thread phone key'],
                     ],
                     'required' => ['phone'],
+                ],
+            ],
+            [
+                'name' => 'query_ledger',
+                'description' => 'Company ledger (money in/out): search by booking readable_id, transaction_id, reference. Returns totals and entries.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'type' => ['type' => 'string', 'description' => 'all|in|out'],
+                        'search' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'query_transactions',
+                'description' => 'Full payment activity: company ledger IN/OUT plus customer→provider direct booking payments. Mirrors admin transaction list.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'trx_type' => ['type' => 'string', 'description' => 'all|credit|debit'],
+                        'search' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'query_withdraw_requests',
+                'description' => 'Provider withdraw request queue: pending/approved/denied/settled with amounts and status breakdown.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'status' => ['type' => 'string', 'description' => 'pending|approved|denied|settled|all'],
+                        'search' => ['type' => 'string', 'description' => 'Provider company name'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'query_pending_provider_balances',
+                'description' => 'Providers who owe company money (pending collect-cash balances). Total due and per-provider breakdown.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'search' => ['type' => 'string'],
+                        'category_id' => ['type' => 'string'],
+                        'sort' => ['type' => 'string', 'description' => 'balance_desc|balance_asc|name_asc'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'get_booking_queues_overview',
+                'description' => 'Counts for booking operational queues: verify requests, offline payments, special scenarios, overdue followups.',
+                'parameters' => ['type' => 'object', 'properties' => new \stdClass],
+            ],
+            [
+                'name' => 'query_booking_queues',
+                'description' => 'Booking operational queues: verify_requests (high-value cash), offline_payments, special_scenarios (loss-making/settlement), overdue_followups.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'queue' => ['type' => 'string', 'description' => 'verify_requests|offline_payments|special_scenarios|overdue_followups'],
+                        'verify_type' => ['type' => 'string', 'description' => 'pending|denied — for verify_requests'],
+                        'scenario' => ['type' => 'string', 'description' => 'all|loss_making|cancelled_after_visit|little_or_no_service'],
+                        'zone' => ['type' => 'string'],
+                        'category' => ['type' => 'string'],
+                        'assignee_search' => ['type' => 'string'],
+                        'readable_id' => ['type' => 'string'],
+                        'search' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                    'required' => ['queue'],
+                ],
+            ],
+            [
+                'name' => 'get_lead_inbound_report',
+                'description' => 'Full admin Lead Reports inbound analytics: conversion by zone/category/subcategory, cancellation reasons, hour/day patterns. report_type: customer|provider.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'report_type' => ['type' => 'string', 'description' => 'customer|provider'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                    ],
+                    'required' => ['report_type'],
+                ],
+            ],
+            [
+                'name' => 'get_employee_lead_productivity',
+                'description' => 'Per-employee lead productivity (admin lead user report): leads handled, open leads, by type, bookings from leads, followups.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'employee_id' => ['type' => 'string', 'description' => 'Admin user UUID'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                    ],
+                    'required' => ['employee_id'],
                 ],
             ],
             [
@@ -497,6 +628,10 @@ class AdminBusinessAiToolExecutor
             $q->where('date_time_of_lead_received', '<=', Carbon::parse((string) $args['date_to'])->endOfDay());
         }
         $this->leadInsights->applyStatusFilters($q, $args);
+        $this->leadInsights->applyDimensionFilters($q, $args);
+        if (! empty($args['non_responsive_only'])) {
+            $this->leadInsights->applyNonResponsiveFilter($q);
+        }
     }
 
     /**
@@ -532,7 +667,14 @@ class AdminBusinessAiToolExecutor
      */
     private function queryBookings(array $args): array
     {
-        $q = Booking::query()->with(['customer:id,first_name,last_name,phone,email', 'provider:id,company_name,contact_person_name']);
+        $q = Booking::query()->with([
+            'customer:id,first_name,last_name,phone,email',
+            'provider:id,company_name,contact_person_name,company_phone',
+            'zone:id,name',
+            'category:id,name',
+            'subCategory:id,name',
+            'assignee:id,first_name,last_name',
+        ]);
         $this->applyBookingFilters($q, $args);
 
         $total = (clone $q)->count();
@@ -580,6 +722,41 @@ class AdminBusinessAiToolExecutor
         }
         if (! empty($args['date_to'])) {
             $q->where('created_at', '<=', Carbon::parse((string) $args['date_to'])->endOfDay());
+        }
+        if (! empty($args['zone'])) {
+            $zoneName = trim((string) $args['zone']);
+            $q->whereHas('zone', fn ($zq) => $zq->where('name', 'like', '%'.$zoneName.'%'));
+        }
+        if (! empty($args['category'])) {
+            $catName = trim((string) $args['category']);
+            $q->where(function ($cq) use ($catName) {
+                $cq->whereHas('category', fn ($catQ) => $catQ->where('name', 'like', '%'.$catName.'%'))
+                    ->orWhereHas('subCategory', fn ($subQ) => $subQ->where('name', 'like', '%'.$catName.'%'));
+            });
+        }
+        if (! empty($args['assignee_id'])) {
+            $q->where('assignee_id', (string) $args['assignee_id']);
+        } elseif (! empty($args['assignee_search'])) {
+            $s = '%'.trim((string) $args['assignee_search']).'%';
+            $q->whereHas('assignee', function ($aq) use ($s) {
+                $aq->where('first_name', 'like', $s)
+                    ->orWhere('last_name', 'like', $s)
+                    ->orWhere('email', 'like', $s);
+            });
+        }
+        if (! empty($args['lead_id'])) {
+            $q->where('lead_id', (int) $args['lead_id']);
+        }
+        if (array_key_exists('is_paid', $args)) {
+            $q->where('is_paid', ! empty($args['is_paid']) ? 1 : 0);
+        }
+        if (! empty($args['settlement_outcome'])) {
+            $q->where('settlement_outcome', trim((string) $args['settlement_outcome']));
+        }
+        if (! empty($args['overdue_followup'])) {
+            $q->whereHas('followups', function ($fq) {
+                $fq->where('status', 'scheduled')->whereDate('date', '<=', Carbon::today());
+            })->whereIn('booking_status', Booking::STATUSES_FOR_SCHEDULED_FOLLOWUP_LISTS);
         }
     }
 
@@ -789,8 +966,18 @@ class AdminBusinessAiToolExecutor
             'provider_performance' => $this->reportProviderPerformance(),
             'customer_overview' => $this->reportCustomerOverview($from, $to),
             'whatsapp_pipeline' => ['ok' => true, 'report_type' => 'whatsapp_pipeline', 'data' => $this->whatsAppInsights->overview()],
+            'earning' => $this->financialInsights->reportEarning($from, $to),
+            'expense' => $this->financialInsights->reportExpense($from, $to),
+            'commission_earning' => $this->financialInsights->reportCommission($from, $to),
+            'transaction_summary' => $this->financialInsights->queryTransactions([
+                'date_from' => $from?->toDateString(),
+                'date_to' => $to?->toDateString(),
+                'trx_type' => 'all',
+                'limit' => 15,
+            ]),
             default => ['ok' => false, 'error' => 'unknown_report_type', 'allowed' => [
                 'booking_analytics', 'financial_summary', 'lead_pipeline', 'provider_performance', 'customer_overview', 'whatsapp_pipeline',
+                'earning', 'expense', 'commission_earning', 'transaction_summary',
             ]],
         };
     }

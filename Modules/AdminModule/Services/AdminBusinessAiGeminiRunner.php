@@ -309,7 +309,23 @@ class AdminBusinessAiGeminiRunner
         }
 
         if (preg_match('/\b(no response|unresponsive|not responding|no reply)\b/i', $userMessage)) {
-            $tools[] = ['name' => 'analyze_leads', 'args' => ['analysis' => 'no_response_leads', 'lead_type' => 'customer']];
+            $tools[] = ['name' => 'analyze_leads', 'args' => ['analysis' => 'no_response_timing_report', 'lead_type' => 'all']];
+        }
+
+        if (preg_match('/\b(lag|delay|response time|when.*(come|arrive|received|created)|what time|peak hour|followup.*time|updat(e|ing).*time)\b/i', $userMessage)) {
+            if (preg_match('/\b(booking|bookings|order|orders|cancel|accepted|pending)\b/i', $userMessage)) {
+                $cohort = 'all';
+                if (preg_match('/\b(cancel+ed?|cancellation)\b/i', $userMessage)) {
+                    $cohort = 'canceled';
+                    $tools[] = ['name' => 'analyze_bookings', 'args' => ['analysis' => 'cancellation_timing_report']];
+                } elseif (preg_match('/\b(overdue|followup|follow-up)\b/i', $userMessage)) {
+                    $tools[] = ['name' => 'analyze_bookings', 'args' => ['analysis' => 'followup_timing_report']];
+                } else {
+                    $tools[] = ['name' => 'analyze_bookings', 'args' => ['analysis' => 'booking_timing_report', 'cohort' => $cohort]];
+                }
+            } else {
+                $tools[] = ['name' => 'analyze_leads', 'args' => ['analysis' => 'lead_timing_report', 'lead_type' => 'all', 'cohort' => 'all']];
+            }
         }
 
         if (preg_match('/\b(dashboard|widget|ledger|followup|follow-up|top provider|top customer)\b/i', $userMessage)) {
@@ -508,7 +524,7 @@ class AdminBusinessAiGeminiRunner
                 $compact['data']['zone_wise'] = array_slice($compact['data']['zone_wise'], 0, 8);
             }
         }
-        foreach (['leads', 'bookings', 'providers', 'customers', 'conversations', 'outbound_enquiries', 'incomplete_leads', 'employees'] as $listKey) {
+        foreach (['leads', 'bookings', 'providers', 'customers', 'conversations', 'outbound_enquiries', 'incomplete_leads', 'employees', 'entries', 'transactions', 'withdraw_requests', 'followups'] as $listKey) {
             if (isset($compact[$listKey]) && is_array($compact[$listKey]) && count($compact[$listKey]) > 15) {
                 $compact[$listKey] = array_slice($compact[$listKey], 0, 15);
                 $compact[$listKey.'_truncated'] = true;
@@ -519,8 +535,35 @@ class AdminBusinessAiGeminiRunner
                 $compact[$dashKey] = array_slice($compact[$dashKey], 0, 10);
             }
         }
+        if (isset($compact['timing']['sample_bookings']) && is_array($compact['timing']['sample_bookings']) && count($compact['timing']['sample_bookings']) > 12) {
+            $compact['timing']['sample_bookings'] = array_slice($compact['timing']['sample_bookings'], 0, 12);
+        }
+        if (isset($compact['sample_bookings']) && is_array($compact['sample_bookings']) && count($compact['sample_bookings']) > 12) {
+            $compact['sample_bookings'] = array_slice($compact['sample_bookings'], 0, 12);
+        }
+        if (isset($compact['timing']['sample_leads']) && is_array($compact['timing']['sample_leads']) && count($compact['timing']['sample_leads']) > 12) {
+            $compact['timing']['sample_leads'] = array_slice($compact['timing']['sample_leads'], 0, 12);
+        }
+        if (isset($compact['timing_summary']['sample_leads']) && is_array($compact['timing_summary']['sample_leads'])) {
+            unset($compact['timing_summary']['sample_leads']);
+        }
+        if (isset($compact['lead']) && is_array($compact['lead'])) {
+            foreach (['followups', 'change_logs', 'type_history', 'status_timeline'] as $nested) {
+                if (isset($compact['lead'][$nested]) && is_array($compact['lead'][$nested]) && count($compact['lead'][$nested]) > 12) {
+                    $compact['lead'][$nested] = array_slice($compact['lead'][$nested], 0, 12);
+                }
+            }
+        }
+        if (isset($compact['data']['category_wise']) && is_array($compact['data']['category_wise']) && count($compact['data']['category_wise']) > 10) {
+            $compact['data']['category_wise'] = array_slice($compact['data']['category_wise'], 0, 10);
+            $compact['data']['category_wise_truncated'] = true;
+        }
+        if (isset($compact['data']['zone_wise']) && is_array($compact['data']['zone_wise']) && count($compact['data']['zone_wise']) > 10) {
+            $compact['data']['zone_wise'] = array_slice($compact['data']['zone_wise'], 0, 10);
+            $compact['data']['zone_wise_truncated'] = true;
+        }
         if (isset($compact['booking']) && is_array($compact['booking'])) {
-            foreach (['followups', 'partial_payments', 'status_history', 'change_logs', 'reopen_events', 'incidents'] as $nested) {
+            foreach (['followups', 'partial_payments', 'status_history', 'schedule_history', 'change_logs', 'reopen_events', 'incidents'] as $nested) {
                 if (isset($compact['booking'][$nested]) && is_array($compact['booking'][$nested]) && count($compact['booking'][$nested]) > 12) {
                     $compact['booking'][$nested] = array_slice($compact['booking'][$nested], 0, 12);
                 }
@@ -546,8 +589,12 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
 - Always call tools before stating any count, revenue figure, status, name, or trend. Never guess.
 - For broad questions, call at most 2–3 tools per turn, then write your analysis.
 - **Full admin-tab data is available via tools:**
-  - Leads: query_leads (filter customer_status e.g. No Response), get_lead_details (activity_summary: received_at, last_updated_at, followups, WhatsApp reply times, status_timeline), analyze_leads (no_response_leads, lead_activity_report).
-  - Bookings: query_bookings, get_booking_details, analyze_bookings — followups, partial payments, settlement, repeats, compensations, reopen, status/change history, lead link.
+  - Leads timing/lag: analyze_leads no_response_timing_report — full cohort stats for No Response leads: peak receive hours, reply/followup/update hours, median/p90 lag hours, handler breakdown, never-replied counts. no_response_leads also includes timing_summary. lead_timing_report with cohort filter for other segments (invalid, customer_pending, etc). lead_activity_report includes timing aggregates.
+  - Leads: query_leads non_responsive_only=true for list. get_lead_details for single-lead activity_summary.
+  - Leads: get_lead_details returns all_fields — zone, categories, service, cancellation reason/remarks, received date, every followup, handler, tags, district/zones (provider). query_leads filters by zone, category, source, tag. get_lead_inbound_report mirrors admin Lead Reports (customer|provider). get_employee_lead_productivity mirrors per-user lead report.
+  - Bookings timing/lag: analyze_bookings booking_timing_report — peak created hours, lag created→followup/accepted/completed/canceled/payment, assignee+zone breakdown. cancellation_timing_report and followup_timing_report for focused cohorts. cohort filter: pending|accepted|canceled|overdue_followup|loss_making|unpaid|verify_pending|offline_payment|etc.
+  - Bookings: get_booking_details returns all_fields. query_bookings filters by zone, category, assignee, lead_id, is_paid, settlement_outcome, overdue_followup. query_booking_queues / get_booking_queues_overview for verify requests, offline payments, special scenarios, overdue followups.
+  - Financial: query_ledger, query_transactions, query_withdraw_requests, query_pending_provider_balances. get_business_reports also supports earning, expense, commission_earning, transaction_summary.
   - Customers: query_customers, get_customer_details, analyze_customers — overview, addresses, wallet/loyalty, performance, incidents, reviews, payments.
   - Providers: query_providers, get_provider_details, analyze_providers — zones, bank, services, servicemen, performance, incidents, bookings.
   - Dashboard: get_business_dashboard_overview (KPIs) or get_dashboard_snapshot (full widgets: ledger, followups, top lists, earning chart).
