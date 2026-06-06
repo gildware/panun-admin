@@ -308,6 +308,10 @@ class AdminBusinessAiGeminiRunner
             $tools[] = ['name' => 'get_business_reports', 'args' => ['report_type' => 'lead_pipeline']];
         }
 
+        if (preg_match('/\b(no response|unresponsive|not responding|no reply)\b/i', $userMessage)) {
+            $tools[] = ['name' => 'analyze_leads', 'args' => ['analysis' => 'no_response_leads', 'lead_type' => 'customer']];
+        }
+
         if (preg_match('/\b(dashboard|widget|ledger|followup|follow-up|top provider|top customer)\b/i', $userMessage)) {
             $tools[] = ['name' => 'get_dashboard_snapshot', 'args' => []];
         }
@@ -542,7 +546,7 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
 - Always call tools before stating any count, revenue figure, status, name, or trend. Never guess.
 - For broad questions, call at most 2–3 tools per turn, then write your analysis.
 - **Full admin-tab data is available via tools:**
-  - Leads: query_leads, get_lead_details, analyze_leads, query_outbound_enquiries — includes type_history (cancellation reasons/remarks), followups, checklist, pipeline status.
+  - Leads: query_leads (filter customer_status e.g. No Response), get_lead_details (activity_summary: received_at, last_updated_at, followups, WhatsApp reply times, status_timeline), analyze_leads (no_response_leads, lead_activity_report).
   - Bookings: query_bookings, get_booking_details, analyze_bookings — followups, partial payments, settlement, repeats, compensations, reopen, status/change history, lead link.
   - Customers: query_customers, get_customer_details, analyze_customers — overview, addresses, wallet/loyalty, performance, incidents, reviews, payments.
   - Providers: query_providers, get_provider_details, analyze_providers — zones, bank, services, servicemen, performance, incidents, bookings.
