@@ -25,13 +25,13 @@ use Modules\UserManagement\Entities\User;
 use Modules\ZoneManagement\Entities\Zone;
 
 /**
- * Seeds demo leads for lead management UI / reports (dummy +19980000xxxx phones).
+ * Seeds demo leads for lead management UI / reports (dummy +19990000xxxx phones — same range as WhatsApp dummy chats).
  *
  * Run: php artisan db:seed --class=DummyLeadsSeeder
  */
 class DummyLeadsSeeder extends Seeder
 {
-    private const PHONE_PREFIX = '+19980000';
+    private const PHONE_PREFIX = '+19990000';
 
     /** Total dummy rows (supports 0001–9999 via 4-digit suffix). */
     private const DEMO_LEAD_COUNT = 250;
@@ -470,7 +470,10 @@ class DummyLeadsSeeder extends Seeder
     private function purgeDummyLeads(array $phones): void
     {
         $existingIds = DB::table('leads')
-            ->where('phone_number', 'like', self::PHONE_PREFIX . '%')
+            ->where(function ($query) {
+                $query->where('phone_number', 'like', '+19990000%')
+                    ->orWhere('phone_number', 'like', '+19980000%');
+            })
             ->pluck('id')
             ->all();
 

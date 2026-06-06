@@ -2239,7 +2239,9 @@ class WhatsAppController extends Controller
             }
         }
 
-        $result = $result->map(function ($row) use ($names, $handledByMap, $adminNamesById, $humanSupportAt) {
+        $leadTypeCountsByNormalized = $this->resolveLeadTypeCountsByNormalizedPhone($phones);
+
+        $result = $result->map(function ($row) use ($names, $handledByMap, $adminNamesById, $humanSupportAt, $leadTypeCountsByNormalized) {
             $phone = $row->phone ?? null;
             $row->name = $names[$phone] ?? null;
             $handledBy = $handledByMap[$phone] ?? 'AI';
@@ -2254,6 +2256,10 @@ class WhatsAppController extends Controller
             $row->system_link = $systemLink;
             $waName = isset($row->name) ? trim((string) $row->name) : '';
             $row->display_line = $this->formatWhatsappChatDisplayLine((string) $phone, $waName, $systemLink);
+            $normalizedPhone = $this->normalizeLeadPhone($phone);
+            $row->lead_type_counts = $normalizedPhone
+                ? ($leadTypeCountsByNormalized[$normalizedPhone] ?? $this->emptyLeadTypeCountMap())
+                : $this->emptyLeadTypeCountMap();
 
             return $row;
         });
@@ -2832,6 +2838,67 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * @return array{provider: int, customer: int, invalid: int, unknown: int, future_customer: int}
+     */
+    private function emptyLeadTypeCountMap(): array
+    {
+        return [
+            Lead::TYPE_PROVIDER => 0,
+            Lead::TYPE_CUSTOMER => 0,
+            Lead::TYPE_INVALID => 0,
+            Lead::TYPE_UNKNOWN => 0,
+            Lead::TYPE_FUTURE_CUSTOMER => 0,
+        ];
+    }
+
+    /**
+     * CRM lead counts by type for each normalized phone (last 10 digits).
+     *
+     * @param  array<int, string>  $phones
+     * @return array<string, array{provider: int, customer: int, invalid: int, unknown: int, future_customer: int}>
+     */
+    private function resolveLeadTypeCountsByNormalizedPhone(array $phones): array
+    {
+        $normalizedPhones = collect($phones)
+            ->map(fn ($phone) => $this->normalizeLeadPhone($phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($normalizedPhones === []) {
+            return [];
+        }
+
+        $map = [];
+        foreach ($normalizedPhones as $normalizedPhone) {
+            $map[$normalizedPhone] = $this->emptyLeadTypeCountMap();
+        }
+
+        $rows = Lead::query()
+            ->whereNotNull('phone_number')
+            ->where('phone_number', '!=', '')
+            ->where(function ($query) use ($normalizedPhones) {
+                foreach ($normalizedPhones as $normalizedPhone) {
+                    $query->orWhere('phone_number', $normalizedPhone)
+                        ->orWhere('phone_number', 'like', '%'.$normalizedPhone);
+                }
+            })
+            ->get(['phone_number', 'lead_type']);
+
+        foreach ($rows as $row) {
+            $phoneKey = $this->normalizeLeadPhone($row->phone_number);
+            $type = (string) ($row->lead_type ?? '');
+            if ($phoneKey === null || ! isset($map[$phoneKey]) || ! array_key_exists($type, $map[$phoneKey])) {
+                continue;
+            }
+            $map[$phoneKey][$type]++;
+        }
+
+        return $map;
+    }
+
+    /**
      * @param array<int, string> $phones
      * @return array<string, array{primary_id:int, count:int}>
      */
@@ -2848,19 +2915,31 @@ class WhatsAppController extends Controller
             return [];
         }
 
-        $rows = Lead::whereIn('phone_number', $normalizedPhones)
+        $rows = Lead::query()
+            ->whereNotNull('phone_number')
+            ->where('phone_number', '!=', '')
+            ->where(function ($query) use ($normalizedPhones) {
+                foreach ($normalizedPhones as $normalizedPhone) {
+                    $query->orWhere('phone_number', $normalizedPhone)
+                        ->orWhere('phone_number', 'like', '%'.$normalizedPhone);
+                }
+            })
             ->orderByDesc('id')
             ->get(['id', 'phone_number']);
 
         $map = [];
         foreach ($rows as $lead) {
-            if (!isset($map[$lead->phone_number])) {
-                $map[$lead->phone_number] = [
+            $phoneKey = $this->normalizeLeadPhone($lead->phone_number);
+            if ($phoneKey === null) {
+                continue;
+            }
+            if (! isset($map[$phoneKey])) {
+                $map[$phoneKey] = [
                     'primary_id' => (int) $lead->id,
                     'count' => 0,
                 ];
             }
-            $map[$lead->phone_number]['count']++;
+            $map[$phoneKey]['count']++;
         }
 
         return $map;
