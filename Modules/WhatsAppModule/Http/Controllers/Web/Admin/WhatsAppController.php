@@ -2146,7 +2146,8 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * List of active chats: one row per phone with last message. Last 30 days, max 100 chats.
+     * List of active chats: one row per phone with last message.
+     * Limit and lookback window are configurable (whatsappmodule.active_chats_limit / active_chats_days).
      * Cached to reduce round trips to remote WhatsApp DB.
      */
     private function getActiveChatsList(): \Illuminate\Support\Collection
@@ -2162,8 +2163,20 @@ class WhatsAppController extends Controller
         }
 
         $table = config('whatsappmodule.tables.messages', 'whatsapp_messages');
-        $cutoff = now()->subDays(30)->format('Y-m-d H:i:s');
         $ch = SocialInboxChannel::current();
+        $days = (int) config('whatsappmodule.active_chats_days', 0);
+        $limit = (int) config('whatsappmodule.active_chats_limit', 10000);
+        $bindings = [];
+        $threadWhere = 'WHERE channel = ?';
+        $bindings[] = $ch;
+        if ($days > 0) {
+            $threadWhere .= ' AND created_at >= ?';
+            $bindings[] = now()->subDays($days)->format('Y-m-d H:i:s');
+        }
+        $limitSql = $limit > 0 ? ' LIMIT '.(int) $limit : '';
+        $bindings[] = $ch;
+        $bindings[] = $ch;
+        $bindings[] = $ch;
         $rows = DB::select("
             SELECT m.phone,
                    m.direction,
@@ -2175,8 +2188,7 @@ class WhatsAppController extends Controller
             INNER JOIN (
                 SELECT phone, MAX(created_at) AS max_created
                 FROM {$table}
-                WHERE created_at >= ?
-                  AND channel = ?
+                {$threadWhere}
                 GROUP BY phone
             ) t ON m.phone = t.phone AND m.created_at = t.max_created AND m.channel = ?
             LEFT JOIN (
@@ -2188,9 +2200,8 @@ class WhatsAppController extends Controller
                 GROUP BY phone
             ) unread ON unread.phone = m.phone
             WHERE m.channel = ?
-            ORDER BY m.created_at DESC
-            LIMIT 100
-        ", [$cutoff, $ch, $ch, $ch, $ch]);
+            ORDER BY m.created_at DESC{$limitSql}
+        ", $bindings);
         $result = collect($rows);
 
         $phones = $result->pluck('phone')->unique()->filter()->values()->all();

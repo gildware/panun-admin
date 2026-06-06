@@ -13,6 +13,10 @@ return [
     ],
     // Cache TTL in seconds for list/panel data. Set to 0 to disable.
     'cache_ttl' => (int) env('WHATSAPP_CACHE_TTL', 60),
+    // Max distinct phone threads in the left chat list (0 = unlimited; not recommended on very large DBs).
+    'active_chats_limit' => max(0, (int) env('WHATSAPP_ACTIVE_CHATS_LIMIT', 10000)),
+    // Only include threads with activity in the last N days (0 = all time).
+    'active_chats_days' => max(0, (int) env('WHATSAPP_ACTIVE_CHATS_DAYS', 0)),
     // Cache TTL for per-chat panel (messages + state). Shorter so replies feel fresh.
     'cache_ttl_chat' => (int) env('WHATSAPP_CACHE_TTL_CHAT', 20),
     // Max messages to load per chat (smaller = faster).
