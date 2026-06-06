@@ -32,6 +32,8 @@ class AdminBusinessAiToolExecutor
         protected AdminBusinessAiEmployeeInsightService $employeeInsights,
         protected AdminBusinessAiFinancialInsightService $financialInsights,
         protected AdminBusinessAiBookingQueueInsightService $bookingQueueInsights,
+        protected AdminBusinessAiCatalogInsightService $catalogInsights,
+        protected AdminBusinessAiQuestionRouter $questionRouter,
     ) {}
 
     /**
@@ -73,6 +75,16 @@ class AdminBusinessAiToolExecutor
             'get_booking_queues_overview' => $this->bookingQueueInsights->overview(),
             'get_lead_inbound_report' => $this->leadInsights->inboundLeadReport($args),
             'get_employee_lead_productivity' => $this->leadInsights->employeeLeadProductivity($args),
+            'query_services' => $this->catalogInsights->queryServices($args),
+            'analyze_services' => $this->catalogInsights->analyzeServices($args),
+            'query_categories' => $this->catalogInsights->queryCategories($args),
+            'analyze_category_catalog' => $this->catalogInsights->analyzeCategoryCatalog($args),
+            'analyze_reviews' => $this->catalogInsights->analyzeReviews($args),
+            'query_promotions' => $this->catalogInsights->queryPromotions($args),
+            'analyze_promotions' => $this->catalogInsights->analyzePromotions($args),
+            'query_subscriptions' => $this->catalogInsights->querySubscriptions($args),
+            'analyze_subscriptions' => $this->catalogInsights->analyzeSubscriptions($args),
+            'explore_business_data' => $this->exploreBusinessData($args),
             default => ['ok' => false, 'error' => 'unknown_tool'],
         };
     }
@@ -479,6 +491,178 @@ class AdminBusinessAiToolExecutor
                     ],
                 ],
             ],
+            [
+                'name' => 'explore_business_data',
+                'description' => 'Meta-tool: pass the admin question and the server runs up to 5 relevant tools automatically (dashboard, leads, bookings, catalog, financial, etc.). Use when unsure which single tool fits, or for cross-domain questions.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'question' => ['type' => 'string', 'description' => 'The admin question to answer from live data'],
+                    ],
+                    'required' => ['question'],
+                ],
+            ],
+            [
+                'name' => 'query_services',
+                'description' => 'Search service catalog: name, category, active/inactive, rating filters.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'search' => ['type' => 'string'],
+                        'category' => ['type' => 'string'],
+                        'is_active' => ['type' => 'boolean'],
+                        'min_rating' => ['type' => 'number'],
+                        'max_rating' => ['type' => 'number'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'analyze_services',
+                'description' => 'Service catalog analytics. analysis: catalog_overview|top_by_orders|by_category|low_rated|inactive_overview.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'search' => ['type' => 'string'],
+                        'category' => ['type' => 'string'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
+                'name' => 'query_categories',
+                'description' => 'Search category catalog (main/sub): name, zone, active status, service counts.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'search' => ['type' => 'string'],
+                        'category_type' => ['type' => 'string', 'description' => 'main|sub'],
+                        'zone' => ['type' => 'string'],
+                        'is_active' => ['type' => 'boolean'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'analyze_category_catalog',
+                'description' => 'Category catalog analytics. analysis: catalog_overview|by_zone|inactive_overview.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
+                'name' => 'analyze_reviews',
+                'description' => 'Aggregate review/rating intelligence across all bookings. analysis: overview|by_rating|top_rated_services|low_rated_services|top_rated_providers|recent_negative.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'date_from' => ['type' => 'string'],
+                        'date_to' => ['type' => 'string'],
+                        'max_stars' => ['type' => 'integer', 'description' => 'For recent_negative, default 2'],
+                        'min_reviews' => ['type' => 'integer'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
+                'name' => 'query_promotions',
+                'description' => 'Search promotions: coupons, discounts, campaigns. Filter by promotion_type (coupon|discount|campaign), active_now, search by coupon code.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'promotion_type' => ['type' => 'string', 'description' => 'coupon|discount|campaign|all'],
+                        'search' => ['type' => 'string'],
+                        'is_active' => ['type' => 'boolean'],
+                        'active_now' => ['type' => 'boolean'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'analyze_promotions',
+                'description' => 'Promotion analytics. analysis: promotion_overview|by_type|active_coupons|active_discounts|active_campaigns.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+            [
+                'name' => 'query_subscriptions',
+                'description' => 'Search provider subscription packages: package name, provider, active/expired/expiring_soon status.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'search' => ['type' => 'string'],
+                        'package_id' => ['type' => 'string'],
+                        'status' => ['type' => 'string', 'description' => 'active|expired|expiring_soon'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'analyze_subscriptions',
+                'description' => 'Provider subscription analytics. analysis: subscription_overview|by_package|expiring_soon.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'analysis' => ['type' => 'string'],
+                        'days' => ['type' => 'integer', 'description' => 'Window for expiring_soon, default 14'],
+                        'limit' => ['type' => 'integer'],
+                    ],
+                    'required' => ['analysis'],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function exploreBusinessData(array $args): array
+    {
+        $question = trim((string) ($args['question'] ?? ''));
+        if ($question === '') {
+            return ['ok' => false, 'error' => 'question_required'];
+        }
+
+        $maxTools = (int) config('admin_business_ai.max_explore_tools', 6);
+        $planned = $this->questionRouter->inferToolsForQuestion($question, $maxTools);
+        if ($planned === []) {
+            $planned = $this->questionRouter->defaultDiscoveryBundle();
+        }
+
+        $results = [];
+        foreach ($planned as $plan) {
+            $name = (string) ($plan['name'] ?? '');
+            if ($name === '' || $name === 'explore_business_data') {
+                continue;
+            }
+            $toolArgs = is_array($plan['args'] ?? null) ? $plan['args'] : [];
+            $results[] = [
+                'tool' => $name,
+                'args' => $toolArgs,
+                'result' => $this->execute($name, $toolArgs),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'question' => $question,
+            'tools_run' => count($results),
+            'tool_names' => array_column($results, 'tool'),
+            'results' => $results,
         ];
     }
 

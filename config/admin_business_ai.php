@@ -20,4 +20,6 @@ return [
     'default_query_limit' => 25,
 
     'max_query_limit' => 50,
+
+    'max_explore_tools' => max(3, min(8, (int) env('ADMIN_BUSINESS_AI_MAX_EXPLORE_TOOLS', 6))),
 ];
