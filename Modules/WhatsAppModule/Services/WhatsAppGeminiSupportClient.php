@@ -64,13 +64,18 @@ class WhatsAppGeminiSupportClient
     public function generatePlainText(
         string $systemText,
         string $userText,
-        ?WhatsAppAiExecutionRecorder $recorder = null
+        ?WhatsAppAiExecutionRecorder $recorder = null,
+        ?int $maxOutputTokensOverride = null,
+        ?int $httpTimeoutOverride = null,
     ): ?string {
         $t0 = microtime(true);
         $turn = $this->generateTurnInternal(
             $systemText,
             [['role' => 'user', 'parts' => [['text' => $userText]]]],
-            []
+            [],
+            null,
+            $maxOutputTokensOverride,
+            $httpTimeoutOverride,
         );
         $ms = (int) round((microtime(true) - $t0) * 1000);
 

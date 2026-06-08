@@ -72,4 +72,33 @@ class StaffPresenceController extends Controller
             ],
         ]);
     }
+
+    public function historyDates(): JsonResponse
+    {
+        return response()->json([
+            'status' => 1,
+            'data' => [
+                'dates' => $this->presenceService->listAvailableHistoryDates(),
+            ],
+        ]);
+    }
+
+    public function history(Request $request): JsonResponse
+    {
+        $request->validate([
+            'date' => 'required|date|before_or_equal:today',
+        ]);
+
+        $date = $request->input('date');
+        $staff = $this->presenceService->listStaffPresenceHistory($date);
+
+        return response()->json([
+            'status' => 1,
+            'data' => [
+                'date' => $date,
+                'date_label' => \Carbon\Carbon::parse($date)->format('M j, Y'),
+                'staff' => $staff,
+            ],
+        ]);
+    }
 }

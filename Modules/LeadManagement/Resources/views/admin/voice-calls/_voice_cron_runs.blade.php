@@ -1,0 +1,83 @@
+@if($runs->isEmpty())
+    <p class="text-muted mb-0 text-center py-3">{{ translate('Voice_cron_no_executions') }}</p>
+@else
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead>
+            <tr>
+                <th>{{ translate('Started_at') }}</th>
+                <th>{{ translate('Cron_job') }}</th>
+                <th>{{ translate('Trigger') }}</th>
+                <th>{{ translate('Status') }}</th>
+                <th>{{ translate('Matched') }}</th>
+                <th>{{ translate('Dispatched') }}</th>
+                <th>{{ translate('Duration') }}</th>
+                <th>{{ translate('Campaign') }}</th>
+                <th>{{ translate('Message') }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach($runs as $run)
+                @php
+                    $statusClass = match ($run->status) {
+                        'success' => 'bg-success',
+                        'failed' => 'bg-danger',
+                        'empty' => 'bg-warning text-dark',
+                        default => 'bg-secondary',
+                    };
+                    $campaignIds = is_array($run->campaign_ids) ? $run->campaign_ids : [];
+                @endphp
+                <tr>
+                    <td class="small text-nowrap">{{ $run->started_at?->format('d M Y H:i:s') ?? '—' }}</td>
+                    <td>{{ $run->rule?->name ?? '—' }}</td>
+                    <td><span class="badge bg-light text-dark">{{ ucfirst($run->trigger) }}</span></td>
+                    <td><span class="badge rounded-pill {{ $statusClass }}">{{ ucfirst($run->status) }}</span></td>
+                    <td>{{ (int) $run->contacts_matched }}</td>
+                    <td>{{ (int) $run->contacts_dispatched }}</td>
+                    <td class="small text-nowrap">
+                        @if($run->duration_ms !== null)
+                            {{ number_format($run->duration_ms / 1000, 2) }}s
+                        @else
+                            —
+                        @endif
+                    </td>
+                    <td class="small">
+                        @if($campaignIds !== [])
+                            #{{ implode(', #', $campaignIds) }}
+                        @else
+                            —
+                        @endif
+                    </td>
+                    <td class="small text-muted" style="max-width:280px; white-space:normal; word-break:break-word;">
+                        {{ $run->message ?: ($run->error ?: '—') }}
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    @if($runs->hasPages())
+        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+            <span class="text-muted small">{{ translate('Page') }} {{ $runs->currentPage() }} / {{ $runs->lastPage() }}</span>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    @if($runs->onFirstPage())
+                        <li class="page-item disabled"><span class="page-link">{{ translate('Previous') }}</span></li>
+                    @else
+                        <li class="page-item">
+                            <a class="page-link voice-cron-runs-page" href="#" data-page="{{ $runs->currentPage() - 1 }}">{{ translate('Previous') }}</a>
+                        </li>
+                    @endif
+                    @if($runs->hasMorePages())
+                        <li class="page-item">
+                            <a class="page-link voice-cron-runs-page" href="#" data-page="{{ $runs->currentPage() + 1 }}">{{ translate('Next') }}</a>
+                        </li>
+                    @else
+                        <li class="page-item disabled"><span class="page-link">{{ translate('Next') }}</span></li>
+                    @endif
+                </ul>
+            </nav>
+        </div>
+    @endif
+@endif
