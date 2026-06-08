@@ -16,6 +16,12 @@ class WhatsAppVoiceFollowupAutomationRule extends Model
 
     public const STATUS_SKIPPED = 'skipped';
 
+    public const STATUS_PENDING_APPROVAL = 'pending_approval';
+
+    public const DISPATCH_MODE_AUTO = 'auto';
+
+    public const DISPATCH_MODE_APPROVAL = 'approval';
+
     protected $fillable = [
         'name',
         'is_enabled',
@@ -28,6 +34,7 @@ class WhatsAppVoiceFollowupAutomationRule extends Model
         'auto_retry',
         'auto_retry_schedule',
         'retry_limit',
+        'dispatch_mode',
         'last_run_at',
         'last_run_contacts',
         'last_run_status',

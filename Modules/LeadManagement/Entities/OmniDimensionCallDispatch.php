@@ -13,6 +13,7 @@ class OmniDimensionCallDispatch extends Model
     protected $fillable = [
         'omnidim_request_id',
         'omnidim_call_log_id',
+        'dispatch_status',
         'to_number_e164',
         'call_context',
         'dispatched_by',

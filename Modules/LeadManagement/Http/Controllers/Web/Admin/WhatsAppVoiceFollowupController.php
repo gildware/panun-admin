@@ -10,9 +10,11 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Modules\LeadManagement\Services\OmniDimensionService;
 use Modules\LeadManagement\Services\OutboundCallContextService;
+use Modules\LeadManagement\Services\VoiceCallTabCache;
 use Modules\LeadManagement\Services\WhatsAppFollowupCandidateQueryService;
 use Modules\LeadManagement\Services\WhatsAppFollowupContextBuilder;
 use Modules\LeadManagement\Services\WhatsAppVoiceFollowupDispatchService;
+use Symfony\Component\HttpFoundation\Response;
 
 class WhatsAppVoiceFollowupController extends Controller
 {
@@ -20,10 +22,18 @@ class WhatsAppVoiceFollowupController extends Controller
         private readonly WhatsAppFollowupCandidateQueryService $candidateQuery,
         private readonly WhatsAppFollowupContextBuilder $contextBuilder,
         private readonly OmniDimensionService $omniDimension,
-        private readonly WhatsAppVoiceFollowupDispatchService $dispatchService
+        private readonly WhatsAppVoiceFollowupDispatchService $dispatchService,
+        private readonly VoiceCallTabCache $tabCache
     ) {}
 
-    public function list(Request $request): View
+    public function list(Request $request): View|Response
+    {
+        return $this->tabCache->respond($request, VoiceCallTabCache::TAB_WHATSAPP_FOLLOWUP, function () use ($request): string {
+            return $this->renderFollowupList($request)->render();
+        });
+    }
+
+    private function renderFollowupList(Request $request): View
     {
         $filters = $this->parseFilters($request);
         $page = max(1, (int) $request->get('page', 1));
@@ -182,6 +192,14 @@ class WhatsAppVoiceFollowupController extends Controller
 
             return back()->withInput();
         }
+
+        WhatsAppFollowupCandidateQueryService::clearSearchCache();
+        $this->tabCache->forgetMany([
+            VoiceCallTabCache::TAB_WHATSAPP_FOLLOWUP,
+            VoiceCallTabCache::TAB_BULK,
+            VoiceCallTabCache::TAB_BULK_DETAILS,
+        ]);
+        $this->tabCache->forgetCallLogTabs();
 
         if ($request->expectsJson()) {
             return response()->json([

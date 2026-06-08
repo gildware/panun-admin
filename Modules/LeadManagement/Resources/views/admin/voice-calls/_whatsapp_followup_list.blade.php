@@ -17,8 +17,8 @@
                 </div>
             @endif
 
-            <div class="table-responsive wa-followup-table-wrap">
-                <table class="table table-hover align-middle wa-followup-table" id="wa-followup-table">
+            <div class="table-responsive voice-call-table-wrap wa-followup-table-wrap">
+                <table class="table table-hover align-middle voice-call-data-table wa-followup-table" id="wa-followup-table">
                     <thead>
                     <tr>
                         <th style="width:36px">

@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
@@ -32,6 +33,27 @@ class WhatsAppFollowupCandidateQueryService
      */
     public function search(array $filters, int $page = 1, int $perPage = 30): LengthAwarePaginator
     {
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+
+        $version = (int) Cache::get($this->cacheVersionKey(), 0);
+        $cacheKey = $this->cachePrefix() . ':v' . $version . ':' . md5(json_encode([
+            'filters' => $filters,
+            'page' => $page,
+            'perPage' => $perPage,
+        ]) ?: '');
+
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && isset($cached['items'], $cached['total'])) {
+            return new Paginator(
+                collect($cached['items']),
+                (int) $cached['total'],
+                $perPage,
+                $page,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+        }
+
         $rows = $this->fetchSilentAfterAiBaseRows($filters);
         $enriched = $this->enrichCandidates($rows);
         $filtered = $this->applyFilters($enriched, $filters);
@@ -39,9 +61,12 @@ class WhatsAppFollowupCandidateQueryService
         $filtered = $filtered->sortByDesc(fn (array $c) => $c['silent_since_ts'] ?? 0)->values();
 
         $total = $filtered->count();
-        $page = max(1, $page);
-        $perPage = max(1, min(100, $perPage));
         $slice = $filtered->slice(($page - 1) * $perPage, $perPage)->values();
+
+        Cache::put($cacheKey, [
+            'items' => $slice->all(),
+            'total' => $total,
+        ], (int) config('services.omnidimension.cache_whatsapp_followup_list_ttl', 60));
 
         return new Paginator(
             $slice,
@@ -50,6 +75,21 @@ class WhatsAppFollowupCandidateQueryService
             $page,
             ['path' => request()->url(), 'query' => request()->query()]
         );
+    }
+
+    public static function clearSearchCache(): void
+    {
+        Cache::increment('wa_followup_candidates:version');
+    }
+
+    private function cacheVersionKey(): string
+    {
+        return $this->cachePrefix() . ':version';
+    }
+
+    private function cachePrefix(): string
+    {
+        return 'wa_followup_candidates';
     }
 
     /**

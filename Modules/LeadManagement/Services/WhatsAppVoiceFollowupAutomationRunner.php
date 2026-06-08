@@ -42,7 +42,10 @@ class WhatsAppVoiceFollowupAutomationRunner
                 : WhatsAppVoiceFollowupAutomationRun::TRIGGER_CRON;
             $result = $this->runRule($rule, $force || $onlyRuleId !== null, $trigger);
 
-            if ($result['status'] === WhatsAppVoiceFollowupAutomationRule::STATUS_SUCCESS) {
+            if (in_array($result['status'], [
+                WhatsAppVoiceFollowupAutomationRule::STATUS_SUCCESS,
+                WhatsAppVoiceFollowupAutomationRule::STATUS_PENDING_APPROVAL,
+            ], true)) {
                 $stats['dispatched'] += (int) ($result['dispatched_count'] ?? 0);
             } elseif ($result['status'] === WhatsAppVoiceFollowupAutomationRule::STATUS_EMPTY) {
                 $stats['skipped']++;
@@ -117,17 +120,23 @@ class WhatsAppVoiceFollowupAutomationRunner
             ], $startedAt);
         }
 
-        $dispatchResult = $this->dispatchService->dispatchCandidates($candidates, [
-            'campaign_name' => $rule->campaign_name,
-            'send_option' => 'now',
-            'concurrent_call_limit' => max(1, (int) $rule->concurrent_call_limit),
-            'enabled_reschedule_call' => (bool) $rule->enabled_reschedule_call,
-            'auto_retry' => (bool) $rule->auto_retry,
-            'auto_retry_schedule' => $rule->auto_retry_schedule,
-            'retry_limit' => max(1, (int) $rule->retry_limit),
-            'source' => 'auto',
-            'dispatched_by' => null,
-        ]);
+        $dispatchMode = $rule->dispatch_mode === WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_AUTO
+            ? WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_AUTO
+            : WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_APPROVAL;
+
+        if ($dispatchMode === WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_APPROVAL) {
+            return $this->finishRun($run, $rule, [
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_PENDING_APPROVAL,
+                'matched_count' => $matchedCount,
+                'dispatched_count' => 0,
+                'message' => sprintf(translate('Voice_cron_pending_approval_message'), $matchedCount),
+                'campaign_ids' => [],
+                'error' => null,
+                'pending_candidates' => $candidates->values()->all(),
+            ], $startedAt);
+        }
+
+        $dispatchResult = $this->dispatchCandidatesForRule($rule, $candidates, $run->id);
 
         if (!$dispatchResult['ok']) {
             Log::warning('WhatsApp follow-up automation dispatch failed', [
@@ -156,7 +165,112 @@ class WhatsAppVoiceFollowupAutomationRunner
     }
 
     /**
-     * @param  array{status: string, matched_count: int, dispatched_count: int, message: string, campaign_ids: array<int, mixed>, error: ?string}  $result
+     * @return array{status: string, dispatched_count: int, matched_count: int, message: string, run_id: int}
+     */
+    public function approveRun(WhatsAppVoiceFollowupAutomationRun $run, ?string $approvedBy = null, ?array $includedPhones = null): array
+    {
+        $run->loadMissing('rule');
+        $rule = $run->rule;
+
+        if (!$run->isPendingApproval()) {
+            return [
+                'status' => $run->status,
+                'dispatched_count' => (int) $run->contacts_dispatched,
+                'matched_count' => (int) $run->contacts_matched,
+                'message' => translate('Voice_cron_run_not_pending_approval'),
+                'run_id' => $run->id,
+            ];
+        }
+
+        if ($rule === null) {
+            return [
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_FAILED,
+                'dispatched_count' => 0,
+                'matched_count' => (int) $run->contacts_matched,
+                'message' => translate('Voice_cron_job_run_failed'),
+                'run_id' => $run->id,
+            ];
+        }
+
+        $candidates = collect(is_array($run->pending_candidates) ? $run->pending_candidates : []);
+
+        if ($includedPhones !== null) {
+            $phoneSet = array_flip(array_map('strval', $includedPhones));
+            $candidates = $candidates->filter(function ($candidate) use ($phoneSet) {
+                return is_array($candidate) && isset($phoneSet[(string) ($candidate['phone'] ?? '')]);
+            })->values();
+        }
+
+        if ($candidates->isEmpty()) {
+            return $this->finishRun($run, $rule, [
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_EMPTY,
+                'matched_count' => 0,
+                'dispatched_count' => 0,
+                'message' => translate('WhatsApp_followup_automation_no_candidates'),
+                'campaign_ids' => [],
+                'error' => null,
+                'pending_candidates' => null,
+                'approved_at' => now(),
+                'approved_by' => $approvedBy,
+            ], $run->started_at ?? now());
+        }
+
+        $originalMatched = (int) $run->contacts_matched;
+        $dispatchResult = $this->dispatchCandidatesForRule($rule, $candidates, $run->id, $approvedBy);
+
+        if (!$dispatchResult['ok']) {
+            return $this->finishRun($run, $rule, [
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_FAILED,
+                'matched_count' => $originalMatched,
+                'dispatched_count' => 0,
+                'message' => $dispatchResult['message'],
+                'campaign_ids' => $dispatchResult['campaign_ids'] ?? [],
+                'error' => $dispatchResult['error'] ?? null,
+                'pending_candidates' => is_array($run->pending_candidates) ? $run->pending_candidates : [],
+                'approved_at' => null,
+                'approved_by' => null,
+            ], $run->started_at ?? now());
+        }
+
+        return $this->finishRun($run, $rule, [
+            'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_SUCCESS,
+            'matched_count' => $originalMatched,
+            'dispatched_count' => (int) $dispatchResult['dispatched_count'],
+            'message' => $dispatchResult['message'],
+            'campaign_ids' => $dispatchResult['campaign_ids'] ?? [],
+            'error' => null,
+            'pending_candidates' => null,
+            'approved_at' => now(),
+            'approved_by' => $approvedBy,
+        ], $run->started_at ?? now());
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $candidates
+     * @return array{ok: bool, campaign_ids: array<int, mixed>, dispatched_count: int, message: string, error: ?string}
+     */
+    private function dispatchCandidatesForRule(
+        WhatsAppVoiceFollowupAutomationRule $rule,
+        \Illuminate\Support\Collection $candidates,
+        int $automationRunId,
+        ?string $dispatchedBy = null
+    ): array {
+        return $this->dispatchService->dispatchCandidates($candidates, [
+            'campaign_name' => $rule->campaign_name,
+            'send_option' => 'now',
+            'concurrent_call_limit' => max(1, (int) $rule->concurrent_call_limit),
+            'enabled_reschedule_call' => (bool) $rule->enabled_reschedule_call,
+            'auto_retry' => (bool) $rule->auto_retry,
+            'auto_retry_schedule' => $rule->auto_retry_schedule,
+            'retry_limit' => max(1, (int) $rule->retry_limit),
+            'source' => $dispatchedBy ? 'cron_approved' : 'auto',
+            'dispatched_by' => $dispatchedBy,
+            'automation_run_id' => $automationRunId,
+        ]);
+    }
+
+    /**
+     * @param  array{status: string, matched_count: int, dispatched_count: int, message: string, campaign_ids: array<int, mixed>, error: ?string, pending_candidates?: ?array, approved_at?: ?\Illuminate\Support\Carbon, approved_by?: ?string}  $result
      * @return array{status: string, dispatched_count: int, matched_count: int, message: string, run_id: int}
      */
     private function finishRun(
@@ -168,7 +282,7 @@ class WhatsAppVoiceFollowupAutomationRunner
         $finishedAt = now();
         $durationMs = max(0, (int) $startedAt->diffInMilliseconds($finishedAt));
 
-        $run->update([
+        $runUpdate = [
             'status' => $result['status'],
             'contacts_matched' => (int) $result['matched_count'],
             'contacts_dispatched' => (int) $result['dispatched_count'],
@@ -177,11 +291,27 @@ class WhatsAppVoiceFollowupAutomationRunner
             'message' => mb_substr((string) $result['message'], 0, 2000),
             'error' => $result['error'] ? mb_substr((string) $result['error'], 0, 2000) : null,
             'finished_at' => $finishedAt,
-        ]);
+        ];
+
+        if (array_key_exists('pending_candidates', $result)) {
+            $runUpdate['pending_candidates'] = $result['pending_candidates'];
+        }
+        if (array_key_exists('approved_at', $result)) {
+            $runUpdate['approved_at'] = $result['approved_at'];
+        }
+        if (array_key_exists('approved_by', $result)) {
+            $runUpdate['approved_by'] = $result['approved_by'];
+        }
+
+        $run->update($runUpdate);
+
+        $lastRunContacts = $result['status'] === WhatsAppVoiceFollowupAutomationRule::STATUS_PENDING_APPROVAL
+            ? (int) $result['matched_count']
+            : (int) $result['dispatched_count'];
 
         $rule->update([
             'last_run_at' => $finishedAt,
-            'last_run_contacts' => (int) $result['dispatched_count'],
+            'last_run_contacts' => $lastRunContacts,
             'last_run_status' => $result['status'],
             'last_run_message' => mb_substr((string) $result['message'], 0, 2000),
         ]);

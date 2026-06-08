@@ -43,8 +43,8 @@
         @elseif($automationRules->isEmpty())
             <p class="text-muted mb-0">{{ translate('Voice_cron_jobs_empty') }}</p>
         @else
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+            <div class="table-responsive voice-call-table-wrap">
+                <table class="table table-hover align-middle mb-0 voice-call-data-table">
                     <thead>
                     <tr>
                         <th>{{ translate('Name') }}</th>
@@ -71,6 +71,7 @@
                                 'auto_retry' => $rule->auto_retry,
                                 'auto_retry_schedule' => $rule->auto_retry_schedule,
                                 'retry_limit' => $rule->retry_limit,
+                                'dispatch_mode' => $rule->dispatch_mode ?? 'approval',
                                 'filters' => $filters,
                             ];
                         @endphp
@@ -166,27 +167,40 @@
 </div>
 
 @can('lead_outbound_enquiry_add')
-    <div class="modal fade" id="voiceCronJobModal" tabindex="-1" aria-labelledby="voiceCronJobModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal fade modal-scrolling-customize" id="voiceCronJobModal" tabindex="-1" aria-labelledby="voiceCronJobModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="voiceCronJobModalLabel">{{ translate('Add_cron_job') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                </div>
                 <form method="POST" action="{{ route('admin.voice-call.cron-jobs.store') }}" id="voice-cron-job-form">
                     @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="voiceCronJobModalLabel">{{ translate('Add_cron_job') }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
-                    </div>
                     <div class="modal-body">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">{{ translate('Name') }}</label>
-                                <input type="text" class="form-control" name="name" required maxlength="255">
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Name'),
+                                    'required' => true,
+                                    'hint' => translate('Voice_field_hint_cron_name'),
+                                ])
+                                <input type="text" class="form-control" name="name" required maxlength="255"
+                                       placeholder="{{ translate('Voice_field_placeholder_cron_name') }}">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">{{ translate('Campaign_name') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Campaign_name'),
+                                    'required' => true,
+                                    'hint' => translate('Voice_field_hint_cron_campaign_name'),
+                                ])
                                 <input type="text" class="form-control" name="campaign_name" required maxlength="255" value="WhatsApp follow-up auto">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('WhatsApp_followup_automation_interval') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('WhatsApp_followup_automation_interval'),
+                                    'required' => true,
+                                    'hint' => translate('Voice_field_hint_cron_interval'),
+                                ])
                                 <select class="form-select" name="interval_minutes" required>
                                     @foreach($intervalOptions as $minutes => $label)
                                         <option value="{{ $minutes }}" {{ $minutes === 60 ? 'selected' : '' }}>{{ $label }}</option>
@@ -194,17 +208,38 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('WhatsApp_followup_automation_max_contacts') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('WhatsApp_followup_automation_max_contacts'),
+                                    'required' => true,
+                                    'hint' => translate('Voice_field_hint_cron_max_contacts'),
+                                ])
                                 <input type="number" class="form-control" name="max_contacts_per_run" min="1" max="500" value="50" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('WhatsApp_followup_automation_concurrent_calls') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('WhatsApp_followup_automation_concurrent_calls'),
+                                    'hint' => translate('Voice_field_hint_concurrent_limit'),
+                                ])
                                 <input type="number" class="form-control" name="concurrent_call_limit" min="1" max="20" value="1">
+                            </div>
+                            <div class="col-md-8">
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Voice_cron_dispatch_mode'),
+                                    'hint' => translate('Voice_field_hint_cron_dispatch_mode'),
+                                ])
+                                <select class="form-select" name="dispatch_mode" id="voice-cron-dispatch-mode">
+                                    <option value="approval" selected>{{ translate('Voice_cron_dispatch_approval') }}</option>
+                                    <option value="auto">{{ translate('Voice_cron_dispatch_auto') }}</option>
+                                </select>
                             </div>
                             <div class="col-12">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="is_enabled" value="1" id="voice-cron-is-enabled" checked>
-                                    <label class="form-check-label" for="voice-cron-is-enabled">{{ translate('Start_immediately') }}</label>
+                                    @include('leadmanagement::admin.voice-calls._form_check_label', [
+                                        'label' => translate('Start_immediately'),
+                                        'for' => 'voice-cron-is-enabled',
+                                        'hint' => translate('Voice_field_hint_cron_start_immediately'),
+                                    ])
                                 </div>
                             </div>
                         </div>
@@ -215,7 +250,10 @@
 
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Silent_at_least') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Silent_at_least'),
+                                    'hint' => translate('Voice_field_hint_silent_min_hours'),
+                                ])
                                 <select class="form-select" name="silent_min_hours">
                                     @foreach([0, 1, 2, 6, 24, 48, 168] as $h)
                                         <option value="{{ $h }}" {{ $h === 2 ? 'selected' : '' }}>{{ $h === 0 ? '0h' : ($h >= 168 ? '7d' : $h . 'h') }}</option>
@@ -223,7 +261,10 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Lead_type') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Lead_type'),
+                                    'hint' => translate('Voice_field_hint_lead_type'),
+                                ])
                                 <select class="form-select js-select" name="lead_types[]" multiple>
                                     @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
                                         <option value="{{ $value }}">{{ $label }}</option>
@@ -231,7 +272,10 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Lead') }} {{ translate('Status') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Lead') . ' ' . translate('Status'),
+                                    'hint' => translate('Voice_field_hint_lead_open'),
+                                ])
                                 <select class="form-select" name="lead_open">
                                     <option value="">{{ translate('All') }}</option>
                                     <option value="open">{{ translate('Open') }}</option>
@@ -239,7 +283,10 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('WhatsApp') }} {{ translate('Status') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('WhatsApp') . ' ' . translate('Status'),
+                                    'hint' => translate('Voice_field_hint_wa_chat_bucket'),
+                                ])
                                 <select class="form-select" name="wa_chat_bucket">
                                     <option value="">{{ translate('All') }}</option>
                                     <option value="open">{{ translate('whatsapp_bucket_open') }}</option>
@@ -247,7 +294,10 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Human_support') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Human_support'),
+                                    'hint' => translate('Voice_field_hint_human_support'),
+                                ])
                                 <select class="form-select" name="human_support">
                                     <option value="exclude" selected>{{ translate('Exclude_human_support') }}</option>
                                     <option value="">{{ translate('All') }}</option>
@@ -255,7 +305,10 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Exclude_called_within') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Exclude_called_within'),
+                                    'hint' => translate('Voice_field_hint_exclude_called'),
+                                ])
                                 <select class="form-select" name="exclude_called_within_hours">
                                     @foreach([0, 6, 12, 24, 48, 168] as $h)
                                         <option value="{{ $h }}" {{ $h === 24 ? 'selected' : '' }}>{{ $h === 0 ? translate('None') : ($h . 'h') }}</option>
@@ -263,7 +316,10 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">{{ translate('whatsapp_chat_tags_label') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('whatsapp_chat_tags_label'),
+                                    'hint' => translate('Voice_field_hint_wa_chat_tags'),
+                                ])
                                 <select class="form-select js-select" name="wa_chat_tag_ids[]" multiple>
                                     @foreach(($waChatTags ?? []) as $tag)
                                         <option value="{{ $tag['id'] }}">{{ $tag['name'] }}</option>
@@ -271,7 +327,10 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">{{ translate('Customer_Lead_Tags') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Customer_Lead_Tags'),
+                                    'hint' => translate('Voice_field_hint_customer_lead_tags'),
+                                ])
                                 <select class="form-select js-select" name="customer_lead_tag_ids[]" multiple>
                                     @foreach(($customerLeadTags ?? []) as $tag)
                                         <option value="{{ $tag['id'] }}">{{ $tag['name'] }}</option>
@@ -279,7 +338,10 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Handled_By') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Handled_By'),
+                                    'hint' => translate('Voice_field_hint_wa_handled_by'),
+                                ])
                                 <select class="form-select" name="handled_by">
                                     <option value="">{{ translate('All') }}</option>
                                     <option value="ai">AI</option>
@@ -292,7 +354,10 @@
                                 <p class="text-muted small mb-2">{{ translate('Voice_cron_other_jobs_hint') }}</p>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Voice_cron_other_jobs_mode') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Voice_cron_other_jobs_mode'),
+                                    'hint' => translate('Voice_field_hint_cron_other_jobs_mode'),
+                                ])
                                 <select class="form-select" name="other_cron_job_mode" id="voice-cron-other-job-mode">
                                     <option value="">{{ translate('Voice_cron_other_jobs_none') }}</option>
                                     <option value="exclude">{{ translate('Voice_cron_other_jobs_exclude') }}</option>
@@ -300,7 +365,10 @@
                                 </select>
                             </div>
                             <div class="col-md-8">
-                                <label class="form-label">{{ translate('Voice_cron_other_jobs_select') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Voice_cron_other_jobs_select'),
+                                    'hint' => translate('Voice_field_hint_cron_other_jobs_select'),
+                                ])
                                 <select class="form-select js-select" name="other_cron_job_ids[]" id="voice-cron-other-job-ids" multiple>
                                     @foreach($automationRules as $otherRule)
                                         <option value="{{ $otherRule->id }}">{{ $otherRule->name }}</option>
@@ -309,11 +377,33 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer border-top bg-body">
                         <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
                         <button type="submit" class="btn btn--primary">{{ translate('Save') }}</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade modal-scrolling-customize" id="voiceCronDispatchModal" tabindex="-1" aria-labelledby="voiceCronDispatchModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="voiceCronDispatchModalLabel">{{ translate('Voice_cron_make_calls') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                </div>
+                <div class="modal-body" id="voice-cron-dispatch-modal-body">
+                    <div class="text-center text-muted py-4">
+                        <span class="spinner-border spinner-border-sm me-2"></span>{{ translate('Loading') }}…
+                    </div>
+                </div>
+                <div class="modal-footer border-top bg-body">
+                    <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                    <button type="submit" form="voice-cron-dispatch-form" class="btn btn--primary" id="voice-cron-dispatch-submit" disabled>
+                        {{ translate('Voice_cron_make_calls') }}
+                    </button>
+                </div>
             </div>
         </div>
     </div>

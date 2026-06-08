@@ -20,6 +20,7 @@ class WhatsAppVoiceFollowupDispatch extends Model
         'call_context',
         'source',
         'dispatched_by',
+        'automation_run_id',
     ];
 
     protected $casts = [
@@ -27,7 +28,13 @@ class WhatsAppVoiceFollowupDispatch extends Model
         'omnidim_campaign_id' => 'integer',
         'omnidim_request_id' => 'integer',
         'call_context' => 'array',
+        'automation_run_id' => 'integer',
     ];
+
+    public function automationRun(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppVoiceFollowupAutomationRun::class, 'automation_run_id');
+    }
 
     public function lead(): BelongsTo
     {

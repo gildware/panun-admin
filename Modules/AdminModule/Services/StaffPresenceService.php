@@ -70,6 +70,7 @@ class StaffPresenceService
             : null;
 
         $this->handleDisplayStatusTransition($fresh, $previousDisplay, $newDisplay, now(), $fallbackStart);
+        $this->syncOpenPeriodForDisplayStatus($fresh, $newDisplay, now(), $lastSeenBefore);
     }
 
     public function setStatus(User $user, string $status): void
@@ -94,6 +95,7 @@ class StaffPresenceService
         $fresh = $user->fresh();
         $newDisplay = $this->resolveDisplayStatus($fresh);
         $this->handleDisplayStatusTransition($fresh, $previousDisplay, $newDisplay);
+        $this->syncOpenPeriodForDisplayStatus($fresh, $newDisplay);
     }
 
     public function markOffline(User $user): void
@@ -112,6 +114,7 @@ class StaffPresenceService
         $fresh = $user->fresh();
         $newDisplay = $this->resolveDisplayStatus($fresh);
         $this->handleDisplayStatusTransition($fresh, $previousDisplay, $newDisplay);
+        $this->syncOpenPeriodForDisplayStatus($fresh, $newDisplay);
     }
 
     public function markOnlineOnLogin(User $user): void
@@ -135,6 +138,7 @@ class StaffPresenceService
             : null;
 
         $this->handleDisplayStatusTransition($fresh, $previousDisplay, $newDisplay, now(), $fallbackStart);
+        $this->syncOpenPeriodForDisplayStatus($fresh, $newDisplay);
     }
 
     public function resolveDisplayStatus(User $user): string
@@ -601,7 +605,7 @@ class StaffPresenceService
         }
 
         if (! $isHistorical) {
-            $onlineSeconds += $this->implicitActiveOnlineSeconds($user, $onlinePeriods, $dayStart, $dayEnd);
+            $onlineSeconds += $this->uncountedOnlineSeconds($user, $onlinePeriods, $dayStart, $dayEnd);
         }
 
         $result['total_online_today_seconds'] = $onlineSeconds;
@@ -612,7 +616,7 @@ class StaffPresenceService
         return $result;
     }
 
-    private function implicitActiveOnlineSeconds(
+    private function uncountedOnlineSeconds(
         User $user,
         Collection $onlinePeriods,
         Carbon $dayStart,
@@ -626,17 +630,80 @@ class StaffPresenceService
             return 0;
         }
 
-        if (! $user->last_seen_at || ! $user->last_seen_at->isSameDay($dayStart)) {
-            return 0;
-        }
-
-        $start = $user->last_seen_at->copy()->subSeconds(self::ONLINE_THRESHOLD_SECONDS)->max($dayStart);
+        $start = $this->inferPeriodStart($user, $dayStart);
 
         if (! $start->lt($dayEnd)) {
             return 0;
         }
 
         return (int) $start->diffInSeconds($dayEnd);
+    }
+
+    private function syncOpenPeriodForDisplayStatus(
+        User $user,
+        string $displayStatus,
+        ?Carbon $at = null,
+        ?Carbon $continuityStart = null
+    ): void {
+        $at ??= now();
+
+        if (! in_array($displayStatus, self::PERIOD_STATUSES, true)) {
+            return;
+        }
+
+        if ($this->hasOpenPeriod($user->id, $displayStatus)) {
+            return;
+        }
+
+        if ($displayStatus === self::STATUS_ONLINE && $continuityStart && $continuityStart->isSameDay($at)) {
+            $startedAt = $continuityStart->copy()->max(Carbon::today());
+        } else {
+            $startedAt = $this->inferPeriodStart($user, Carbon::today());
+        }
+
+        if ($displayStatus === self::STATUS_OFFLINE && ! $this->isRecentlyActive($user)) {
+            $inactiveAt = $this->inactiveSince($user);
+            $startedAt = $inactiveAt ? $inactiveAt->copy()->max(Carbon::today()) : $at;
+        }
+
+        if ($startedAt->gt($at)) {
+            $startedAt = $at->copy();
+        }
+
+        $this->openPeriod($user->id, $displayStatus, $startedAt);
+    }
+
+    private function inferPeriodStart(User $user, Carbon $dayStart): Carbon
+    {
+        $lastEnded = StaffPresencePeriod::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('ended_at')
+            ->where('ended_at', '>=', $dayStart)
+            ->max('ended_at');
+
+        if ($lastEnded) {
+            return Carbon::parse($lastEnded)->copy()->max($dayStart);
+        }
+
+        $firstStartToday = StaffPresencePeriod::query()
+            ->where('user_id', $user->id)
+            ->where('started_at', '>=', $dayStart)
+            ->min('started_at');
+
+        if ($firstStartToday) {
+            return Carbon::parse($firstStartToday)->copy()->max($dayStart);
+        }
+
+        return now();
+    }
+
+    private function hasOpenPeriod(string $userId, string $status): bool
+    {
+        return StaffPresencePeriod::query()
+            ->where('user_id', $userId)
+            ->where('status', $status)
+            ->whereNull('ended_at')
+            ->exists();
     }
 
     private function effectivePeriodEnd(

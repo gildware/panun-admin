@@ -34,12 +34,11 @@
     </div>
     <div class="card-body p-0">
         @if($staffList->isNotEmpty())
-            <div class="table-responsive px-3">
-                <table class="table table-hover align-middle mb-0 fs-13">
+            <div class="table-responsive px-3 overflow-auto">
+                <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
                     <thead class="text-secondary border-bottom">
                         <tr>
-                            <th>{{ translate('Employee') }}</th>
-                            <th>{{ translate('Role') }}</th>
+                            <th class="staff-presence-employee-col">{{ translate('Employee') }}</th>
                             <th>{{ translate('Status') }}</th>
                             <th>{{ translate('Last_Visited_Page') }}</th>
                             <th>{{ translate('Last_Seen') }}</th>
@@ -55,10 +54,10 @@
                     <tbody id="staff-presence-tbody">
                         @foreach($staffList as $member)
                             <tr data-staff-id="{{ $member['id'] }}">
-                                <td>
+                                <td class="staff-presence-employee-col">
                                     <div class="d-flex align-items-center gap-2">
-                                        <div class="position-relative">
-                                            <img src="{{ $member['profile_image'] }}" alt="" class="avatar rounded-circle" width="36" height="36">
+                                        <div class="position-relative flex-shrink-0 staff-presence-avatar-wrap">
+                                            <img src="{{ $member['profile_image'] }}" alt="" class="avatar rounded-circle staff-presence-avatar" width="36" height="36">
                                             <span class="position-absolute bottom-0 end-0 rounded-circle border border-white staff-presence-dot {{ $presenceService->statusDotClass($member['presence_status']) }}" style="width:10px;height:10px;"></span>
                                         </div>
                                         <div>
@@ -67,7 +66,6 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="text-capitalize">{{ str_replace('-', ' ', $member['user_type']) }}</td>
                                 <td>
                                     <span class="badge rounded-pill staff-presence-badge {{ $presenceService->statusBadgeClass($member['presence_status']) }}">{{ $member['presence_label'] }}</span>
                                 </td>
@@ -121,12 +119,11 @@
                 <div id="staff-presence-history-loading" class="text-center text-muted py-4 d-none">
                     {{ translate('Loading') }}...
                 </div>
-                <div class="table-responsive d-none" id="staff-presence-history-table-wrap">
-                    <table class="table table-hover align-middle mb-0 fs-13">
+                <div class="table-responsive overflow-auto d-none" id="staff-presence-history-table-wrap">
+                    <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
                         <thead class="text-secondary border-bottom">
                             <tr>
-                                <th>{{ translate('Employee') }}</th>
-                                <th>{{ translate('Role') }}</th>
+                                <th class="staff-presence-employee-col">{{ translate('Employee') }}</th>
                                 <th>{{ translate('Last_Offline_Period_Today') }}</th>
                                 <th>{{ translate('Total_Offline_Today') }}</th>
                                 <th>{{ translate('Last_Away_Period_Today') }}</th>

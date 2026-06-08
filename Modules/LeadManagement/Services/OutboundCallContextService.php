@@ -57,6 +57,30 @@ class OutboundCallContextService
         ];
     }
 
+    public static function callReasonBadgeClass(string $reason): string
+    {
+        return match (strtoupper(trim($reason))) {
+            self::CALL_REASON_WHATSAPP_FOLLOWUP => 'voice-call-reason-badge--whatsapp',
+            self::CALL_REASON_FUTURE_CUSTOMER_FOLLOWUP => 'voice-call-reason-badge--future-customer',
+            self::CALL_REASON_INBOUND_CALL => 'voice-call-reason-badge--inbound',
+            self::CALL_REASON_PROVIDER_CALLBACK => 'voice-call-reason-badge--provider-callback',
+            default => 'voice-call-reason-badge--default',
+        };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function callReasonBadgeClasses(): array
+    {
+        $classes = [];
+        foreach (self::callReasons() as $reason) {
+            $classes[$reason] = self::callReasonBadgeClass($reason);
+        }
+
+        return $classes;
+    }
+
     /**
      * Build call_context for OmniDimension — only non-empty values are included.
      *

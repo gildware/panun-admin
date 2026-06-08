@@ -64,7 +64,12 @@ class WhatsAppVoiceFollowupDispatchService
                 continue;
             }
 
-            $built = $this->contextBuilder->buildForCandidate($candidate);
+            $built = (isset($candidate['call_context']) && is_array($candidate['call_context']) && $candidate['call_context'] !== [])
+                ? [
+                    'context' => $candidate['call_context'],
+                    'lead_summary_preview' => (string) ($candidate['lead_summary_preview'] ?? ''),
+                ]
+                : $this->contextBuilder->buildForCandidate($candidate);
             $contact = array_merge(
                 ['phone_number' => $e164],
                 $built['context']
@@ -93,6 +98,7 @@ class WhatsAppVoiceFollowupDispatchService
         $campaignName = trim((string) ($options['campaign_name'] ?? 'WhatsApp follow-up'));
         $source = (string) ($options['source'] ?? 'manual');
         $dispatchedBy = $options['dispatched_by'] ?? null;
+        $automationRunId = isset($options['automation_run_id']) ? (int) $options['automation_run_id'] : null;
         $payloadOptions = array_merge([
             'send_option' => 'now',
             'enabled_reschedule_call' => false,
@@ -140,6 +146,7 @@ class WhatsAppVoiceFollowupDispatchService
                     'call_context' => $row['candidate']['call_context'] ?? [],
                     'source' => $source,
                     'dispatched_by' => $dispatchedBy,
+                    'automation_run_id' => $automationRunId,
                 ]);
                 $dispatchedCount++;
             }

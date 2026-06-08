@@ -121,6 +121,49 @@
             max-height: 420px;
             overflow: auto;
         }
+        .dashboard-widget-staff-presence .card-body > .table-responsive {
+            max-height: 100%;
+            overflow-x: auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .dashboard-widget-staff-presence .card-body > .table-responsive > .table {
+            margin-bottom: 0;
+        }
+        .dashboard-widget-staff-presence .staff-presence-employee-col {
+            min-width: 240px;
+            width: 240px;
+        }
+        .dashboard-widget-staff-presence .staff-presence-avatar-wrap {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+        }
+        .dashboard-widget-staff-presence .staff-presence-avatar {
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px;
+            min-height: 36px;
+            flex-shrink: 0;
+            object-fit: cover;
+        }
+        #staffPresenceHistoryModal .staff-presence-employee-col {
+            min-width: 240px;
+            width: 240px;
+        }
+        #staffPresenceHistoryModal .staff-presence-avatar-wrap {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+        }
+        #staffPresenceHistoryModal .staff-presence-avatar {
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px;
+            min-height: 36px;
+            flex-shrink: 0;
+            object-fit: cover;
+        }
 
         .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table {
             table-layout: fixed;
@@ -1123,14 +1166,14 @@
             if (!tbody) return;
             tbody.innerHTML = '';
             (staff || []).forEach(function (member) {
-                var role = (member.user_type || '').replace(/-/g, ' ');
                 var tr = document.createElement('tr');
                 tr.innerHTML =
-                    '<td><div class="d-flex align-items-center gap-2">' +
-                        '<img src="' + (member.profile_image || '') + '" alt="" class="avatar rounded-circle" width="32" height="32">' +
+                    '<td class="staff-presence-employee-col"><div class="d-flex align-items-center gap-2">' +
+                        '<div class="position-relative flex-shrink-0 staff-presence-avatar-wrap">' +
+                        '<img src="' + (member.profile_image || '') + '" alt="" class="avatar rounded-circle staff-presence-avatar" width="36" height="36">' +
+                        '</div>' +
                         '<div><div class="fw-medium">' + (member.name || '') + '</div>' +
                         '<div class="small text-muted">' + (member.email || '') + '</div></div></div></td>' +
-                    '<td class="text-capitalize">' + role + '</td>' +
                     '<td class="text-muted">' + (member.last_offline_period || '—') + '</td>' +
                     '<td class="text-muted">' + (member.total_offline || '—') + '</td>' +
                     '<td class="text-muted">' + (member.last_away_period || '—') + '</td>' +

@@ -14,7 +14,10 @@
             <form method="GET" action="{{ route('admin.voice-call.bulk.campaigns') }}" id="voice-bulk-filter-form">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
-                        <label class="form-label">{{ translate('Status') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Status'),
+                            'hint' => translate('Voice_field_hint_bulk_campaign_status'),
+                        ])
                         <select class="form-select js-select" name="status">
                             <option value="">{{ translate('All') }}</option>
                             @foreach(['pending', 'running', 'completed', 'scheduled', 'paused', 'failed'] as $statusOption)
@@ -37,7 +40,7 @@
     <div class="card">
         <div class="card-body p-30">
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
+                <table class="table table-hover align-middle voice-bulk-campaigns-table">
                     <thead>
                     <tr>
                         <th>{{ translate('SL') }}</th>
@@ -49,31 +52,34 @@
                         <th>{{ translate('Total_Calls') }}</th>
                         <th>{{ translate('Completed') }}</th>
                         <th>{{ translate('Pending') }}</th>
-                        <th>{{ translate('Concurrent_Limit') }}</th>
+                        <th>{{ translate('Details') }}</th>
                     </tr>
                     </thead>
                     <tbody>
                     @forelse($campaigns as $key => $campaign)
                         @php
                             $sl = (($bulkPage - 1) * pagination_limit()) + $key + 1;
+                            $campaignId = (int) ($campaign['id'] ?? 0);
+                            $canCancelCampaign = app(\Modules\LeadManagement\Services\OmniDimensionService::class)
+                                ->bulkCampaignIsCancellable($campaign['status'] ?? null);
                             $statusClass = match ($campaign['status'] ?? '') {
                                 'completed' => 'success',
-                                'running', 'pending' => 'primary',
+                                'running', 'pending', 'in_progress' => 'primary',
                                 'scheduled' => 'info',
                                 'paused' => 'warning',
-                                'failed' => 'danger',
+                                'failed', 'cancelled' => 'danger',
                                 default => 'secondary',
                             };
                         @endphp
-                        <tr>
+                        <tr data-campaign-id="{{ $campaignId }}">
                             <td>{{ $sl }}</td>
                             <td class="fw-medium">{{ $campaign['name'] ?: '—' }}</td>
-                            <td>{{ $campaign['create_date'] ?: '—' }}</td>
+                            <td class="text-nowrap small">{{ $campaign['create_date'] ?: '—' }}</td>
                             <td>{{ $campaign['bot_name'] ?: '—' }}</td>
-                            <td>{{ $campaign['twilio_number'] ?: '—' }}</td>
+                            <td class="text-nowrap">{{ $campaign['twilio_number'] ?: '—' }}</td>
                             <td>
-                                <span class="badge bg-{{ $statusClass }}">
-                                    {{ ucfirst($campaign['status'] ?: '—') }}
+                                <span class="badge bg-{{ $statusClass }} text-capitalize">
+                                    {{ $campaign['status'] ?: '—' }}
                                 </span>
                                 @if(!empty($campaign['is_scheduled']) && !empty($campaign['scheduled_datetime']))
                                     <div class="small text-muted mt-1">{{ $campaign['scheduled_datetime'] }}</div>
@@ -85,12 +91,34 @@
                             <td>{{ (int) ($campaign['total_calls'] ?? 0) }}</td>
                             <td>{{ (int) ($campaign['completed_calls'] ?? 0) }}</td>
                             <td>{{ (int) ($campaign['total_pending_calls'] ?? 0) }}</td>
-                            <td>{{ (int) ($campaign['concurrent_call_limit'] ?? 1) }}</td>
+                            <td>
+                                @if($campaignId > 0)
+                                    <div class="d-inline-flex flex-wrap gap-1">
+                                        <button type="button"
+                                                class="btn btn-sm btn--primary voice-bulk-campaign-open-btn"
+                                                data-campaign-id="{{ $campaignId }}">
+                                            {{ translate('View') }}
+                                        </button>
+                                        @can('lead_outbound_enquiry_add')
+                                            @if($canCancelCampaign)
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger voice-bulk-campaign-cancel-btn"
+                                                        data-campaign-id="{{ $campaignId }}"
+                                                        data-campaign-name="{{ $campaign['name'] ?: translate('Campaign_name') }}">
+                                                    {{ translate('Cancel') }}
+                                                </button>
+                                            @endif
+                                        @endcan
+                                    </div>
+                                @else
+                                    —
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="10" class="text-center text-muted py-4">
-                                {{ translate('no_data_found') }}
+                                {{ translate('Voice_bulk_campaigns_empty') }}
                             </td>
                         </tr>
                     @endforelse

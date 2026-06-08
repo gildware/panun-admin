@@ -2,9 +2,12 @@
 
 namespace Modules\LeadManagement\Services;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Modules\LeadManagement\Entities\OmniDimensionApiLog;
+use Modules\LeadManagement\Services\VoiceCallTabCache;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 
 /**
@@ -26,6 +29,73 @@ class OmniDimensionService
         }
 
         Cache::increment($this->cachePrefix() . ':call_logs_version');
+    }
+
+    public function clearAgentsCache(): void
+    {
+        if (!$this->isConfigured()) {
+            return;
+        }
+
+        Cache::forget($this->cachePrefix() . ':agents');
+    }
+
+    public function clearPhoneNumbersCache(): void
+    {
+        if (!$this->isConfigured()) {
+            return;
+        }
+
+        Cache::forget($this->cachePrefix() . ':phone_numbers');
+    }
+
+    /**
+     * @return array{
+     *     ok: bool,
+     *     agents: array<int, array{id: int, name: string, bot_call_type: string}>,
+     *     phone_numbers: array<int, array{id: int, name: string, phone_number: string, number_provider: string}>,
+     *     error: ?string
+     * }
+     */
+    public function refreshAgentsAndPhoneNumbers(?string &$error = null): array
+    {
+        $error = null;
+
+        if (!$this->isConfigured()) {
+            $error = 'omnidimension_not_configured';
+
+            return ['ok' => false, 'agents' => [], 'phone_numbers' => [], 'error' => $error];
+        }
+
+        $this->clearAgentsCache();
+        $this->clearPhoneNumbersCache();
+
+        $agentResult = $this->listAgents($error);
+        if (!$agentResult['ok']) {
+            return [
+                'ok' => false,
+                'agents' => [],
+                'phone_numbers' => [],
+                'error' => $agentResult['error'] ?? $error,
+            ];
+        }
+
+        $phoneResult = $this->listPhoneNumbers($error);
+        if (!$phoneResult['ok']) {
+            return [
+                'ok' => false,
+                'agents' => $agentResult['agents'] ?? [],
+                'phone_numbers' => [],
+                'error' => $phoneResult['error'] ?? $error,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'agents' => $agentResult['agents'] ?? [],
+            'phone_numbers' => $phoneResult['phone_numbers'] ?? [],
+            'error' => null,
+        ];
     }
 
     /**
@@ -119,50 +189,9 @@ class OmniDimensionService
             ], $error);
         }
 
-        $matching = [];
-        $apiPage = 1;
-        $apiPageSize = 150;
-        $totalApiRecords = null;
-        $maxApiPages = 25;
-
-        while ($apiPage <= $maxApiPages) {
-            $result = $this->listCallLogs([
-                'page' => $apiPage,
-                'page_size' => $apiPageSize,
-                'agent_id' => $filters['agent_id'] ?? null,
-                'call_status' => $filters['call_status'] ?? null,
-            ], $error);
-
-            if (!$result['ok']) {
-                return $result;
-            }
-
-            if ($totalApiRecords === null) {
-                $totalApiRecords = (int) ($result['total'] ?? 0);
-            }
-
-            foreach ($result['calls'] as $call) {
-                if ($filterType === 'forwarded' && !$this->isForwardedCall($call)) {
-                    continue;
-                }
-                if ($filterType === 'callback' && !$this->isPendingCallbackCall($call)) {
-                    continue;
-                }
-                if ($search !== '' && !$this->callMatchesSearch($call, $search)) {
-                    continue;
-                }
-                $matching[] = $call;
-            }
-
-            if (count($result['calls']) < $apiPageSize) {
-                break;
-            }
-
-            if ($totalApiRecords > 0 && ($apiPage * $apiPageSize) >= $totalApiRecords) {
-                break;
-            }
-
-            $apiPage++;
+        $matching = $this->rememberFilteredCallLogs($filters, $filterType, $search, $error);
+        if ($matching === null) {
+            return ['ok' => false, 'calls' => [], 'total' => 0, 'error' => $error];
         }
 
         return [
@@ -276,6 +305,7 @@ class OmniDimensionService
 
         $result = $this->fetchCallLogs($filters, $error);
         if ($result['ok']) {
+            $this->indexCallLogsByRequestId($result['calls'] ?? []);
             Cache::put($cacheKey, $result, (int) config('services.omnidimension.cache_call_logs_ttl', 45));
         }
 
@@ -410,7 +440,7 @@ class OmniDimensionService
     }
 
     /**
-     * @param  array{agent_id?: int, call_status?: string, page?: int, page_size?: int}  $filters
+     * @param  array{agent_id?: int, call_status?: string, bulk_call_id?: int, page?: int, page_size?: int}  $filters
      * @return array{ok: bool, calls: array<int, array<string, mixed>>, total: int, error: ?string}
      */
     private function fetchCallLogs(array $filters, ?string &$error = null): array
@@ -428,6 +458,9 @@ class OmniDimensionService
         }
         if (!empty($filters['call_status'])) {
             $query['call_status'] = (string) $filters['call_status'];
+        }
+        if (!empty($filters['bulk_call_id'])) {
+            $query['bulk_call_id'] = (int) $filters['bulk_call_id'];
         }
 
         $response = $this->request('GET', '/calls/logs', $query);
@@ -544,6 +577,111 @@ class OmniDimensionService
         Cache::increment($this->cachePrefix() . ':bulk_calls_version');
     }
 
+    public function bulkCampaignIsCancellable(?string $status): bool
+    {
+        return in_array(strtolower(trim((string) $status)), [
+            'pending',
+            'scheduled',
+            'running',
+            'in_progress',
+            'paused',
+        ], true);
+    }
+
+    /**
+     * @return array{
+     *     ok: bool,
+     *     status: ?string,
+     *     message: ?string,
+     *     error: ?string,
+     *     body: ?array
+     * }
+     */
+    public function cancelBulkCall(int $bulkCallId, ?string &$error = null): array
+    {
+        $error = null;
+
+        if (!$this->isConfigured() || $bulkCallId <= 0) {
+            $error = 'omnidimension_not_configured';
+
+            return ['ok' => false, 'status' => null, 'message' => null, 'error' => $error, 'body' => null];
+        }
+
+        $response = $this->request('DELETE', '/calls/bulk_call/' . $bulkCallId);
+
+        if (!$response['ok']) {
+            $error = $response['error'] ?? 'omnidimension_bulk_call_cancel_failed';
+
+            return [
+                'ok' => false,
+                'status' => null,
+                'message' => null,
+                'error' => $error,
+                'body' => $response['body'] ?? null,
+            ];
+        }
+
+        $this->clearBulkCallsCache();
+
+        $body = is_array($response['body'] ?? null) ? $response['body'] : [];
+
+        return [
+            'ok' => (($body['status'] ?? '') === 'success') || (($body['current_status'] ?? '') === 'cancelled'),
+            'status' => isset($body['current_status']) ? (string) $body['current_status'] : 'cancelled',
+            'message' => isset($body['message']) ? (string) $body['message'] : null,
+            'error' => null,
+            'body' => $body,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     ok: bool,
+     *     campaign: array<string, mixed>|null,
+     *     contact_by_phone: array<string, array<string, string>>,
+     *     error: ?string
+     * }
+     */
+    public function getBulkCall(int $bulkCallId, ?string &$error = null): array
+    {
+        $error = null;
+        if (!$this->isConfigured() || $bulkCallId <= 0) {
+            $error = 'omnidimension_not_configured';
+
+            return ['ok' => false, 'campaign' => null, 'contact_by_phone' => [], 'error' => $error];
+        }
+
+        $version = (int) Cache::get($this->cachePrefix() . ':bulk_calls_version', 0);
+        $cacheKey = $this->cachePrefix() . ':bulk_call_detail:v' . $version . ':' . $bulkCallId;
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $response = $this->request('GET', '/calls/bulk_call/' . $bulkCallId);
+        if (!$response['ok']) {
+            $error = $response['error'] ?? 'omnidimension_bulk_call_detail_failed';
+
+            return ['ok' => false, 'campaign' => null, 'contact_by_phone' => [], 'error' => $error];
+        }
+
+        $body = $response['body'] ?? [];
+        $details = is_array($body['details'] ?? null) ? $body['details'] : [];
+        $contactList = is_array($body['contact_list'] ?? null) ? $body['contact_list'] : [];
+        $contactByPhone = $this->indexBulkContactListByPhone($contactList);
+
+        $result = [
+            'ok' => true,
+            'campaign' => $this->normalizeBulkCallDetailRow($details, $contactList),
+            'contact_by_phone' => $contactByPhone,
+            'error' => null,
+        ];
+
+        Cache::put($cacheKey, $result, (int) config('services.omnidimension.cache_call_logs_ttl', 45));
+
+        return $result;
+    }
+
     /**
      * @param  array<string, mixed>  $callContext
      * @return array{ok: bool, request_id: ?int, status: ?string, error: ?string, body: ?array}
@@ -603,6 +741,68 @@ class OmniDimensionService
         ];
     }
 
+    /**
+     * @param  array<int, int>  $requestIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function findCallLogsByRequestIds(array $requestIds, ?string &$error = null): array
+    {
+        $error = null;
+        $requestIds = array_values(array_unique(array_filter(array_map('intval', $requestIds), fn (int $id) => $id > 0)));
+        if ($requestIds === [] || !$this->isConfigured()) {
+            return [];
+        }
+
+        $version = (int) Cache::get($this->cachePrefix() . ':call_logs_version', 0);
+        $ttl = (int) config('services.omnidimension.cache_call_by_request_ttl', 120);
+        $found = [];
+        $needed = [];
+
+        foreach ($requestIds as $requestId) {
+            $cached = Cache::get($this->callByRequestCacheKey($version, $requestId));
+            if (is_array($cached)) {
+                $found[$requestId] = $cached;
+            } else {
+                $needed[$requestId] = true;
+            }
+        }
+
+        if ($needed === []) {
+            return $found;
+        }
+
+        $page = 1;
+        $maxPages = 15;
+
+        while ($page <= $maxPages && count($found) < count($requestIds)) {
+            $result = $this->listCallLogs(['page' => $page, 'page_size' => 150], $error);
+            if (!$result['ok']) {
+                break;
+            }
+
+            foreach ($result['calls'] as $call) {
+                $requestId = (int) ($call['call_request_id'] ?? 0);
+                if ($requestId <= 0) {
+                    continue;
+                }
+
+                $this->storeCallByRequestId($version, $requestId, $call, $ttl);
+
+                if (isset($needed[$requestId]) && !isset($found[$requestId])) {
+                    $found[$requestId] = $call;
+                }
+            }
+
+            if (count($result['calls']) < 150) {
+                break;
+            }
+
+            $page++;
+        }
+
+        return $found;
+    }
+
     public function normalizeToE164(string $phone): ?string
     {
         $digits = app(WhatsAppCloudService::class)->normalizeRecipientPhone($phone);
@@ -618,6 +818,113 @@ class OmniDimensionService
         $key = trim((string) config('services.omnidimension.api_key'));
 
         return 'omnidim:' . substr(hash('sha256', $key), 0, 12);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function rememberFilteredCallLogs(array $filters, string $filterType, string $search, ?string &$error): ?array
+    {
+        $version = (int) Cache::get($this->cachePrefix() . ':call_logs_version', 0);
+        $cacheKey = $this->cachePrefix() . ':call_logs_filtered:v' . $version . ':' . md5(json_encode([
+            'agent_id' => $filters['agent_id'] ?? null,
+            'call_status' => $filters['call_status'] ?? null,
+            'filter_type' => $filterType,
+            'search' => $search,
+        ]) ?: '');
+
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $matching = [];
+        $apiPage = 1;
+        $apiPageSize = 150;
+        $totalApiRecords = null;
+        $maxApiPages = 25;
+
+        while ($apiPage <= $maxApiPages) {
+            $result = $this->listCallLogs([
+                'page' => $apiPage,
+                'page_size' => $apiPageSize,
+                'agent_id' => $filters['agent_id'] ?? null,
+                'call_status' => $filters['call_status'] ?? null,
+            ], $error);
+
+            if (!$result['ok']) {
+                return null;
+            }
+
+            if ($totalApiRecords === null) {
+                $totalApiRecords = (int) ($result['total'] ?? 0);
+            }
+
+            foreach ($result['calls'] as $call) {
+                if ($filterType === 'forwarded' && !$this->isForwardedCall($call)) {
+                    continue;
+                }
+                if ($filterType === 'callback' && !$this->isPendingCallbackCall($call)) {
+                    continue;
+                }
+                if ($search !== '' && !$this->callMatchesSearch($call, $search)) {
+                    continue;
+                }
+                $matching[] = $call;
+            }
+
+            if (count($result['calls']) < $apiPageSize) {
+                break;
+            }
+
+            if ($totalApiRecords > 0 && ($apiPage * $apiPageSize) >= $totalApiRecords) {
+                break;
+            }
+
+            $apiPage++;
+        }
+
+        Cache::put(
+            $cacheKey,
+            $matching,
+            (int) config('services.omnidimension.cache_call_logs_filtered_ttl', 60)
+        );
+
+        return $matching;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $calls
+     */
+    private function indexCallLogsByRequestId(array $calls): void
+    {
+        if ($calls === []) {
+            return;
+        }
+
+        $version = (int) Cache::get($this->cachePrefix() . ':call_logs_version', 0);
+        $ttl = (int) config('services.omnidimension.cache_call_by_request_ttl', 120);
+
+        foreach ($calls as $call) {
+            $requestId = (int) ($call['call_request_id'] ?? 0);
+            if ($requestId > 0) {
+                $this->storeCallByRequestId($version, $requestId, $call, $ttl);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $call
+     */
+    private function storeCallByRequestId(int $version, int $requestId, array $call, int $ttl): void
+    {
+        Cache::put($this->callByRequestCacheKey($version, $requestId), $call, $ttl);
+    }
+
+    private function callByRequestCacheKey(int $version, int $requestId): string
+    {
+        return $this->cachePrefix() . ':call_by_request:v' . $version . ':' . $requestId;
     }
 
     /**
@@ -804,6 +1111,112 @@ class OmniDimensionService
     }
 
     /**
+     * @param  array<string, mixed>  $row
+     * @param  array<int, array<string, mixed>>  $contactList
+     * @return array<string, mixed>
+     */
+    private function normalizeBulkCallDetailRow(array $row, array $contactList = []): array
+    {
+        $failedReason = $row['failed_reason'] ?? null;
+        if ($failedReason === false || $failedReason === null) {
+            $failedReason = null;
+        } elseif (!is_string($failedReason)) {
+            $failedReason = (string) $failedReason;
+        }
+
+        $emailRecipients = $row['email_report_recipients'] ?? null;
+        if ($emailRecipients === false || $emailRecipients === null) {
+            $emailRecipients = null;
+        } elseif (!is_string($emailRecipients)) {
+            $emailRecipients = (string) $emailRecipients;
+        }
+
+        $statusCounts = is_array($row['call_status_counts'] ?? null) ? $row['call_status_counts'] : [];
+
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'name' => (string) ($row['name'] ?? ''),
+            'status' => (string) ($row['status'] ?? ''),
+            'campaign_type' => (string) ($row['campaign_type'] ?? ''),
+            'bot_id' => (int) ($row['bot_id'] ?? 0),
+            'bot_name' => (string) ($row['bot_name'] ?? ''),
+            'twilio_number' => (string) ($row['twilio_number'] ?? ''),
+            'user_name' => (string) ($row['user_name'] ?? ''),
+            'is_scheduled' => (bool) ($row['is_scheduled'] ?? false),
+            'scheduled_datetime' => is_string($row['scheduled_datetime'] ?? null) ? $row['scheduled_datetime'] : null,
+            'timezone' => (string) ($row['timezone'] ?? ''),
+            'create_date' => (string) ($row['create_date'] ?? ''),
+            'write_date' => (string) ($row['write_date'] ?? ''),
+            'concurrent_call_limit' => (int) ($row['concurrent_call_limit'] ?? 1),
+            'total_calls' => (int) ($row['total_calls'] ?? 0),
+            'completed_calls' => (int) ($row['completed_calls'] ?? 0),
+            'total_calls_made' => (int) ($row['total_calls_made'] ?? 0),
+            'total_calls_to_dispatch' => (int) ($row['total_calls_to_dispatch'] ?? 0),
+            'total_pending_calls' => (int) ($row['total_pending_calls'] ?? 0),
+            'pending_calls' => (int) ($row['pending_calls'] ?? 0),
+            'failed_calls' => (int) ($row['failed_calls'] ?? 0),
+            'skipped_calls' => (int) ($row['skipped_calls'] ?? 0),
+            'total_not_reachable_calls' => (int) ($row['total_not_reachable_calls'] ?? 0),
+            'total_skipped_calls' => (int) ($row['total_skipped_calls'] ?? 0),
+            'total_reschedule_calls' => (int) ($row['total_reschedule_calls'] ?? 0),
+            'total_call_transfer_count' => (int) ($row['total_call_transfer_count'] ?? 0),
+            'calls_picked_up' => (int) ($row['calls_picked_up'] ?? 0),
+            'total_duration_seconds' => (int) ($row['total_duration_seconds'] ?? 0),
+            'avg_duration_seconds' => (int) ($row['avg_duration_seconds'] ?? 0),
+            'failed_reason' => $failedReason,
+            'auto_retry' => (bool) ($row['auto_retry'] ?? false),
+            'auto_retry_schedule' => (string) ($row['auto_retry_schedule'] ?? ''),
+            'retry_limit' => (int) ($row['retry_limit'] ?? 0),
+            'retry_count' => (int) ($row['retry_count'] ?? 0),
+            'enabled_reschedule_call' => (bool) ($row['enabled_reschedule_call'] ?? false),
+            'email_on_complete' => (bool) ($row['email_on_complete'] ?? false),
+            'email_report_recipients' => $emailRecipients,
+            'recording_file_name' => is_string($row['recording_file_name'] ?? null) ? $row['recording_file_name'] : null,
+            'call_status_counts' => $statusCounts,
+            'contact_count' => count($contactList),
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $contactList
+     * @return array<string, array<string, string>>
+     */
+    private function indexBulkContactListByPhone(array $contactList): array
+    {
+        $indexed = [];
+
+        foreach ($contactList as $contact) {
+            if (!is_array($contact)) {
+                continue;
+            }
+
+            $phone = trim((string) ($contact['to_number'] ?? $contact['phone_number'] ?? ''));
+            $normalized = $this->normalizeToE164($phone) ?? $phone;
+            if ($normalized === '') {
+                continue;
+            }
+
+            $context = [];
+            foreach ($contact as $key => $value) {
+                if (in_array($key, ['to_number', 'phone_number'], true)) {
+                    continue;
+                }
+                $text = trim((string) $value);
+                if ($text !== '') {
+                    $context[(string) $key] = $text;
+                }
+            }
+
+            $indexed[$normalized] = $context;
+            if ($phone !== '' && $phone !== $normalized) {
+                $indexed[$phone] = $context;
+            }
+        }
+
+        return $indexed;
+    }
+
+    /**
      * @param  array<string, scalar|null>  $query
      * @param  array<string, mixed>  $json
      * @return array{ok: bool, body: ?array, error: ?string, http_status: ?int}
@@ -813,6 +1226,7 @@ class OmniDimensionService
         $apiKey = trim((string) config('services.omnidimension.api_key'));
         $baseUrl = rtrim((string) config('services.omnidimension.base_url', 'https://backend.omnidim.io/api/v1'), '/');
         $url = $baseUrl . $path;
+        $startedAt = microtime(true);
 
         try {
             $pending = Http::withToken($apiKey)
@@ -822,6 +1236,7 @@ class OmniDimensionService
             $response = match (strtoupper($method)) {
                 'GET' => $pending->get($url, $query),
                 'POST' => $pending->post($url, $json),
+                'DELETE' => $pending->delete($url, $query),
                 default => throw new \InvalidArgumentException('Unsupported HTTP method: ' . $method),
             };
 
@@ -839,20 +1254,26 @@ class OmniDimensionService
                     'body' => $body ?? $response->body(),
                 ]);
 
-                return [
+                $result = [
                     'ok' => false,
                     'body' => $body,
                     'error' => $error,
                     'http_status' => $response->status(),
                 ];
+                $this->persistApiLog($method, $path, $query, $json, $result, $startedAt);
+
+                return $result;
             }
 
-            return [
+            $result = [
                 'ok' => true,
                 'body' => $body,
                 'error' => null,
                 'http_status' => $response->status(),
             ];
+            $this->persistApiLog($method, $path, $query, $json, $result, $startedAt);
+
+            return $result;
         } catch (\Throwable $e) {
             Log::error('OmniDimension API exception', [
                 'method' => $method,
@@ -860,12 +1281,86 @@ class OmniDimensionService
                 'message' => $e->getMessage(),
             ]);
 
-            return [
+            $result = [
                 'ok' => false,
                 'body' => null,
                 'error' => 'omnidimension_exception',
                 'http_status' => null,
             ];
+            $this->persistApiLog($method, $path, $query, $json, $result, $startedAt, $e->getMessage());
+
+            return $result;
         }
+    }
+
+    /**
+     * @param  array<string, scalar|null>  $query
+     * @param  array<string, mixed>  $json
+     * @param  array{ok: bool, body: ?array, error: ?string, http_status: ?int}  $result
+     */
+    private function persistApiLog(
+        string $method,
+        string $path,
+        array $query,
+        array $json,
+        array $result,
+        float $startedAt,
+        ?string $exceptionMessage = null
+    ): void {
+        try {
+            $error = $result['error'] ?? null;
+            if ($exceptionMessage !== null && $exceptionMessage !== '') {
+                $error = mb_substr($exceptionMessage, 0, 255);
+            }
+
+            if (config('services.omnidimension.tab_cache_enabled', true)) {
+                Cache::increment('voice_call_tab:v:' . VoiceCallTabCache::TAB_API_LOGS);
+            }
+
+            OmniDimensionApiLog::query()->create([
+                'method' => strtoupper($method),
+                'path' => $path,
+                'query_params' => $query !== [] ? $query : null,
+                'request_body' => $json !== [] ? $this->truncateLogPayload(json_encode($json, JSON_UNESCAPED_UNICODE) ?: '') : null,
+                'http_status' => $result['http_status'] ?? null,
+                'response_body' => $this->truncateLogPayload($this->encodeLogBody($result['body'] ?? null)),
+                'ok' => (bool) ($result['ok'] ?? false),
+                'error' => $error,
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                'triggered_by' => Auth::id(),
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to persist OmniDimension API log', [
+                'path' => $path,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function encodeLogBody(mixed $body): ?string
+    {
+        if ($body === null) {
+            return null;
+        }
+
+        if (is_array($body)) {
+            return json_encode($body, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) ?: null;
+        }
+
+        return is_scalar($body) ? (string) $body : null;
+    }
+
+    private function truncateLogPayload(?string $payload, int $maxLength = 50000): ?string
+    {
+        if ($payload === null || $payload === '') {
+            return $payload;
+        }
+
+        if (mb_strlen($payload) <= $maxLength) {
+            return $payload;
+        }
+
+        return mb_substr($payload, 0, $maxLength) . "\n… [truncated]";
     }
 }
