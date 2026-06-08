@@ -60,10 +60,19 @@ Route::group([
 
     Route::group(['prefix' => 'voice-call', 'as' => 'voice-call.', 'middleware' => ['can:lead_outbound_enquiry_view']], function () {
         Route::get('/', [OmniDimensionVoiceCallController::class, 'index'])->name('index');
+        Route::get('/placed', [OmniDimensionVoiceCallController::class, 'placedCalls'])->name('placed');
+        Route::post('/refresh-catalog', [OmniDimensionVoiceCallController::class, 'refreshCatalog'])->name('refresh-catalog');
+        Route::get('/api-logs', [OmniDimensionVoiceCallController::class, 'apiLogs'])->name('api-logs');
         Route::get('/history', [OmniDimensionVoiceCallController::class, 'history'])->name('history');
         Route::get('/forwarded', [OmniDimensionVoiceCallController::class, 'forwardedCalls'])->name('forwarded');
         Route::get('/callback', [OmniDimensionVoiceCallController::class, 'callbackCalls'])->name('callback');
         Route::get('/bulk/campaigns', [OmniDimensionVoiceCallController::class, 'bulkCampaigns'])->name('bulk.campaigns');
+        Route::get('/bulk/campaigns/{id}', [OmniDimensionVoiceCallController::class, 'bulkCampaignDetails'])->name('bulk.campaigns.show');
+        Route::delete('/bulk/campaigns/{id}', [OmniDimensionVoiceCallController::class, 'cancelBulkCampaign'])
+            ->middleware(['can:lead_outbound_enquiry_add'])
+            ->name('bulk.campaigns.cancel');
+        Route::post('/bulk/audience-preview', [OmniDimensionVoiceCallController::class, 'bulkAudiencePreview'])->name('bulk.audience-preview');
+        Route::post('/bulk/audience-preview-csv', [OmniDimensionVoiceCallController::class, 'bulkAudiencePreviewCsv'])->name('bulk.audience-preview-csv');
         Route::get('/bulk/sample-csv', [OmniDimensionVoiceCallController::class, 'bulkSampleCsv'])->name('bulk.sample-csv');
         Route::delete('/history/{callLogId}', [OmniDimensionVoiceCallController::class, 'destroy'])
             ->middleware(['can:lead_outbound_enquiry_delete'])
@@ -78,6 +87,9 @@ Route::group([
         Route::post('/whatsapp-followup/summary', [WhatsAppVoiceFollowupController::class, 'generateSummary'])->name('whatsapp-followup.summary.generate');
         Route::post('/whatsapp-followup/dispatch', [WhatsAppVoiceFollowupController::class, 'dispatch'])->middleware(['can:lead_outbound_enquiry_add'])->name('whatsapp-followup.dispatch');
         Route::get('/cron-jobs/runs', [VoiceCallCronJobController::class, 'runs'])->name('cron-jobs.runs');
+        Route::get('/cron-jobs/runs/{run}', [VoiceCallCronJobController::class, 'runDetails'])->name('cron-jobs.runs.show');
+        Route::get('/cron-jobs/runs/{run}/dispatch-preview', [VoiceCallCronJobController::class, 'dispatchPreview'])->name('cron-jobs.runs.dispatch-preview');
+        Route::post('/cron-jobs/runs/{run}/dispatch', [VoiceCallCronJobController::class, 'approveRun'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.runs.dispatch');
         Route::post('/cron-jobs', [VoiceCallCronJobController::class, 'store'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.store');
         Route::put('/cron-jobs/{rule}', [VoiceCallCronJobController::class, 'update'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.update');
         Route::delete('/cron-jobs/{rule}', [VoiceCallCronJobController::class, 'destroy'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.destroy');

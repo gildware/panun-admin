@@ -14,15 +14,24 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use Modules\CategoryManagement\Entities\Category;
+use Modules\LeadManagement\Entities\AdSource;
+use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
+use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
+use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\LeadOutboundEnquiry;
+use Modules\LeadManagement\Entities\Source;
+use Modules\LeadManagement\Entities\OmniDimensionApiLog;
 use Modules\LeadManagement\Entities\OmniDimensionCallDispatch;
 use Modules\LeadManagement\Entities\OmniDimensionCallTranscriptTransliteration;
 use Modules\LeadManagement\Entities\OmniDimensionHiddenCallLog;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupAutomationRule;
 use Modules\LeadManagement\Services\OmniDimensionService;
 use Modules\LeadManagement\Services\OutboundCallContextService;
+use Modules\LeadManagement\Services\VoiceBulkAudienceService;
 use Modules\LeadManagement\Services\VoiceBulkCallContactBuilder;
+use Modules\ZoneManagement\Entities\Zone;
+use Modules\LeadManagement\Services\VoiceCallTabCache;
 use Modules\LeadManagement\Services\VoiceCallTranscriptHinglishService;
 use Modules\UserManagement\Entities\User;
 use Modules\WhatsAppModule\Entities\WhatsAppChatTag;
@@ -35,7 +44,9 @@ class OmniDimensionVoiceCallController extends Controller
         private readonly OmniDimensionService $omniDimension,
         private readonly OutboundCallContextService $outboundCallContext,
         private readonly VoiceBulkCallContactBuilder $bulkContactBuilder,
-        private readonly VoiceCallTranscriptHinglishService $transcriptHinglish
+        private readonly VoiceBulkAudienceService $bulkAudience,
+        private readonly VoiceCallTranscriptHinglishService $transcriptHinglish,
+        private readonly VoiceCallTabCache $tabCache
     ) {}
 
     public function index(WhatsAppMarketingAudienceService $audienceService): View
@@ -67,6 +78,8 @@ class OmniDimensionVoiceCallController extends Controller
             ->get(['id', 'first_name', 'last_name', 'email']);
 
         $categories = Category::query()->ofType('main')->ofStatus(1)->orderBy('name')->get();
+        $subCategories = Category::query()->ofType('sub')->ofStatus(1)->orderBy('name')->get();
+        $zones = Zone::query()->ofStatus(1)->orderBy('name')->get(['id', 'name']);
         $audienceCounts = [
             'all_customers' => $audienceService->countCustomersWithPhone(),
             'all_providers' => $audienceService->countProvidersWithPhone(),
@@ -75,6 +88,11 @@ class OmniDimensionVoiceCallController extends Controller
         foreach ($categories as $cat) {
             $categoryRecipientCounts[(string) $cat->id] = $audienceService->countProvidersInCategory((string) $cat->id);
         }
+        $leadSources = Source::query()->active()->orderBy('name')->get(['id', 'name']);
+        $leadAdSources = AdSource::query()->active()->orderBy('name')->get(['id', 'name']);
+        $customerLeadStatuses = CustomerLeadStatus::query()->orderBy('name')->get(['id', 'name']);
+        $invalidReasons = LeadInvalidReason::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $futureCustomerReasons = LeadFutureCustomerReason::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
         $waChatTags = Schema::hasTable('whatsapp_chat_tags')
             ? WhatsAppChatTag::query()->orderBy('sort_order')->orderBy('id')->get(['id', 'name', 'color'])
@@ -99,8 +117,15 @@ class OmniDimensionVoiceCallController extends Controller
             'callReasonLabels' => OutboundCallContextService::callReasonLabels(),
             'contextKeys' => OutboundCallContextService::CONTEXT_KEYS,
             'categories' => $categories,
+            'subCategories' => $subCategories,
+            'zones' => $zones,
             'audienceCounts' => $audienceCounts,
             'categoryRecipientCounts' => $categoryRecipientCounts,
+            'leadSources' => $leadSources,
+            'leadAdSources' => $leadAdSources,
+            'customerLeadStatuses' => $customerLeadStatuses,
+            'invalidReasons' => $invalidReasons,
+            'futureCustomerReasons' => $futureCustomerReasons,
             'waChatTags' => $waChatTags,
             'customerLeadTags' => $customerLeadTags,
             'waFollowupDefaults' => ['silent_min_hours' => 2],
@@ -111,22 +136,35 @@ class OmniDimensionVoiceCallController extends Controller
         ]);
     }
 
-    public function history(Request $request): View
+    public function history(Request $request): View|Response
     {
         return $this->callLogsView($request, 'history');
     }
 
-    public function forwardedCalls(Request $request): View
+    public function forwardedCalls(Request $request): View|Response
     {
         return $this->callLogsView($request, 'forwarded');
     }
 
-    public function callbackCalls(Request $request): View
+    public function callbackCalls(Request $request): View|Response
     {
         return $this->callLogsView($request, 'callback');
     }
 
-    private function callLogsView(Request $request, string $listMode = 'history'): View
+    private function callLogsView(Request $request, string $listMode = 'history'): View|Response
+    {
+        $tab = match ($listMode) {
+            'forwarded' => VoiceCallTabCache::TAB_FORWARDED,
+            'callback' => VoiceCallTabCache::TAB_CALLBACK,
+            default => VoiceCallTabCache::TAB_HISTORY,
+        };
+
+        return $this->tabCache->respond($request, $tab, function () use ($request, $listMode): string {
+            return $this->renderCallLogsView($request, $listMode)->render();
+        });
+    }
+
+    private function renderCallLogsView(Request $request, string $listMode = 'history'): View
     {
         $configured = $this->omniDimension->isConfigured();
         $historyError = null;
@@ -242,6 +280,7 @@ class OmniDimensionVoiceCallController extends Controller
         );
 
         $this->omniDimension->clearCallLogsCache();
+        $this->tabCache->forgetCallLogTabs();
 
         return response()->json(['message' => translate('Voice_call_history_removed')]);
     }
@@ -321,9 +360,15 @@ class OmniDimensionVoiceCallController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         if (!$this->omniDimension->isConfigured()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('OmniDimension_is_not_configured'),
+                ], 422);
+            }
             toastr()->error(translate('OmniDimension_is_not_configured'));
 
             return back()->withInput();
@@ -340,6 +385,14 @@ class OmniDimensionVoiceCallController extends Controller
 
         $toE164 = $this->omniDimension->normalizeToE164($validated['phone_number']);
         if ($toE164 === null) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Invalid_phone_number'),
+                    'errors' => ['phone_number' => [translate('Invalid_phone_number')]],
+                ], 422);
+            }
+
             return back()
                 ->withInput()
                 ->withErrors(['phone_number' => translate('Invalid_phone_number')]);
@@ -357,6 +410,14 @@ class OmniDimensionVoiceCallController extends Controller
         );
 
         if (!$result['ok']) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Voice_call_dispatch_failed'),
+                    'error' => $apiError,
+                    'api_response' => $result['body'] ?? null,
+                ], 422);
+            }
             toastr()->error(translate('Voice_call_dispatch_failed'));
 
             return back()->withInput();
@@ -367,10 +428,13 @@ class OmniDimensionVoiceCallController extends Controller
 
         OmniDimensionCallDispatch::create([
             'omnidim_request_id' => $requestId,
+            'dispatch_status' => $dispatchStatus,
             'to_number_e164' => $toE164,
             'call_context' => $callContext,
             'dispatched_by' => Auth::id(),
         ]);
+
+        $this->tabCache->forgetCallLogTabs();
 
         $shouldLog = $request->boolean('log_outbound_enquiry', true);
         if ($shouldLog) {
@@ -396,12 +460,173 @@ class OmniDimensionVoiceCallController extends Controller
             ]);
         }
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => translate('Voice_call_dispatched_successfully'),
+                'request_id' => $requestId,
+                'status' => $dispatchStatus,
+                'to_number' => $toE164,
+            ]);
+        }
+
         toastr()->success(translate('Voice_call_dispatched_successfully'));
 
         return redirect()->route('admin.voice-call.index');
     }
 
-    public function bulkCampaigns(Request $request): View
+    public function placedCalls(Request $request): View|Response
+    {
+        return $this->tabCache->respond($request, VoiceCallTabCache::TAB_PLACED, function () use ($request): string {
+            return $this->renderPlacedCalls($request)->render();
+        });
+    }
+
+    private function renderPlacedCalls(Request $request): View
+    {
+        $page = max(1, (int) $request->get('page', 1));
+        $search = trim((string) $request->get('search', ''));
+
+        $query = OmniDimensionCallDispatch::query()
+            ->with(['dispatchedBy:id,first_name,last_name,email'])
+            ->orderByDesc('id');
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('to_number_e164', 'like', $like)
+                    ->orWhere('omnidim_request_id', 'like', $like)
+                    ->orWhere('call_context->customer_name', 'like', $like)
+                    ->orWhere('call_context->lead_summary', 'like', $like)
+                    ->orWhere('call_context->call_reason', 'like', $like);
+            });
+        }
+
+        $dispatches = $query->paginate(pagination_limit(), ['*'], 'page', $page);
+
+        $statusError = null;
+        $callLogsByRequestId = [];
+        if ($this->omniDimension->isConfigured() && $dispatches->isNotEmpty()) {
+            $requestIds = $dispatches->pluck('omnidim_request_id')
+                ->filter(fn ($id) => (int) $id > 0)
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+            $callLogsByRequestId = $this->omniDimension->findCallLogsByRequestIds($requestIds, $statusError);
+
+            foreach ($dispatches as $dispatch) {
+                $requestId = (int) ($dispatch->omnidim_request_id ?? 0);
+                if ($requestId > 0 && isset($callLogsByRequestId[$requestId])) {
+                    $callLogsByRequestId[$requestId]['dispatch_context'] = $dispatch->normalizedContext();
+                }
+            }
+
+            if ($callLogsByRequestId !== []) {
+                $enrichedCalls = OmniDimensionCallTranscriptTransliteration::attachToCallLogs(array_values($callLogsByRequestId));
+                $callLogsByRequestId = [];
+                foreach ($enrichedCalls as $call) {
+                    $requestId = (int) ($call['call_request_id'] ?? 0);
+                    if ($requestId > 0) {
+                        $callLogsByRequestId[$requestId] = $call;
+                    }
+                }
+            }
+        }
+
+        return view('leadmanagement::admin.voice-calls._place_call_list', [
+            'dispatches' => $dispatches,
+            'filterSearch' => $search,
+            'listRoute' => route('admin.voice-call.placed'),
+            'callReasonLabels' => OutboundCallContextService::callReasonLabels(),
+            'contextKeys' => OutboundCallContextService::CONTEXT_KEYS,
+            'callLogsByRequestId' => $callLogsByRequestId,
+            'statusLoadError' => $statusError,
+        ]);
+    }
+
+    public function refreshCatalog(): JsonResponse
+    {
+        if (!$this->omniDimension->isConfigured()) {
+            return response()->json([
+                'ok' => false,
+                'message' => translate('OmniDimension_is_not_configured'),
+            ], 422);
+        }
+
+        $error = null;
+        $result = $this->omniDimension->refreshAgentsAndPhoneNumbers($error);
+
+        if (!$result['ok']) {
+            return response()->json([
+                'ok' => false,
+                'message' => translate('OmniDimension_catalog_refresh_failed'),
+                'error' => $result['error'] ?? $error,
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => translate('OmniDimension_catalog_refreshed'),
+            'agents' => $result['agents'],
+            'phone_numbers' => $result['phone_numbers'],
+            'agents_count' => count($result['agents']),
+            'phone_numbers_count' => count($result['phone_numbers']),
+        ]);
+    }
+
+    public function apiLogs(Request $request): View|Response
+    {
+        return $this->tabCache->respond($request, VoiceCallTabCache::TAB_API_LOGS, function () use ($request): string {
+            return $this->renderApiLogs($request)->render();
+        });
+    }
+
+    private function renderApiLogs(Request $request): View
+    {
+        $page = max(1, (int) $request->get('page', 1));
+        $pageSize = pagination_limit();
+
+        $query = OmniDimensionApiLog::query()->orderByDesc('id');
+
+        if ($request->filled('method')) {
+            $query->where('method', strtoupper((string) $request->get('method')));
+        }
+        if ($request->filled('status')) {
+            if ((string) $request->get('status') === 'success') {
+                $query->where('ok', true);
+            } elseif ((string) $request->get('status') === 'failed') {
+                $query->where('ok', false);
+            }
+        }
+        if ($request->filled('search')) {
+            $search = '%' . trim((string) $request->get('search')) . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('path', 'like', $search)
+                    ->orWhere('error', 'like', $search)
+                    ->orWhere('request_body', 'like', $search)
+                    ->orWhere('response_body', 'like', $search);
+            });
+        }
+
+        $logs = $query->paginate($pageSize, ['*'], 'page', $page);
+
+        return view('leadmanagement::admin.voice-calls._api_logs', [
+            'logs' => $logs,
+            'filterMethod' => $request->get('method'),
+            'filterStatus' => $request->get('status'),
+            'filterSearch' => $request->get('search'),
+            'listRoute' => route('admin.voice-call.api-logs'),
+        ]);
+    }
+
+    public function bulkCampaigns(Request $request): View|Response
+    {
+        return $this->tabCache->respond($request, VoiceCallTabCache::TAB_BULK, function () use ($request): string {
+            return $this->renderBulkCampaigns($request)->render();
+        });
+    }
+
+    private function renderBulkCampaigns(Request $request): View
     {
         $configured = $this->omniDimension->isConfigured();
         $bulkError = null;
@@ -434,6 +659,195 @@ class OmniDimensionVoiceCallController extends Controller
         ]);
     }
 
+    public function bulkCampaignDetails(Request $request, int $id): View|Response
+    {
+        return $this->tabCache->respond(
+            $request,
+            VoiceCallTabCache::TAB_BULK_DETAILS,
+            function () use ($request, $id): string {
+                return $this->renderBulkCampaignDetails($request, $id)->render();
+            },
+            ['id' => $id]
+        );
+    }
+
+    private function renderBulkCampaignDetails(Request $request, int $id): View
+    {
+        $configured = $this->omniDimension->isConfigured();
+        $detailsError = null;
+        $callsError = null;
+        $campaign = null;
+        $calls = [];
+        $callsTotal = 0;
+        $callsPage = max(1, (int) $request->get('page', 1));
+
+        $contactByPhone = [];
+        if ($configured) {
+            $detailResult = $this->omniDimension->getBulkCall($id, $detailsError);
+            if ($detailResult['ok']) {
+                $campaign = $detailResult['campaign'];
+                $contactByPhone = $detailResult['contact_by_phone'] ?? [];
+            } elseif ($detailsError === null) {
+                $detailsError = $detailResult['error'] ?? 'omnidimension_bulk_call_detail_failed';
+            }
+            $callsResult = $this->omniDimension->listCallLogs([
+                'bulk_call_id' => $id,
+                'page' => $callsPage,
+                'page_size' => pagination_limit(),
+            ], $callsError);
+
+            if ($callsResult['ok']) {
+                $calls = $callsResult['calls'] ?? [];
+                $callsTotal = (int) ($callsResult['total'] ?? 0);
+
+                foreach ($calls as $index => $call) {
+                    $phone = trim((string) ($call['to_number'] ?? ''));
+                    $normalized = $this->omniDimension->normalizeToE164($phone) ?? $phone;
+                    $context = $contactByPhone[$normalized] ?? $contactByPhone[$phone] ?? [];
+                    if ($context !== []) {
+                        $calls[$index]['dispatch_context'] = $context;
+                    }
+                }
+
+                $calls = OmniDimensionCallTranscriptTransliteration::attachToCallLogs($calls);
+            } elseif ($callsError === null) {
+                $callsError = $callsResult['error'] ?? 'omnidimension_call_logs_failed';
+            }
+        }
+
+        return view('leadmanagement::admin.voice-calls._bulk_campaign_details', [
+            'configured' => $configured,
+            'campaign' => $campaign,
+            'campaignId' => $id,
+            'calls' => $calls,
+            'callsTotal' => $callsTotal,
+            'callsPage' => $callsPage,
+            'detailsError' => $detailsError,
+            'callsError' => $callsError,
+            'callReasonLabels' => OutboundCallContextService::callReasonLabels(),
+            'detailsRoute' => route('admin.voice-call.bulk.campaigns.show', ['id' => $id]),
+            'canCancelCampaign' => is_array($campaign)
+                && $this->omniDimension->bulkCampaignIsCancellable($campaign['status'] ?? null),
+        ]);
+    }
+
+    public function cancelBulkCampaign(Request $request, int $id): RedirectResponse|JsonResponse
+    {
+        if (!$this->omniDimension->isConfigured()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('OmniDimension_is_not_configured'),
+                ], 422);
+            }
+            toastr()->error(translate('OmniDimension_is_not_configured'));
+
+            return back();
+        }
+
+        $detailsError = null;
+        $detailResult = $this->omniDimension->getBulkCall($id, $detailsError);
+        $campaign = $detailResult['campaign'] ?? null;
+
+        if (!$detailResult['ok'] || !is_array($campaign)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Voice_bulk_campaign_details_load_failed'),
+                ], 404);
+            }
+            toastr()->error(translate('Voice_bulk_campaign_details_load_failed'));
+
+            return back();
+        }
+
+        if (!$this->omniDimension->bulkCampaignIsCancellable($campaign['status'] ?? null)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Voice_bulk_campaign_cancel_not_allowed'),
+                ], 422);
+            }
+            toastr()->error(translate('Voice_bulk_campaign_cancel_not_allowed'));
+
+            return back();
+        }
+
+        $apiError = null;
+        $result = $this->omniDimension->cancelBulkCall($id, $apiError);
+
+        if (!$result['ok']) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Voice_bulk_campaign_cancel_failed'),
+                    'error' => $apiError,
+                    'api_response' => $result['body'] ?? null,
+                ], 422);
+            }
+            toastr()->error(translate('Voice_bulk_campaign_cancel_failed'));
+
+            return back();
+        }
+
+        $this->tabCache->forgetMany([
+            VoiceCallTabCache::TAB_BULK,
+            VoiceCallTabCache::TAB_BULK_DETAILS,
+        ]);
+
+        $message = translate('Voice_bulk_campaign_cancelled_successfully');
+        $status = $result['status'] ?? 'cancelled';
+        if ($status !== '') {
+            $message .= ' (' . $status . ')';
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'campaign_id' => $id,
+                'status' => $status,
+            ]);
+        }
+
+        toastr()->success($message);
+
+        return redirect()->route('admin.voice-call.index', ['tab' => 'bulk']);
+    }
+
+    public function bulkAudiencePreview(Request $request): JsonResponse
+    {
+        $filters = $this->bulkAudience->parseFilters($request);
+        if (($filters['recipient_kind'] ?? '') === VoiceBulkAudienceService::KIND_CSV) {
+            return response()->json([
+                'total_matching' => 0,
+                'rows' => [],
+                'preview_limit' => 50,
+                'has_more' => false,
+                'kind' => VoiceBulkAudienceService::KIND_CSV,
+            ]);
+        }
+
+        return response()->json($this->bulkAudience->preview($filters));
+    }
+
+    public function bulkAudiencePreviewCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'contacts_csv' => 'required|file|mimes:csv,txt|max:5120',
+        ]);
+
+        $path = $request->file('contacts_csv')->store('voice_bulk/csv_preview', 'local');
+
+        try {
+            $preview = $this->bulkAudience->previewCsv($path);
+        } finally {
+            Storage::disk('local')->delete($path);
+        }
+
+        return response()->json($preview);
+    }
+
     public function bulkSampleCsv(): StreamedResponse
     {
         return response()->streamDownload(function () {
@@ -451,22 +865,27 @@ class OmniDimensionVoiceCallController extends Controller
         ]);
     }
 
-    public function storeBulk(Request $request, WhatsAppMarketingAudienceService $audienceService): RedirectResponse
+    public function storeBulk(Request $request): RedirectResponse|JsonResponse
     {
         if (!$this->omniDimension->isConfigured()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('OmniDimension_is_not_configured'),
+                ], 422);
+            }
             toastr()->error(translate('OmniDimension_is_not_configured'));
 
             return back()->withInput();
         }
 
         $reasons = implode(',', OutboundCallContextService::callReasons());
+        $audienceRules = $this->bulkAudience->filterRules();
+        $audienceRules['contacts_csv'] = 'required_if:recipient_kind,' . VoiceBulkAudienceService::KIND_CSV . '|nullable|file|mimes:csv,txt|max:5120';
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'campaign_name' => 'required|string|max:255',
             'phone_number_id' => 'required|integer|min:1',
-            'audience_type' => 'required|in:all_customers,all_providers,providers_by_category,csv_import',
-            'category_id' => 'required_if:audience_type,providers_by_category|nullable|string|max:64|exists:categories,id',
-            'contacts_csv' => 'required_if:audience_type,csv_import|nullable|file|mimes:csv,txt|max:5120',
             'send_option' => 'required|in:now,schedule',
             'scheduled_at' => 'nullable|required_if:send_option,schedule|date|after:now',
             'timezone' => 'nullable|string|max:64',
@@ -481,10 +900,11 @@ class OmniDimensionVoiceCallController extends Controller
             'service_category' => 'nullable|string|max:255',
             'service_details' => 'nullable|string|max:2000',
             'notes' => 'nullable|string|max:2000',
-        ]);
+        ], $audienceRules));
 
+        $filters = $this->bulkAudience->normalizeFilters($validated);
         $csvPath = null;
-        if ($validated['audience_type'] === 'csv_import' && $request->hasFile('contacts_csv')) {
+        if (($filters['recipient_kind'] ?? '') === VoiceBulkAudienceService::KIND_CSV && $request->hasFile('contacts_csv')) {
             $dir = 'voice_bulk/csv';
             Storage::disk('local')->makeDirectory($dir);
             $csvPath = $request->file('contacts_csv')->storeAs(
@@ -494,15 +914,15 @@ class OmniDimensionVoiceCallController extends Controller
             );
         }
 
-        $recipients = $validated['audience_type'] === 'csv_import' && $csvPath
-            ? $this->bulkContactBuilder->parseContactsCsv($csvPath)
-            : $audienceService->resolve(
-                $validated['audience_type'],
-                $validated['category_id'] ?? null,
-                null
-            );
+        $recipients = $this->bulkAudience->resolve($filters, $csvPath);
 
         if ($recipients === []) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('no_data_found'),
+                ], 422);
+            }
             toastr()->error(translate('no_data_found'));
 
             return back()->withInput();
@@ -512,6 +932,12 @@ class OmniDimensionVoiceCallController extends Controller
         $contactList = $this->bulkContactBuilder->buildContactList($recipients, $sharedContext);
 
         if ($contactList === []) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Voice_bulk_no_valid_contacts'),
+                ], 422);
+            }
             toastr()->error(translate('Voice_bulk_no_valid_contacts'));
 
             return back()->withInput();
@@ -528,6 +954,14 @@ class OmniDimensionVoiceCallController extends Controller
         $result = $this->omniDimension->createBulkCall($payload, $apiError);
 
         if (!$result['ok']) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Voice_bulk_campaign_failed'),
+                    'error' => $apiError,
+                    'api_response' => $result['body'] ?? null,
+                ], 422);
+            }
             toastr()->error(translate('Voice_bulk_campaign_failed'));
 
             return back()->withInput();
@@ -535,11 +969,28 @@ class OmniDimensionVoiceCallController extends Controller
 
         $campaignId = $result['campaign_id'];
         $status = $result['status'] ?? 'pending';
+
+        $this->tabCache->forgetMany([
+            VoiceCallTabCache::TAB_BULK,
+            VoiceCallTabCache::TAB_BULK_DETAILS,
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => translate('Voice_bulk_campaign_created_successfully'),
+                'campaign_id' => $campaignId,
+                'status' => $status,
+                'contact_count' => count($contactList),
+                'send_option' => $validated['send_option'] ?? 'now',
+                'scheduled_at' => $validated['scheduled_at'] ?? null,
+            ]);
+        }
+
         $message = translate('Voice_bulk_campaign_created_successfully');
         if ($campaignId !== null) {
             $message .= ' #' . $campaignId . ' (' . $status . ')';
         }
-
         toastr()->success($message);
 
         return redirect()->route('admin.voice-call.index', ['tab' => 'bulk']);

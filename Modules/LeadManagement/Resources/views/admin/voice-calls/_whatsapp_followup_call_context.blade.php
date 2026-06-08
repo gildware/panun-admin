@@ -63,62 +63,63 @@
         </div>
     </div>
     <div class="card-body wa-followup-call-context-body p-0">
-        <div class="table-responsive">
-            <table class="table table-sm wa-followup-context-table mb-0">
-                <colgroup>
-                    <col class="wa-followup-context-col-label">
-                    <col class="wa-followup-context-col-value">
-                </colgroup>
-                <tbody class="wa-followup-call-context-grid">
-                    @foreach($contextKeys as $varKey)
-                        @php
-                            $varValue = $callContext[$varKey] ?? '';
-                            $isFilled = $contextIsFilled($varValue);
-                        @endphp
-                        @if($varKey === 'lead_summary')
-                            <tr class="wa-followup-context-row wa-followup-lead-summary-row">
-                                <th scope="row" class="wa-followup-context-label wa-followup-lead-summary-label">
-                                    <span class="wa-followup-context-label__text">{{ translate('Lead_Summary') }}</span>
-                                    <button type="button"
-                                            class="voice-call-copy-btn wa-followup-generate-summary"
-                                            data-phone="{{ $phone }}"
-                                            title="{{ $summaryActionTitle }}"
-                                            aria-label="{{ $summaryActionTitle }}">
-                                        <span class="material-icons" aria-hidden="true">autorenew</span>
-                                    </button>
-                                </th>
-                                <td class="wa-followup-context-value wa-followup-lead-summary-value {{ $isFilled ? '' : 'text-muted' }}">
-                                    @if($needsRefresh)
-                                        <p class="text-warning small mb-1 wa-followup-summary-outdated">{{ translate('Summary_outdated') }}</p>
-                                    @endif
-                                    {{ $isFilled ? $varValue : translate('No_summary_yet') }}
-                                </td>
-                            </tr>
+        <div class="wa-followup-call-context-grid">
+            @foreach($contextKeys as $varKey)
+                @php
+                    $varValue = $callContext[$varKey] ?? '';
+                    $isFilled = $contextIsFilled($varValue);
+                    $isSummary = $varKey === 'lead_summary';
+                    $isLongText = $isSummary || $varKey === 'notes' || $varKey === 'service_details';
+                @endphp
+                <div @class([
+                    'wa-followup-context-item',
+                    'wa-followup-context-item--empty' => !$isFilled && !$isSummary,
+                    'wa-followup-context-item--summary' => $isSummary,
+                    'wa-followup-context-item--long' => $isLongText,
+                    'wa-followup-lead-summary-row' => $isSummary,
+                ])>
+                    <div class="wa-followup-context-item__label">
+                        @if($isSummary)
+                            <span class="wa-followup-context-label__text">{{ translate('Lead_Summary') }}</span>
+                            <button type="button"
+                                    class="voice-call-copy-btn wa-followup-generate-summary"
+                                    data-phone="{{ $phone }}"
+                                    title="{{ $summaryActionTitle }}"
+                                    aria-label="{{ $summaryActionTitle }}">
+                                <span class="material-icons" aria-hidden="true">autorenew</span>
+                            </button>
+                        @elseif($varKey === 'call_reason')
+                            {{ translate('Call_Reason') }}
                         @else
-                            <tr class="wa-followup-context-row {{ $isFilled ? '' : 'wa-followup-context-row--empty' }}">
-                                <th scope="row" class="wa-followup-context-label">
-                                    @if($varKey === 'call_reason')
-                                        {{ translate('Call_Reason') }}
-                                    @else
-                                        {{ str_replace('_', ' ', ucfirst($varKey)) }}
-                                    @endif
-                                </th>
-                                <td class="wa-followup-context-value">
-                                    @if($isFilled)
-                                        @if($varKey === 'call_reason')
-                                            {{ ($callReasonLabels ?? [])[$varValue] ?? $varValue }}
-                                        @else
-                                            {{ $varValue }}
-                                        @endif
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-                            </tr>
+                            {{ str_replace('_', ' ', ucfirst($varKey)) }}
                         @endif
-                    @endforeach
-                </tbody>
-            </table>
+                    </div>
+                    <div @class([
+                        'wa-followup-context-item__value',
+                        'wa-followup-context-value',
+                        'wa-followup-lead-summary-value' => $isSummary,
+                        'text-muted' => $isSummary && !$isFilled,
+                    ])>
+                        @if($isSummary)
+                            @if($needsRefresh)
+                                <p class="text-warning small mb-2 wa-followup-summary-outdated">{{ translate('Summary_outdated') }}</p>
+                            @endif
+                            {{ $isFilled ? $varValue : translate('No_summary_yet') }}
+                        @elseif($isFilled)
+                            @if($varKey === 'call_reason')
+                                @include('leadmanagement::admin.voice-calls._call_reason_badge', [
+                                    'reason' => $varValue,
+                                    'callReasonLabels' => $callReasonLabels ?? [],
+                                ])
+                            @else
+                                {{ $varValue }}
+                            @endif
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
         </div>
     </div>
 </div>

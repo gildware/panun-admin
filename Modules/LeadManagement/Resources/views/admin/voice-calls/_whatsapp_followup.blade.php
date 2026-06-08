@@ -1,6 +1,14 @@
 <div class="card mb-3">
     <div class="card-body">
-        <h4 class="mb-1">{{ translate('WhatsApp_Followup_Calls') }}</h4>
+        <h4 class="mb-1 voice-form-section-title">
+            {{ translate('WhatsApp_Followup_Calls') }}
+            <i class="material-symbols-outlined voice-field-info"
+               data-bs-toggle="tooltip"
+               title="{{ translate('WhatsApp_followup_tab_hint') }}"
+               tabindex="0"
+               role="img"
+               aria-label="{{ translate('WhatsApp_followup_tab_hint') }}">info</i>
+        </h4>
         <p class="text-muted small mb-4">{{ translate('WhatsApp_followup_tab_hint') }}</p>
 
         @if(!$configured)
@@ -12,7 +20,10 @@
             <form method="GET" action="{{ route('admin.voice-call.whatsapp-followup.list') }}" id="wa-followup-filter-form">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
-                        <label class="form-label">{{ translate('Silent_at_least') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Silent_at_least'),
+                            'hint' => translate('Voice_field_hint_silent_min_hours'),
+                        ])
                         <select class="form-select js-select" name="silent_min_hours">
                             @foreach([0 => '0h', 1 => '1h', 2 => '2h', 6 => '6h', 24 => '24h', 48 => '48h', 168 => '7d'] as $h => $label)
                                 <option value="{{ $h }}" {{ (int) ($waFollowupDefaults['silent_min_hours'] ?? 2) === $h ? 'selected' : '' }}>{{ $label }}</option>
@@ -20,7 +31,10 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">{{ translate('Lead_type') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Lead_type'),
+                            'hint' => translate('Voice_field_hint_lead_type'),
+                        ])
                         <select class="form-select js-select" name="lead_types[]" multiple>
                             @foreach(\Modules\LeadManagement\Entities\Lead::leadTypes() as $value => $label)
                                 <option value="{{ $value }}">{{ $label }}</option>
@@ -28,7 +42,10 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">{{ translate('Lead') }} {{ translate('Status') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Lead') . ' ' . translate('Status'),
+                            'hint' => translate('Voice_field_hint_lead_open'),
+                        ])
                         <select class="form-select js-select" name="lead_open">
                             <option value="">{{ translate('All') }}</option>
                             <option value="open">{{ translate('Open') }}</option>
@@ -36,7 +53,10 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">{{ translate('WhatsApp') }} {{ translate('Status') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('WhatsApp') . ' ' . translate('Status'),
+                            'hint' => translate('Voice_field_hint_wa_chat_bucket'),
+                        ])
                         <select class="form-select js-select" name="wa_chat_bucket">
                             <option value="">{{ translate('All') }}</option>
                             <option value="open">{{ translate('whatsapp_bucket_open') }}</option>
@@ -44,7 +64,10 @@
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ translate('whatsapp_chat_tags_label') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('whatsapp_chat_tags_label'),
+                            'hint' => translate('Voice_field_hint_wa_chat_tags'),
+                        ])
                         <select class="form-select js-select" name="wa_chat_tag_ids[]" multiple>
                             @foreach(($waChatTags ?? []) as $tag)
                                 <option value="{{ $tag['id'] }}">{{ $tag['name'] }}</option>
@@ -52,7 +75,10 @@
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ translate('Customer_Lead_Tags') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Customer_Lead_Tags'),
+                            'hint' => translate('Voice_field_hint_customer_lead_tags'),
+                        ])
                         <select class="form-select js-select" name="customer_lead_tag_ids[]" multiple>
                             @foreach(($customerLeadTags ?? []) as $tag)
                                 <option value="{{ $tag['id'] }}">{{ $tag['name'] }}</option>
@@ -60,7 +86,10 @@
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ translate('Handled_By') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Handled_By'),
+                            'hint' => translate('Voice_field_hint_wa_handled_by'),
+                        ])
                         <select class="form-select js-select" name="handled_by">
                             <option value="">{{ translate('All') }}</option>
                             <option value="ai">AI</option>
@@ -68,7 +97,10 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">{{ translate('Human_support') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Human_support'),
+                            'hint' => translate('Voice_field_hint_human_support'),
+                        ])
                         <select class="form-select js-select" name="human_support">
                             <option value="exclude">{{ translate('Exclude_human_support') }}</option>
                             <option value="">{{ translate('All') }}</option>
@@ -76,7 +108,10 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">{{ translate('Exclude_called_within') }}</label>
+                        @include('leadmanagement::admin.voice-calls._form_field_label', [
+                            'label' => translate('Exclude_called_within'),
+                            'hint' => translate('Voice_field_hint_exclude_called'),
+                        ])
                         <select class="form-select js-select" name="exclude_called_within_hours">
                             @foreach([0, 6, 12, 24, 48, 168] as $h)
                                 <option value="{{ $h }}" {{ $h === 24 ? 'selected' : '' }}>
@@ -109,7 +144,7 @@
     </div>
 
     <div id="wa-followup-list-content" class="text-center text-muted py-5">
-        <span class="spinner-border spinner-border-sm me-2"></span>{{ translate('Loading') }}…
+        {{ translate('WhatsApp_followup_filter_prompt') }}
     </div>
 
     <div class="modal fade" id="waFollowupDispatchModal" tabindex="-1">
@@ -124,14 +159,21 @@
                     <div class="modal-body">
                         <div id="wa-followup-dispatch-phones"></div>
                         <div class="mb-3">
-                            <label class="form-label">{{ translate('Campaign_name') }} *</label>
+                            @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                'label' => translate('Campaign_name'),
+                                'required' => true,
+                                'hint' => translate('Voice_field_hint_wa_campaign_name'),
+                            ])
                             <input type="text" class="form-control" name="campaign_name" required maxlength="255"
                                    value="{{ translate('WhatsApp_Followup') }} {{ now()->format('Y-m-d H:i') }}">
                         </div>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Caller_Phone_Number') }} ({{ translate('Customer') }})</label>
-                                <select class="form-select js-select" name="phone_number_id_customer">
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Caller_Phone_Number') . ' (' . translate('Customer') . ')',
+                                    'hint' => translate('Voice_field_hint_caller_customer'),
+                                ])
+                                <select class="form-select js-select voice-omnidim-phone-select" name="phone_number_id_customer">
                                     <option value="">{{ translate('Select_phone_number') }}</option>
                                     @foreach($phoneNumbers as $number)
                                         @php $label = trim($number['name']) !== '' ? $number['name'] . ' — ' . $number['phone_number'] : $number['phone_number']; @endphp
@@ -143,8 +185,11 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Caller_Phone_Number') }} ({{ translate('Provider') }})</label>
-                                <select class="form-select js-select" name="phone_number_id_provider">
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Caller_Phone_Number') . ' (' . translate('Provider') . ')',
+                                    'hint' => translate('Voice_field_hint_caller_provider'),
+                                ])
+                                <select class="form-select js-select voice-omnidim-phone-select" name="phone_number_id_provider">
                                     <option value="">{{ translate('Select_phone_number') }}</option>
                                     @foreach($phoneNumbers as $number)
                                         @php $label = trim($number['name']) !== '' ? $number['name'] . ' — ' . $number['phone_number'] : $number['phone_number']; @endphp
@@ -156,8 +201,11 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Caller_Phone_Number') }} ({{ translate('Unknown') }})</label>
-                                <select class="form-select js-select" name="phone_number_id_unknown">
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Caller_Phone_Number') . ' (' . translate('Unknown') . ')',
+                                    'hint' => translate('Voice_field_hint_caller_unknown'),
+                                ])
+                                <select class="form-select js-select voice-omnidim-phone-select" name="phone_number_id_unknown">
                                     <option value="">{{ translate('Select_phone_number') }}</option>
                                     @foreach($phoneNumbers as $number)
                                         @php $label = trim($number['name']) !== '' ? $number['name'] . ' — ' . $number['phone_number'] : $number['phone_number']; @endphp
@@ -171,25 +219,38 @@
                         </div>
                         <div class="row g-3 mt-1">
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Send_Option') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Send_Option'),
+                                    'hint' => translate('Voice_field_hint_send_option'),
+                                ])
                                 <select class="form-select js-select" name="send_option" id="wa_followup_send_option">
                                     <option value="now">{{ translate('Send_Now') }}</option>
                                     <option value="schedule">{{ translate('Schedule') }}</option>
                                 </select>
                             </div>
                             <div class="col-md-4 d-none" id="wa_followup_schedule_wrap">
-                                <label class="form-label">{{ translate('Schedule_Date') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Schedule_Date'),
+                                    'hint' => translate('Voice_field_hint_schedule_date'),
+                                ])
                                 <input type="datetime-local" class="form-control" name="scheduled_at">
                                 <input type="hidden" name="timezone" value="Asia/Kolkata">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">{{ translate('Concurrent_Limit') }}</label>
+                                @include('leadmanagement::admin.voice-calls._form_field_label', [
+                                    'label' => translate('Concurrent_Limit'),
+                                    'hint' => translate('Voice_field_hint_concurrent_limit'),
+                                ])
                                 <input type="number" class="form-control" name="concurrent_call_limit" min="1" max="20" value="1">
                             </div>
                         </div>
                         <div class="form-check mt-3">
                             <input class="form-check-input" type="checkbox" name="enabled_reschedule_call" value="1" id="wa_followup_reschedule">
-                            <label class="form-check-label" for="wa_followup_reschedule">{{ translate('Enable_call_rescheduling') }}</label>
+                            @include('leadmanagement::admin.voice-calls._form_check_label', [
+                                'label' => translate('Enable_call_rescheduling'),
+                                'for' => 'wa_followup_reschedule',
+                                'hint' => translate('Voice_field_hint_enable_reschedule'),
+                            ])
                         </div>
                     </div>
                     <div class="modal-footer">
