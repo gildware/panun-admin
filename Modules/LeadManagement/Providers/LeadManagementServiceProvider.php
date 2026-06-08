@@ -16,6 +16,12 @@ class LeadManagementServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Modules\LeadManagement\Console\WhatsAppVoiceFollowupAutoDispatchCommand::class,
+            ]);
+        }
     }
 
     public function register()

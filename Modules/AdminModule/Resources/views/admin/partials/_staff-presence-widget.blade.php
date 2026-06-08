@@ -15,11 +15,21 @@
             {{ translate('Employee_Status') }}
             <span class="text-muted fs-13">({{ $staffList->count() }})</span>
         </h5>
-        <div class="d-flex flex-wrap gap-2 fs-12" id="staff-presence-summary">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button type="button"
+                    class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                    id="staff-presence-history-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#staffPresenceHistoryModal">
+                <span class="material-symbols-outlined fs-16" aria-hidden="true">history</span>
+                {{ translate('View_History') }}
+            </button>
+            <div class="d-flex flex-wrap gap-2 fs-12" id="staff-presence-summary">
             <span class="badge bg-success">{{ translate('Online') }}: <span data-summary="online">{{ $summary['online'] }}</span></span>
             <span class="badge bg-warning text-dark">{{ translate('Away') }}: <span data-summary="away">{{ $summary['away'] }}</span></span>
             <span class="badge bg-info text-dark">{{ translate('On_Break') }}: <span data-summary="on_break">{{ $summary['on_break'] }}</span></span>
             <span class="badge bg-secondary">{{ translate('Offline') }}: <span data-summary="offline">{{ $summary['offline'] }}</span></span>
+            </div>
         </div>
     </div>
     <div class="card-body p-0">
@@ -33,6 +43,13 @@
                             <th>{{ translate('Status') }}</th>
                             <th>{{ translate('Last_Visited_Page') }}</th>
                             <th>{{ translate('Last_Seen') }}</th>
+                            <th>{{ translate('Last_Offline_Period_Today') }}</th>
+                            <th>{{ translate('Total_Offline_Today') }}</th>
+                            <th>{{ translate('Last_Away_Period_Today') }}</th>
+                            <th>{{ translate('Total_Away_Today') }}</th>
+                            <th>{{ translate('Last_Break_Period_Today') }}</th>
+                            <th>{{ translate('Total_Break_Today') }}</th>
+                            <th>{{ translate('Total_Online_Hours_Today') }}</th>
                         </tr>
                     </thead>
                     <tbody id="staff-presence-tbody">
@@ -64,6 +81,13 @@
                                         —
                                     @endif
                                 </td>
+                                <td class="staff-last-offline-today text-muted">{{ $member['last_offline_period_today'] }}</td>
+                                <td class="staff-total-offline-today text-muted">{{ $member['total_offline_today'] }}</td>
+                                <td class="staff-last-away-today text-muted">{{ $member['last_away_period_today'] }}</td>
+                                <td class="staff-total-away-today text-muted">{{ $member['total_away_today'] }}</td>
+                                <td class="staff-last-break-today text-muted">{{ $member['last_break_period_today'] }}</td>
+                                <td class="staff-total-break-today text-muted">{{ $member['total_break_today'] }}</td>
+                                <td class="staff-total-online-today text-muted">{{ $member['total_online_today'] }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -74,5 +98,48 @@
                 <span class="opacity-50">{{ translate('No_employees_found') }}</span>
             </div>
         @endif
+    </div>
+</div>
+
+<div class="modal fade" id="staffPresenceHistoryModal" tabindex="-1" aria-labelledby="staffPresenceHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staffPresenceHistoryModalLabel">{{ translate('Employee_Status_History') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                    <label for="staff-presence-history-date" class="form-label mb-0 fw-medium">{{ translate('Select_Date') }}</label>
+                    <select id="staff-presence-history-date" class="form-select form-select-sm w-auto" disabled>
+                        <option value="">{{ translate('Loading') }}...</option>
+                    </select>
+                </div>
+                <div id="staff-presence-history-empty" class="text-center text-muted py-4 d-none">
+                    {{ translate('No_presence_history_available') }}
+                </div>
+                <div id="staff-presence-history-loading" class="text-center text-muted py-4 d-none">
+                    {{ translate('Loading') }}...
+                </div>
+                <div class="table-responsive d-none" id="staff-presence-history-table-wrap">
+                    <table class="table table-hover align-middle mb-0 fs-13">
+                        <thead class="text-secondary border-bottom">
+                            <tr>
+                                <th>{{ translate('Employee') }}</th>
+                                <th>{{ translate('Role') }}</th>
+                                <th>{{ translate('Last_Offline_Period_Today') }}</th>
+                                <th>{{ translate('Total_Offline_Today') }}</th>
+                                <th>{{ translate('Last_Away_Period_Today') }}</th>
+                                <th>{{ translate('Total_Away_Today') }}</th>
+                                <th>{{ translate('Last_Break_Period_Today') }}</th>
+                                <th>{{ translate('Total_Break_Today') }}</th>
+                                <th>{{ translate('Total_Online_Hours_Today') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staff-presence-history-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

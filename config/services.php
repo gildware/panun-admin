@@ -100,4 +100,18 @@ return [
         'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
     ],
 
+    /** OmniDimension voice AI — outbound calls from admin. */
+    'omnidimension' => [
+        'api_key' => env('OMNIDIMENSION_API_KEY'),
+        'base_url' => env('OMNIDIMENSION_API_BASE_URL', 'https://backend.omnidim.io/api/v1'),
+        'timeout' => (int) env('OMNIDIMENSION_API_TIMEOUT', 30),
+        'cache_agents_ttl' => (int) env('OMNIDIMENSION_CACHE_AGENTS_TTL', 300),
+        'cache_phone_numbers_ttl' => (int) env('OMNIDIMENSION_CACHE_PHONE_NUMBERS_TTL', 300),
+        'cache_call_logs_ttl' => (int) env('OMNIDIMENSION_CACHE_CALL_LOGS_TTL', 45),
+        'followup_phone_number_customer' => (int) env('OMNIDIMENSION_FOLLOWUP_PHONE_CUSTOMER', 0),
+        'followup_phone_number_provider' => (int) env('OMNIDIMENSION_FOLLOWUP_PHONE_PROVIDER', 0),
+        'followup_phone_number_unknown' => (int) env('OMNIDIMENSION_FOLLOWUP_PHONE_UNKNOWN', 0),
+        'followup_summary_cache_ttl' => (int) env('OMNIDIMENSION_FOLLOWUP_SUMMARY_CACHE_TTL', 2592000), // 30d safety; invalidated when new WA messages arrive
+    ],
+
 ];

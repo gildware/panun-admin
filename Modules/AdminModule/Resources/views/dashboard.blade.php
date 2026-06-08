@@ -1076,10 +1076,127 @@
                         pageCell.textContent = member.last_visited_page_label || '—';
                         pageCell.setAttribute('title', member.last_visited_page || '');
                     }
+                    var lastOfflineCell = row.querySelector('.staff-last-offline-today');
+                    if (lastOfflineCell) {
+                        lastOfflineCell.textContent = member.last_offline_period_today || '—';
+                    }
+                    var totalOfflineCell = row.querySelector('.staff-total-offline-today');
+                    if (totalOfflineCell) {
+                        totalOfflineCell.textContent = member.total_offline_today || '—';
+                    }
+                    var lastAwayCell = row.querySelector('.staff-last-away-today');
+                    if (lastAwayCell) {
+                        lastAwayCell.textContent = member.last_away_period_today || '—';
+                    }
+                    var totalAwayCell = row.querySelector('.staff-total-away-today');
+                    if (totalAwayCell) {
+                        totalAwayCell.textContent = member.total_away_today || '—';
+                    }
+                    var lastBreakCell = row.querySelector('.staff-last-break-today');
+                    if (lastBreakCell) {
+                        lastBreakCell.textContent = member.last_break_period_today || '—';
+                    }
+                    var totalBreakCell = row.querySelector('.staff-total-break-today');
+                    if (totalBreakCell) {
+                        totalBreakCell.textContent = member.total_break_today || '—';
+                    }
+                    var totalOnlineCell = row.querySelector('.staff-total-online-today');
+                    if (totalOnlineCell) {
+                        totalOnlineCell.textContent = member.total_online_today || '—';
+                    }
                 });
             });
         }
         refreshStaffPresenceWidget();
         setInterval(refreshStaffPresenceWidget, 30000);
+
+        var staffPresenceHistoryDatesLoaded = false;
+
+        function setStaffPresenceHistoryState(state) {
+            document.getElementById('staff-presence-history-empty').classList.toggle('d-none', state !== 'empty');
+            document.getElementById('staff-presence-history-loading').classList.toggle('d-none', state !== 'loading');
+            document.getElementById('staff-presence-history-table-wrap').classList.toggle('d-none', state !== 'table');
+        }
+
+        function renderStaffPresenceHistoryRows(staff) {
+            var tbody = document.getElementById('staff-presence-history-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            (staff || []).forEach(function (member) {
+                var role = (member.user_type || '').replace(/-/g, ' ');
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td><div class="d-flex align-items-center gap-2">' +
+                        '<img src="' + (member.profile_image || '') + '" alt="" class="avatar rounded-circle" width="32" height="32">' +
+                        '<div><div class="fw-medium">' + (member.name || '') + '</div>' +
+                        '<div class="small text-muted">' + (member.email || '') + '</div></div></div></td>' +
+                    '<td class="text-capitalize">' + role + '</td>' +
+                    '<td class="text-muted">' + (member.last_offline_period || '—') + '</td>' +
+                    '<td class="text-muted">' + (member.total_offline || '—') + '</td>' +
+                    '<td class="text-muted">' + (member.last_away_period || '—') + '</td>' +
+                    '<td class="text-muted">' + (member.total_away || '—') + '</td>' +
+                    '<td class="text-muted">' + (member.last_break_period || '—') + '</td>' +
+                    '<td class="text-muted">' + (member.total_break || '—') + '</td>' +
+                    '<td class="text-muted">' + (member.total_online || '—') + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function loadStaffPresenceHistory(date) {
+            if (!date) return;
+            setStaffPresenceHistoryState('loading');
+            $.getJSON('{{ route('admin.staff-presence.history') }}', { date: date }, function (response) {
+                if (!response.data || !response.data.staff) {
+                    setStaffPresenceHistoryState('empty');
+                    return;
+                }
+                renderStaffPresenceHistoryRows(response.data.staff);
+                setStaffPresenceHistoryState('table');
+                var title = document.getElementById('staffPresenceHistoryModalLabel');
+                if (title && response.data.date_label) {
+                    title.textContent = '{{ translate('Employee_Status_History') }} — ' + response.data.date_label;
+                }
+            }).fail(function () {
+                setStaffPresenceHistoryState('empty');
+            });
+        }
+
+        function loadStaffPresenceHistoryDates() {
+            var select = document.getElementById('staff-presence-history-date');
+            if (!select) return;
+            select.disabled = true;
+            select.innerHTML = '<option value="">{{ translate('Loading') }}...</option>';
+            setStaffPresenceHistoryState('loading');
+
+            $.getJSON('{{ route('admin.staff-presence.history-dates') }}', function (response) {
+                var dates = (response.data && response.data.dates) ? response.data.dates : [];
+                if (!dates.length) {
+                    select.innerHTML = '<option value="">{{ translate('No_presence_history_available') }}</option>';
+                    select.disabled = true;
+                    setStaffPresenceHistoryState('empty');
+                    return;
+                }
+
+                select.innerHTML = dates.map(function (item) {
+                    return '<option value="' + item.value + '">' + item.label + (item.is_today ? ' ({{ translate('Today') }})' : '') + '</option>';
+                }).join('');
+                select.disabled = false;
+                staffPresenceHistoryDatesLoaded = true;
+                loadStaffPresenceHistory(dates[0].value);
+            }).fail(function () {
+                select.innerHTML = '<option value="">{{ translate('No_presence_history_available') }}</option>';
+                setStaffPresenceHistoryState('empty');
+            });
+        }
+
+        $('#staffPresenceHistoryModal').on('show.bs.modal', function () {
+            if (!staffPresenceHistoryDatesLoaded) {
+                loadStaffPresenceHistoryDates();
+            }
+        });
+
+        $('#staff-presence-history-date').on('change', function () {
+            loadStaffPresenceHistory(this.value);
+        });
     </script>
 @endpush

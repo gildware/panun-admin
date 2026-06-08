@@ -84,6 +84,19 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
 
+            @can('lead_outbound_enquiry_view')
+                <li class="nav-category" title="{{ translate('Voice') }}">
+                    {{ translate('Voice') }}
+                </li>
+                <li>
+                    <a href="{{ route('admin.voice-call.index') }}"
+                       class="{{ request()->is('admin/voice-call*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('Voice_Calls') }}">call</span>
+                        <span class="link-title">{{ translate('Voice_Calls') }}</span>
+                    </a>
+                </li>
+            @endcan
+
             @canany(['whatsapp_chat_view', 'whatsapp_message_template_view'])
                 <li class="nav-category" title="{{ translate('WhatsApp_and_social_media') }}">
                     {{ translate('WhatsApp_and_social_media') }}

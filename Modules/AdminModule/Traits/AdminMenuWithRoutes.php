@@ -898,6 +898,13 @@ trait AdminMenuWithRoutes
                 "type" => 'menu',
             ],
             [
+                'route_name' => 'Voice_Calls',
+                'uri' => 'admin/voice-call',
+                'full_route' => url('admin/voice-call'),
+                "keywords" => 'Voice Calls, OmniDimension, outbound call, AI voice agent, telephony',
+                "type" => 'menu',
+            ],
+            [
                 'route_name' => 'Lead_Configuration',
                 'uri' => 'admin/lead/configuration',
                 'full_route' => url('admin/lead/configuration'),

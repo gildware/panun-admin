@@ -50,6 +50,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('heartbeat', [StaffPresenceController::class, 'heartbeat'])->name('heartbeat');
         Route::post('status', [StaffPresenceController::class, 'updateStatus'])->name('status');
         Route::get('list', [StaffPresenceController::class, 'list'])->name('list');
+        Route::get('history-dates', [StaffPresenceController::class, 'historyDates'])->name('history-dates');
+        Route::get('history', [StaffPresenceController::class, 'history'])->name('history');
     });
     Route::post('store/search-routing', [AdminController::class, 'storeClickedRoute'])->name('search.routing.store');
     Route::get('recent-search', [AdminController::class, 'recentSearch'])->name('recent.search');
