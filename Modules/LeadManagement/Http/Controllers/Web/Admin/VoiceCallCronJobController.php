@@ -17,6 +17,7 @@ use Modules\LeadManagement\Services\WhatsAppFollowupContextBuilder;
 use Modules\LeadManagement\Services\VoiceCallTabCache;
 use Modules\LeadManagement\Services\WhatsAppFollowupCandidateQueryService;
 use Modules\LeadManagement\Services\WhatsAppVoiceFollowupAutomationRunner;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class VoiceCallCronJobController extends Controller
@@ -403,7 +404,8 @@ class VoiceCallCronJobController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'is_enabled' => 'nullable|boolean',
-            'interval_minutes' => 'required|integer|min:15|max:10080',
+            'interval_value' => 'required|integer|min:1|max:9999',
+            'interval_unit' => 'required|string|in:minutes,hours,days',
             'campaign_name' => 'required|string|max:255',
             'max_contacts_per_run' => 'required|integer|min:1|max:500',
             'concurrent_call_limit' => 'nullable|integer|min:1|max:20',
@@ -412,6 +414,8 @@ class VoiceCallCronJobController extends Controller
             'auto_retry_schedule' => 'nullable|string|in:immediately,next_day,scheduled_time',
             'retry_limit' => 'nullable|integer|min:1|max:5',
             'silent_min_hours' => 'nullable|integer|min:0|max:168',
+            'silent_min_value' => 'nullable|integer|min:0|max:9999',
+            'silent_min_unit' => 'nullable|string|in:minutes,hours,days',
             'silent_max_hours' => 'nullable|integer|min:0|max:168',
             'lead_types' => 'nullable|array',
             'lead_types.*' => 'string|max:32',
@@ -422,18 +426,32 @@ class VoiceCallCronJobController extends Controller
             'customer_lead_tag_ids' => 'nullable|array',
             'customer_lead_tag_ids.*' => 'integer|min:1',
             'handled_by' => 'nullable|string|in:,ai,human',
+            'handled_by_employee_ids' => 'nullable|array',
+            'handled_by_employee_ids.*' => 'string|max:64',
             'human_support' => 'nullable|string|in:,exclude,only',
             'exclude_called_within_hours' => 'nullable|integer|min:0|max:168',
-            'other_cron_job_mode' => 'nullable|string|in:,include,exclude',
+            'other_cron_job_mode' => 'nullable|string|in:,include,exclude,exclude_all_active',
             'other_cron_job_ids' => 'nullable|array',
             'other_cron_job_ids.*' => 'integer|min:1',
             'dispatch_mode' => 'nullable|string|in:auto,approval',
         ]);
 
+        $intervalValue = max(1, (int) $validated['interval_value']);
+        $intervalUnit = in_array((string) $validated['interval_unit'], ['minutes', 'hours', 'days'], true)
+            ? (string) $validated['interval_unit']
+            : 'hours';
+        $intervalMinutes = $this->convertDurationToMinutes($intervalValue, $intervalUnit);
+
+        if ($intervalMinutes < 15 || $intervalMinutes > 10080) {
+            throw ValidationException::withMessages([
+                'interval_value' => translate('Voice_cron_interval_out_of_range'),
+            ]);
+        }
+
         return [
             'name' => $validated['name'],
             'is_enabled' => $request->boolean('is_enabled', true),
-            'interval_minutes' => (int) $validated['interval_minutes'],
+            'interval_minutes' => $intervalMinutes,
             'campaign_name' => $validated['campaign_name'],
             'max_contacts_per_run' => (int) $validated['max_contacts_per_run'],
             'concurrent_call_limit' => max(1, (int) ($validated['concurrent_call_limit'] ?? 1)),
@@ -444,8 +462,19 @@ class VoiceCallCronJobController extends Controller
             'dispatch_mode' => ($validated['dispatch_mode'] ?? WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_APPROVAL) === WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_AUTO
                 ? WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_AUTO
                 : WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_APPROVAL,
-            'filters' => [
-                'silent_min_hours' => (int) ($validated['silent_min_hours'] ?? 2),
+            'filters' => array_merge([
+                'interval_value' => $intervalValue,
+                'interval_unit' => $intervalUnit,
+                'silent_min_value' => max(0, (int) ($validated['silent_min_value'] ?? 1)),
+                'silent_min_unit' => in_array((string) ($validated['silent_min_unit'] ?? ''), ['minutes', 'hours', 'days'], true)
+                    ? (string) $validated['silent_min_unit']
+                    : 'hours',
+            ], $this->normalizeSilentMinFilters(
+                max(0, (int) ($validated['silent_min_value'] ?? 1)),
+                in_array((string) ($validated['silent_min_unit'] ?? ''), ['minutes', 'hours', 'days'], true)
+                    ? (string) $validated['silent_min_unit']
+                    : 'hours'
+            ), [
                 'silent_max_hours' => $validated['silent_max_hours'] ?? null,
                 'lead_types' => array_values(array_filter((array) ($validated['lead_types'] ?? []))),
                 'lead_open' => (string) ($validated['lead_open'] ?? ''),
@@ -453,13 +482,40 @@ class VoiceCallCronJobController extends Controller
                 'wa_chat_tag_ids' => array_map('intval', array_filter((array) ($validated['wa_chat_tag_ids'] ?? []))),
                 'customer_lead_tag_ids' => array_map('intval', array_filter((array) ($validated['customer_lead_tag_ids'] ?? []))),
                 'handled_by' => (string) ($validated['handled_by'] ?? ''),
+                'handled_by_employee_ids' => ($validated['handled_by'] ?? '') === 'human'
+                    ? array_values(array_filter((array) ($validated['handled_by_employee_ids'] ?? [])))
+                    : [],
                 'human_support' => (string) ($validated['human_support'] ?? 'exclude'),
                 'exclude_called_within_hours' => (int) ($validated['exclude_called_within_hours'] ?? 24),
-                'other_cron_job_mode' => in_array((string) ($validated['other_cron_job_mode'] ?? ''), ['include', 'exclude'], true)
+                'other_cron_job_mode' => in_array((string) ($validated['other_cron_job_mode'] ?? ''), ['include', 'exclude', 'exclude_all_active'], true)
                     ? (string) $validated['other_cron_job_mode']
                     : '',
-                'other_cron_job_ids' => array_map('intval', array_filter((array) ($validated['other_cron_job_ids'] ?? []))),
-            ],
+                'other_cron_job_ids' => ($validated['other_cron_job_mode'] ?? '') === 'exclude_all_active'
+                    ? []
+                    : array_map('intval', array_filter((array) ($validated['other_cron_job_ids'] ?? []))),
+            ]),
+        ];
+    }
+
+    private function convertDurationToMinutes(int $value, string $unit): int
+    {
+        return match ($unit) {
+            'days' => $value * 24 * 60,
+            'hours' => $value * 60,
+            default => $value,
+        };
+    }
+
+    /**
+     * @return array{silent_min_minutes: int, silent_min_hours: int}
+     */
+    private function normalizeSilentMinFilters(int $value, string $unit): array
+    {
+        $minutes = max(0, $this->convertDurationToMinutes($value, $unit));
+
+        return [
+            'silent_min_minutes' => $minutes,
+            'silent_min_hours' => (int) floor($minutes / 60),
         ];
     }
 }

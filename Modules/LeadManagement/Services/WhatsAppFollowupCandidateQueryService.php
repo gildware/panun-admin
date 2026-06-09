@@ -130,7 +130,7 @@ class WhatsAppFollowupCandidateQueryService
         $table = (string) config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $channel = SocialInboxChannel::current();
 
-        $minHours = max(0, (int) ($filters['silent_min_hours'] ?? 0));
+        $minMinutes = $this->resolveSilentMinMinutes($filters);
         $maxHours = isset($filters['silent_max_hours']) && $filters['silent_max_hours'] !== ''
             ? max(0, (int) $filters['silent_max_hours'])
             : null;
@@ -165,8 +165,8 @@ class WhatsAppFollowupCandidateQueryService
                 'lc.last_customer_at',
             ]);
 
-        if ($minHours > 0) {
-            $query->where('m.created_at', '<=', Carbon::now()->subHours($minHours));
+        if ($minMinutes > 0) {
+            $query->where('m.created_at', '<=', Carbon::now()->subMinutes($minMinutes));
         }
 
         if ($maxHours !== null && $maxHours > 0) {
@@ -286,6 +286,7 @@ class WhatsAppFollowupCandidateQueryService
         $waTagIds = array_map('intval', array_filter((array) ($filters['wa_chat_tag_ids'] ?? [])));
         $customerTagIds = array_map('intval', array_filter((array) ($filters['customer_lead_tag_ids'] ?? [])));
         $handledBy = (string) ($filters['handled_by'] ?? '');
+        $handledByEmployeeIds = array_values(array_filter((array) ($filters['handled_by_employee_ids'] ?? [])));
         $humanSupport = (string) ($filters['human_support'] ?? '');
         $excludeCalledHours = max(0, (int) ($filters['exclude_called_within_hours'] ?? 0));
         $phonesFilter = array_values(array_filter((array) ($filters['phones'] ?? [])));
@@ -295,8 +296,12 @@ class WhatsAppFollowupCandidateQueryService
         $currentRuleId = (int) ($filters['_current_rule_id'] ?? 0);
 
         $otherCronPhoneSet = [];
-        if (!$skipOtherCron && $otherCronMode !== '' && $otherCronIds !== []) {
-            $otherCronPhoneSet = array_flip($this->resolvePhonesForOtherCronJobs($otherCronIds, $currentRuleId));
+        if (!$skipOtherCron && $otherCronMode !== '') {
+            if ($otherCronMode === 'exclude_all_active') {
+                $otherCronPhoneSet = array_flip($this->resolvePhonesForAllActiveOtherCronJobs($currentRuleId));
+            } elseif ($otherCronIds !== []) {
+                $otherCronPhoneSet = array_flip($this->resolvePhonesForOtherCronJobs($otherCronIds, $currentRuleId));
+            }
         }
 
         return $candidates->filter(function (array $c) use (
@@ -306,6 +311,7 @@ class WhatsAppFollowupCandidateQueryService
             $waTagIds,
             $customerTagIds,
             $handledBy,
+            $handledByEmployeeIds,
             $humanSupport,
             $excludeCalledHours,
             $phonesFilter,
@@ -359,6 +365,9 @@ class WhatsAppFollowupCandidateQueryService
                 if ($hb === '' || $hb === 'AI') {
                     return false;
                 }
+                if ($handledByEmployeeIds !== [] && !in_array($hb, $handledByEmployeeIds, true)) {
+                    return false;
+                }
             }
 
             if ($humanSupport === 'exclude' && !empty($c['human_support_requested_at'])) {
@@ -379,7 +388,7 @@ class WhatsAppFollowupCandidateQueryService
                 }
             }
 
-            if ($otherCronMode === 'exclude' && $otherCronPhoneSet !== []) {
+            if (in_array($otherCronMode, ['exclude', 'exclude_all_active'], true) && $otherCronPhoneSet !== []) {
                 if (isset($otherCronPhoneSet[(string) ($c['phone'] ?? '')])) {
                     return false;
                 }
@@ -393,6 +402,36 @@ class WhatsAppFollowupCandidateQueryService
 
             return true;
         })->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function resolveSilentMinMinutes(array $filters): int
+    {
+        if (isset($filters['silent_min_minutes']) && $filters['silent_min_minutes'] !== '') {
+            return max(0, (int) $filters['silent_min_minutes']);
+        }
+
+        return max(0, (int) ($filters['silent_min_hours'] ?? 0)) * 60;
+    }
+
+    /**
+     * Phones matching any other enabled cron job rule (excluding the current rule).
+     *
+     * @return array<int, string>
+     */
+    private function resolvePhonesForAllActiveOtherCronJobs(int $excludeRuleId = 0): array
+    {
+        $ruleIds = WhatsAppVoiceFollowupAutomationRule::query()
+            ->where('is_enabled', true)
+            ->when($excludeRuleId > 0, fn ($query) => $query->where('id', '!=', $excludeRuleId))
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return $this->resolvePhonesForOtherCronJobs($ruleIds, $excludeRuleId);
     }
 
     /**

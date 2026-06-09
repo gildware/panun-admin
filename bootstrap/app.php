@@ -5,6 +5,7 @@ use Illuminate\Auth\Middleware\Authorize;
 use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -37,6 +38,9 @@ use Modules\UserManagement\Http\Middleware\AdminModulePermission;
 use Modules\UserManagement\Http\Middleware\DetectUser;
 
 $app = Application::configure(basePath: dirname(__DIR__))
+    ->withSchedule(function (Schedule $schedule) {
+        $schedule->command('voice:whatsapp-followup-auto-dispatch')->everyFiveMinutes();
+    })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->use([
 //            TrustHosts::class,

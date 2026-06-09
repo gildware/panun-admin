@@ -242,6 +242,9 @@ class WhatsAppVoiceFollowupController extends Controller
             'wa_chat_tag_ids' => array_filter((array) $request->input('wa_chat_tag_ids', [])),
             'customer_lead_tag_ids' => array_filter((array) $request->input('customer_lead_tag_ids', [])),
             'handled_by' => (string) $request->input('handled_by', ''),
+            'handled_by_employee_ids' => $request->input('handled_by', '') === 'human'
+                ? array_values(array_filter((array) $request->input('handled_by_employee_ids', [])))
+                : [],
             'human_support' => (string) $request->input('human_support', 'exclude'),
             'exclude_called_within_hours' => $request->input('exclude_called_within_hours', 24),
         ];
