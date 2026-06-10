@@ -17,6 +17,7 @@ yarn-error.log
 .DS_Store
 storage/backup/*
 storage/.DS_Store
+/storage/framework/cache
 /Modules/Gateways
 /storage/install.zip
 /storage/update.zip

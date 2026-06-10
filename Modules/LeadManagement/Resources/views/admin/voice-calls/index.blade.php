@@ -1217,6 +1217,7 @@
                     'phoneNumbers' => $phoneNumbers,
                     'waChatTags' => $waChatTags ?? [],
                     'customerLeadTags' => $customerLeadTags ?? [],
+                    'employees' => $employees ?? [],
                     'waFollowupDefaults' => $waFollowupDefaults ?? ['silent_min_hours' => 2],
                 ])
             </div>
@@ -1227,6 +1228,7 @@
                     'phoneNumbers' => $phoneNumbers,
                     'waChatTags' => $waChatTags ?? [],
                     'customerLeadTags' => $customerLeadTags ?? [],
+                    'employees' => $employees ?? [],
                     'voiceCronRules' => $voiceCronRules ?? collect(),
                     'voiceCronTableReady' => $voiceCronTableReady ?? false,
                 ])
@@ -3520,8 +3522,31 @@
                     });
             }
 
+            function syncHandledByEmployeeSelect(handledByEl) {
+                if (!handledByEl) return;
+                const wrapId = handledByEl.getAttribute('data-employee-wrap');
+                const wrap = wrapId ? document.getElementById(wrapId) : null;
+                const select = wrap ? wrap.querySelector('select[name="handled_by_employee_ids[]"]') : null;
+                const show = handledByEl.value === 'human';
+
+                if (wrap) {
+                    wrap.classList.toggle('d-none', !show);
+                }
+                if (select) {
+                    select.disabled = !show;
+                    if (!show && typeof $ !== 'undefined' && $(select).hasClass('select2-hidden-accessible')) {
+                        $(select).val(null).trigger('change');
+                    }
+                }
+
+                if (select && typeof $ !== 'undefined' && $(select).hasClass('select2-hidden-accessible')) {
+                    $(select).trigger('change.select2');
+                }
+            }
+
             function bindWaFollowupPanelEvents() {
                 const filterForm = document.getElementById('wa-followup-filter-form');
+                const waFollowupHandledBy = document.getElementById('wa-followup-handled-by');
                 if (filterForm) {
                     filterForm.addEventListener('submit', function (e) {
                         e.preventDefault();
@@ -3529,9 +3554,15 @@
                     });
                 }
 
+                waFollowupHandledBy?.addEventListener('change', function () {
+                    syncHandledByEmployeeSelect(this);
+                });
+                syncHandledByEmployeeSelect(waFollowupHandledBy);
+
                 document.getElementById('wa-followup-reset')?.addEventListener('click', function () {
                     if (filterForm) filterForm.reset();
                     refreshSelect2In(waFollowupPanel);
+                    syncHandledByEmployeeSelect(waFollowupHandledBy);
                     showWaFollowupEmptyState();
                 });
 
@@ -3800,6 +3831,20 @@
                 const addTitle = @json(translate('Add_cron_job'));
                 const editTitle = @json(translate('Edit'));
 
+                function setDurationFromMinutes(totalMinutes, valueName, unitName) {
+                    const minutes = parseInt(totalMinutes, 10) || 0;
+                    if (minutes > 0 && minutes % (24 * 60) === 0) {
+                        setField(valueName, String(minutes / (24 * 60)));
+                        setField(unitName, 'days');
+                    } else if (minutes > 0 && minutes % 60 === 0) {
+                        setField(valueName, String(minutes / 60));
+                        setField(unitName, 'hours');
+                    } else {
+                        setField(valueName, String(minutes || 60));
+                        setField(unitName, 'minutes');
+                    }
+                }
+
                 function setField(name, value) {
                     const el = form.querySelector('[name="' + name + '"]');
                     if (!el) return;
@@ -3823,10 +3868,14 @@
                 function syncOtherCronJobSelect(currentRuleId) {
                     const modeEl = document.getElementById('voice-cron-other-job-mode');
                     const idsEl = document.getElementById('voice-cron-other-job-ids');
+                    const idsWrap = document.getElementById('voice-cron-other-job-ids-wrap');
                     if (!modeEl || !idsEl) return;
 
-                    const hasMode = modeEl.value === 'include' || modeEl.value === 'exclude';
-                    idsEl.disabled = !hasMode;
+                    const needsJobPick = modeEl.value === 'include' || modeEl.value === 'exclude';
+                    idsEl.disabled = !needsJobPick;
+                    if (idsWrap) {
+                        idsWrap.classList.toggle('d-none', !needsJobPick);
+                    }
 
                     Array.from(idsEl.options).forEach(function (opt) {
                         const isSelf = currentRuleId && String(opt.value) === String(currentRuleId);
@@ -3850,12 +3899,21 @@
                     const enabledEl = document.getElementById('voice-cron-is-enabled');
                     if (enabledEl) enabledEl.checked = true;
                     setField('dispatch_mode', 'approval');
+                    setField('interval_value', '1');
+                    setField('interval_unit', 'hours');
+                    setField('silent_min_value', '1');
+                    setField('silent_min_unit', 'hours');
                     setMultiSelect('other_cron_job_ids[]', []);
+                    setMultiSelect('handled_by_employee_ids[]', []);
                     syncOtherCronJobSelect(null);
+                    syncHandledByEmployeeSelect(document.getElementById('voice-cron-handled-by'));
                     initSelect2In(modalEl);
                 }
 
                 document.getElementById('voice-cron-job-add')?.addEventListener('click', resetVoiceCronForm);
+                document.getElementById('voice-cron-handled-by')?.addEventListener('change', function () {
+                    syncHandledByEmployeeSelect(this);
+                });
                 document.getElementById('voice-cron-other-job-mode')?.addEventListener('change', function () {
                     syncOtherCronJobSelect(form.dataset.editingRuleId || null);
                 });
@@ -3884,17 +3942,31 @@
 
                         setField('name', rule.name);
                         setField('campaign_name', rule.campaign_name);
-                        setField('interval_minutes', rule.interval_minutes);
+                        const filters = rule.filters || {};
+                        if (filters.interval_unit && filters.interval_value != null) {
+                            setField('interval_value', filters.interval_value);
+                            setField('interval_unit', filters.interval_unit);
+                        } else {
+                            setDurationFromMinutes(rule.interval_minutes, 'interval_value', 'interval_unit');
+                        }
                         setField('max_contacts_per_run', rule.max_contacts_per_run);
                         setField('concurrent_call_limit', rule.concurrent_call_limit);
                         setField('is_enabled', rule.is_enabled);
                         setField('dispatch_mode', rule.dispatch_mode || 'approval');
 
-                        const filters = rule.filters || {};
-                        setField('silent_min_hours', filters.silent_min_hours ?? 2);
+                        if (filters.silent_min_unit && filters.silent_min_value != null) {
+                            setField('silent_min_value', filters.silent_min_value);
+                            setField('silent_min_unit', filters.silent_min_unit);
+                        } else {
+                            const silentMinutes = parseInt(filters.silent_min_minutes, 10)
+                                || (parseInt(filters.silent_min_hours, 10) || 1) * 60;
+                            setDurationFromMinutes(silentMinutes, 'silent_min_value', 'silent_min_unit');
+                        }
                         setField('lead_open', filters.lead_open ?? '');
                         setField('wa_chat_bucket', filters.wa_chat_bucket ?? '');
                         setField('handled_by', filters.handled_by ?? '');
+                        setMultiSelect('handled_by_employee_ids[]', filters.handled_by_employee_ids || []);
+                        syncHandledByEmployeeSelect(document.getElementById('voice-cron-handled-by'));
                         setField('human_support', filters.human_support ?? 'exclude');
                         setField('exclude_called_within_hours', filters.exclude_called_within_hours ?? 24);
                         setField('other_cron_job_mode', filters.other_cron_job_mode ?? '');

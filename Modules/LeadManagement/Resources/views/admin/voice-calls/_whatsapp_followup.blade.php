@@ -90,11 +90,20 @@
                             'label' => translate('Handled_By'),
                             'hint' => translate('Voice_field_hint_wa_handled_by'),
                         ])
-                        <select class="form-select js-select" name="handled_by">
+                        <select class="form-select js-select"
+                                name="handled_by"
+                                id="wa-followup-handled-by"
+                                data-employee-wrap="wa-followup-handled-by-employees-wrap">
                             <option value="">{{ translate('All') }}</option>
                             <option value="ai">AI</option>
                             <option value="human">{{ translate('name_of_employee') }}</option>
                         </select>
+                        @include('leadmanagement::admin.voice-calls._handled_by_employee_picker', [
+                            'wrapId' => 'wa-followup-handled-by-employees-wrap',
+                            'selectId' => 'wa-followup-handled-by-employee-ids',
+                            'employees' => $employees ?? [],
+                            'selectedIds' => (array) ($waFollowupDefaults['handled_by_employee_ids'] ?? []),
+                        ])
                     </div>
                     <div class="col-md-3">
                         @include('leadmanagement::admin.voice-calls._form_field_label', [

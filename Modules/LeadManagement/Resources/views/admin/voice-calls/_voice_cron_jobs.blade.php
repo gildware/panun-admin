@@ -1,14 +1,5 @@
 @php
     $automationRules = $voiceCronRules ?? collect();
-    $intervalOptions = [
-        15 => '15 min',
-        30 => '30 min',
-        60 => '1h',
-        120 => '2h',
-        360 => '6h',
-        720 => '12h',
-        1440 => '24h',
-    ];
 @endphp
 
 <div class="card mb-3">
@@ -82,7 +73,10 @@
                                     {{ $rule->is_enabled ? translate('Running') : translate('Stopped') }}
                                 </span>
                             </td>
-                            <td>{{ $intervalOptions[$rule->interval_minutes] ?? ($rule->interval_minutes . ' min') }}</td>
+                            <td>
+                                @php $interval = $rule->resolvedInterval(); @endphp
+                                {{ $interval['value'] }} {{ translate($interval['unit']) }}
+                            </td>
                             <td>{{ $rule->max_contacts_per_run }}</td>
                             <td class="small">
                                 @if($rule->last_run_at)
@@ -199,13 +193,24 @@
                                 @include('leadmanagement::admin.voice-calls._form_field_label', [
                                     'label' => translate('WhatsApp_followup_automation_interval'),
                                     'required' => true,
-                                    'hint' => translate('Voice_field_hint_cron_interval'),
+                                    'hint' => translate('Voice_field_hint_cron_interval_duration'),
                                 ])
-                                <select class="form-select" name="interval_minutes" required>
-                                    @foreach($intervalOptions as $minutes => $label)
-                                        <option value="{{ $minutes }}" {{ $minutes === 60 ? 'selected' : '' }}>{{ $label }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="input-group">
+                                    <input type="number"
+                                           class="form-control"
+                                           name="interval_value"
+                                           id="voice-cron-interval-value"
+                                           min="1"
+                                           max="9999"
+                                           step="1"
+                                           value="1"
+                                           required>
+                                    <select class="form-select" name="interval_unit" id="voice-cron-interval-unit" style="max-width:7rem;">
+                                        <option value="minutes">{{ translate('minutes') }}</option>
+                                        <option value="hours" selected>{{ translate('hours') }}</option>
+                                        <option value="days">{{ translate('days') }}</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 @include('leadmanagement::admin.voice-calls._form_field_label', [
@@ -252,13 +257,24 @@
                             <div class="col-md-4">
                                 @include('leadmanagement::admin.voice-calls._form_field_label', [
                                     'label' => translate('Silent_at_least'),
-                                    'hint' => translate('Voice_field_hint_silent_min_hours'),
+                                    'hint' => translate('Voice_field_hint_silent_min_duration'),
                                 ])
-                                <select class="form-select" name="silent_min_hours">
-                                    @foreach([0, 1, 2, 6, 24, 48, 168] as $h)
-                                        <option value="{{ $h }}" {{ $h === 2 ? 'selected' : '' }}>{{ $h === 0 ? '0h' : ($h >= 168 ? '7d' : $h . 'h') }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="input-group">
+                                    <input type="number"
+                                           class="form-control"
+                                           name="silent_min_value"
+                                           id="voice-cron-silent-min-value"
+                                           min="0"
+                                           max="9999"
+                                           step="1"
+                                           value="1"
+                                           required>
+                                    <select class="form-select" name="silent_min_unit" id="voice-cron-silent-min-unit" style="max-width:7rem;">
+                                        <option value="minutes">{{ translate('minutes') }}</option>
+                                        <option value="hours" selected>{{ translate('hours') }}</option>
+                                        <option value="days">{{ translate('days') }}</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="col-md-4">
                                 @include('leadmanagement::admin.voice-calls._form_field_label', [
@@ -342,11 +358,19 @@
                                     'label' => translate('Handled_By'),
                                     'hint' => translate('Voice_field_hint_wa_handled_by'),
                                 ])
-                                <select class="form-select" name="handled_by">
+                                <select class="form-select"
+                                        name="handled_by"
+                                        id="voice-cron-handled-by"
+                                        data-employee-wrap="voice-cron-handled-by-employees-wrap">
                                     <option value="">{{ translate('All') }}</option>
                                     <option value="ai">AI</option>
                                     <option value="human">{{ translate('name_of_employee') }}</option>
                                 </select>
+                                @include('leadmanagement::admin.voice-calls._handled_by_employee_picker', [
+                                    'wrapId' => 'voice-cron-handled-by-employees-wrap',
+                                    'selectId' => 'voice-cron-handled-by-employee-ids',
+                                    'employees' => $employees ?? [],
+                                ])
                             </div>
                             <div class="col-12">
                                 <hr class="my-1">
@@ -360,11 +384,12 @@
                                 ])
                                 <select class="form-select" name="other_cron_job_mode" id="voice-cron-other-job-mode">
                                     <option value="">{{ translate('Voice_cron_other_jobs_none') }}</option>
+                                    <option value="exclude_all_active">{{ translate('Voice_cron_other_jobs_exclude_all_active') }}</option>
                                     <option value="exclude">{{ translate('Voice_cron_other_jobs_exclude') }}</option>
                                     <option value="include">{{ translate('Voice_cron_other_jobs_include') }}</option>
                                 </select>
                             </div>
-                            <div class="col-md-8">
+                            <div class="col-md-8" id="voice-cron-other-job-ids-wrap">
                                 @include('leadmanagement::admin.voice-calls._form_field_label', [
                                     'label' => translate('Voice_cron_other_jobs_select'),
                                     'hint' => translate('Voice_field_hint_cron_other_jobs_select'),

@@ -15,7 +15,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('voice:whatsapp-followup-auto-dispatch')->everyFiveMinutes();
+        //
     }
 
     /**

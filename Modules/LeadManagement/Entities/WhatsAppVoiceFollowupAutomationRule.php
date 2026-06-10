@@ -54,6 +54,43 @@ class WhatsAppVoiceFollowupAutomationRule extends Model
         'last_run_contacts' => 'integer',
     ];
 
+    /**
+     * @return array{value: int, unit: string}
+     */
+    public function resolvedInterval(): array
+    {
+        $filters = is_array($this->filters) ? $this->filters : [];
+        $minutes = max(1, (int) $this->interval_minutes);
+
+        if (in_array((string) ($filters['interval_unit'] ?? ''), ['minutes', 'hours', 'days'], true)
+            && isset($filters['interval_value'])) {
+            return [
+                'value' => max(1, (int) $filters['interval_value']),
+                'unit' => (string) $filters['interval_unit'],
+            ];
+        }
+
+        return self::minutesToDurationParts($minutes);
+    }
+
+    /**
+     * @return array{value: int, unit: string}
+     */
+    public static function minutesToDurationParts(int $minutes): array
+    {
+        $minutes = max(1, $minutes);
+
+        if ($minutes % (24 * 60) === 0) {
+            return ['value' => (int) ($minutes / (24 * 60)), 'unit' => 'days'];
+        }
+
+        if ($minutes % 60 === 0) {
+            return ['value' => (int) ($minutes / 60), 'unit' => 'hours'];
+        }
+
+        return ['value' => $minutes, 'unit' => 'minutes'];
+    }
+
     public function isDue(): bool
     {
         if (!$this->is_enabled) {
@@ -74,8 +111,31 @@ class WhatsAppVoiceFollowupAutomationRule extends Model
     {
         $filters = is_array($this->filters) ? $this->filters : [];
 
+        $silentMinUnit = in_array((string) ($filters['silent_min_unit'] ?? ''), ['minutes', 'hours', 'days'], true)
+            ? (string) $filters['silent_min_unit']
+            : 'hours';
+        $silentMinValue = max(0, (int) ($filters['silent_min_value'] ?? 0));
+
+        if (isset($filters['silent_min_unit'])) {
+            $silentMinMinutes = match ($silentMinUnit) {
+                'days' => $silentMinValue * 24 * 60,
+                'hours' => $silentMinValue * 60,
+                default => $silentMinValue,
+            };
+        } elseif (isset($filters['silent_min_minutes']) && $filters['silent_min_minutes'] !== '') {
+            $silentMinMinutes = max(0, (int) $filters['silent_min_minutes']);
+            $silentMinValue = $silentMinValue > 0 ? $silentMinValue : max(1, (int) floor($silentMinMinutes / 60) ?: 1);
+        } else {
+            $silentMinMinutes = max(0, (int) ($filters['silent_min_hours'] ?? 2)) * 60;
+            $silentMinValue = $silentMinValue > 0 ? $silentMinValue : max(1, (int) ($filters['silent_min_hours'] ?? 2));
+            $silentMinUnit = 'hours';
+        }
+
         return [
-            'silent_min_hours' => max(0, (int) ($filters['silent_min_hours'] ?? 2)),
+            'silent_min_value' => $silentMinValue,
+            'silent_min_unit' => $silentMinUnit,
+            'silent_min_minutes' => $silentMinMinutes,
+            'silent_min_hours' => (int) floor($silentMinMinutes / 60),
             'silent_max_hours' => isset($filters['silent_max_hours']) && $filters['silent_max_hours'] !== ''
                 ? max(0, (int) $filters['silent_max_hours'])
                 : null,
@@ -85,9 +145,10 @@ class WhatsAppVoiceFollowupAutomationRule extends Model
             'wa_chat_tag_ids' => array_map('intval', array_filter((array) ($filters['wa_chat_tag_ids'] ?? []))),
             'customer_lead_tag_ids' => array_map('intval', array_filter((array) ($filters['customer_lead_tag_ids'] ?? []))),
             'handled_by' => (string) ($filters['handled_by'] ?? ''),
+            'handled_by_employee_ids' => array_values(array_filter((array) ($filters['handled_by_employee_ids'] ?? []))),
             'human_support' => (string) ($filters['human_support'] ?? 'exclude'),
             'exclude_called_within_hours' => max(0, (int) ($filters['exclude_called_within_hours'] ?? 24)),
-            'other_cron_job_mode' => in_array((string) ($filters['other_cron_job_mode'] ?? ''), ['include', 'exclude'], true)
+            'other_cron_job_mode' => in_array((string) ($filters['other_cron_job_mode'] ?? ''), ['include', 'exclude', 'exclude_all_active'], true)
                 ? (string) $filters['other_cron_job_mode']
                 : '',
             'other_cron_job_ids' => array_map('intval', array_filter((array) ($filters['other_cron_job_ids'] ?? []))),
