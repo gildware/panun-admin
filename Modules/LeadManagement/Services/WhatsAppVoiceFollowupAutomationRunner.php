@@ -89,38 +89,6 @@ class WhatsAppVoiceFollowupAutomationRunner
         array $extraFilters = []
     ): array {
         $startedAt = now();
-
-        $existingPendingRun = $this->findPendingApprovalRun($rule->id);
-        if ($existingPendingRun !== null) {
-            $awaitingMessage = sprintf(
-                translate('Voice_cron_awaiting_existing_approval'),
-                $existingPendingRun->id,
-                (int) $existingPendingRun->contacts_matched
-            );
-
-            if (!$forced && $trigger === WhatsAppVoiceFollowupAutomationRun::TRIGGER_CRON) {
-                return [
-                    'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_SKIPPED,
-                    'dispatched_count' => 0,
-                    'matched_count' => 0,
-                    'matched_phones' => [],
-                    'message' => $awaitingMessage,
-                    'run_id' => $existingPendingRun->id,
-                ];
-            }
-
-            if ($forced && $rule->dispatch_mode === WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_APPROVAL) {
-                return [
-                    'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_SKIPPED,
-                    'dispatched_count' => 0,
-                    'matched_count' => (int) $existingPendingRun->contacts_matched,
-                    'matched_phones' => [],
-                    'message' => $awaitingMessage,
-                    'run_id' => $existingPendingRun->id,
-                ];
-            }
-        }
-
         $run = WhatsAppVoiceFollowupAutomationRun::create([
             'rule_id' => $rule->id,
             'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_SKIPPED,
@@ -170,21 +138,11 @@ class WhatsAppVoiceFollowupAutomationRunner
             ->all();
 
         if ($matchedCount === 0) {
-            $hasPendingRun = WhatsAppVoiceFollowupAutomationRun::query()
-                ->where('rule_id', $rule->id)
-                ->where('status', WhatsAppVoiceFollowupAutomationRun::STATUS_PENDING_APPROVAL)
-                ->where('id', '!=', $run->id)
-                ->exists();
-
-            $message = ($hasPendingRun && !$forced)
-                ? translate('Voice_cron_all_contacts_already_pending')
-                : translate('WhatsApp_followup_automation_no_candidates');
-
             return $this->finishRun($run, $rule, [
                 'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_EMPTY,
                 'matched_count' => 0,
                 'dispatched_count' => 0,
-                'message' => $message,
+                'message' => translate('Voice_cron_run_zero_matches'),
                 'campaign_ids' => [],
                 'error' => null,
             ], $startedAt);
@@ -339,15 +297,6 @@ class WhatsAppVoiceFollowupAutomationRunner
             'dispatched_by' => $dispatchedBy,
             'automation_run_id' => $automationRunId,
         ]);
-    }
-
-    private function findPendingApprovalRun(int $ruleId): ?WhatsAppVoiceFollowupAutomationRun
-    {
-        return WhatsAppVoiceFollowupAutomationRun::query()
-            ->where('rule_id', $ruleId)
-            ->where('status', WhatsAppVoiceFollowupAutomationRun::STATUS_PENDING_APPROVAL)
-            ->orderByDesc('id')
-            ->first();
     }
 
     private function supersedeOtherPendingRuns(int $ruleId, int $keepRunId): void
