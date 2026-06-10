@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupAutomationRule;
+use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupAutomationRun;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupDispatch;
 use Modules\WhatsAppModule\Entities\WhatsAppChatStatus;
 use Modules\WhatsAppModule\Entities\WhatsAppChatThreadMeta;
@@ -43,7 +44,11 @@ class WhatsAppFollowupCandidateQueryService
             'perPage' => $perPage,
         ]) ?: '');
 
-        $cached = Cache::get($cacheKey);
+        $shouldCache = ($filters['other_cron_job_mode'] ?? '') === ''
+            && empty($filters['_batch_excluded_phones'])
+            && empty($filters['_current_rule_id']);
+
+        $cached = $shouldCache ? Cache::get($cacheKey) : null;
         if (is_array($cached) && isset($cached['items'], $cached['total'])) {
             return new Paginator(
                 collect($cached['items']),
@@ -63,10 +68,12 @@ class WhatsAppFollowupCandidateQueryService
         $total = $filtered->count();
         $slice = $filtered->slice(($page - 1) * $perPage, $perPage)->values();
 
-        Cache::put($cacheKey, [
-            'items' => $slice->all(),
-            'total' => $total,
-        ], (int) config('services.omnidimension.cache_whatsapp_followup_list_ttl', 60));
+        if ($shouldCache) {
+            Cache::put($cacheKey, [
+                'items' => $slice->all(),
+                'total' => $total,
+            ], (int) config('services.omnidimension.cache_whatsapp_followup_list_ttl', 60));
+        }
 
         return new Paginator(
             $slice,
@@ -298,10 +305,23 @@ class WhatsAppFollowupCandidateQueryService
         $otherCronPhoneSet = [];
         if (!$skipOtherCron && $otherCronMode !== '') {
             if ($otherCronMode === 'exclude_all_active') {
-                $otherCronPhoneSet = array_flip($this->resolvePhonesForAllActiveOtherCronJobs($currentRuleId));
+                $otherCronPhoneSet = $this->buildPhoneExclusionSet(
+                    $this->resolvePhonesForAllActiveOtherCronJobs($currentRuleId)
+                );
             } elseif ($otherCronIds !== []) {
-                $otherCronPhoneSet = array_flip($this->resolvePhonesForOtherCronJobs($otherCronIds, $currentRuleId));
+                $otherCronPhoneSet = $this->buildPhoneExclusionSet(
+                    $this->resolvePhonesForOtherCronJobs($otherCronIds, $currentRuleId)
+                );
             }
+        }
+
+        $batchExcludedPhoneSet = $this->buildPhoneExclusionSet((array) ($filters['_batch_excluded_phones'] ?? []));
+
+        $ownPendingPhoneSet = [];
+        if ($currentRuleId > 0) {
+            $ownPendingPhoneSet = $this->buildPhoneExclusionSet(
+                $this->resolvePhonesFromPendingCronRuns(onlyRuleId: $currentRuleId)
+            );
         }
 
         return $candidates->filter(function (array $c) use (
@@ -316,7 +336,9 @@ class WhatsAppFollowupCandidateQueryService
             $excludeCalledHours,
             $phonesFilter,
             $otherCronMode,
-            $otherCronPhoneSet
+            $otherCronPhoneSet,
+            $batchExcludedPhoneSet,
+            $ownPendingPhoneSet
         ) {
             if ($phonesFilter !== [] && !in_array((string) ($c['phone'] ?? ''), $phonesFilter, true)) {
                 return false;
@@ -388,16 +410,22 @@ class WhatsAppFollowupCandidateQueryService
                 }
             }
 
-            if (in_array($otherCronMode, ['exclude', 'exclude_all_active'], true) && $otherCronPhoneSet !== []) {
-                if (isset($otherCronPhoneSet[(string) ($c['phone'] ?? '')])) {
-                    return false;
-                }
+            if ($ownPendingPhoneSet !== [] && $this->isPhoneInExclusionSet($ownPendingPhoneSet, (string) ($c['phone'] ?? ''))) {
+                return false;
             }
 
-            if ($otherCronMode === 'include' && $otherCronPhoneSet !== []) {
-                if (!isset($otherCronPhoneSet[(string) ($c['phone'] ?? '')])) {
-                    return false;
-                }
+            if ($batchExcludedPhoneSet !== [] && $this->isPhoneInExclusionSet($batchExcludedPhoneSet, (string) ($c['phone'] ?? ''))) {
+                return false;
+            }
+
+            if (in_array($otherCronMode, ['exclude', 'exclude_all_active'], true)
+                && $this->isPhoneInExclusionSet($otherCronPhoneSet, (string) ($c['phone'] ?? ''))) {
+                return false;
+            }
+
+            if ($otherCronMode === 'include' && $otherCronPhoneSet !== []
+                && !$this->isPhoneInExclusionSet($otherCronPhoneSet, (string) ($c['phone'] ?? ''))) {
+                return false;
             }
 
             return true;
@@ -431,7 +459,99 @@ class WhatsAppFollowupCandidateQueryService
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        return $this->resolvePhonesForOtherCronJobs($ruleIds, $excludeRuleId);
+        $phones = $this->resolvePhonesForOtherCronJobs($ruleIds, $excludeRuleId);
+        $phones = array_merge($phones, $this->resolvePhonesFromPendingCronRuns(excludeRuleId: $excludeRuleId));
+
+        return array_values(array_unique($phones));
+    }
+
+    /**
+     * Phones already matched in pending-approval runs (same or other cron jobs).
+     *
+     * @return array<int, string>
+     */
+    private function resolvePhonesFromPendingCronRuns(?int $onlyRuleId = null, ?int $excludeRuleId = null): array
+    {
+        $query = WhatsAppVoiceFollowupAutomationRun::query()
+            ->where('status', WhatsAppVoiceFollowupAutomationRun::STATUS_PENDING_APPROVAL)
+            ->whereHas('rule', fn ($ruleQuery) => $ruleQuery->where('is_enabled', true));
+
+        if ($onlyRuleId !== null && $onlyRuleId > 0) {
+            $query->where('rule_id', $onlyRuleId);
+        } elseif ($excludeRuleId !== null && $excludeRuleId > 0) {
+            $query->where('rule_id', '!=', $excludeRuleId);
+        }
+
+        $phones = [];
+        foreach ($query->get(['pending_candidates']) as $run) {
+            foreach ((array) $run->pending_candidates as $candidate) {
+                if (!is_array($candidate)) {
+                    continue;
+                }
+
+                $phone = (string) ($candidate['phone'] ?? '');
+                if ($phone !== '') {
+                    $phones[] = $phone;
+                }
+            }
+        }
+
+        return $phones;
+    }
+
+    /**
+     * @param  array<int, string>  $phones
+     * @return array<string, true>
+     */
+    private function buildPhoneExclusionSet(array $phones): array
+    {
+        $set = [];
+        foreach ($phones as $phone) {
+            $this->addPhoneToExclusionSet($set, (string) $phone);
+        }
+
+        return $set;
+    }
+
+    /**
+     * @param  array<string, true>  $set
+     */
+    private function addPhoneToExclusionSet(array &$set, string $phone): void
+    {
+        $phone = trim($phone);
+        if ($phone === '') {
+            return;
+        }
+
+        $set[$phone] = true;
+
+        $normalized = $this->leadLifecycle->normalizeLeadPhone($phone);
+        if ($normalized !== null && $normalized !== $phone) {
+            $set[$normalized] = true;
+        }
+    }
+
+    /**
+     * @param  array<string, true>  $set
+     */
+    private function isPhoneInExclusionSet(array $set, string $phone): bool
+    {
+        if ($set === []) {
+            return false;
+        }
+
+        $phone = trim($phone);
+        if ($phone === '') {
+            return false;
+        }
+
+        if (isset($set[$phone])) {
+            return true;
+        }
+
+        $normalized = $this->leadLifecycle->normalizeLeadPhone($phone);
+
+        return $normalized !== null && isset($set[$normalized]);
     }
 
     /**

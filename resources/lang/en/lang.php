@@ -8954,6 +8954,7 @@ _Message' => 'Customer notification for provider bid offer
   'Voice_cron_dispatch_auto' => 'Call all automatically',
   'Voice_field_hint_cron_dispatch_mode' => 'When approval is selected, matched contacts are saved in the execution report until an admin triggers the calls.',
   'Voice_cron_pending_approval_message' => '%s contacts matched — awaiting approval to make calls',
+  'Voice_cron_all_contacts_already_pending' => 'No new contacts — all matching numbers are already waiting in a previous execution. Approve or dismiss that run first.',
   'Voice_cron_pending_approval_hint' => 'Review the matched contacts below, then click Make calls to start the voice campaign.',
   'Voice_cron_make_calls' => 'Make calls',
   'Voice_cron_dispatch_modal_hint' => 'Review each contact\'s context and uncheck anyone you want to exclude before starting calls.',
