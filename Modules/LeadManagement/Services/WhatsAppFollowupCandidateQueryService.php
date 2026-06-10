@@ -441,6 +441,16 @@ class WhatsAppFollowupCandidateQueryService
             return max(0, (int) $filters['silent_min_minutes']);
         }
 
+        $unit = (string) ($filters['silent_min_unit'] ?? '');
+        $value = max(0, (int) ($filters['silent_min_value'] ?? 0));
+        if ($value > 0 && in_array($unit, ['minutes', 'hours', 'days'], true)) {
+            return match ($unit) {
+                'days' => $value * 24 * 60,
+                'hours' => $value * 60,
+                default => $value,
+            };
+        }
+
         return max(0, (int) ($filters['silent_min_hours'] ?? 0)) * 60;
     }
 
@@ -751,8 +761,10 @@ class WhatsAppFollowupCandidateQueryService
         return $out;
     }
 
-    private function formatDuration(int $seconds): string
+    private function formatDuration(int|float $seconds): string
     {
+        $seconds = max(0, (int) round($seconds));
+
         if ($seconds < 3600) {
             return max(1, (int) round($seconds / 60)) . 'm';
         }
