@@ -25,6 +25,7 @@
                         'failed' => 'bg-danger',
                         'empty' => 'bg-warning text-dark',
                         'pending_approval' => 'bg-info text-dark',
+                        'dispatching' => 'bg-primary',
                         default => 'bg-secondary',
                     };
                     $campaignIds = is_array($run->campaign_ids) ? $run->campaign_ids : [];
@@ -65,6 +66,11 @@
                                         class="btn btn-sm btn--primary voice-cron-open-dispatch-modal"
                                         data-run-id="{{ $run->id }}">
                                     {{ translate('Voice_cron_make_calls') }}
+                                </button>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger voice-cron-reject-run"
+                                        data-run-id="{{ $run->id }}">
+                                    {{ translate('Voice_cron_reject_run') }}
                                 </button>
                             @endcan
                         @endif

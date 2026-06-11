@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
+use Modules\WhatsAppModule\Services\LeadWhatsAppAssignmentSyncService;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
 use Modules\WhatsAppModule\Support\WhatsAppActiveChatsListCache;
 
@@ -241,6 +242,10 @@ class WhatsAppMessagePersistenceService
             $waUser = WhatsAppUser::firstOrNew(['phone' => $normalizedPhone]);
             $waUser->handled_by = (string) $actingAdminUserId;
             $waUser->save();
+            app(LeadWhatsAppAssignmentSyncService::class)->onChatHandlerAssigned(
+                $normalizedPhone,
+                (string) $actingAdminUserId
+            );
         }
 
         WhatsAppActiveChatsListCache::forgetAll();

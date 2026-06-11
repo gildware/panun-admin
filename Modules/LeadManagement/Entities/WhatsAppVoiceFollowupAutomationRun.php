@@ -15,6 +15,8 @@ class WhatsAppVoiceFollowupAutomationRun extends Model
 
     public const STATUS_PENDING_APPROVAL = 'pending_approval';
 
+    public const STATUS_DISPATCHING = 'dispatching';
+
     protected $fillable = [
         'rule_id',
         'status',

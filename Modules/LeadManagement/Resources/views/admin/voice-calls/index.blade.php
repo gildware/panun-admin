@@ -705,6 +705,83 @@
         #voice-tab-whatsapp-followup #wa-followup-filter-form .select2-container .select2-selection__arrow {
             height: calc(2.875rem + 2px);
         }
+        #voiceCronJobModal .select2-container {
+            width: 100% !important;
+        }
+        .voice-cron-preview-summary {
+            display: grid;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        @media (min-width: 768px) {
+            .voice-cron-preview-summary {
+                grid-template-columns: 1fr 1fr;
+            }
+            .voice-cron-preview-summary__global {
+                grid-column: 1 / -1;
+            }
+        }
+        .voice-cron-preview-summary-col {
+            border-radius: 0.375rem;
+            padding: 0.75rem 0.875rem;
+            font-size: 0.875rem;
+        }
+        .voice-cron-preview-summary-col--include {
+            background: rgba(25, 135, 84, 0.08);
+            border: 1px solid rgba(25, 135, 84, 0.22);
+        }
+        .voice-cron-preview-summary-col--exclude {
+            background: rgba(220, 53, 69, 0.06);
+            border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+        .voice-cron-preview-summary-col--global {
+            background: var(--bs-light, #f8f9fa);
+            border: 1px solid var(--bs-border-color, #dee2e6);
+        }
+        .voice-cron-preview-summary-col h6 {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .voice-cron-preview-summary-col ul {
+            margin-bottom: 0;
+            padding-left: 1.1rem;
+        }
+        .voice-cron-preview-summary-col li + li {
+            margin-top: 0.25rem;
+        }
+        .voice-cron-preview-total {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+        .voice-cron-preview-candidate {
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            border-radius: 0.375rem;
+            padding: 0.75rem 0.875rem;
+            background: #fff;
+        }
+        .voice-cron-preview-candidate + .voice-cron-preview-candidate {
+            margin-top: 0.5rem;
+        }
+        .voice-cron-preview-candidate__name {
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        .voice-cron-preview-candidate__phone {
+            font-size: 0.8125rem;
+            color: var(--bs-secondary-color, #6c757d);
+            margin-top: 0.125rem;
+        }
+        .voice-cron-preview-candidate__meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+        }
+        .voice-cron-preview-candidate__meta .badge {
+            font-weight: 500;
+        }
     </style>
 @endpush
 
@@ -1393,7 +1470,49 @@
             const voiceCronRunsUrl = @json(route('admin.voice-call.cron-jobs.runs'));
             const voiceCronRunDetailsUrlTemplate = @json(url('admin/voice-call/cron-jobs/runs/__ID__'));
             const voiceCronDispatchPreviewUrlTemplate = @json(url('admin/voice-call/cron-jobs/runs/__ID__/dispatch-preview'));
+            const voiceCronRejectUrlTemplate = @json(url('admin/voice-call/cron-jobs/runs/__ID__/reject'));
+            const voiceCronPreviewUrl = @json(route('admin.voice-call.cron-jobs.preview-matches'));
             const strVoiceCronSelectAtLeastOne = @json(translate('Voice_cron_select_at_least_one_contact'));
+            const strVoiceCronRejectConfirm = @json(translate('Voice_cron_reject_confirm'));
+            const strVoiceCronIntervalError = @json(translate('Voice_cron_interval_out_of_range'));
+            const strVoiceCronPreviewFailed = @json(translate('Voice_cron_preview_failed'));
+            const strVoiceCronPreviewTotalOne = @json(translate('Voice_cron_preview_total_one'));
+            const strVoiceCronPreviewTotalMany = @json(translate('Voice_cron_preview_total_many'));
+            const strVoiceCronPreviewEmpty = @json(translate('Voice_cron_preview_empty'));
+            const strVoiceCronPreviewMore = @json(translate('Voice_cron_preview_more'));
+            const strVoiceCronPreviewWillInclude = @json(translate('Voice_cron_preview_will_include'));
+            const strVoiceCronPreviewWillExclude = @json(translate('Voice_cron_preview_will_exclude'));
+            const strVoiceCronPreviewGlobalRules = @json(translate('Voice_cron_preview_global_rules'));
+            const strVoiceCronPreviewNoExtraInclude = @json(translate('Voice_cron_preview_no_extra_include'));
+            const strVoiceCronPreviewNoExtraExclude = @json(translate('Voice_cron_preview_no_extra_exclude'));
+            const strVoiceCronPreviewMatchedContacts = @json(translate('Voice_cron_preview_matched_contacts'));
+            const strVoiceCronPreviewSilentFor = @json(translate('Voice_cron_preview_silent_for'));
+            const strVoiceCronPreviewSince = @json(translate('Voice_cron_preview_since'));
+            const strVoiceCronPreviewNoGlobalRules = @json(translate('Voice_cron_preview_no_global_rules'));
+            const strVoiceCronSummaryEvery = @json(translate('Voice_cron_summary_every'));
+            const strVoiceCronSummaryMax = @json(translate('Voice_cron_summary_max'));
+            const strVoiceCronSummarySilent = @json(translate('Voice_cron_summary_silent'));
+            const strVoiceCronSummaryExcludeCalled = @json(translate('Voice_cron_summary_exclude_called'));
+            const strVoiceCronSummaryStopped = @json(translate('Voice_cron_summary_stopped'));
+            const strVoiceCronDispatchApproval = @json(translate('Voice_cron_dispatch_approval'));
+            const strVoiceCronDispatchAuto = @json(translate('Voice_cron_dispatch_auto'));
+            const strVoiceCronConflictLeadType = @json(translate('Voice_cron_conflict_lead_type'));
+            const strVoiceCronConflictLeadOpen = @json(translate('Voice_cron_conflict_lead_open'));
+            const strVoiceCronConflictWaBucket = @json(translate('Voice_cron_conflict_wa_bucket'));
+            const strVoiceCronConflictHandledByAi = @json(translate('Voice_cron_conflict_handled_by_ai'));
+            const strVoiceCronConflictHandledByHumanAll = @json(translate('Voice_cron_conflict_handled_by_human_all'));
+            const strVoiceCronConflictHandledByHumanExcludeAll = @json(translate('Voice_cron_conflict_handled_by_human_exclude_all'));
+            const strVoiceCronConflictHandledByEmployee = @json(translate('Voice_cron_conflict_handled_by_employee'));
+            const strVoiceCronConflictHumanSupport = @json(translate('Voice_cron_conflict_human_support'));
+            const strVoiceCronConflictTag = @json(translate('Voice_cron_conflict_tag'));
+            const strVoiceCronConflictWaTagsLabel = @json(translate('Voice_cron_wa_chat_tags_label'));
+            const strVoiceCronConflictCustomerLeadStatus = @json(translate('Customer_Lead_Status'));
+            const strVoiceCronConflictProviderLeadStatus = @json(translate('Provider_Lead_Status'));
+            const strVoiceCronConflictWaAiFlow = @json(translate('Voice_cron_conflict_wa_ai_flow'));
+            const strOpen = @json(translate('Open'));
+            const strClosed = @json(translate('Closed'));
+            const strWaBucketOpen = @json(translate('whatsapp_bucket_open'));
+            const strWaBucketClosed = @json(translate('whatsapp_bucket_closed'));
             const waFollowupCallReasonLabels = @json($callReasonLabels ?? []);
             const voiceCallReasonBadgeClasses = @json(\Modules\LeadManagement\Services\OutboundCallContextService::callReasonBadgeClasses());
             const waFollowupContextKeys = @json($contextKeys ?? []);
@@ -3526,7 +3645,7 @@
                 if (!handledByEl) return;
                 const wrapId = handledByEl.getAttribute('data-employee-wrap');
                 const wrap = wrapId ? document.getElementById(wrapId) : null;
-                const select = wrap ? wrap.querySelector('select[name="handled_by_employee_ids[]"]') : null;
+                const select = wrap ? wrap.querySelector('select') : null;
                 const show = handledByEl.value === 'human';
 
                 if (wrap) {
@@ -3700,6 +3819,7 @@
                 });
 
                 bindVoiceCronDispatchModalTriggers(voiceCronRunsContent);
+                bindVoiceCronRejectTriggers(voiceCronRunsContent);
             }
 
             function updateVoiceCronDispatchSelectedCount(root) {
@@ -3774,14 +3894,48 @@
                 updateVoiceCronDispatchSelectedCount(root);
             }
 
+            function submitVoiceCronRejectRun(runId) {
+                if (!runId || !window.confirm(strVoiceCronRejectConfirm)) {
+                    return;
+                }
+
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = voiceCronRejectUrlTemplate.replace('__ID__', String(runId));
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = token;
+                form.appendChild(csrf);
+                document.body.appendChild(form);
+                form.submit();
+            }
+
+            function bindVoiceCronRejectTriggers(scope) {
+                const root = scope || document;
+                root.querySelectorAll('.voice-cron-reject-run').forEach(function (btn) {
+                    if (btn.dataset.rejectBound === '1') return;
+                    btn.dataset.rejectBound = '1';
+                    btn.addEventListener('click', function () {
+                        submitVoiceCronRejectRun(btn.getAttribute('data-run-id'));
+                    });
+                });
+            }
+
             function openVoiceCronDispatchModal(runId) {
                 const modalEl = document.getElementById('voiceCronDispatchModal');
                 const bodyEl = document.getElementById('voice-cron-dispatch-modal-body');
                 const submitBtn = document.getElementById('voice-cron-dispatch-submit');
+                const rejectBtn = document.getElementById('voice-cron-dispatch-reject');
                 if (!modalEl || !bodyEl || !runId) return;
 
                 bodyEl.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>{{ translate('Loading') }}…</div>';
                 if (submitBtn) submitBtn.disabled = true;
+                if (rejectBtn) {
+                    rejectBtn.dataset.runId = String(runId);
+                    rejectBtn.classList.remove('d-none');
+                }
 
                 if (typeof bootstrap !== 'undefined') {
                     bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -3858,11 +4012,28 @@
                 function setMultiSelect(name, values) {
                     const el = form.querySelector('[name="' + name + '"]');
                     if (!el) return;
-                    const selected = new Set((values || []).map(String));
+                    const selectedValues = (values || []).map(String).filter(Boolean);
+                    const selected = new Set(selectedValues);
                     Array.from(el.options).forEach(function (opt) {
+                        if (opt.value === '') {
+                            opt.selected = false;
+                            return;
+                        }
                         opt.selected = selected.has(String(opt.value));
                         opt.disabled = false;
                     });
+                    if (typeof $ !== 'undefined' && $.fn.select2 && $(el).hasClass('select2-hidden-accessible')) {
+                        $(el).val(selectedValues.length ? selectedValues : null).trigger('change');
+                    }
+                }
+
+                function refreshVoiceCronModalSelect2() {
+                    if (!modalEl) {
+                        return;
+                    }
+                    refreshSelect2In(modalEl);
+                    updateVoiceCronLeadStatusSubfilters();
+                    updateVoiceCronMatchConflicts();
                 }
 
                 function syncOtherCronJobSelect(currentRuleId) {
@@ -3888,6 +4059,617 @@
                     if (typeof $ !== 'undefined' && $(idsEl).hasClass('select2-hidden-accessible')) {
                         $(idsEl).trigger('change.select2');
                     }
+
+                    syncVoiceCronOtherJobsPerfHint();
+                }
+
+                function voiceCronDurationToMinutes(value, unit) {
+                    const amount = parseInt(value, 10) || 0;
+                    if (unit === 'days') {
+                        return amount * 24 * 60;
+                    }
+                    if (unit === 'hours') {
+                        return amount * 60;
+                    }
+                    return amount;
+                }
+
+                function formatVoiceCronConflictMessage(template) {
+                    const args = Array.prototype.slice.call(arguments, 1);
+                    let message = template;
+                    args.forEach(function (arg) {
+                        message = message.replace('%s', arg);
+                    });
+                    return message;
+                }
+
+                function getCronMultiValues(fieldName) {
+                    const el = form.querySelector('[name="' + fieldName + '"]');
+                    if (!el) {
+                        return [];
+                    }
+                    if (typeof $ !== 'undefined' && $(el).hasClass('select2-hidden-accessible')) {
+                        const value = $(el).val();
+                        if (Array.isArray(value)) {
+                            return value.filter(Boolean);
+                        }
+
+                        return value ? [value] : [];
+                    }
+
+                    return Array.from(el.selectedOptions || []).map(function (opt) {
+                        return opt.value;
+                    }).filter(Boolean);
+                }
+
+                function getCronOptionLabel(fieldName, value) {
+                    const el = form.querySelector('[name="' + fieldName + '"] option[value="' + value + '"]');
+                    return el ? el.textContent.trim() : value;
+                }
+
+                function refreshVoiceCronSelect2(select) {
+                    if (!select || typeof $ === 'undefined') {
+                        return;
+                    }
+                    if ($(select).hasClass('select2-hidden-accessible')) {
+                        $(select).trigger('change.select2');
+                    }
+                }
+
+                function applyVoiceCronMultiSelectMutualExclusion(includeName, excludeName) {
+                    const includeEl = form.querySelector('[name="' + includeName + '"]');
+                    const excludeEl = form.querySelector('[name="' + excludeName + '"]');
+                    const includeVals = getCronMultiValues(includeName);
+                    const excludeVals = getCronMultiValues(excludeName);
+
+                    function updateSelect(select, blockedValues) {
+                        if (!select) {
+                            return;
+                        }
+
+                        const blocked = new Set(blockedValues.map(String));
+                        const nextSelected = [];
+                        let changed = false;
+
+                        Array.from(select.options).forEach(function (opt) {
+                            if (opt.value === '') {
+                                return;
+                            }
+
+                            const shouldDisable = blocked.has(String(opt.value));
+                            opt.disabled = shouldDisable;
+
+                            if (opt.selected) {
+                                if (shouldDisable) {
+                                    opt.selected = false;
+                                    changed = true;
+                                } else {
+                                    nextSelected.push(opt.value);
+                                }
+                            }
+                        });
+
+                        if (changed && typeof $ !== 'undefined' && $(select).hasClass('select2-hidden-accessible')) {
+                            $(select).val(nextSelected.length ? nextSelected : null).trigger('change');
+                        } else {
+                            refreshVoiceCronSelect2(select);
+                        }
+                    }
+
+                    updateSelect(excludeEl, includeVals);
+                    updateSelect(includeEl, excludeVals);
+                }
+
+                function applyVoiceCronSingleSelectMutualExclusion(includeName, excludeName) {
+                    const includeEl = form.querySelector('[name="' + includeName + '"]');
+                    const excludeEl = form.querySelector('[name="' + excludeName + '"]');
+                    if (!includeEl || !excludeEl) {
+                        return;
+                    }
+
+                    const includeVal = includeEl.value || '';
+                    const excludeVal = excludeEl.value || '';
+
+                    Array.from(includeEl.options).forEach(function (opt) {
+                        if (opt.value === '') {
+                            opt.disabled = false;
+                            return;
+                        }
+                        opt.disabled = excludeVal !== '' && opt.value === excludeVal;
+                    });
+
+                    Array.from(excludeEl.options).forEach(function (opt) {
+                        if (opt.value === '') {
+                            opt.disabled = false;
+                            return;
+                        }
+                        opt.disabled = includeVal !== '' && opt.value === includeVal;
+                    });
+
+                    if (includeVal !== '' && includeVal === excludeVal) {
+                        excludeEl.value = '';
+                    }
+                }
+
+                function updateVoiceCronLeadStatusSubfilters() {
+                    const includeTypes = getCronMultiValues('lead_types[]');
+                    const excludeTypes = getCronMultiValues('exclude_lead_types[]');
+
+                    const includeCustomerWrap = document.getElementById('voice-cron-include-customer-status-wrap');
+                    const includeProviderWrap = document.getElementById('voice-cron-include-provider-status-wrap');
+                    const includeUnknownHint = document.getElementById('voice-cron-include-unknown-status-hint');
+                    const excludeCustomerWrap = document.getElementById('voice-cron-exclude-customer-status-wrap');
+                    const excludeProviderWrap = document.getElementById('voice-cron-exclude-provider-status-wrap');
+                    const excludeUnknownHint = document.getElementById('voice-cron-exclude-unknown-status-hint');
+
+                    if (includeCustomerWrap) {
+                        includeCustomerWrap.classList.toggle('d-none', includeTypes.indexOf('customer') === -1);
+                    }
+                    if (includeProviderWrap) {
+                        includeProviderWrap.classList.toggle('d-none', includeTypes.indexOf('provider') === -1);
+                    }
+                    if (includeUnknownHint) {
+                        includeUnknownHint.classList.toggle('d-none', includeTypes.indexOf('unknown') === -1);
+                    }
+
+                    // Status excludes apply to a lead type in the include audience — Customer in Include is enough.
+                    const showExcludeCustomerStatus = includeTypes.indexOf('customer') !== -1
+                        || excludeTypes.indexOf('customer') !== -1;
+                    const showExcludeProviderStatus = includeTypes.indexOf('provider') !== -1
+                        || excludeTypes.indexOf('provider') !== -1;
+                    const showExcludeUnknownHint = includeTypes.indexOf('unknown') !== -1
+                        || excludeTypes.indexOf('unknown') !== -1;
+
+                    if (excludeCustomerWrap) {
+                        excludeCustomerWrap.classList.toggle('d-none', !showExcludeCustomerStatus);
+                    }
+                    if (excludeProviderWrap) {
+                        excludeProviderWrap.classList.toggle('d-none', !showExcludeProviderStatus);
+                    }
+                    if (excludeUnknownHint) {
+                        excludeUnknownHint.classList.toggle('d-none', !showExcludeUnknownHint);
+                    }
+                }
+
+                function syncVoiceCronIncludeExcludeMutualExclusion() {
+                    applyVoiceCronMultiSelectMutualExclusion('lead_types[]', 'exclude_lead_types[]');
+                    applyVoiceCronMultiSelectMutualExclusion('customer_lead_status_ids[]', 'exclude_customer_lead_status_ids[]');
+                    applyVoiceCronMultiSelectMutualExclusion('provider_lead_status_ids[]', 'exclude_provider_lead_status_ids[]');
+                    applyVoiceCronMultiSelectMutualExclusion('wa_chat_tag_ids[]', 'exclude_wa_chat_tag_ids[]');
+                    applyVoiceCronMultiSelectMutualExclusion('wa_ai_flows[]', 'exclude_wa_ai_flows[]');
+                    applyVoiceCronMultiSelectMutualExclusion('handled_by_employee_ids[]', 'exclude_handled_by_employee_ids[]');
+                    updateVoiceCronLeadStatusSubfilters();
+
+                    applyVoiceCronSingleSelectMutualExclusion('lead_open', 'exclude_lead_open');
+                    applyVoiceCronSingleSelectMutualExclusion('wa_chat_bucket', 'exclude_wa_chat_bucket');
+
+                    const includeHandledByEl = form.querySelector('[name="handled_by"]');
+                    const excludeHandledByEl = form.querySelector('[name="exclude_handled_by"]');
+                    const includeHandledBy = includeHandledByEl?.value || '';
+                    const excludeHandledBy = excludeHandledByEl?.value || '';
+                    const includeEmployees = getCronMultiValues('handled_by_employee_ids[]');
+                    const excludeEmployees = getCronMultiValues('exclude_handled_by_employee_ids[]');
+
+                    ['ai', 'human'].forEach(function (value) {
+                        const includeOpt = includeHandledByEl?.querySelector('option[value="' + value + '"]');
+                        const excludeOpt = excludeHandledByEl?.querySelector('option[value="' + value + '"]');
+                        let disableInclude = false;
+                        let disableExclude = false;
+
+                        if (value === 'ai') {
+                            disableInclude = excludeHandledBy === 'ai';
+                            disableExclude = includeHandledBy === 'ai';
+                        } else if (value === 'human') {
+                            disableInclude = excludeHandledBy === 'human'
+                                && excludeEmployees.length === 0;
+                            disableExclude = includeHandledBy === 'human'
+                                && includeEmployees.length === 0;
+                        }
+
+                        if (includeOpt) {
+                            includeOpt.disabled = disableInclude;
+                            if (disableInclude && includeHandledByEl.value === value) {
+                                includeHandledByEl.value = '';
+                            }
+                        }
+                        if (excludeOpt) {
+                            excludeOpt.disabled = disableExclude;
+                            if (disableExclude && excludeHandledByEl.value === value) {
+                                excludeHandledByEl.value = '';
+                            }
+                        }
+                    });
+
+                    const includeHumanSupportEl = form.querySelector('[name="human_support"]');
+                    const excludeHumanSupportEl = form.querySelector('[name="exclude_human_support"]');
+                    const includeHumanSupport = includeHumanSupportEl?.value || '';
+                    const excludeHumanSupport = excludeHumanSupportEl?.value || '';
+                    const includeHumanOnlyOpt = includeHumanSupportEl?.querySelector('option[value="only"]');
+                    const excludeHumanSupportOpt = excludeHumanSupportEl?.querySelector('option[value="exclude"]');
+
+                    if (includeHumanOnlyOpt) {
+                        includeHumanOnlyOpt.disabled = excludeHumanSupport === 'exclude';
+                        if (excludeHumanSupport === 'exclude' && includeHumanSupport === 'only') {
+                            includeHumanSupportEl.value = '';
+                        }
+                    }
+                    if (excludeHumanSupportOpt) {
+                        excludeHumanSupportOpt.disabled = includeHumanSupport === 'only';
+                        if (includeHumanSupport === 'only' && excludeHumanSupport === 'exclude') {
+                            excludeHumanSupportEl.value = '';
+                        }
+                    }
+
+                    if (includeHandledBy === 'human' && includeEmployees.length > 0
+                        && excludeHandledBy === 'human' && excludeEmployees.length === 0) {
+                        excludeHandledByEl.value = '';
+                    }
+
+                    syncHandledByEmployeeSelect(includeHandledByEl);
+                    syncHandledByEmployeeSelect(excludeHandledByEl);
+                }
+
+                function detectVoiceCronMatchConflicts() {
+                    const errors = [];
+                    const includeTypes = getCronMultiValues('lead_types[]');
+                    const excludeTypes = getCronMultiValues('exclude_lead_types[]');
+                    includeTypes.forEach(function (type) {
+                        if (excludeTypes.indexOf(type) !== -1) {
+                            errors.push(formatVoiceCronConflictMessage(
+                                strVoiceCronConflictLeadType,
+                                getCronOptionLabel('lead_types[]', type)
+                            ));
+                        }
+                    });
+
+                    const includeLeadOpen = form.querySelector('[name="lead_open"]')?.value || '';
+                    const excludeLeadOpen = form.querySelector('[name="exclude_lead_open"]')?.value || '';
+                    if (includeLeadOpen !== '' && includeLeadOpen === excludeLeadOpen) {
+                        errors.push(formatVoiceCronConflictMessage(
+                            strVoiceCronConflictLeadOpen,
+                            includeLeadOpen === 'open' ? strOpen : strClosed
+                        ));
+                    }
+
+                    const includeWaBucket = form.querySelector('[name="wa_chat_bucket"]')?.value || '';
+                    const excludeWaBucket = form.querySelector('[name="exclude_wa_chat_bucket"]')?.value || '';
+                    if (includeWaBucket !== '' && includeWaBucket === excludeWaBucket) {
+                        errors.push(formatVoiceCronConflictMessage(
+                            strVoiceCronConflictWaBucket,
+                            includeWaBucket === 'open' ? strWaBucketOpen : strWaBucketClosed
+                        ));
+                    }
+
+                    const includeHandledBy = form.querySelector('[name="handled_by"]')?.value || '';
+                    const excludeHandledBy = form.querySelector('[name="exclude_handled_by"]')?.value || '';
+                    if (includeHandledBy !== '' && includeHandledBy === excludeHandledBy) {
+                        if (includeHandledBy === 'ai') {
+                            errors.push(strVoiceCronConflictHandledByAi);
+                        } else if (includeHandledBy === 'human') {
+                            const includeEmployees = getCronMultiValues('handled_by_employee_ids[]');
+                            const excludeEmployees = getCronMultiValues('exclude_handled_by_employee_ids[]');
+                            if (includeEmployees.length === 0 && excludeEmployees.length === 0) {
+                                errors.push(strVoiceCronConflictHandledByHumanAll);
+                            } else if (excludeEmployees.length === 0) {
+                                errors.push(strVoiceCronConflictHandledByHumanExcludeAll);
+                            } else {
+                                includeEmployees.forEach(function (employeeId) {
+                                    if (excludeEmployees.indexOf(employeeId) !== -1) {
+                                        errors.push(formatVoiceCronConflictMessage(
+                                            strVoiceCronConflictHandledByEmployee,
+                                            getCronOptionLabel('handled_by_employee_ids[]', employeeId)
+                                        ));
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    if ((form.querySelector('[name="human_support"]')?.value || '') === 'only'
+                        && (form.querySelector('[name="exclude_human_support"]')?.value || '') === 'exclude') {
+                        errors.push(strVoiceCronConflictHumanSupport);
+                    }
+
+                    function tagConflicts(includeName, excludeName, fieldLabel) {
+                        const includeIds = getCronMultiValues(includeName);
+                        const excludeIds = getCronMultiValues(excludeName);
+                        includeIds.forEach(function (tagId) {
+                            if (excludeIds.indexOf(tagId) !== -1) {
+                                errors.push(formatVoiceCronConflictMessage(
+                                    strVoiceCronConflictTag,
+                                    fieldLabel,
+                                    tagId
+                                ));
+                            }
+                        });
+                    }
+
+                    tagConflicts('wa_chat_tag_ids[]', 'exclude_wa_chat_tag_ids[]', strVoiceCronConflictWaTagsLabel);
+                    tagConflicts(
+                        'customer_lead_status_ids[]',
+                        'exclude_customer_lead_status_ids[]',
+                        strVoiceCronConflictCustomerLeadStatus
+                    );
+                    tagConflicts(
+                        'provider_lead_status_ids[]',
+                        'exclude_provider_lead_status_ids[]',
+                        strVoiceCronConflictProviderLeadStatus
+                    );
+                    const includeFlows = getCronMultiValues('wa_ai_flows[]');
+                    const excludeFlows = getCronMultiValues('exclude_wa_ai_flows[]');
+                    includeFlows.forEach(function (flow) {
+                        if (excludeFlows.indexOf(flow) !== -1) {
+                            errors.push(formatVoiceCronConflictMessage(
+                                strVoiceCronConflictWaAiFlow,
+                                getCronOptionLabel('wa_ai_flows[]', flow)
+                            ));
+                        }
+                    });
+
+                    return errors;
+                }
+
+                function updateVoiceCronMatchConflicts() {
+                    syncVoiceCronIncludeExcludeMutualExclusion();
+
+                    const wrap = document.getElementById('voice-cron-match-conflicts');
+                    const list = document.getElementById('voice-cron-match-conflicts-list');
+                    const saveBtn = document.getElementById('voice-cron-save-btn');
+                    const errors = detectVoiceCronMatchConflicts();
+                    const hasErrors = errors.length > 0;
+
+                    if (wrap && list) {
+                        wrap.classList.toggle('d-none', !hasErrors);
+                        list.innerHTML = errors.map(function (msg) {
+                            return '<li>' + escapeHtml(msg) + '</li>';
+                        }).join('');
+                    }
+
+                    if (saveBtn) {
+                        saveBtn.disabled = !validateVoiceCronInterval(true) || hasErrors;
+                    }
+
+                    return !hasErrors;
+                }
+
+                function validateVoiceCronInterval(skipSaveToggle) {
+                    const valueEl = form.querySelector('#voice-cron-interval-value');
+                    const unitEl = form.querySelector('#voice-cron-interval-unit');
+                    const errEl = document.getElementById('voice-cron-interval-error');
+                    const saveBtn = document.getElementById('voice-cron-save-btn');
+                    if (!valueEl || !unitEl || !errEl) {
+                        return true;
+                    }
+
+                    const minutes = voiceCronDurationToMinutes(valueEl.value, unitEl.value);
+                    const ok = minutes >= 15 && minutes <= 10080;
+                    errEl.classList.toggle('d-none', ok);
+                    if (!ok) {
+                        errEl.textContent = strVoiceCronIntervalError;
+                    }
+                    if (saveBtn && !skipSaveToggle) {
+                        saveBtn.disabled = !ok || detectVoiceCronMatchConflicts().length > 0;
+                    }
+
+                    return ok;
+                }
+
+                function updateVoiceCronFormSummary() {
+                    const summaryEl = document.getElementById('voice-cron-form-summary');
+                    if (!summaryEl) {
+                        return;
+                    }
+
+                    const intervalValue = form.querySelector('[name="interval_value"]')?.value || '1';
+                    const intervalUnit = form.querySelector('[name="interval_unit"]')?.value || 'hours';
+                    const maxContacts = form.querySelector('[name="max_contacts_per_run"]')?.value || '50';
+                    const silentValue = form.querySelector('[name="silent_min_value"]')?.value || '1';
+                    const silentUnit = form.querySelector('[name="silent_min_unit"]')?.value || 'hours';
+                    const dispatchMode = form.querySelector('[name="dispatch_mode"]')?.value || 'approval';
+                    const excludeCalled = form.querySelector('[name="exclude_called_within_hours"]')?.value || '24';
+                    const isEnabled = form.querySelector('#voice-cron-is-enabled')?.checked;
+
+                    const parts = [
+                        strVoiceCronSummaryEvery.replace(':interval', intervalValue + ' ' + intervalUnit),
+                        strVoiceCronSummaryMax.replace(':max', maxContacts),
+                        strVoiceCronSummarySilent.replace(':duration', silentValue + ' ' + silentUnit),
+                        dispatchMode === 'auto' ? strVoiceCronDispatchAuto : strVoiceCronDispatchApproval,
+                    ];
+
+                    if (String(excludeCalled) !== '0') {
+                        parts.push(strVoiceCronSummaryExcludeCalled.replace(':hours', excludeCalled));
+                    }
+                    if (!isEnabled) {
+                        parts.push(strVoiceCronSummaryStopped);
+                    }
+
+                    summaryEl.textContent = parts.join(' · ');
+                }
+
+                function syncVoiceCronDispatchWarning() {
+                    const warningEl = document.getElementById('voice-cron-dispatch-auto-warning');
+                    const mode = form.querySelector('#voice-cron-dispatch-mode')?.value || 'approval';
+                    if (warningEl) {
+                        warningEl.classList.toggle('d-none', mode !== 'auto');
+                    }
+                }
+
+                function syncVoiceCronOtherJobsPerfHint() {
+                    const hintEl = document.getElementById('voice-cron-other-jobs-perf-hint');
+                    const mode = form.querySelector('#voice-cron-other-job-mode')?.value || '';
+                    if (hintEl) {
+                        hintEl.classList.toggle('d-none', mode !== 'exclude_all_active');
+                    }
+                }
+
+                function syncVoiceCronRetryWrap() {
+                    const wrap = document.getElementById('voice-cron-retry-wrap');
+                    const checked = document.getElementById('voice-cron-auto-retry')?.checked;
+                    if (wrap) {
+                        wrap.classList.toggle('d-none', !checked);
+                    }
+                }
+
+                function clearVoiceCronPreview() {
+                    document.getElementById('voice-cron-preview-wrap')?.classList.add('d-none');
+                    const content = document.getElementById('voice-cron-preview-content');
+                    if (content) {
+                        content.innerHTML = '';
+                    }
+                }
+
+                let voiceCronPreviewLoading = false;
+
+                function loadVoiceCronPreview() {
+                    if (!form || voiceCronPreviewLoading) {
+                        return;
+                    }
+
+                    const wrap = document.getElementById('voice-cron-preview-wrap');
+                    const content = document.getElementById('voice-cron-preview-content');
+                    if (!wrap || !content) {
+                        return;
+                    }
+
+                    voiceCronPreviewLoading = true;
+                    wrap.classList.remove('d-none');
+                    content.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>{{ translate('Loading') }}…';
+
+                    const formData = new FormData(form);
+                    formData.append('exclude_rule_id', form.dataset.editingRuleId || '');
+                    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                    fetch(voiceCronPreviewUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': token,
+                        },
+                        body: formData,
+                        credentials: 'same-origin',
+                    })
+                        .then(function (response) {
+                            return response.json().then(function (data) {
+                                return { ok: response.ok, data: data };
+                            });
+                        })
+                        .then(function (result) {
+                            if (!result.ok || !result.data.ok) {
+                                const conflicts = Array.isArray(result.data?.conflicts) ? result.data.conflicts : [];
+                                if (conflicts.length > 0) {
+                                    updateVoiceCronMatchConflicts();
+                                    document.getElementById('voice-cron-tab-audience-btn')?.click();
+                                }
+                                const message = result.data?.message || strVoiceCronPreviewFailed;
+                                let html = '<div class="text-danger mb-0">' + escapeHtml(message) + '</div>';
+                                if (conflicts.length > 0) {
+                                    html += '<ul class="mb-0 mt-2 ps-3">' + conflicts.map(function (msg) {
+                                        return '<li>' + escapeHtml(msg) + '</li>';
+                                    }).join('') + '</ul>';
+                                }
+                                content.innerHTML = html;
+                                return;
+                            }
+
+                            const total = parseInt(result.data.total, 10) || 0;
+                            const totalLabel = total === 1
+                                ? strVoiceCronPreviewTotalOne.replace(':count', '1')
+                                : strVoiceCronPreviewTotalMany.replace(':count', String(total));
+                            const preview = Array.isArray(result.data.preview) ? result.data.preview : [];
+                            const summary = result.data.summary || {};
+
+                            function renderSummaryList(lines, emptyText) {
+                                const items = Array.isArray(lines) ? lines.filter(Boolean) : [];
+                                if (items.length === 0) {
+                                    return '<p class="text-muted small mb-0">' + escapeHtml(emptyText) + '</p>';
+                                }
+
+                                return '<ul>' + items.map(function (line) {
+                                    return '<li>' + escapeHtml(line) + '</li>';
+                                }).join('') + '</ul>';
+                            }
+
+                            let html = '<div class="voice-cron-preview-total">' + escapeHtml(totalLabel) + '</div>';
+
+                            html += '<div class="voice-cron-preview-summary">';
+                            html += '<div class="voice-cron-preview-summary-col voice-cron-preview-summary-col--include">'
+                                + '<h6 class="text-success mb-2">' + escapeHtml(strVoiceCronPreviewWillInclude) + '</h6>'
+                                + renderSummaryList(summary.include, strVoiceCronPreviewNoExtraInclude)
+                                + '</div>';
+                            html += '<div class="voice-cron-preview-summary-col voice-cron-preview-summary-col--exclude">'
+                                + '<h6 class="text-danger mb-2">' + escapeHtml(strVoiceCronPreviewWillExclude) + '</h6>'
+                                + renderSummaryList(summary.exclude, strVoiceCronPreviewNoExtraExclude)
+                                + '</div>';
+                            html += '<div class="voice-cron-preview-summary-col voice-cron-preview-summary-col--global voice-cron-preview-summary__global">'
+                                + '<h6 class="mb-2">' + escapeHtml(strVoiceCronPreviewGlobalRules) + '</h6>'
+                                + renderSummaryList(summary.global, strVoiceCronPreviewNoGlobalRules)
+                                + '</div>';
+                            html += '</div>';
+
+                            if (preview.length > 0) {
+                                html += '<h6 class="mb-2 mt-1">' + escapeHtml(strVoiceCronPreviewMatchedContacts) + '</h6>';
+                                preview.forEach(function (candidate) {
+                                    const name = candidate.display_name || candidate.phone || '—';
+                                    const phone = candidate.phone || '';
+                                    const leadUrl = candidate.lead_url || '';
+                                    const statusLabel = candidate.lead_status_label || '';
+                                    const statusBadge = candidate.lead_status_badge || 'bg-secondary';
+
+                                    html += '<div class="voice-cron-preview-candidate">';
+                                    if (leadUrl) {
+                                        html += '<a href="' + escapeHtml(leadUrl) + '" class="voice-cron-preview-candidate__name text-decoration-none" target="_blank" rel="noopener">'
+                                            + escapeHtml(name) + '</a>';
+                                    } else {
+                                        html += '<div class="voice-cron-preview-candidate__name">' + escapeHtml(name) + '</div>';
+                                    }
+                                    if (phone) {
+                                        html += '<div class="voice-cron-preview-candidate__phone">' + escapeHtml(phone) + '</div>';
+                                    }
+                                    html += '<div class="voice-cron-preview-candidate__meta">';
+                                    if (candidate.lead_type_label) {
+                                        html += '<span class="badge bg-light text-dark border">'
+                                            + escapeHtml(candidate.lead_type_label) + '</span>';
+                                    }
+                                    if (statusLabel) {
+                                        html += '<span class="badge rounded-pill ' + escapeHtml(statusBadge) + '">'
+                                            + escapeHtml(statusLabel) + '</span>';
+                                    }
+                                    if (candidate.silent_duration_label) {
+                                        html += '<span class="badge bg-secondary-subtle text-secondary border" title="'
+                                            + escapeHtml((candidate.silent_since_label || '')) + '">'
+                                            + escapeHtml(strVoiceCronPreviewSilentFor) + ' '
+                                            + escapeHtml(candidate.silent_duration_label) + '</span>';
+                                    }
+                                    if (candidate.handled_by_label) {
+                                        html += '<span class="badge bg-light text-dark border">'
+                                            + escapeHtml(candidate.handled_by_label) + '</span>';
+                                    }
+                                    const waAiFlowLabels = Array.isArray(candidate.wa_ai_flow_labels)
+                                        ? candidate.wa_ai_flow_labels
+                                        : [];
+                                    waAiFlowLabels.forEach(function (flowLabel) {
+                                        html += '<span class="badge bg-info-subtle text-info border">'
+                                            + escapeHtml(flowLabel) + '</span>';
+                                    });
+                                    html += '</div></div>';
+                                });
+                                if (total > preview.length) {
+                                    html += '<p class="text-muted small mt-2 mb-0">' + escapeHtml(strVoiceCronPreviewMore) + '</p>';
+                                }
+                            } else {
+                                html += '<p class="text-muted mb-0">' + escapeHtml(strVoiceCronPreviewEmpty) + '</p>';
+                            }
+
+                            content.innerHTML = html;
+                            document.getElementById('voice-cron-tab-audience-btn')?.click();
+                        })
+                        .catch(function () {
+                            content.innerHTML = '<div class="text-danger mb-0">' + escapeHtml(strVoiceCronPreviewFailed) + '</div>';
+                        })
+                        .finally(function () {
+                            voiceCronPreviewLoading = false;
+                        });
                 }
 
                 function resetVoiceCronForm() {
@@ -3905,14 +4687,40 @@
                     setField('silent_min_unit', 'hours');
                     setMultiSelect('other_cron_job_ids[]', []);
                     setMultiSelect('handled_by_employee_ids[]', []);
+                    setMultiSelect('exclude_handled_by_employee_ids[]', []);
+                    setField('exclude_human_support', '');
+                    setField('silent_max_hours', '');
+                    setField('enabled_reschedule_call', false);
+                    setField('auto_retry', false);
+                    setField('auto_retry_schedule', 'next_day');
+                    setField('retry_limit', '2');
+                    clearVoiceCronPreview();
                     syncOtherCronJobSelect(null);
-                    syncHandledByEmployeeSelect(document.getElementById('voice-cron-handled-by'));
-                    initSelect2In(modalEl);
+                    syncHandledByEmployeeSelect(document.getElementById('voice-cron-include-handled-by'));
+                    syncHandledByEmployeeSelect(document.getElementById('voice-cron-exclude-handled-by'));
+                    syncVoiceCronDispatchWarning();
+                    syncVoiceCronRetryWrap();
+                    validateVoiceCronInterval();
+                    updateVoiceCronMatchConflicts();
+                    updateVoiceCronFormSummary();
+                    updateVoiceCronLeadStatusSubfilters();
+                    document.getElementById('voice-cron-tab-setup-btn')?.click();
+                    refreshVoiceCronModalSelect2();
                 }
 
+                modalEl?.addEventListener('shown.bs.modal', function () {
+                    refreshVoiceCronModalSelect2();
+                });
+                document.getElementById('voiceCronFormTabs')?.addEventListener('shown.bs.tab', function () {
+                    refreshVoiceCronModalSelect2();
+                });
+
                 document.getElementById('voice-cron-job-add')?.addEventListener('click', resetVoiceCronForm);
-                document.getElementById('voice-cron-handled-by')?.addEventListener('change', function () {
-                    syncHandledByEmployeeSelect(this);
+                document.getElementById('voice-cron-include-handled-by')?.addEventListener('change', function () {
+                    updateVoiceCronMatchConflicts();
+                });
+                document.getElementById('voice-cron-exclude-handled-by')?.addEventListener('change', function () {
+                    updateVoiceCronMatchConflicts();
                 });
                 document.getElementById('voice-cron-other-job-mode')?.addEventListener('change', function () {
                     syncOtherCronJobSelect(form.dataset.editingRuleId || null);
@@ -3941,7 +4749,6 @@
                         if (titleEl) titleEl.textContent = editTitle;
 
                         setField('name', rule.name);
-                        setField('campaign_name', rule.campaign_name);
                         const filters = rule.filters || {};
                         if (filters.interval_unit && filters.interval_value != null) {
                             setField('interval_value', filters.interval_value);
@@ -3966,22 +4773,121 @@
                         setField('wa_chat_bucket', filters.wa_chat_bucket ?? '');
                         setField('handled_by', filters.handled_by ?? '');
                         setMultiSelect('handled_by_employee_ids[]', filters.handled_by_employee_ids || []);
-                        syncHandledByEmployeeSelect(document.getElementById('voice-cron-handled-by'));
-                        setField('human_support', filters.human_support ?? 'exclude');
+                        setField('human_support', filters.human_support === 'only' ? 'only' : '');
+                        setField('exclude_lead_open', filters.exclude_lead_open ?? '');
+                        setField('exclude_wa_chat_bucket', filters.exclude_wa_chat_bucket ?? '');
+                        setField('exclude_handled_by', filters.exclude_handled_by ?? '');
+                        setMultiSelect('exclude_handled_by_employee_ids[]', filters.exclude_handled_by_employee_ids || []);
+                        const excludeHumanSupport = filters.exclude_human_support === 'exclude'
+                            || filters.human_support === 'exclude'
+                            ? 'exclude'
+                            : '';
+                        setField('exclude_human_support', excludeHumanSupport);
                         setField('exclude_called_within_hours', filters.exclude_called_within_hours ?? 24);
+                        setField('silent_max_hours', filters.silent_max_hours ?? '');
                         setField('other_cron_job_mode', filters.other_cron_job_mode ?? '');
+                        setField('enabled_reschedule_call', rule.enabled_reschedule_call);
+                        setField('auto_retry', rule.auto_retry);
+                        setField('auto_retry_schedule', rule.auto_retry_schedule || 'next_day');
+                        setField('retry_limit', rule.retry_limit || 2);
                         setMultiSelect('lead_types[]', filters.lead_types || []);
+                        setMultiSelect('customer_lead_status_ids[]', filters.customer_lead_status_ids || []);
+                        setMultiSelect('provider_lead_status_ids[]', filters.provider_lead_status_ids || []);
                         setMultiSelect('wa_chat_tag_ids[]', filters.wa_chat_tag_ids || []);
-                        setMultiSelect('customer_lead_tag_ids[]', filters.customer_lead_tag_ids || []);
+                        setMultiSelect('wa_ai_flows[]', filters.wa_ai_flows || []);
+                        setMultiSelect('exclude_lead_types[]', filters.exclude_lead_types || []);
+                        setMultiSelect('exclude_customer_lead_status_ids[]', filters.exclude_customer_lead_status_ids || []);
+                        setMultiSelect('exclude_provider_lead_status_ids[]', filters.exclude_provider_lead_status_ids || []);
+                        setMultiSelect('exclude_wa_chat_tag_ids[]', filters.exclude_wa_chat_tag_ids || []);
+                        setMultiSelect('exclude_wa_ai_flows[]', filters.exclude_wa_ai_flows || []);
                         setMultiSelect('other_cron_job_ids[]', filters.other_cron_job_ids || []);
+                        syncHandledByEmployeeSelect(document.getElementById('voice-cron-include-handled-by'));
+                        syncHandledByEmployeeSelect(document.getElementById('voice-cron-exclude-handled-by'));
                         syncOtherCronJobSelect(rule.id || null);
+                        syncVoiceCronDispatchWarning();
+                        syncVoiceCronRetryWrap();
+                        clearVoiceCronPreview();
+                        validateVoiceCronInterval();
+                        updateVoiceCronMatchConflicts();
+                        updateVoiceCronFormSummary();
+                        document.getElementById('voice-cron-tab-setup-btn')?.click();
 
-                        initSelect2In(modalEl);
                         if (modalEl && typeof bootstrap !== 'undefined') {
                             bootstrap.Modal.getOrCreateInstance(modalEl).show();
                         }
                     });
                 });
+
+                if (typeof $ !== 'undefined' && $.fn.select2) {
+                    $(form).on('change', '.js-select', function () {
+                        if (!this.name || this.closest('#voice-cron-tab-audience') === null) {
+                            return;
+                        }
+                        updateVoiceCronMatchConflicts();
+                        clearVoiceCronPreview();
+                    });
+                }
+
+                [
+                    'interval_value', 'interval_unit', 'max_contacts_per_run', 'silent_min_value', 'silent_min_unit',
+                    'exclude_called_within_hours', 'dispatch_mode', 'other_cron_job_mode',
+                ].forEach(function (fieldName) {
+                    form.querySelector('[name="' + fieldName + '"]')?.addEventListener('change', function () {
+                        validateVoiceCronInterval();
+                        updateVoiceCronFormSummary();
+                        syncVoiceCronDispatchWarning();
+                        syncVoiceCronOtherJobsPerfHint();
+                        updateVoiceCronMatchConflicts();
+                        clearVoiceCronPreview();
+                    });
+                });
+
+                [
+                    'lead_types[]', 'exclude_lead_types[]',
+                    'customer_lead_status_ids[]', 'exclude_customer_lead_status_ids[]',
+                    'provider_lead_status_ids[]', 'exclude_provider_lead_status_ids[]',
+                    'lead_open', 'exclude_lead_open',
+                    'wa_chat_bucket', 'exclude_wa_chat_bucket', 'wa_chat_tag_ids[]', 'exclude_wa_chat_tag_ids[]',
+                    'wa_ai_flows[]', 'exclude_wa_ai_flows[]',
+                    'handled_by', 'exclude_handled_by', 'handled_by_employee_ids[]', 'exclude_handled_by_employee_ids[]',
+                    'human_support', 'exclude_human_support',
+                ].forEach(function (fieldName) {
+                    form.querySelector('[name="' + fieldName + '"]')?.addEventListener('change', function () {
+                        updateVoiceCronMatchConflicts();
+                        clearVoiceCronPreview();
+                    });
+                });
+
+                form.querySelector('#voice-cron-is-enabled')?.addEventListener('change', updateVoiceCronFormSummary);
+                form.querySelector('#voice-cron-interval-value')?.addEventListener('input', function () {
+                    validateVoiceCronInterval();
+                    updateVoiceCronFormSummary();
+                });
+                form.querySelector('#voice-cron-dispatch-mode')?.addEventListener('change', syncVoiceCronDispatchWarning);
+                form.querySelector('#voice-cron-auto-retry')?.addEventListener('change', syncVoiceCronRetryWrap);
+                document.getElementById('voice-cron-preview-btn')?.addEventListener('click', loadVoiceCronPreview);
+                document.getElementById('voice-cron-preview-btn-footer')?.addEventListener('click', loadVoiceCronPreview);
+
+                form.addEventListener('submit', function (e) {
+                    const intervalOk = validateVoiceCronInterval();
+                    const matchOk = updateVoiceCronMatchConflicts();
+                    if (!intervalOk) {
+                        e.preventDefault();
+                        document.getElementById('voice-cron-tab-setup-btn')?.click();
+                        return;
+                    }
+                    if (!matchOk) {
+                        e.preventDefault();
+                        document.getElementById('voice-cron-tab-audience-btn')?.click();
+                    }
+                });
+
+                validateVoiceCronInterval();
+                updateVoiceCronMatchConflicts();
+                updateVoiceCronFormSummary();
+                updateVoiceCronLeadStatusSubfilters();
+                syncVoiceCronDispatchWarning();
+                syncVoiceCronRetryWrap();
 
                 document.querySelectorAll('.voice-cron-filter-runs').forEach(function (btn) {
                     btn.addEventListener('click', function () {
@@ -4539,10 +5445,26 @@
             bindBulkCampaignCancelConfirm();
             bindWaFollowupPanelEvents();
             bindVoiceCronEvents();
+            const voiceCronDispatchRejectBtn = document.getElementById('voice-cron-dispatch-reject');
+            if (voiceCronDispatchRejectBtn && voiceCronDispatchRejectBtn.dataset.rejectModalBound !== '1') {
+                voiceCronDispatchRejectBtn.dataset.rejectModalBound = '1';
+                voiceCronDispatchRejectBtn.addEventListener('click', function () {
+                    submitVoiceCronRejectRun(voiceCronDispatchRejectBtn.getAttribute('data-run-id'));
+                });
+            }
             initSelect2In(bulkPanel);
             bindBulkAudienceSelect2Handlers();
             bindBulkScheduleHandlers();
-            initSelect2In(voiceCronPanel);
+            if (typeof $ !== 'undefined') {
+                $(function () {
+                    setTimeout(function () {
+                        const voiceCronModal = document.getElementById('voiceCronJobModal');
+                        if (voiceCronModal) {
+                            refreshSelect2In(voiceCronModal);
+                        }
+                    }, 0);
+                });
+            }
             initVoiceFieldTooltips(document);
 
             const initialUrl = new URL(window.location.href);

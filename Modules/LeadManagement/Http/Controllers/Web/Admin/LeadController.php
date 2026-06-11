@@ -38,6 +38,7 @@ use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppBooking;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
+use Modules\WhatsAppModule\Services\LeadWhatsAppAssignmentSyncService;
 
 class LeadController extends Controller
 {
@@ -925,6 +926,8 @@ class LeadController extends Controller
             ],
         ]);
 
+        app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+
         toastr()->success(translate('Lead created successfully'));
 
         return redirect()->route('admin.lead.index');
@@ -979,6 +982,8 @@ class LeadController extends Controller
                 'changes' => $changes,
             ]);
         }
+
+        app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         toastr()->success(translate('Lead_updated_successfully'));
 
@@ -1184,6 +1189,8 @@ class LeadController extends Controller
                         'created_by' => Auth::id(),
                     ]);
                 }
+                app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+
                 toastr()->success(translate('Customer_lead_information_updated_successfully'));
                 $url = route('admin.lead.show', $lead->id);
                 if ($request->boolean('in_modal')) {
@@ -1251,6 +1258,8 @@ class LeadController extends Controller
                         'created_by' => Auth::id(),
                     ]);
                 }
+                app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+
                 toastr()->success(translate('Provider_lead_information_updated_successfully'));
                 $url = route('admin.lead.show', $lead->id);
                 if ($request->boolean('in_modal')) {
@@ -1282,6 +1291,8 @@ class LeadController extends Controller
                 ],
             ],
         ]);
+
+        app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
 
         toastr()->success(translate('Lead_type_updated_successfully'));
 
@@ -1579,6 +1590,8 @@ class LeadController extends Controller
 
         $statusName = $statusModel?->name ?? '—';
         $statusColor = $statusModel && !empty($statusModel->color) ? $statusModel->color : '#0d6efd';
+        app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+
         return response()->json(['success' => true, 'status_name' => $statusName, 'status_color' => $statusColor]);
     }
 
@@ -1635,6 +1648,8 @@ class LeadController extends Controller
 
         $statusName = $statusModel?->name ?? '—';
         $statusColor = $statusModel && !empty($statusModel->color) ? $statusModel->color : '#0d6efd';
+        app(LeadWhatsAppAssignmentSyncService::class)->onLeadSaved($lead->fresh());
+
         return response()->json(['success' => true, 'status_name' => $statusName, 'status_color' => $statusColor]);
     }
 

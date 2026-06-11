@@ -30,6 +30,7 @@ use Modules\WhatsAppModule\Entities\WhatsAppConversation;
 use Modules\WhatsAppModule\Entities\WhatsAppMessage;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
 use Carbon\Carbon;
+use Modules\WhatsAppModule\Services\LeadWhatsAppAssignmentSyncService;
 use Modules\WhatsAppModule\Services\MetaSocialOutboundService;
 use Modules\WhatsAppModule\Services\WhatsAppCloudService;
 use Modules\WhatsAppModule\Support\SocialInboxChannel;
@@ -586,13 +587,11 @@ class WhatsAppController extends Controller
         }
 
         if ($request->user()?->can('whatsapp_chat_assign')) {
-            $waUser = WhatsAppUser::firstOrNew(['phone' => $threadPhone]);
-            $waUser->handled_by = $request->user() ? (string) $request->user()->id : 'AI';
-            $waUser->human_support_requested_at = null;
-            $waUser->save();
-
-            WhatsAppActiveChatsListCache::forgetAll();
-            WhatsAppActiveChatsListCache::forgetChatFull($threadPhone);
+            $this->persistChatHandler(
+                $threadPhone,
+                $request->user() ? (string) $request->user()->id : Lead::HANDLED_BY_AI,
+                syncOpenLead: true
+            );
         }
 
         return response()->json([
@@ -771,13 +770,7 @@ class WhatsAppController extends Controller
             }
 
             if ($request->user()) {
-                $waUser = WhatsAppUser::firstOrNew([
-                    'phone' => $threadPhone,
-                    'channel' => $inboxChannel,
-                ]);
-                $waUser->handled_by = (string) $request->user()->id;
-                $waUser->human_support_requested_at = null;
-                $waUser->save();
+                $this->persistChatHandler($threadPhone, (string) $request->user()->id, syncOpenLead: true);
             }
 
             WhatsAppActiveChatsListCache::forgetAll();
@@ -916,6 +909,27 @@ class WhatsAppController extends Controller
         $message->status_detail = mb_substr($detail, 0, 6000);
         $message->status_updated_at = now();
         $message->save();
+    }
+
+    private function persistChatHandler(string $threadPhone, string $handledBy, bool $syncOpenLead = false): void
+    {
+        $waUser = WhatsAppUser::firstOrNew([
+            'phone' => $threadPhone,
+            'channel' => SocialInboxChannel::current(),
+        ]);
+        if (empty($waUser->channel)) {
+            $waUser->channel = SocialInboxChannel::current();
+        }
+        $waUser->handled_by = $handledBy;
+        $waUser->human_support_requested_at = null;
+        $waUser->save();
+
+        if ($syncOpenLead) {
+            app(LeadWhatsAppAssignmentSyncService::class)->onChatHandlerAssigned($threadPhone, $handledBy);
+        }
+
+        WhatsAppActiveChatsListCache::forgetAll();
+        WhatsAppActiveChatsListCache::forgetChatFull($threadPhone);
     }
 
     /**
@@ -1276,10 +1290,7 @@ class WhatsAppController extends Controller
             $message->save();
 
             if ($request->user()) {
-                $waUser = WhatsAppUser::firstOrNew(['phone' => $threadPhone]);
-                $waUser->handled_by = (string) $request->user()->id;
-                $waUser->human_support_requested_at = null;
-                $waUser->save();
+                $this->persistChatHandler($threadPhone, (string) $request->user()->id, syncOpenLead: true);
             }
 
             WhatsAppActiveChatsListCache::forgetAll();
@@ -2025,13 +2036,17 @@ class WhatsAppController extends Controller
         ]);
 
         if ($data['mode'] === 'ai') {
-            $waUser->handled_by = 'AI';
+            $waUser->handled_by = Lead::HANDLED_BY_AI;
         } else {
             $admin = $request->user();
-            $waUser->handled_by = $admin ? (string) $admin->id : 'AI';
+            $waUser->handled_by = $admin ? (string) $admin->id : Lead::HANDLED_BY_AI;
         }
         $waUser->human_support_requested_at = null;
         $waUser->save();
+
+        if ($data['mode'] === 'take') {
+            app(LeadWhatsAppAssignmentSyncService::class)->onChatHandlerAssigned($threadPhone, $waUser->handled_by);
+        }
 
         WhatsAppActiveChatsListCache::forgetAll();
         foreach (array_unique(array_filter([$threadPhone, $rawPhone, $graphTo])) as $p) {

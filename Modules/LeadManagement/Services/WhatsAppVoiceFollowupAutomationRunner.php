@@ -2,15 +2,19 @@
 
 namespace Modules\LeadManagement\Services;
 
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupAutomationRule;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupAutomationRun;
+use Modules\WhatsAppModule\Services\WhatsAppLeadLifecycleService;
 
 class WhatsAppVoiceFollowupAutomationRunner
 {
     public function __construct(
         private readonly WhatsAppFollowupCandidateQueryService $candidateQuery,
-        private readonly WhatsAppVoiceFollowupDispatchService $dispatchService
+        private readonly WhatsAppVoiceFollowupDispatchService $dispatchService,
+        private readonly WhatsAppLeadLifecycleService $leadLifecycle
     ) {}
 
     /**
@@ -199,10 +203,24 @@ class WhatsAppVoiceFollowupAutomationRunner
      */
     public function approveRun(WhatsAppVoiceFollowupAutomationRun $run, ?string $approvedBy = null, ?array $includedPhones = null): array
     {
-        $run->loadMissing('rule');
-        $rule = $run->rule;
+        $locked = DB::transaction(function () use ($run): ?WhatsAppVoiceFollowupAutomationRun {
+            $lockedRun = WhatsAppVoiceFollowupAutomationRun::query()
+                ->whereKey($run->id)
+                ->lockForUpdate()
+                ->first();
 
-        if (!$run->isPendingApproval()) {
+            if ($lockedRun === null || !$lockedRun->isPendingApproval()) {
+                return null;
+            }
+
+            $lockedRun->update(['status' => WhatsAppVoiceFollowupAutomationRun::STATUS_DISPATCHING]);
+
+            return $lockedRun->fresh(['rule']);
+        });
+
+        if ($locked === null) {
+            $run->refresh();
+
             return [
                 'status' => $run->status,
                 'dispatched_count' => (int) $run->contacts_dispatched,
@@ -212,7 +230,17 @@ class WhatsAppVoiceFollowupAutomationRunner
             ];
         }
 
+        $run = $locked;
+        $rule = $run->rule;
+
         if ($rule === null) {
+            $run->update([
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_FAILED,
+                'message' => translate('Voice_cron_job_run_failed'),
+                'error' => translate('Voice_cron_job_run_failed'),
+                'finished_at' => now(),
+            ]);
+
             return [
                 'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_FAILED,
                 'dispatched_count' => 0,
@@ -223,13 +251,7 @@ class WhatsAppVoiceFollowupAutomationRunner
         }
 
         $candidates = collect(is_array($run->pending_candidates) ? $run->pending_candidates : []);
-
-        if ($includedPhones !== null) {
-            $phoneSet = array_flip(array_map('strval', $includedPhones));
-            $candidates = $candidates->filter(function ($candidate) use ($phoneSet) {
-                return is_array($candidate) && isset($phoneSet[(string) ($candidate['phone'] ?? '')]);
-            })->values();
-        }
+        $candidates = $this->filterCandidatesByPhones($candidates, $includedPhones);
 
         if ($candidates->isEmpty()) {
             return $this->finishRun($run, $rule, [
@@ -245,12 +267,29 @@ class WhatsAppVoiceFollowupAutomationRunner
             ], $run->started_at ?? now());
         }
 
+        $approvalFilters = array_merge($rule->normalizedFilters(), ['_current_rule_id' => $rule->id]);
+        $candidates = $this->candidateQuery->refreshCandidatesForApproval($approvalFilters, $candidates);
+
+        if ($candidates->isEmpty()) {
+            return $this->finishRun($run, $rule, [
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_EMPTY,
+                'matched_count' => 0,
+                'dispatched_count' => 0,
+                'message' => translate('Voice_cron_approval_stale_candidates'),
+                'campaign_ids' => [],
+                'error' => null,
+                'pending_candidates' => null,
+                'approved_at' => now(),
+                'approved_by' => $approvedBy,
+            ], $run->started_at ?? now());
+        }
+
         $originalMatched = (int) $run->contacts_matched;
         $dispatchResult = $this->dispatchCandidatesForRule($rule, $candidates, $run->id, $approvedBy);
 
         if (!$dispatchResult['ok']) {
             return $this->finishRun($run, $rule, [
-                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_FAILED,
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_PENDING_APPROVAL,
                 'matched_count' => $originalMatched,
                 'dispatched_count' => 0,
                 'message' => $dispatchResult['message'],
@@ -276,6 +315,102 @@ class WhatsAppVoiceFollowupAutomationRunner
     }
 
     /**
+     * @return array{status: string, dispatched_count: int, matched_count: int, message: string, run_id: int}
+     */
+    public function rejectRun(WhatsAppVoiceFollowupAutomationRun $run, ?string $rejectedBy = null): array
+    {
+        $locked = DB::transaction(function () use ($run): ?WhatsAppVoiceFollowupAutomationRun {
+            $lockedRun = WhatsAppVoiceFollowupAutomationRun::query()
+                ->whereKey($run->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($lockedRun === null || !$lockedRun->isPendingApproval()) {
+                return null;
+            }
+
+            return $lockedRun->fresh(['rule']);
+        });
+
+        if ($locked === null) {
+            $run->refresh();
+
+            return [
+                'status' => $run->status,
+                'dispatched_count' => (int) $run->contacts_dispatched,
+                'matched_count' => (int) $run->contacts_matched,
+                'message' => translate('Voice_cron_run_not_pending_approval'),
+                'run_id' => $run->id,
+            ];
+        }
+
+        $run = $locked;
+        $rule = $run->rule;
+
+        if ($rule === null) {
+            return [
+                'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_FAILED,
+                'dispatched_count' => 0,
+                'matched_count' => (int) $run->contacts_matched,
+                'message' => translate('Voice_cron_job_run_failed'),
+                'run_id' => $run->id,
+            ];
+        }
+
+        return $this->finishRun($run, $rule, [
+            'status' => WhatsAppVoiceFollowupAutomationRule::STATUS_SKIPPED,
+            'matched_count' => (int) $run->contacts_matched,
+            'dispatched_count' => 0,
+            'message' => translate('Voice_cron_run_rejected'),
+            'campaign_ids' => [],
+            'error' => null,
+            'pending_candidates' => null,
+            'approved_at' => now(),
+            'approved_by' => $rejectedBy,
+        ], $run->started_at ?? now());
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $candidates
+     * @param  array<int, string>|null  $includedPhones
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function filterCandidatesByPhones(Collection $candidates, ?array $includedPhones): Collection
+    {
+        if ($includedPhones === null) {
+            return $candidates
+                ->filter(fn ($candidate) => is_array($candidate))
+                ->values();
+        }
+
+        $phoneSet = [];
+        foreach ($includedPhones as $phone) {
+            $phone = trim((string) $phone);
+            if ($phone === '') {
+                continue;
+            }
+
+            $phoneSet[$phone] = true;
+            $normalized = $this->leadLifecycle->normalizeLeadPhone($phone);
+            if ($normalized !== null && $normalized !== $phone) {
+                $phoneSet[$normalized] = true;
+            }
+        }
+
+        return $candidates->filter(function ($candidate) use ($phoneSet) {
+            if (!is_array($candidate)) {
+                return false;
+            }
+
+            $phone = trim((string) ($candidate['phone'] ?? ''));
+            $normalized = trim((string) ($candidate['normalized_phone'] ?? ''));
+
+            return ($phone !== '' && isset($phoneSet[$phone]))
+                || ($normalized !== '' && isset($phoneSet[$normalized]));
+        })->values();
+    }
+
+    /**
      * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $candidates
      * @return array{ok: bool, campaign_ids: array<int, mixed>, dispatched_count: int, message: string, error: ?string}
      */
@@ -286,7 +421,7 @@ class WhatsAppVoiceFollowupAutomationRunner
         ?string $dispatchedBy = null
     ): array {
         return $this->dispatchService->dispatchCandidates($candidates, [
-            'campaign_name' => $rule->campaign_name,
+            'campaign_name' => $rule->name,
             'send_option' => 'now',
             'concurrent_call_limit' => max(1, (int) $rule->concurrent_call_limit),
             'enabled_reschedule_call' => (bool) $rule->enabled_reschedule_call,
@@ -326,6 +461,16 @@ class WhatsAppVoiceFollowupAutomationRunner
         $finishedAt = now();
         $durationMs = max(0, (int) $startedAt->diffInMilliseconds($finishedAt));
 
+        $error = $result['error'] ?? null;
+        if ($error) {
+            Log::warning('WhatsApp voice cron run error', [
+                'run_id' => $run->id,
+                'rule_id' => $rule->id,
+                'error' => (string) $error,
+            ]);
+            $error = translate('Voice_cron_job_run_failed');
+        }
+
         $runUpdate = [
             'status' => $result['status'],
             'contacts_matched' => (int) $result['matched_count'],
@@ -333,7 +478,7 @@ class WhatsAppVoiceFollowupAutomationRunner
             'campaign_ids' => array_values((array) ($result['campaign_ids'] ?? [])),
             'duration_ms' => $durationMs,
             'message' => mb_substr((string) $result['message'], 0, 2000),
-            'error' => $result['error'] ? mb_substr((string) $result['error'], 0, 2000) : null,
+            'error' => $error ? mb_substr((string) $error, 0, 2000) : null,
             'finished_at' => $finishedAt,
         ];
 

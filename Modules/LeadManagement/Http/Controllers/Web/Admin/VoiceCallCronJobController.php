@@ -16,6 +16,9 @@ use Modules\LeadManagement\Services\OutboundCallContextService;
 use Modules\LeadManagement\Services\WhatsAppFollowupContextBuilder;
 use Modules\LeadManagement\Services\VoiceCallTabCache;
 use Modules\LeadManagement\Services\WhatsAppFollowupCandidateQueryService;
+use Modules\LeadManagement\Services\VoiceCronFilterSummaryBuilder;
+use Modules\LeadManagement\Services\VoiceCronMatchConditionConflictValidator;
+use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Services\WhatsAppVoiceFollowupAutomationRunner;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +28,10 @@ class VoiceCallCronJobController extends Controller
     public function __construct(
         private readonly WhatsAppVoiceFollowupAutomationRunner $runner,
         private readonly VoiceCallTabCache $tabCache,
-        private readonly OmniDimensionService $omniDimension
+        private readonly OmniDimensionService $omniDimension,
+        private readonly WhatsAppFollowupCandidateQueryService $candidateQuery,
+        private readonly VoiceCronMatchConditionConflictValidator $matchConflictValidator,
+        private readonly VoiceCronFilterSummaryBuilder $filterSummaryBuilder
     ) {}
 
     public function runs(Request $request): View|Response
@@ -228,6 +234,29 @@ class VoiceCallCronJobController extends Controller
         ]);
     }
 
+    public function rejectRun(Request $request, WhatsAppVoiceFollowupAutomationRun $run): RedirectResponse|JsonResponse
+    {
+        $result = $this->runner->rejectRun($run, Auth::id());
+
+        if ($result['status'] === WhatsAppVoiceFollowupAutomationRule::STATUS_SKIPPED) {
+            $this->invalidateCronRelatedCaches();
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => true, 'result' => $result]);
+            }
+            toastr()->success($result['message']);
+
+            return $this->redirectToCronTab(skipCacheInvalidation: true);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => false, 'result' => $result], 422);
+        }
+
+        toastr()->warning($result['message']);
+
+        return $this->redirectToCronTab();
+    }
+
     public function approveRun(Request $request, WhatsAppVoiceFollowupAutomationRun $run): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
@@ -275,6 +304,70 @@ class VoiceCallCronJobController extends Controller
         return view('leadmanagement::admin.voice-calls._voice_cron_runs', [
             'runs' => $paginator,
             'ruleId' => $ruleId > 0 ? $ruleId : null,
+        ]);
+    }
+
+    public function previewMatches(Request $request): JsonResponse
+    {
+        try {
+            $filters = $this->buildCronFiltersFromRequest($request);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        $conflicts = $this->matchConflictValidator->conflicts($filters);
+        if ($conflicts !== []) {
+            return response()->json([
+                'ok' => false,
+                'conflicts' => $conflicts,
+                'message' => implode(' ', $conflicts),
+            ], 422);
+        }
+
+        $excludeRuleId = max(0, (int) $request->input('exclude_rule_id', 0));
+        $searchFilters = array_merge($filters, ['_current_rule_id' => $excludeRuleId]);
+
+        try {
+            $paginator = $this->candidateQuery->search($searchFilters, 1, 10);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'ok' => false,
+                'message' => translate('Voice_cron_preview_failed'),
+            ], 500);
+        }
+
+        $leadTypeLabels = Lead::leadTypes();
+
+        $preview = $paginator->getCollection()
+            ->map(function (array $candidate) use ($leadTypeLabels) {
+                $leadType = (string) ($candidate['lead_type'] ?? '');
+
+                return [
+                    'phone' => (string) ($candidate['phone'] ?? ''),
+                    'display_name' => (string) ($candidate['display_name'] ?? ''),
+                    'silent_duration_label' => (string) ($candidate['silent_duration_label'] ?? ''),
+                    'silent_since_label' => (string) ($candidate['silent_since_label'] ?? ''),
+                    'lead_type' => $leadType,
+                    'lead_type_label' => $leadTypeLabels[$leadType] ?? ($leadType !== '' ? ucfirst($leadType) : translate('Unknown')),
+                    'lead_status_label' => (string) ($candidate['lead_status_label'] ?? ''),
+                    'lead_status_badge' => (string) ($candidate['lead_status_badge'] ?? 'bg-secondary'),
+                    'handled_by_label' => (string) ($candidate['handled_by_label'] ?? ''),
+                    'lead_url' => $candidate['lead_url'] ?? null,
+                    'wa_ai_flow_labels' => array_values((array) ($candidate['wa_ai_flow_labels'] ?? [])),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'ok' => true,
+            'total' => (int) $paginator->total(),
+            'preview' => $preview,
+            'summary' => $this->filterSummaryBuilder->build($filters),
         ]);
     }
 
@@ -347,6 +440,19 @@ class VoiceCallCronJobController extends Controller
 
     public function runNow(WhatsAppVoiceFollowupAutomationRule $rule): RedirectResponse|JsonResponse
     {
+        if (!$rule->is_enabled) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => translate('Voice_cron_job_stopped'),
+                ], 422);
+            }
+
+            toastr()->warning(translate('Voice_cron_run_requires_enabled'));
+
+            return $this->redirectToCronTab();
+        }
+
         $result = $this->runner->runRule(
             $rule,
             true,
@@ -388,6 +494,7 @@ class VoiceCallCronJobController extends Controller
     private function invalidateCronRelatedCaches(): void
     {
         WhatsAppFollowupCandidateQueryService::clearSearchCache();
+        WhatsAppFollowupCandidateQueryService::clearOtherCronPhonesCache();
         $this->tabCache->forgetMany([
             VoiceCallTabCache::TAB_VOICE_CRON,
             VoiceCallTabCache::TAB_WHATSAPP_FOLLOWUP,
@@ -401,40 +508,19 @@ class VoiceCallCronJobController extends Controller
      */
     private function validateRule(Request $request): array
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'name' => 'required|string|max:255',
             'is_enabled' => 'nullable|boolean',
             'interval_value' => 'required|integer|min:1|max:9999',
             'interval_unit' => 'required|string|in:minutes,hours,days',
-            'campaign_name' => 'required|string|max:255',
             'max_contacts_per_run' => 'required|integer|min:1|max:500',
             'concurrent_call_limit' => 'nullable|integer|min:1|max:20',
             'enabled_reschedule_call' => 'nullable|boolean',
             'auto_retry' => 'nullable|boolean',
             'auto_retry_schedule' => 'nullable|string|in:immediately,next_day,scheduled_time',
             'retry_limit' => 'nullable|integer|min:1|max:5',
-            'silent_min_hours' => 'nullable|integer|min:0|max:168',
-            'silent_min_value' => 'nullable|integer|min:0|max:9999',
-            'silent_min_unit' => 'nullable|string|in:minutes,hours,days',
-            'silent_max_hours' => 'nullable|integer|min:0|max:168',
-            'lead_types' => 'nullable|array',
-            'lead_types.*' => 'string|max:32',
-            'lead_open' => 'nullable|string|in:,open,closed',
-            'wa_chat_bucket' => 'nullable|string|in:,open,closed',
-            'wa_chat_tag_ids' => 'nullable|array',
-            'wa_chat_tag_ids.*' => 'integer|min:1',
-            'customer_lead_tag_ids' => 'nullable|array',
-            'customer_lead_tag_ids.*' => 'integer|min:1',
-            'handled_by' => 'nullable|string|in:,ai,human',
-            'handled_by_employee_ids' => 'nullable|array',
-            'handled_by_employee_ids.*' => 'string|max:64',
-            'human_support' => 'nullable|string|in:,exclude,only',
-            'exclude_called_within_hours' => 'nullable|integer|min:0|max:168',
-            'other_cron_job_mode' => 'nullable|string|in:,include,exclude,exclude_all_active',
-            'other_cron_job_ids' => 'nullable|array',
-            'other_cron_job_ids.*' => 'integer|min:1',
             'dispatch_mode' => 'nullable|string|in:auto,approval',
-        ]);
+        ], $this->cronFilterValidationRules()));
 
         $intervalValue = max(1, (int) $validated['interval_value']);
         $intervalUnit = in_array((string) $validated['interval_unit'], ['minutes', 'hours', 'days'], true)
@@ -448,11 +534,23 @@ class VoiceCallCronJobController extends Controller
             ]);
         }
 
+        $filters = array_merge([
+            'interval_value' => $intervalValue,
+            'interval_unit' => $intervalUnit,
+        ], $this->composeCronFiltersArray($validated));
+
+        $conflicts = $this->matchConflictValidator->conflicts($filters);
+        if ($conflicts !== []) {
+            throw ValidationException::withMessages([
+                'match_conditions' => implode(' ', $conflicts),
+            ]);
+        }
+
         return [
             'name' => $validated['name'],
             'is_enabled' => $request->boolean('is_enabled', true),
             'interval_minutes' => $intervalMinutes,
-            'campaign_name' => $validated['campaign_name'],
+            'campaign_name' => $validated['name'],
             'max_contacts_per_run' => (int) $validated['max_contacts_per_run'],
             'concurrent_call_limit' => max(1, (int) ($validated['concurrent_call_limit'] ?? 1)),
             'enabled_reschedule_call' => $request->boolean('enabled_reschedule_call'),
@@ -462,39 +560,132 @@ class VoiceCallCronJobController extends Controller
             'dispatch_mode' => ($validated['dispatch_mode'] ?? WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_APPROVAL) === WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_AUTO
                 ? WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_AUTO
                 : WhatsAppVoiceFollowupAutomationRule::DISPATCH_MODE_APPROVAL,
-            'filters' => array_merge([
-                'interval_value' => $intervalValue,
-                'interval_unit' => $intervalUnit,
-                'silent_min_value' => max(0, (int) ($validated['silent_min_value'] ?? 1)),
-                'silent_min_unit' => in_array((string) ($validated['silent_min_unit'] ?? ''), ['minutes', 'hours', 'days'], true)
-                    ? (string) $validated['silent_min_unit']
-                    : 'hours',
-            ], $this->normalizeSilentMinFilters(
-                max(0, (int) ($validated['silent_min_value'] ?? 1)),
-                in_array((string) ($validated['silent_min_unit'] ?? ''), ['minutes', 'hours', 'days'], true)
-                    ? (string) $validated['silent_min_unit']
-                    : 'hours'
-            ), [
-                'silent_max_hours' => $validated['silent_max_hours'] ?? null,
-                'lead_types' => array_values(array_filter((array) ($validated['lead_types'] ?? []))),
-                'lead_open' => (string) ($validated['lead_open'] ?? ''),
-                'wa_chat_bucket' => (string) ($validated['wa_chat_bucket'] ?? ''),
-                'wa_chat_tag_ids' => array_map('intval', array_filter((array) ($validated['wa_chat_tag_ids'] ?? []))),
-                'customer_lead_tag_ids' => array_map('intval', array_filter((array) ($validated['customer_lead_tag_ids'] ?? []))),
-                'handled_by' => (string) ($validated['handled_by'] ?? ''),
-                'handled_by_employee_ids' => ($validated['handled_by'] ?? '') === 'human'
-                    ? array_values(array_filter((array) ($validated['handled_by_employee_ids'] ?? [])))
-                    : [],
-                'human_support' => (string) ($validated['human_support'] ?? 'exclude'),
-                'exclude_called_within_hours' => (int) ($validated['exclude_called_within_hours'] ?? 24),
-                'other_cron_job_mode' => in_array((string) ($validated['other_cron_job_mode'] ?? ''), ['include', 'exclude', 'exclude_all_active'], true)
-                    ? (string) $validated['other_cron_job_mode']
-                    : '',
-                'other_cron_job_ids' => ($validated['other_cron_job_mode'] ?? '') === 'exclude_all_active'
-                    ? []
-                    : array_map('intval', array_filter((array) ($validated['other_cron_job_ids'] ?? []))),
-            ]),
+            'filters' => $filters,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildCronFiltersFromRequest(Request $request): array
+    {
+        $validated = $request->validate($this->cronFilterValidationRules());
+        $filters = $this->composeCronFiltersArray($validated);
+        $conflicts = $this->matchConflictValidator->conflicts($filters);
+        if ($conflicts !== []) {
+            throw ValidationException::withMessages([
+                'match_conditions' => implode(' ', $conflicts),
+            ]);
+        }
+
+        return $filters;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function cronFilterValidationRules(): array
+    {
+        return [
+            'silent_min_hours' => 'nullable|integer|min:0|max:168',
+            'silent_min_value' => 'nullable|integer|min:1|max:9999',
+            'silent_min_unit' => 'nullable|string|in:minutes,hours,days',
+            'silent_max_hours' => 'nullable|integer|min:0|max:168',
+            'lead_types' => 'nullable|array',
+            'lead_types.*' => 'string|max:32',
+            'customer_lead_status_ids' => 'nullable|array',
+            'customer_lead_status_ids.*' => 'integer|exists:customer_lead_statuses,id',
+            'provider_lead_status_ids' => 'nullable|array',
+            'provider_lead_status_ids.*' => 'integer|exists:provider_lead_statuses,id',
+            'lead_open' => 'nullable|string|in:,open,closed',
+            'wa_chat_bucket' => 'nullable|string|in:,open,closed',
+            'wa_chat_tag_ids' => 'nullable|array',
+            'wa_chat_tag_ids.*' => 'integer|min:1',
+            'customer_lead_tag_ids' => 'nullable|array',
+            'customer_lead_tag_ids.*' => 'integer|min:1',
+            'handled_by' => 'nullable|string|in:,ai,human',
+            'handled_by_employee_ids' => 'nullable|array',
+            'handled_by_employee_ids.*' => 'string|max:64',
+            'human_support' => 'nullable|string|in:,only',
+            'wa_ai_flows' => 'nullable|array',
+            'wa_ai_flows.*' => 'string|in:customer_booking_submitted,provider_lead_submitted',
+            'exclude_lead_types' => 'nullable|array',
+            'exclude_wa_ai_flows' => 'nullable|array',
+            'exclude_wa_ai_flows.*' => 'string|in:customer_booking_submitted,provider_lead_submitted',
+            'exclude_lead_types.*' => 'string|max:32',
+            'exclude_customer_lead_status_ids' => 'nullable|array',
+            'exclude_customer_lead_status_ids.*' => 'integer|exists:customer_lead_statuses,id',
+            'exclude_provider_lead_status_ids' => 'nullable|array',
+            'exclude_provider_lead_status_ids.*' => 'integer|exists:provider_lead_statuses,id',
+            'exclude_lead_open' => 'nullable|string|in:,open,closed',
+            'exclude_wa_chat_bucket' => 'nullable|string|in:,open,closed',
+            'exclude_wa_chat_tag_ids' => 'nullable|array',
+            'exclude_wa_chat_tag_ids.*' => 'integer|min:1',
+            'exclude_customer_lead_tag_ids' => 'nullable|array',
+            'exclude_customer_lead_tag_ids.*' => 'integer|min:1',
+            'exclude_handled_by' => 'nullable|string|in:,ai,human',
+            'exclude_handled_by_employee_ids' => 'nullable|array',
+            'exclude_handled_by_employee_ids.*' => 'string|max:64',
+            'exclude_human_support' => 'nullable|string|in:,exclude',
+            'exclude_called_within_hours' => 'nullable|integer|min:0|max:168',
+            'other_cron_job_mode' => 'nullable|string|in:,include,exclude,exclude_all_active',
+            'other_cron_job_ids' => 'nullable|array',
+            'other_cron_job_ids.*' => 'integer|min:1',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function composeCronFiltersArray(array $validated): array
+    {
+        $silentMinValue = max(1, (int) ($validated['silent_min_value'] ?? 1));
+        $silentMinUnit = in_array((string) ($validated['silent_min_unit'] ?? ''), ['minutes', 'hours', 'days'], true)
+            ? (string) $validated['silent_min_unit']
+            : 'hours';
+
+        return array_merge([
+            'silent_min_value' => $silentMinValue,
+            'silent_min_unit' => $silentMinUnit,
+        ], $this->normalizeSilentMinFilters($silentMinValue, $silentMinUnit), [
+            'silent_max_hours' => isset($validated['silent_max_hours']) && $validated['silent_max_hours'] !== ''
+                ? max(0, (int) $validated['silent_max_hours'])
+                : null,
+            'lead_types' => array_values(array_filter((array) ($validated['lead_types'] ?? []))),
+            'customer_lead_status_ids' => array_map('intval', array_filter((array) ($validated['customer_lead_status_ids'] ?? []))),
+            'provider_lead_status_ids' => array_map('intval', array_filter((array) ($validated['provider_lead_status_ids'] ?? []))),
+            'lead_open' => (string) ($validated['lead_open'] ?? ''),
+            'wa_chat_bucket' => (string) ($validated['wa_chat_bucket'] ?? ''),
+            'wa_chat_tag_ids' => array_map('intval', array_filter((array) ($validated['wa_chat_tag_ids'] ?? []))),
+            'customer_lead_tag_ids' => [],
+            'handled_by' => (string) ($validated['handled_by'] ?? ''),
+            'handled_by_employee_ids' => ($validated['handled_by'] ?? '') === 'human'
+                ? array_values(array_filter((array) ($validated['handled_by_employee_ids'] ?? [])))
+                : [],
+            'human_support' => (string) ($validated['human_support'] ?? ''),
+            'wa_ai_flows' => array_values(array_filter((array) ($validated['wa_ai_flows'] ?? []))),
+            'exclude_lead_types' => array_values(array_filter((array) ($validated['exclude_lead_types'] ?? []))),
+            'exclude_wa_ai_flows' => array_values(array_filter((array) ($validated['exclude_wa_ai_flows'] ?? []))),
+            'exclude_customer_lead_status_ids' => array_map('intval', array_filter((array) ($validated['exclude_customer_lead_status_ids'] ?? []))),
+            'exclude_provider_lead_status_ids' => array_map('intval', array_filter((array) ($validated['exclude_provider_lead_status_ids'] ?? []))),
+            'exclude_lead_open' => (string) ($validated['exclude_lead_open'] ?? ''),
+            'exclude_wa_chat_bucket' => (string) ($validated['exclude_wa_chat_bucket'] ?? ''),
+            'exclude_wa_chat_tag_ids' => array_map('intval', array_filter((array) ($validated['exclude_wa_chat_tag_ids'] ?? []))),
+            'exclude_customer_lead_tag_ids' => [],
+            'exclude_handled_by' => (string) ($validated['exclude_handled_by'] ?? ''),
+            'exclude_handled_by_employee_ids' => ($validated['exclude_handled_by'] ?? '') === 'human'
+                ? array_values(array_filter((array) ($validated['exclude_handled_by_employee_ids'] ?? [])))
+                : [],
+            'exclude_human_support' => (string) ($validated['exclude_human_support'] ?? ''),
+            'exclude_called_within_hours' => (int) ($validated['exclude_called_within_hours'] ?? 24),
+            'other_cron_job_mode' => in_array((string) ($validated['other_cron_job_mode'] ?? ''), ['include', 'exclude', 'exclude_all_active'], true)
+                ? (string) $validated['other_cron_job_mode']
+                : '',
+            'other_cron_job_ids' => ($validated['other_cron_job_mode'] ?? '') === 'exclude_all_active'
+                ? []
+                : array_map('intval', array_filter((array) ($validated['other_cron_job_ids'] ?? []))),
+        ]);
     }
 
     private function convertDurationToMinutes(int $value, string $unit): int
@@ -511,7 +702,7 @@ class VoiceCallCronJobController extends Controller
      */
     private function normalizeSilentMinFilters(int $value, string $unit): array
     {
-        $minutes = max(0, $this->convertDurationToMinutes($value, $unit));
+        $minutes = max(1, $this->convertDurationToMinutes(max(1, $value), $unit));
 
         return [
             'silent_min_minutes' => $minutes,

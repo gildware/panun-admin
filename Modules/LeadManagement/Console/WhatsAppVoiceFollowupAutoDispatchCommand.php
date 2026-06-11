@@ -26,6 +26,7 @@ class WhatsAppVoiceFollowupAutoDispatchCommand extends Command
 
         if ($stats['processed'] > 0) {
             WhatsAppFollowupCandidateQueryService::clearSearchCache();
+            WhatsAppFollowupCandidateQueryService::clearOtherCronPhonesCache();
             $tabCache->forget(VoiceCallTabCache::TAB_VOICE_CRON);
         }
 
