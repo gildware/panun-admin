@@ -131,6 +131,13 @@ class WhatsAppVoiceFollowupAutomationRule extends Model
             $silentMinUnit = 'hours';
         }
 
+        $humanSupport = (string) ($filters['human_support'] ?? '');
+        $excludeHumanSupport = (string) ($filters['exclude_human_support'] ?? '');
+        if ($excludeHumanSupport === '' && $humanSupport === 'exclude') {
+            $excludeHumanSupport = 'exclude';
+            $humanSupport = '';
+        }
+
         return [
             'silent_min_value' => $silentMinValue,
             'silent_min_unit' => $silentMinUnit,
@@ -140,13 +147,27 @@ class WhatsAppVoiceFollowupAutomationRule extends Model
                 ? max(0, (int) $filters['silent_max_hours'])
                 : null,
             'lead_types' => array_values(array_filter((array) ($filters['lead_types'] ?? []))),
+            'customer_lead_status_ids' => array_map('intval', array_filter((array) ($filters['customer_lead_status_ids'] ?? []))),
+            'provider_lead_status_ids' => array_map('intval', array_filter((array) ($filters['provider_lead_status_ids'] ?? []))),
             'lead_open' => (string) ($filters['lead_open'] ?? ''),
             'wa_chat_bucket' => (string) ($filters['wa_chat_bucket'] ?? ''),
             'wa_chat_tag_ids' => array_map('intval', array_filter((array) ($filters['wa_chat_tag_ids'] ?? []))),
             'customer_lead_tag_ids' => array_map('intval', array_filter((array) ($filters['customer_lead_tag_ids'] ?? []))),
             'handled_by' => (string) ($filters['handled_by'] ?? ''),
             'handled_by_employee_ids' => array_values(array_filter((array) ($filters['handled_by_employee_ids'] ?? []))),
-            'human_support' => (string) ($filters['human_support'] ?? 'exclude'),
+            'human_support' => $humanSupport,
+            'wa_ai_flows' => array_values(array_filter((array) ($filters['wa_ai_flows'] ?? []))),
+            'exclude_lead_types' => array_values(array_filter((array) ($filters['exclude_lead_types'] ?? []))),
+            'exclude_wa_ai_flows' => array_values(array_filter((array) ($filters['exclude_wa_ai_flows'] ?? []))),
+            'exclude_customer_lead_status_ids' => array_map('intval', array_filter((array) ($filters['exclude_customer_lead_status_ids'] ?? []))),
+            'exclude_provider_lead_status_ids' => array_map('intval', array_filter((array) ($filters['exclude_provider_lead_status_ids'] ?? []))),
+            'exclude_lead_open' => (string) ($filters['exclude_lead_open'] ?? ''),
+            'exclude_wa_chat_bucket' => (string) ($filters['exclude_wa_chat_bucket'] ?? ''),
+            'exclude_wa_chat_tag_ids' => array_map('intval', array_filter((array) ($filters['exclude_wa_chat_tag_ids'] ?? []))),
+            'exclude_customer_lead_tag_ids' => array_map('intval', array_filter((array) ($filters['exclude_customer_lead_tag_ids'] ?? []))),
+            'exclude_handled_by' => (string) ($filters['exclude_handled_by'] ?? ''),
+            'exclude_handled_by_employee_ids' => array_values(array_filter((array) ($filters['exclude_handled_by_employee_ids'] ?? []))),
+            'exclude_human_support' => $excludeHumanSupport,
             'exclude_called_within_hours' => max(0, (int) ($filters['exclude_called_within_hours'] ?? 24)),
             'other_cron_job_mode' => in_array((string) ($filters['other_cron_job_mode'] ?? ''), ['include', 'exclude', 'exclude_all_active'], true)
                 ? (string) $filters['other_cron_job_mode']

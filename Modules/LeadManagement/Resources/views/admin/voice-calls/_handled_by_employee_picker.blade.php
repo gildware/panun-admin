@@ -9,7 +9,7 @@
         'hint' => translate('Voice_field_hint_wa_handled_by_employee'),
     ])
     <select class="form-select js-select"
-            name="handled_by_employee_ids[]"
+            name="{{ $selectName ?? 'handled_by_employee_ids[]' }}"
             id="{{ $selectId }}"
             multiple
             disabled

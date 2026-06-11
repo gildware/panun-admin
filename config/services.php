@@ -111,6 +111,8 @@ return [
         'cache_call_logs_filtered_ttl' => (int) env('OMNIDIMENSION_CACHE_CALL_LOGS_FILTERED_TTL', 60),
         'cache_call_by_request_ttl' => (int) env('OMNIDIMENSION_CACHE_CALL_BY_REQUEST_TTL', 120),
         'cache_whatsapp_followup_list_ttl' => (int) env('OMNIDIMENSION_CACHE_WHATSAPP_FOLLOWUP_LIST_TTL', 60),
+        'cron_candidate_max_scan' => (int) env('OMNIDIMENSION_CRON_CANDIDATE_MAX_SCAN', 10000),
+        'cron_other_jobs_phones_cache_ttl' => (int) env('OMNIDIMENSION_CRON_OTHER_JOBS_PHONES_CACHE_TTL', 120),
         'tab_cache_enabled' => (bool) env('OMNIDIMENSION_TAB_CACHE_ENABLED', true),
         'cache_tab_placed_ttl' => (int) env('OMNIDIMENSION_CACHE_TAB_PLACED_TTL', 45),
         'cache_tab_bulk_ttl' => (int) env('OMNIDIMENSION_CACHE_TAB_BULK_TTL', 45),

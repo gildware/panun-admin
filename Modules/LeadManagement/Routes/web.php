@@ -87,9 +87,11 @@ Route::group([
         Route::post('/whatsapp-followup/summary', [WhatsAppVoiceFollowupController::class, 'generateSummary'])->name('whatsapp-followup.summary.generate');
         Route::post('/whatsapp-followup/dispatch', [WhatsAppVoiceFollowupController::class, 'dispatch'])->middleware(['can:lead_outbound_enquiry_add'])->name('whatsapp-followup.dispatch');
         Route::get('/cron-jobs/runs', [VoiceCallCronJobController::class, 'runs'])->name('cron-jobs.runs');
-        Route::get('/cron-jobs/runs/{run}', [VoiceCallCronJobController::class, 'runDetails'])->name('cron-jobs.runs.show');
-        Route::get('/cron-jobs/runs/{run}/dispatch-preview', [VoiceCallCronJobController::class, 'dispatchPreview'])->name('cron-jobs.runs.dispatch-preview');
+        Route::get('/cron-jobs/runs/{run}', [VoiceCallCronJobController::class, 'runDetails'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.runs.show');
+        Route::get('/cron-jobs/runs/{run}/dispatch-preview', [VoiceCallCronJobController::class, 'dispatchPreview'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.runs.dispatch-preview');
         Route::post('/cron-jobs/runs/{run}/dispatch', [VoiceCallCronJobController::class, 'approveRun'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.runs.dispatch');
+        Route::post('/cron-jobs/runs/{run}/reject', [VoiceCallCronJobController::class, 'rejectRun'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.runs.reject');
+        Route::post('/cron-jobs/preview-matches', [VoiceCallCronJobController::class, 'previewMatches'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.preview-matches');
         Route::post('/cron-jobs', [VoiceCallCronJobController::class, 'store'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.store');
         Route::put('/cron-jobs/{rule}', [VoiceCallCronJobController::class, 'update'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.update');
         Route::delete('/cron-jobs/{rule}', [VoiceCallCronJobController::class, 'destroy'])->middleware(['can:lead_outbound_enquiry_add'])->name('cron-jobs.destroy');

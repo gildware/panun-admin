@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\LeadManagement\Entities\AdSource;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
+use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
@@ -91,6 +92,7 @@ class OmniDimensionVoiceCallController extends Controller
         $leadSources = Source::query()->active()->orderBy('name')->get(['id', 'name']);
         $leadAdSources = AdSource::query()->active()->orderBy('name')->get(['id', 'name']);
         $customerLeadStatuses = CustomerLeadStatus::query()->orderBy('name')->get(['id', 'name']);
+        $providerLeadStatuses = ProviderLeadStatus::query()->orderBy('name')->get(['id', 'name']);
         $invalidReasons = LeadInvalidReason::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $futureCustomerReasons = LeadFutureCustomerReason::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
@@ -124,6 +126,7 @@ class OmniDimensionVoiceCallController extends Controller
             'leadSources' => $leadSources,
             'leadAdSources' => $leadAdSources,
             'customerLeadStatuses' => $customerLeadStatuses,
+            'providerLeadStatuses' => $providerLeadStatuses,
             'invalidReasons' => $invalidReasons,
             'futureCustomerReasons' => $futureCustomerReasons,
             'waChatTags' => $waChatTags,

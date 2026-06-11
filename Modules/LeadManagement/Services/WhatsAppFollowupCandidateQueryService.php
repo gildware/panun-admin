@@ -11,9 +11,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
 use Modules\LeadManagement\Entities\Lead;
+use Modules\LeadManagement\Entities\LeadTypeHistory;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupAutomationRule;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupAutomationRun;
 use Modules\LeadManagement\Entities\WhatsAppVoiceFollowupDispatch;
+use Modules\LeadManagement\Support\VoiceCronWaAiFlow;
+use Modules\WhatsAppModule\Entities\WhatsAppBooking;
+use Modules\WhatsAppModule\Entities\ProviderLead;
 use Modules\WhatsAppModule\Entities\WhatsAppChatStatus;
 use Modules\WhatsAppModule\Entities\WhatsAppChatThreadMeta;
 use Modules\WhatsAppModule\Entities\WhatsAppUser;
@@ -59,7 +63,8 @@ class WhatsAppFollowupCandidateQueryService
             );
         }
 
-        $rows = $this->fetchSilentAfterAiBaseRows($filters);
+        $maxScan = $this->resolveMaxScanLimit($filters);
+        $rows = $this->fetchSilentAfterAiBaseRows($filters, $maxScan);
         $enriched = $this->enrichCandidates($rows);
         $filtered = $this->applyFilters($enriched, $filters);
 
@@ -89,6 +94,16 @@ class WhatsAppFollowupCandidateQueryService
         Cache::increment('wa_followup_candidates:version');
     }
 
+    public static function clearOtherCronPhonesCache(): void
+    {
+        Cache::increment('wa_cron_other_phones:version');
+    }
+
+    private function otherCronPhonesCacheVersionKey(): string
+    {
+        return 'wa_cron_other_phones:version';
+    }
+
     private function cacheVersionKey(): string
     {
         return $this->cachePrefix() . ':version';
@@ -106,33 +121,111 @@ class WhatsAppFollowupCandidateQueryService
     public function collectAll(array $filters, int $max = 500): Collection
     {
         $max = max(1, min(500, $max));
-        $page = 1;
-        $all = collect();
+        $batchSize = min(200, max($max * 4, 50));
+        $maxScan = $this->resolveMaxScanLimit($filters);
+        $offset = 0;
+        $results = collect();
+        $seenPhones = [];
 
-        do {
-            $remaining = $max - $all->count();
-            if ($remaining <= 0) {
+        while ($results->count() < $max && $offset < $maxScan) {
+            $limit = min($batchSize, $maxScan - $offset);
+            if ($limit <= 0) {
                 break;
             }
 
-            $paginator = $this->search($filters, $page, min(100, $remaining));
-            $all = $all->merge($paginator->getCollection());
-
-            if (!$paginator->hasMorePages()) {
+            $rows = $this->fetchSilentAfterAiBaseRows($filters, $limit, $offset);
+            if ($rows->isEmpty()) {
                 break;
             }
 
-            $page++;
-        } while (true);
+            $enriched = $this->enrichCandidates($rows);
+            $filtered = $this->applyFilters($enriched, $filters);
 
-        return $all->take($max)->values();
+            foreach ($filtered as $candidate) {
+                $phone = (string) ($candidate['phone'] ?? '');
+                if ($phone === '' || isset($seenPhones[$phone])) {
+                    continue;
+                }
+
+                $seenPhones[$phone] = true;
+                $results->push($candidate);
+
+                if ($results->count() >= $max) {
+                    break 2;
+                }
+            }
+
+            $offset += $rows->count();
+            if ($rows->count() < $limit) {
+                break;
+            }
+        }
+
+        return $results->sortByDesc(fn (array $c) => $c['silent_since_ts'] ?? 0)->values();
+    }
+
+    /**
+     * Re-check pending approval candidates against current filters before dispatch.
+     *
+     * @param  array<string, mixed>  $filters
+     * @param  Collection<int, array<string, mixed>>  $candidates
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function refreshCandidatesForApproval(array $filters, Collection $candidates): Collection
+    {
+        $phones = $candidates
+            ->pluck('phone')
+            ->map(fn ($phone) => trim((string) $phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($phones === []) {
+            return collect();
+        }
+
+        $fresh = $this->collectAll(
+            array_merge($filters, ['phones' => $phones]),
+            count($phones)
+        )->keyBy(fn (array $candidate) => (string) ($candidate['phone'] ?? ''));
+
+        return $candidates
+            ->filter(function ($candidate) use ($fresh) {
+                if (!is_array($candidate)) {
+                    return false;
+                }
+
+                $phone = trim((string) ($candidate['phone'] ?? ''));
+
+                return $phone !== '' && $fresh->has($phone);
+            })
+            ->map(function ($candidate) use ($fresh) {
+                $phone = trim((string) ($candidate['phone'] ?? ''));
+
+                return $fresh->get($phone, $candidate);
+            })
+            ->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function resolveMaxScanLimit(array $filters): int
+    {
+        $phoneFilter = array_values(array_filter((array) ($filters['phones'] ?? [])));
+        if ($phoneFilter !== []) {
+            return max(count($phoneFilter), 1);
+        }
+
+        return max(500, (int) config('services.omnidimension.cron_candidate_max_scan', 10000));
     }
 
     /**
      * @param  array<string, mixed>  $filters
      * @return Collection<int, object>
      */
-    private function fetchSilentAfterAiBaseRows(array $filters): Collection
+    private function fetchSilentAfterAiBaseRows(array $filters, ?int $limit = null, int $offset = 0): Collection
     {
         $table = (string) config('whatsappmodule.tables.messages', 'whatsapp_messages');
         $channel = SocialInboxChannel::current();
@@ -185,7 +278,13 @@ class WhatsAppFollowupCandidateQueryService
             $query->whereIn('m.phone', $phoneFilter);
         }
 
-        return $query->orderByDesc('m.created_at')->get();
+        $query->orderByDesc('m.created_at');
+
+        if ($limit !== null && $limit > 0) {
+            $query->limit($limit)->offset(max(0, $offset));
+        }
+
+        return $query->get();
     }
 
     /**
@@ -209,12 +308,14 @@ class WhatsAppFollowupCandidateQueryService
         $leadIds = collect($leadByNormalized)->pluck('id')->filter()->unique()->values()->all();
         $leads = Lead::query()->whereIn('id', $leadIds)->get()->keyBy('id');
         $leadStatusMeta = $this->leadOpenStatus->buildLeadStatusMeta($leads->values());
+        $pipelineStatusByLead = $this->loadLeadPipelineStatusIds($leads->values());
 
         $chatMeta = $this->loadChatMeta($phones);
         $customerTagsByLead = $this->loadCustomerTagsByLead($leads);
         $lastDispatch = WhatsAppVoiceFollowupDispatch::latestAttemptAtByWaPhone($phones);
+        $waAiFlowByPhone = $this->loadWaAiFlowStateByPhone($phones);
 
-        return $rows->map(function ($row) use ($waUsers, $leadByNormalized, $leads, $leadStatusMeta, $chatMeta, $customerTagsByLead, $lastDispatch) {
+        return $rows->map(function ($row) use ($waUsers, $leadByNormalized, $leads, $leadStatusMeta, $pipelineStatusByLead, $chatMeta, $customerTagsByLead, $lastDispatch, $waAiFlowByPhone) {
             $phone = (string) ($row->phone ?? '');
             $normalized = $this->leadLifecycle->normalizeLeadPhone($phone);
             $waUser = $waUsers->get($phone);
@@ -230,7 +331,12 @@ class WhatsAppFollowupCandidateQueryService
             $meta = $chatMeta[$phone] ?? ['chat_status' => null, 'chat_tags' => []];
             $displayName = trim((string) ($lead?->name ?? $waUser?->name ?? ''));
             $statusMeta = $leadId ? ($leadStatusMeta[$leadId] ?? null) : null;
+            $pipelineStatus = $leadId ? ($pipelineStatusByLead[$leadId] ?? []) : [];
             $lastAi = trim((string) ($row->last_ai_message ?? ''));
+            $waAiFlow = $waAiFlowByPhone[$phone] ?? [
+                'wa_ai_customer_booking_submitted' => false,
+                'wa_ai_provider_lead_submitted' => false,
+            ];
 
             $candidate = [
                 'phone' => $phone,
@@ -252,12 +358,17 @@ class WhatsAppFollowupCandidateQueryService
                 'lead_id' => $leadId,
                 'lead_type' => $leadType,
                 'lead_open' => $leadOpen,
+                'customer_lead_status_id' => $pipelineStatus['customer_lead_status_id'] ?? null,
+                'provider_lead_status_id' => $pipelineStatus['provider_lead_status_id'] ?? null,
                 'lead_status_label' => $statusMeta['label'] ?? ($leadOpen ? 'Open' : 'Closed'),
                 'lead_status_badge' => $statusMeta['badge_class'] ?? ($leadOpen ? 'bg-danger' : 'bg-success'),
                 'lead_url' => $leadId ? route('admin.lead.show', $leadId) : null,
                 'chat_status' => $meta['chat_status'],
                 'chat_tags' => $meta['chat_tags'],
                 'customer_lead_tags' => $leadId ? ($customerTagsByLead[$leadId] ?? []) : [],
+                'wa_ai_customer_booking_submitted' => (bool) ($waAiFlow['wa_ai_customer_booking_submitted'] ?? false),
+                'wa_ai_provider_lead_submitted' => (bool) ($waAiFlow['wa_ai_provider_lead_submitted'] ?? false),
+                'wa_ai_flow_labels' => $this->waAiFlowLabelsForCandidate($waAiFlow),
                 'last_followup_at' => isset($lastDispatch[$phone]) ? $lastDispatch[$phone]->toDateTimeString() : null,
                 'last_followup_at_label' => isset($lastDispatch[$phone])
                     ? Carbon::parse($lastDispatch[$phone])->format('d M Y h:i a')
@@ -287,14 +398,6 @@ class WhatsAppFollowupCandidateQueryService
      */
     private function applyFilters(Collection $candidates, array $filters): Collection
     {
-        $leadTypes = array_filter((array) ($filters['lead_types'] ?? []));
-        $leadOpenFilter = (string) ($filters['lead_open'] ?? '');
-        $waBucket = (string) ($filters['wa_chat_bucket'] ?? '');
-        $waTagIds = array_map('intval', array_filter((array) ($filters['wa_chat_tag_ids'] ?? [])));
-        $customerTagIds = array_map('intval', array_filter((array) ($filters['customer_lead_tag_ids'] ?? [])));
-        $handledBy = (string) ($filters['handled_by'] ?? '');
-        $handledByEmployeeIds = array_values(array_filter((array) ($filters['handled_by_employee_ids'] ?? [])));
-        $humanSupport = (string) ($filters['human_support'] ?? '');
         $excludeCalledHours = max(0, (int) ($filters['exclude_called_within_hours'] ?? 0));
         $phonesFilter = array_values(array_filter((array) ($filters['phones'] ?? [])));
         $skipOtherCron = !empty($filters['_skip_other_cron_filter']);
@@ -325,14 +428,7 @@ class WhatsAppFollowupCandidateQueryService
         }
 
         return $candidates->filter(function (array $c) use (
-            $leadTypes,
-            $leadOpenFilter,
-            $waBucket,
-            $waTagIds,
-            $customerTagIds,
-            $handledBy,
-            $handledByEmployeeIds,
-            $humanSupport,
+            $filters,
             $excludeCalledHours,
             $phonesFilter,
             $otherCronMode,
@@ -344,58 +440,11 @@ class WhatsAppFollowupCandidateQueryService
                 return false;
             }
 
-            if ($leadTypes !== [] && !in_array((string) ($c['lead_type'] ?? ''), $leadTypes, true)) {
+            if (!$this->passesIncludeMatchConditions($c, $filters)) {
                 return false;
             }
 
-            if ($leadOpenFilter === 'open' && empty($c['lead_open'])) {
-                return false;
-            }
-            if ($leadOpenFilter === 'closed' && !empty($c['lead_open'])) {
-                return false;
-            }
-
-            $bucket = is_array($c['chat_status'] ?? null) ? (string) ($c['chat_status']['bucket'] ?? 'open') : 'open';
-            if ($waBucket === 'open' && $bucket !== 'open') {
-                return false;
-            }
-            if ($waBucket === 'closed' && $bucket !== 'closed') {
-                return false;
-            }
-
-            if ($waTagIds !== []) {
-                $have = collect($c['chat_tags'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
-                if (array_intersect($waTagIds, $have) === []) {
-                    return false;
-                }
-            }
-
-            if ($customerTagIds !== []) {
-                $have = collect($c['customer_lead_tags'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
-                if (array_intersect($customerTagIds, $have) === []) {
-                    return false;
-                }
-            }
-
-            if ($handledBy === 'ai') {
-                $hb = (string) ($c['handled_by'] ?? 'AI');
-                if ($hb !== 'AI' && $hb !== '') {
-                    return false;
-                }
-            } elseif ($handledBy === 'human') {
-                $hb = (string) ($c['handled_by'] ?? '');
-                if ($hb === '' || $hb === 'AI') {
-                    return false;
-                }
-                if ($handledByEmployeeIds !== [] && !in_array($hb, $handledByEmployeeIds, true)) {
-                    return false;
-                }
-            }
-
-            if ($humanSupport === 'exclude' && !empty($c['human_support_requested_at'])) {
-                return false;
-            }
-            if ($humanSupport === 'only' && empty($c['human_support_requested_at'])) {
+            if (!$this->passesExcludeMatchConditions($c, $filters)) {
                 return false;
             }
 
@@ -430,6 +479,369 @@ class WhatsAppFollowupCandidateQueryService
 
             return true;
         })->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  array<string, mixed>  $filters
+     */
+    private function passesIncludeMatchConditions(array $c, array $filters): bool
+    {
+        $leadTypes = array_filter((array) ($filters['lead_types'] ?? []));
+        if ($leadTypes !== [] && !in_array((string) ($c['lead_type'] ?? ''), $leadTypes, true)) {
+            return false;
+        }
+
+        if (!$this->passesPipelineStatusIncludeFilter(
+            $c,
+            array_map('intval', array_filter((array) ($filters['customer_lead_status_ids'] ?? []))),
+            Lead::TYPE_CUSTOMER,
+            'customer_lead_status_id'
+        )) {
+            return false;
+        }
+
+        if (!$this->passesPipelineStatusIncludeFilter(
+            $c,
+            array_map('intval', array_filter((array) ($filters['provider_lead_status_ids'] ?? []))),
+            Lead::TYPE_PROVIDER,
+            'provider_lead_status_id'
+        )) {
+            return false;
+        }
+
+        $leadOpen = (string) ($filters['lead_open'] ?? '');
+        if ($leadOpen === 'open' && empty($c['lead_open'])) {
+            return false;
+        }
+        if ($leadOpen === 'closed' && !empty($c['lead_open'])) {
+            return false;
+        }
+
+        $waBucket = (string) ($filters['wa_chat_bucket'] ?? '');
+        $bucket = is_array($c['chat_status'] ?? null) ? (string) ($c['chat_status']['bucket'] ?? 'open') : 'open';
+        if ($waBucket === 'open' && $bucket !== 'open') {
+            return false;
+        }
+        if ($waBucket === 'closed' && $bucket !== 'closed') {
+            return false;
+        }
+
+        $waTagIds = array_map('intval', array_filter((array) ($filters['wa_chat_tag_ids'] ?? [])));
+        if ($waTagIds !== []) {
+            $have = collect($c['chat_tags'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
+            if (array_intersect($waTagIds, $have) === []) {
+                return false;
+            }
+        }
+
+        $customerTagIds = array_map('intval', array_filter((array) ($filters['customer_lead_tag_ids'] ?? [])));
+        if ($customerTagIds !== []) {
+            $have = collect($c['customer_lead_tags'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
+            if (array_intersect($customerTagIds, $have) === []) {
+                return false;
+            }
+        }
+
+        $handledBy = (string) ($filters['handled_by'] ?? '');
+        if ($handledBy === 'ai') {
+            $hb = (string) ($c['handled_by'] ?? 'AI');
+            if ($hb !== 'AI' && $hb !== '') {
+                return false;
+            }
+        } elseif ($handledBy === 'human') {
+            $hb = (string) ($c['handled_by'] ?? '');
+            if ($hb === '' || $hb === 'AI') {
+                return false;
+            }
+            $employeeIds = array_values(array_filter((array) ($filters['handled_by_employee_ids'] ?? [])));
+            if ($employeeIds !== [] && !in_array($hb, $employeeIds, true)) {
+                return false;
+            }
+        }
+
+        if (($filters['human_support'] ?? '') === 'only' && empty($c['human_support_requested_at'])) {
+            return false;
+        }
+
+        if (!$this->passesWaAiFlowIncludeFilter($c, $filters)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  array<string, mixed>  $filters
+     */
+    private function passesExcludeMatchConditions(array $c, array $filters): bool
+    {
+        $leadTypes = array_filter((array) ($filters['exclude_lead_types'] ?? []));
+        if ($leadTypes !== [] && in_array((string) ($c['lead_type'] ?? ''), $leadTypes, true)) {
+            return false;
+        }
+
+        if ($this->matchesPipelineStatusExcludeFilter(
+            $c,
+            array_map('intval', array_filter((array) ($filters['exclude_customer_lead_status_ids'] ?? []))),
+            Lead::TYPE_CUSTOMER,
+            'customer_lead_status_id'
+        )) {
+            return false;
+        }
+
+        if ($this->matchesPipelineStatusExcludeFilter(
+            $c,
+            array_map('intval', array_filter((array) ($filters['exclude_provider_lead_status_ids'] ?? []))),
+            Lead::TYPE_PROVIDER,
+            'provider_lead_status_id'
+        )) {
+            return false;
+        }
+
+        $leadOpen = (string) ($filters['exclude_lead_open'] ?? '');
+        if ($leadOpen === 'open' && !empty($c['lead_open'])) {
+            return false;
+        }
+        if ($leadOpen === 'closed' && empty($c['lead_open'])) {
+            return false;
+        }
+
+        $waBucket = (string) ($filters['exclude_wa_chat_bucket'] ?? '');
+        $bucket = is_array($c['chat_status'] ?? null) ? (string) ($c['chat_status']['bucket'] ?? 'open') : 'open';
+        if ($waBucket === 'open' && $bucket === 'open') {
+            return false;
+        }
+        if ($waBucket === 'closed' && $bucket === 'closed') {
+            return false;
+        }
+
+        $waTagIds = array_map('intval', array_filter((array) ($filters['exclude_wa_chat_tag_ids'] ?? [])));
+        if ($waTagIds !== []) {
+            $have = collect($c['chat_tags'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
+            if (array_intersect($waTagIds, $have) !== []) {
+                return false;
+            }
+        }
+
+        $customerTagIds = array_map('intval', array_filter((array) ($filters['exclude_customer_lead_tag_ids'] ?? [])));
+        if ($customerTagIds !== []) {
+            $have = collect($c['customer_lead_tags'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->all();
+            if (array_intersect($customerTagIds, $have) !== []) {
+                return false;
+            }
+        }
+
+        $handledBy = (string) ($filters['exclude_handled_by'] ?? '');
+        if ($handledBy === 'ai') {
+            $hb = (string) ($c['handled_by'] ?? 'AI');
+            if ($hb === 'AI' || $hb === '') {
+                return false;
+            }
+        } elseif ($handledBy === 'human') {
+            $hb = (string) ($c['handled_by'] ?? '');
+            if ($hb !== '' && $hb !== 'AI') {
+                $employeeIds = array_values(array_filter((array) ($filters['exclude_handled_by_employee_ids'] ?? [])));
+                if ($employeeIds === [] || in_array($hb, $employeeIds, true)) {
+                    return false;
+                }
+            }
+        }
+
+        if (($filters['exclude_human_support'] ?? '') === 'exclude' && !empty($c['human_support_requested_at'])) {
+            return false;
+        }
+
+        if (!$this->passesWaAiFlowExcludeFilter($c, $filters)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string>  $phones
+     * @return array<string, array{wa_ai_customer_booking_submitted: bool, wa_ai_provider_lead_submitted: bool}>
+     */
+    private function loadWaAiFlowStateByPhone(array $phones): array
+    {
+        if ($phones === []) {
+            return [];
+        }
+
+        $customerBookingPhones = WhatsAppBooking::query()
+            ->whereIn('phone', $phones)
+            ->where('status', WhatsAppBooking::STATUS_TENTATIVE_PENDING_HUMAN)
+            ->pluck('phone')
+            ->unique()
+            ->flip()
+            ->all();
+
+        $providerLeadPhones = ProviderLead::query()
+            ->whereIn('phone', $phones)
+            ->where('status', ProviderLead::STATUS_TENTATIVE_PENDING_HUMAN)
+            ->pluck('phone')
+            ->unique()
+            ->flip()
+            ->all();
+
+        $result = [];
+        foreach ($phones as $phone) {
+            $result[$phone] = [
+                'wa_ai_customer_booking_submitted' => isset($customerBookingPhones[$phone]),
+                'wa_ai_provider_lead_submitted' => isset($providerLeadPhones[$phone]),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $waAiFlow
+     * @return array<int, string>
+     */
+    private function waAiFlowLabelsForCandidate(array $waAiFlow): array
+    {
+        $labels = [];
+        if (!empty($waAiFlow['wa_ai_customer_booking_submitted'])) {
+            $labels[] = VoiceCronWaAiFlow::label(VoiceCronWaAiFlow::CUSTOMER_BOOKING_SUBMITTED);
+        }
+        if (!empty($waAiFlow['wa_ai_provider_lead_submitted'])) {
+            $labels[] = VoiceCronWaAiFlow::label(VoiceCronWaAiFlow::PROVIDER_LEAD_SUBMITTED);
+        }
+
+        return $labels;
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  array<string, mixed>  $filters
+     */
+    private function passesWaAiFlowIncludeFilter(array $c, array $filters): bool
+    {
+        $flows = array_values(array_filter((array) ($filters['wa_ai_flows'] ?? [])));
+        if ($flows === []) {
+            return true;
+        }
+
+        foreach ($flows as $flow) {
+            if ($this->candidateMatchesWaAiFlow($c, (string) $flow)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  array<string, mixed>  $filters
+     */
+    private function passesWaAiFlowExcludeFilter(array $c, array $filters): bool
+    {
+        $flows = array_values(array_filter((array) ($filters['exclude_wa_ai_flows'] ?? [])));
+        foreach ($flows as $flow) {
+            if ($this->candidateMatchesWaAiFlow($c, (string) $flow)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     */
+    private function candidateMatchesWaAiFlow(array $c, string $flow): bool
+    {
+        $flag = VoiceCronWaAiFlow::candidateFlag($flow);
+        if ($flag === '') {
+            return false;
+        }
+
+        return !empty($c[$flag]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  array<int, int>  $statusIds
+     */
+    private function passesPipelineStatusIncludeFilter(array $c, array $statusIds, string $leadType, string $statusKey): bool
+    {
+        if ($statusIds === []) {
+            return true;
+        }
+
+        if ((string) ($c['lead_type'] ?? '') !== $leadType) {
+            return true;
+        }
+
+        $statusId = (int) ($c[$statusKey] ?? 0);
+
+        return $statusId > 0 && in_array($statusId, $statusIds, true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  array<int, int>  $statusIds
+     */
+    private function matchesPipelineStatusExcludeFilter(array $c, array $statusIds, string $leadType, string $statusKey): bool
+    {
+        if ($statusIds === []) {
+            return false;
+        }
+
+        if ((string) ($c['lead_type'] ?? '') !== $leadType) {
+            return false;
+        }
+
+        $statusId = (int) ($c[$statusKey] ?? 0);
+
+        return $statusId > 0 && in_array($statusId, $statusIds, true);
+    }
+
+    /**
+     * @param  Collection<int, Lead>  $leads
+     * @return array<int, array{customer_lead_status_id: int|null, provider_lead_status_id: int|null}>
+     */
+    private function loadLeadPipelineStatusIds(Collection $leads): array
+    {
+        $leadIds = $leads->pluck('id')->filter()->unique()->values()->all();
+        if ($leadIds === []) {
+            return [];
+        }
+
+        $histories = LeadTypeHistory::query()
+            ->whereIn('lead_id', $leadIds)
+            ->whereIn('type', [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $latestByComposite = [];
+        foreach ($histories as $history) {
+            $compositeKey = $history->lead_id . '|' . $history->type;
+            if (!isset($latestByComposite[$compositeKey])) {
+                $latestByComposite[$compositeKey] = $history;
+            }
+        }
+
+        $byLead = [];
+        foreach ($leads as $lead) {
+            $leadId = (int) $lead->id;
+            $history = $latestByComposite[$leadId . '|' . $lead->lead_type] ?? null;
+            $data = is_array($history?->data) ? $history->data : [];
+            $byLead[$leadId] = [
+                'customer_lead_status_id' => !empty($data['customer_lead_status_id'])
+                    ? (int) $data['customer_lead_status_id']
+                    : null,
+                'provider_lead_status_id' => !empty($data['provider_lead_status_id'])
+                    ? (int) $data['provider_lead_status_id']
+                    : null,
+            ];
+        }
+
+        return $byLead;
     }
 
     /**
@@ -581,25 +993,35 @@ class WhatsAppFollowupCandidateQueryService
             return [];
         }
 
-        $rules = WhatsAppVoiceFollowupAutomationRule::query()
-            ->whereIn('id', $ruleIds)
-            ->orderBy('id')
-            ->get();
+        $version = (int) Cache::get($this->otherCronPhonesCacheVersionKey(), 0);
+        $cacheKey = 'wa_cron_other_phones:v' . $version . ':' . md5(json_encode([
+            'rule_ids' => $ruleIds,
+            'exclude_rule_id' => $excludeRuleId,
+        ]) ?: '');
 
-        $phones = [];
-        foreach ($rules as $rule) {
-            $ruleFilters = $rule->normalizedFilters();
-            $ruleFilters['_skip_other_cron_filter'] = true;
+        $ttl = max(30, (int) config('services.omnidimension.cron_other_jobs_phones_cache_ttl', 120));
 
-            foreach ($this->collectAll($ruleFilters, 5000) as $candidate) {
-                $phone = (string) ($candidate['phone'] ?? '');
-                if ($phone !== '') {
-                    $phones[$phone] = true;
+        return Cache::remember($cacheKey, $ttl, function () use ($ruleIds): array {
+            $rules = WhatsAppVoiceFollowupAutomationRule::query()
+                ->whereIn('id', $ruleIds)
+                ->orderBy('id')
+                ->get();
+
+            $phones = [];
+            foreach ($rules as $rule) {
+                $ruleFilters = $rule->normalizedFilters();
+                $ruleFilters['_skip_other_cron_filter'] = true;
+
+                foreach ($this->collectAll($ruleFilters, 500) as $candidate) {
+                    $phone = (string) ($candidate['phone'] ?? '');
+                    if ($phone !== '') {
+                        $phones[$phone] = true;
+                    }
                 }
             }
-        }
 
-        return array_keys($phones);
+            return array_keys($phones);
+        });
     }
 
     /**
