@@ -259,7 +259,12 @@ class ConfigController extends Controller
         $zone = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point);
 
         if ($zone) {
-            $zone['formatted_coordinates'] = formatCoordinates($zone->coordinates);
+            try {
+                $zone['formatted_coordinates'] = formatCoordinates($zone->coordinates);
+            } catch (\Throwable $e) {
+                report($e);
+                $zone['formatted_coordinates'] = [];
+            }
 
             $services = Service::withoutGlobalScope('zone_wise_data')->where('is_active', 1)->whereHas('category', function ($query) use ($zone) {
                 $query->OfStatus(1)->withoutGlobalScope('zone_wise_data')->whereHas('zones', function ($query) use ($zone) {
