@@ -75,7 +75,75 @@ class RazorPayController extends Controller
         $business_name =  (business_config('business_name', 'business_information'))->live_values ?? 'my_business';
         $business_logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/admin-module/img/placeholder.png');
 
-        return view('paymentmodule::razor-pay', compact('data', 'payer', 'business_logo', 'business_name'));
+        $isApp = $data->payment_platform === 'app';
+
+        return view('paymentmodule::razor-pay', compact('data', 'payer', 'business_logo', 'business_name', 'isApp'));
+    }
+
+    public function buildNativePrepareResponse(string $paymentId): JsonResponse
+    {
+        $data = $this->payment::where(['id' => $paymentId])->where(['is_paid' => 0])->first();
+        if (!isset($data)) {
+            return response()->json([
+                'status' => false,
+                'message' => translate('Payment request not found'),
+            ], 404);
+        }
+
+        $payer = json_decode($data['payer_information']);
+        $business_name = (business_config('business_name', 'business_information'))->live_values ?? 'my_business';
+        $business_logo = getBusinessSettingsImageFullPath(
+            key: 'business_logo',
+            settingType: 'business_information',
+            path: 'business/',
+            defaultPath: 'assets/admin-module/img/placeholder.png'
+        );
+
+        try {
+            $api = new Api(config('razor_config.api_key'), config('razor_config.api_secret'));
+
+            $razorpayOrder = $api->order->create([
+                'receipt' => 'order_' . uniqid(),
+                'amount' => (int)(round($data->payment_amount, 2) * 100),
+                'currency' => strtoupper($data->currency_code),
+                'payment_capture' => 1,
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'payment_request_id' => $data->id,
+                'order_id' => $razorpayOrder['id'],
+                'amount' => $razorpayOrder['amount'],
+                'currency' => $razorpayOrder['currency'],
+                'key' => config('razor_config.api_key'),
+                'name' => $business_name,
+                'description' => (string)$data->payment_amount,
+                'image' => $business_logo,
+                'prefill' => [
+                    'name' => $payer->name ?? '',
+                    'email' => $payer->email ?? '',
+                    'contact' => $payer->phone ?? '',
+                ],
+            ]);
+        } catch (\Exception $exception) {
+            return response()->json([
+                'status' => false,
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function nativePrepare(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'payment_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($this->response_formatter(GATEWAYS_DEFAULT_400, null, $this->error_processor($validator)), 400);
+        }
+
+        return $this->buildNativePrepareResponse($request['payment_id']);
     }
 
     public function payment(Request $request): JsonResponse|Redirector|RedirectResponse|Application
@@ -138,35 +206,46 @@ class RazorPayController extends Controller
 
     public function verifyPayment(Request $request): JsonResponse|Redirector|RedirectResponse|Application
     {
-        $api = new Api(config('razor_config.api_key'), config('razor_config.api_secret'));
+        $nativeSdk = $request->boolean('native_sdk');
 
-        // Verify payment signature
-        $api->utility->verifyPaymentSignature([
-            'razorpay_order_id' => $request['order_id'],
-            'razorpay_payment_id' => $request['payment_id'],
-            'razorpay_signature' => $request['signature']
-        ]);
+        try {
+            $api = new Api(config('razor_config.api_key'), config('razor_config.api_secret'));
 
-        // Fetch payment details using payment_id
-        $payment = $api->payment->fetch($request['payment_id']);
-
-        if ($payment && isset($payment['status']) && $payment['status'] == 'captured') {
-            $this->payment::where(['id' => $request['payment_request_id']])->update([
-                'payment_method' => 'razor_pay',
-                'is_paid' => 1,
-                'transaction_id' => $request['payment_id'],
+            $api->utility->verifyPaymentSignature([
+                'razorpay_order_id' => $request['order_id'],
+                'razorpay_payment_id' => $request['payment_id'],
+                'razorpay_signature' => $request['signature'],
             ]);
-            $data = $this->payment::where(['id' => $request['payment_request_id']])->first();
-            if (isset($data) && function_exists($data->success_hook)) {
-                call_user_func($data->success_hook, $data);
+
+            $payment = $api->payment->fetch($request['payment_id']);
+
+            if ($payment && isset($payment['status']) && $payment['status'] == 'captured') {
+                $this->payment::where(['id' => $request['payment_request_id']])->update([
+                    'payment_method' => 'razor_pay',
+                    'is_paid' => 1,
+                    'transaction_id' => $request['payment_id'],
+                ]);
+                $data = $this->payment::where(['id' => $request['payment_request_id']])->first();
+                if (isset($data) && function_exists($data->success_hook)) {
+                    call_user_func($data->success_hook, $data);
+                }
+                return $this->payment_response($data, 'success', $nativeSdk);
             }
-            return $this->payment_response($data, 'success');
+        } catch (\Exception $exception) {
+            if ($nativeSdk) {
+                return response()->json([
+                    'status' => false,
+                    'flag' => 'fail',
+                    'message' => $exception->getMessage(),
+                ], 400);
+            }
         }
+
         $paymentData = $this->payment::where(['id' => $request['payment_request_id']])->first();
         if (isset($paymentData) && function_exists($paymentData->failure_hook)) {
             call_user_func($paymentData->failure_hook, $paymentData);
         }
-        return $this->payment_response($paymentData, 'fail');
+        return $this->payment_response($paymentData, 'fail', $nativeSdk);
     }
 
     public function callback(Request $request): JsonResponse|Redirector|RedirectResponse|Application
@@ -189,6 +268,6 @@ class RazorPayController extends Controller
     public function cancel(Request $request): JsonResponse|Redirector|RedirectResponse|Application
     {
         $payment_data = $this->payment::where(['id' => $request['payment_id']])->first();
-        return $this->payment_response($payment_data, 'fail');
+        return $this->payment_response($payment_data, 'fail', $request->boolean('native_sdk'));
     }
 }

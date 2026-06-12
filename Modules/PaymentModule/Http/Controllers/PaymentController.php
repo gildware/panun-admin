@@ -13,6 +13,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\CustomerModule\Traits\CustomerAddressTrait;
 use Illuminate\Support\Facades\Validator;
+use Modules\PaymentModule\Traits\NativeRazorpayRedirect;
 use Modules\PaymentModule\Traits\PaymentHelperTrait;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
@@ -25,7 +26,7 @@ use Modules\PaymentModule\Library\Receiver;
 
 class PaymentController extends Controller
 {
-    use CustomerAddressTrait, PaymentHelperTrait;
+    use CustomerAddressTrait, PaymentHelperTrait, NativeRazorpayRedirect;
 
     /**
      * @param Request $request
@@ -141,7 +142,7 @@ class PaymentController extends Controller
 
             $receiver_info = new Receiver('receiver_name', 'example.png');
             $redirect_link = PaymentTrait::generate_link($payer, $payment_info, $receiver_info);
-            return redirect($redirect_link);
+            return $this->respondPaymentRedirect($request, $redirect_link);
         }
 
         //==========>>>>>> IF Provider to Admin Pay <<<<<<<==============
@@ -162,19 +163,19 @@ class PaymentController extends Controller
                         failure_hook: 'pay_to_admin_fail',
                         currency_code: currency_code(),
                         payment_method: $request['payment_method'],
-                        payment_platform: 'web',
+                        payment_platform: $request['payment_platform'] ?? 'app',
                         payer_id: $customer['id'],
                         receiver_id: null,
                         additional_data: $additional_data,
                         payment_amount: $amount,
-                        external_redirect_link: route('provider.account_info'),
+                        external_redirect_link: $request['callback'] ?? route('provider.account_info'),
                         attribute: 'booking_id',
                         attribute_id: time()
                     );
 
                     $receiver_info = new Receiver('receiver_name', 'example.png');
                     $redirect_link = PaymentTrait::generate_link($payer, $payment_info, $receiver_info);
-                    return redirect($redirect_link);
+                    return $this->respondPaymentRedirect($request, $redirect_link);
                 } else {
                     return redirect()->back()->withErrors(translate('Invalid Amount'));
                 }
@@ -200,7 +201,7 @@ class PaymentController extends Controller
                     failure_hook: 'repeat_booking_payment_fail',
                     currency_code: currency_code(),
                     payment_method: $request['payment_method'],
-                    payment_platform: 'web',
+                    payment_platform: $request['payment_platform'] ?? 'app',
                     payer_id: $customer['id'],
                     receiver_id: null,
                     additional_data: $additional_data,
@@ -212,7 +213,7 @@ class PaymentController extends Controller
 
                 $receiver_info = new Receiver('receiver_name', 'example.png');
                 $redirect_link = PaymentTrait::generate_link($payer, $payment_info, $receiver_info);
-                return redirect($redirect_link);
+                return $this->respondPaymentRedirect($request, $redirect_link);
             } else {
                 return redirect()->back()->withErrors(translate('Provider Not Found'));
             }
@@ -257,7 +258,7 @@ class PaymentController extends Controller
                 failure_hook: 'switch_offline_to_digital_payment_fail',
                 currency_code: currency_code(),
                 payment_method: $request['payment_method'],
-                payment_platform: 'web',
+                payment_platform: $request['payment_platform'] ?? 'app',
                 payer_id: $customer_user_id,
                 receiver_id: null,
                 additional_data: $additional_data,
@@ -269,7 +270,7 @@ class PaymentController extends Controller
 
             $receiver_info = new Receiver('receiver_name', 'example.png');
             $redirect_link = PaymentTrait::generate_link($payer, $payment_info, $receiver_info);
-            return redirect($redirect_link);
+            return $this->respondPaymentRedirect($request, $redirect_link);
 
         }
 
@@ -366,7 +367,7 @@ class PaymentController extends Controller
 
         $receiver_info = new Receiver('receiver_name', 'example.png');
         $redirect_link = PaymentTrait::generate_link($payer, $payment_info, $receiver_info);
-        return redirect($redirect_link);
+        return $this->respondPaymentRedirect($request, $redirect_link);
     }
 
     /**
