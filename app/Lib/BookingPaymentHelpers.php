@@ -1754,10 +1754,23 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
             $partial->setAttribute('due_after_payment', round(max(0.0, $payableCap - $runningPaid), 2));
         }
 
+        $extraServiceLines = ($main->extra_services ?? collect())
+            ->filter(fn ($extra) => round((float) ($extra->total ?? 0), 2) > 0)
+            ->map(fn ($extra) => [
+                'id' => (string) ($extra->id ?? ''),
+                'name' => (string) ($extra->title ?? translate('Extra_Services')),
+                'amount' => round((float) ($extra->total ?? 0), 2),
+                'type' => (string) ($extra->type ?? 'service'),
+            ])
+            ->values()
+            ->all();
+
         $target = $booking instanceof BookingRepeat ? $booking : $main;
         $target->setAttribute('payment_details', $paymentPayload);
         $target->setAttribute('revenue_settlement', $revenuePayload);
         $target->setAttribute('service_location_details', booking_provider_api_service_location_payload($booking));
+        $target->setAttribute('extra_service_lines', $extraServiceLines);
+        $target->setAttribute('booking_summary', booking_customer_api_summary_payload($main));
     }
 }
 
