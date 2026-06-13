@@ -2364,6 +2364,8 @@ class BookingController extends Controller
         if ($webPage === 'details') {
 
             $booking = $this->booking->with([
+                'category',
+                'subCategory',
                 'detail.service' => function ($query) {
                     $query->withTrashed();
                 },

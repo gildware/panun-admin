@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -1319,6 +1320,44 @@ class LeadReportController extends Controller
             'invalid' => Lead::TYPE_INVALID,
             default => null,
         };
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function getLeadReportDrilldown(Request $request): JsonResponse
+    {
+        $this->authorize('lead_report_view');
+        $request->validate([
+            'lead_ids' => 'required|array|max:500',
+            'lead_ids.*' => 'integer',
+        ]);
+
+        $leadIds = array_values(array_unique($request->input('lead_ids', [])));
+        if ($leadIds === []) {
+            return response()->json(['leads' => []]);
+        }
+
+        $leads = Lead::query()
+            ->whereIn('id', $leadIds)
+            ->with(['source'])
+            ->orderByDesc('date_time_of_lead_received')
+            ->get()
+            ->map(function (Lead $lead) {
+                return [
+                    'id' => (string) $lead->id,
+                    'name' => (string) ($lead->name ?: translate('N/A')),
+                    'phone_number' => (string) ($lead->phone_number ?? ''),
+                    'lead_type' => (string) ($lead->lead_type ?? ''),
+                    'source_name' => (string) ($lead->source?->name ?? translate('N/A')),
+                    'received_at' => $lead->date_time_of_lead_received?->format('d M Y, h:i A') ?? '',
+                    'details_url' => route('admin.lead.show', $lead->id),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json(['leads' => $leads]);
     }
 }
 

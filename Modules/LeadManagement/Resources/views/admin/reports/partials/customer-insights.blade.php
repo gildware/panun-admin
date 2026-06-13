@@ -28,6 +28,19 @@
             text-align: center;
             padding: 1rem;
         }
+        .customer-lead-analytics .chart-drilldown-view-btn,
+        .provider-lead-analytics .chart-drilldown-view-btn {
+            line-height: 1;
+            vertical-align: middle;
+            color: #4e73df;
+            text-decoration: none;
+        }
+        .customer-lead-analytics .apexcharts-legend-series,
+        .provider-lead-analytics .apexcharts-legend-series {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 2px;
+        }
     </style>
 @endpush
 

@@ -67,6 +67,17 @@ class BookingReportAnalyticsService
         $completedSubCategory = [];
         $cancelledCategory = [];
         $cancelledZone = [];
+        $outcomeBookings = ['pending' => [], 'completed' => [], 'cancelled' => []];
+        $categoryBookings = [];
+        $zoneBookings = [];
+        $subCategoryBookings = [];
+        $completedCategoryBookings = [];
+        $completedZoneBookings = [];
+        $completedSubCategoryBookings = [];
+        $cancelledCategoryBookings = [];
+        $cancelledZoneBookings = [];
+        $dayBookings = array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []);
+        $hourBookings = array_fill_keys(array_map('strval', range(0, 23)), []);
         $leadHourCounts = array_fill(0, 24, 0);
         $leadDayCounts = [
             'Mon' => 0, 'Tue' => 0, 'Wed' => 0, 'Thu' => 0, 'Fri' => 0, 'Sat' => 0, 'Sun' => 0,
@@ -80,8 +91,11 @@ class BookingReportAnalyticsService
 
         foreach ($bookings as $booking) {
             $outcome = $this->classifyOutcome((string) $booking->booking_status);
+            $bookingId = (string) $booking->id;
             $overall[$outcome]++;
             $amount = (float) ($booking->total_booking_amount ?? 0);
+
+            $this->appendBookingId($outcomeBookings, $outcome, $bookingId);
 
             if ($outcome === 'completed') {
                 $completedAmount += $amount;
@@ -109,20 +123,31 @@ class BookingReportAnalyticsService
             $this->incrementBucket($categoryBuckets, $categoryDim['key'], $categoryDim['label'], $outcome);
             $this->incrementBucket($zoneBuckets, $zoneDim['key'], $zoneDim['label'], $outcome);
             $this->incrementBucket($subCategoryBuckets, $subCategoryDim['key'], $subCategoryDim['label'], $outcome);
+            $this->appendBookingId($categoryBookings, $categoryDim['key'], $bookingId);
+            $this->appendBookingId($zoneBookings, $zoneDim['key'], $bookingId);
+            $this->appendBookingId($subCategoryBookings, $subCategoryDim['key'], $bookingId);
 
             if ($outcome === 'completed') {
                 $this->incrementSimple($completedCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($completedZone, $zoneDim['key'], $zoneDim['label']);
                 $this->incrementSimple($completedSubCategory, $subCategoryDim['key'], $subCategoryDim['label']);
+                $this->appendBookingId($completedCategoryBookings, $categoryDim['key'], $bookingId);
+                $this->appendBookingId($completedZoneBookings, $zoneDim['key'], $bookingId);
+                $this->appendBookingId($completedSubCategoryBookings, $subCategoryDim['key'], $bookingId);
             } elseif ($outcome === 'cancelled') {
                 $this->incrementSimple($cancelledCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($cancelledZone, $zoneDim['key'], $zoneDim['label']);
+                $this->appendBookingId($cancelledCategoryBookings, $categoryDim['key'], $bookingId);
+                $this->appendBookingId($cancelledZoneBookings, $zoneDim['key'], $bookingId);
             }
 
             $createdAt = $booking->created_at;
             if ($createdAt instanceof Carbon) {
                 $leadHourCounts[(int) $createdAt->format('G')]++;
-                $leadDayCounts[$createdAt->format('D')] = ($leadDayCounts[$createdAt->format('D')] ?? 0) + 1;
+                $dayKey = $createdAt->format('D');
+                $leadDayCounts[$dayKey] = ($leadDayCounts[$dayKey] ?? 0) + 1;
+                $this->appendBookingId($dayBookings, $dayKey, $bookingId);
+                $this->appendBookingId($hourBookings, (string) (int) $createdAt->format('G'), $bookingId);
             }
         }
 
@@ -170,9 +195,9 @@ class BookingReportAnalyticsService
             ],
             'insights' => $insights,
             'outcome_breakdown' => [
-                ['label' => translate('completed'), 'total' => $completed, 'color' => '#1cc88a'],
-                ['label' => translate('Cancelled'), 'total' => $cancelled, 'color' => '#e74a3b'],
-                ['label' => translate('Pending'), 'total' => $pending, 'color' => '#f6c23e'],
+                ['label' => translate('completed'), 'total' => $completed, 'color' => '#1cc88a', 'key' => 'completed'],
+                ['label' => translate('Cancelled'), 'total' => $cancelled, 'color' => '#e74a3b', 'key' => 'cancelled'],
+                ['label' => translate('Pending'), 'total' => $pending, 'color' => '#f6c23e', 'key' => 'pending'],
             ],
             'category_wise' => $categoryWise,
             'zone_wise' => $zoneWise,
@@ -185,6 +210,23 @@ class BookingReportAnalyticsService
             'cancelled' => [
                 'category_wise' => $this->finalizeSimple($cancelledCategory),
                 'zone_wise' => $this->finalizeSimple($cancelledZone),
+            ],
+            'drilldown' => [
+                'outcome' => $outcomeBookings,
+                'category_wise' => $categoryBookings,
+                'zone_wise' => $zoneBookings,
+                'subcategory_wise' => $subCategoryBookings,
+                'booking_created_by_day' => $dayBookings,
+                'booking_created_by_hour' => $hourBookings,
+                'completed' => [
+                    'category_wise' => $completedCategoryBookings,
+                    'zone_wise' => $completedZoneBookings,
+                    'subcategory_wise' => $completedSubCategoryBookings,
+                ],
+                'cancelled' => [
+                    'category_wise' => $cancelledCategoryBookings,
+                    'zone_wise' => $cancelledZoneBookings,
+                ],
             ],
             'booking_created_by_hour' => array_values($leadHourCounts),
             'booking_created_by_hour_labels' => $this->hourLabels(),
@@ -274,9 +316,20 @@ class BookingReportAnalyticsService
     private function incrementSimple(array &$bucket, string $key, string $label): void
     {
         if (!isset($bucket[$key])) {
-            $bucket[$key] = ['label' => $label, 'total' => 0];
+            $bucket[$key] = ['label' => $label, 'total' => 0, 'key' => $key];
         }
         $bucket[$key]['total']++;
+    }
+
+    /**
+     * @param  array<string, list<string>>  $bucket
+     */
+    private function appendBookingId(array &$bucket, string $key, string $bookingId): void
+    {
+        if (!isset($bucket[$key])) {
+            $bucket[$key] = [];
+        }
+        $bucket[$key][] = $bookingId;
     }
 
     /**
@@ -286,10 +339,11 @@ class BookingReportAnalyticsService
     private function finalizeBuckets(array $buckets, int $grandTotal): array
     {
         $rows = [];
-        foreach ($buckets as $row) {
+        foreach ($buckets as $key => $row) {
             $total = (int) $row['total'];
             $completed = (int) $row['completed'];
             $rows[] = [
+                'key' => (string) $key,
                 'label' => $row['label'],
                 'total' => $total,
                 'completed' => $completed,
@@ -305,8 +359,8 @@ class BookingReportAnalyticsService
     }
 
     /**
-     * @param  array<string, array{label: string, total: int}>  $bucket
-     * @return list<array{label: string, total: int}>
+     * @param  array<string, array{label: string, total: int, key: string}>  $bucket
+     * @return list<array{label: string, total: int, key: string}>
      */
     private function finalizeSimple(array $bucket): array
     {
@@ -534,6 +588,16 @@ class BookingReportAnalyticsService
             'subcategory_wise' => [],
             'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
             'cancelled' => ['category_wise' => [], 'zone_wise' => []],
+            'drilldown' => [
+                'outcome' => ['pending' => [], 'completed' => [], 'cancelled' => []],
+                'category_wise' => [],
+                'zone_wise' => [],
+                'subcategory_wise' => [],
+                'booking_created_by_day' => array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []),
+                'booking_created_by_hour' => array_fill_keys(array_map('strval', range(0, 23)), []),
+                'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+                'cancelled' => ['category_wise' => [], 'zone_wise' => []],
+            ],
             'booking_created_by_hour' => array_fill(0, 24, 0),
             'booking_created_by_hour_labels' => $this->hourLabels(),
             'booking_created_by_day' => [0, 0, 0, 0, 0, 0, 0],

@@ -595,11 +595,16 @@
             @endif
         </div>
     </div>
+
+    @if(($tab ?? 'inbound') === 'inbound')
+        @include('leadmanagement::admin.reports.partials._lead-chart-drilldown-modal')
+    @endif
 @endsection
 
 @push('script')
     @if(in_array(($tab ?? 'inbound'), ['inbound', 'outbound'], true))
         <script src="{{ asset('assets/admin-module/plugins/apex/apexcharts.min.js') }}"></script>
+        @include('adminmodule::admin.report.partials._report-chart-drilldown-utils')
     @endif
     <script>
         "use strict";

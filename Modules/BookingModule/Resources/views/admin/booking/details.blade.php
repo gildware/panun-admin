@@ -2618,12 +2618,28 @@
                             @if ($__bfsSplitBookingSummary)
                                 <p class="fz-12 text-muted mb-2">{{ $__bfsSplitBookingSummaryComplete ? translate('Bfs_booking_summary_before_complete_hint') : translate('Bfs_booking_summary_before_cancel_hint') }}</p>
                             @endif
+                            @php
+                                $__summaryCategoryName = optional($booking->category ?? $category)->name;
+                                $__summarySubCategoryName = optional($booking->subCategory ?? $subCategory)->name;
+                            @endphp
+                            @if ($__summaryCategoryName || $__summarySubCategoryName)
+                                <div class="d-flex flex-wrap gap-3 mb-3 fz-14">
+                                    @if ($__summarySubCategoryName)
+                                        <span><span class="fw-semibold">{{ translate('SubCategory') }}:</span> {{ $__summarySubCategoryName }}</span>
+                                    @endif
+                                    @if ($__summaryCategoryName)
+                                        <span><span class="fw-semibold">{{ translate('Category') }}:</span> {{ $__summaryCategoryName }}</span>
+                                    @endif
+                                </div>
+                            @endif
 
                             <div class="table-responsive border-bottom">
                                 <table class="table text-nowrap align-middle mb-0">
                                     <thead>
                                         <tr>
                                             <th class="ps-lg-3">{{ translate('Service') }}</th>
+                                            <th>{{ translate('SubCategory') }}</th>
+                                            <th>{{ translate('Category') }}</th>
                                             <th>{{ translate('Price') }}</th>
                                             <th>{{ translate('Qty') }}</th>
                                             <th>{{ translate('Discount') }}</th>
@@ -2646,6 +2662,8 @@
                                         @foreach ($bookingDetail as $detail)
                                             @php
                                                 $detailLineTotal = round(($detail->service_cost * $detail->quantity) - ($detail->discount_amount ?? 0) - ($detail->campaign_discount_amount ?? 0) + ($detail->tax_amount ?? 0), 2);
+                                                $__lineCategoryName = optional($detail->service?->category ?? $booking->category ?? $category)->name;
+                                                $__lineSubCategoryName = optional($detail->service?->subCategory ?? $booking->subCategory ?? $subCategory)->name;
                                             @endphp
                                             <tr>
                                                 <td class="text-wrap ps-lg-3">
@@ -2673,6 +2691,8 @@
                                                             class="badge badge-pill badge-danger">{{ translate('Service_unavailable') }}</span>
                                                     @endif
                                                 </td>
+                                                <td class="text-wrap">{{ $__lineSubCategoryName ?: '—' }}</td>
+                                                <td class="text-wrap">{{ $__lineCategoryName ?: '—' }}</td>
                                                 <td>{{ with_currency_symbol($detail->service_cost) }}</td>
                                                 <td>
                                                     <span>{{ $detail->quantity }}</span>
@@ -2720,6 +2740,8 @@
                                                         @endcan
                                                     </div>
                                                 </td>
+                                                <td class="text-wrap">{{ $__summarySubCategoryName ?: '—' }}</td>
+                                                <td class="text-wrap">{{ $__summaryCategoryName ?: '—' }}</td>
                                                 <td>{{ with_currency_symbol($extra->price) }}</td>
                                                 <td>{{ $extra->quantity }}</td>
                                                 <td>{{ with_currency_symbol($extra->discount) }}</td>

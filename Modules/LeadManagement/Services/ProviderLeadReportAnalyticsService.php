@@ -91,6 +91,18 @@ class ProviderLeadReportAnalyticsService
         $cancelledCategory = [];
         $cancelledZone = [];
         $cancelReasonCounts = [];
+        $outcomeLeads = ['pending' => [], 'completed' => [], 'cancelled' => []];
+        $categoryLeads = [];
+        $zoneLeads = [];
+        $subCategoryLeads = [];
+        $completedCategoryLeads = [];
+        $completedZoneLeads = [];
+        $completedSubCategoryLeads = [];
+        $cancelledCategoryLeads = [];
+        $cancelledZoneLeads = [];
+        $cancelReasonLeads = [];
+        $dayLeads = array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []);
+        $hourLeads = array_fill_keys(array_map('strval', range(0, 23)), []);
         $leadHourCounts = array_fill(0, 24, 0);
         $leadDayCounts = [
             'Mon' => 0, 'Tue' => 0, 'Wed' => 0, 'Thu' => 0, 'Fri' => 0, 'Sat' => 0, 'Sun' => 0,
@@ -100,6 +112,7 @@ class ProviderLeadReportAnalyticsService
         $missingCategory = 0;
 
         foreach ($leads as $lead) {
+            $leadId = (string) $lead->id;
             $history = $histories->get($lead->id);
             $data = ($history && is_array($history->data)) ? $history->data : [];
             $statusId = $this->normalizeReferenceId($data['provider_lead_status_id'] ?? null);
@@ -108,6 +121,7 @@ class ProviderLeadReportAnalyticsService
 
             $outcome = $this->classifyOutcome($baseType);
             $overall[$outcome]++;
+            $this->appendLeadId($outcomeLeads, $outcome, $leadId);
 
             $zoneIdList = $this->zoneIdsFromData($data);
             $zoneId = $zoneIdList[0] ?? null;
@@ -128,23 +142,35 @@ class ProviderLeadReportAnalyticsService
             $this->incrementBucket($categoryBuckets, $categoryDim['key'], $categoryDim['label'], $outcome);
             $this->incrementBucket($zoneBuckets, $zoneDim['key'], $zoneDim['label'], $outcome);
             $this->incrementBucket($subCategoryBuckets, $subCategoryDim['key'], $subCategoryDim['label'], $outcome);
+            $this->appendLeadId($categoryLeads, $categoryDim['key'], $leadId);
+            $this->appendLeadId($zoneLeads, $zoneDim['key'], $leadId);
+            $this->appendLeadId($subCategoryLeads, $subCategoryDim['key'], $leadId);
 
             if ($outcome === 'completed') {
                 $this->incrementSimple($completedCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($completedZone, $zoneDim['key'], $zoneDim['label']);
                 $this->incrementSimple($completedSubCategory, $subCategoryDim['key'], $subCategoryDim['label']);
+                $this->appendLeadId($completedCategoryLeads, $categoryDim['key'], $leadId);
+                $this->appendLeadId($completedZoneLeads, $zoneDim['key'], $leadId);
+                $this->appendLeadId($completedSubCategoryLeads, $subCategoryDim['key'], $leadId);
             } elseif ($outcome === 'cancelled') {
                 $this->incrementSimple($cancelledCategory, $categoryDim['key'], $categoryDim['label']);
                 $this->incrementSimple($cancelledZone, $zoneDim['key'], $zoneDim['label']);
                 $reasonId = $this->normalizeReferenceId($data['provider_cancellation_reason_id'] ?? null);
                 $reasonDim = $this->resolveDimension($reasonId, $cancelReasons);
                 $this->incrementSimple($cancelReasonCounts, $reasonDim['key'], $reasonDim['label']);
+                $this->appendLeadId($cancelledCategoryLeads, $categoryDim['key'], $leadId);
+                $this->appendLeadId($cancelledZoneLeads, $zoneDim['key'], $leadId);
+                $this->appendLeadId($cancelReasonLeads, $reasonDim['key'], $leadId);
             }
 
             $receivedAt = $lead->date_time_of_lead_received;
             if ($receivedAt instanceof Carbon) {
                 $leadHourCounts[(int) $receivedAt->format('G')]++;
-                $leadDayCounts[$receivedAt->format('D')] = ($leadDayCounts[$receivedAt->format('D')] ?? 0) + 1;
+                $dayKey = $receivedAt->format('D');
+                $leadDayCounts[$dayKey] = ($leadDayCounts[$dayKey] ?? 0) + 1;
+                $this->appendLeadId($dayLeads, $dayKey, $leadId);
+                $this->appendLeadId($hourLeads, (string) (int) $receivedAt->format('G'), $leadId);
             }
         }
 
@@ -187,9 +213,9 @@ class ProviderLeadReportAnalyticsService
             ],
             'insights' => $insights,
             'outcome_breakdown' => [
-                ['label' => translate('completed'), 'total' => $completed, 'color' => '#1cc88a'],
-                ['label' => translate('Cancelled'), 'total' => $cancelled, 'color' => '#e74a3b'],
-                ['label' => translate('Pending'), 'total' => $pending, 'color' => '#f6c23e'],
+                ['label' => translate('completed'), 'total' => $completed, 'color' => '#1cc88a', 'key' => 'completed'],
+                ['label' => translate('Cancelled'), 'total' => $cancelled, 'color' => '#e74a3b', 'key' => 'cancelled'],
+                ['label' => translate('Pending'), 'total' => $pending, 'color' => '#f6c23e', 'key' => 'pending'],
             ],
             'category_wise' => $categoryWise,
             'zone_wise' => $zoneWise,
@@ -203,6 +229,24 @@ class ProviderLeadReportAnalyticsService
                 'category_wise' => $this->finalizeSimple($cancelledCategory),
                 'zone_wise' => $this->finalizeSimple($cancelledZone),
                 'reasons' => $this->finalizeSimple($cancelReasonCounts),
+            ],
+            'drilldown' => [
+                'outcome' => $outcomeLeads,
+                'category_wise' => $categoryLeads,
+                'zone_wise' => $zoneLeads,
+                'subcategory_wise' => $subCategoryLeads,
+                'lead_received_by_day' => $dayLeads,
+                'lead_received_by_hour' => $hourLeads,
+                'completed' => [
+                    'category_wise' => $completedCategoryLeads,
+                    'zone_wise' => $completedZoneLeads,
+                    'subcategory_wise' => $completedSubCategoryLeads,
+                ],
+                'cancelled' => [
+                    'category_wise' => $cancelledCategoryLeads,
+                    'zone_wise' => $cancelledZoneLeads,
+                    'reasons' => $cancelReasonLeads,
+                ],
             ],
             'lead_received_by_hour' => array_values($leadHourCounts),
             'lead_received_by_hour_labels' => $this->hourLabels(),
@@ -312,9 +356,20 @@ class ProviderLeadReportAnalyticsService
     private function incrementSimple(array &$bucket, string $key, string $label): void
     {
         if (!isset($bucket[$key])) {
-            $bucket[$key] = ['label' => $label, 'total' => 0];
+            $bucket[$key] = ['label' => $label, 'total' => 0, 'key' => $key];
         }
         $bucket[$key]['total']++;
+    }
+
+    /**
+     * @param  array<string, list<string>>  $bucket
+     */
+    private function appendLeadId(array &$bucket, string $key, string $leadId): void
+    {
+        if (!isset($bucket[$key])) {
+            $bucket[$key] = [];
+        }
+        $bucket[$key][] = $leadId;
     }
 
     /**
@@ -324,10 +379,11 @@ class ProviderLeadReportAnalyticsService
     private function finalizeBuckets(array $buckets, int $grandTotal): array
     {
         $rows = [];
-        foreach ($buckets as $row) {
+        foreach ($buckets as $key => $row) {
             $total = (int) $row['total'];
             $completed = (int) $row['completed'];
             $rows[] = [
+                'key' => (string) $key,
                 'label' => $row['label'],
                 'total' => $total,
                 'completed' => $completed,
@@ -567,6 +623,16 @@ class ProviderLeadReportAnalyticsService
             'subcategory_wise' => [],
             'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
             'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+            'drilldown' => [
+                'outcome' => ['pending' => [], 'completed' => [], 'cancelled' => []],
+                'category_wise' => [],
+                'zone_wise' => [],
+                'subcategory_wise' => [],
+                'lead_received_by_day' => array_fill_keys(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []),
+                'lead_received_by_hour' => array_fill_keys(array_map('strval', range(0, 23)), []),
+                'completed' => ['category_wise' => [], 'zone_wise' => [], 'subcategory_wise' => []],
+                'cancelled' => ['category_wise' => [], 'zone_wise' => [], 'reasons' => []],
+            ],
             'lead_received_by_hour' => array_fill(0, 24, 0),
             'lead_received_by_hour_labels' => $this->hourLabels(),
             'lead_received_by_day' => [0, 0, 0, 0, 0, 0, 0],

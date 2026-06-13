@@ -5,6 +5,7 @@ namespace Modules\AdminModule\Http\Controllers\Web\Admin\Report;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -333,8 +334,16 @@ class BookingReportController extends Controller
             ['key' => 'disputed_completed', 'label' => 'Disputed & Completed'],
         ];
 
+        $statusBookingIds = array_fill_keys(array_column($statusBucketMeta, 'key'), []);
+        foreach (self::filterQuery($this->booking->newQuery(), $request)->get(['id', 'booking_status', 'reopen_disputed_snapshot']) as $statusBooking) {
+            $bucketKey = $this->resolveReportStatusBucket($statusBooking);
+            if (array_key_exists($bucketKey, $statusBookingIds)) {
+                $statusBookingIds[$bucketKey][] = (string) $statusBooking->id;
+            }
+        }
+
         $report_status_table = [];
-        $report_status_chart = ['labels' => [], 'counts' => [], 'amounts' => []];
+        $report_status_chart = ['labels' => [], 'counts' => [], 'amounts' => [], 'booking_ids' => []];
         foreach ($statusBucketMeta as $meta) {
             $key = $meta['key'];
             $row = $statusBreakdownRows->get($key);
@@ -351,6 +360,7 @@ class BookingReportController extends Controller
                 $report_status_chart['labels'][] = $label;
                 $report_status_chart['counts'][] = $cnt;
                 $report_status_chart['amounts'][] = round($amt, 2);
+                $report_status_chart['booking_ids'][] = $statusBookingIds[$key] ?? [];
             }
         }
         if (count($report_status_chart['labels']) === 0) {
@@ -530,6 +540,7 @@ class BookingReportController extends Controller
                 (int) ($cancel_bucket_rows->special_cnt ?? 0),
                 (int) ($cancel_bucket_rows->disputed_cancelled_cnt ?? 0),
             ],
+            'booking_ids' => $this->buildCancelBucketBookingIds($request, $visitRetainedOutcome),
         ];
 
         $cancel_reason_rows = DB::table('booking_status_histories as h')
@@ -547,7 +558,7 @@ class BookingReportController extends Controller
                 $q->whereNull('b.reopen_disputed_snapshot')
                     ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
             })
-            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COALESCE(r.responsible, ?) as responsible, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(b.total_booking_amount), 0) as total_amount', [
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COALESCE(r.responsible, ?) as responsible, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(b.total_booking_amount), 0) as total_amount, GROUP_CONCAT(DISTINCT b.id) as booking_ids_csv', [
                 translate('Unknown'),
                 BookingCancellationReason::RESPONSIBLE_NO_ONE,
             ])
@@ -560,6 +571,7 @@ class BookingReportController extends Controller
                 'responsible' => (string) $row->responsible,
                 'booking_count' => (int) $row->booking_count,
                 'total_amount' => (float) $row->total_amount,
+                'booking_ids' => $this->splitBookingIdsFromCsv($row->booking_ids_csv ?? null),
             ])
             ->values()
             ->all();
@@ -567,9 +579,10 @@ class BookingReportController extends Controller
         $cancel_reason_chart = [
             'labels' => array_map(fn ($r) => $r['reason_name'], $cancel_reason_rows),
             'counts' => array_map(fn ($r) => $r['booking_count'], $cancel_reason_rows),
+            'booking_ids' => array_map(fn ($r) => $r['booking_ids'], $cancel_reason_rows),
         ];
         if (count($cancel_reason_chart['labels']) === 0) {
-            $cancel_reason_chart = ['labels' => [translate('Canceled')], 'counts' => [0]];
+            $cancel_reason_chart = ['labels' => [translate('Canceled')], 'counts' => [0], 'booking_ids' => [[]]];
         }
 
         // Cancelled after visit / special settlement cancellation reasons
@@ -585,7 +598,7 @@ class BookingReportController extends Controller
                 $q->whereNull('b.reopen_disputed_snapshot')
                     ->orWhereRaw("JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') <> 'reopen_disputed_refund'");
             })
-            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COUNT(DISTINCT b.id) as booking_count', [
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COUNT(DISTINCT b.id) as booking_count, GROUP_CONCAT(DISTINCT b.id) as booking_ids_csv', [
                 translate('Unknown'),
             ])
             ->groupBy('reason_id', 'reason_name')
@@ -595,6 +608,7 @@ class BookingReportController extends Controller
                 'reason_id' => (int) $row->reason_id,
                 'reason_name' => (string) $row->reason_name,
                 'booking_count' => (int) $row->booking_count,
+                'booking_ids' => $this->splitBookingIdsFromCsv($row->booking_ids_csv ?? null),
             ])
             ->values()
             ->all();
@@ -602,9 +616,10 @@ class BookingReportController extends Controller
         $cancel_after_visit_reason_chart = [
             'labels' => array_map(fn ($r) => $r['reason_name'], $cancel_after_visit_reason_rows),
             'counts' => array_map(fn ($r) => $r['booking_count'], $cancel_after_visit_reason_rows),
+            'booking_ids' => array_map(fn ($r) => $r['booking_ids'], $cancel_after_visit_reason_rows),
         ];
         if (count($cancel_after_visit_reason_chart['labels']) === 0) {
-            $cancel_after_visit_reason_chart = ['labels' => [translate('Canceled')], 'counts' => [0]];
+            $cancel_after_visit_reason_chart = ['labels' => [translate('Canceled')], 'counts' => [0], 'booking_ids' => [[]]];
         }
 
         // Disputed & cancelled cancellation reasons
@@ -614,7 +629,7 @@ class BookingReportController extends Controller
             ->join('bookings as b', 'b.id', '=', 'h.booking_id')
             ->whereIn('b.booking_status', ['canceled', 'cancelled', 'refunded'])
             ->whereRaw("b.reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'")
-            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COUNT(DISTINCT b.id) as booking_count', [
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COUNT(DISTINCT b.id) as booking_count, GROUP_CONCAT(DISTINCT b.id) as booking_ids_csv', [
                 translate('Unknown'),
             ])
             ->groupBy('reason_id', 'reason_name')
@@ -624,6 +639,7 @@ class BookingReportController extends Controller
                 'reason_id' => (int) $row->reason_id,
                 'reason_name' => (string) $row->reason_name,
                 'booking_count' => (int) $row->booking_count,
+                'booking_ids' => $this->splitBookingIdsFromCsv($row->booking_ids_csv ?? null),
             ])
             ->values()
             ->all();
@@ -631,9 +647,10 @@ class BookingReportController extends Controller
         $disputed_cancel_reason_chart = [
             'labels' => array_map(fn ($r) => $r['reason_name'], $disputed_cancel_reason_rows),
             'counts' => array_map(fn ($r) => $r['booking_count'], $disputed_cancel_reason_rows),
+            'booking_ids' => array_map(fn ($r) => $r['booking_ids'], $disputed_cancel_reason_rows),
         ];
         if (count($disputed_cancel_reason_chart['labels']) === 0) {
-            $disputed_cancel_reason_chart = ['labels' => [translate('Unknown')], 'counts' => [0]];
+            $disputed_cancel_reason_chart = ['labels' => [translate('Unknown')], 'counts' => [0], 'booking_ids' => [[]]];
         }
 
         $cancel_service_rows = DB::table('booking_details as d')
@@ -716,7 +733,7 @@ class BookingReportController extends Controller
             ->leftJoin('services as s', 's.id', '=', 'd.service_id')
             ->whereIn('b.id', $baseBookingIdsQuery)
             ->whereRaw("b.reopen_disputed_snapshot IS NOT NULL AND JSON_EXTRACT(b.reopen_disputed_snapshot, '$.type') = 'reopen_disputed_refund'")
-            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total, GROUP_CONCAT(DISTINCT b.id) as booking_ids_csv', [
                 translate('Unknown'),
             ])
             ->groupBy('d.service_id')
@@ -728,6 +745,7 @@ class BookingReportController extends Controller
                 'service_name' => (string) $row->service_name,
                 'booking_count' => (int) $row->booking_count,
                 'service_total' => (float) $row->service_total,
+                'booking_ids' => $this->splitBookingIdsFromCsv($row->booking_ids_csv ?? null),
             ])
             ->values()
             ->all();
@@ -735,9 +753,10 @@ class BookingReportController extends Controller
         $disputed_service_chart = [
             'labels' => array_map(fn ($r) => $r['service_name'], $disputed_service_rows),
             'counts' => array_map(fn ($r) => $r['booking_count'], $disputed_service_rows),
+            'booking_ids' => array_map(fn ($r) => $r['booking_ids'], $disputed_service_rows),
         ];
         if (count($disputed_service_chart['labels']) === 0) {
-            $disputed_service_chart = ['labels' => [translate('service')], 'counts' => [0]];
+            $disputed_service_chart = ['labels' => [translate('service')], 'counts' => [0], 'booking_ids' => [[]]];
         }
 
         $cancel_remarks_rows = DB::table('booking_status_histories as h')
@@ -764,7 +783,7 @@ class BookingReportController extends Controller
                     ->where('r.kind', '=', BookingHoldReopenReason::KIND_HOLD);
             })
             ->join('bookings as b', 'b.id', '=', 'h.booking_id')
-            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COALESCE(r.responsible, ?) as responsible, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(b.total_booking_amount), 0) as total_amount', [
+            ->selectRaw('COALESCE(r.id, 0) as reason_id, COALESCE(r.name, ?) as reason_name, COALESCE(r.responsible, ?) as responsible, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(b.total_booking_amount), 0) as total_amount, GROUP_CONCAT(DISTINCT b.id) as booking_ids_csv', [
                 translate('Unknown'),
                 BookingHoldReopenReason::RESPONSIBLE_NO_ONE,
             ])
@@ -777,6 +796,7 @@ class BookingReportController extends Controller
                 'responsible' => (string) $row->responsible,
                 'booking_count' => (int) $row->booking_count,
                 'total_amount' => (float) $row->total_amount,
+                'booking_ids' => $this->splitBookingIdsFromCsv($row->booking_ids_csv ?? null),
             ])
             ->values()
             ->all();
@@ -784,9 +804,10 @@ class BookingReportController extends Controller
         $hold_reason_chart = [
             'labels' => array_map(fn ($r) => $r['reason_name'], $hold_reason_rows),
             'counts' => array_map(fn ($r) => $r['booking_count'], $hold_reason_rows),
+            'booking_ids' => array_map(fn ($r) => $r['booking_ids'], $hold_reason_rows),
         ];
         if (count($hold_reason_chart['labels']) === 0) {
-            $hold_reason_chart = ['labels' => [translate('Booking_status_tpl_on_hold')], 'counts' => [0]];
+            $hold_reason_chart = ['labels' => [translate('Booking_status_tpl_on_hold')], 'counts' => [0], 'booking_ids' => [[]]];
         }
 
         $hold_service_rows = DB::table('booking_details as d')
@@ -794,7 +815,7 @@ class BookingReportController extends Controller
             ->leftJoin('services as s', 's.id', '=', 'd.service_id')
             ->whereIn('b.id', $baseBookingIdsQuery)
             ->where('b.booking_status', 'on_hold')
-            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total', [
+            ->selectRaw('COALESCE(MAX(s.id), "") as service_id, COALESCE(MAX(s.name), ?) as service_name, COUNT(DISTINCT b.id) as booking_count, COALESCE(SUM(d.total_cost), 0) as service_total, GROUP_CONCAT(DISTINCT b.id) as booking_ids_csv', [
                 translate('Unknown'),
             ])
             ->groupBy('d.service_id')
@@ -806,6 +827,7 @@ class BookingReportController extends Controller
                 'service_name' => (string) $row->service_name,
                 'booking_count' => (int) $row->booking_count,
                 'service_total' => (float) $row->service_total,
+                'booking_ids' => $this->splitBookingIdsFromCsv($row->booking_ids_csv ?? null),
             ])
             ->values()
             ->all();
@@ -813,9 +835,10 @@ class BookingReportController extends Controller
         $hold_service_chart = [
             'labels' => array_map(fn ($r) => $r['service_name'], $hold_service_rows),
             'counts' => array_map(fn ($r) => $r['booking_count'], $hold_service_rows),
+            'booking_ids' => array_map(fn ($r) => $r['booking_ids'], $hold_service_rows),
         ];
         if (count($hold_service_chart['labels']) === 0) {
-            $hold_service_chart = ['labels' => [translate('service')], 'counts' => [0]];
+            $hold_service_chart = ['labels' => [translate('service')], 'counts' => [0], 'booking_ids' => [[]]];
         }
 
         $hold_remarks_rows = DB::table('booking_status_histories as h')
@@ -938,6 +961,123 @@ class BookingReportController extends Controller
                 'VAT / Tax' => with_currency_symbol($booking['total_tax_amount']),
             ];
         });
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function getBookingReportDrilldown(Request $request): JsonResponse
+    {
+        $this->authorize('report_view');
+        Validator::make($request->all(), [
+            'booking_ids' => 'required|array|max:500',
+            'booking_ids.*' => 'uuid',
+        ])->validate();
+
+        $bookingIds = array_values(array_unique($request->input('booking_ids', [])));
+        if ($bookingIds === []) {
+            return response()->json(['bookings' => []]);
+        }
+
+        $bookings = $this->booking->newQuery()
+            ->whereIn('id', $bookingIds)
+            ->with(['customer', 'provider.owner'])
+            ->latest()
+            ->get()
+            ->map(function (Booking $booking) {
+                $customer = $booking->customer;
+                $provider = $booking->provider;
+
+                return [
+                    'id' => (string) $booking->id,
+                    'readable_id' => (string) $booking->readable_id,
+                    'booking_status' => (string) $booking->booking_status,
+                    'total_booking_amount' => with_currency_symbol($booking->total_booking_amount),
+                    'created_at' => $booking->created_at?->format('d M Y, h:i A') ?? '',
+                    'customer_name' => $customer
+                        ? trim($customer->first_name . ' ' . $customer->last_name)
+                        : translate('Customer_not_available'),
+                    'customer_phone' => $customer->phone ?? '',
+                    'provider_name' => $provider?->company_name ?? translate('Provider_not_available'),
+                    'provider_phone' => $provider?->company_phone ?? '',
+                    'details_url' => route('admin.booking.details', [$booking->id, 'web_page' => 'details']),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json(['bookings' => $bookings]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function splitBookingIdsFromCsv(?string $csv): array
+    {
+        if ($csv === null || trim($csv) === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $csv))));
+    }
+
+    /**
+     * @return list<list<string>>
+     */
+    private function buildCancelBucketBookingIds(Request $request, string $visitRetainedOutcome): array
+    {
+        $buckets = ['normal' => [], 'special' => [], 'disputed_cancelled' => []];
+
+        foreach (self::filterQuery($this->booking->newQuery(), $request)->get(['id', 'booking_status', 'after_visit_cancel', 'settlement_outcome', 'reopen_disputed_snapshot']) as $booking) {
+            $status = strtolower((string) $booking->booking_status);
+            if (!in_array($status, ['canceled', 'cancelled', 'refunded'], true)) {
+                continue;
+            }
+
+            $id = (string) $booking->id;
+            $snapshot = $booking->reopen_disputed_snapshot;
+            $isDisputedRefund = is_array($snapshot)
+                ? (($snapshot['type'] ?? null) === 'reopen_disputed_refund')
+                : (is_string($snapshot) && str_contains($snapshot, 'reopen_disputed_refund'));
+
+            if ($isDisputedRefund) {
+                $buckets['disputed_cancelled'][] = $id;
+                continue;
+            }
+
+            $isSpecial = (bool) $booking->after_visit_cancel || $booking->settlement_outcome === $visitRetainedOutcome;
+            if ($isSpecial) {
+                $buckets['special'][] = $id;
+            } else {
+                $buckets['normal'][] = $id;
+            }
+        }
+
+        return [$buckets['normal'], $buckets['special'], $buckets['disputed_cancelled']];
+    }
+
+    private function resolveReportStatusBucket(Booking $booking): string
+    {
+        $status = strtolower((string) $booking->booking_status);
+        $snapshot = $booking->reopen_disputed_snapshot;
+        $type = null;
+        if (is_array($snapshot)) {
+            $type = $snapshot['type'] ?? null;
+        } elseif (is_string($snapshot) && $snapshot !== '') {
+            $decoded = json_decode($snapshot, true);
+            $type = is_array($decoded) ? ($decoded['type'] ?? null) : null;
+        }
+
+        if ($type === 'reopen_disputed_refund') {
+            if (in_array($status, ['canceled', 'cancelled', 'refunded'], true)) {
+                return 'disputed_cancelled';
+            }
+            if ($status === 'completed') {
+                return 'disputed_completed';
+            }
+        }
+
+        return $status === 'cancelled' ? 'canceled' : $status;
     }
 
     /**

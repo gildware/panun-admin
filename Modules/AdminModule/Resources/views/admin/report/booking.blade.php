@@ -450,6 +450,7 @@
 @push('script')
 
     <script src="{{asset('assets/admin-module')}}/plugins/apex/apexcharts.min.js"></script>
+    @include('adminmodule::admin.report.partials._report-chart-drilldown-utils')
 
     <script>
         "use strict";
@@ -601,23 +602,66 @@
 
         var reportStatusChart = @json($report_status_chart);
         var reportChartPalette = ['#008FFB', '#00E396', '#FEB019', '#FF4560', '#775DD0', '#546E7A', '#26a69a'];
+        var DD = window.ReportChartDrilldown;
+        var showBookingDrilldown = window.BookingChartDrilldown.show;
 
-        if (document.querySelector('#apex_booking_status_donut')) {
-            new ApexCharts(document.querySelector('#apex_booking_status_donut'), {
-                chart: {type: 'donut', height: 320, toolbar: {show: false}},
-                labels: reportStatusChart.labels,
-                series: reportStatusChart.counts,
-                colors: reportChartPalette,
+        function renderDonutWithDrilldown(el, chartData, colors) {
+            if (!el || !chartData) return;
+            var labels = chartData.labels || [];
+            var values = chartData.counts || chartData.series || [];
+            var idsBySlice = chartData.booking_ids || [];
+            if (!values.length) return;
+            var chart = new ApexCharts(el, {
+                chart: { type: 'donut', height: 320, toolbar: { show: false } },
+                labels: labels,
+                series: values,
+                colors: colors || reportChartPalette,
                 legend: {
                     position: 'bottom',
                     formatter: function (seriesName, opts) {
                         var val = (opts.w.globals.series[opts.seriesIndex] || 0);
                         return seriesName + ' (' + val + ')';
-                    }
+                    },
                 },
-                plotOptions: {pie: {donut: {size: '65%'}}},
-                dataLabels: {enabled: true}
-            }).render();
+                plotOptions: { pie: { donut: { size: '65%' } } },
+                dataLabels: { enabled: true },
+            });
+            chart.render().then(function () {
+                DD.attachLegendViewButtons(el, labels, idsBySlice, showBookingDrilldown);
+            });
+        }
+
+        function renderHorizontalBarWithDrilldown(el, chartData, color) {
+            if (!el || !chartData) return;
+            var labels = chartData.labels || [];
+            var values = chartData.counts || [];
+            var idsBySlice = chartData.booking_ids || [];
+            var chart = new ApexCharts(el, {
+                chart: {
+                    type: 'bar',
+                    height: 360,
+                    toolbar: { show: false },
+                    events: {
+                        dataPointSelection: function (event, ctx, config) {
+                            var ids = idsBySlice[config.dataPointIndex] || [];
+                            if (ids.length) showBookingDrilldown(labels[config.dataPointIndex] || '—', ids);
+                        },
+                    },
+                },
+                series: [{ name: @json(translate('total')), data: values }],
+                plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '70%' } },
+                xaxis: { categories: labels },
+                dataLabels: { enabled: true },
+                colors: [color || '#FF4560'],
+                grid: { strokeDashArray: 4 },
+            });
+            chart.render().then(function () {
+                DD.renderCustomLegend(el, labels, values, idsBySlice, showBookingDrilldown);
+            });
+        }
+
+        if (document.querySelector('#apex_booking_status_donut')) {
+            renderDonutWithDrilldown(document.querySelector('#apex_booking_status_donut'), reportStatusChart, reportChartPalette);
         }
 
         var earningChart = @json($earning_chart);
@@ -677,94 +721,31 @@
         var holdServiceChart = @json($hold_service_chart);
 
         if (document.querySelector('#apex_cancel_total_pie')) {
-            new ApexCharts(document.querySelector('#apex_cancel_total_pie'), {
-                chart: {type: 'pie', height: 360, toolbar: {show: false}},
-                labels: cancelTotalPieChart.labels,
-                series: cancelTotalPieChart.counts,
-                colors: ['#FF4560', '#FEB019', '#8B0000'],
-                legend: {position: 'bottom'},
-                dataLabels: {enabled: true},
-                tooltip: {
-                    y: {
-                        formatter: function (val, opts) {
-                            var i = opts.seriesIndex || 0;
-                            return val;
-                        }
-                    }
-                }
-            }).render();
+            renderDonutWithDrilldown(document.querySelector('#apex_cancel_total_pie'), cancelTotalPieChart, ['#FF4560', '#FEB019', '#8B0000']);
         }
 
         if (document.querySelector('#apex_cancel_reason_bar')) {
-            new ApexCharts(document.querySelector('#apex_cancel_reason_bar'), {
-                chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: cancelReasonChart.counts}],
-                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: cancelReasonChart.labels},
-                dataLabels: {enabled: true},
-                colors: ['#FF4560'],
-                grid: {strokeDashArray: 4}
-            }).render();
+            renderHorizontalBarWithDrilldown(document.querySelector('#apex_cancel_reason_bar'), cancelReasonChart, '#FF4560');
         }
 
         if (document.querySelector('#apex_cancel_after_visit_reason_bar')) {
-            new ApexCharts(document.querySelector('#apex_cancel_after_visit_reason_bar'), {
-                chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: cancelAfterVisitReasonChart.counts}],
-                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: cancelAfterVisitReasonChart.labels},
-                dataLabels: {enabled: true},
-                colors: ['#FEB019'],
-                grid: {strokeDashArray: 4}
-            }).render();
+            renderHorizontalBarWithDrilldown(document.querySelector('#apex_cancel_after_visit_reason_bar'), cancelAfterVisitReasonChart, '#FEB019');
         }
 
         if (document.querySelector('#apex_disputed_cancel_reason_bar')) {
-            new ApexCharts(document.querySelector('#apex_disputed_cancel_reason_bar'), {
-                chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: disputedCancelReasonChart.counts}],
-                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: disputedCancelReasonChart.labels},
-                dataLabels: {enabled: true},
-                colors: ['#8B0000'],
-                grid: {strokeDashArray: 4}
-            }).render();
+            renderHorizontalBarWithDrilldown(document.querySelector('#apex_disputed_cancel_reason_bar'), disputedCancelReasonChart, '#8B0000');
         }
 
         if (document.querySelector('#apex_disputed_service_bar')) {
-            new ApexCharts(document.querySelector('#apex_disputed_service_bar'), {
-                chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: disputedServiceChart.counts}],
-                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: disputedServiceChart.labels},
-                dataLabels: {enabled: true},
-                colors: ['#775DD0'],
-                grid: {strokeDashArray: 4}
-            }).render();
+            renderHorizontalBarWithDrilldown(document.querySelector('#apex_disputed_service_bar'), disputedServiceChart, '#775DD0');
         }
 
         if (document.querySelector('#apex_hold_reason_bar')) {
-            new ApexCharts(document.querySelector('#apex_hold_reason_bar'), {
-                chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: holdReasonChart.counts}],
-                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: holdReasonChart.labels},
-                dataLabels: {enabled: true},
-                colors: ['#775DD0'],
-                grid: {strokeDashArray: 4}
-            }).render();
+            renderHorizontalBarWithDrilldown(document.querySelector('#apex_hold_reason_bar'), holdReasonChart, '#546E7A');
         }
 
         if (document.querySelector('#apex_hold_service_bar')) {
-            new ApexCharts(document.querySelector('#apex_hold_service_bar'), {
-                chart: {type: 'bar', height: 360, toolbar: {show: false}},
-                series: [{name: @json(translate('total')), data: holdServiceChart.counts}],
-                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '70%'}},
-                xaxis: {categories: holdServiceChart.labels},
-                dataLabels: {enabled: true},
-                colors: ['#00E396'],
-                grid: {strokeDashArray: 4}
-            }).render();
+            renderHorizontalBarWithDrilldown(document.querySelector('#apex_hold_service_bar'), holdServiceChart, '#00E396');
         }
     @include('adminmodule::admin.report.partials.booking-insights-charts')
     </script>
