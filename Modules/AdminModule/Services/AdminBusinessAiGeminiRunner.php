@@ -81,6 +81,31 @@ class AdminBusinessAiGeminiRunner
         /** @var list<array{name: string, result: array<string, mixed>}> $toolResultsBag */
         $toolResultsBag = [];
 
+        $mandatory = $this->questionRouter->inferMandatoryAggregateTools($userMessage);
+        if ($mandatory !== []) {
+            foreach ($mandatory as $plan) {
+                $toolName = (string) ($plan['name'] ?? '');
+                $toolArgs = is_array($plan['args'] ?? null) ? $plan['args'] : [];
+                if ($toolName === '') {
+                    continue;
+                }
+                $toolResultsBag[] = [
+                    'name' => $toolName,
+                    'result' => $this->compactToolResult($this->toolExecutor->execute($toolName, $toolArgs)),
+                ];
+            }
+            $deterministic = $this->buildDeterministicFallback($toolResultsBag, $userMessage);
+            if ($deterministic !== '') {
+                $this->session->append($adminUserId, 'model', $deterministic);
+
+                return ['ok' => true, 'reply' => $deterministic];
+            }
+            if ($this->injectPlannedTools($mandatory, $contents, $toolResultsBag)) {
+                $hadToolResults = true;
+                $forceTextOnly = true;
+            }
+        }
+
         $iter = 0;
         while ($iter < $maxRounds) {
             $iter++;
@@ -337,12 +362,62 @@ class AdminBusinessAiGeminiRunner
 
         return (bool) preg_match(
             '/\b(don\'?t have (?:that |this )?(?:information|data|access)|do not have (?:that |this )?(?:information|data|access)|'
-            .'cannot determine|can\'?t determine|not available|no (?:data|information) (?:available|found)|'
-            .'report does not contain|outside (?:my|the) (?:tools|scope)|'
-            .'i(?:\'m| am) unable to|unable to (?:find|retrieve|access)|'
-            .'not in (?:my|the) (?:tools|dataset|database))\b/i',
+            .'cannot determine|can\'?t determine|cannot be performed|can\'?t be performed|not available|no (?:data|information) (?:available|found)|'
+            .'report does not contain|does not (?:offer|provide)|do not (?:offer|provide)|outside (?:my|the) (?:tools|scope)|'
+            .'i(?:\'m| am) unable to|unable to (?:find|retrieve|access|perform)|'
+            .'not in (?:my|the) (?:tools|dataset|database)|not possible to (?:answer|determine|perform))\b/i',
             $reply
         );
+    }
+
+    /**
+     * @param  list<array{name: string, args: array<string, mixed>}>  $planned
+     * @param  list<array<string, mixed>>  $contents
+     * @param  list<array{name: string, result: array<string, mixed>}>  $toolResultsBag
+     */
+    private function injectPlannedTools(array $planned, array &$contents, array &$toolResultsBag): bool
+    {
+        $modelParts = [];
+        $userParts = [];
+        foreach ($planned as $plan) {
+            $toolName = (string) ($plan['name'] ?? '');
+            if ($toolName === '' || $toolName === 'explore_business_data') {
+                continue;
+            }
+            $toolArgs = is_array($plan['args'] ?? null) ? $plan['args'] : [];
+            $result = null;
+            foreach ($toolResultsBag as $entry) {
+                if (($entry['name'] ?? '') === $toolName) {
+                    $result = $entry['result'];
+                    break;
+                }
+            }
+            if ($result === null) {
+                $result = $this->compactToolResult($this->toolExecutor->execute($toolName, $toolArgs));
+                $toolResultsBag[] = ['name' => $toolName, 'result' => $result];
+            }
+            $modelParts[] = [
+                'functionCall' => [
+                    'name' => $toolName,
+                    'args' => (object) $toolArgs,
+                ],
+            ];
+            $userParts[] = [
+                'functionResponse' => [
+                    'name' => $toolName,
+                    'response' => $result,
+                ],
+            ];
+        }
+
+        if ($modelParts === []) {
+            return false;
+        }
+
+        $contents[] = ['role' => 'model', 'parts' => $modelParts];
+        $contents[] = ['role' => 'user', 'parts' => $userParts];
+
+        return true;
     }
 
     /**
@@ -361,33 +436,10 @@ class AdminBusinessAiGeminiRunner
                 $planned = $this->questionRouter->defaultDiscoveryBundle();
             }
 
-            $modelParts = [];
-            $userParts = [];
-            foreach ($planned as $plan) {
-                $toolName = (string) $plan['name'];
-                $toolArgs = is_array($plan['args'] ?? null) ? $plan['args'] : [];
-                $modelParts[] = [
-                    'functionCall' => [
-                        'name' => $toolName,
-                        'args' => (object) $toolArgs,
-                    ],
-                ];
-                $toolResult = $this->compactToolResult($this->toolExecutor->execute($toolName, $toolArgs));
-                $toolResultsBag[] = ['name' => $toolName, 'result' => $toolResult];
-                $userParts[] = [
-                    'functionResponse' => [
-                        'name' => $toolName,
-                        'response' => $toolResult,
-                    ],
-                ];
-            }
-
-            if ($modelParts === []) {
+            if (! $this->injectPlannedTools($planned, $contents, $toolResultsBag)) {
                 return false;
             }
 
-            $contents[] = ['role' => 'model', 'parts' => $modelParts];
-            $contents[] = ['role' => 'user', 'parts' => $userParts];
             $contents[] = [
                 'role' => 'user',
                 'parts' => [['text' => $this->synthesisNudge($userMessage)]],
@@ -459,6 +511,14 @@ class AdminBusinessAiGeminiRunner
                 'future_customer_reasons',
             ], true)) {
                 return $this->formatLeadCancellationReasonsFallback($result);
+            }
+
+            if (($result['analysis'] ?? '') === 'invalid_to_active_lead_progression') {
+                return $this->formatInvalidToActiveProgressionFallback($result);
+            }
+
+            if (($result['analysis'] ?? '') === 'phones_with_multiple_leads') {
+                return $this->formatPhonesWithMultipleLeadsFallback($result);
             }
 
             if (isset($result['timing']['insights']) && is_array($result['timing']['insights']) && $result['timing']['insights'] !== []) {
@@ -678,6 +738,117 @@ class AdminBusinessAiGeminiRunner
         $lines[] = '';
         $lines[] = '## Detailed Analysis';
         $lines[] = 'Figures above are real-time from the admin database.';
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function formatInvalidToActiveProgressionFallback(array $result): string
+    {
+        $progressions = (int) ($result['invalid_then_active_progressions'] ?? 0);
+        $uniquePhones = (int) ($result['unique_phones_invalid_then_active'] ?? 0);
+        $withWhatsApp = (int) ($result['progressions_with_whatsapp_chat'] ?? 0);
+        $scanned = (int) ($result['total_leads_scanned'] ?? 0);
+        $totalDb = (int) ($result['total_leads_in_database'] ?? 0);
+        $byNext = is_array($result['by_next_lead_type'] ?? null) ? $result['by_next_lead_type'] : [];
+
+        $lines = [
+            '## Executive Summary',
+            "Across **{$scanned}** CRM leads scanned ({$totalDb} total in database), **{$uniquePhones}** phone numbers had an invalid lead immediately followed by a customer, provider, or future customer lead (**{$progressions}** progression instances). **{$withWhatsApp}** of those progressions have a WhatsApp chat on the same phone.",
+            '',
+            '## Key Metrics',
+            "- Total leads scanned: **{$scanned}** (database total: **{$totalDb}**)",
+            "- Phones with multiple CRM leads: **".(int) ($result['phones_with_multiple_leads'] ?? 0).'**',
+            "- Invalid → active progressions: **{$progressions}**",
+            "- Unique phones with invalid → active: **{$uniquePhones}**",
+            "- Progressions with WhatsApp chat overlap: **{$withWhatsApp}**",
+        ];
+
+        foreach ($byNext as $type => $count) {
+            $lines[] = '- Next lead type **'.$type.'**: **'.$count.'**';
+        }
+
+        $samples = is_array($result['sample_progressions'] ?? null) ? $result['sample_progressions'] : [];
+        if ($samples !== []) {
+            $lines[] = '';
+            $lines[] = '## Sample progressions';
+            foreach (array_slice($samples, 0, 10) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '%d. **%s** — invalid lead #%d → %s lead #%d%s',
+                    $index + 1,
+                    (string) ($row['phone'] ?? '—'),
+                    (int) ($row['invalid_lead_id'] ?? 0),
+                    (string) ($row['next_lead_type'] ?? '—'),
+                    (int) ($row['next_lead_id'] ?? 0),
+                    ! empty($row['has_whatsapp_chat']) ? ' (WhatsApp)' : ''
+                );
+            }
+        }
+
+        if (! empty($result['scan_note'])) {
+            $lines[] = '';
+            $lines[] = '## Note';
+            $lines[] = (string) $result['scan_note'];
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function formatPhonesWithMultipleLeadsFallback(array $result): string
+    {
+        $multiPhones = (int) ($result['phones_with_multiple_crm_leads'] ?? 0);
+        $whatsappMulti = (int) ($result['whatsapp_users_with_multiple_crm_leads'] ?? 0);
+        $scanned = (int) ($result['total_leads_scanned'] ?? 0);
+        $totalDb = (int) ($result['total_leads_in_database'] ?? 0);
+        $byCount = is_array($result['by_lead_count'] ?? null) ? $result['by_lead_count'] : [];
+
+        $lines = [
+            '## Executive Summary',
+            "**{$multiPhones}** phone numbers have more than one CRM lead. **{$whatsappMulti}** of those also have a WhatsApp conversation (same normalized phone).",
+            '',
+            '## Key Metrics',
+            "- Total leads scanned: **{$scanned}** (database total: **{$totalDb}**)",
+            "- Phones with multiple CRM leads: **{$multiPhones}**",
+            "- WhatsApp users with multiple CRM leads: **{$whatsappMulti}**",
+        ];
+
+        foreach ($byCount as $bucket => $count) {
+            $lines[] = '- Phones with **'.$bucket.'** leads: **'.$count.'**';
+        }
+
+        $samples = is_array($result['sample_phones'] ?? null) ? $result['sample_phones'] : [];
+        if ($samples !== []) {
+            $lines[] = '';
+            $lines[] = '## Sample phones';
+            foreach (array_slice($samples, 0, 10) as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $types = is_array($row['lead_types'] ?? null) ? implode(', ', $row['lead_types']) : '—';
+                $lines[] = sprintf(
+                    '%d. **%s** — %d leads (%s)%s',
+                    $index + 1,
+                    (string) ($row['phone'] ?? '—'),
+                    (int) ($row['lead_count'] ?? 0),
+                    $types,
+                    ! empty($row['has_whatsapp_chat']) ? ' · WhatsApp' : ''
+                );
+            }
+        }
+
+        if (! empty($result['scan_note'])) {
+            $lines[] = '';
+            $lines[] = '## Note';
+            $lines[] = (string) $result['scan_note'];
+        }
 
         return implode("\n", $lines);
     }
@@ -978,7 +1149,8 @@ You are the Business Expert AI for {$company}'s admin panel — a senior busines
 - For broad or unclear questions, call explore_business_data — it auto-runs up to 6 relevant tools across all domains.
 - **Full admin-tab data is available via tools (40 tools, all read-only):**
   - Leads timing/lag: analyze_leads no_response_timing_report — full cohort stats for No Response leads: peak receive hours, reply/followup/update hours, median/p90 lag hours, handler breakdown, never-replied counts. no_response_leads also includes timing_summary. lead_timing_report with cohort filter for other segments (invalid, customer_pending, etc). lead_activity_report includes timing aggregates.
-  - Leads phone progression: analyze_leads invalid_to_active_lead_progression — scans all CRM leads (up to 5000), groups by phone, counts invalid→customer/provider/future_customer progressions and WhatsApp chat overlap. NEVER use query_leads for this (query_leads caps at max_query_limit rows, default 25).
+  - Leads phone progression: analyze_leads invalid_to_active_lead_progression — scans all CRM leads (up to 5000), groups by phone, counts invalid→customer/provider/future_customer progressions and WhatsApp chat overlap. NEVER use query_leads for this.
+  - Leads multi-lead phones: analyze_leads phones_with_multiple_leads — counts phones with 2+ CRM leads and whatsapp_users_with_multiple_crm_leads. NEVER use query_whatsapp_conversations (25-row cap) for this count.
   - Leads: query_leads non_responsive_only=true for list. get_lead_details for single-lead activity_summary.
   - Leads: get_lead_details returns all_fields — zone, categories, service, cancellation reason/remarks, received date, every followup, handler, tags, district/zones (provider). query_leads filters by zone, category, source, tag. get_lead_inbound_report mirrors admin Lead Reports (customer|provider). get_employee_lead_productivity mirrors per-user lead report.
   - Bookings timing/lag: analyze_bookings booking_timing_report — peak created hours, lag created→followup/accepted/completed/canceled/payment, assignee+zone breakdown. cancellation_timing_report and followup_timing_report for focused cohorts. cohort filter: pending|accepted|canceled|overdue_followup|loss_making|unpaid|verify_pending|offline_payment|etc.

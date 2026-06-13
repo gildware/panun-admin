@@ -324,11 +324,11 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_leads',
-                'description' => 'Aggregate lead intelligence. For cancellation reason questions use customer_cancellation_reasons or provider_cancellation_reasons (returns by_reason ranked list). For phones with an invalid lead followed by customer/provider/future_customer use invalid_to_active_lead_progression (scans all leads — do NOT use query_leads for this). Also: invalid_reasons, future_customer_reasons, no_response_timing_report, lead_timing_report, no_response_leads, lead_activity_report, status breakdowns. Use date_from/date_to for range. Scans up to 5000 leads.',
+                'description' => 'Aggregate lead intelligence. For phones with 2+ CRM leads use phones_with_multiple_leads (includes WhatsApp overlap). For invalid lead followed by customer/provider/future_customer on same phone use invalid_to_active_lead_progression. Both scan all leads — do NOT use query_leads or query_whatsapp_conversations for these counts. Also: invalid_reasons, no_response_timing_report, lead_timing_report, status breakdowns. Scans up to 5000 leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
-                        'analysis' => ['type' => 'string', 'description' => 'invalid_to_active_lead_progression|no_response_timing_report|lead_timing_report|no_response_leads|lead_activity_report|customer_cancellation_reasons|customer_status_breakdown|invalid_reasons|full_lead_overview|etc'],
+                        'analysis' => ['type' => 'string', 'description' => 'phones_with_multiple_leads|invalid_to_active_lead_progression|no_response_timing_report|lead_timing_report|no_response_leads|lead_activity_report|customer_cancellation_reasons|customer_status_breakdown|invalid_reasons|full_lead_overview|etc'],
                         'lead_type' => ['type' => 'string', 'description' => 'customer|provider|invalid|future_customer|unknown|all'],
                         'cohort' => ['type' => 'string', 'description' => 'For lead_timing_report: all|non_responsive|invalid|invalid_no_response|customer|provider|customer_cancelled|customer_pending'],
                         'date_from' => ['type' => 'string'],

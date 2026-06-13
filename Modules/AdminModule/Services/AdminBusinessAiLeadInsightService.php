@@ -382,6 +382,13 @@ class AdminBusinessAiLeadInsightService
             );
         }
 
+        if ($analysis === 'phones_with_multiple_leads') {
+            return array_merge(
+                ['ok' => true, 'analysis' => $analysis],
+                $this->aggregatePhonesWithMultipleLeads($args)
+            );
+        }
+
         $leadType = (string) ($args['lead_type'] ?? 'customer');
         if ($leadType === 'all') {
             $leadType = '';
@@ -444,20 +451,24 @@ class AdminBusinessAiLeadInsightService
                     'lead_activity_report',
                     'full_lead_overview',
                     'invalid_to_active_lead_progression',
+                    'phones_with_multiple_leads',
                 ],
             ],
         };
     }
 
     /**
-     * Phones where an invalid CRM lead was followed by a later customer/provider/future_customer lead.
-     *
      * @param  array<string, mixed>  $args
-     * @return array<string, mixed>
+     * @return array{
+     *     leads: Collection<int, Lead>,
+     *     by_phone: array<string, list<Lead>>,
+     *     total_matching: int,
+     *     scan_note: string|null,
+     *     wa_phone_set: array<string, true>
+     * }
      */
-    private function aggregateInvalidToActiveLeadProgression(array $args): array
+    private function scanLeadsGroupedByPhone(array $args): array
     {
-        $activeTypes = [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER, Lead::TYPE_FUTURE_CUSTOMER];
         $scanLimit = self::TIMING_ANALYSIS_SCAN_LIMIT;
 
         $q = Lead::query()
@@ -485,7 +496,54 @@ class AdminBusinessAiLeadInsightService
             $byPhone[$norm][] = $lead;
         }
 
-        $waPhoneSet = $this->whatsappNormalizedPhoneSet();
+        foreach ($byPhone as $norm => $phoneLeads) {
+            usort($phoneLeads, fn (Lead $a, Lead $b): int => $this->compareLeadsChronologically($a, $b));
+            $byPhone[$norm] = $phoneLeads;
+        }
+
+        $scanNote = $totalMatching > $leads->count()
+            ? "Analyzed {$leads->count()} of {$totalMatching} matching leads (scan cap {$scanLimit}). Counts may be understated if older leads for the same phone were outside the scanned set."
+            : null;
+
+        return [
+            'leads' => $leads,
+            'by_phone' => $byPhone,
+            'total_matching' => $totalMatching,
+            'scan_note' => $scanNote,
+            'wa_phone_set' => $this->whatsappNormalizedPhoneSet(),
+        ];
+    }
+
+    private function compareLeadsChronologically(Lead $a, Lead $b): int
+    {
+        $at = $a->date_time_of_lead_received ?? $a->created_at;
+        $bt = $b->date_time_of_lead_received ?? $b->created_at;
+        if ($at === null && $bt === null) {
+            return (int) $a->id <=> (int) $b->id;
+        }
+        if ($at === null) {
+            return -1;
+        }
+        if ($bt === null) {
+            return 1;
+        }
+        $cmp = $at <=> $bt;
+
+        return $cmp !== 0 ? $cmp : ((int) $a->id <=> (int) $b->id);
+    }
+
+    /**
+     * Phones where an invalid CRM lead was followed by a later customer/provider/future_customer lead.
+     *
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function aggregateInvalidToActiveLeadProgression(array $args): array
+    {
+        $activeTypes = [Lead::TYPE_CUSTOMER, Lead::TYPE_PROVIDER, Lead::TYPE_FUTURE_CUSTOMER];
+        $scan = $this->scanLeadsGroupedByPhone($args);
+        $byPhone = $scan['by_phone'];
+        $waPhoneSet = $scan['wa_phone_set'];
 
         $progressions = [];
         $byNextType = array_fill_keys($activeTypes, 0);
@@ -497,23 +555,6 @@ class AdminBusinessAiLeadInsightService
                 continue;
             }
             $phonesWithMultipleLeads++;
-
-            usort($phoneLeads, function (Lead $a, Lead $b): int {
-                $at = $a->date_time_of_lead_received ?? $a->created_at;
-                $bt = $b->date_time_of_lead_received ?? $b->created_at;
-                if ($at === null && $bt === null) {
-                    return (int) $a->id <=> (int) $b->id;
-                }
-                if ($at === null) {
-                    return -1;
-                }
-                if ($bt === null) {
-                    return 1;
-                }
-                $cmp = $at <=> $bt;
-
-                return $cmp !== 0 ? $cmp : ((int) $a->id <=> (int) $b->id);
-            });
 
             for ($i = 0; $i < count($phoneLeads) - 1; $i++) {
                 $invalidLead = $phoneLeads[$i];
@@ -544,21 +585,65 @@ class AdminBusinessAiLeadInsightService
 
         $withWhatsApp = count(array_filter($progressions, fn (array $p): bool => ! empty($p['has_whatsapp_chat'])));
 
-        $scanNote = $totalMatching > $leads->count()
-            ? "Analyzed {$leads->count()} of {$totalMatching} matching leads (scan cap {$scanLimit}). Progression counts may be understated if older leads for the same phone were outside the scanned set."
-            : null;
-
         return [
-            'total_leads_scanned' => $leads->count(),
+            'total_leads_scanned' => $scan['leads']->count(),
             'total_leads_in_database' => Lead::query()->count(),
             'phones_with_multiple_leads' => $phonesWithMultipleLeads,
             'invalid_then_active_progressions' => count($progressions),
             'unique_phones_invalid_then_active' => count($phonesWithInvalidThenActive),
             'progressions_with_whatsapp_chat' => $withWhatsApp,
             'by_next_lead_type' => $byNextType,
-            'scan_note' => $scanNote,
-            'note' => 'Counts CRM leads on the same normalized phone (last 10 digits) where an invalid lead is immediately followed chronologically by a customer, provider, or future_customer lead. Use this instead of query_leads for cross-lead phone analysis.',
+            'scan_note' => $scan['scan_note'],
+            'note' => 'Counts CRM leads on the same normalized phone (last 10 digits) where an invalid lead is immediately followed chronologically by a customer, provider, or future_customer lead.',
             'sample_progressions' => array_slice($progressions, 0, 20),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function aggregatePhonesWithMultipleLeads(array $args): array
+    {
+        $scan = $this->scanLeadsGroupedByPhone($args);
+        $waPhoneSet = $scan['wa_phone_set'];
+        $multiPhoneRows = [];
+        $byLeadCount = ['2' => 0, '3' => 0, '4+' => 0];
+        $whatsappUsersWithMultipleLeads = 0;
+
+        foreach ($scan['by_phone'] as $norm => $phoneLeads) {
+            $count = count($phoneLeads);
+            if ($count < 2) {
+                continue;
+            }
+
+            $bucket = $count >= 4 ? '4+' : (string) $count;
+            $byLeadCount[$bucket]++;
+            $hasWhatsApp = isset($waPhoneSet[$norm]);
+            if ($hasWhatsApp) {
+                $whatsappUsersWithMultipleLeads++;
+            }
+
+            $multiPhoneRows[] = [
+                'phone' => $norm,
+                'lead_count' => $count,
+                'has_whatsapp_chat' => $hasWhatsApp,
+                'lead_ids' => array_map(static fn (Lead $l): int => (int) $l->id, $phoneLeads),
+                'lead_types' => array_map(static fn (Lead $l): string => (string) $l->lead_type, $phoneLeads),
+            ];
+        }
+
+        usort($multiPhoneRows, static fn (array $a, array $b): int => ($b['lead_count'] <=> $a['lead_count']) ?: strcmp((string) $a['phone'], (string) $b['phone']));
+
+        return [
+            'total_leads_scanned' => $scan['leads']->count(),
+            'total_leads_in_database' => Lead::query()->count(),
+            'phones_with_multiple_crm_leads' => count($multiPhoneRows),
+            'whatsapp_users_with_multiple_crm_leads' => $whatsappUsersWithMultipleLeads,
+            'by_lead_count' => $byLeadCount,
+            'scan_note' => $scan['scan_note'],
+            'note' => 'Groups all CRM leads by normalized phone (last 10 digits). whatsapp_users_with_multiple_crm_leads = phones with a WhatsApp thread AND 2+ CRM leads. Use this instead of query_whatsapp_conversations for multi-lead counts.',
+            'sample_phones' => array_slice($multiPhoneRows, 0, 25),
         ];
     }
 
