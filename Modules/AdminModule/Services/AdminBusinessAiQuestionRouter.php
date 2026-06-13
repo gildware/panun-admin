@@ -249,6 +249,13 @@ class AdminBusinessAiQuestionRouter
             $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'no_response_timing_report', 'lead_type' => 'all']]);
         }
 
+        if ((preg_match('/\b(invalid|marked invalid)\b/i', $userMessage)
+                && preg_match('/\b(next lead|later lead|then|subsequent|after|re-?open|reconversion|became|converted|customer|provider|future customer)\b/i', $userMessage))
+            || preg_match('/\b(same phone|multiple leads|duplicate phone|multiple crm)\b/i', $userMessage)
+            || preg_match('/\binvalid.*\b(customer|provider|future customer)\b/i', $userMessage)) {
+            $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'invalid_to_active_lead_progression', 'lead_type' => 'all']]);
+        }
+
         if (preg_match('/\b(lag|delay|response time|when.*(come|arrive|received|created)|what time|peak hour|followup.*time|updat(e|ing).*time)\b/i', $userMessage)) {
             if (preg_match('/\b(booking|bookings|order|orders|cancel|accepted|pending)\b/i', $userMessage)) {
                 if (preg_match('/\b(cancel+ed?|cancellation)\b/i', $userMessage)) {

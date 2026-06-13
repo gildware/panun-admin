@@ -19,7 +19,8 @@ return [
 
     'default_query_limit' => 25,
 
-    'max_query_limit' => 50,
+    // List tools (query_leads, query_bookings, etc.) never return more than this per call.
+    'max_query_limit' => max(25, min(200, (int) env('ADMIN_BUSINESS_AI_MAX_QUERY_LIMIT', 100))),
 
     'max_explore_tools' => max(3, min(8, (int) env('ADMIN_BUSINESS_AI_MAX_EXPLORE_TOOLS', 6))),
 ];
