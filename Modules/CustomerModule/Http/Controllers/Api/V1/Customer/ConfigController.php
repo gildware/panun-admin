@@ -19,6 +19,7 @@ use Modules\PaymentModule\Entities\Setting;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\User;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
+use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneGeometryService;
 
@@ -41,6 +42,26 @@ class ConfigController extends Controller
      * @return JsonResponse
      */
     public function configuration(Request $request): JsonResponse
+    {
+        $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
+        $content = CustomerApiResponseCache::remember(
+            'customer_api_config:v1:'.$locale,
+            function () {
+                $response = $this->buildConfigurationResponse();
+                $decoded = json_decode($response->getContent(), true);
+
+                return is_array($decoded) ? ($decoded['content'] ?? []) : [];
+            },
+            CustomerApiResponseCache::CONFIG_TTL
+        );
+        $content['maintenance'] = $this->checkMaintenanceMode();
+
+        return response()
+            ->json(response_formatter(DEFAULT_200, $content), 200)
+            ->header('Cache-Control', 'public, max-age=300');
+    }
+
+    private function buildConfigurationResponse(): JsonResponse
     {
         $playstore = business_config('app_url_playstore', 'landing_button_and_links');
         $appstore = business_config('app_url_appstore', 'landing_button_and_links');
@@ -156,7 +177,6 @@ class ConfigController extends Controller
             'payment_gateways' => $payment_gateways,
             'footer_text' => (business_config('footer_text', 'business_information'))->live_values ?? null,
             'cookies_text' => (business_config('cookies_text', 'business_information'))->live_values ?? null,
-            'admin_details' => User::select('id', 'first_name', 'last_name', 'profile_image')->where('user_type', ADMIN_USER_TYPES[0])->first(),
             'min_versions' => json_decode((business_config('customer_app_settings', 'app_settings'))->live_values ?? null),
             'app_url_playstore' => $playstore->is_active ? $playstore->live_values : null,
             'app_url_appstore' => $appstore->is_active ? $appstore->live_values : null,

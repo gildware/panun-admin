@@ -12,7 +12,7 @@ use Modules\PromotionManagement\Http\Controllers\Api\V1\Customer\CampaignControl
 use Modules\PromotionManagement\Http\Controllers\Api\V1\Customer\AdvertisementsController;
 use Modules\PromotionManagement\Http\Controllers\Api\V1\Provider\AdvertisementsController as ProviderAdvertisementsController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
     // Route::resource('discount', 'DiscountController', ['only' => ['index', 'store', 'edit', 'update']]);
     Route::group(['prefix' => 'discount', 'as' => 'discount.',], function () {
         Route::put('status/update', [DiscountController::class, 'statusUpdate']);

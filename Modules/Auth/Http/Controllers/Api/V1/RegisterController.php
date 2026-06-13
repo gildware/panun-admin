@@ -24,6 +24,7 @@ use Modules\ProviderManagement\Entities\ProviderRegistrationDraft;
 use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\UserManagement\Entities\Serviceman;
 use Modules\UserManagement\Entities\User;
+use App\Lib\PaymentAccessToken;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
 
 class RegisterController extends Controller
@@ -718,7 +719,7 @@ class RegisterController extends Controller
                 app(ProviderRegistrationDraftService::class)->deleteByToken($request->input('registration_token'));
                 $paymentUrl = url('payment/subscription') . '?' .
                     'provider_id=' . $provider_id . '&' .
-                    'access_token=' . base64_encode($owner->id) . '&' .
+                    'access_token=' . PaymentAccessToken::issue($owner->id) . '&' .
                     'package_id=' . $id . '&' .
                     'amount=' . $vatWithPrice . '&' .
                     'name=' . $name . '&' .

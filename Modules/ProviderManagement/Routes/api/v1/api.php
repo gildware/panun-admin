@@ -9,6 +9,7 @@ use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\Report\BusinessR
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\Report\TransactionReportController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\TimeScheduleController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderController as ProviderProviderController;
+use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\DashboardBundleController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ProviderShowcaseController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\ServiceController;
 use Modules\ProviderManagement\Http\Controllers\Api\V1\Provider\AccountController;
@@ -29,6 +30,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     Route::get('/', [ProviderProviderController::class, 'index']);
     Route::get('dashboard', [ProviderProviderController::class, 'dashboard']);
     Route::get('dashboard/earning', [ProviderProviderController::class, 'earningStatistics']);
+    Route::get('dashboard-bundle', [DashboardBundleController::class, 'index']);
     Route::get('get-bank-details', [ProviderProviderController::class, 'getBankDetails']);
     Route::put('update-bank-details', [ProviderProviderController::class, 'updateBankDetails']);
 
@@ -132,7 +134,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
 });
 
 //admin
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
    // Route::resource('provider', 'ProviderController', ['only' => ['index', 'store', 'edit', 'update']]);
     Route::group(['prefix' => 'provider', 'as' => 'provider.',], function () {
         Route::get('data/overview/{user_id}', [AdminProviderController::class, 'overview']);

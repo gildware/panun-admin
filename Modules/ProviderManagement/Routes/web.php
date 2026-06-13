@@ -60,7 +60,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('details/{id}/whatsapp/provider-payment-reminder/send', [ProviderController::class, 'whatsappProviderPaymentReminderSend'])->name('details.whatsapp.provider_payment_reminder.send');
         Route::any('download', [ProviderController::class, 'download'])->name('download');
         Route::any('reviews/download', [ProviderController::class, 'reviewsDownload'])->name('reviews.download');
-        Route::get('get-provider-info/{provider_id}', [ProviderController::class, 'getProviderInfo'])->name('get-provider-info')->withoutMiddleware('admin');
+        Route::get('get-provider-info/{provider_id}', [ProviderController::class, 'getProviderInfo'])->name('get-provider-info');
 
         Route::group(['prefix' => 'subscription-package', 'as' => 'subscription-package.'], function () {
             Route::post('to-commission', [SubscriptionController::class, 'toCommission'])->name('to.commission');

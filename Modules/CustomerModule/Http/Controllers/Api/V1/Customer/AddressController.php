@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Validator;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneGeometryService;
+use App\Services\GuestCheckoutService;
+use App\Services\GuestSessionService;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 
 class AddressController extends Controller
@@ -32,7 +34,7 @@ class AddressController extends Controller
         }
 
         $this->isCustomerLoggedIn = (bool) $user;
-        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : $request['guest_id'];
+        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : GuestSessionService::resolveGuestId($request);
     }
 
     private function rejectIfLoggedInWithoutCustomerApp(): ?JsonResponse
@@ -42,6 +44,15 @@ class AddressController extends Controller
         }
 
         return null;
+    }
+
+    private function rejectIfGuestSessionInvalid(Request $request): ?JsonResponse
+    {
+        if ($reject = GuestCheckoutService::rejectIfRequiresLogin($this->isCustomerLoggedIn)) {
+            return $reject;
+        }
+
+        return GuestSessionService::rejectIfInvalid($request, $this->isCustomerLoggedIn, $this->customerUserId);
     }
 
     /**
@@ -62,6 +73,10 @@ class AddressController extends Controller
         }
 
         if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
+        }
+
+        if ($reject = $this->rejectIfGuestSessionInvalid($request)) {
             return $reject;
         }
 
@@ -106,6 +121,10 @@ class AddressController extends Controller
             return $reject;
         }
 
+        if ($reject = $this->rejectIfGuestSessionInvalid($request)) {
+            return $reject;
+        }
+
         $point = new Point($request->lat, $request->lon, 0);
         $zone_id = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point)?->id;
 
@@ -141,6 +160,10 @@ class AddressController extends Controller
     public function edit(string $id, Request $request): JsonResponse
     {
         if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
+        }
+
+        if ($reject = $this->rejectIfGuestSessionInvalid($request)) {
             return $reject;
         }
 
@@ -180,6 +203,10 @@ class AddressController extends Controller
         }
 
         if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
+        }
+
+        if ($reject = $this->rejectIfGuestSessionInvalid($request)) {
             return $reject;
         }
 
@@ -228,6 +255,10 @@ class AddressController extends Controller
         }
 
         if ($reject = $this->rejectIfLoggedInWithoutCustomerApp()) {
+            return $reject;
+        }
+
+        if ($reject = $this->rejectIfGuestSessionInvalid($request)) {
             return $reject;
         }
 

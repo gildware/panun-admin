@@ -2,6 +2,7 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Api\V1\Provider;
 
+use App\Lib\PaymentAccessToken;
 use Carbon\Carbon;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Support\Renderable;
@@ -93,7 +94,7 @@ class SubscriptionPackageController extends Controller
         if ($subscriber) {
             $paymentUrl = url('payment/subscription') . '?' .
                 'provider_id=' . $providerId . '&' .
-                'access_token=' . base64_encode($userId) . '&' .
+                'access_token=' . PaymentAccessToken::issue($userId) . '&' .
                 'amount=' . $vatWithPrice . '&' .
                 'name=' . $name . '&' .
                 'package_status=' . 'subscription_renew' . '&' .
@@ -129,7 +130,7 @@ class SubscriptionPackageController extends Controller
 
         $paymentUrl = url('payment/subscription') . '?' .
             'provider_id=' . $providerId . '&' .
-            'access_token=' . base64_encode($userId) . '&' .
+            'access_token=' . PaymentAccessToken::issue($userId) . '&' .
             'amount=' . $vatWithPrice . '&' .
             'name=' . $name . '&' .
             'package_status=' . 'subscription_shift' . '&' .
@@ -161,7 +162,7 @@ class SubscriptionPackageController extends Controller
 
         $paymentUrl = url('payment/subscription') . '?' .
             'provider_id=' . $providerId . '&' .
-            'access_token=' . base64_encode($userId) . '&' .
+            'access_token=' . PaymentAccessToken::issue($userId) . '&' .
             'amount=' . $vatWithPrice . '&' .
             'name=' . $name . '&' .
             'package_status=' . 'business_plan_change' . '&' .

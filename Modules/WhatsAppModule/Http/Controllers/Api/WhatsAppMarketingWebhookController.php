@@ -54,6 +54,11 @@ class WhatsAppMarketingWebhookController extends Controller
     public function handle(Request $request): Response
     {
         $secret = (string) config('services.whatsapp_cloud.app_secret');
+        if ($secret === '' && $this->webhookSecretRequired()) {
+            Log::warning('WhatsApp marketing webhook rejected: WHATSAPP_APP_SECRET not configured');
+
+            return response('Webhook secret not configured', 503);
+        }
         if ($secret !== '') {
             $sig = $request->header('X-Hub-Signature-256');
             if (!is_string($sig) || !str_starts_with($sig, 'sha256=')) {
@@ -318,5 +323,10 @@ class WhatsAppMarketingWebhookController extends Controller
         } catch (\Throwable $e) {
             Log::warning('WhatsApp conversation inbound failed', ['error' => $e->getMessage()]);
         }
+    }
+
+    private function webhookSecretRequired(): bool
+    {
+        return app()->environment('live', 'production');
     }
 }

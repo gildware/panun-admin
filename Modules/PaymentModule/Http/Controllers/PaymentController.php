@@ -22,6 +22,7 @@ use Modules\PaymentModule\Traits\Payment as PaymentTrait;
 use Modules\PaymentModule\Library\Payment as Payment;
 use Modules\PaymentModule\Library\Payer;
 use Modules\PaymentModule\Library\Receiver;
+use App\Lib\PaymentAccessToken;
 
 
 class PaymentController extends Controller
@@ -111,13 +112,21 @@ class PaymentController extends Controller
             }
         }
 
-        //customer user
-        $customer_user_id = base64_decode($request['access_token']) ?? '';
-        $is_guest = !User::where('id', $customer_user_id)->exists();
         $is_add_fund = $request['is_add_fund'] == 1 ? 1 : 0;
         $is_pay_to_admin = $request['is_pay_to_admin'] == true ? 1 : 0;
         $is_repeat_single_booking = $request['is_repeat_single_booking'] == true ? 1 : 0;
         $switch_offline_to_digital = $request['switch_offline_to_digital'] ? 1 : 0;
+
+        //customer user
+        $customer_user_id = PaymentAccessToken::resolve($request['access_token']) ?? '';
+        if ($customer_user_id === '' && !$is_pay_to_admin) {
+            if ($request->has('callback')) {
+                return redirect($request['callback'] . '?flag=fail');
+            }
+
+            return response()->json(response_formatter(DEFAULT_401), 401);
+        }
+        $is_guest = $customer_user_id !== '' && !User::where('id', $customer_user_id)->exists();
 
         //==========>>>>>> IF ADD FUND <<<<<<<==============
 

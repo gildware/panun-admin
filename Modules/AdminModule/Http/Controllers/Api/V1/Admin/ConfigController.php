@@ -25,8 +25,10 @@ class ConfigController extends Controller
      */
     public function config(): JsonResponse
     {
+        $recaptcha = (business_config('recaptcha', 'third_party'))->live_values ?? null;
+
         return response()->json(response_formatter(DEFAULT_200, [
-            'map_api_key' => $this->google_map,
+            'map_api_key_client' => $this->google_map?->live_values['map_api_key_client'] ?? '',
             'image_base_url' => asset('storage/app/public'),
             'languages' => LANGUAGES,
             'currencies' => CURRENCIES,
@@ -34,7 +36,10 @@ class ConfigController extends Controller
             'system_modules' => SYSTEM_MODULES,
             'time_zones' => DateTimeZone::listIdentifiers(),
             'time_format' => (business_config('time_format', 'business_information'))->live_values ?? '24h',
-            'recaptcha' => (business_config('recaptcha', 'third_party'))->live_values ?? null,
+            'recaptcha' => is_array($recaptcha) ? [
+                'status' => $recaptcha['status'] ?? 0,
+                'site_key' => $recaptcha['site_key'] ?? '',
+            ] : $recaptcha,
             'pagination_limit' => (business_config('pagination_limit', 'business_information'))->live_values ?? null,
             'footer_text' => (business_config('footer_text', 'business_information'))->live_values ?? null,
             'currency_decimal_point' => (business_config('currency_decimal_point', 'business_information'))->live_values ?? null,

@@ -63,5 +63,32 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
         });
+
+        RateLimiter::for('otp-send', function (Request $request) {
+            $identity = (string) $request->input('identity', '');
+
+            return [
+                Limit::perMinute(5)->by($identity !== '' ? $identity : $request->ip()),
+                Limit::perHour(20)->by($identity !== '' ? $identity : $request->ip()),
+            ];
+        });
+
+        RateLimiter::for('otp-verify', function (Request $request) {
+            $identity = (string) $request->input('identity', '');
+
+            return Limit::perMinute(10)->by($identity !== '' ? $identity : $request->ip());
+        });
+
+        RateLimiter::for('booking-track', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('guest-session', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
+        RateLimiter::for('maps-proxy', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
     }
 }

@@ -20,6 +20,8 @@ use Modules\ServiceManagement\Entities\Service;
 use Modules\ServiceManagement\Entities\Variation;
 use Modules\UserManagement\Entities\Guest;
 use Modules\UserManagement\Entities\User;
+use App\Services\GuestCheckoutService;
+use App\Services\GuestSessionService;
 use Ramsey\Uuid\Uuid;
 
 class CartController extends Controller
@@ -51,7 +53,16 @@ class CartController extends Controller
 
         $user = api_user();
         $this->isCustomerLoggedIn = (bool) $user;
-        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : $request['guest_id'];
+        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : GuestSessionService::resolveGuestId($request);
+    }
+
+    private function rejectGuestSession(Request $request): ?JsonResponse
+    {
+        if ($reject = GuestCheckoutService::rejectIfRequiresLogin($this->isCustomerLoggedIn)) {
+            return $reject;
+        }
+
+        return GuestSessionService::rejectIfInvalid($request, $this->isCustomerLoggedIn, $this->customerUserId);
     }
 
     /**
@@ -75,6 +86,10 @@ class CartController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
         }
 
         $customerUserId = $this->customerUserId;
@@ -184,6 +199,10 @@ class CartController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
+        }
+
         $customerUserId = $this->customerUserId;
         $cartItems = $this->queryCustomerCart($customerUserId)->get();
 
@@ -212,6 +231,10 @@ class CartController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
         }
 
         $customerUserId = $this->customerUserId;
@@ -244,6 +267,10 @@ class CartController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
         }
 
         $customerUserId = $this->customerUserId;
@@ -282,6 +309,10 @@ class CartController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
+        }
+
         $this->updateCartQuantity($id, $request['quantity']);
 
         $customerUserId = $this->customerUserId;
@@ -305,6 +336,10 @@ class CartController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
         }
 
         $providerId = $request->has('provider_id') ? $request->provider_id : null;
@@ -331,13 +366,17 @@ class CartController extends Controller
      */
     public function remove(Request $request, string $id): JsonResponse
     {
-        $cart = $this->cart->where(['id' => $id])->first();
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
+        }
+
+        $cart = $this->cart->where(['id' => $id, 'customer_id' => $this->customerUserId])->first();
 
         if (!isset($cart)) {
             return response()->json(response_formatter(DEFAULT_204), 204);
         }
 
-        $this->cart->where('id', $id)->delete();
+        $this->cart->where(['id' => $id, 'customer_id' => $this->customerUserId])->delete();
 
         return response()->json(response_formatter(DEFAULT_DELETE_200), 200);
     }
@@ -349,6 +388,10 @@ class CartController extends Controller
      */
     public function emptyCart(Request $request): JsonResponse
     {
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
+        }
+
         $cart = $this->cart->where(['customer_id' => $this->customerUserId]);
         if ($cart->count() == 0) return response()->json(response_formatter(DEFAULT_204), 204);
         $cart->delete();
@@ -370,6 +413,10 @@ class CartController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectGuestSession($request)) {
+            return $reject;
         }
 
         $customerUserId = $this->customerUserId;

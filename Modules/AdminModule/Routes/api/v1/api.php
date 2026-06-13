@@ -7,8 +7,8 @@ use Modules\AdminModule\Http\Controllers\Api\V1\Admin\RoleController;
 use Modules\AdminModule\Http\Controllers\Api\V1\Admin\EmployeeController;
 use Modules\AdminModule\Http\Controllers\Api\V1\Admin\WithdrawController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api']], function () {
-    Route::get('config', [ConfigController::class, 'config'])->withoutMiddleware('auth:api');
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
+    Route::get('config', [ConfigController::class, 'config'])->withoutMiddleware(['auth:api', 'admin.api']);
     Route::get('counts', [ConfigController::class, 'counts']);
     Route::get('dashboard', [AdminController::class, 'dashboard']);
 

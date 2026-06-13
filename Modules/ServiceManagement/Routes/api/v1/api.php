@@ -11,7 +11,7 @@ use Modules\ServiceManagement\Http\Controllers\Api\V1\Admin\FAQController as Adm
 use Modules\ServiceManagement\Http\Controllers\Api\V1\Provider\ServiceRequestController;
 
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
 //    Route::resource('service', 'ServiceController', ['only' => ['index', 'store', 'edit', 'update', 'show']]);
     Route::put('service/status/update', [AdminServiceController::class, 'statusUpdate']);
     Route::delete('service/delete', [AdminServiceController::class, 'destroy']);

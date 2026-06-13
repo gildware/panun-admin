@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\LandingController;
+use App\Services\ImageProxyAllowlist;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 
@@ -21,13 +22,35 @@ Route::get('/image-proxy', function () {
         abort(400, 'Missing url parameter');
     }
 
+    $parsed = parse_url($url);
+    $scheme = strtolower($parsed['scheme'] ?? '');
+    $host = strtolower($parsed['host'] ?? '');
+
+    if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
+        abort(403, 'Invalid url');
+    }
+
+    $allowedHosts = ImageProxyAllowlist::hosts();
+
+    if ($allowedHosts === []) {
+        abort(403, 'Image proxy allowlist not configured');
+    }
+
+    if (!in_array($host, $allowedHosts, true)) {
+        abort(403, 'Host not allowed');
+    }
+
+    $resolvedIp = gethostbyname($host);
+    if ($resolvedIp === $host || !filter_var($resolvedIp, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        abort(403, 'Host resolves to a private or reserved address');
+    }
+
     $response = Http::withHeaders([
         'User-Agent' => 'Laravel-Image-Proxy'
-    ])->get($url);
+    ])->timeout(10)->get($url);
 
     return response($response->body(), $response->status())
-        ->header('Content-Type', $response->header('Content-Type'))
-        ->header('Access-Control-Allow-Origin', '*');
+        ->header('Content-Type', $response->header('Content-Type'));
 });
 
 Route::get('lang/{locale}', [LandingController::class, 'lang'])->name('lang');

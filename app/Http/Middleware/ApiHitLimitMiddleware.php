@@ -11,23 +11,16 @@ use Illuminate\Support\Facades\Cache;
 
 class ApiHitLimitMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param Request $request
-     * @param Closure(Request): (Response|RedirectResponse)  $next
-     * @param string $attempt_type
-     * @param int $hit_count
-     * @return JsonResponse
-     */
-    public function handle(Request $request, Closure $next, string $attempt_type = "normal", int $hit_count = 10)
+    public function handle(Request $request, Closure $next, string $attempt_type = 'normal', int $hit_count = 5, int $decay_seconds = 60)
     {
-        $key = optional($request->user())->id ?: $request->ip();
+        $key = 'hit_limit:' . $attempt_type . ':' . (optional($request->user())->id ?: $request->ip());
+
         if (Cache::has($key)) {
             return response()->json(TOO_MANY_ATTEMPT_403);
-        } else {
-            Cache::store('file')->put(optional($request->user())->id ?: $request->ip(), $attempt_type, 10);
         }
+
+        Cache::put($key, 1, $decay_seconds);
+
         return $next($request);
     }
 }

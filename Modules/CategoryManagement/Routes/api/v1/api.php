@@ -7,7 +7,7 @@ use Modules\CategoryManagement\Http\Controllers\Api\V1\Admin\CategoryController 
 use Modules\CategoryManagement\Http\Controllers\Api\V1\Admin\SubCategoryController as AdminSubCategoryController;
 use Modules\CategoryManagement\Http\Controllers\Api\V1\Provider\CategoryController as ProviderCategoryController;
 
-Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Api\V1\Admin', 'middleware'=>['auth:api']], function () {
+Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
 //    Route::resource('category', 'CategoryController', ['only' => ['index', 'store', 'edit', 'update']]);
     Route::put('category/status/update', [AdminCategoryController::class, 'status_update']);
     Route::delete('category/delete', [AdminCategoryController::class, 'destroy']);

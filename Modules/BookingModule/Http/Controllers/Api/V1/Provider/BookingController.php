@@ -29,6 +29,7 @@ use Modules\CartModule\Entities\Cart;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\UserAddress;
+use App\Lib\BookingInvoiceUrl;
 use Rap2hpoutre\FastExcel\FastExcel;
 use function PHPUnit\Framework\isEmpty;
 
@@ -2010,6 +2011,36 @@ class BookingController extends Controller
         }
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+    }
+
+    public function invoiceUrl(Request $request, string $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'lang' => 'required|string|max:10',
+            'variant' => 'nullable|in:regular,repeat,single',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $provider_id = $request->user()->provider->id;
+        $booking = $this->booking->where('id', $id)
+            ->where(function ($query) use ($provider_id) {
+                $query->where('provider_id', $provider_id)
+                    ->orWhereHas('repeat', fn ($subQuery) => $subQuery->where('provider_id', $provider_id));
+            })
+            ->first();
+
+        if (!$booking) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $variant = $request->input('variant', 'regular');
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'url' => BookingInvoiceUrl::provider($id, $request->lang, $variant),
+        ]), 200);
     }
 
 }
