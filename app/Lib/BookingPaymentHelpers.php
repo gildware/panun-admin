@@ -1761,6 +1761,112 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
     }
 }
 
+if (! function_exists('booking_installment_payable_cap')) {
+    function booking_installment_payable_cap(Booking $main, ?array $bfsScaledLive = null): float
+    {
+        if ($bfsScaledLive !== null) {
+            return round((float) get_booking_total_amount($main), 2);
+        }
+        if ((int) ($main->is_repeated ?? 0) === 0
+            && trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            return round((float) get_booking_total_amount($main), 2);
+        }
+
+        return round((float) get_booking_payable_total_for_partial_dues($main), 2);
+    }
+}
+
+if (! function_exists('booking_installment_received_by_label')) {
+    function booking_installment_received_by_label(?string $receivedBy): string
+    {
+        return match ((string) ($receivedBy ?? '')) {
+            'company' => translate('Company'),
+            'provider' => translate('Provider'),
+            default => $receivedBy ? ucfirst((string) $receivedBy) : '—',
+        };
+    }
+}
+
+if (! function_exists('booking_installment_payments_payload')) {
+    /**
+     * Installment rows for admin UI and customer payment_ledger.
+     * Uses booking_partial_payments when present; otherwise falls back to ledger IN rows
+     * (e.g. full digital checkout before partial rows existed).
+     *
+     * @return array{payable_cap: float, rows: list<array<string, mixed>>}
+     */
+    function booking_installment_payments_payload(Booking $main, ?array $bfsScaledLive = null): array
+    {
+        $main->loadMissing(['booking_partial_payments.ledgerTransactions', 'booking_offline_payments']);
+
+        $cap = booking_installment_payable_cap($main, $bfsScaledLive);
+        $runningPaid = 0.0;
+        $rows = [];
+
+        $partials = $main->booking_partial_payments
+            ->sortBy([
+                ['created_at', 'asc'],
+                ['id', 'asc'],
+            ])
+            ->values()
+            ->filter(fn ($partial) => round((float) ($partial->paid_amount ?? 0), 2) != 0.0)
+            ->values();
+
+        if ($partials->isNotEmpty()) {
+            foreach ($partials as $partial) {
+                $amount = round((float) ($partial->paid_amount ?? 0), 2);
+                $runningPaid += $amount;
+                $rows[] = [
+                    'serial' => count($rows) + 1,
+                    'date' => $partial->created_at?->toIso8601String(),
+                    'received_by' => $partial->received_by,
+                    'received_by_label' => booking_installment_received_by_label($partial->received_by),
+                    'amount' => $amount,
+                    'payment_method_label' => (string) $partial->paymentMethodLabelForAdmin($main),
+                    'transaction_id' => $partial->transaction_id ?: null,
+                    'due_after_payment' => round(max(0.0, $cap - $runningPaid), 2),
+                    'paid_with' => $partial->paid_with,
+                    'id' => $partial->id ? (string) $partial->id : null,
+                ];
+            }
+
+            return ['payable_cap' => $cap, 'rows' => $rows];
+        }
+
+        $ledgerEntries = LedgerTransaction::query()
+            ->where('booking_id', $main->id)
+            ->where('type', LedgerTransaction::TYPE_IN)
+            ->where(function ($query) {
+                $query->whereNull('reason')
+                    ->orWhere('reason', '!=', LedgerTransaction::REASON_REFUND);
+            })
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn ($entry) => round((float) ($entry->amount ?? 0), 2) != 0.0)
+            ->values();
+
+        foreach ($ledgerEntries as $entry) {
+            $amount = round((float) ($entry->amount ?? 0), 2);
+            $runningPaid += $amount;
+            $rows[] = [
+                'serial' => count($rows) + 1,
+                'date' => $entry->created_at?->toIso8601String(),
+                'received_by' => $entry->received_by,
+                'received_by_label' => booking_installment_received_by_label($entry->received_by),
+                'amount' => $amount,
+                'payment_method_label' => $entry->formatPaymentMethodForDisplay(),
+                'transaction_id' => $entry->transaction_id ?: null,
+                'due_after_payment' => round(max(0.0, $cap - $runningPaid), 2),
+                'paid_with' => null,
+                'id' => null,
+            ];
+        }
+
+        return ['payable_cap' => $cap, 'rows' => $rows];
+    }
+}
+
 if (! function_exists('booking_append_customer_api_financial_fields')) {
     /**
      * Additional charges breakdown, payable total, payment summary, and customer payment ledger for customer API.
@@ -1820,43 +1926,23 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
             'offline_verify_status' => $offlineVerifyStatus,
         ]);
 
-        $installmentPayableCap = round((float) get_booking_payable_total_for_partial_dues($main), 2);
-        if ((int) ($main->is_repeated ?? 0) === 0
-            && trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
-            $installmentPayableCap = round((float) get_booking_total_amount($main), 2);
-        }
-
-        $installmentRunningPaid = 0.0;
         foreach ($main->booking_partial_payments as $partial) {
-            $installmentRunningPaid += (float) $partial->paid_amount;
             $partial->setAttribute('payment_method_label', $partial->paymentMethodLabelForAdmin($main));
-            $partial->setAttribute('received_by_label', match ((string) ($partial->received_by ?? '')) {
-                'company' => translate('Company'),
-                'provider' => translate('Provider'),
-                default => $partial->received_by ? ucfirst((string) $partial->received_by) : '—',
-            });
-            $partial->setAttribute('due_after_payment', round(max(0.0, $installmentPayableCap - $installmentRunningPaid), 2));
+            $partial->setAttribute('received_by_label', booking_installment_received_by_label($partial->received_by));
         }
 
-        $installments = $main->booking_partial_payments
-            ->sortBy([
-                ['created_at', 'asc'],
-                ['id', 'asc'],
+        $installmentPayload = booking_installment_payments_payload($main);
+        $installments = collect($installmentPayload['rows'] ?? [])
+            ->map(fn (array $row) => [
+                'serial' => (int) ($row['serial'] ?? 0),
+                'date' => $row['date'] ?? null,
+                'received_by_label' => (string) ($row['received_by_label'] ?? '—'),
+                'amount' => round((float) ($row['amount'] ?? 0), 2),
+                'payment_method_label' => (string) ($row['payment_method_label'] ?? ''),
+                'transaction_id' => $row['transaction_id'] ?? null,
+                'due_after_payment' => round((float) ($row['due_after_payment'] ?? 0), 2),
             ])
             ->values()
-            ->filter(fn ($partial) => round((float) ($partial->paid_amount ?? 0), 2) != 0.0)
-            ->values()
-            ->map(function ($partial, $index) {
-                return [
-                    'serial' => $index + 1,
-                    'date' => $partial->created_at?->toIso8601String(),
-                    'received_by_label' => (string) ($partial->received_by_label ?? '—'),
-                    'amount' => round((float) ($partial->paid_amount ?? 0), 2),
-                    'payment_method_label' => (string) ($partial->payment_method_label ?? ''),
-                    'transaction_id' => $partial->transaction_id ?: null,
-                    'due_after_payment' => round((float) ($partial->due_after_payment ?? 0), 2),
-                ];
-            })
             ->all();
 
         $refunds = LedgerTransaction::query()
