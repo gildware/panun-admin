@@ -1761,6 +1761,217 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
     }
 }
 
+if (! function_exists('booking_append_customer_api_financial_fields')) {
+    /**
+     * Additional charges breakdown, payable total, payment summary, and customer payment ledger for customer API.
+     *
+     * @param  Booking|BookingRepeat  $booking
+     */
+    function booking_append_customer_api_financial_fields($booking): void
+    {
+        $main = $booking instanceof BookingRepeat
+            ? ($booking->relationLoaded('booking') ? $booking->booking : $booking->booking()->first())
+            : $booking;
+
+        if (! $main instanceof Booking) {
+            return;
+        }
+
+        $main->loadMissing(['booking_partial_payments', 'booking_offline_payments', 'extra_services']);
+
+        $acDisplay = collect(enrich_booking_additional_charges_breakdown_for_display($main))
+            ->filter(fn ($row) => round((float) ($row['amount'] ?? 0), 2) > 0)
+            ->map(fn ($row) => [
+                'id' => (string) ($row['id'] ?? ''),
+                'name' => (string) ($row['name'] ?? translate('Additional_charges')),
+                'amount' => round((float) ($row['amount'] ?? 0), 2),
+            ])
+            ->values()
+            ->all();
+
+        if ($acDisplay === [] && round((float) ($main->extra_fee ?? 0), 2) > 0) {
+            $acDisplay = [[
+                'id' => 'extra_fee',
+                'name' => translate('Additional_charges'),
+                'amount' => round((float) ($main->extra_fee ?? 0), 2),
+            ]];
+        }
+
+        $extraServiceLines = ($main->extra_services ?? collect())
+            ->filter(fn ($extra) => round((float) ($extra->total ?? 0), 2) > 0)
+            ->map(fn ($extra) => [
+                'id' => (string) ($extra->id ?? ''),
+                'name' => (string) ($extra->title ?? translate('Extra_Services')),
+                'amount' => round((float) ($extra->total ?? 0), 2),
+                'type' => (string) ($extra->type ?? 'service'),
+            ])
+            ->values()
+            ->all();
+
+        $snapshot = booking_provider_api_payment_snapshot($main);
+        $offline = $main->booking_offline_payments?->first();
+        $offlineVerifyStatus = null;
+        if ($main->payment_method === 'offline_payment' && $offline) {
+            $offlineVerifyStatus = (string) ($offline->payment_status ?? '');
+        }
+
+        $paymentPayload = array_merge($snapshot, [
+            'payment_method_display' => format_booking_payment_method_for_admin_display($main),
+            'offline_verify_status' => $offlineVerifyStatus,
+        ]);
+
+        $installmentPayableCap = round((float) get_booking_payable_total_for_partial_dues($main), 2);
+        if ((int) ($main->is_repeated ?? 0) === 0
+            && trim((string) ($main->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+            $installmentPayableCap = round((float) get_booking_total_amount($main), 2);
+        }
+
+        $installmentRunningPaid = 0.0;
+        foreach ($main->booking_partial_payments as $partial) {
+            $installmentRunningPaid += (float) $partial->paid_amount;
+            $partial->setAttribute('payment_method_label', $partial->paymentMethodLabelForAdmin($main));
+            $partial->setAttribute('received_by_label', match ((string) ($partial->received_by ?? '')) {
+                'company' => translate('Company'),
+                'provider' => translate('Provider'),
+                default => $partial->received_by ? ucfirst((string) $partial->received_by) : '—',
+            });
+            $partial->setAttribute('due_after_payment', round(max(0.0, $installmentPayableCap - $installmentRunningPaid), 2));
+        }
+
+        $installments = $main->booking_partial_payments
+            ->sortBy([
+                ['created_at', 'asc'],
+                ['id', 'asc'],
+            ])
+            ->values()
+            ->filter(fn ($partial) => round((float) ($partial->paid_amount ?? 0), 2) != 0.0)
+            ->values()
+            ->map(function ($partial, $index) {
+                return [
+                    'serial' => $index + 1,
+                    'date' => $partial->created_at?->toIso8601String(),
+                    'received_by_label' => (string) ($partial->received_by_label ?? '—'),
+                    'amount' => round((float) ($partial->paid_amount ?? 0), 2),
+                    'payment_method_label' => (string) ($partial->payment_method_label ?? ''),
+                    'transaction_id' => $partial->transaction_id ?: null,
+                    'due_after_payment' => round((float) ($partial->due_after_payment ?? 0), 2),
+                ];
+            })
+            ->all();
+
+        $refunds = LedgerTransaction::query()
+            ->where('booking_id', $main->id)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->map(function ($entry, $index) {
+                return [
+                    'serial' => $index + 1,
+                    'date' => $entry->created_at?->toIso8601String(),
+                    'amount' => round((float) ($entry->amount ?? 0), 2),
+                    'transaction_id' => $entry->transaction_id ?: null,
+                    'reference_note' => $entry->reference_note ?: null,
+                ];
+            })
+            ->all();
+
+        $target = $booking instanceof BookingRepeat ? $booking : $main;
+        $target->setAttribute('additional_charges_display', $acDisplay);
+        $target->setAttribute('extra_service_lines', $extraServiceLines);
+        $target->setAttribute('payable_grand_total', round((float) get_booking_total_amount($main), 2));
+        $target->setAttribute('payment_details', $paymentPayload);
+        $target->setAttribute('payment_ledger', [
+            'installments' => $installments,
+            'refunds' => $refunds,
+        ]);
+        $target->setAttribute('booking_summary', booking_customer_api_summary_payload($main));
+    }
+}
+
+if (! function_exists('booking_customer_api_summary_payload')) {
+    /**
+     * Customer-facing booking summary aligned with admin booking details breakdown.
+     *
+     * @return array<string, mixed>
+     */
+    function booking_customer_api_summary_payload(Booking $booking): array
+    {
+        $booking->loadMissing(['detail', 'extra_services', 'booking_partial_payments']);
+
+        $catalogGrossSubtotal = 0.0;
+        foreach ($booking->detail ?? [] as $detail) {
+            $catalogGrossSubtotal += (float) ($detail->service_cost ?? 0) * (int) ($detail->quantity ?? 1);
+        }
+        $catalogGrossSubtotal = round($catalogGrossSubtotal, 2);
+
+        $extraServiceLines = [];
+        $sparePartLines = [];
+        $extraGrossService = 0.0;
+        $extraGrossSpare = 0.0;
+
+        foreach ($booking->extra_services ?? [] as $extra) {
+            $lineGross = round((float) ($extra->price ?? 0) * (int) ($extra->quantity ?? 1), 2);
+            $line = [
+                'id' => (string) ($extra->id ?? ''),
+                'name' => (string) ($extra->title ?? translate('Extra_Services')),
+                'amount' => round((float) ($extra->total ?? 0), 2),
+                'type' => (string) ($extra->type ?? 'service'),
+            ];
+            if (($extra->type ?? '') === BookingExtraService::TYPE_SPARE_PART) {
+                $sparePartLines[] = $line;
+                $extraGrossSpare += $lineGross;
+            } else {
+                $extraServiceLines[] = $line;
+                $extraGrossService += $lineGross;
+            }
+        }
+
+        $additionalChargeLines = collect(enrich_booking_additional_charges_breakdown_for_display($booking))
+            ->filter(fn ($row) => round((float) ($row['amount'] ?? 0), 2) > 0)
+            ->map(fn ($row) => [
+                'id' => (string) ($row['id'] ?? ''),
+                'name' => (string) ($row['name'] ?? translate('Additional_charges')),
+                'amount' => round((float) ($row['amount'] ?? 0), 2),
+            ])
+            ->values()
+            ->all();
+
+        if ($additionalChargeLines === [] && round((float) ($booking->extra_fee ?? 0), 2) > 0) {
+            $additionalChargeLines = [[
+                'id' => 'extra_fee',
+                'name' => translate('Additional_charges'),
+                'amount' => round((float) ($booking->extra_fee ?? 0), 2),
+            ]];
+        }
+
+        $additionalChargesTotal = round((float) ($booking->extra_fee ?? 0), 2);
+        $grossTotal = round($catalogGrossSubtotal + $extraGrossService + $extraGrossSpare + $additionalChargesTotal, 2);
+        $serviceDiscount = round(
+            (float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking),
+            2
+        );
+
+        return [
+            'service_amount' => $catalogGrossSubtotal,
+            'extra_service_lines' => $extraServiceLines,
+            'spare_part_lines' => $sparePartLines,
+            'additional_charge_lines' => $additionalChargeLines,
+            'gross_total' => $grossTotal,
+            'service_discount' => $serviceDiscount,
+            'coupon_discount' => round((float) ($booking->total_coupon_discount_amount ?? 0), 2),
+            'campaign_discount' => round((float) ($booking->total_campaign_discount_amount ?? 0), 2),
+            'referral_discount' => round((float) ($booking->total_referral_discount_amount ?? 0), 2),
+            'tax' => round((float) ($booking->total_tax_amount ?? 0), 2),
+            'has_tax' => round((float) ($booking->total_tax_amount ?? 0), 2) > 0,
+            'grand_total' => round((float) get_booking_total_amount($booking), 2),
+            'total_paid' => round((float) get_booking_total_paid($booking), 2),
+            'due_amount' => round((float) get_booking_invoice_due_amount($booking), 2),
+        ];
+    }
+}
+
 if (!function_exists('booking_special_financial_settlement_provider_owes_company')) {
     /**
      * Amount the provider must remit to the company when they hold customer cash but company share

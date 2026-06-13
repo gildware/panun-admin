@@ -353,6 +353,8 @@ class BookingController extends Controller
                 'subCategory:id,name',
                 'serviceman.user',
                 'booking_partial_payments',
+                'booking_offline_payments',
+                'extra_services',
                 'repeat.scheduleHistories',
                 'repeat.repeatHistories'
             ])
@@ -438,6 +440,8 @@ class BookingController extends Controller
             $booking->is_customize_booking = $booking->customizeBooking ? 1 : 0;
             unset($booking->customizeBooking);
 
+            booking_append_customer_api_financial_fields($booking);
+
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 204);
@@ -452,7 +456,15 @@ class BookingController extends Controller
     public function singleDetails(Request $request, string $id): JsonResponse
     {
         $booking = $this->bookingRepeat->with([
-            'detail.service', 'scheduleHistories.user', 'statusHistories.user', 'booking.customer', 'provider', 'serviceman.user'
+            'detail.service',
+            'scheduleHistories.user',
+            'statusHistories.user',
+            'booking.customer',
+            'booking.booking_partial_payments',
+            'booking.booking_offline_payments',
+            'booking.extra_services',
+            'provider',
+            'serviceman.user',
         ])->where(['id' => $id])->first();
 
         $booking->booking->service_address = $booking->booking->service_address_location != null ? json_decode($booking->booking->service_address_location) : $booking->booking->service_address;
@@ -461,6 +473,7 @@ class BookingController extends Controller
             if (isset($booking->provider)){
                 $booking->provider->chatEligibility = chatEligibility($booking->provider_id);
             }
+            booking_append_customer_api_financial_fields($booking);
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 204);
