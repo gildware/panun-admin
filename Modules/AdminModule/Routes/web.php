@@ -90,6 +90,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
 
         Route::any('booking', [BookingReportController::class, 'getBookingReport'])->name('booking');
         Route::any('booking/download', [BookingReportController::class, 'getBookingReportDownload'])->name('booking.download');
+        Route::post('booking/drilldown', [BookingReportController::class, 'getBookingReportDrilldown'])->name('booking.drilldown');
 
         Route::any('provider', [ProviderReportController::class, 'getProviderReport'])->name('provider');
         Route::any('provider/download', [ProviderReportController::class, 'getProviderReportDownload'])->name('provider.download');

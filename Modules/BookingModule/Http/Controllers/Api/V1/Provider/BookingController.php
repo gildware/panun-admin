@@ -740,6 +740,7 @@ class BookingController extends Controller
         $booking = $this->booking->with([
             'detail.service', 'schedule_histories.user', 'status_histories.user', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
+            'category', 'subCategory:id,name',
             'repeat.detail.service', 'repeat.repeatHistories'
         ])->where(function ($query) use ($provider_id, $request) {
             return $query->where(function ($query) use ($provider_id) {

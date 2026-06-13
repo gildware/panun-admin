@@ -28,8 +28,25 @@
             text-align: center;
             padding: 1rem;
         }
+        .booking-report-analytics .booking-chart-view-btn,
+        .booking-report-analytics .chart-drilldown-view-btn {
+            line-height: 1;
+            vertical-align: middle;
+            color: #4e73df;
+            text-decoration: none;
+        }
+        .booking-report-analytics .booking-chart-view-btn:hover {
+            color: #2e59d9;
+        }
+        .booking-report-analytics .apexcharts-legend-series {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 2px;
+        }
     </style>
 @endpush
+
+@include('adminmodule::admin.report.partials._booking-chart-drilldown-modal')
 
 <div class="booking-report-analytics mb-4">
     <div class="card border-0 shadow-sm mb-3">
