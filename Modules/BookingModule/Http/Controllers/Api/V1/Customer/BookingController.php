@@ -302,7 +302,7 @@ class BookingController extends Controller
         }
 
         $bookings = $this->booking
-            ->with(['customer', 'repeat', 'customizeBooking'])
+            ->with(['customer', 'repeat', 'customizeBooking', 'extra_services'])
             ->where(['customer_id' => $request->user()->id])
             ->search(base64_decode($request['string']), ['readable_id'])
             ->when($request['booking_status'] != 'all', function ($query) use ($request) {
@@ -326,8 +326,13 @@ class BookingController extends Controller
             }
             $booking->is_customize_booking = $booking->customizeBooking ? 1 : 0;
 
+            $listDisplayTotal = get_customer_booking_list_display_total($booking);
+            $booking->setAttribute('list_display_total', $listDisplayTotal);
+            $booking->setAttribute('payable_grand_total', $listDisplayTotal);
+
             unset($booking->repeat);
             unset($booking->customizeBooking);
+            unset($booking->extra_services);
         }
 
         return response()->json(response_formatter(DEFAULT_200, $bookings), 200);

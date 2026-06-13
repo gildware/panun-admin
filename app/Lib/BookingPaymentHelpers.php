@@ -1787,11 +1787,143 @@ if (! function_exists('booking_installment_received_by_label')) {
     }
 }
 
+if (! function_exists('booking_installment_row_from_partial')) {
+    /**
+     * @return array<string, mixed>
+     */
+    function booking_installment_row_from_partial(BookingPartialPayment $partial, Booking $main, float $dueAfterPayment): array
+    {
+        return [
+            'date' => $partial->created_at?->toIso8601String(),
+            'received_by' => $partial->received_by,
+            'received_by_label' => booking_installment_received_by_label($partial->received_by),
+            'amount' => round((float) ($partial->paid_amount ?? 0), 2),
+            'payment_method_label' => (string) $partial->paymentMethodLabelForAdmin($main),
+            'transaction_id' => $partial->transaction_id ?: null,
+            'due_after_payment' => round(max(0.0, $dueAfterPayment), 2),
+            'paid_with' => $partial->paid_with,
+            'id' => $partial->id ? (string) $partial->id : null,
+            'source' => 'partial',
+        ];
+    }
+}
+
+if (! function_exists('booking_installment_row_from_ledger')) {
+    /**
+     * @return array<string, mixed>
+     */
+    function booking_installment_row_from_ledger(LedgerTransaction $entry, float $dueAfterPayment): array
+    {
+        return [
+            'date' => $entry->created_at?->toIso8601String(),
+            'received_by' => $entry->received_by,
+            'received_by_label' => booking_installment_received_by_label($entry->received_by),
+            'amount' => round((float) ($entry->amount ?? 0), 2),
+            'payment_method_label' => $entry->formatPaymentMethodForDisplay(),
+            'transaction_id' => $entry->transaction_id ?: null,
+            'due_after_payment' => round(max(0.0, $dueAfterPayment), 2),
+            'paid_with' => null,
+            'id' => null,
+            'source' => 'ledger',
+        ];
+    }
+}
+
+if (! function_exists('booking_company_payment_ledger_in_total')) {
+    function booking_company_payment_ledger_in_total(Booking $booking): float
+    {
+        return round((float) LedgerTransaction::query()
+            ->where('booking_id', $booking->id)
+            ->where('type', LedgerTransaction::TYPE_IN)
+            ->where(function ($query) {
+                $query->whereNull('reason')
+                    ->orWhereNotIn('reason', [
+                        LedgerTransaction::REASON_REFUND,
+                        LedgerTransaction::REASON_PROVIDER_PAYOUT,
+                    ]);
+            })
+            ->sum('amount'), 2);
+    }
+}
+
+if (! function_exists('booking_digital_payment_ledger_amount')) {
+    /**
+     * Amount to record on ledger / admin IN for a digital (or offline-approved) company payment.
+     * Uses grand total (service + visiting/extra) when no prior partials; otherwise only the remainder.
+     */
+    function booking_digital_payment_ledger_amount(Booking $booking): float
+    {
+        $booking->loadMissing('booking_partial_payments');
+        $grand = round((float) get_booking_total_amount($booking), 2);
+        if ($grand <= 0) {
+            return 0.0;
+        }
+
+        if ($booking->booking_partial_payments->isEmpty()) {
+            return $grand;
+        }
+
+        $partialSum = round((float) $booking->booking_partial_payments->sum('paid_amount'), 2);
+
+        if ($partialSum >= $grand - 0.009) {
+            return round(max(0.0, $grand - booking_company_payment_ledger_in_total($booking)), 2);
+        }
+
+        return round(max(0.0, $grand - $partialSum), 2);
+    }
+}
+
+if (! function_exists('ensure_booking_company_payment_partial_for_ledger')) {
+    function ensure_booking_company_payment_partial_for_ledger(
+        Booking $booking,
+        float $ledgerAmount,
+        ?string $transactionId = null
+    ): ?BookingPartialPayment {
+        $ledgerAmount = round(max(0.0, $ledgerAmount), 2);
+        if ($ledgerAmount <= 0) {
+            return null;
+        }
+
+        $booking->loadMissing('booking_partial_payments');
+        $paidWith = map_booking_payment_paid_with((string) ($booking->payment_method ?? ''));
+
+        if ($booking->booking_partial_payments->isEmpty()) {
+            return BookingPartialPayment::create([
+                'booking_id' => $booking->id,
+                'paid_with' => $paidWith,
+                'paid_amount' => $ledgerAmount,
+                'due_amount' => 0,
+                'received_by' => 'company',
+                'transaction_id' => $transactionId,
+            ]);
+        }
+
+        $partialSum = round((float) $booking->booking_partial_payments->sum('paid_amount'), 2);
+        $grand = round((float) get_booking_total_amount($booking), 2);
+
+        if ($partialSum >= $grand - 0.009) {
+            return $booking->booking_partial_payments
+                ->filter(fn ($partial) => ($partial->received_by ?? 'company') === 'company')
+                ->sortByDesc('created_at')
+                ->first()
+                ?? $booking->booking_partial_payments->sortByDesc('created_at')->first();
+        }
+
+        return BookingPartialPayment::create([
+            'booking_id' => $booking->id,
+            'paid_with' => $paidWith,
+            'paid_amount' => $ledgerAmount,
+            'due_amount' => 0,
+            'received_by' => 'company',
+            'transaction_id' => $transactionId,
+        ]);
+    }
+}
+
 if (! function_exists('booking_installment_payments_payload')) {
     /**
-     * Installment rows for admin UI and customer payment_ledger.
-     * Uses booking_partial_payments when present; otherwise falls back to ledger IN rows
-     * (e.g. full digital checkout before partial rows existed).
+     * All customer payment rows for admin UI and customer payment_ledger.
+     * Merges booking_partial_payments with ledger IN rows not already represented by a partial.
      *
      * @return array{payable_cap: float, rows: list<array<string, mixed>>}
      */
@@ -1800,8 +1932,6 @@ if (! function_exists('booking_installment_payments_payload')) {
         $main->loadMissing(['booking_partial_payments.ledgerTransactions', 'booking_offline_payments']);
 
         $cap = booking_installment_payable_cap($main, $bfsScaledLive);
-        $runningPaid = 0.0;
-        $rows = [];
 
         $partials = $main->booking_partial_payments
             ->sortBy([
@@ -1812,25 +1942,20 @@ if (! function_exists('booking_installment_payments_payload')) {
             ->filter(fn ($partial) => round((float) ($partial->paid_amount ?? 0), 2) != 0.0)
             ->values();
 
-        if ($partials->isNotEmpty()) {
-            foreach ($partials as $partial) {
-                $amount = round((float) ($partial->paid_amount ?? 0), 2);
-                $runningPaid += $amount;
-                $rows[] = [
-                    'serial' => count($rows) + 1,
-                    'date' => $partial->created_at?->toIso8601String(),
-                    'received_by' => $partial->received_by,
-                    'received_by_label' => booking_installment_received_by_label($partial->received_by),
-                    'amount' => $amount,
-                    'payment_method_label' => (string) $partial->paymentMethodLabelForAdmin($main),
-                    'transaction_id' => $partial->transaction_id ?: null,
-                    'due_after_payment' => round(max(0.0, $cap - $runningPaid), 2),
-                    'paid_with' => $partial->paid_with,
-                    'id' => $partial->id ? (string) $partial->id : null,
-                ];
-            }
+        $partialIds = $partials->pluck('id')->filter()->map(fn ($id) => (string) $id)->all();
+        $partialFingerprints = $partials->map(function ($partial) {
+            $minute = $partial->created_at?->format('Y-m-d H:i') ?? '';
 
-            return ['payable_cap' => $cap, 'rows' => $rows];
+            return round((float) ($partial->paid_amount ?? 0), 2).'|'.$minute.'|'.((string) ($partial->received_by ?? ''));
+        })->all();
+
+        $rows = [];
+        $runningPaid = 0.0;
+
+        foreach ($partials as $partial) {
+            $amount = round((float) ($partial->paid_amount ?? 0), 2);
+            $runningPaid += $amount;
+            $rows[] = booking_installment_row_from_partial($partial, $main, $cap - $runningPaid);
         }
 
         $ledgerEntries = LedgerTransaction::query()
@@ -1838,7 +1963,10 @@ if (! function_exists('booking_installment_payments_payload')) {
             ->where('type', LedgerTransaction::TYPE_IN)
             ->where(function ($query) {
                 $query->whereNull('reason')
-                    ->orWhere('reason', '!=', LedgerTransaction::REASON_REFUND);
+                    ->orWhereNotIn('reason', [
+                        LedgerTransaction::REASON_REFUND,
+                        LedgerTransaction::REASON_PROVIDER_PAYOUT,
+                    ]);
             })
             ->orderBy('created_at')
             ->orderBy('id')
@@ -1847,21 +1975,56 @@ if (! function_exists('booking_installment_payments_payload')) {
             ->values();
 
         foreach ($ledgerEntries as $entry) {
+            $partialPaymentId = $entry->booking_partial_payment_id
+                ? (string) $entry->booking_partial_payment_id
+                : null;
+            if ($partialPaymentId !== null && in_array($partialPaymentId, $partialIds, true)) {
+                continue;
+            }
+
+            $minute = $entry->created_at?->format('Y-m-d H:i') ?? '';
+            $fingerprint = round((float) ($entry->amount ?? 0), 2).'|'.$minute.'|'.((string) ($entry->received_by ?? ''));
+            if (in_array($fingerprint, $partialFingerprints, true)) {
+                continue;
+            }
+
             $amount = round((float) ($entry->amount ?? 0), 2);
             $runningPaid += $amount;
-            $rows[] = [
-                'serial' => count($rows) + 1,
-                'date' => $entry->created_at?->toIso8601String(),
-                'received_by' => $entry->received_by,
-                'received_by_label' => booking_installment_received_by_label($entry->received_by),
-                'amount' => $amount,
-                'payment_method_label' => $entry->formatPaymentMethodForDisplay(),
-                'transaction_id' => $entry->transaction_id ?: null,
-                'due_after_payment' => round(max(0.0, $cap - $runningPaid), 2),
-                'paid_with' => null,
-                'id' => null,
-            ];
+            $rows[] = booking_installment_row_from_ledger($entry, $cap - $runningPaid);
         }
+
+        usort($rows, function (array $a, array $b) {
+            $dateCompare = strcmp((string) ($a['date'] ?? ''), (string) ($b['date'] ?? ''));
+            if ($dateCompare !== 0) {
+                return $dateCompare;
+            }
+
+            return strcmp((string) ($a['id'] ?? ''), (string) ($b['id'] ?? ''));
+        });
+
+        // Older digital captures stored only total_booking_amount (service lines), omitting extra_fee / visiting.
+        if ((int) ($main->is_paid ?? 0) === 1) {
+            $rowSum = round(array_sum(array_map(
+                fn (array $row) => (float) ($row['amount'] ?? 0),
+                $rows
+            )), 2);
+            $expectedPaid = round(min($cap, (float) get_booking_total_paid($main)), 2);
+            if ($expectedPaid > $rowSum + 0.009) {
+                $serviceOnly = round((float) ($main->total_booking_amount ?? 0), 2);
+                if (count($rows) === 1
+                    && abs((float) ($rows[0]['amount'] ?? 0) - $serviceOnly) < 0.01) {
+                    $rows[0]['amount'] = $expectedPaid;
+                }
+            }
+        }
+
+        $runningPaid = 0.0;
+        foreach ($rows as $index => &$row) {
+            $runningPaid += (float) ($row['amount'] ?? 0);
+            $row['serial'] = $index + 1;
+            $row['due_after_payment'] = round(max(0.0, $cap - $runningPaid), 2);
+        }
+        unset($row);
 
         return ['payable_cap' => $cap, 'rows' => $rows];
     }
@@ -4074,7 +4237,7 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
     /**
      * Record customer advance (booking confirmation) payment — not the full booking total.
      */
-    function placeBookingTransactionForAdvanceDeposit($booking, float $paidAmount, string $paymentMethod): void
+    function placeBookingTransactionForAdvanceDeposit($booking, float $paidAmount, string $paymentMethod, ?string $partialPaymentId = null): void
     {
         $paidAmount = round(max(0.0, $paidAmount), 2);
         if ($paidAmount <= 0) {
@@ -4083,7 +4246,7 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
 
         $adminUserId = \Modules\UserManagement\Entities\User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
 
-        DB::transaction(function () use ($booking, $paidAmount, $paymentMethod, $adminUserId) {
+        DB::transaction(function () use ($booking, $paidAmount, $paymentMethod, $adminUserId, $partialPaymentId) {
             $account = \Modules\TransactionModule\Entities\Account::where('user_id', $adminUserId)->first();
             $account->balance_pending += $paidAmount;
             $account->save();
@@ -4133,6 +4296,7 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                 'payment_method' => $paymentMethod === 'wallet_payment' ? 'wallet_payment' : ($paymentMethod === 'offline_payment' ? 'offline_payment' : 'digital_payment'),
                 'date' => now()->toDateString(),
                 'received_by' => LedgerTransaction::RECEIVED_BY_COMPANY,
+                'booking_partial_payment_id' => $partialPaymentId,
             ]);
         });
     }
@@ -4150,7 +4314,7 @@ if (!function_exists('record_booking_advance_checkout_payment')) {
 
         $paidWith = map_booking_payment_paid_with((string) $request['payment_method']);
 
-        BookingPartialPayment::create([
+        $partial = BookingPartialPayment::create([
             'booking_id' => $booking->id,
             'paid_with' => $paidWith,
             'paid_amount' => $advancePaid,
@@ -4158,7 +4322,37 @@ if (!function_exists('record_booking_advance_checkout_payment')) {
             'received_by' => 'company',
         ]);
 
-        placeBookingTransactionForAdvanceDeposit($booking, $advancePaid, (string) $request['payment_method']);
+        placeBookingTransactionForAdvanceDeposit($booking, $advancePaid, (string) $request['payment_method'], (string) $partial->id);
+    }
+}
+
+if (!function_exists('record_booking_full_checkout_partial_if_needed')) {
+    /**
+     * Full upfront checkout: ensure a partial row exists so payment history lists the payment.
+     */
+    function record_booking_full_checkout_partial_if_needed($booking, $request): ?BookingPartialPayment
+    {
+        if (! $booking instanceof Booking) {
+            return null;
+        }
+
+        $booking->loadMissing('booking_partial_payments');
+        if ($booking->booking_partial_payments->isNotEmpty()) {
+            return null;
+        }
+
+        $payableTotal = round((float) get_booking_total_amount($booking), 2);
+        if ($payableTotal <= 0) {
+            return null;
+        }
+
+        return BookingPartialPayment::create([
+            'booking_id' => $booking->id,
+            'paid_with' => map_booking_payment_paid_with((string) ($request['payment_method'] ?? $booking->payment_method ?? '')),
+            'paid_amount' => $payableTotal,
+            'due_amount' => 0,
+            'received_by' => 'company',
+        ]);
     }
 }
 
@@ -4182,6 +4376,8 @@ if (!function_exists('finalize_booking_checkout_transactions')) {
 
             return;
         }
+
+        record_booking_full_checkout_partial_if_needed($booking, $request);
 
         if ($booking['payment_method'] != 'cash_after_service' && $booking['payment_method'] != 'wallet_payment') {
             placeBookingTransactionForDigitalPayment($booking);
