@@ -149,7 +149,7 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'query_leads',
-                'description' => 'Search CRM leads with all admin-tab fields: zone, categories, service, status, cancellation reason/remarks, received date, followups, handler, tags. Filter by customer_status or provider_status name (e.g. No Response, Pending) or status_search.',
+                'description' => 'Search CRM leads with all admin-tab fields: zone, categories, service, status, cancellation reason/remarks, received date, followups, handler, tags. Filter by customer_status or provider_status name (e.g. No Response, Pending) or status_search. Returns at most max_query_limit rows (default 25); for counts or phone-grouped progression use analyze_leads instead.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -324,11 +324,11 @@ class AdminBusinessAiToolExecutor
             ],
             [
                 'name' => 'analyze_leads',
-                'description' => 'Aggregate lead intelligence. For cancellation reason questions use customer_cancellation_reasons or provider_cancellation_reasons (returns by_reason ranked list). Also: invalid_reasons, future_customer_reasons, no_response_timing_report, lead_timing_report, no_response_leads, lead_activity_report, status breakdowns. Use date_from/date_to for range. Scans up to 5000 leads.',
+                'description' => 'Aggregate lead intelligence. For cancellation reason questions use customer_cancellation_reasons or provider_cancellation_reasons (returns by_reason ranked list). For phones with an invalid lead followed by customer/provider/future_customer use invalid_to_active_lead_progression (scans all leads — do NOT use query_leads for this). Also: invalid_reasons, future_customer_reasons, no_response_timing_report, lead_timing_report, no_response_leads, lead_activity_report, status breakdowns. Use date_from/date_to for range. Scans up to 5000 leads.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
-                        'analysis' => ['type' => 'string', 'description' => 'no_response_timing_report|lead_timing_report|no_response_leads|lead_activity_report|customer_cancellation_reasons|customer_status_breakdown|invalid_reasons|full_lead_overview|etc'],
+                        'analysis' => ['type' => 'string', 'description' => 'invalid_to_active_lead_progression|no_response_timing_report|lead_timing_report|no_response_leads|lead_activity_report|customer_cancellation_reasons|customer_status_breakdown|invalid_reasons|full_lead_overview|etc'],
                         'lead_type' => ['type' => 'string', 'description' => 'customer|provider|invalid|future_customer|unknown|all'],
                         'cohort' => ['type' => 'string', 'description' => 'For lead_timing_report: all|non_responsive|invalid|invalid_no_response|customer|provider|customer_cancelled|customer_pending'],
                         'date_from' => ['type' => 'string'],
@@ -769,10 +769,17 @@ class AdminBusinessAiToolExecutor
             ->limit($this->limit($args))
             ->get();
 
+        $appliedLimit = $this->limit($args);
+
         return [
             'ok' => true,
             'total_matching' => $total,
             'returned' => $rows->count(),
+            'limit_applied' => $appliedLimit,
+            'limit_max' => (int) config('admin_business_ai.max_query_limit', 50),
+            'note' => $total > $appliedLimit
+                ? 'Only the newest matching rows are returned. For full-dataset counts or invalid→active phone progression, use analyze_leads.'
+                : null,
             'leads' => $this->leadInsights->enrichSummaries($rows),
         ];
     }

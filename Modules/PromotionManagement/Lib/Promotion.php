@@ -50,7 +50,7 @@ use Illuminate\Support\Facades\Http;
 }
 
 if (!function_exists('device_notification')) {
-    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null)
+    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null)
     {
         $title = text_variable_data_format($title, $booking_id, $type, $data, $bookingType);
         $postData = [
@@ -67,6 +67,8 @@ if (!function_exists('device_notification')) {
                     "advertisement_id" => (string)$advertisement_id,
                     "booking_type" => (string)$bookingType,
                     "repeat_type" => (string)$repeat_type,
+                    "service_slug" => (string)($service_slug ?? ''),
+                    "service_id" => (string)($service_id ?? ''),
                 ],
                 "notification" => [
                     'title' => (string)$title,
@@ -92,7 +94,7 @@ if (!function_exists('device_notification')) {
 }
 
 if (!function_exists('topic_notification')) {
-    function topic_notification($topic, $title, $description, $image, $booking_id, $type='status')
+    function topic_notification($topic, $title, $description, $image, $booking_id, $type='status', $service_slug=null, $service_id=null)
     {
         $image = asset('storage/app/public/push-notification') . '/' . $image;
 
@@ -104,7 +106,9 @@ if (!function_exists('topic_notification')) {
                     "body" => (string)$description,
                     "booking_id" => (string)$booking_id,
                     "type" => (string)$type,
-                    "image" => (string)$image
+                    "image" => (string)$image,
+                    "service_slug" => (string)($service_slug ?? ''),
+                    "service_id" => (string)($service_id ?? ''),
                 ],
                 "notification" => [
                     "title" => (string)$title,

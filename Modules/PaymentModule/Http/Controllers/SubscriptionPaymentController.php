@@ -13,11 +13,13 @@ use Illuminate\Support\Facades\Validator;
 use Modules\PaymentModule\Library\Payer;
 use Modules\PaymentModule\Library\Payment as Payment;
 use Modules\PaymentModule\Library\Receiver;
+use Modules\PaymentModule\Traits\NativeRazorpayRedirect;
 use Modules\PaymentModule\Traits\Payment as PaymentTrait;
 use Modules\UserManagement\Entities\User;
 
 class SubscriptionPaymentController extends Controller
 {
+    use NativeRazorpayRedirect;
     /**
      * Display a listing of the resource.
      * @param Request $request
@@ -58,6 +60,6 @@ class SubscriptionPaymentController extends Controller
 
         $receiver_info = new Receiver('receiver_name', 'example.png');
         $redirect_link = PaymentTrait::generate_link($payer, $payment_info, $receiver_info);
-        return redirect($redirect_link);
+        return $this->respondPaymentRedirect($request, $redirect_link);
     }
 }

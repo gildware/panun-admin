@@ -52,6 +52,7 @@ if (!$isPublished) {
             Route::post('callback', [RazorPayController::class, 'callback'])->name('callback')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::any('cancel', [RazorPayController::class, 'cancel'])->name('cancel')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::any('create-order', [RazorPayController::class, 'createOrder'])->name('create-order')->withoutMiddleware([VerifyCsrfToken::class]);
+            Route::any('native-prepare', [RazorPayController::class, 'nativePrepare'])->name('native-prepare')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::any('verify-payment', [RazorPayController::class, 'verifyPayment'])->name('verify-payment')->withoutMiddleware([VerifyCsrfToken::class]);
         });
 

@@ -20,8 +20,19 @@ class AddressController extends Controller
     public function __construct(UserAddress $address, Request $request)
     {
         $this->address = $address;
-        $this->isCustomerLoggedIn = (bool)auth('api')->user();
-        $this->customerUserId = $this->isCustomerLoggedIn ? auth('api')->user()->id : $request['guest_id'];
+
+        $user = null;
+        $bearerToken = $request->bearerToken();
+        if ($bearerToken && $bearerToken !== 'null') {
+            try {
+                $user = auth('api')->user();
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $this->isCustomerLoggedIn = (bool) $user;
+        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : $request['guest_id'];
     }
 
     private function rejectIfLoggedInWithoutCustomerApp(): ?JsonResponse
@@ -172,7 +183,7 @@ class AddressController extends Controller
             return $reject;
         }
 
-        $point = new Point($request->lat, $request->lon);
+        $point = new Point((float) $request->lat, (float) $request->lon, 0);
         $resolved = app(ZoneGeometryService::class)->resolveLeafZoneForPoint($point);
         $zone_id = $resolved?->id;
 
