@@ -2,6 +2,7 @@
 
 namespace Modules\BusinessSettingsModule\Http\Controllers\Web\Provider;
 
+use App\Lib\PaymentAccessToken;
 use Brian2694\Toastr\Facades\Toastr;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -256,7 +257,7 @@ class SubscriptionPackageController extends Controller
         if ($subscriber) {
             $paymentUrl = url('payment/subscription') . '?' .
                 'provider_id=' . $providerId . '&' .
-                'access_token=' . base64_encode($userId) . '&' .
+                'access_token=' . PaymentAccessToken::issue($userId) . '&' .
                 'package_id=' . $id . '&' .
                 'amount=' . $vatWithPrice . '&' .
                 'name=' . $name . '&' .
@@ -293,7 +294,7 @@ class SubscriptionPackageController extends Controller
 
         $paymentUrl = url('payment/subscription') . '?' .
             'provider_id=' . $providerId . '&' .
-            'access_token=' . base64_encode($userId) . '&' .
+            'access_token=' . PaymentAccessToken::issue($userId) . '&' .
             'package_id=' . $id . '&' .
             'amount=' . $vatWithPrice . '&' .
             'name=' . $name . '&' .
@@ -328,7 +329,7 @@ class SubscriptionPackageController extends Controller
 
             $paymentUrl = url('payment/subscription') . '?' .
                 'provider_id=' . $providerId . '&' .
-                'access_token=' . base64_encode($userId) . '&' .
+                'access_token=' . PaymentAccessToken::issue($userId) . '&' .
                 'package_id=' . $id . '&' .
                 'amount=' . $vatWithPrice . '&' .
                 'name=' . $name . '&' .

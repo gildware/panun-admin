@@ -14,6 +14,8 @@ use Modules\PromotionManagement\Entities\CouponCustomer;
 use Modules\PromotionManagement\Entities\Discount;
 use Modules\PromotionManagement\Entities\DiscountType;
 use Modules\ServiceManagement\Entities\Service;
+use App\Services\GuestCheckoutService;
+use App\Services\GuestSessionService;
 
 class CouponController extends Controller
 {
@@ -32,8 +34,17 @@ class CouponController extends Controller
         $this->service = $service;
         $this->booking = $booking;
 
-        $this->is_customer_logged_in = (bool)auth('api')->user();
-        $this->customer_user_id = $this->is_customer_logged_in ? auth('api')->user()->id : $request['guest_id'];
+        $this->is_customer_logged_in = (bool) auth('api')->user();
+        $this->customer_user_id = $this->is_customer_logged_in ? auth('api')->user()->id : GuestSessionService::resolveGuestId($request);
+    }
+
+    private function rejectUnlessGuestBookingAllowed(Request $request): ?JsonResponse
+    {
+        if ($reject = GuestCheckoutService::rejectIfRequiresLogin($this->is_customer_logged_in)) {
+            return $reject;
+        }
+
+        return GuestSessionService::rejectIfInvalid($request, $this->is_customer_logged_in, $this->customer_user_id);
     }
 
 
@@ -51,6 +62,10 @@ class CouponController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectUnlessGuestBookingAllowed($request)) {
+            return $reject;
         }
 
         $activeCoupons = $this->coupon->with(['discount', 'coupon_customers'])
@@ -123,6 +138,10 @@ class CouponController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectUnlessGuestBookingAllowed($request)) {
+            return $reject;
         }
 
         $couponQuery = $this->coupon
@@ -198,6 +217,10 @@ class CouponController extends Controller
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        if ($reject = $this->rejectUnlessGuestBookingAllowed($request)) {
+            return $reject;
         }
 
         $cartItems = $this->cart->where(['customer_id' => $this->customer_user_id])->get();
@@ -344,6 +367,10 @@ class CouponController extends Controller
      */
     public function removeCoupon(Request $request): JsonResponse
     {
+        if ($reject = $this->rejectUnlessGuestBookingAllowed($request)) {
+            return $reject;
+        }
+
         $cartItems = $this->cart->where('customer_id', $this->customer_user_id)->get();
         if (!isset($cartItems)) {
             return response()->json(response_formatter(DEFAULT_204), 204);

@@ -76,7 +76,12 @@ class PaymentResponse
                 'is_partial' => $request['is_partial']
             ];
 
-            $response = (new PaymentResponse)->placeBookingRequestForBidding(base64_decode($request['access_token']), $request, $tran_id, $data);
+            $response = (new PaymentResponse)->placeBookingRequestForBidding(
+                PaymentAccessToken::resolve($request['access_token']) ?? '',
+                $request,
+                $tran_id,
+                $data
+            );
             if ($response['flag'] == 'success') {
                 PostBidController::acceptPostBidOffer($post_bid->id, $response['booking_id']);
             }

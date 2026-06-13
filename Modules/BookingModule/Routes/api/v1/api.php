@@ -9,19 +9,21 @@ use Modules\BookingModule\Http\Controllers\Api\V1\Admin\BookingController as Adm
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::get('/', [BookingController::class, 'index']);
+        Route::get('/{booking_id}/invoice-url', [BookingController::class, 'invoiceUrl']);
         Route::get('/{booking_id}', [BookingController::class, 'show']);
         Route::get('single/{booking_id}', [BookingController::class, 'singleDetails']);
         Route::post('request/send', [BookingController::class, 'placeRequest'])->middleware('hitLimiter')->withoutMiddleware('auth:api');
         Route::put('status-update/{booking_id}', [BookingController::class, 'statusUpdate']);
         Route::post('single-repeat-cancel/{repeat_id}', [BookingController::class, 'singleBookingCancel']);
-        Route::post('track/{readable_id}', [BookingController::class, 'track'])->withoutMiddleware('auth:api');
+        Route::post('track/{readable_id}/access-token', [BookingController::class, 'trackAccessToken'])->withoutMiddleware('auth:api')->middleware('throttle:booking-track');
+        Route::post('track/{readable_id}', [BookingController::class, 'track'])->withoutMiddleware('auth:api')->middleware('throttle:booking-track');
         Route::post('store-offline-payment-data', [BookingController::class, 'storeOfflinePaymentData'])->withoutMiddleware('auth:api');
         Route::post('switch-payment-method', [BookingController::class, 'switchPaymentMethod'])->withoutMiddleware('auth:api');
     });
 });
 Route::any('digital-payment-booking-response', [BookingController::class, 'digitalPaymentBookingResponse']);
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::post('/', [AdminBookingController::class, 'index']);
         Route::get('{id}', [AdminBookingController::class, 'show']);
@@ -34,6 +36,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
 Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::post('/', [ProviderBookingController::class, 'index']);
+        Route::get('{id}/invoice-url', [ProviderBookingController::class, 'invoiceUrl']);
         Route::get('{id}', [ProviderBookingController::class, 'show']);
         Route::get('single/{id}', [ProviderBookingController::class, 'singleDetails']);
         Route::put('request-accept/{booking_id}', [ProviderBookingController::class, 'requestAccept']);

@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\ZoneManagement\Http\Controllers\PublicZoneController;
 use Modules\ZoneManagement\Http\Controllers\Api\V1\Admin\ZoneController;
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admin', 'middleware' => ['auth:api', 'admin.api']], function () {
     Route::group(['prefix' => 'zone'], function () {
         Route::get('/', [ZoneController::class, 'index']);   // index
         Route::post('/', [ZoneController::class, 'store']);  // store

@@ -39,6 +39,11 @@ class MetaSocialMessagingWebhookController extends Controller
     public function handle(Request $request): Response
     {
         $secret = (string) config('services.meta_social.app_secret');
+        if ($secret === '' && $this->webhookSecretRequired()) {
+            Log::warning('Meta social webhook rejected: META_SOCIAL_APP_SECRET not configured');
+
+            return response('Webhook secret not configured', 503);
+        }
         if ($secret !== '') {
             $sig = $request->header('X-Hub-Signature-256');
             if (!is_string($sig) || !str_starts_with($sig, 'sha256=')) {
@@ -249,5 +254,10 @@ class MetaSocialMessagingWebhookController extends Controller
         } else {
             ProcessWhatsAppAiSupportJob::dispatch($saved->id);
         }
+    }
+
+    private function webhookSecretRequired(): bool
+    {
+        return app()->environment('live', 'production');
     }
 }

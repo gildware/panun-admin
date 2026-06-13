@@ -2,6 +2,7 @@
 
 namespace Modules\Auth\Http\Controllers;
 
+use App\Lib\PaymentAccessToken;
 use App\Traits\UploadSizeHelperTrait;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\Foundation\Application;
@@ -307,7 +308,7 @@ class RegisterController extends Controller
             }elseif ($request->free_trial_or_payment == 'payment') {
                 $paymentUrl = url('payment/subscription') . '?' .
                     'provider_id=' . $provider_id . '&' .
-                    'access_token=' . base64_encode($owner->id) . '&' .
+                    'access_token=' . PaymentAccessToken::issue($owner->id) . '&' .
                     'package_id=' . $id . '&' .
                     'amount=' . $vatWithPrice . '&' .
                     'name=' . $name . '&' .

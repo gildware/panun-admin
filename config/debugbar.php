@@ -14,7 +14,8 @@ return [
      |
      */
 
-    'enabled' => env('DEBUGBAR_ENABLED', null),
+    // Default false so Debugbar stays off unless explicitly enabled (even when APP_DEBUG=true).
+    'enabled' => env('DEBUGBAR_ENABLED', false),
     'except' => [
         'telescope*',
         'horizon*',

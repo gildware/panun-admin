@@ -16,6 +16,7 @@ use Modules\PaymentModule\Library\Receiver;
 use Modules\PaymentModule\Traits\NativeRazorpayRedirect;
 use Modules\PaymentModule\Traits\Payment as PaymentTrait;
 use Modules\UserManagement\Entities\User;
+use App\Lib\PaymentAccessToken;
 
 class SubscriptionPaymentController extends Controller
 {
@@ -39,7 +40,14 @@ class SubscriptionPaymentController extends Controller
             else return response()->json(response_formatter(DEFAULT_400), 400);
         }
 
-        $customer_user_id = base64_decode($request['access_token']) ?? '';
+        $customer_user_id = PaymentAccessToken::resolve($request['access_token']) ?? '';
+        if ($customer_user_id === '') {
+            if ($request->has('callback')) {
+                return redirect($request['callback'] . '?flag=fail');
+            }
+
+            return response()->json(response_formatter(DEFAULT_401), 401);
+        }
 
         $customer = User::find($customer_user_id);
         $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');

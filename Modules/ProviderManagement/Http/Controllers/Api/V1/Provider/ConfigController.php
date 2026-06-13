@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Modules\BusinessSettingsModule\Entities\BusinessPageSetting;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
+use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use Modules\BusinessSettingsModule\Entities\LoginSetup;
 use Modules\PaymentModule\Entities\Setting;
-use Modules\UserManagement\Entities\User;
 use Grimzy\LaravelMysqlSpatial\Types\Point;
 
 class ConfigController extends Controller
@@ -54,6 +54,26 @@ class ConfigController extends Controller
      * @return JsonResponse
      */
     public function config(Request $request): JsonResponse
+    {
+        $locale = strtolower((string) $request->header('X-localization', app()->getLocale()));
+        $content = CustomerApiResponseCache::remember(
+            'provider_api_config:v1:'.$locale,
+            function () {
+                $response = $this->buildConfigResponse();
+                $decoded = json_decode($response->getContent(), true);
+
+                return is_array($decoded) ? ($decoded['content'] ?? []) : [];
+            },
+            CustomerApiResponseCache::CONFIG_TTL
+        );
+        $content['maintenance'] = $this->checkMaintenanceMode();
+
+        return response()
+            ->json(response_formatter(DEFAULT_200, $content), 200)
+            ->header('Cache-Control', 'public, max-age=300');
+    }
+
+    private function buildConfigResponse(): JsonResponse
     {
         $advancedBooking =  [
             'advanced_booking_restriction_value' => (int) business_config('advanced_booking_restriction_value', 'booking_setup')?->live_values,
@@ -166,7 +186,6 @@ class ConfigController extends Controller
             'max_cash_in_hand_limit_provider' => (business_config('max_cash_in_hand_limit_provider', 'provider_config'))->live_values ?? 0,
             'suspend_on_exceed_cash_limit_provider' => (business_config('suspend_on_exceed_cash_limit_provider', 'provider_config'))->live_values ?? 0,
             'default_commission' => (business_config('default_commission', 'business_information'))->live_values,
-            'admin_details' => User::select('id', 'first_name', 'last_name', 'profile_image')->where('user_type', ADMIN_USER_TYPES[0])->first(),
             'footer_text' => (business_config('footer_text', 'business_information'))->live_values ?? null,
             'min_versions' => json_decode((business_config('provider_app_settings', 'app_settings'))->live_values ?? null),
             'minimum_withdraw_amount' => business_config('minimum_withdraw_amount', 'business_information') ? ((float)(business_config('minimum_withdraw_amount', 'business_information'))->live_values ?? null) : null,

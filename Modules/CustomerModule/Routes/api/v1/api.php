@@ -5,10 +5,12 @@ use Modules\CustomerModule\Http\Controllers\Api\V1\Customer\CustomerController;
 use Modules\CustomerModule\Http\Controllers\Api\V1\Admin\CustomerController as AdminCustomerController;
 use Modules\CustomerModule\Http\Controllers\Api\V1\Customer\SubscribeNewsletterController;
 use Modules\CustomerModule\Http\Controllers\Api\V1\Customer\ConfigController;
+use Modules\CustomerModule\Http\Controllers\Api\V1\Customer\HomeBundleController;
 use  Modules\CustomerModule\Http\Controllers\Api\V1\Customer\AddressController;
+use Modules\CustomerModule\Http\Controllers\Api\V1\Customer\GuestSessionController;
 
 
-Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Api\V1\Admin','middleware'=>['auth:api']], function () {
+Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Api\V1\Admin','middleware' => ['auth:api', 'admin.api']], function () {
 //    Route::resource('customer', 'CustomerController', ['only' => ['index', 'store', 'edit', 'update']]);
     Route::group(['prefix' => 'customer', 'as' => 'customer.',], function () {
         Route::put('status/update', [AdminCustomerController::class, 'statusUpdate']);
@@ -30,18 +32,22 @@ Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Api\V1\Admin'
 
 Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V1\Customer'], function () {
 
+    Route::post('guest/session', [GuestSessionController::class, 'register'])->middleware('throttle:guest-session');
+
     Route::post('fcm-subscribe-to-topic', [CustomerController::class, 'fcmSubscribeToTopic']);
 
     Route::group(['prefix' => 'config'], function () {
         Route::get('/', [ConfigController::class, 'configuration']);
         Route::get('pages', [ConfigController::class, 'pages']);
         Route::get('page-details/{key}', [ConfigController::class, 'pageDetails']);
-        Route::get('get-zone-id', [ConfigController::class, 'getZone']);
-        Route::get('place-api-autocomplete', [ConfigController::class, 'placeApiAutocomplete']);
-        Route::get('distance-api', [ConfigController::class, 'distanceApi']);
-        Route::get('place-api-details', [ConfigController::class, 'placeApiDetails']);
-        Route::get('geocode-api', [ConfigController::class, 'geocodeApi']);
+        Route::get('get-zone-id', [ConfigController::class, 'getZone'])->middleware('throttle:maps-proxy');
+        Route::get('place-api-autocomplete', [ConfigController::class, 'placeApiAutocomplete'])->middleware('throttle:maps-proxy');
+        Route::get('distance-api', [ConfigController::class, 'distanceApi'])->middleware('throttle:maps-proxy');
+        Route::get('place-api-details', [ConfigController::class, 'placeApiDetails'])->middleware('throttle:maps-proxy');
+        Route::get('geocode-api', [ConfigController::class, 'geocodeApi'])->middleware('throttle:maps-proxy');
     });
+
+    Route::get('home-bundle', [HomeBundleController::class, 'index']);
 
     Route::resource('address', 'AddressController', ['only' => ['index', 'store', 'edit', 'update', 'destroy']])->withoutMiddleware(['api:auth']);
 

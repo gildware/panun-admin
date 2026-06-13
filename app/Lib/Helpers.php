@@ -23,11 +23,7 @@ if (!function_exists('use_dummy_login_otp')) {
      */
     function use_dummy_login_otp(): bool
     {
-        if (filter_var(config('app.use_dummy_otp', false), FILTER_VALIDATE_BOOLEAN)) {
-            return true;
-        }
-
-        return env('APP_ENV') !== 'live';
+        return filter_var(config('app.use_dummy_otp', false), FILTER_VALIDATE_BOOLEAN);
     }
 }
 

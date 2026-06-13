@@ -21,6 +21,10 @@ use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CustomerModule\Traits\CustomerAddressTrait;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BidModule\Http\Controllers\APi\V1\Customer\PostBidController;
+use App\Lib\BookingInvoiceUrl;
+use App\Lib\BookingTrackToken;
+use App\Services\GuestCheckoutService;
+use App\Services\GuestSessionService;
 
 class BookingController extends Controller
 {
@@ -43,7 +47,7 @@ class BookingController extends Controller
 
         $user = api_user();
         $this->isCustomerLoggedIn = (bool) $user;
-        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : $request['guest_id'];
+        $this->customerUserId = $this->isCustomerLoggedIn ? $user->id : GuestSessionService::resolveGuestId($request);
     }
 
     /**
@@ -53,6 +57,10 @@ class BookingController extends Controller
      */
     public function placeRequest(Request $request): JsonResponse
     {
+        if ($reject = $this->rejectUnlessGuestBookingAllowed($request)) {
+            return $reject;
+        }
+
         $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
 
         $validator = Validator::make($request->all(), [
@@ -467,25 +475,58 @@ class BookingController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'phone' => 'required',
+            'track_token' => 'required|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        if (!BookingTrackToken::validate($request['track_token'], (string) $id, (string) $request['phone'])) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        $phone = (string) $request['phone'];
         $booking = $this->booking
-            ->with(['detail.service', 'schedule_histories.user', 'status_histories.user', 'customer', 'provider', 'zone', 'serviceman.user'])
+            ->with(['detail.service', 'schedule_histories.user', 'status_histories.user', 'customer', 'provider', 'zone', 'serviceman.user', 'service_address'])
             ->where(['readable_id' => $id])
-            ->whereHas('service_address', fn($query) => $query->where('contact_person_number', $request['phone']))
             ->first();
+
+        if ($booking === null || !BookingTrackToken::phoneMatches($this->bookingContactNumber($booking), $phone)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
 
         $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
         unset($booking->service_address_location);
 
-        if (isset($booking)) return response()->json(response_formatter(DEFAULT_200, $booking), 200);
+        return response()->json(response_formatter(DEFAULT_200, $booking), 200);
+    }
 
-        return response()->json(response_formatter(DEFAULT_404, $booking), 404);
+    public function trackAccessToken(Request $request, string $readableId): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $phone = (string) $request['phone'];
+        $booking = $this->booking
+            ->with('service_address')
+            ->where('readable_id', $readableId)
+            ->first();
+
+        if ($booking === null || !BookingTrackToken::phoneMatches($this->bookingContactNumber($booking), $phone)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'track_token' => BookingTrackToken::issue($readableId, $phone),
+            'expires_in_minutes' => 1440,
+        ]), 200);
     }
 
     /**
@@ -599,10 +640,18 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        if ($reject = $this->assertBookingAccess($request)) {
+            return $reject;
+        }
+
         // Retrieve booking
         $booking = $this->booking->find($request->booking_id);
         if (!$booking) {
             return response()->json(response_formatter(DEFAULT_204), 204);
+        }
+
+        if ($reject = $this->assertBookingOwnership($booking)) {
+            return $reject;
         }
 
         $offlinePaymentData = $this->offlinePayment->find($request['offline_payment_id']);
@@ -622,6 +671,9 @@ class BookingController extends Controller
         // Handle partial payment if applicable
         if ($request->is_partial) {
             $user = auth('api')->user();
+            if (!$user) {
+                return response()->json(response_formatter(DEFAULT_401), 401);
+            }
             $walletBalance = $user->wallet_balance;
 
             if ($walletBalance <= 0 || $walletBalance >= $booking->total_booking_amount) {
@@ -692,15 +744,26 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
+        if ($reject = $this->assertBookingAccess($request)) {
+            return $reject;
+        }
+
         // Retrieve booking
         $booking = $this->booking->find($request->booking_id);
         if (!$booking) {
             return response()->json(response_formatter(DEFAULT_204), 204);
         }
 
+        if ($reject = $this->assertBookingOwnership($booking)) {
+            return $reject;
+        }
+
         // Handle partial payment if applicable
         if ($request->is_partial) {
             $user = auth('api')->user();
+            if (!$user) {
+                return response()->json(response_formatter(DEFAULT_401), 401);
+            }
             $walletBalance = $user->wallet_balance;
 
             if ($walletBalance <= 0 || $walletBalance >= $booking->total_booking_amount) {
@@ -811,6 +874,94 @@ class BookingController extends Controller
 
         return response()->json(response_formatter(DEFAULT_200, $response), 200);
 
+    }
+
+    private function rejectUnlessGuestBookingAllowed(Request $request): ?JsonResponse
+    {
+        if ($reject = GuestCheckoutService::rejectIfRequiresLogin($this->isCustomerLoggedIn)) {
+            return $reject;
+        }
+
+        return GuestSessionService::rejectIfInvalid($request, $this->isCustomerLoggedIn, $this->customerUserId);
+    }
+
+    private function assertBookingAccess(Request $request): ?JsonResponse
+    {
+        if ($this->isCustomerLoggedIn) {
+            return null;
+        }
+
+        if ($reject = GuestCheckoutService::rejectIfRequiresLogin(false)) {
+            return $reject;
+        }
+
+        $validator = Validator::make($request->all(), [
+            'guest_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_401, null, error_processor($validator)), 401);
+        }
+
+        if ($request['guest_id'] !== $this->customerUserId) {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
+        return GuestSessionService::rejectIfInvalid($request, false, $this->customerUserId);
+    }
+
+    private function assertBookingOwnership(Booking $booking): ?JsonResponse
+    {
+        if (!$this->customerUserId || (string) $booking->customer_id !== (string) $this->customerUserId) {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
+        return null;
+    }
+
+    public function invoiceUrl(Request $request, string $booking_id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'lang' => 'required|string|max:10',
+            'variant' => 'nullable|in:regular,repeat,single',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $booking = $this->booking->find($booking_id);
+        if (!$booking) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        if ($reject = $this->assertBookingOwnership($booking)) {
+            return $reject;
+        }
+
+        $variant = $request->input('variant', 'regular');
+
+        return response()->json(response_formatter(DEFAULT_200, [
+            'url' => BookingInvoiceUrl::customer($booking_id, $request->lang, $variant),
+        ]), 200);
+    }
+
+    private function bookingContactNumber(Booking $booking): ?string
+    {
+        $contactNumber = $booking->service_address?->contact_person_number;
+        if ($contactNumber !== null && $contactNumber !== '') {
+            return $contactNumber;
+        }
+
+        if ($booking->service_address_location === null || $booking->service_address_location === '') {
+            return null;
+        }
+
+        $location = is_string($booking->service_address_location)
+            ? json_decode($booking->service_address_location, true)
+            : $booking->service_address_location;
+
+        return is_array($location) ? ($location['contact_person_number'] ?? null) : null;
     }
 
 }
