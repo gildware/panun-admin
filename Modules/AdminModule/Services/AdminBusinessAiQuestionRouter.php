@@ -35,6 +35,46 @@ class AdminBusinessAiQuestionRouter
     }
 
     /**
+     * Tools that must run server-side before Gemini synthesizes (full-dataset aggregates).
+     *
+     * @return list<array{name: string, args: array<string, mixed>}>
+     */
+    public function inferMandatoryAggregateTools(string $userMessage): array
+    {
+        $text = trim($userMessage);
+        if ($text === '') {
+            return [];
+        }
+
+        $ids = $this->extractQueryIdentifiers($userMessage);
+        if ($ids !== [] && ! preg_match('/\b(how many|count|number of|total|breakdown|percentage|percent)\b/i', $text)) {
+            return [['name' => 'get_entity_relations', 'args' => $ids]];
+        }
+
+        $isInvalidThenActive = (bool) (
+            (preg_match('/\b(invalid|marked invalid|initially invalid)\b/i', $text)
+                && preg_match('/\b(next lead|later lead|then|subsequent|after|re-?open|reconversion|became|converted|customer|provider|future customer)\b/i', $text))
+            || preg_match('/\binvalid.*\b(customer|provider|future customer)\b/i', $text)
+        );
+
+        $isMultiLeadPerPhone = (bool) (
+            preg_match('/\b(more than one|multiple|two or more|2\+|several)\b.*\b(lead|leads|crm)\b/i', $text)
+            || preg_match('/\b(lead|leads|crm)\b.*\b(more than one|multiple|two or more|same phone|duplicate phone|per phone)\b/i', $text)
+            || preg_match('/\b(same phone|multiple crm|duplicate phone)\b/i', $text)
+        );
+
+        if ($isInvalidThenActive) {
+            return [['name' => 'analyze_leads', 'args' => ['analysis' => 'invalid_to_active_lead_progression', 'lead_type' => 'all']]];
+        }
+
+        if ($isMultiLeadPerPhone) {
+            return [['name' => 'analyze_leads', 'args' => ['analysis' => 'phones_with_multiple_leads', 'lead_type' => 'all']]];
+        }
+
+        return [];
+    }
+
+    /**
      * @return list<array{name: string, args: array<string, mixed>}>
      */
     public function inferToolsForQuestion(string $userMessage, int $maxTools = 5): array
@@ -249,11 +289,17 @@ class AdminBusinessAiQuestionRouter
             $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'no_response_timing_report', 'lead_type' => 'all']]);
         }
 
-        if ((preg_match('/\b(invalid|marked invalid)\b/i', $userMessage)
+        if ((preg_match('/\b(invalid|marked invalid|initially invalid)\b/i', $userMessage)
                 && preg_match('/\b(next lead|later lead|then|subsequent|after|re-?open|reconversion|became|converted|customer|provider|future customer)\b/i', $userMessage))
             || preg_match('/\b(same phone|multiple leads|duplicate phone|multiple crm)\b/i', $userMessage)
             || preg_match('/\binvalid.*\b(customer|provider|future customer)\b/i', $userMessage)) {
             $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'invalid_to_active_lead_progression', 'lead_type' => 'all']]);
+        }
+
+        if (preg_match('/\b(more than one|multiple|two or more|2\+)\b.*\b(lead|leads|crm)\b/i', $userMessage)
+            || preg_match('/\b(lead|leads|crm)\b.*\b(more than one|multiple|two or more|same phone|duplicate phone|per phone)\b/i', $userMessage)
+            || (preg_match('/\b(whatsapp|chat|chats)\b/i', $userMessage) && preg_match('/\b(more than one|multiple)\b.*\b(lead|leads)\b/i', $userMessage))) {
+            $tools = $this->pushTool($tools, ['name' => 'analyze_leads', 'args' => ['analysis' => 'phones_with_multiple_leads', 'lead_type' => 'all']]);
         }
 
         if (preg_match('/\b(lag|delay|response time|when.*(come|arrive|received|created)|what time|peak hour|followup.*time|updat(e|ing).*time)\b/i', $userMessage)) {
