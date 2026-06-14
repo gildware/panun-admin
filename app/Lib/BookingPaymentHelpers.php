@@ -1761,6 +1761,11 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
                 'name' => (string) ($extra->title ?? translate('Extra_Services')),
                 'amount' => round((float) ($extra->total ?? 0), 2),
                 'type' => (string) ($extra->type ?? 'service'),
+                'details' => $extra->details !== null ? (string) $extra->details : null,
+                'price' => round((float) ($extra->price ?? 0), 2),
+                'quantity' => (int) ($extra->quantity ?? 1),
+                'discount' => round((float) ($extra->discount ?? 0), 2),
+                'total' => round((float) ($extra->total ?? 0), 2),
             ])
             ->values()
             ->all();
@@ -2086,6 +2091,11 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
                 'name' => (string) ($extra->title ?? translate('Extra_Services')),
                 'amount' => round((float) ($extra->total ?? 0), 2),
                 'type' => (string) ($extra->type ?? 'service'),
+                'details' => $extra->details !== null ? (string) $extra->details : null,
+                'price' => round((float) ($extra->price ?? 0), 2),
+                'quantity' => (int) ($extra->quantity ?? 1),
+                'discount' => round((float) ($extra->discount ?? 0), 2),
+                'total' => round((float) ($extra->total ?? 0), 2),
             ])
             ->values()
             ->all();
