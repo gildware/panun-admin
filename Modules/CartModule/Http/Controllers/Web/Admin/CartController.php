@@ -33,12 +33,12 @@ class CartController extends Controller
     {
         $this->authorize('customer_view');
 
-        $search = $request->get('search', '');
-        $from = $request->get('from', '');
-        $to = $request->get('to', '');
-        $minItems = $request->get('min_items', '');
-        $sortBy = $request->get('sort_by', 'recent');
-        $contactStatus = $request->get('contact_status', 'all');
+        $search = (string)$request->get('search', '');
+        $from = (string)$request->get('from', '');
+        $to = (string)$request->get('to', '');
+        $minItems = (string)$request->get('min_items', '');
+        $sortBy = (string)($request->get('sort_by') ?: 'recent');
+        $contactStatus = (string)($request->get('contact_status') ?: 'all');
 
         $queryParam = [
             'search' => $search,
@@ -162,12 +162,12 @@ class CartController extends Controller
     {
         $this->authorize('customer_view');
 
-        $search = $request->get('search', '');
-        $from = $request->get('from', '');
-        $to = $request->get('to', '');
-        $minItems = $request->get('min_items', '');
-        $sortBy = $request->get('sort_by', 'recent');
-        $contactStatus = $request->get('contact_status', 'all');
+        $search = (string)$request->get('search', '');
+        $from = (string)$request->get('from', '');
+        $to = (string)$request->get('to', '');
+        $minItems = (string)$request->get('min_items', '');
+        $sortBy = (string)($request->get('sort_by') ?: 'recent');
+        $contactStatus = (string)($request->get('contact_status') ?: 'all');
 
         $rows = $this->baseQuery($search, $from, $to, $minItems, $sortBy, $contactStatus)->get();
 
