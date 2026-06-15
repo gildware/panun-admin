@@ -27,4 +27,23 @@
         e.preventDefault();
         clearReply();
     });
+
+    $(document).on("click keydown", ".chat-reply-jump", function (e) {
+        if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") {
+            return;
+        }
+        e.preventDefault();
+        var targetId = $(this).data("reply-target-id");
+        if (!targetId) {
+            return;
+        }
+        if (typeof window.chatJumpToMessage === "function") {
+            window.chatJumpToMessage(targetId);
+            return;
+        }
+        var bubble = document.getElementById("bubble-" + targetId);
+        if (bubble) {
+            bubble.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    });
 })();

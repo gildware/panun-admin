@@ -65,6 +65,15 @@
             @endif
         </div>
     </div>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button"
+                class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 chat-clear-btn"
+                data-channel-id="{{ $channelId }}"
+                title="{{ translate('Clear_Conversation') }}">
+            <span class="material-symbols-outlined fs-16">delete_sweep</span>
+            <span class="d-none d-sm-inline">{{ translate('Clear_Conversation') }}</span>
+        </button>
+    </div>
 </div>
 
 @include('chattingmodule::admin.partials._chat-pinned-bar', ['pinnedMessages' => $pinnedMessages ?? collect()])

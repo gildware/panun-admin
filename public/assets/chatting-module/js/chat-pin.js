@@ -79,6 +79,8 @@
         bubble.classList.add("bubble-highlight");
     }
 
+    window.chatJumpToMessage = jumpToMessage;
+
     $(document).on("click keydown", ".chat-pinned-toggle", function (e) {
         if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") {
             return;

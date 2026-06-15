@@ -178,7 +178,7 @@ class ChattingController extends Controller
         $channel = $result['channel'];
 
         $this->channelUser->where('channel_id', $channel->id)->where('user_id', $request->user()->id)
-            ->update(['is_read' => 1]);
+            ->update(['is_read' => 1, 'read_at' => now()]);
 
         $conversation = $this->channelConversation->where(['channel_id' => $channel->id])
             ->with($this->conversationEagerLoads())->whereHas('channel.channelUsers', function ($query) use ($request) {
@@ -597,7 +597,8 @@ class ChattingController extends Controller
 
         $this->channelUser->where('channel_id', $request['channel_id'])->where('user_id', $request->user()->id)
             ->update([
-                'is_read' => 1
+                'is_read' => 1,
+                'read_at' => now(),
             ]);
 
         $conversation = $this->channelConversation->where(['channel_id' => $request['channel_id']])
@@ -732,6 +733,80 @@ class ChattingController extends Controller
             'reactions_html' => view('chattingmodule::admin.partials._chat-message-reactions', [
                 'chat' => $conversation,
             ])->render(),
+        ]);
+    }
+
+    public function deleteMessage(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'channel_id' => 'required|uuid',
+            'conversation_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $isMember = $this->channelUser->where('channel_id', $request['channel_id'])
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isMember) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Unauthorized')]]), 403);
+        }
+
+        $conversation = $this->channelConversation->where('id', $request['conversation_id'])
+            ->where('channel_id', $request['channel_id'])
+            ->first();
+
+        if (! $conversation) {
+            return response()->json(response_formatter(DEFAULT_404, null, [['message' => translate('Message_not_found')]]), 404);
+        }
+
+        if ($conversation->user_id !== $request->user()->id) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('You_can_only_delete_your_own_messages')]]), 403);
+        }
+
+        $this->conversationReaction->where('conversation_id', $conversation->id)->delete();
+        $conversation->delete();
+
+        $pinnedMessages = $this->pinnedMessagesFor($request['channel_id']);
+
+        return response()->json([
+            'deleted' => true,
+            'conversation_id' => $conversation->id,
+            'pinned_bar' => view('chattingmodule::admin.partials._chat-pinned-bar', compact('pinnedMessages'))->render(),
+        ]);
+    }
+
+    public function clearConversation(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'channel_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $isMember = $this->channelUser->where('channel_id', $request['channel_id'])
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isMember) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Unauthorized')]]), 403);
+        }
+
+        $conversationIds = $this->channelConversation->where('channel_id', $request['channel_id'])->pluck('id');
+
+        if ($conversationIds->isNotEmpty()) {
+            $this->conversationReaction->whereIn('conversation_id', $conversationIds)->delete();
+            $this->channelConversation->where('channel_id', $request['channel_id'])->delete();
+        }
+
+        return response()->json([
+            'cleared' => true,
+            'channel_id' => $request['channel_id'],
         ]);
     }
 
