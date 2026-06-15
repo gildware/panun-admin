@@ -113,6 +113,50 @@
         @endforeach
    @endif
 
+    // Distinct staff-chat notification chime (Web Audio, different from the WhatsApp mp3).
+    (function () {
+        var staffAudioCtx = null;
+
+        function ensureStaffAudioCtx() {
+            if (!staffAudioCtx) {
+                var Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) {
+                    staffAudioCtx = new Ctx();
+                }
+            }
+            if (staffAudioCtx && staffAudioCtx.state === 'suspended') {
+                staffAudioCtx.resume();
+            }
+            return staffAudioCtx;
+        }
+
+        ['click', 'keydown', 'touchstart'].forEach(function (evt) {
+            document.addEventListener(evt, ensureStaffAudioCtx, { once: true, passive: true });
+        });
+
+        window.pkPlayStaffNotificationSound = function () {
+            var ctx = ensureStaffAudioCtx();
+            if (!ctx) return;
+            var now = ctx.currentTime;
+            var tones = [
+                { freq: 660, start: 0,    dur: 0.16 },
+                { freq: 990, start: 0.13, dur: 0.24 }
+            ];
+            tones.forEach(function (t) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(t.freq, now + t.start);
+                gain.gain.setValueAtTime(0.0001, now + t.start);
+                gain.gain.exponentialRampToValueAtTime(0.28, now + t.start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + t.start + t.dur);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(now + t.start);
+                osc.stop(now + t.start + t.dur + 0.02);
+            });
+        };
+    })();
+
     function handleAdminUpdatedDataResponse(response, opts) {
         opts = opts || {};
         var skipSound = !!opts.skipSound;
@@ -121,6 +165,23 @@
         if (msgEl) {
             msgEl.innerHTML = data.message;
         }
+
+        var staffCountEl = document.getElementById("staff_message_count");
+        var staffMsgCount = parseInt(data.staff_unread_messages, 10);
+        if (isNaN(staffMsgCount)) staffMsgCount = 0;
+        if (staffCountEl) {
+            staffCountEl.innerHTML = staffMsgCount;
+            staffCountEl.style.display = staffMsgCount > 0 ? 'flex' : 'none';
+        }
+        var staffPrevKey = 'admin_staff_unread_messages';
+        var staffPrevRaw = sessionStorage.getItem(staffPrevKey);
+        if (!skipSound && staffPrevRaw !== null && staffPrevRaw !== '') {
+            var staffPrev = parseInt(staffPrevRaw, 10) || 0;
+            if (staffMsgCount > staffPrev && typeof window.pkPlayStaffNotificationSound === 'function') {
+                window.pkPlayStaffNotificationSound();
+            }
+        }
+        sessionStorage.setItem(staffPrevKey, String(staffMsgCount));
 
         var waCountEl = document.getElementById("whatsapp_unread_count");
         if (waCountEl) {

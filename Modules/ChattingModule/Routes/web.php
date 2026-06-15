@@ -15,6 +15,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('send-message', [ChattingController::class, 'sendMessage'])->name('send-message');
         Route::post('toggle-pin', [ChattingController::class, 'togglePin'])->name('toggle-pin');
         Route::post('toggle-reaction', [ChattingController::class, 'toggleReaction'])->name('toggle-reaction');
+        Route::post('delete-message', [ChattingController::class, 'deleteMessage'])->name('delete-message');
+        Route::post('clear-conversation', [ChattingController::class, 'clearConversation'])->name('clear-conversation');
         Route::get('ajax-conversation', [ChattingController::class, 'conversation'])->name('ajax-conversation');
         Route::get('entity-search', [ChattingController::class, 'entitySearch'])->name('entity-search');
     });

@@ -116,6 +116,15 @@
             padding-top: 0.25rem;
             padding-bottom: 0.25rem;
         }
+        .chat-reply-jump {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .chat-reply-jump:hover,
+        .chat-reply-jump:focus {
+            background-color: rgba(13, 110, 253, 0.12);
+            outline: none;
+        }
         .chat-reply-btn {
             line-height: 1;
             opacity: 0.7;
@@ -137,6 +146,18 @@
         .chat-react-btn:hover,
         .chat-react-btn:focus {
             color: var(--bs-primary, #0d6efd) !important;
+            opacity: 1 !important;
+        }
+        .chat-delete-btn {
+            line-height: 1;
+            opacity: 0.6;
+        }
+        .chat-message-bubble:hover .chat-delete-btn {
+            opacity: 1;
+        }
+        .chat-delete-btn:hover,
+        .chat-delete-btn:focus {
+            color: #dc3545 !important;
             opacity: 1 !important;
         }
         .chat-reaction-wrap {
@@ -694,10 +715,20 @@
         window.chatPinnedMessage = @json(translate('Message_pinned'));
         window.chatUnpinnedMessage = @json(translate('Message_unpinned'));
         window.chatToggleReactionUrl = @json(route('admin.chat.toggle-reaction'));
+        window.chatDeleteMessageUrl = @json(route('admin.chat.delete-message'));
+        window.chatClearConversationUrl = @json(route('admin.chat.clear-conversation'));
+        window.chatMessageDeleted = @json(translate('Message_deleted'));
+        window.chatConversationCleared = @json(translate('Conversation_cleared'));
+        window.chatDeleteMessageConfirm = @json(translate('Delete_this_message?'));
+        window.chatClearConversationConfirm = @json(translate('Clear_the_entire_conversation?_This_cannot_be_undone.'));
+        window.chatConfirmYes = @json(translate('Yes'));
+        window.chatConfirmNo = @json(translate('No'));
+        window.chatConfirmTitle = @json(translate('Are_you_sure?'));
     </script>
     <script src="{{ asset('assets/chatting-module/js/chat-reply.js') }}"></script>
     <script src="{{ asset('assets/chatting-module/js/chat-pin.js') }}"></script>
     <script src="{{ asset('assets/chatting-module/js/chat-reactions.js') }}"></script>
+    <script src="{{ asset('assets/chatting-module/js/chat-delete.js') }}"></script>
     <script src="{{asset('assets/chatting-module/js/custom.js')}}"></script>
 
 @endpush

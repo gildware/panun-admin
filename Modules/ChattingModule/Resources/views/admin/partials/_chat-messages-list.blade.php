@@ -93,6 +93,14 @@
                     title="{{ $chat->is_pinned ? translate('Unpin') : translate('Pin') }}">
                 <span class="material-symbols-outlined fs-16">push_pin</span>
             </button>
+            @if($isOutgoing)
+                <button type="button"
+                        class="btn btn-link btn-sm p-0 chat-delete-btn text-muted"
+                        data-conversation-id="{{ $chat->id }}"
+                        title="{{ translate('Delete') }}">
+                    <span class="material-symbols-outlined fs-16">delete</span>
+                </button>
+            @endif
             <span class="time_date mb-0">{{ date('H:i a | M d Y', strtotime($chat->created_at)) }}</span>
         </div>
 

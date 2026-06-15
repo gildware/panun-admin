@@ -13,12 +13,15 @@ class ChannelUser extends Model
     use HasFactory, SoftDeletes, HasUuid;
 
     protected $casts = [
-        'is_read' => 'integer'
+        'is_read' => 'integer',
+        'read_at' => 'datetime',
     ];
 
     protected $fillable = [
         'channel_id',
         'user_id',
+        'is_read',
+        'read_at',
     ];
 
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo

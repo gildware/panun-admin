@@ -68,6 +68,7 @@ class StaffGroupChannelService
             'channel_id' => $channelId,
             'user_id' => $userId,
             'is_read' => 1,
+            'read_at' => now(),
         ]);
     }
 

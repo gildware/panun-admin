@@ -33,6 +33,7 @@ use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\TransactionModule\Entities\Account;
 use Illuminate\Contracts\Foundation\Application;
 use Modules\ChattingModule\Entities\ChannelList;
+use Modules\ChattingModule\Entities\ChannelConversation;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Services\CustomerPerformanceService;
 use Modules\ProviderManagement\Services\ProviderPerformanceService;
@@ -456,11 +457,28 @@ class AdminController extends Controller
             $query->where('user_id', $userId)->where('is_read', 0);
         })->count();
 
-        $staffMessage = $this->channelList
+        $staffUnreadChannelIds = $this->channelList
             ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
             ->whereHas('channelUsers', function ($query) use ($userId) {
                 $query->where('user_id', '!=', $userId)
                     ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', ADMIN_USER_TYPES));
+            })
+            ->pluck('id');
+
+        $staffMessage = $staffUnreadChannelIds->count();
+
+        $staffUnreadMessages = ChannelConversation::whereIn('channel_id', $staffUnreadChannelIds)
+            ->where('user_id', '!=', $userId)
+            ->whereExists(function ($query) use ($userId) {
+                $query->selectRaw('1')
+                    ->from('channel_users')
+                    ->whereColumn('channel_users.channel_id', 'channel_conversations.channel_id')
+                    ->where('channel_users.user_id', $userId)
+                    ->whereNull('channel_users.deleted_at')
+                    ->where(function ($inner) {
+                        $inner->whereNull('channel_users.read_at')
+                            ->orWhereColumn('channel_conversations.created_at', '>', 'channel_users.read_at');
+                    });
             })
             ->count();
 
@@ -478,6 +496,7 @@ class AdminController extends Controller
             'data' => [
                 'message' => $message,
                 'staff_message' => $staffMessage,
+                'staff_unread_messages' => $staffUnreadMessages,
                 'whatsapp_unread_chats' => $whatsappUnreadChats,
                 'whatsapp_unread_messages' => $whatsappUnreadMessages,
                 'presence_status' => $presenceStatus,
