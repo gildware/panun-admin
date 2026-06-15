@@ -614,6 +614,13 @@
                                                             <span class="fw-semibold">{{ translate('Next_Follow_up_Date') }}:</span>
                                                             {{ $followup->next_followup_at?->format('d F Y h:i a') ?? '—' }}
                                                         </div>
+                                                        <div class="mb-1">
+                                                            <span class="fw-semibold">{{ translate('Urgency') }}:</span>
+                                                            @php($fuUrgency = $followup->urgency ?: 'medium')
+                                                            <span class="badge badge-{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'secondary' : 'warning') }}">
+                                                                {{ translate(ucfirst($fuUrgency)) }}
+                                                            </span>
+                                                        </div>
                                                         <div class="mb-0">
                                                             <span class="fw-semibold">{{ translate('Remarks') }}</span> => {{ $followup->remarks ?: '—' }}
                                                         </div>
@@ -998,6 +1005,15 @@
                                         <div class="mb-3">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
                                             <textarea name="remarks" class="form-control" rows="3" placeholder="{{ translate('Add_remarks_from_follow_up') }}"></textarea>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">{{ translate('Urgency') }}</label>
+                                            <select name="urgency" class="form-control">
+                                                <option value="high" {{ old('urgency') === 'high' ? 'selected' : '' }}>{{ translate('High') }}</option>
+                                                <option value="medium" {{ old('urgency', 'medium') === 'medium' ? 'selected' : '' }}>{{ translate('Medium') }}</option>
+                                                <option value="low" {{ old('urgency') === 'low' ? 'selected' : '' }}>{{ translate('Low') }}</option>
+                                            </select>
                                         </div>
 
                                         @if(!empty($leadOpenStatus))

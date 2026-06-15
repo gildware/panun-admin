@@ -8,6 +8,20 @@ use Modules\UserManagement\Entities\User;
 
 class BookingFollowup extends Model
 {
+    public const URGENCY_HIGH = 'high';
+    public const URGENCY_MEDIUM = 'medium';
+    public const URGENCY_LOW = 'low';
+
+    public const URGENCIES = [
+        self::URGENCY_HIGH,
+        self::URGENCY_MEDIUM,
+        self::URGENCY_LOW,
+    ];
+
+    protected $attributes = [
+        'urgency' => self::URGENCY_MEDIUM,
+    ];
+
     protected $fillable = [
         'booking_id',
         'date',
@@ -15,6 +29,7 @@ class BookingFollowup extends Model
         'for',
         'status',
         'remarks',
+        'urgency',
         'reschedule_reason',
         'created_by',
     ];

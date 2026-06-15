@@ -121,6 +121,7 @@
                                             <th>{{ translate('Customer_Info') }}</th>
                                             <th>{{ translate('Provider_Info') }}</th>
                                             <th>{{ translate('Status') }}</th>
+                                            <th>{{ translate('Urgency') }}</th>
                                             <th>{{ translate('Remarks') }}</th>
                                             <th>{{ translate('Reschedule_Reason') }}</th>
                                             <th>{{ translate('Recorded_By') }}</th>
@@ -152,6 +153,12 @@
                                                 <td>
                                                     <span class="badge badge-{{ $followup->status == 'completed' ? 'success' : ($followup->status == 'cancelled' ? 'danger' : ($followup->status == 'rescheduled' ? 'warning' : 'info')) }}">
                                                         {{ translate(ucfirst($followup->status)) }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @php($fuUrgency = $followup->urgency ?: 'medium')
+                                                    <span class="badge badge-{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'secondary' : 'warning') }}">
+                                                        {{ translate(ucfirst($fuUrgency)) }}
                                                     </span>
                                                 </td>
                                                 <td class="text-break">{{ Str::limit($followup->remarks, 80) ?: '—' }}</td>
@@ -225,11 +232,19 @@
                                                                                 <label class="form-label">{{ translate('Reason') }}</label>
                                                                                 <input type="text" name="add_another_reason" class="form-control" maxlength="500">
                                                                             </div>
-                                                                            <div>
+                                                                            <div class="mb-2">
                                                                                 <label class="form-label">{{ translate('For') }} <span class="text-danger">*</span></label>
                                                                                 <select name="add_another_for" class="form-select add-another-for-select" {{ $requiresMandatoryNextFollowup ? 'required' : '' }}>
                                                                                     <option value="customer" {{ $followup->for === 'customer' ? 'selected' : '' }}>{{ translate('Customer') }}</option>
                                                                                     <option value="provider" {{ $followup->for === 'provider' ? 'selected' : '' }}>{{ translate('Provider') }}</option>
+                                                                                </select>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label class="form-label">{{ translate('Urgency') }}</label>
+                                                                                <select name="add_another_urgency" class="form-select">
+                                                                                    <option value="high" {{ $followup->urgency === 'high' ? 'selected' : '' }}>{{ translate('High') }}</option>
+                                                                                    <option value="medium" {{ ($followup->urgency ?: 'medium') === 'medium' ? 'selected' : '' }}>{{ translate('Medium') }}</option>
+                                                                                    <option value="low" {{ $followup->urgency === 'low' ? 'selected' : '' }}>{{ translate('Low') }}</option>
                                                                                 </select>
                                                                             </div>
                                                                         </div>
@@ -247,7 +262,7 @@
                                             @endif
                                         @empty
                                             <tr>
-                                                <td colspan="8" class="text-center py-5 text-muted">{{ translate('No_follow_ups_yet') }}</td>
+                                                <td colspan="11" class="text-center py-5 text-muted">{{ translate('No_follow_ups_yet') }}</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -279,11 +294,19 @@
                             <label class="form-label">{{ translate('Reason') }}</label>
                             <input type="text" name="reason" class="form-control" placeholder="{{ translate('Reason_for_follow_up') }}" maxlength="500">
                         </div>
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <label class="form-label">{{ translate('For') }} <span class="text-danger">*</span></label>
                             <select name="for" class="form-select" required>
                                 <option value="customer">{{ translate('Customer') }}</option>
                                 <option value="provider">{{ translate('Provider') }}</option>
+                            </select>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">{{ translate('Urgency') }}</label>
+                            <select name="urgency" class="form-select">
+                                <option value="high">{{ translate('High') }}</option>
+                                <option value="medium" selected>{{ translate('Medium') }}</option>
+                                <option value="low">{{ translate('Low') }}</option>
                             </select>
                         </div>
                     </div>

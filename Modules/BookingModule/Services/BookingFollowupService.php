@@ -13,7 +13,8 @@ class BookingFollowupService
         Carbon|string $date,
         string $for = 'customer',
         ?string $reason = null,
-        ?int $createdBy = null
+        ?int $createdBy = null,
+        ?string $urgency = null
     ): BookingFollowup {
         return BookingFollowup::create([
             'booking_id' => $booking->id,
@@ -21,6 +22,7 @@ class BookingFollowupService
             'reason' => $reason,
             'for' => $for,
             'status' => 'scheduled',
+            'urgency' => $urgency ?? BookingFollowup::URGENCY_MEDIUM,
             'created_by' => $createdBy ?? auth()->id(),
         ]);
     }

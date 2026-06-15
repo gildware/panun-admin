@@ -7546,6 +7546,7 @@ _Message' => 'Customer notification for provider bid offer
   'Strong' => 'Strong',
   'Low' => 'Low',
   'High' => 'High',
+  'Urgency' => 'Urgency',
   'Top_category' => 'Top category',
   'Weak_category' => 'Weak category',
   'Top_zone' => 'Top zone',
@@ -9086,4 +9087,7 @@ _Message' => 'Customer notification for provider bid offer
   'Contacted_by' => 'Contacted by',
   'Contacted' => 'Contacted',
   'First_added' => 'First added',
+  'Estimated_value' => 'Estimated value',
+  'No_carts_found' => 'No carts found',
+  'before' => 'Before',
 );

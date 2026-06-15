@@ -52,7 +52,7 @@ class LeadFollowupController extends Controller
         $totalFollowups = (clone $baseQuery)->count();
 
         $leads = (clone $baseQuery)
-            ->with(['source', 'adSource'])
+            ->with(['source', 'adSource', 'latestFollowup'])
             // Sort from previous to current.
             ->orderBy('next_followup_at')
             ->paginate(pagination_limit())

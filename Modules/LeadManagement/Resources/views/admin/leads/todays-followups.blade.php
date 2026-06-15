@@ -98,6 +98,7 @@
                                         <th>{{ translate('Name') }}</th>
                                         <th>{{ translate('Phone') }}</th>
                                         <th>{{ translate('Lead_Type') }}</th>
+                                        <th>{{ translate('Urgency') }}</th>
                                         <th>{{ translate('Handled_By') }}</th>
                                         <th>{{ translate('Followup_On') }}</th>
                                         <th class="text-end">{{ translate('Action') }}</th>
@@ -128,18 +129,29 @@
                                                 @endphp
                                                 <span class="badge rounded-pill bg-primary text-capitalize">{{ $typeLabel }}</span>
                                             </td>
+                                            <td>
+                                                @php($leadUrgency = $lead->latestFollowup?->urgency ?: 'medium')
+                                                <span class="badge badge-{{ $leadUrgency === 'high' ? 'danger' : ($leadUrgency === 'low' ? 'secondary' : 'warning') }}">{{ translate(ucfirst($leadUrgency)) }}</span>
+                                            </td>
                                             <td>{{ $lead->handled_by_name ?? '—' }}</td>
                                             <td>
                                                 @php($due = $lead->next_followup_at)
                                                 @if(!$due)
                                                     —
-                                                @elseif($due->isToday())
-                                                    {{ translate('Today') }}
-                                                @elseif($due->isYesterday())
-                                                    {{ translate('Yesterday') }}
                                                 @else
-                                                    @php($daysBefore = max(1, (int) round($due->diffInRealDays(\Carbon\Carbon::now(), true))))
-                                                    {{ $daysBefore }} {{ translate('days_before') }}
+                                                    @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
+                                                    @php($dueDays = intdiv($totalMinutes, 1440))
+                                                    @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                    @if($dueDays > 0 && $dueHours > 0)
+                                                        {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                    @elseif($dueDays > 0)
+                                                        {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                    @elseif($dueHours > 0)
+                                                        {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                    @else
+                                                        {{ translate('less_than_an_hour') }}
+                                                    @endif
+                                                    <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                 @endif
                                             </td>
                                             <td class="text-end">

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Lead extends Model
 {
@@ -73,6 +74,11 @@ class Lead extends Model
     public function followups(): HasMany
     {
         return $this->hasMany(LeadFollowup::class)->latest('followup_at');
+    }
+
+    public function latestFollowup(): HasOne
+    {
+        return $this->hasOne(LeadFollowup::class)->latestOfMany('followup_at');
     }
 
     public function changeLogs(): HasMany
