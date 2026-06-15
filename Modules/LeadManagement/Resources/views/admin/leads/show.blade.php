@@ -616,7 +616,7 @@
                                                         </div>
                                                         <div class="mb-1">
                                                             <span class="fw-semibold">{{ translate('Urgency') }}:</span>
-                                                            @php($fuUrgency = $followup->urgency ?: 'medium')
+                                                            @php $fuUrgency = $followup->urgency ?: 'medium'; @endphp
                                                             <span class="badge badge-{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'secondary' : 'warning') }}">
                                                                 {{ translate(ucfirst($fuUrgency)) }}
                                                             </span>
