@@ -13,6 +13,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('open-staff-ajax/{staffId}', [ChattingController::class, 'openStaffConversationAjax'])->name('open-staff-ajax');
         Route::post('create-channel', [ChattingController::class, 'createChannel'])->name('create-channel');
         Route::post('send-message', [ChattingController::class, 'sendMessage'])->name('send-message');
+        Route::post('toggle-pin', [ChattingController::class, 'togglePin'])->name('toggle-pin');
+        Route::post('toggle-reaction', [ChattingController::class, 'toggleReaction'])->name('toggle-reaction');
         Route::get('ajax-conversation', [ChattingController::class, 'conversation'])->name('ajax-conversation');
         Route::get('entity-search', [ChattingController::class, 'entitySearch'])->name('entity-search');
     });

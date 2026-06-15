@@ -12,12 +12,15 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Modules\ChattingModule\Entities\ChannelConversation;
 use Modules\ChattingModule\Entities\ChannelList;
 use Modules\ChattingModule\Entities\ChannelUser;
 use Modules\ChattingModule\Entities\ConversationFile;
+use Modules\ChattingModule\Entities\ConversationReaction;
 use Modules\AdminModule\Services\StaffPresenceService;
 use Modules\BookingModule\Entities\Booking;
+use Modules\LeadManagement\Entities\Lead;
 use Modules\ChattingModule\Services\StaffGroupChannelService;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ServiceManagement\Entities\Service;
@@ -30,16 +33,18 @@ class ChattingController extends Controller
     protected ChannelUser $channelUser;
     protected ChannelConversation $channelConversation;
     protected ConversationFile $conversationFile;
+    protected ConversationReaction $conversationReaction;
     protected User $user;
     protected StaffPresenceService $staffPresenceService;
     protected StaffGroupChannelService $staffGroupChannelService;
 
-    public function __construct(User $user, ChannelList $channelList, ChannelUser $channelUser, ChannelConversation $channelConversation, ConversationFile $conversationFile, StaffPresenceService $staffPresenceService, StaffGroupChannelService $staffGroupChannelService)
+    public function __construct(User $user, ChannelList $channelList, ChannelUser $channelUser, ChannelConversation $channelConversation, ConversationFile $conversationFile, ConversationReaction $conversationReaction, StaffPresenceService $staffPresenceService, StaffGroupChannelService $staffGroupChannelService)
     {
         $this->channelList = $channelList;
         $this->channelUser = $channelUser;
         $this->channelConversation = $channelConversation;
         $this->conversationFile = $conversationFile;
+        $this->conversationReaction = $conversationReaction;
         $this->user = $user;
         $this->staffPresenceService = $staffPresenceService;
         $this->staffGroupChannelService = $staffGroupChannelService;
@@ -111,11 +116,24 @@ class ChattingController extends Controller
                 ->filter(fn ($chat) => ! $this->staffGroupChannelService->isStaffGroupChannel($chat))
                 ->values();
         }
-        $customers = $this->user->ofStatus(1)->inCustomerDirectory()->get();
-        $providers = $this->user->ofStatus(1)->where(['user_type' => 'provider-admin'])->with(['provider'])->get();
-        $servicemen = $this->user->ofStatus(1)->where(['user_type' => 'provider-serviceman'])->get();
-        $staffMembers = $this->staffPresenceService->listStaffPresence($request->user()->id);
-        $staffPresenceById = $staffMembers->keyBy('id');
+
+        // Only load the data each tab actually renders. The staff tab uses the
+        // staff directory, while the other tabs use the customer/provider/serviceman
+        // directories. Loading all of them on every request makes this page slow.
+        $customers = collect();
+        $providers = collect();
+        $servicemen = collect();
+        $staffMembers = collect();
+        $staffPresenceById = collect();
+
+        if ($type === 'staff') {
+            $staffMembers = $this->staffPresenceService->listStaffPresence($request->user()->id);
+            $staffPresenceById = $staffMembers->keyBy('id');
+        } else {
+            $customers = $this->user->ofStatus(1)->inCustomerDirectory()->get();
+            $providers = $this->user->ofStatus(1)->where(['user_type' => 'provider-admin'])->with(['provider'])->get();
+            $servicemen = $this->user->ofStatus(1)->where(['user_type' => 'provider-serviceman'])->get();
+        }
 
         $openChannelId = $request->query('channel_id');
 
@@ -175,12 +193,13 @@ class ChattingController extends Controller
         $channelId = $channel->id;
         $presenceContext = $this->staffPresenceContextForFromUser($fromUser);
         $messagingContext = $this->staffMessagingViewContext($channel, $fromUser);
+        $pinnedMessages = $this->pinnedMessagesFor($channelId);
 
         $response = [
             'channel_id' => $channelId,
             'ajax_route' => route('admin.chat.ajax-conversation', ['channel_id' => $channelId, 'offset' => 1]),
             'template' => view('chattingmodule::admin.partials._conversations', array_merge(
-                compact('fromUser', 'conversation', 'channelId'),
+                compact('fromUser', 'conversation', 'channelId', 'pinnedMessages'),
                 $presenceContext,
                 $messagingContext
             ))->render(),
@@ -451,7 +470,7 @@ class ChattingController extends Controller
     {
         $request->validate([
             'q' => 'nullable|string|max:120',
-            'type' => 'required|in:staff,customer,provider,booking,service',
+            'type' => 'required|in:staff,customer,provider,booking,service,lead',
         ]);
 
         $query = trim((string) $request->input('q', ''));
@@ -522,6 +541,24 @@ class ChattingController extends Controller
                     'subtitle' => translate($booking->booking_status),
                 ])
                 ->values(),
+            'lead' => Lead::query()
+                ->when($like, fn ($q) => $q->where(function ($inner) use ($like, $query) {
+                    $inner->where('name', 'like', $like)
+                        ->orWhere('phone_number', 'like', $like);
+                    if (ctype_digit($query)) {
+                        $inner->orWhere('id', $query);
+                    }
+                }))
+                ->latest()
+                ->limit(12)
+                ->get(['id', 'name', 'phone_number', 'lead_type'])
+                ->map(fn (Lead $lead) => [
+                    'type' => 'lead',
+                    'id' => (string) $lead->id,
+                    'label' => $lead->name ?: ('#'.$lead->id),
+                    'subtitle' => trim(($lead->phone_number ?? '').' · '.translate($lead->lead_type ?? ''), ' ·'),
+                ])
+                ->values(),
             'service' => Service::query()
                 ->with('category')
                 ->where('is_active', 1)
@@ -579,10 +616,11 @@ class ChattingController extends Controller
         $presenceContext = ($messagingContext['isStaffGroup'] ?? false)
             ? []
             : $this->staffPresenceContextForFromUser($fromUser);
+        $pinnedMessages = $this->pinnedMessagesFor($channelId);
 
         return response()->json([
             'template' => view('chattingmodule::admin.partials._conversations', array_merge(
-                compact('fromUser', 'conversation', 'channelId'),
+                compact('fromUser', 'conversation', 'channelId', 'pinnedMessages'),
                 $presenceContext,
                 $messagingContext
             ))->render(),
@@ -590,11 +628,132 @@ class ChattingController extends Controller
     }
 
     /**
+     * Toggle the pinned state of a message within a channel the current user belongs to.
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function togglePin(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'channel_id' => 'required|uuid',
+            'conversation_id' => 'required|uuid',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $isMember = $this->channelUser->where('channel_id', $request['channel_id'])
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isMember) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Unauthorized')]]), 403);
+        }
+
+        $conversation = $this->channelConversation->where('id', $request['conversation_id'])
+            ->where('channel_id', $request['channel_id'])
+            ->first();
+
+        if (! $conversation) {
+            return response()->json(response_formatter(DEFAULT_404, null, [['message' => translate('Message_not_found')]]), 404);
+        }
+
+        $nowPinned = ! $conversation->is_pinned;
+
+        $conversation->update([
+            'is_pinned' => $nowPinned,
+            'pinned_at' => $nowPinned ? now() : null,
+            'pinned_by' => $nowPinned ? $request->user()->id : null,
+        ]);
+
+        $pinnedMessages = $this->pinnedMessagesFor($request['channel_id']);
+
+        return response()->json([
+            'is_pinned' => $nowPinned,
+            'conversation_id' => $conversation->id,
+            'pinned_bar' => view('chattingmodule::admin.partials._chat-pinned-bar', compact('pinnedMessages'))->render(),
+        ]);
+    }
+
+    public const REACTION_EMOJIS = ['👍', '👎', '✅', '🎉', '🙏', '👀', '😄'];
+
+    public function toggleReaction(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'channel_id' => 'required|uuid',
+            'conversation_id' => 'required|uuid',
+            'emoji' => ['required', 'string', Rule::in(self::REACTION_EMOJIS)],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $isMember = $this->channelUser->where('channel_id', $request['channel_id'])
+            ->where('user_id', $request->user()->id)
+            ->exists();
+
+        if (! $isMember) {
+            return response()->json(response_formatter(DEFAULT_400, null, [['message' => translate('Unauthorized')]]), 403);
+        }
+
+        $conversation = $this->channelConversation->where('id', $request['conversation_id'])
+            ->where('channel_id', $request['channel_id'])
+            ->first();
+
+        if (! $conversation) {
+            return response()->json(response_formatter(DEFAULT_404, null, [['message' => translate('Message_not_found')]]), 404);
+        }
+
+        $existing = $this->conversationReaction
+            ->where('conversation_id', $conversation->id)
+            ->where('user_id', $request->user()->id)
+            ->where('emoji', $request['emoji'])
+            ->first();
+
+        if ($existing) {
+            $existing->delete();
+            $reacted = false;
+        } else {
+            $this->conversationReaction->create([
+                'conversation_id' => $conversation->id,
+                'user_id' => $request->user()->id,
+                'emoji' => $request['emoji'],
+            ]);
+            $reacted = true;
+        }
+
+        $conversation->load('reactions.user');
+
+        return response()->json([
+            'reacted' => $reacted,
+            'conversation_id' => $conversation->id,
+            'reactions_html' => view('chattingmodule::admin.partials._chat-message-reactions', [
+                'chat' => $conversation,
+            ])->render(),
+        ]);
+    }
+
+    /**
+     * Pinned messages for a channel, newest pin first.
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    private function pinnedMessagesFor(string $channelId)
+    {
+        return $this->channelConversation->where('channel_id', $channelId)
+            ->where('is_pinned', true)
+            ->with(['user', 'conversationFiles'])
+            ->orderByDesc('pinned_at')
+            ->get();
+    }
+
+    /**
      * @return list<string>
      */
     private function conversationEagerLoads(): array
     {
-        return ['user', 'conversationFiles', 'replyTo.user', 'replyTo.conversationFiles'];
+        return ['user', 'conversationFiles', 'replyTo.user', 'replyTo.conversationFiles', 'reactions.user'];
     }
 
     private function resolveReplyToConversationId(string $channelId, ?string $replyToId): ?string

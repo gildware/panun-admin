@@ -67,6 +67,7 @@
     </div>
 </div>
 
+@include('chattingmodule::admin.partials._chat-pinned-bar', ['pinnedMessages' => $pinnedMessages ?? collect()])
 
 <div class="messaging">
     <div class="inbox_msg d-flex flex-column-reverse" data-trigger="scrollbar">

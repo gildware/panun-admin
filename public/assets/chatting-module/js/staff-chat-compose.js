@@ -24,6 +24,7 @@
         provider: "Provider",
         booking: "Booking",
         service: "Service",
+        lead: "Lead",
     };
 
     function buildToken(type, id, label) {
@@ -110,6 +111,7 @@
         provider: "Search provider by company name or phone",
         customer: "Search customer by name, phone, or email",
         booking: "Search booking by booking ID",
+        lead: "Search lead by name, phone, or ID",
     };
 
     function showPicker(textarea, type) {

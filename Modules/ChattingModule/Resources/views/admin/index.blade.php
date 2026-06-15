@@ -6,6 +6,9 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module/plugins/select2/select2.min.css')}}"/>
     <link rel="stylesheet" href="{{asset('assets/css/lightbox.css')}}">
     <style>
+        .badge.bg--secondary {
+            color: var(--bs-secondary, #6c757d);
+        }
         .staff-sidebar-section { padding: 0 0.75rem; }
         .staff-sidebar-heading {
             font-size: 0.75rem;
@@ -119,6 +122,141 @@
         }
         .chat-message-bubble:hover .chat-reply-btn {
             opacity: 1;
+        }
+        .chat-pin-btn {
+            line-height: 1;
+            opacity: 0.6;
+        }
+        .chat-react-btn {
+            line-height: 1;
+            opacity: 0.6;
+        }
+        .chat-message-bubble:hover .chat-react-btn {
+            opacity: 1;
+        }
+        .chat-react-btn:hover,
+        .chat-react-btn:focus {
+            color: var(--bs-primary, #0d6efd) !important;
+            opacity: 1 !important;
+        }
+        .chat-reaction-wrap {
+            position: relative;
+            display: inline-flex;
+        }
+        .chat-reaction-picker {
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%) scale(0.95);
+            display: none;
+            gap: 0.15rem;
+            padding: 0.25rem 0.4rem;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 2rem;
+            white-space: nowrap;
+            z-index: 20;
+        }
+        .chat-reaction-wrap.is-open .chat-reaction-picker {
+            display: inline-flex;
+            transform: translateX(-50%) scale(1);
+        }
+        .chat-reaction-option {
+            border: 0;
+            background: transparent;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: 0.15rem 0.25rem;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.1s ease;
+        }
+        .chat-reaction-option:hover {
+            transform: scale(1.25);
+            background-color: #f1f3f5;
+        }
+        .chat-message-reactions:empty {
+            display: none !important;
+        }
+        .chat-reaction-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            border: 1px solid #e0e0e0;
+            background: #f8f9fa;
+            border-radius: 1rem;
+            padding: 0.05rem 0.45rem;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            cursor: pointer;
+            transition: background-color 0.1s ease, border-color 0.1s ease;
+        }
+        .chat-reaction-chip:hover {
+            border-color: #adb5bd;
+        }
+        .chat-reaction-chip.reacted {
+            background: rgba(13, 110, 253, 0.12);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        .chat-reaction-chip .chat-reaction-count {
+            font-weight: 600;
+            color: #495057;
+        }
+        .chat-message-bubble:hover .chat-pin-btn,
+        .chat-message-bubble.is-pinned .chat-pin-btn {
+            opacity: 1;
+        }
+        .chat-pin-btn.text-primary .material-symbols-outlined,
+        .chat-pinned-bar .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+        .chat-pin-btn:hover,
+        .chat-pin-btn:focus,
+        .chat-pin-btn.text-primary:hover,
+        .chat-pin-btn.text-primary:focus {
+            color: var(--bs-primary, #0d6efd) !important;
+            opacity: 1 !important;
+        }
+        .chat-pin-btn.text-muted:hover,
+        .chat-pin-btn.text-muted:focus,
+        .chat-unpin-btn:hover,
+        .chat-unpin-btn:focus {
+            color: #495057 !important;
+            opacity: 1 !important;
+        }
+        .chat-pinned-jump {
+            cursor: pointer;
+        }
+        .chat-pinned-item {
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .chat-pinned-item:hover {
+            background-color: #f8f9fa !important;
+            border-color: #adb5bd !important;
+        }
+        .chat-pinned-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+        .chat-pinned-chevron {
+            transition: transform 0.2s ease;
+        }
+        .chat-pinned-accordion.is-open .chat-pinned-chevron {
+            transform: rotate(180deg);
+        }
+        .chat-message-bubble.bubble-highlight {
+            animation: chatBubbleFlash 1.4s ease;
+        }
+        @keyframes chatBubbleFlash {
+            0% { background-color: rgba(13, 110, 253, 0.18); }
+            100% { background-color: transparent; }
+        }
+        .chat-message-bubble.bubble-pinned-active {
+            border: 2px solid #f0ad4e;
+            border-radius: 0.5rem;
+            box-shadow: 0 0 0 3px rgba(240, 173, 78, 0.2);
+            padding: 0.5rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
     </style>
 @endpush
@@ -316,13 +454,6 @@
                 </div>
 
                 <div class="col-xl-9 col-lg-8 mt-4 mt-lg-0">
-                    <div class="card-header radius-10 mb-1 d-flex justify-content-end">
-                        <button class="btn btn--primary" type="button" data-bs-toggle="modal"
-                                data-bs-target="#modal-conversation-start">
-                            <span class="material-icons">add</span>
-                            {{translate('start_conversation')}}
-                        </button>
-                    </div>
                     <div class="card card-body card-chat justify-content-between" id="set-conversation">
                         <h4 class="d-flex align-items-center justify-content-center my-auto gap-2">
                             <span class="material-icons">chat</span>
@@ -551,11 +682,22 @@
                 provider: @json(translate('Provider')),
                 booking: @json(translate('booking')),
                 service: @json(translate('Service')),
+                lead: @json(translate('Lead')),
             };
         </script>
         <script src="{{ asset('assets/chatting-module/js/staff-chat-compose.js') }}"></script>
     @endif
+    <script>
+        window.chatTogglePinUrl = @json(route('admin.chat.toggle-pin'));
+        window.chatPinPinLabel = @json(translate('Pin'));
+        window.chatPinUnpinLabel = @json(translate('Unpin'));
+        window.chatPinnedMessage = @json(translate('Message_pinned'));
+        window.chatUnpinnedMessage = @json(translate('Message_unpinned'));
+        window.chatToggleReactionUrl = @json(route('admin.chat.toggle-reaction'));
+    </script>
     <script src="{{ asset('assets/chatting-module/js/chat-reply.js') }}"></script>
+    <script src="{{ asset('assets/chatting-module/js/chat-pin.js') }}"></script>
+    <script src="{{ asset('assets/chatting-module/js/chat-reactions.js') }}"></script>
     <script src="{{asset('assets/chatting-module/js/custom.js')}}"></script>
 
 @endpush

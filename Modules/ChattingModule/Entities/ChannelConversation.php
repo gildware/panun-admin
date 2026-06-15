@@ -20,11 +20,24 @@ class ChannelConversation extends Model
         'message',
         'user_id',
         'reply_to_conversation_id',
+        'is_pinned',
+        'pinned_at',
+        'pinned_by',
+    ];
+
+    protected $casts = [
+        'is_pinned' => 'boolean',
+        'pinned_at' => 'datetime',
     ];
 
     public function replyTo(): BelongsTo
     {
         return $this->belongsTo(self::class, 'reply_to_conversation_id');
+    }
+
+    public function pinnedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pinned_by');
     }
 
     //relation
@@ -35,6 +48,11 @@ class ChannelConversation extends Model
     public function conversationLastFiles(): HasMany
     {
         return $this->hasMany(ConversationFile::class, 'conversation_id', 'id');
+    }
+
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(ConversationReaction::class, 'conversation_id', 'id');
     }
 
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo

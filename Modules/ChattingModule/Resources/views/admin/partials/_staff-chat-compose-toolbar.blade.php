@@ -12,6 +12,9 @@
         <button type="button" class="btn btn-sm btn-outline-secondary staff-tag-trigger" data-tag-type="booking">
             {{ translate('booking') }}
         </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary staff-tag-trigger" data-tag-type="lead">
+            {{ translate('Lead') }}
+        </button>
     </div>
     <div class="staff-chat-entity-picker card shadow-sm border d-none" id="staffChatEntityPicker">
         <div class="card-body p-2">
