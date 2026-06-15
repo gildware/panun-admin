@@ -13,10 +13,12 @@
         }
         $isOutgoing = $chat->user->id == auth()->user()->id;
     @endphp
-    <div class="chat-message-bubble {{ $isOutgoing ? 'outgoing_msg' : 'received_msg' }}"
+    <div class="chat-message-bubble {{ $isOutgoing ? 'outgoing_msg' : 'received_msg' }} {{ $chat->is_pinned ? 'is-pinned' : '' }}"
+         id="bubble-{{ $chat->id }}"
          data-conversation-id="{{ $chat->id }}"
          data-author-name="{{ $authorName }}"
-         data-message-preview="{{ e($messagePreview) }}">
+         data-message-preview="{{ e($messagePreview) }}"
+         data-pinned="{{ $chat->is_pinned ? 1 : 0 }}">
         @if(!$isOutgoing && ($isStaffGroup ?? false) && isset($chat->user))
             <span class="fz-12 fw-semibold text-primary d-block mb-1">{{ $authorName }}</span>
         @endif
@@ -69,7 +71,31 @@
             <button type="button" class="btn btn-link btn-sm p-0 chat-reply-btn text-muted" title="{{ translate('Reply') }}">
                 <span class="material-symbols-outlined fs-16">reply</span>
             </button>
+            <div class="chat-reaction-wrap">
+                <button type="button"
+                        class="btn btn-link btn-sm p-0 chat-react-btn text-muted"
+                        data-conversation-id="{{ $chat->id }}"
+                        title="{{ translate('React') }}">
+                    <span class="material-symbols-outlined fs-16">add_reaction</span>
+                </button>
+                <div class="chat-reaction-picker shadow-sm">
+                    @foreach(\Modules\ChattingModule\Http\Controllers\Web\Admin\ChattingController::REACTION_EMOJIS as $emoji)
+                        <button type="button"
+                                class="chat-reaction-option"
+                                data-conversation-id="{{ $chat->id }}"
+                                data-emoji="{{ $emoji }}">{{ $emoji }}</button>
+                    @endforeach
+                </div>
+            </div>
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 chat-pin-btn {{ $chat->is_pinned ? 'text-primary' : 'text-muted' }}"
+                    data-conversation-id="{{ $chat->id }}"
+                    title="{{ $chat->is_pinned ? translate('Unpin') : translate('Pin') }}">
+                <span class="material-symbols-outlined fs-16">push_pin</span>
+            </button>
             <span class="time_date mb-0">{{ date('H:i a | M d Y', strtotime($chat->created_at)) }}</span>
         </div>
+
+        @include('chattingmodule::admin.partials._chat-message-reactions', ['chat' => $chat])
     </div>
 @endforeach

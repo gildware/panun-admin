@@ -4,7 +4,7 @@ namespace Modules\ChattingModule\Services;
 
 class StaffChatMessageParser
 {
-  private const TOKEN_PATTERN = '/@\[([^\]]*)\]\((staff|customer|provider|booking|service):([a-f0-9\-]{36})\)/i';
+  private const TOKEN_PATTERN = '/@\[([^\]]*)\]\((staff|customer|provider|booking|service|lead):([A-Za-z0-9\-]{1,36})\)/i';
 
   public function format(?string $message): string
   {
@@ -74,6 +74,7 @@ class StaffChatMessageParser
       'provider' => translate('Provider'),
       'booking' => translate('booking'),
       'service' => translate('Service'),
+      'lead' => translate('Lead'),
       default => ucfirst($type),
     };
   }
@@ -86,6 +87,7 @@ class StaffChatMessageParser
       'provider' => route('admin.provider.details', [$id, 'web_page' => 'overview']),
       'booking' => route('admin.booking.details', [$id, 'web_page' => 'details']),
       'service' => route('admin.service.detail', [$id]),
+      'lead' => route('admin.lead.show', [$id]),
       default => '#',
     };
   }
