@@ -789,6 +789,16 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
 
+            @can('customer_view')
+                <li>
+                    <a href="{{route('admin.customer-cart.index')}}"
+                       class="{{request()->is('admin/customer-cart*')?'active-menu':''}}">
+                        <span class="material-icons" title="{{translate('Customer_Cart')}}">shopping_cart</span>
+                        <span class="link-title">{{translate('Customer_Cart')}}</span>
+                    </a>
+                </li>
+            @endcan
+
             @canany(['wallet_add','wallet_view'])
                 <li class="has-sub-item {{request()->is('admin/customer/wallet*')?'sub-menu-opened':''}}">
                     <a href="#" class="{{request()->is('admin/customer/wallet*')?'active-menu':''}}">

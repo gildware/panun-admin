@@ -1832,6 +1832,7 @@ class LeadController extends Controller
         $validated = $request->validate([
             'followup_at' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
+            'urgency' => ['nullable', 'in:' . implode(',', LeadFollowup::URGENCIES)],
             'next_followup_at' => $requiresNext ? 'required|date' : 'nullable|date',
         ], [
             'next_followup_at.required' => translate('Next_follow_up_date_is_required'),
@@ -1841,6 +1842,7 @@ class LeadController extends Controller
             'lead_id' => $lead->id,
             'followup_at' => $validated['followup_at'],
             'remarks' => $validated['remarks'] ?? null,
+            'urgency' => $validated['urgency'] ?? LeadFollowup::URGENCY_MEDIUM,
             'next_followup_at' => $validated['next_followup_at'] ?? null,
             'created_by' => Auth::id(),
         ]);

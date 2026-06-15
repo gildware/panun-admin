@@ -316,7 +316,7 @@
                     </div>
                 </div>
                 <div class="row g-4 mb-4">
-                    <div class="col-lg-6 col-12 col-sm-6">
+                    <div class="col-12">
                         <div class="card dashboard-widget-todays-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
@@ -337,6 +337,7 @@
                                                 <tr>
                                                     <th>{{translate('Booking_ID')}}</th>
                                                     <th>{{translate('Follow_up_for')}}</th>
+                                                    <th>{{translate('Urgency')}}</th>
                                                     <th>{{translate('Customer_Info')}}</th>
                                                     <th>{{translate('Provider_Info')}}</th>
                                                     <th>{{translate('Assignee')}}</th>
@@ -360,6 +361,10 @@
                                                             {{ translate(ucfirst($followup->for)) }}
                                                         </td>
                                                         <td>
+                                                            @php($fuUrgency = $followup->urgency ?: 'medium')
+                                                            <span class="badge badge-{{ $fuUrgency === 'high' ? 'danger' : ($fuUrgency === 'low' ? 'secondary' : 'warning') }}">{{ translate(ucfirst($fuUrgency)) }}</span>
+                                                        </td>
+                                                        <td>
                                                             @if($followup->booking && $followup->booking->customer)
                                                                 <span>{{ Str::limit(trim(($followup->booking->customer->first_name ?? '') . ' ' . ($followup->booking->customer->last_name ?? '')), 15) ?: '—' }}</span>
                                                                 <br><span class="small">{{ $followup->booking->customer->phone ?? '—' }}</span>
@@ -380,13 +385,20 @@
                                                             @php($due = $followup->date)
                                                             @if(!$due)
                                                                 —
-                                                            @elseif($due->isToday())
-                                                                {{ translate('Today') }}
-                                                            @elseif($due->isYesterday())
-                                                                {{ translate('Yesterday') }}
                                                             @else
-                                                                @php($daysBefore = max(1, (int) round($due->diffInRealDays(\Carbon\Carbon::now(), true))))
-                                                                {{ $daysBefore }} {{ translate('days_before') }}
+                                                                @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
+                                                                @php($dueDays = intdiv($totalMinutes, 1440))
+                                                                @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                                @if($dueDays > 0 && $dueHours > 0)
+                                                                    {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                @elseif($dueDays > 0)
+                                                                    {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                                @elseif($dueHours > 0)
+                                                                    {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                @else
+                                                                    {{ translate('less_than_an_hour') }}
+                                                                @endif
+                                                                <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                             @endif
                                                         </td>
                                                     </tr>
@@ -402,7 +414,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-6 col-12 col-sm-6">
+                    <div class="col-12">
                         <div class="card dashboard-widget-todays-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
@@ -423,6 +435,7 @@
                                                 <tr>
                                                     <th>{{translate('Lead_ID')}}</th>
                                                     <th>{{translate('Lead_Type')}}</th>
+                                                    <th>{{translate('Urgency')}}</th>
                                                     <th>{{translate('Name')}}</th>
                                                     <th>{{translate('Phone')}}</th>
                                                     <th>{{translate('Handled_By')}}</th>
@@ -445,6 +458,10 @@
                                                                 {{ \Modules\LeadManagement\Entities\Lead::leadTypes()[$lead->lead_type] ?? $lead->lead_type }}
                                                             </span>
                                                         </td>
+                                                        <td>
+                                                            @php($leadUrgency = $lead->latestFollowup?->urgency ?: 'medium')
+                                                            <span class="badge badge-{{ $leadUrgency === 'high' ? 'danger' : ($leadUrgency === 'low' ? 'secondary' : 'warning') }}">{{ translate(ucfirst($leadUrgency)) }}</span>
+                                                        </td>
                                                         <td>{{ $lead->name ?? '—' }}</td>
                                                         <td>
                                                             @if(!empty($lead->phone_number))
@@ -460,13 +477,20 @@
                                                             @php($due = $lead->next_followup_at)
                                                             @if(!$due)
                                                                 —
-                                                            @elseif($due->isToday())
-                                                                {{ translate('Today') }}
-                                                            @elseif($due->isYesterday())
-                                                                {{ translate('Yesterday') }}
                                                             @else
-                                                                @php($daysBefore = max(1, (int) round($due->diffInRealDays(\Carbon\Carbon::now(), true))))
-                                                                {{ $daysBefore }} {{ translate('days_before') }}
+                                                                @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
+                                                                @php($dueDays = intdiv($totalMinutes, 1440))
+                                                                @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                                @if($dueDays > 0 && $dueHours > 0)
+                                                                    {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                @elseif($dueDays > 0)
+                                                                    {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                                @elseif($dueHours > 0)
+                                                                    {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                @else
+                                                                    {{ translate('less_than_an_hour') }}
+                                                                @endif
+                                                                <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                             @endif
                                                         </td>
                                                     </tr>

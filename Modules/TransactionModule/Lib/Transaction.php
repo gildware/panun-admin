@@ -9,6 +9,7 @@ use Modules\UserManagement\Entities\User;
 use Modules\TransactionModule\Entities\Account;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\TransactionModule\Entities\Transaction;
+use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\TransactionModule\Entities\LoyaltyPointTransaction;
@@ -30,41 +31,60 @@ if (!function_exists('booking_amount_proportional_share')) {
 if (!function_exists('placeBookingTransactionForDigitalPayment')) {
     function placeBookingTransactionForDigitalPayment($booking): void
     {
-        if ($booking['payment_method'] != 'cash_after_service') {
-            $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
-            DB::transaction(function () use ($booking, $admin_user_id) {
-                //Admin account update
-                $account = Account::where('user_id', $admin_user_id)->first();
-                $account->balance_pending += $booking['total_booking_amount'];
-                $account->save();
-
-                //Admin transaction
-                Transaction::create([
-                    'ref_trx_id' => null,
-                    'booking_id' => $booking['id'],
-                    'trx_type' => TRX_TYPE['booking_amount'],
-                    'company_flow' => Transaction::FLOW_IN,
-                    'debit' => 0,
-                    'credit' => $booking['total_booking_amount'],
-                    'balance' => $account->balance_pending,
-                    'from_user_id' => $booking->customer_id,
-                    'to_user_id' => $admin_user_id,
-                    'from_user_account' => null,
-                    'to_user_account' => ACCOUNT_STATES[0]['value'],
-                    'is_guest' => $booking->is_guest
-                ]);
-
-                // Ledger IN: money received by company (digital/offline)
-                ledger_record_in([
-                    'amount' => $booking['total_booking_amount'],
-                    'transaction_id' => $booking->transaction_id ?? null,
-                    'booking_id' => $booking['id'],
-                    'payment_method' => $booking['payment_method'] ?? 'digital_payment',
-                    'date' => now()->toDateString(),
-                    'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
-                ]);
-            });
+        if ($booking['payment_method'] == 'cash_after_service') {
+            return;
         }
+
+        $freshBooking = Booking::query()->with('booking_partial_payments')->find($booking['id'] ?? $booking->id);
+        if (! $freshBooking) {
+            return;
+        }
+
+        $receivedAmount = booking_digital_payment_ledger_amount($freshBooking);
+        if ($receivedAmount <= 0) {
+            return;
+        }
+
+        $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
+        DB::transaction(function () use ($freshBooking, $admin_user_id, $receivedAmount) {
+            $partial = ensure_booking_company_payment_partial_for_ledger(
+                $freshBooking,
+                $receivedAmount,
+                $freshBooking->transaction_id ?? null
+            );
+
+            //Admin account update
+            $account = Account::where('user_id', $admin_user_id)->first();
+            $account->balance_pending += $receivedAmount;
+            $account->save();
+
+            //Admin transaction
+            Transaction::create([
+                'ref_trx_id' => null,
+                'booking_id' => $freshBooking['id'],
+                'trx_type' => TRX_TYPE['booking_amount'],
+                'company_flow' => Transaction::FLOW_IN,
+                'debit' => 0,
+                'credit' => $receivedAmount,
+                'balance' => $account->balance_pending,
+                'from_user_id' => $freshBooking->customer_id,
+                'to_user_id' => $admin_user_id,
+                'from_user_account' => null,
+                'to_user_account' => ACCOUNT_STATES[0]['value'],
+                'is_guest' => $freshBooking->is_guest
+            ]);
+
+            // Ledger IN: money received by company (digital/offline)
+            ledger_record_in([
+                'amount' => $receivedAmount,
+                'transaction_id' => $freshBooking->transaction_id ?? null,
+                'booking_id' => $freshBooking['id'],
+                'payment_method' => $freshBooking['payment_method'] ?? 'digital_payment',
+                'date' => now()->toDateString(),
+                'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                'booking_partial_payment_id' => $partial?->id,
+            ]);
+        });
     }
 }
 
@@ -240,23 +260,39 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
 if (!function_exists('placeBookingTransactionForWalletPayment')) {
     function placeBookingTransactionForWalletPayment($booking): void
     {
+        $freshBooking = Booking::query()->with('booking_partial_payments')->find($booking['id'] ?? $booking->id);
+        if (! $freshBooking) {
+            return;
+        }
+
+        $receivedAmount = booking_digital_payment_ledger_amount($freshBooking);
+        if ($receivedAmount <= 0) {
+            return;
+        }
+
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
-        DB::transaction(function () use ($booking, $admin_user_id) {
+        DB::transaction(function () use ($freshBooking, $admin_user_id, $receivedAmount) {
+            $partial = ensure_booking_company_payment_partial_for_ledger(
+                $freshBooking,
+                $receivedAmount,
+                $freshBooking->transaction_id ?? null
+            );
+
             //Admin account update
             $account = Account::where('user_id', $admin_user_id)->first();
-            $account->balance_pending += $booking['total_booking_amount'];
+            $account->balance_pending += $receivedAmount;
             $account->save();
 
             //Admin transaction
             Transaction::create([
                 'ref_trx_id' => null,
-                'booking_id' => $booking['id'],
+                'booking_id' => $freshBooking['id'],
                 'trx_type' => TRX_TYPE['booking_amount'],
                 'company_flow' => Transaction::FLOW_IN,
                 'debit' => 0,
-                'credit' => $booking['total_booking_amount'],
+                'credit' => $receivedAmount,
                 'balance' => $account->balance_pending,
-                'from_user_id' => $booking->customer_id,
+                'from_user_id' => $freshBooking->customer_id,
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => null,
                 'to_user_account' => ACCOUNT_STATES[0]['value']
@@ -265,34 +301,35 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
 
 
             //Customer wallet update
-            $user = User::find($booking['customer_id']);
-            if ($user->wallet_balance >= $booking['total_booking_amount']) {
-                $user->wallet_balance -= $booking['total_booking_amount'];
+            $user = User::find($freshBooking['customer_id']);
+            if ($user->wallet_balance >= $receivedAmount) {
+                $user->wallet_balance -= $receivedAmount;
             }
             $user->save();
 
             //customer transaction (wallet)
             Transaction::create([
                 'ref_trx_id' => null,
-                'booking_id' => $booking['id'],
+                'booking_id' => $freshBooking['id'],
                 'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
                 'company_flow' => Transaction::FLOW_NONE,
-                'debit' => $booking['total_booking_amount'],
+                'debit' => $receivedAmount,
                 'credit' => 0,
                 'balance' => $user->wallet_balance,
-                'from_user_id' => $booking->customer_id,
-                'to_user_id' => $booking->customer_id,
+                'from_user_id' => $freshBooking->customer_id,
+                'to_user_id' => $freshBooking->customer_id,
                 'from_user_account' => null,
                 'to_user_account' => 'user_wallet'
             ]);
 
             ledger_record_in([
-                'amount' => $booking['total_booking_amount'],
-                'transaction_id' => $booking->transaction_id ?? null,
-                'booking_id' => $booking['id'],
+                'amount' => $receivedAmount,
+                'transaction_id' => $freshBooking->transaction_id ?? null,
+                'booking_id' => $freshBooking['id'],
                 'payment_method' => 'wallet_payment',
                 'date' => now()->toDateString(),
                 'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                'booking_partial_payment_id' => $partial?->id,
             ]);
         });
     }

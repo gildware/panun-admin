@@ -214,6 +214,7 @@ class AdminController extends Controller
         $todaysPendingLeadFollowupsTotal = (clone $todaysPendingLeadFollowupsBase)->count();
 
         $todays_pending_lead_followups = (clone $todaysPendingLeadFollowupsBase)
+            ->with('latestFollowup')
             // Sort from previous to current.
             ->orderBy('next_followup_at')
             ->take(5)

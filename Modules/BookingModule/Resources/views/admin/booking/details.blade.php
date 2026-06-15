@@ -1869,20 +1869,20 @@
                                     </div>
                                     <div class="modal-body">
                                         @php
-                                            $installmentPaymentsOrdered = $booking->booking_partial_payments
-                                                ->sortBy([
-                                                    ['created_at', 'asc'],
-                                                    ['id', 'asc'],
-                                                ])
-                                                ->values()
-                                                ->filter(function ($pp) {
-                                                    return round((float) ($pp->paid_amount ?? 0), 2) != 0.0;
-                                                })
-                                                ->values();
-                                            $installmentPayableCap = $__bfsScaledLive !== null
-                                                ? round((float) get_booking_total_amount($booking), 2)
-                                                : get_booking_payable_total_for_partial_dues($booking);
-                                            $installmentRunningPaid = 0.0;
+                                            $__installmentPayload = booking_installment_payments_payload($booking, $__bfsScaledLive);
+                                            $installmentPaymentsOrdered = collect($__installmentPayload['rows'] ?? [])->map(function (array $row) {
+                                                return (object) [
+                                                    'id' => $row['id'] ?? null,
+                                                    'created_at' => ! empty($row['date']) ? \Carbon\Carbon::parse($row['date']) : null,
+                                                    'received_by' => $row['received_by'] ?? null,
+                                                    'paid_amount' => $row['amount'] ?? 0,
+                                                    'payment_method_label' => $row['payment_method_label'] ?? '—',
+                                                    'transaction_id' => $row['transaction_id'] ?? null,
+                                                    'due_after_payment' => $row['due_after_payment'] ?? 0,
+                                                    'paid_with' => $row['paid_with'] ?? null,
+                                                ];
+                                            });
+                                            $installmentPayableCap = (float) ($__installmentPayload['payable_cap'] ?? 0);
                                             $refundLedgerRowsForPaymentModal = \Modules\TransactionModule\Entities\LedgerTransaction::query()
                                                 ->where('booking_id', $booking->id)
                                                 ->where('reason', \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND)
@@ -1914,10 +1914,6 @@
                                                 </thead>
                                                 <tbody>
                                                     @forelse($installmentPaymentsOrdered as $idx => $pp)
-                                                        @php
-                                                            $installmentRunningPaid += (float) $pp->paid_amount;
-                                                            $dueAfterThisInstallment = round(max(0, $installmentPayableCap - $installmentRunningPaid), 2);
-                                                        @endphp
                                                         <tr>
                                                             <td>{{ $idx + 1 }}</td>
                                                             <td class="text-nowrap">{{ $pp->created_at ? $pp->created_at->format('d M Y, H:i:s') : '—' }}</td>
@@ -1931,9 +1927,9 @@
                                                                 @endif
                                                             </td>
                                                             <td class="text-end fw-medium">{{ with_currency_symbol($pp->paid_amount) }}</td>
-                                                            <td class="text-break">{{ $pp->paymentMethodLabelForAdmin($booking) }}</td>
+                                                            <td class="text-break">{{ $pp->payment_method_label ?? '—' }}</td>
                                                             <td class="text-break">{{ $pp->transaction_id ?: '—' }}</td>
-                                                            <td class="text-end">{{ with_currency_symbol($dueAfterThisInstallment) }}</td>
+                                                            <td class="text-end">{{ with_currency_symbol($pp->due_after_payment ?? 0) }}</td>
                                                             @if($showInstallmentPaymentDeleteColumn)
                                                                 <td class="text-end text-nowrap">
                                                                     @if(($pp->paid_with ?? '') === 'admin_entry')

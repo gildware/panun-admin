@@ -2630,10 +2630,12 @@ class BookingController extends Controller
             'date' => ['required', 'date'],
             'reason' => ['nullable', 'string', 'max:500'],
             'for' => ['required', 'in:customer,provider'],
+            'urgency' => ['nullable', 'in:' . implode(',', \Modules\BookingModule\Entities\BookingFollowup::URGENCIES)],
         ]);
         $validated['booking_id'] = $booking->id;
         $validated['created_by'] = auth()->id();
         $validated['status'] = 'scheduled';
+        $validated['urgency'] = $validated['urgency'] ?? \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM;
         $validated['date'] = Carbon::parse($validated['date'])->format('Y-m-d H:i:s');
         \Modules\BookingModule\Entities\BookingFollowup::create($validated);
         Toastr::success(translate('Follow_up_added_successfully'));
@@ -3275,6 +3277,7 @@ class BookingController extends Controller
                 'in:customer,provider',
             ],
             'add_another_reason' => ['nullable', 'string', 'max:500'],
+            'add_another_urgency' => ['nullable', 'in:' . implode(',', \Modules\BookingModule\Entities\BookingFollowup::URGENCIES)],
         ], [
             'add_another_date.required_if' => translate('Next_follow_up_date_is_required'),
             'add_another_for.required_if' => translate('Next_follow_up_for_is_required'),
@@ -3302,7 +3305,9 @@ class BookingController extends Controller
                     $booking,
                     $validated['add_another_date'],
                     $validated['add_another_for'],
-                    $validated['add_another_reason'] ?? null
+                    $validated['add_another_reason'] ?? null,
+                    null,
+                    $validated['add_another_urgency'] ?? \Modules\BookingModule\Entities\BookingFollowup::URGENCY_MEDIUM
                 );
             }
         } else {
@@ -3314,7 +3319,10 @@ class BookingController extends Controller
                 app(BookingFollowupService::class)->schedule(
                     $booking,
                     $validated['reschedule_date'],
-                    $followup->for
+                    $followup->for,
+                    null,
+                    null,
+                    $followup->urgency
                 );
             } elseif ($requiresNext) {
                 throw ValidationException::withMessages([
