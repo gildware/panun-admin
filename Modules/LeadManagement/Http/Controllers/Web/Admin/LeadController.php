@@ -1181,19 +1181,56 @@ class LeadController extends Controller
                 }
             }
 
+            // The customer edit/mark modal has a status dropdown but no cancellation-reason field.
+            // Moving a lead into a cancel status here without an existing reason would leave it
+            // cancelled with no reason, so require the dedicated "Change Status" flow instead.
+            $resolvedCustomerStatus = !empty($data['customer_lead_status_id'])
+                ? CustomerLeadStatus::find($data['customer_lead_status_id'])
+                : null;
+            if (($resolvedCustomerStatus?->base_type ?? null) === 'cancel') {
+                $prevForCancel = LeadTypeHistory::where('lead_id', $lead->id)
+                    ->where('type', Lead::TYPE_CUSTOMER)
+                    ->latest()
+                    ->first();
+                $existingCustomerReason = ($prevForCancel && is_array($prevForCancel->data))
+                    ? ($prevForCancel->data['cancellation_reason_id'] ?? null)
+                    : null;
+                if (empty($existingCustomerReason)) {
+                    toastr()->error(translate('Please_use_Change_Status_to_cancel_and_provide_a_cancellation_reason'));
+                    $url = route('admin.lead.show', $lead->id);
+                    if ($request->boolean('in_modal')) {
+                        $url .= '?in_modal=1';
+                    }
+                    return redirect($url);
+                }
+            }
+
             if ($isUpdateCustomer) {
                 $customerHistory = LeadTypeHistory::where('lead_id', $lead->id)
                     ->where('type', 'customer')
                     ->latest()
                     ->first();
-                $payload = array_merge($data, ['booking_status' => $customerHistory->data['booking_status'] ?? 'pending']);
+                // Preserve existing history keys (cancellation reason/remarks, booking_id, etc.)
+                // and only overwrite the edited fields, so unrelated data is not lost.
+                $existing = $customerHistory && is_array($customerHistory->data) ? $customerHistory->data : [];
+                $payload = array_merge($existing, $data);
+                $payload['booking_status'] = $existing['booking_status'] ?? 'pending';
+
+                // Drop cancellation details only when the lead is no longer in a cancel status.
+                $newCustomerStatus = !empty($data['customer_lead_status_id'])
+                    ? CustomerLeadStatus::find($data['customer_lead_status_id'])
+                    : null;
+                if (($newCustomerStatus?->base_type ?? null) !== 'cancel') {
+                    unset($payload['cancellation_reason_id'], $payload['cancellation_remarks']);
+                }
+
                 if ($customerHistory) {
                     $customerHistory->update(['data' => $payload]);
                 } else {
                     LeadTypeHistory::create([
                         'lead_id' => $lead->id,
                         'type' => 'customer',
-                        'data' => array_merge($data, ['booking_status' => 'pending']),
+                        'data' => $payload,
                         'created_by' => Auth::id(),
                     ]);
                 }
@@ -1253,18 +1290,55 @@ class LeadController extends Controller
                 }
             }
 
+            // The provider edit/mark modal has a status dropdown but no cancellation-reason field.
+            // Moving a lead into a cancel status here without an existing reason would leave it
+            // cancelled with no reason, so require the dedicated "Change Status" flow instead.
+            $resolvedProviderStatus = !empty($data['provider_lead_status_id'])
+                ? ProviderLeadStatus::find($data['provider_lead_status_id'])
+                : null;
+            if (($resolvedProviderStatus?->base_type ?? null) === 'cancel') {
+                $prevForCancel = LeadTypeHistory::where('lead_id', $lead->id)
+                    ->where('type', Lead::TYPE_PROVIDER)
+                    ->latest()
+                    ->first();
+                $existingProviderReason = ($prevForCancel && is_array($prevForCancel->data))
+                    ? ($prevForCancel->data['provider_cancellation_reason_id'] ?? null)
+                    : null;
+                if (empty($existingProviderReason)) {
+                    toastr()->error(translate('Please_use_Change_Status_to_cancel_and_provide_a_cancellation_reason'));
+                    $url = route('admin.lead.show', $lead->id);
+                    if ($request->boolean('in_modal')) {
+                        $url .= '?in_modal=1';
+                    }
+                    return redirect($url);
+                }
+            }
+
             if ($isUpdateProvider) {
                 $providerHistory = LeadTypeHistory::where('lead_id', $lead->id)
                     ->where('type', 'provider')
                     ->latest()
                     ->first();
+                // Preserve existing history keys (cancellation reason/remarks, etc.) and only
+                // overwrite the edited fields, so unrelated data is not lost.
+                $existing = $providerHistory && is_array($providerHistory->data) ? $providerHistory->data : [];
+                $payload = array_merge($existing, $data);
+
+                // Drop cancellation details only when the lead is no longer in a cancel status.
+                $newProviderStatus = !empty($data['provider_lead_status_id'])
+                    ? ProviderLeadStatus::find($data['provider_lead_status_id'])
+                    : null;
+                if (($newProviderStatus?->base_type ?? null) !== 'cancel') {
+                    unset($payload['provider_cancellation_reason_id'], $payload['provider_cancellation_remarks']);
+                }
+
                 if ($providerHistory) {
-                    $providerHistory->update(['data' => $data]);
+                    $providerHistory->update(['data' => $payload]);
                 } else {
                     LeadTypeHistory::create([
                         'lead_id' => $lead->id,
                         'type' => 'provider',
-                        'data' => $data,
+                        'data' => $payload,
                         'created_by' => Auth::id(),
                     ]);
                 }
