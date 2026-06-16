@@ -191,7 +191,7 @@
         $api_key = optional(business_config('google_map', 'third_party'))->live_values ?? [];
         $zoneVectorMapId = trim((string) ($api_key['map_id'] ?? ''));
     @endphp
-    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client'] ?? ''}}&libraries=drawing,places,geometry&v=beta"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{$api_key['map_api_key_client'] ?? ''}}&libraries=drawing,places,geometry&v=3.64"></script>
     <script src="{{asset('assets/admin-module/plugins/select2/select2.min.js')}}"></script>
 
     <script>
@@ -749,12 +749,22 @@
             }
         }
 
+        // Isolate map setup so a Google Maps failure cannot abort the rest of this
+        // script (form handlers, parent select, etc.) defined further below.
+        function safeInitialize() {
+            try {
+                initialize();
+            } catch (e) {
+                console.error('Zone map initialization failed:', e);
+            }
+        }
+
         // Some pages load this script after the window `load` event.
         // Initialize immediately when possible so drawing works.
         if (typeof google !== 'undefined' && google.maps && document.getElementById("map-canvas")) {
-            initialize();
+            safeInitialize();
         } else {
-            google.maps.event.addDomListener(window, 'load', initialize);
+            window.addEventListener('load', safeInitialize);
         }
 
         $(function () {
