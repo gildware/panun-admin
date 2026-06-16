@@ -717,6 +717,9 @@
                                                 @endforeach
                                             </select>
                                         </div>
+                                        <div class="mb-3">
+                                            @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'invalid-area-select'])
+                                        </div>
                                         <div class="mb-0">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
                                             <textarea name="invalid_remarks" class="form-control" rows="3"></textarea>
@@ -757,6 +760,9 @@
                                                     <option value="{{ $reason->id }}">{{ $reason->name }}</option>
                                                 @endforeach
                                             </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'future-area-select'])
                                         </div>
                                         <div class="mb-0">
                                             <label class="form-label">{{ translate('Remarks') }}</label>
@@ -830,6 +836,9 @@
                                                         'selected' => $customerEditData['zone_id'] ?? '',
                                                     ])
                                                 </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'lead-area-select', 'areaSelected' => $customerEditData['area_id'] ?? ''])
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Category') }}</label>
@@ -947,6 +956,9 @@
                                                                 {{ in_array((string) $zOpt['id'], $providerZoneIdsForEdit, true) ? 'selected' : '' }}>{{ $zOpt['label'] }}</option>
                                                     @endforeach
                                                 </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                @include('leadmanagement::admin.leads.partials._area-select', ['areaSelectId' => 'provider-area-select', 'areaSelected' => $providerEditData['area_id'] ?? ''])
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">{{ translate('Service_Category') }}</label>
@@ -1196,9 +1208,24 @@
         (function ($) {
             "use strict";
             $(function () {
+                var $customerModal = $('#leadCustomerModal');
                 if (typeof initZoneTreeSelect2 === 'function') {
-                    initZoneTreeSelect2($('#lead-zone-select'));
+                    initZoneTreeSelect2($('#lead-zone-select'), $customerModal.length ? { dropdownParent: $customerModal } : {});
                 }
+                $('.lead-area-select').each(function () {
+                    var $el = $(this);
+                    var opts = {
+                        width: '100%',
+                        tags: true,
+                        placeholder: $el.data('placeholder') || '',
+                        allowClear: true
+                    };
+                    var $modal = $el.closest('.modal');
+                    if ($modal.length) {
+                        opts.dropdownParent = $modal;
+                    }
+                    $el.select2(opts);
+                });
             });
         })(jQuery);
     </script>

@@ -98,7 +98,7 @@
                                     <div class="d-inline-flex gap-1 flex-nowrap">
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-primary voice-cron-job-edit"
-                                                data-rule='@json($rulePayload)'>
+                                                data-rule="{{ json_encode($rulePayload) }}">
                                             {{ translate('Edit') }}
                                         </button>
                                         <button type="button"
@@ -123,11 +123,12 @@
                                                 <button type="submit" class="btn btn-sm btn-outline-secondary">{{ translate('Start') }}</button>
                                             </form>
                                         @endif
-                                        <form method="POST" action="{{ route('admin.voice-call.cron-jobs.destroy', $rule) }}" class="d-inline" onsubmit="return confirm(@json(translate('Are_you_sure')));">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">{{ translate('Delete') }}</button>
-                                        </form>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger voice-cron-job-delete"
+                                                data-action="{{ route('admin.voice-call.cron-jobs.destroy', $rule) }}"
+                                                data-name="{{ $rule->name }}">
+                                            {{ translate('Delete') }}
+                                        </button>
                                     </div>
                                 @endcan
                             </td>
@@ -490,6 +491,32 @@
                         {{ translate('Voice_cron_make_calls') }}
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="voiceCronDeleteModal" tabindex="-1" aria-labelledby="voiceCronDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="voiceCronDeleteModalLabel">{{ translate('Delete_cron_job') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                </div>
+                <form method="POST" action="" id="voice-cron-delete-form">
+                    @csrf
+                    @method('DELETE')
+                    <div class="modal-body">
+                        <p class="mb-0">
+                            {{ translate('Voice_cron_delete_confirm') }}
+                            <strong id="voice-cron-delete-name" class="text-danger"></strong>
+                        </p>
+                        <p class="text-muted small mb-0 mt-2">{{ translate('Voice_cron_delete_confirm_hint') }}</p>
+                    </div>
+                    <div class="modal-footer border-top bg-body">
+                        <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                        <button type="submit" class="btn btn-outline-danger" id="voice-cron-delete-confirm-btn">{{ translate('Delete') }}</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
