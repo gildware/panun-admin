@@ -132,6 +132,21 @@
     user-select: none;
 }
 
+.zone-list-table .zone-list-tree-desc {
+    min-width: 22rem;
+    width: 32%;
+    max-width: none;
+    white-space: normal;
+    vertical-align: top;
+}
+
+.zone-list-table .zone-list-desc {
+    display: block;
+    white-space: pre-line;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
 .zone-list-table .zone-toggle-children {
     border-radius: 999px;
     font-weight: 500;
