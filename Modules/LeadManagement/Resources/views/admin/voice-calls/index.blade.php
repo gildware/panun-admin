@@ -4818,6 +4818,22 @@
                     });
                 });
 
+                const deleteModalEl = document.getElementById('voiceCronDeleteModal');
+                const deleteFormEl = document.getElementById('voice-cron-delete-form');
+                const deleteNameEl = document.getElementById('voice-cron-delete-name');
+                document.querySelectorAll('.voice-cron-job-delete').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        if (!deleteFormEl) return;
+                        deleteFormEl.action = btn.getAttribute('data-action') || '';
+                        if (deleteNameEl) {
+                            deleteNameEl.textContent = btn.getAttribute('data-name') || '';
+                        }
+                        if (deleteModalEl && typeof bootstrap !== 'undefined') {
+                            bootstrap.Modal.getOrCreateInstance(deleteModalEl).show();
+                        }
+                    });
+                });
+
                 if (typeof $ !== 'undefined' && $.fn.select2) {
                     $(form).on('change', '.js-select', function () {
                         if (!this.name || this.closest('#voice-cron-tab-audience') === null) {

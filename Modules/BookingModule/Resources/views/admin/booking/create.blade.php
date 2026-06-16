@@ -258,6 +258,21 @@
                             </div>
 
                             <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ translate('Area') }}</label>
+                                    <select name="area_id" id="booking-area-select" class="form-control" data-placeholder="{{ translate('Select_or_type_to_add_area') }}">
+                                        <option value="">{{ translate('Select_or_type_to_add_area') }}</option>
+                                        @foreach($customerLeadAreas as $area)
+                                            <option value="{{ $area->id }}" {{ (string) old('area_id', request('area_id')) === (string) $area->id ? 'selected' : '' }}>{{ $area->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('area_id')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
                                 <div class="mb-0">
                                     <label class="form-label">{{ translate('Category') }}</label>
                                     <select name="category_id" id="service-category-select" class="form-control js-select" required disabled>
@@ -630,6 +645,15 @@
             $('.js-select').select2();
             if (typeof initZoneTreeSelect2 === 'function') {
                 initZoneTreeSelect2($('#service-zone-select'));
+            }
+            var $bookingAreaSelect = $('#booking-area-select');
+            if ($bookingAreaSelect.length) {
+                $bookingAreaSelect.select2({
+                    width: '100%',
+                    tags: true,
+                    placeholder: $bookingAreaSelect.data('placeholder') || '',
+                    allowClear: true
+                });
             }
 
             function renderBookingCustomerAlert(messages) {

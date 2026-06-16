@@ -2444,6 +2444,12 @@
                                             @endif
                                         </span>
                                     </div>
+                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                        <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Area') }}:</span>
+                                        <span class="fz-12 text-break text-end">
+                                            {{ $booking?->area?->name ?? translate('not_available') }}
+                                        </span>
+                                    </div>
                                 @if($booking->service_location == 'provider')
                                     @if($booking->provider_id != null)
                                         @if($booking->provider)

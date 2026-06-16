@@ -62,6 +62,7 @@ use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\ZoneManagement\Entities\Zone;
 use Modules\ZoneManagement\Services\ZoneCoverageNormalizationService;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\LeadManagement\Entities\Lead;
 use Modules\LeadManagement\Entities\Source;
 use Modules\PaymentModule\Entities\OfflinePayment;
@@ -587,6 +588,7 @@ class BookingController extends Controller
             'lead_id' => $leadModel->id,
             'customer_id' => $customer->id,
             'zone_id' => $customerData['zone_id'] ?? null,
+            'area_id' => $customerData['area_id'] ?? null,
             'category_id' => $customerData['service_category'] ?? $customerData['category_id'] ?? null,
             'sub_category_id' => $customerData['service_subcategory'] ?? $customerData['sub_category_id'] ?? null,
             'service_id' => $customerData['service_name'] ?? $customerData['service_id'] ?? null,
@@ -807,10 +809,30 @@ class BookingController extends Controller
      * @param array<string, mixed>|null $reopenNewBookingDraft Session-backed follow-up-from-reopen context (create flow only)
      * @return Factory|View|Application
      */
+    /**
+     * Resolve an Area input (an existing id or a new free-typed name from Select2 tags) into an area id.
+     */
+    protected function resolveBookingAreaId($raw): ?int
+    {
+        $raw = trim((string) ($raw ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+        if (ctype_digit($raw)) {
+            $existingId = CustomerLeadArea::whereKey($raw)->value('id');
+            if ($existingId !== null) {
+                return (int) $existingId;
+            }
+        }
+
+        return CustomerLeadArea::resolveByName($raw)?->id;
+    }
+
     protected function buildBookingCreateView(Request $request, string $view, ?array $reopenNewBookingDraft = null): Factory|View|Application
     {
         $zones = $this->zone->withoutGlobalScope('translate')->select('id', 'name', 'parent_id', 'description')->get();
         $zoneTreeOptions = Zone::flatTreeOptionsForSelect($zones);
+        $customerLeadAreas = CustomerLeadArea::where('is_active', true)->orderBy('name')->get();
         $categories = $this->category->select('id', 'parent_id', 'name')->where('position', 1)->get();
         $subCategories = $this->category->select('id', 'parent_id', 'name')->where('position', 2)->get();
         $providers = $this->provider->with('owner')->get();
@@ -855,6 +877,7 @@ class BookingController extends Controller
         return view($view, compact(
             'zones',
             'zoneTreeOptions',
+            'customerLeadAreas',
             'categories',
             'subCategories',
             'providers',
@@ -1405,6 +1428,7 @@ class BookingController extends Controller
                 'customer_id' => ['required', 'exists:users,id'],
                 'provider_id' => ['required', 'exists:providers,id'],
                 'zone_id' => ['required', 'uuid'],
+                'area_id' => ['nullable', 'string', 'max:255'],
                 'category_id' => ['required', 'uuid'],
                 'sub_category_id' => ['required', 'uuid'],
                 'service_id' => ['required', 'uuid'],
@@ -1619,6 +1643,7 @@ class BookingController extends Controller
             'customer_id' => ['required', 'exists:users,id'],
             'provider_id' => ['required', 'exists:providers,id'],
             'zone_id' => ['required', 'uuid'],
+            'area_id' => ['nullable', 'string', 'max:255'],
             'category_id' => ['required', 'uuid'],
             'sub_category_id' => ['required', 'uuid'],
             'service_id' => ['required', 'uuid'],
@@ -1774,6 +1799,7 @@ class BookingController extends Controller
             $booking->customer_id = $data['customer_id'];
             $booking->provider_id = $data['provider_id'];
             $booking->zone_id = $data['zone_id'];
+            $booking->area_id = $this->resolveBookingAreaId($data['area_id'] ?? null);
             $booking->category_id = $data['category_id'];
             $booking->sub_category_id = $data['sub_category_id'];
             $booking->booking_status = 'accepted';

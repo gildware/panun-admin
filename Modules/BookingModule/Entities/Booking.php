@@ -89,6 +89,7 @@ class Booking extends Model
         'customer_id',
         'provider_id',
         'zone_id',
+        'area_id',
         'booking_status',
         'is_paid',
         'payment_method',
@@ -185,6 +186,11 @@ class Booking extends Model
     public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class, 'zone_id');
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\LeadManagement\Entities\CustomerLeadArea::class, 'area_id');
     }
 
     public function serviceman(): BelongsTo

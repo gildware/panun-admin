@@ -18,6 +18,7 @@ use Modules\LeadManagement\Entities\Source;
 use Modules\LeadManagement\Entities\LeadInvalidReason;
 use Modules\LeadManagement\Entities\LeadFutureCustomerReason;
 use Modules\LeadManagement\Entities\LeadCancellationReason;
+use Modules\LeadManagement\Entities\CustomerLeadArea;
 use Modules\LeadManagement\Entities\CustomerLeadStatus;
 use Modules\LeadManagement\Entities\CustomerLeadTag;
 use Modules\LeadManagement\Entities\LeadProviderChecklist;
@@ -1120,7 +1121,9 @@ class LeadController extends Controller
             $data = $request->validate([
                 'invalid_reason_id' => 'required|exists:lead_invalid_reasons,id',
                 'invalid_remarks' => 'nullable|string|max:1000',
+                'area_id' => 'nullable|string|max:255',
             ]);
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
@@ -1132,7 +1135,9 @@ class LeadController extends Controller
             $data = $request->validate([
                 'future_customer_reason_id' => 'required|exists:lead_future_customer_reasons,id',
                 'future_customer_remarks' => 'nullable|string|max:1000',
+                'area_id' => 'nullable|string|max:255',
             ]);
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
 
             LeadTypeHistory::create([
                 'lead_id' => $lead->id,
@@ -1157,7 +1162,10 @@ class LeadController extends Controller
                 'service_description' => 'nullable|string|max:1000',
                 'estimated_service_at' => 'nullable|date',
                 'customer_lead_status_id' => 'nullable|exists:customer_lead_statuses,id',
+                'area_id' => 'nullable|string|max:255',
             ]);
+
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
 
             $isUpdateCustomer = $request->boolean('update_customer') && $lead->lead_type === Lead::TYPE_CUSTOMER;
 
@@ -1224,7 +1232,9 @@ class LeadController extends Controller
                 'provider_service_category' => 'nullable|exists:categories,id',
                 'provider_service_subcategory' => 'nullable|exists:categories,id',
                 'provider_service_details' => 'nullable|string|max:1000',
+                'area_id' => 'nullable|string|max:255',
             ]);
+            $data['area_id'] = $this->resolveAreaId($data['area_id'] ?? null);
             $zoneIds = array_values(array_unique(array_filter((array) ($data['zone_ids'] ?? []))));
             $data['zone_ids'] = $zoneIds;
             $data['zone_id'] = $zoneIds[0] ?? null;
@@ -1311,6 +1321,7 @@ class LeadController extends Controller
         $futureCustomerReasons = LeadFutureCustomerReason::where('is_active', true)->orderBy('name')->get();
         $cancellationReasons = LeadCancellationReason::where('is_active', true)->orderBy('name')->get();
         $customerLeadStatuses = CustomerLeadStatus::where('is_active', true)->orderBy('name')->get();
+        $customerLeadAreas = CustomerLeadArea::where('is_active', true)->orderBy('name')->get();
         $customerLeadTags = CustomerLeadTag::where('is_active', true)->orderBy('name')->get();
         $providerLeadStatuses = ProviderLeadStatus::where('is_active', true)->orderBy('name')->get();
         $providerCancellationReasons = ProviderCancellationReason::where('is_active', true)->orderBy('name')->get();
@@ -1423,6 +1434,7 @@ class LeadController extends Controller
             'futureCustomerReasons',
             'cancellationReasons',
             'customerLeadStatuses',
+            'customerLeadAreas',
             'customerLeadTags',
             'providerLeadStatuses',
             'providerCancellationReasons',
@@ -1694,6 +1706,25 @@ class LeadController extends Controller
     }
 
     /**
+     * Resolve an Area input (an existing id or a new free-typed name from Select2 tags) into an area id.
+     */
+    protected function resolveAreaId($raw): ?int
+    {
+        $raw = trim((string) ($raw ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+        if (ctype_digit($raw)) {
+            $existingId = CustomerLeadArea::whereKey($raw)->value('id');
+            if ($existingId !== null) {
+                return (int) $existingId;
+            }
+        }
+
+        return CustomerLeadArea::resolveByName($raw)?->id;
+    }
+
+    /**
      * @return array<int, array{label: string, value: string}>
      */
     protected function resolveTypeHistoryDisplay(?LeadTypeHistory $typeHistory, string $leadType): array
@@ -1709,13 +1740,17 @@ class LeadController extends Controller
             $reason = isset($data['invalid_reason_id'])
                 ? LeadInvalidReason::find($data['invalid_reason_id'])?->name
                 : null;
+            $invalidArea = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
             $rows[] = ['label' => translate('Reason'), 'value' => $reason ?? '—'];
+            $rows[] = ['label' => translate('Area'), 'value' => $invalidArea?->name ?? '—'];
             $rows[] = ['label' => translate('Remarks'), 'value' => $data['invalid_remarks'] ?? '—'];
         } elseif ($leadType === 'future_customer') {
             $reason = isset($data['future_customer_reason_id'])
                 ? LeadFutureCustomerReason::find($data['future_customer_reason_id'])?->name
                 : null;
+            $futureArea = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
             $rows[] = ['label' => translate('Reason'), 'value' => $reason ?? '—'];
+            $rows[] = ['label' => translate('Area'), 'value' => $futureArea?->name ?? '—'];
             $rows[] = ['label' => translate('Remarks'), 'value' => $data['future_customer_remarks'] ?? '—'];
         } elseif ($leadType === 'customer') {
             $zone = isset($data['zone_id']) ? Zone::withoutGlobalScopes()->find($data['zone_id']) : null;
@@ -1724,7 +1759,9 @@ class LeadController extends Controller
             $service = isset($data['service_name']) ? Service::withoutGlobalScopes()->find($data['service_name']) : null;
             $customerStatus = isset($data['customer_lead_status_id']) ? CustomerLeadStatus::find($data['customer_lead_status_id']) : null;
 
+            $area = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
             $rows[] = ['label' => translate('Zone'), 'value' => $zone?->name ?? ($data['zone_id'] ?? '—')];
+            $rows[] = ['label' => translate('Area'), 'value' => $area?->name ?? '—'];
             $rows[] = ['label' => translate('Category'), 'value' => $category?->name ?? '—'];
             $rows[] = ['label' => translate('Sub_Category'), 'value' => $subCategory?->name ?? '—'];
             $rows[] = ['label' => translate('Service'), 'value' => $service?->name ?? '—'];
@@ -1762,8 +1799,10 @@ class LeadController extends Controller
                 ['label' => translate('Full_Address'), 'value' => $data['full_address'] ?? '—'],
                 ['label' => translate('Service_Areas'), 'value' => $data['service_areas'] ?? '—'],
             ];
+            $providerArea = isset($data['area_id']) ? CustomerLeadArea::find($data['area_id']) : null;
             $service = [
                 ['label' => translate('Zone'), 'value' => $zoneDisplay],
+                ['label' => translate('Area'), 'value' => $providerArea?->name ?? '—'],
                 ['label' => translate('Service_Category'), 'value' => $providerCategory?->name ?? (is_string($data['provider_service_category'] ?? null) ? ($data['provider_service_category'] ?? '—') : '—')],
                 ['label' => translate('Sub_Category'), 'value' => $providerSubCategory?->name ?? '—'],
                 ['label' => translate('Service_Details'), 'value' => $data['provider_service_details'] ?? '—'],

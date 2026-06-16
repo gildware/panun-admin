@@ -170,7 +170,7 @@
                             <h5 class="offcanvas-title" id="leadFilterDrawerLabel">{{ translate('Filters') }}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ translate('Close') }}"></button>
                         </div>
-                        <form action="{{ route('admin.lead.index') }}" method="GET" id="lead-filter-form" class="lead-filter-form-flex">
+                        <form action="{{ route('admin.lead.index') }}" method="GET" id="lead-filter-form" class="lead-filter-form-flex" data-allow-duplicate-submit>
                             <input type="hidden" name="tab" value="{{ $tab }}">
                             <div class="offcanvas-body pt-3 overflow-auto flex-grow-1 lead-filter-body">
                                 <div class="lead-filter-section mb-4">
