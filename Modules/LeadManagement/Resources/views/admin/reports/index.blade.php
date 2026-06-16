@@ -5,6 +5,18 @@
 @push('css_or_js')
     @if(in_array(($tab ?? 'inbound'), ['inbound', 'outbound'], true))
         <link rel="stylesheet" href="{{ asset('assets/admin-module/plugins/apex/apexcharts.css') }}">
+        <style>
+            .main-content .apexcharts-legend.apexcharts-align-left {
+                flex-direction: column !important;
+                flex-wrap: nowrap !important;
+                justify-content: flex-start !important;
+                align-items: flex-start !important;
+                overflow-y: auto !important;
+                overflow-x: hidden;
+                align-content: flex-start;
+                max-height: 100%;
+            }
+        </style>
     @endif
 @endpush
 
@@ -639,7 +651,7 @@
                     series: channelValues,
                     chart: { type: 'donut', height: 260 },
                     labels: channelLabels.map(function (l, i) { return (l || '—') + ' (' + (channelValues[i] ?? 0) + ')'; }),
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false }
                 };
                 new ApexCharts(el, options).render();
@@ -654,7 +666,7 @@
                     series: statusValues,
                     chart: { type: 'pie', height: 260 },
                     labels: labels,
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false }
                 };
                 new ApexCharts(el, options).render();
@@ -702,7 +714,7 @@
                     plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
                     xaxis: { categories: userCategories, labels: { style: { fontSize: '11px' } } },
                     yaxis: { labels: { style: { fontSize: '11px' } } },
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                     tooltip: { shared: true, intersect: false }
                 };
@@ -773,7 +785,8 @@
                 },
                 labels: typeLabels,
                 legend: {
-                    position: 'bottom',
+                    position: 'left',
+                    horizontalAlign: 'left',
                     fontSize: '11px',
                 }
             };
@@ -797,7 +810,7 @@
                     chart: { type: 'donut', height: 280 },
                     labels: labels,
                     colors: ['#e74a3b', '#1cc88a'],
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                 };
                 new ApexCharts(el, options).render();
@@ -872,7 +885,7 @@
                     series: values,
                     chart: { type: 'donut', height: 260 },
                     labels: labels,
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                 };
                 new ApexCharts(el, options).render();
@@ -892,7 +905,7 @@
                     series: values,
                     chart: { type: 'donut', height: 260 },
                     labels: labels,
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                 };
                 new ApexCharts(el, options).render();
@@ -912,7 +925,7 @@
                     series: values,
                     chart: { type: 'pie', height: 280 },
                     labels: labels,
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                 };
                 new ApexCharts(el, options).render();
@@ -932,7 +945,7 @@
                     series: values,
                     chart: { type: 'pie', height: 280 },
                     labels: labels,
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                 };
                 new ApexCharts(el, options).render();
@@ -952,7 +965,7 @@
                     series: values,
                     chart: { type: 'donut', height: 280 },
                     labels: labels,
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                 }).render();
             })();
@@ -971,7 +984,7 @@
                     series: values,
                     chart: { type: 'donut', height: 280 },
                     labels: labels,
-                    legend: { position: 'bottom', fontSize: '11px' },
+                    legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px' },
                     dataLabels: { enabled: false },
                 }).render();
             })();

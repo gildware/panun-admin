@@ -75,29 +75,19 @@ window.ReportChartDrilldown = (function () {
     }
 
     function topSlices(rows, limit, othersLabel, palette) {
+        // Show every slice with its own real label; never collapse into an "Others" bucket.
         rows = (rows || []).filter(function (r) { return (r.total || 0) > 0; });
         if (!rows.length) {
             return { labels: [], values: [], colors: [], keys: [], otherKeys: [] };
         }
         var sorted = rows.slice().sort(function (a, b) { return (b.total || 0) - (a.total || 0); });
-        if (sorted.length <= limit) {
-            return {
-                labels: sorted.map(function (r) { return r.label || '—'; }),
-                values: sorted.map(function (r) { return r.total || 0; }),
-                colors: palette.slice(0, sorted.length),
-                keys: sorted.map(function (r) { return r.key || ''; }),
-                otherKeys: [],
-            };
-        }
-        var top = sorted.slice(0, limit);
-        var rest = sorted.slice(limit);
-        var otherTotal = rest.reduce(function (s, r) { return s + (r.total || 0); }, 0);
+        palette = palette || [];
         return {
-            labels: top.map(function (r) { return r.label || '—'; }).concat([othersLabel]),
-            values: top.map(function (r) { return r.total || 0; }).concat([otherTotal]),
-            colors: palette.slice(0, limit).concat(['#ced4da']),
-            keys: top.map(function (r) { return r.key || ''; }).concat(['__others__']),
-            otherKeys: rest.map(function (r) { return r.key || ''; }),
+            labels: sorted.map(function (r) { return r.label || '—'; }),
+            values: sorted.map(function (r) { return r.total || 0; }),
+            colors: sorted.map(function (_, i) { return palette.length ? palette[i % palette.length] : undefined; }),
+            keys: sorted.map(function (r) { return r.key || ''; }),
+            otherKeys: [],
         };
     }
 

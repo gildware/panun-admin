@@ -10,6 +10,15 @@
         }
         .booking-report-analytics .booking-donut-chart .apexcharts-legend {
             padding-top: 4px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden;
+            align-content: flex-start;
+        }
+        .booking-report-analytics .booking-donut-chart .apexcharts-legend.apexcharts-align-left {
+            flex-direction: column !important;
+            flex-wrap: nowrap !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
         }
         .booking-report-analytics .booking-donut-chart .apexcharts-legend-text {
             font-size: 11px !important;
@@ -120,19 +129,22 @@
                     'chartId' => 'booking-outcome-chart',
                     'title' => translate('Lead_Outcome'),
                     'subtitle' => translate('Booking_completed_vs_cancelled_vs_pending'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('adminmodule::admin.report.partials._donut-chart-card', [
                     'chartId' => 'booking-category-chart',
                     'title' => translate('By_Category'),
                     'subtitle' => translate('Service_category_share'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('adminmodule::admin.report.partials._donut-chart-card', [
                     'chartId' => 'booking-zone-chart',
                     'title' => translate('By_Zone'),
                     'subtitle' => translate('Geographic_share'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
             </div>
         </div>
@@ -170,17 +182,20 @@
                 @include('adminmodule::admin.report.partials._donut-chart-card', [
                     'chartId' => 'booking-completed-category-chart',
                     'title' => translate('Category_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('adminmodule::admin.report.partials._donut-chart-card', [
                     'chartId' => 'booking-completed-zone-chart',
                     'title' => translate('Zone_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('adminmodule::admin.report.partials._donut-chart-card', [
                     'chartId' => 'booking-completed-subcategory-chart',
                     'title' => translate('Sub_Category'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
             </div>
         </div>
@@ -194,12 +209,14 @@
                 @include('adminmodule::admin.report.partials._donut-chart-card', [
                     'chartId' => 'booking-cancelled-category-chart',
                     'title' => translate('Category_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('adminmodule::admin.report.partials._donut-chart-card', [
                     'chartId' => 'booking-cancelled-zone-chart',
                     'title' => translate('Zone_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
             </div>
         </div>

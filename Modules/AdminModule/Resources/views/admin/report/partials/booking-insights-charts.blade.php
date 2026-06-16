@@ -26,7 +26,7 @@
             chart: { type: 'donut', height: options.height || 220, fontFamily: 'inherit' },
             labels: chartLabels,
             colors: colors || palette,
-            legend: { position: 'bottom', horizontalAlign: 'center', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 2 } },
+            legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 3 }, height: options.height || 220 },
             plotOptions: {
                 pie: {
                     donut: {
@@ -63,10 +63,11 @@
         return chart;
     }
 
-    function renderDrilldownDonut(el, rows, limit, drilldownMap) {
+    function renderDrilldownDonut(el, rows, limit, drilldownMap, height) {
         var slice = DD.topSlices(rows, limit, othersLabel, palette);
         renderDonut(el, slice.values, slice.labels, slice.colors, {
             idsBySlice: DD.resolveSliceIds(drilldownMap || {}, slice),
+            height: height || 300,
         });
     }
 
