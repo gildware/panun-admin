@@ -16,6 +16,7 @@
         <tr>
             <th>{{translate('SL')}}</th>
             <th>{{translate('zone_name')}}</th>
+            <th>{{translate('Zone_description')}}</th>
             <th>{{translate('Parent_zone')}}</th>
             <th>Children</th>
             <th>{{translate('providers')}}</th>

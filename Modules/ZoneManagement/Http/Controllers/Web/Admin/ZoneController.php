@@ -121,7 +121,7 @@ class ZoneController extends Controller
     }
 
     /**
-     * Zone list: root zones only when not searching; search matches any zone by name.
+     * Zone list: root zones only when not searching; search matches any zone by name or description.
      */
     protected function buildZoneListingQuery(Request $request)
     {
@@ -141,7 +141,8 @@ class ZoneController extends Controller
                 if ($keys !== []) {
                     $query->where(function ($q) use ($keys) {
                         foreach ($keys as $key) {
-                            $q->orWhere('name', 'LIKE', '%'.$key.'%');
+                            $q->orWhere('name', 'LIKE', '%'.$key.'%')
+                                ->orWhere('description', 'LIKE', '%'.$key.'%');
                         }
                     });
                 }

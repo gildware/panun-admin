@@ -23,6 +23,14 @@
         @endif
         <span class="zone-list-tree-name">{{ $zone->name }}</span>
     </td>
+    <td class="zone-list-tree-desc">
+        @php($zoneDescription = trim((string) ($zone->description ?? '')))
+        @if($zoneDescription !== '')
+            <span class="zone-list-desc text-muted small">{{ $zoneDescription }}</span>
+        @else
+            —
+        @endif
+    </td>
     <td>
         @if(isset($zone->parentZone) && $zone->parentZone)
             {{ $zone->parentZone->name }}
