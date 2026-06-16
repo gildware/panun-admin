@@ -13,6 +13,19 @@
             font-weight: 700;
             color: #6c757d;
         }
+        #apex_booking_status_donut .apexcharts-legend,
+        #apex_cancel_total_pie .apexcharts-legend {
+            overflow-y: auto !important;
+            overflow-x: hidden;
+            align-content: flex-start;
+        }
+        #apex_booking_status_donut .apexcharts-legend.apexcharts-align-left,
+        #apex_cancel_total_pie .apexcharts-legend.apexcharts-align-left {
+            flex-direction: column !important;
+            flex-wrap: nowrap !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+        }
     </style>
 @endpush
 
@@ -617,7 +630,9 @@
                 series: values,
                 colors: colors || reportChartPalette,
                 legend: {
-                    position: 'bottom',
+                    position: 'left',
+                    horizontalAlign: 'left',
+                    height: 300,
                     formatter: function (seriesName, opts) {
                         var val = (opts.w.globals.series[opts.seriesIndex] || 0);
                         return seriesName + ' (' + val + ')';

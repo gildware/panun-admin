@@ -10,6 +10,15 @@
         }
         .provider-lead-analytics .provider-donut-chart .apexcharts-legend {
             padding-top: 4px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden;
+            align-content: flex-start;
+        }
+        .provider-lead-analytics .provider-donut-chart .apexcharts-legend.apexcharts-align-left {
+            flex-direction: column !important;
+            flex-wrap: nowrap !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
         }
         .provider-lead-analytics .provider-donut-chart .apexcharts-legend-text {
             font-size: 11px !important;
@@ -114,19 +123,22 @@
                     'chartId' => 'provider-outcome-chart',
                     'title' => translate('Lead_Outcome'),
                     'subtitle' => translate('Completed_vs_cancelled_vs_pending'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-category-chart',
                     'title' => translate('By_Category'),
                     'subtitle' => translate('Service_category_share'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-zone-chart',
                     'title' => translate('By_Zone'),
                     'subtitle' => translate('Geographic_share'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
             </div>
         </div>
@@ -164,17 +176,20 @@
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-completed-category-chart',
                     'title' => translate('Category_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-completed-zone-chart',
                     'title' => translate('Zone_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-completed-subcategory-chart',
                     'title' => translate('Sub_Category'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
             </div>
         </div>
@@ -188,17 +203,20 @@
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-cancelled-category-chart',
                     'title' => translate('Category_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-cancelled-zone-chart',
                     'title' => translate('Zone_Wise'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
                 @include('leadmanagement::admin.reports.partials._donut-chart-card', [
                     'chartId' => 'provider-cancel-reason-chart',
                     'title' => translate('Cancellation_Reasons'),
-                    'colClass' => 'col-lg-4 col-md-6',
+                    'colClass' => 'col-lg-6',
+                    'chartHeight' => 300,
                 ])
             </div>
         </div>

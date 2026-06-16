@@ -8,6 +8,8 @@
     var palette = [
         '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796',
         '#5a5c69', '#fd7e14', '#6f42c1', '#20c997', '#0dcaf0', '#d63384',
+        '#2c9faf', '#a3bffa', '#f8a07b', '#84cc16', '#ec4899', '#14b8a6',
+        '#8b5cf6', '#f59e0b',
     ];
     var drilldown = analytics.drilldown || {};
 
@@ -25,7 +27,7 @@
             chart: { type: 'donut', height: options.height || 220, fontFamily: 'inherit' },
             labels: chartLabels,
             colors: colors || palette,
-            legend: { position: 'bottom', horizontalAlign: 'center', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 2 } },
+            legend: { position: 'left', horizontalAlign: 'left', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 3 }, height: options.height || 220 },
             plotOptions: {
                 pie: {
                     donut: {
@@ -62,10 +64,11 @@
         return chart;
     }
 
-    function renderDrilldownDonut(el, rows, limit, drilldownMap) {
+    function renderDrilldownDonut(el, rows, limit, drilldownMap, height) {
         var slice = DD.topSlices(rows, limit, othersLabel, palette);
         renderDonut(el, slice.values, slice.labels, slice.colors, {
             idsBySlice: DD.resolveSliceIds(drilldownMap || {}, slice),
+            height: height || 300,
         });
     }
 
@@ -114,8 +117,8 @@
 
     var outcome = analytics.outcome_breakdown || [];
     renderOutcomeDonut(document.querySelector('#customer-outcome-chart'), outcome, drilldown.outcome || {});
-    renderDrilldownDonut(document.querySelector('#customer-category-chart'), analytics.category_wise || [], 6, drilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-zone-chart'), analytics.zone_wise || [], 6, drilldown.zone_wise || {});
+    renderDrilldownDonut(document.querySelector('#customer-category-chart'), analytics.category_wise || [], 12, drilldown.category_wise || {});
+    renderDrilldownDonut(document.querySelector('#customer-zone-chart'), analytics.zone_wise || [], 12, drilldown.zone_wise || {});
     renderDayDonut(
         document.querySelector('#customer-lead-day-chart'),
         analytics.lead_received_by_day_labels || [],
@@ -131,14 +134,14 @@
 
     var booked = analytics.booked || {};
     var bookedDrilldown = drilldown.booked || {};
-    renderDrilldownDonut(document.querySelector('#customer-booked-category-chart'), booked.category_wise || [], 5, bookedDrilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-booked-zone-chart'), booked.zone_wise || [], 5, bookedDrilldown.zone_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-booked-subcategory-chart'), booked.subcategory_wise || [], 5, bookedDrilldown.subcategory_wise || {});
+    renderDrilldownDonut(document.querySelector('#customer-booked-category-chart'), booked.category_wise || [], 10, bookedDrilldown.category_wise || {});
+    renderDrilldownDonut(document.querySelector('#customer-booked-zone-chart'), booked.zone_wise || [], 10, bookedDrilldown.zone_wise || {});
+    renderDrilldownDonut(document.querySelector('#customer-booked-subcategory-chart'), booked.subcategory_wise || [], 10, bookedDrilldown.subcategory_wise || {});
 
     var cancelled = analytics.cancelled || {};
     var cancelledDrilldown = drilldown.cancelled || {};
-    renderDrilldownDonut(document.querySelector('#customer-cancelled-category-chart'), cancelled.category_wise || [], 5, cancelledDrilldown.category_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-cancelled-zone-chart'), cancelled.zone_wise || [], 5, cancelledDrilldown.zone_wise || {});
-    renderDrilldownDonut(document.querySelector('#customer-cancel-reason-chart'), cancelled.reasons || [], 5, cancelledDrilldown.reasons || {});
+    renderDrilldownDonut(document.querySelector('#customer-cancelled-category-chart'), cancelled.category_wise || [], 10, cancelledDrilldown.category_wise || {});
+    renderDrilldownDonut(document.querySelector('#customer-cancelled-zone-chart'), cancelled.zone_wise || [], 10, cancelledDrilldown.zone_wise || {});
+    renderDrilldownDonut(document.querySelector('#customer-cancel-reason-chart'), cancelled.reasons || [], 10, cancelledDrilldown.reasons || {});
 })();
 @endif
