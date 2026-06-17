@@ -9,6 +9,7 @@ use Modules\BookingModule\Entities\BookingChangeLog;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ServiceManagement\Entities\Service;
@@ -24,6 +25,18 @@ final class BookingAuditLogger
 
     private const SKIP_BOOKING_KEYS = [
         'updated_at',
+    ];
+
+    /** @var list<string> */
+    private const SERVICE_LINE_CHANGE_KEYS = [
+        'quantity',
+        'discount_amount',
+        'campaign_discount_amount',
+        'service_cost',
+        'service_id',
+        'variant_key',
+        'tax_amount',
+        'total_cost',
     ];
 
     /** @var array<string, list<string>> */
@@ -245,12 +258,16 @@ final class BookingAuditLogger
         if ($action === 'updated' && is_array($changes)) {
             $oldParts = [];
             $newParts = [];
+            $hasServiceLineChange = false;
             foreach ($changes as $key => $pair) {
                 if ($key === 'updated_at') {
                     continue;
                 }
                 if (!is_array($pair) || !array_key_exists('old', $pair) || !array_key_exists('new', $pair)) {
                     continue;
+                }
+                if (in_array($key, self::SERVICE_LINE_CHANGE_KEYS, true)) {
+                    $hasServiceLineChange = true;
                 }
                 $oldRaw = $pair['old'];
                 $newRaw = $pair['new'];
@@ -260,11 +277,109 @@ final class BookingAuditLogger
                 $oldParts[] = self::humanizeKey($key) . ': ' . self::formatDetailAttribute($key, $oldRaw, $detail);
                 $newParts[] = self::humanizeKey($key) . ': ' . self::formatDetailAttribute($key, $newRaw, $detail);
             }
+            if ($hasServiceLineChange && ($oldParts === [] || $newParts === [])) {
+                foreach ($changes as $key => $pair) {
+                    if (!in_array($key, self::SERVICE_LINE_CHANGE_KEYS, true)) {
+                        continue;
+                    }
+                    if (!is_array($pair) || !array_key_exists('old', $pair) || !array_key_exists('new', $pair)) {
+                        continue;
+                    }
+                    $oldParts[] = self::humanizeKey($key) . ': ' . self::formatDetailAttribute($key, $pair['old'], $detail);
+                    $newParts[] = self::humanizeKey($key) . ': ' . self::formatDetailAttribute($key, $pair['new'], $detail);
+                }
+            }
             if ($oldParts !== [] && $newParts !== []) {
                 $summary = self::summarizeBookingDetail($detail);
                 self::log(
                     (string) $detail->booking_id,
                     'booking_detail.updated',
+                    $summary . ' — ' . translate('Updated'),
+                    implode('; ', $oldParts),
+                    implode('; ', $newParts),
+                    $ctx
+                );
+            }
+        }
+    }
+
+    public static function logBookingRepeatDetailChange(string $action, BookingRepeatDetails $detail, ?array $changes = null): void
+    {
+        $detail->loadMissing('repeat');
+        $bookingId = $detail->repeat?->booking_id;
+        if (!$bookingId) {
+            return;
+        }
+        self::clearCache();
+        $ctx = 'booking_repeat_detail:' . $detail->id;
+
+        if ($action === 'created') {
+            $summary = self::summarizeBookingRepeatDetail($detail);
+            self::log(
+                (string) $bookingId,
+                'booking_repeat_detail.created',
+                $summary,
+                '—',
+                $summary,
+                $ctx
+            );
+
+            return;
+        }
+
+        if ($action === 'deleted') {
+            $summary = self::summarizeBookingRepeatDetail($detail);
+            self::log(
+                (string) $bookingId,
+                'booking_repeat_detail.deleted',
+                $summary,
+                $summary,
+                '—',
+                $ctx
+            );
+
+            return;
+        }
+
+        if ($action === 'updated' && is_array($changes)) {
+            $oldParts = [];
+            $newParts = [];
+            $hasServiceLineChange = false;
+            foreach ($changes as $key => $pair) {
+                if ($key === 'updated_at') {
+                    continue;
+                }
+                if (!is_array($pair) || !array_key_exists('old', $pair) || !array_key_exists('new', $pair)) {
+                    continue;
+                }
+                if (in_array($key, self::SERVICE_LINE_CHANGE_KEYS, true)) {
+                    $hasServiceLineChange = true;
+                }
+                $oldRaw = $pair['old'];
+                $newRaw = $pair['new'];
+                if (self::rawEquivalent($oldRaw, $newRaw)) {
+                    continue;
+                }
+                $oldParts[] = self::humanizeKey($key) . ': ' . self::formatRepeatDetailAttribute($key, $oldRaw, $detail);
+                $newParts[] = self::humanizeKey($key) . ': ' . self::formatRepeatDetailAttribute($key, $newRaw, $detail);
+            }
+            if ($hasServiceLineChange && ($oldParts === [] || $newParts === [])) {
+                foreach ($changes as $key => $pair) {
+                    if (!in_array($key, self::SERVICE_LINE_CHANGE_KEYS, true)) {
+                        continue;
+                    }
+                    if (!is_array($pair) || !array_key_exists('old', $pair) || !array_key_exists('new', $pair)) {
+                        continue;
+                    }
+                    $oldParts[] = self::humanizeKey($key) . ': ' . self::formatRepeatDetailAttribute($key, $pair['old'], $detail);
+                    $newParts[] = self::humanizeKey($key) . ': ' . self::formatRepeatDetailAttribute($key, $pair['new'], $detail);
+                }
+            }
+            if ($oldParts !== [] && $newParts !== []) {
+                $summary = self::summarizeBookingRepeatDetail($detail);
+                self::log(
+                    (string) $bookingId,
+                    'booking_repeat_detail.updated',
                     $summary . ' — ' . translate('Updated'),
                     implode('; ', $oldParts),
                     implode('; ', $newParts),
@@ -281,6 +396,11 @@ final class BookingAuditLogger
             $detail = BookingDetail::query()->find($matches[1]);
 
             return $detail ? self::summarizeBookingDetail($detail) : null;
+        }
+        if (preg_match('/^booking_repeat_detail:(.+)$/', $ctx, $matches)) {
+            $detail = BookingRepeatDetails::query()->find($matches[1]);
+
+            return $detail ? self::summarizeBookingRepeatDetail($detail) : null;
         }
         if (preg_match('/^booking_extra_service:(.+)$/', $ctx, $matches)) {
             $row = BookingExtraService::query()->find($matches[1]);
@@ -618,6 +738,19 @@ final class BookingAuditLogger
         };
     }
 
+    private static function formatRepeatDetailAttribute(string $key, mixed $value, BookingRepeatDetails $detail): string
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        return match ($key) {
+            'service_id' => self::serviceLabel($value),
+            'booking_repeat_id' => (string) $value,
+            default => is_scalar($value) ? (string) $value : json_encode($value),
+        };
+    }
+
     private static function formatRepeatAttribute(string $key, mixed $value): string
     {
         if ($value === null || $value === '') {
@@ -641,6 +774,24 @@ final class BookingAuditLogger
         $parts = [];
         if ($detail->service_id) {
             $parts[] = self::serviceLabel($detail->service_id);
+        } elseif ($detail->service_name) {
+            $parts[] = (string) $detail->service_name;
+        }
+        if ($detail->variant_key) {
+            $parts[] = (string) $detail->variant_key;
+        }
+        $parts[] = '×' . (string) ($detail->quantity ?? 1);
+
+        return implode(' ', array_filter($parts)) ?: ('#' . $detail->id);
+    }
+
+    private static function summarizeBookingRepeatDetail(BookingRepeatDetails $detail): string
+    {
+        $parts = [];
+        if ($detail->service_id) {
+            $parts[] = self::serviceLabel($detail->service_id);
+        } elseif ($detail->service_name) {
+            $parts[] = (string) $detail->service_name;
         }
         if ($detail->variant_key) {
             $parts[] = (string) $detail->variant_key;

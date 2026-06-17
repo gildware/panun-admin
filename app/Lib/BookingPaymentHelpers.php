@@ -4684,7 +4684,9 @@ if (! function_exists('booking_attach_api_change_logs')) {
             $query->where(function ($q) use ($repeatContext) {
                 $q->whereNull('context')
                     ->orWhere('context', $repeatContext)
-                    ->orWhere('property_key', 'like', 'repeat.%');
+                    ->orWhere('context', 'like', 'booking_repeat_detail:%')
+                    ->orWhere('property_key', 'like', 'repeat.%')
+                    ->orWhere('property_key', 'like', 'booking_repeat_detail.%');
             });
         }
 
@@ -4715,6 +4717,9 @@ if (! function_exists('booking_change_log_mobile_title')) {
             str_starts_with($propertyKey, 'booking_detail.created') => translate('Service_added'),
             str_starts_with($propertyKey, 'booking_detail.deleted') => translate('Service_removed'),
             str_starts_with($propertyKey, 'booking_detail.updated') => translate('Service_updated'),
+            str_starts_with($propertyKey, 'booking_repeat_detail.updated') => translate('Service_updated'),
+            str_starts_with($propertyKey, 'booking_repeat_detail.created') => translate('Service_added'),
+            str_starts_with($propertyKey, 'booking_repeat_detail.deleted') => translate('Service_removed'),
             str_starts_with($propertyKey, 'booking_extra_service.created') => translate('Extra_service_added'),
             str_starts_with($propertyKey, 'booking_extra_service.deleted') => translate('Extra_service_removed'),
             str_starts_with($propertyKey, 'booking_extra_service.updated') => translate('Extra_service_updated'),
@@ -4754,6 +4759,7 @@ if (! function_exists('booking_change_log_mobile_description')) {
         }
 
         if (str_starts_with($key, 'booking_detail.updated')
+            || str_starts_with($key, 'booking_repeat_detail.updated')
             || str_starts_with($key, 'booking_extra_service.updated')) {
             $summary = \Modules\BookingModule\Services\BookingAuditLogger::resolveServiceSummaryFromContext($log);
             if ($summary !== null && $summary !== '') {
