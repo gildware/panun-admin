@@ -11,20 +11,32 @@
             if ($actor === null || $actor === '') {
                 $actor = $log->actor_name ?: translate('System');
             }
+
+            $propertyKey = (string) ($log->property_key ?? '');
+            $isServiceUpdate = str_contains($propertyKey, 'detail.updated')
+                || str_contains($propertyKey, 'extra_service.updated');
+            $displayTitle = $log->property_label ?: str_replace('_', ' ', $propertyKey);
+            if ($isServiceUpdate) {
+                $summary = \Modules\BookingModule\Services\BookingAuditLogger::resolveServiceSummaryFromContext($log);
+                if ($summary) {
+                    $displayTitle = $summary . ' — ' . translate('Updated');
+                }
+            }
         @endphp
         <li class="border-bottom pb-3 mb-3">
             <div class="d-flex flex-wrap justify-content-between gap-2 mb-1">
-                <strong class="text-break">{{ $log->property_label ?: str_replace('_', ' ', $log->property_key) }}</strong>
+                <strong class="text-break">{{ $displayTitle }}</strong>
                 <span class="text-muted small text-nowrap">{{ $log->created_at?->timezone(config('app.timezone'))->format('d-M-Y h:ia') }}</span>
             </div>
-            <p class="mb-1 small text-break">
-                <span class="text-muted">{{ translate('from') }}:</span> {{ $log->old_value ?? '—' }}
-                <span class="text-muted ms-1">{{ translate('to') }}:</span> {{ $log->new_value ?? '—' }}
-            </p>
-            <p class="mb-0 small text-muted">{{ translate('By') }}: {{ $actor }}</p>
-            @if($log->context)
-                <p class="mb-0 small text-muted text-break">{{ $log->context }}</p>
+            @if($isServiceUpdate)
+                <p class="mb-1 small text-break">{{ translate('Service_updated') }}</p>
+            @else
+                <p class="mb-1 small text-break">
+                    <span class="text-muted">{{ translate('from') }}:</span> {{ $log->old_value ?? '—' }}
+                    <span class="text-muted ms-1">{{ translate('to') }}:</span> {{ $log->new_value ?? '—' }}
+                </p>
             @endif
+            <p class="mb-0 small text-muted">{{ translate('By') }}: {{ $actor }}</p>
         </li>
     @empty
         <li class="text-muted py-4">{{ translate('No_history_entries_yet') }}</li>

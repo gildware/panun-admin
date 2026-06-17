@@ -44,6 +44,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
         Route::post('single-repeat-cancel/{repeat_id}', [ProviderBookingController::class, 'singleBookingCancel']);
         Route::put('single-repeat-status-update/{repeat_id}', [ProviderBookingController::class, 'singleBookingStatusUpdate']);
         Route::put('status-update/{booking_id}', [ProviderBookingController::class, 'statusUpdate']);
+        Route::post('record-payment/{booking_id}', [ProviderBookingController::class, 'recordPayment']);
         Route::put('schedule-update/{booking_id}', [ProviderBookingController::class, 'scheduleUpdate']);
         Route::put('assign-serviceman/{booking_id}', [ProviderBookingController::class, 'assignServiceman']);
         Route::get('data/download', [ProviderBookingController::class, 'download']);

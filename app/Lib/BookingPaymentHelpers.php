@@ -1758,6 +1758,8 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
         $paymentPayload = array_merge($snapshot, [
             'payment_method_display' => format_booking_payment_method_for_admin_display($main),
             'offline_verify_status' => $offlineVerifyStatus,
+            'can_complete' => booking_can_be_completed($main),
+            'can_record_payment' => booking_provider_can_record_customer_payment($main),
         ]);
         if (is_array($bfsScaledLive) && ! in_array((string) ($main->booking_status ?? ''), ['canceled', 'cancelled', 'refunded'], true)) {
             $paymentPayload['scaled_bad_debt_balance_not_due'] = round((float) ($bfsScaledLive['scaled_bad_debt_balance_not_due'] ?? 0), 2);
@@ -2074,6 +2076,109 @@ if (! function_exists('record_customer_booking_due_payment')) {
             $fresh->is_paid = ($payableCap > 0.009 && $paidTotal + 0.009 >= $payableCap) ? 1 : 0;
             $fresh->save();
         });
+    }
+}
+
+if (! function_exists('booking_provider_can_record_customer_payment')) {
+    /**
+     * Provider app may record cash received from customer while booking is active (or scaled recovery).
+     */
+    function booking_provider_can_record_customer_payment(Booking $booking): bool
+    {
+        if (! empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot)) {
+            return false;
+        }
+
+        $snapshot = booking_provider_api_payment_snapshot($booking);
+        $dueDisplay = round((float) ($snapshot['due_balance'] ?? 0), 2);
+        $remainingAdmin = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        $remaining = max($dueDisplay, $remainingAdmin);
+        if ($remaining < 0.01) {
+            return false;
+        }
+
+        $status = strtolower(trim((string) ($booking->booking_status ?? '')));
+        $isScaledSettlement = $booking->isLossMakingFinancialSettlement();
+
+        return in_array($status, ['pending', 'accepted', 'ongoing'], true)
+            || ($status === 'on_hold' && booking_on_hold_is_after_visit_from_ongoing($booking))
+            || ($isScaledSettlement && $status === 'completed' && $remaining > 0.009);
+    }
+}
+
+if (! function_exists('record_provider_booking_customer_payment')) {
+    /**
+     * Provider records cash (or direct payment) received from customer on-site.
+     *
+     * @throws \InvalidArgumentException
+     */
+    function record_provider_booking_customer_payment(Booking $booking, float $amount): \Modules\BookingModule\Entities\BookingPartialPayment
+    {
+        $booking->loadMissing('booking_partial_payments');
+
+        if (! booking_provider_can_record_customer_payment($booking)) {
+            throw new \InvalidArgumentException(translate('Payment cannot be recorded for this booking at this stage.'));
+        }
+
+        $amount = round(max(0.0, $amount), 2);
+        if ($amount < 0.01) {
+            throw new \InvalidArgumentException(translate('Amount must be greater than zero.'));
+        }
+
+        $dueRemaining = round((float) get_booking_admin_add_payment_remaining_amount($booking), 2);
+        if ($amount > $dueRemaining + 0.009) {
+            throw new \InvalidArgumentException(
+                translate('Amount cannot exceed the due amount. Due amount') . ': ' . with_currency_symbol($dueRemaining)
+            );
+        }
+
+        $totalPaid = round((float) get_booking_total_paid($booking), 2);
+        $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+        $dueAfter = round(max(0.0, $payableCap - ($totalPaid + $amount)), 2);
+
+        $partial = null;
+        DB::transaction(function () use ($booking, $amount, $dueAfter, &$partial) {
+            $partial = $booking->booking_partial_payments()->create([
+                'paid_with' => 'provider_entry',
+                'transaction_id' => null,
+                'paid_amount' => $amount,
+                'due_amount' => $dueAfter,
+                'received_by' => 'provider',
+            ]);
+
+            record_cross_party_booking_partial_transaction($booking, $amount, (string) $partial->id);
+
+            $freshBooking = $booking->fresh(['booking_partial_payments']);
+            $totalPaidAfter = get_booking_total_paid($freshBooking);
+            $paidThroughCap = round((float) get_booking_payable_total_for_partial_dues($freshBooking), 2);
+            if ($totalPaidAfter + 0.00001 >= $paidThroughCap) {
+                $freshBooking->is_paid = 1;
+                $freshBooking->save();
+            }
+
+            if (trim((string) ($freshBooking->settlement_outcome ?? '')) === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS) {
+                $settlementSvc = app(BookingFinancialSettlementService::class);
+                $grand = round(max(0.0, get_booking_total_amount($freshBooking)), 2);
+                if ($grand > 0.009) {
+                    [, $lossTotal] = $settlementSvc->resolveScaledLossBreakdown(
+                        $freshBooking,
+                        is_array($freshBooking->settlement_config) ? $freshBooking->settlement_config : [],
+                        $grand,
+                        $settlementSvc->totalPaidForMainBooking($freshBooking)
+                    );
+                    if ($lossTotal <= 0.009) {
+                        $freshBooking->allow_complete_without_full_payment = false;
+                        $freshBooking->save();
+                    }
+                }
+            }
+        });
+
+        if (! $partial instanceof \Modules\BookingModule\Entities\BookingPartialPayment) {
+            throw new \RuntimeException(translate('Payment recording failed.'));
+        }
+
+        return $partial;
     }
 }
 
@@ -4643,10 +4748,22 @@ if (! function_exists('booking_change_log_mobile_description')) {
             return booking_change_log_humanize_text($old);
         }
         if (str_ends_with($key, '.created') || $key === 'booking.created') {
-            return booking_change_log_humanize_text($new);
+            $text = booking_change_log_humanize_text($new) ?? $new;
+
+            return booking_change_log_is_garbage_text($text) ? null : $text;
         }
 
-        return booking_change_log_humanize_text($new ?? $old);
+        if (str_starts_with($key, 'booking_detail.updated')
+            || str_starts_with($key, 'booking_extra_service.updated')) {
+            $summary = \Modules\BookingModule\Services\BookingAuditLogger::resolveServiceSummaryFromContext($log);
+            if ($summary !== null && $summary !== '') {
+                return $summary;
+            }
+        }
+
+        $text = booking_change_log_humanize_text($new ?? $old);
+
+        return booking_change_log_is_garbage_text($text) ? null : $text;
     }
 }
 
@@ -4682,6 +4799,14 @@ if (! function_exists('booking_change_log_humanize_text')) {
                 $field = strtolower(str_replace(' ', '_', trim($matches[1])));
                 $value = trim($matches[2]);
 
+                if (in_array($field, ['evidence_photos', 'service_address_location', 'additional_charges_breakdown'], true)) {
+                    continue;
+                }
+
+                if (preg_match('/^json\s*\(/i', $value)) {
+                    continue;
+                }
+
                 if (in_array($field, ['booking_status', 'status'], true)) {
                     $humanized[] = translate(str_replace(' ', '_', strtolower($value)));
                     continue;
@@ -4701,7 +4826,19 @@ if (! function_exists('booking_change_log_humanize_text')) {
                     continue;
                 }
 
+                if (in_array($field, ['service_id'], true)) {
+                    continue;
+                }
+
+                if (preg_match('/_(amount|cost|fee|charge|discount|tax)$/', $field) || in_array($field, ['quantity', 'is_paid'], true)) {
+                    continue;
+                }
+
                 $humanized[] = $value;
+                continue;
+            }
+
+            if (preg_match('/^json\s*\(/i', $segment) || preg_match('/^[\d.,\s]+$/', $segment)) {
                 continue;
             }
 
@@ -4710,7 +4847,32 @@ if (! function_exists('booking_change_log_humanize_text')) {
 
         $result = trim(implode('; ', array_filter($humanized)));
 
-        return $result === '' ? booking_change_log_translate_tokens($text) : $result;
+        if ($result === '' || booking_change_log_is_garbage_text($result)) {
+            return null;
+        }
+
+        return $result;
+    }
+}
+
+if (! function_exists('booking_change_log_is_garbage_text')) {
+    function booking_change_log_is_garbage_text(?string $text): bool
+    {
+        if ($text === null) {
+            return true;
+        }
+        $text = trim($text);
+        if ($text === '' || $text === '—') {
+            return true;
+        }
+        if (preg_match('/^json\s*\(\d+\)$/i', $text)) {
+            return true;
+        }
+        if (preg_match('/^[\d.,;\s]+$/', $text)) {
+            return true;
+        }
+
+        return false;
     }
 }
 

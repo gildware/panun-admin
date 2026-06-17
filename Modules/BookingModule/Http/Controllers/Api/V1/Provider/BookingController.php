@@ -1090,6 +1090,21 @@ class BookingController extends Controller
                 ]), 200);
             }
 
+            if ($request['booking_status'] === 'completed' && ! booking_can_be_completed($booking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Booking cannot be completed until full payment is received.'),
+                ]), 200);
+            }
+
+            if ($request['booking_status'] === 'completed'
+                && (string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
+                ]), 200);
+            }
+
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidence_photos;
             if ($request['booking_status'] == 'completed' && $request->boolean('payment_received_confirmed')) {
@@ -1174,6 +1189,22 @@ class BookingController extends Controller
                 return response()->json(response_formatter([
                     'response_code' => 'booking_ongoing_schedule_date_200',
                     'message' => translate('Booking_ongoing_only_on_or_after_schedule_date'),
+                ]), 200);
+            }
+
+            if ($request['booking_status'] === 'completed' && ! booking_can_be_completed($booking)) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Booking cannot be completed until full payment is received.'),
+                ]), 200);
+            }
+
+            if ($request['booking_status'] === 'completed'
+                && $booking->booking
+                && (string) ($booking->booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                 ]), 200);
             }
 
@@ -2050,6 +2081,81 @@ class BookingController extends Controller
 
         return response()->json(response_formatter(DEFAULT_200, [
             'url' => BookingInvoiceUrl::provider($id, $request->lang, $variant),
+        ]), 200);
+    }
+
+    /**
+     * Provider records payment received directly from customer (cash / on-site).
+     */
+    public function recordPayment(Request $request, string $bookingId): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|min:0.01',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $booking = $this->booking->with('booking_partial_payments')
+            ->where('id', $bookingId)
+            ->where('provider_id', $request->user()->provider->id)
+            ->first();
+
+        if (! $booking) {
+            return response()->json(response_formatter(DEFAULT_204), 200);
+        }
+
+        try {
+            $partial = record_provider_booking_customer_payment($booking, (float) $request->input('amount'));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(response_formatter(DEFAULT_400, null, ['amount' => [$e->getMessage()]]), 400);
+        } catch (\Throwable $e) {
+            Log::warning('Provider record booking payment failed', [
+                'booking_id' => $bookingId,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                'amount' => [translate('Payment recording failed.')],
+            ]), 400);
+        }
+
+        try {
+            if (class_exists(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)) {
+                $fresh = $this->booking->with([
+                    'customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments',
+                ])->find($booking->id);
+                if ($fresh && $partial) {
+                    app(\Modules\WhatsAppModule\Services\BookingWhatsAppAdminPromptService::class)
+                        ->buildPaymentAddedPrompt($fresh, $partial, [
+                            'date' => now()->toDateString(),
+                            'payment_method' => translate('Cash_after_service'),
+                            'reference_id' => '',
+                        ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp provider record payment prompt failed', [
+                'booking_id' => $bookingId,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        $freshBooking = $this->booking->with([
+            'detail.service', 'schedule_histories.user', 'status_histories.user', 'change_logs.changedBy', 'customer',
+            'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
+            'category', 'subCategory:id,name',
+        ])->find($booking->id);
+
+        if ($freshBooking) {
+            booking_append_provider_api_ui_fields($freshBooking);
+            booking_append_provider_api_financial_fields($freshBooking);
+        }
+
+        return response()->json(response_formatter(DEFAULT_UPDATE_200, [
+            'booking' => $freshBooking,
+            'booking_partial_payment_id' => (string) $partial->id,
         ]), 200);
     }
 

@@ -215,12 +215,13 @@ final class BookingAuditLogger
         $label = translate('Service_line') . ' #' . $detail->id;
 
         if ($action === 'created') {
+            $summary = self::summarizeBookingDetail($detail);
             self::log(
                 (string) $detail->booking_id,
                 'booking_detail.created',
-                $label,
+                $summary,
                 '—',
-                self::summarizeBookingDetail($detail),
+                $summary,
                 $ctx
             );
 
@@ -228,11 +229,12 @@ final class BookingAuditLogger
         }
 
         if ($action === 'deleted') {
+            $summary = self::summarizeBookingDetail($detail);
             self::log(
                 (string) $detail->booking_id,
                 'booking_detail.deleted',
-                $label,
-                self::summarizeBookingDetail($detail),
+                $summary,
+                $summary,
                 '—',
                 $ctx
             );
@@ -259,16 +261,34 @@ final class BookingAuditLogger
                 $newParts[] = self::humanizeKey($key) . ': ' . self::formatDetailAttribute($key, $newRaw, $detail);
             }
             if ($oldParts !== [] && $newParts !== []) {
+                $summary = self::summarizeBookingDetail($detail);
                 self::log(
                     (string) $detail->booking_id,
                     'booking_detail.updated',
-                    $label . ' — ' . translate('Updated'),
+                    $summary . ' — ' . translate('Updated'),
                     implode('; ', $oldParts),
                     implode('; ', $newParts),
                     $ctx
                 );
             }
         }
+    }
+
+    public static function resolveServiceSummaryFromContext(BookingChangeLog $log): ?string
+    {
+        $ctx = (string) ($log->context ?? '');
+        if (preg_match('/^booking_detail:(.+)$/', $ctx, $matches)) {
+            $detail = BookingDetail::query()->find($matches[1]);
+
+            return $detail ? self::summarizeBookingDetail($detail) : null;
+        }
+        if (preg_match('/^booking_extra_service:(.+)$/', $ctx, $matches)) {
+            $row = BookingExtraService::query()->find($matches[1]);
+
+            return $row ? self::summarizeExtraService($row) : null;
+        }
+
+        return null;
     }
 
     public static function logBookingExtraServiceChange(string $action, BookingExtraService $row, ?array $changes = null): void
@@ -278,15 +298,15 @@ final class BookingAuditLogger
         }
         self::clearCache();
         $ctx = 'booking_extra_service:' . $row->id;
-        $label = translate('Extra_service') . ' #' . $row->id;
 
         if ($action === 'created') {
+            $summary = self::summarizeExtraService($row);
             self::log(
                 (string) $row->booking_id,
                 'booking_extra_service.created',
-                $label,
+                $summary,
                 '—',
-                self::summarizeExtraService($row),
+                $summary,
                 $ctx
             );
 
@@ -294,11 +314,12 @@ final class BookingAuditLogger
         }
 
         if ($action === 'deleted') {
+            $summary = self::summarizeExtraService($row);
             self::log(
                 (string) $row->booking_id,
                 'booking_extra_service.deleted',
-                $label,
-                self::summarizeExtraService($row),
+                $summary,
+                $summary,
                 '—',
                 $ctx
             );
@@ -325,10 +346,11 @@ final class BookingAuditLogger
                 $newParts[] = self::humanizeKey($key) . ': ' . self::formatScalar($newRaw);
             }
             if ($oldParts !== [] && $newParts !== []) {
+                $summary = self::summarizeExtraService($row);
                 self::log(
                     (string) $row->booking_id,
                     'booking_extra_service.updated',
-                    $label . ' — ' . translate('Updated'),
+                    $summary . ' — ' . translate('Updated'),
                     implode('; ', $oldParts),
                     implode('; ', $newParts),
                     $ctx
