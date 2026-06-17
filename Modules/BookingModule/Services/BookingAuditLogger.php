@@ -484,11 +484,6 @@ final class BookingAuditLogger
         }
 
         $dueBalanceDisplay = round(max(0.0, $bookingTotalForPayment - $displayPaidAmount), 2);
-        if ($dueBalanceDisplay > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
-            && ($booking->payment_method ?? '') !== 'cash_after_service'
-            && (float) ($booking->additional_charge ?? 0) > 0) {
-            $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
-        }
 
         if ($visitRetainedCanceled) {
             $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);

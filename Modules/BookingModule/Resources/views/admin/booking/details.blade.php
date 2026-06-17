@@ -1489,13 +1489,7 @@
 
             @php
                 $revenueSettlement = get_booking_received_and_settlement($booking);
-                $dueBalanceDisplay = round(max(0, (float) $bookingTotalForPayment - (float) $displayPaidAmount), 2);
-                if ($dueBalanceDisplay > 0 && in_array($booking->booking_status, ['pending', 'accepted', 'ongoing'], true) && $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) > 0) {
-                    $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
-                }
-                if ($__bfsScaledPaymentCard) {
-                    $dueBalanceDisplay = round(max(0.0, (float) get_booking_total_amount($booking) - (float) get_booking_total_paid($booking)), 2);
-                }
+                $dueBalanceDisplay = round(max(0, (float) $paymentDetailsTotalAmount - (float) $paymentDetailsAmountPaid), 2);
                 $__bfsPaymentCardVisitRetainedCanceled = (string) ($booking->booking_status ?? '') === 'canceled'
                     && (
                         !empty($booking->after_visit_cancel)

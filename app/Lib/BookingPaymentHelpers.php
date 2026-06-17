@@ -80,7 +80,7 @@ if (!function_exists('get_booking_scaled_customer_collection_cap')) {
 
 if (!function_exists('get_booking_invoice_due_amount')) {
     /**
-     * Remaining amount due on an invoice (payable total minus partial payments), with legacy additional_charge for non–cash-after-service.
+     * Remaining amount due on an invoice (payable total minus partial payments).
      */
     function get_booking_invoice_due_amount($booking): float
     {
@@ -94,16 +94,9 @@ if (!function_exists('get_booking_invoice_due_amount')) {
             $invTotal = round($retained, 2);
             $partials = $booking->booking_partial_payments ?? collect();
             $paid = (float) $partials->sum('paid_amount');
-            $due = ((bool) ($booking->is_paid ?? false) || round($paid, 2) >= $invTotal)
+            return ((bool) ($booking->is_paid ?? false) || round($paid, 2) >= $invTotal)
                 ? 0.0
                 : round(max(0, $invTotal - $paid), 2);
-            if ($due > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
-                && ($booking->payment_method ?? '') !== 'cash_after_service'
-                && (float) ($booking->additional_charge ?? 0) > 0) {
-                $due = round($due + (float) $booking->additional_charge, 2);
-            }
-
-            return $due;
         }
 
         if ($booking instanceof Booking) {
@@ -111,14 +104,7 @@ if (!function_exists('get_booking_invoice_due_amount')) {
             if ($scaledCap !== null) {
                 $booking->loadMissing('booking_partial_payments');
                 $paid = (float) $booking->booking_partial_payments->sum('paid_amount');
-                $due = round(max(0.0, $scaledCap - $paid), 2);
-                if ($due > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
-                    && ($booking->payment_method ?? '') !== 'cash_after_service'
-                    && (float) ($booking->additional_charge ?? 0) > 0) {
-                    $due = round($due + (float) $booking->additional_charge, 2);
-                }
-
-                return $due;
+                return round(max(0.0, $scaledCap - $paid), 2);
             }
         }
 
@@ -132,16 +118,9 @@ if (!function_exists('get_booking_invoice_due_amount')) {
         $invTotal = round(get_booking_total_amount($booking), 2);
         $partials = $booking->booking_partial_payments ?? collect();
         $paid = (float) $partials->sum('paid_amount');
-        $due = ((bool) ($booking->is_paid ?? false) || round($paid, 2) >= $invTotal)
+        return ((bool) ($booking->is_paid ?? false) || round($paid, 2) >= $invTotal)
             ? 0.0
             : round(max(0, $invTotal - $paid), 2);
-        if ($due > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
-            && ($booking->payment_method ?? '') !== 'cash_after_service'
-            && (float) ($booking->additional_charge ?? 0) > 0) {
-            $due = round($due + (float) $booking->additional_charge, 2);
-        }
-
-        return $due;
     }
 }
 
@@ -1618,15 +1597,7 @@ if (! function_exists('booking_provider_api_payment_snapshot')) {
             ? round((float) get_booking_total_paid($booking), 2)
             : round($displayPaidAmount, 2);
 
-        $dueBalanceDisplay = round(max(0.0, $bookingTotalForPayment - $displayPaidAmount), 2);
-        if ($dueBalanceDisplay > 0 && in_array((string) ($booking->booking_status ?? ''), ['pending', 'accepted', 'ongoing'], true)
-            && ($booking->payment_method ?? '') !== 'cash_after_service'
-            && (float) ($booking->additional_charge ?? 0) > 0) {
-            $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
-        }
-        if ($scaledPaymentCard) {
-            $dueBalanceDisplay = round(max(0.0, (float) get_booking_total_amount($booking) - (float) get_booking_total_paid($booking)), 2);
-        }
+        $dueBalanceDisplay = round(max(0.0, $paymentDetailsTotalAmount - $paymentDetailsAmountPaid), 2);
 
         if ($visitRetainedCanceled) {
             $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
