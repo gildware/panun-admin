@@ -1045,7 +1045,6 @@ trait BookingTrait
                 }
             }
 
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
 
@@ -1139,8 +1138,6 @@ trait BookingTrait
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
             $bookingDetailsAmount->save();
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($detail->booking_id));
         });
     }
 
@@ -1408,8 +1405,6 @@ trait BookingTrait
                     }
                 }
             }
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
     protected function increase_service_quantity_from_booking_repeat($request): void
@@ -1557,8 +1552,6 @@ trait BookingTrait
                 }
             }
 
-            $repeatRow = BookingRepeat::query()->findOrFail($request['booking_repeat_id']);
-            sync_repeat_series_additional_charges((string) $repeatRow->booking_id);
         });
     }
 
@@ -1675,8 +1668,6 @@ trait BookingTrait
                     }
                 }
             }
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
 
@@ -1834,8 +1825,6 @@ trait BookingTrait
                     }
                 }
             }
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
     protected function decrease_service_quantity_from_booking_repeat($request): void
@@ -1993,8 +1982,6 @@ trait BookingTrait
                 }
             }
 
-            $repeatRowDec = BookingRepeat::query()->findOrFail($request['booking_repeat_id']);
-            sync_repeat_series_additional_charges((string) $repeatRowDec->booking_id);
         });
     }
 

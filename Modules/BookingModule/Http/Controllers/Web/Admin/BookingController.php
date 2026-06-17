@@ -5822,10 +5822,6 @@ class BookingController extends Controller
             $this->syncAdminBookingLinePricingFromAdminForm($request);
 
             $bookingAfter = $this->booking->find($request['booking_id']);
-            if ($bookingAfter && !(int) ($bookingAfter->is_repeated ?? 0)) {
-                recalculate_and_apply_booking_additional_charges($bookingAfter);
-                $bookingAfter->refresh();
-            }
 
             if ($bookingAfter) {
                 $newTotal = round((float) get_booking_total_amount($bookingAfter), 2);
