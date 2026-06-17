@@ -94,9 +94,11 @@ if (!function_exists('get_booking_invoice_due_amount')) {
             $invTotal = round($retained, 2);
             $partials = $booking->booking_partial_payments ?? collect();
             $paid = (float) $partials->sum('paid_amount');
-            return ((bool) ($booking->is_paid ?? false) || round($paid, 2) >= $invTotal)
-                ? 0.0
-                : round(max(0, $invTotal - $paid), 2);
+            if (round($paid, 2) >= $invTotal - 0.009) {
+                return 0.0;
+            }
+
+            return round(max(0, $invTotal - $paid), 2);
         }
 
         if ($booking instanceof Booking) {
@@ -118,9 +120,11 @@ if (!function_exists('get_booking_invoice_due_amount')) {
         $invTotal = round(get_booking_total_amount($booking), 2);
         $partials = $booking->booking_partial_payments ?? collect();
         $paid = (float) $partials->sum('paid_amount');
-        return ((bool) ($booking->is_paid ?? false) || round($paid, 2) >= $invTotal)
-            ? 0.0
-            : round(max(0, $invTotal - $paid), 2);
+        if (round($paid, 2) >= $invTotal - 0.009) {
+            return 0.0;
+        }
+
+        return round(max(0, $invTotal - $paid), 2);
     }
 }
 
@@ -1563,13 +1567,13 @@ if (! function_exists('booking_provider_api_payment_snapshot')) {
         $totalPaidFromPartials = round((float) $booking->booking_partial_payments->sum('paid_amount'), 2);
         $bookingTotalForPayment = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
 
-        $paymentFullyCovered = $booking->booking_partial_payments->isEmpty()
-            ? ((int) ($booking->is_paid ?? 0) === 1)
-            : (round($totalPaidFromPartials, 2) >= round($bookingTotalForPayment, 2));
+        $paymentFullyCovered = $booking->booking_partial_payments->isNotEmpty()
+            ? (round($totalPaidFromPartials, 2) >= round($bookingTotalForPayment, 2) - 0.009)
+            : ((int) ($booking->is_paid ?? 0) === 1 && round($bookingTotalForPayment, 2) > 0.009);
 
         $displayPaidAmount = $booking->booking_partial_payments->isNotEmpty()
             ? $totalPaidFromPartials
-            : (($paymentFullyCovered && (int) ($booking->is_paid ?? 0) === 1) ? $bookingTotalForPayment : 0.0);
+            : ($paymentFullyCovered ? $bookingTotalForPayment : 0.0);
 
         $visitRetainedCanceled = (string) ($booking->booking_status ?? '') === 'canceled'
             && (
@@ -1801,6 +1805,7 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
                 'transaction_id' => $row['transaction_id'] ?? null,
                 'due_after_payment' => round((float) ($row['due_after_payment'] ?? 0), 2),
             ])
+            ->sortByDesc(fn (array $row) => (string) ($row['date'] ?? ''))
             ->values()
             ->all();
 
@@ -1808,8 +1813,8 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
             ->where('booking_id', $main->id)
             ->where('reason', LedgerTransaction::REASON_REFUND)
             ->where('type', LedgerTransaction::TYPE_OUT)
-            ->orderBy('created_at')
-            ->orderBy('id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get()
             ->map(function ($entry, $index) {
                 return [
@@ -1991,6 +1996,84 @@ if (! function_exists('ensure_booking_company_payment_partial_for_ledger')) {
             'received_by' => 'company',
             'transaction_id' => $transactionId,
         ]);
+    }
+}
+
+if (! function_exists('record_customer_booking_due_payment')) {
+    /**
+     * Record a customer-initiated due-balance payment (full or partial) from booking details.
+     */
+    function record_customer_booking_due_payment(
+        Booking $booking,
+        float $amount,
+        string $transactionId,
+        string $paymentMethod
+    ): void {
+        $amount = round(max(0.0, $amount), 2);
+        if ($amount <= 0) {
+            return;
+        }
+
+        $booking->loadMissing('booking_partial_payments');
+        $cap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+        $totalPaid = round((float) get_booking_total_paid($booking), 2);
+        $dueBefore = function_exists('get_booking_invoice_due_amount')
+            ? round((float) get_booking_invoice_due_amount($booking), 2)
+            : round(max(0.0, $cap - $totalPaid), 2);
+        $dueAfter = round(max(0.0, $dueBefore - $amount), 2);
+        $paidWith = map_booking_payment_paid_with($paymentMethod);
+        $adminUserId = \Modules\UserManagement\Entities\User::where('user_type', ADMIN_USER_TYPES[0])->first()?->id;
+
+        DB::transaction(function () use ($booking, $amount, $transactionId, $paidWith, $dueAfter, $paymentMethod, $adminUserId) {
+            $partial = $booking->booking_partial_payments()->create([
+                'paid_with' => $paidWith,
+                'paid_amount' => $amount,
+                'due_amount' => $dueAfter,
+                'received_by' => 'company',
+                'transaction_id' => $transactionId,
+            ]);
+
+            if ($adminUserId) {
+                $account = \Modules\TransactionModule\Entities\Account::where('user_id', $adminUserId)->first();
+                if ($account) {
+                    $account->balance_pending += $amount;
+                    $account->save();
+                }
+
+                Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $booking->id,
+                    'trx_type' => TRX_TYPE['booking_amount'],
+                    'company_flow' => Transaction::FLOW_IN,
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'balance' => $account?->balance_pending ?? 0,
+                    'from_user_id' => $booking->customer_id,
+                    'to_user_id' => $adminUserId,
+                    'from_user_account' => null,
+                    'to_user_account' => ACCOUNT_STATES[0]['value'],
+                    'is_guest' => $booking->is_guest,
+                ]);
+            }
+
+            ledger_record_in([
+                'amount' => $amount,
+                'transaction_id' => $transactionId,
+                'booking_id' => $booking->id,
+                'payment_method' => $paymentMethod,
+                'date' => now()->toDateString(),
+                'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                'booking_partial_payment_id' => $partial->id,
+            ]);
+
+            $fresh = $booking->fresh(['booking_partial_payments']);
+            $fresh->payment_method = $paymentMethod;
+            $fresh->transaction_id = $transactionId;
+            $payableCap = round((float) get_booking_payable_total_for_partial_dues($fresh), 2);
+            $paidTotal = round((float) get_booking_total_paid($fresh), 2);
+            $fresh->is_paid = ($payableCap > 0.009 && $paidTotal + 0.009 >= $payableCap) ? 1 : 0;
+            $fresh->save();
+        });
     }
 }
 
@@ -2184,6 +2267,7 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
                 'transaction_id' => $row['transaction_id'] ?? null,
                 'due_after_payment' => round((float) ($row['due_after_payment'] ?? 0), 2),
             ])
+            ->sortByDesc(fn (array $row) => (string) ($row['date'] ?? ''))
             ->values()
             ->all();
 
@@ -2191,8 +2275,8 @@ if (! function_exists('booking_append_customer_api_financial_fields')) {
             ->where('booking_id', $main->id)
             ->where('reason', LedgerTransaction::REASON_REFUND)
             ->where('type', LedgerTransaction::TYPE_OUT)
-            ->orderBy('created_at')
-            ->orderBy('id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get()
             ->map(function ($entry, $index) {
                 return [
@@ -4463,5 +4547,191 @@ if (!function_exists('finalize_booking_checkout_transactions')) {
         } elseif ($booking['payment_method'] != 'cash_after_service') {
             placeBookingTransactionForWalletPayment($booking);
         }
+    }
+}
+
+if (! function_exists('booking_attach_api_change_logs')) {
+    /**
+     * Attach audit change logs for customer/provider mobile API responses.
+     *
+     * @param  Booking|BookingRepeat  $booking
+     */
+    function booking_attach_api_change_logs($booking, ?string $repeatId = null): void
+    {
+        if (! class_exists(\Modules\BookingModule\Entities\BookingChangeLog::class)) {
+            return;
+        }
+
+        $parentBookingId = $booking instanceof BookingRepeat
+            ? (string) ($booking->booking_id ?? '')
+            : (string) ($booking->id ?? '');
+
+        if ($parentBookingId === '') {
+            return;
+        }
+
+        $query = \Modules\BookingModule\Entities\BookingChangeLog::query()
+            ->with('changedBy')
+            ->where('booking_id', $parentBookingId);
+
+        if ($repeatId !== null && $repeatId !== '') {
+            $repeatContext = 'booking_repeat:' . $repeatId;
+            $query->where(function ($q) use ($repeatContext) {
+                $q->whereNull('context')
+                    ->orWhere('context', $repeatContext)
+                    ->orWhere('property_key', 'like', 'repeat.%');
+            });
+        }
+
+        $booking->setRelation(
+            'change_logs',
+            $query->orderByDesc('created_at')->get()->map(function ($log) {
+                $log->event_title = booking_change_log_mobile_title((string) $log->property_key);
+                $log->event_description = booking_change_log_mobile_description($log);
+                $log->event_type = booking_change_log_mobile_event_type((string) $log->property_key);
+
+                return $log;
+            })
+        );
+    }
+}
+
+if (! function_exists('booking_change_log_mobile_title')) {
+    function booking_change_log_mobile_title(string $propertyKey): string
+    {
+        return match (true) {
+            $propertyKey === 'booking.created' => translate('Booking_created'),
+            str_starts_with($propertyKey, 'booking.updated.status') => translate('Booking_status_update'),
+            str_starts_with($propertyKey, 'repeat.') && str_contains($propertyKey, 'status') => translate('Booking_status_update'),
+            str_starts_with($propertyKey, 'booking.updated.schedule') => translate('Booking_schedule_change'),
+            str_starts_with($propertyKey, 'repeat.') && str_contains($propertyKey, 'schedule') => translate('Booking_schedule_change'),
+            str_starts_with($propertyKey, 'booking.updated.assignment') => translate('Booking_provider_change'),
+            str_starts_with($propertyKey, 'booking.updated.payment') => translate('Payment_update'),
+            str_starts_with($propertyKey, 'booking_detail.created') => translate('Service_added'),
+            str_starts_with($propertyKey, 'booking_detail.deleted') => translate('Service_removed'),
+            str_starts_with($propertyKey, 'booking_detail.updated') => translate('Service_updated'),
+            str_starts_with($propertyKey, 'booking_extra_service.created') => translate('Extra_service_added'),
+            str_starts_with($propertyKey, 'booking_extra_service.deleted') => translate('Extra_service_removed'),
+            str_starts_with($propertyKey, 'booking_extra_service.updated') => translate('Extra_service_updated'),
+            default => translate('Booking_updated'),
+        };
+    }
+}
+
+if (! function_exists('booking_change_log_mobile_event_type')) {
+    function booking_change_log_mobile_event_type(string $propertyKey): string
+    {
+        return match (true) {
+            str_contains($propertyKey, 'status') => 'status',
+            str_contains($propertyKey, 'schedule') => 'schedule',
+            str_contains($propertyKey, 'assignment') || str_contains($propertyKey, 'provider') || str_contains($propertyKey, 'serviceman') => 'provider',
+            str_contains($propertyKey, 'payment') => 'payment',
+            str_contains($propertyKey, 'detail') || str_contains($propertyKey, 'extra_service') || str_contains($propertyKey, 'service') => 'service',
+            default => 'other',
+        };
+    }
+}
+
+if (! function_exists('booking_change_log_mobile_description')) {
+    function booking_change_log_mobile_description(\Modules\BookingModule\Entities\BookingChangeLog $log): ?string
+    {
+        $key = (string) $log->property_key;
+        $new = booking_change_log_clean_value($log->new_value);
+        $old = booking_change_log_clean_value($log->old_value);
+
+        if (str_ends_with($key, '.deleted') || $key === '_deleted') {
+            return booking_change_log_humanize_text($old);
+        }
+        if (str_ends_with($key, '.created') || $key === 'booking.created') {
+            return booking_change_log_humanize_text($new);
+        }
+
+        return booking_change_log_humanize_text($new ?? $old);
+    }
+}
+
+if (! function_exists('booking_change_log_clean_value')) {
+    function booking_change_log_clean_value(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $text = trim((string) $value);
+
+        return ($text === '' || $text === '—') ? null : $text;
+    }
+}
+
+if (! function_exists('booking_change_log_humanize_text')) {
+    function booking_change_log_humanize_text(?string $text): ?string
+    {
+        if ($text === null) {
+            return null;
+        }
+
+        $segments = preg_split('/;\s*/', $text) ?: [];
+        $humanized = [];
+
+        foreach ($segments as $segment) {
+            $segment = trim($segment);
+            if ($segment === '') {
+                continue;
+            }
+
+            if (preg_match('/^([^:]+):\s*(.+)$/u', $segment, $matches)) {
+                $field = strtolower(str_replace(' ', '_', trim($matches[1])));
+                $value = trim($matches[2]);
+
+                if (in_array($field, ['booking_status', 'status'], true)) {
+                    $humanized[] = translate(str_replace(' ', '_', strtolower($value)));
+                    continue;
+                }
+
+                if (in_array($field, ['provider_id', 'serviceman_id', 'assignee_id'], true)) {
+                    $humanized[] = $value;
+                    continue;
+                }
+
+                if ($field === 'service_schedule') {
+                    try {
+                        $humanized[] = \Carbon\Carbon::parse($value)->format('d-M-Y h:ia');
+                    } catch (\Throwable) {
+                        $humanized[] = $value;
+                    }
+                    continue;
+                }
+
+                $humanized[] = $value;
+                continue;
+            }
+
+            $humanized[] = booking_change_log_translate_tokens($segment);
+        }
+
+        $result = trim(implode('; ', array_filter($humanized)));
+
+        return $result === '' ? booking_change_log_translate_tokens($text) : $result;
+    }
+}
+
+if (! function_exists('booking_change_log_translate_tokens')) {
+    function booking_change_log_translate_tokens(string $text): string
+    {
+        $replacements = [
+            'pending' => translate('pending'),
+            'accepted' => translate('accepted'),
+            'ongoing' => translate('ongoing'),
+            'completed' => translate('completed'),
+            'canceled' => translate('canceled'),
+            'on_hold' => translate('on_hold'),
+            'paid' => translate('paid'),
+            'unpaid' => translate('unpaid'),
+        ];
+
+        foreach ($replacements as $token => $label) {
+            $text = preg_replace('/\b'.preg_quote($token, '/').'\b/i', $label, $text);
+        }
+
+        return str_replace('_', ' ', $text);
     }
 }

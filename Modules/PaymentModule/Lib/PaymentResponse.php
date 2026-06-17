@@ -184,22 +184,31 @@ class PaymentResponse
 
         if (!is_null($request['booking_id'])) {
             $booking = Booking::find($request['booking_id']);
-            $booking->is_paid = 1;
+            $paymentRequest = PaymentRequest::find($payment_request_id);
+            $chargedAmount = round((float) ($paymentRequest->payment_amount ?? 0), 2);
+            $invoiceDueBefore = function_exists('get_booking_invoice_due_amount')
+                ? round((float) get_booking_invoice_due_amount($booking), 2)
+                : round(max(0.0, (float) $booking->total_booking_amount), 2);
+            $hasExplicitAmount = array_key_exists('amount', $additional_data)
+                && $additional_data['amount'] !== null
+                && $additional_data['amount'] !== '';
+            $isDueCollection = $hasExplicitAmount
+                || ! empty($additional_data['collect_due_amount'])
+                || $booking->booking_partial_payments()->exists()
+                || ($invoiceDueBefore > 0.009 && $chargedAmount > 0);
+
             $booking->payment_method = $request['payment_method'];
             $booking->transaction_id = $tran_id;
-            $booking->save();
-
-            placeBookingTransactionForDigitalPayment($booking);  //digital payment
-
-            if ($booking->booking_partial_payments->isNotEmpty()) {
-                // Update rows where `paid_with to digital` is not 'wallet'
-                $booking->booking_partial_payments()
-                    ->where('paid_with', '!=', 'wallet')
-                    ->update(['paid_with' => 'digital']);
-            }
 
             if ($request['is_partial']){
-                // Save wallet payment
+                $booking->save();
+
+                if ($booking->booking_partial_payments->isNotEmpty()) {
+                    $booking->booking_partial_payments()
+                        ->where('paid_with', '!=', 'wallet')
+                        ->update(['paid_with' => 'digital']);
+                }
+
                 BookingPartialPayment::create([
                     'booking_id' => $booking->id,
                     'paid_with' => 'wallet',
@@ -207,7 +216,6 @@ class PaymentResponse
                     'due_amount' => $request['digitally_paid_amount'],
                 ]);
 
-                // Save remaining payment
                 BookingPartialPayment::create([
                     'booking_id' => $booking->id,
                     'paid_with' => 'digital',
@@ -215,8 +223,28 @@ class PaymentResponse
                     'due_amount' => 0,
                 ]);
 
-                placeBookingTransactionForPartialDigital($booking);  //wallet + digital payment
+                placeBookingTransactionForPartialDigital($booking);
+                $booking->is_paid = 1;
+                $booking->save();
+            } elseif ($isDueCollection) {
+                record_customer_booking_due_payment(
+                    $booking,
+                    $chargedAmount,
+                    $tran_id,
+                    (string) $request['payment_method']
+                );
+            } else {
+                $booking->is_paid = 1;
+                $booking->save();
+                placeBookingTransactionForDigitalPayment($booking);
             }
+
+            $booking->refresh();
+            $booking->loadMissing('booking_partial_payments');
+            $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
+            $paidTotal = round((float) get_booking_total_paid($booking), 2);
+            $booking->is_paid = ($payableCap > 0.009 && $paidTotal + 0.009 >= $payableCap) ? 1 : 0;
+            $booking->save();
 
             $response = [
                 'flag' => 'success',
