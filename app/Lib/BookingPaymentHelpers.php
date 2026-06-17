@@ -344,6 +344,55 @@ if (!function_exists('get_booking_extra_service_line_discount_total')) {
     }
 }
 
+if (! function_exists('booking_detail_line_gross_total')) {
+    function booking_detail_line_gross_total($detail): float
+    {
+        return round((float) ($detail->service_cost ?? 0) * (int) ($detail->quantity ?? 1), 2);
+    }
+}
+
+if (! function_exists('booking_detail_line_discounted_total')) {
+    function booking_detail_line_discounted_total($detail): float
+    {
+        $gross = booking_detail_line_gross_total($detail);
+        $discount = round(
+            (float) ($detail->discount_amount ?? 0)
+            + (float) ($detail->campaign_discount_amount ?? 0)
+            + (float) ($detail->overall_coupon_discount_amount ?? 0),
+            2
+        );
+
+        return round(max(0, $gross - $discount), 2);
+    }
+}
+
+if (! function_exists('booking_extra_service_line_gross_total')) {
+    function booking_extra_service_line_gross_total($extra): float
+    {
+        return round((float) ($extra->price ?? 0) * (int) ($extra->quantity ?? 1), 2);
+    }
+}
+
+if (! function_exists('booking_summary_dual_price_html')) {
+    function booking_summary_dual_price_html(float $original, float $discounted, bool $bold = false): HtmlString
+    {
+        $original = round($original, 2);
+        $discounted = round($discounted, 2);
+        $weight = $bold ? 'fw-semibold' : '';
+
+        if ($original <= $discounted + 0.001) {
+            return new HtmlString('<span class="'.$weight.'">'.e(with_currency_symbol($discounted)).'</span>');
+        }
+
+        return new HtmlString(
+            '<div class="d-flex flex-column align-items-end '.$weight.'">'
+            .'<span class="text-decoration-line-through text-muted small">'.e(with_currency_symbol($original)).'</span>'
+            .'<span>'.e(with_currency_symbol($discounted)).'</span>'
+            .'</div>'
+        );
+    }
+}
+
 if (!function_exists('get_booking_advance_paid_amount')) {
     /**
      * Sum of advance/offline partial payments (paid to company at booking create) for this booking.
@@ -1770,8 +1819,44 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
             ->values()
             ->all();
 
+        $installmentPayload = booking_installment_payments_payload($main, is_array($bfsScaledLive) ? $bfsScaledLive : null);
+        $installments = collect($installmentPayload['rows'] ?? [])
+            ->map(fn (array $row) => [
+                'serial' => (int) ($row['serial'] ?? 0),
+                'date' => $row['date'] ?? null,
+                'received_by_label' => (string) ($row['received_by_label'] ?? '—'),
+                'amount' => round((float) ($row['amount'] ?? 0), 2),
+                'payment_method_label' => (string) ($row['payment_method_label'] ?? ''),
+                'transaction_id' => $row['transaction_id'] ?? null,
+                'due_after_payment' => round((float) ($row['due_after_payment'] ?? 0), 2),
+            ])
+            ->values()
+            ->all();
+
+        $refunds = LedgerTransaction::query()
+            ->where('booking_id', $main->id)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->map(function ($entry, $index) {
+                return [
+                    'serial' => $index + 1,
+                    'date' => $entry->created_at?->toIso8601String(),
+                    'amount' => round((float) ($entry->amount ?? 0), 2),
+                    'transaction_id' => $entry->transaction_id ?: null,
+                    'reference_note' => $entry->reference_note ?: null,
+                ];
+            })
+            ->all();
+
         $target = $booking instanceof BookingRepeat ? $booking : $main;
         $target->setAttribute('payment_details', $paymentPayload);
+        $target->setAttribute('payment_ledger', [
+            'installments' => $installments,
+            'refunds' => $refunds,
+        ]);
         $target->setAttribute('revenue_settlement', $revenuePayload);
         $target->setAttribute('service_location_details', booking_provider_api_service_location_payload($booking));
         $target->setAttribute('extra_service_lines', $extraServiceLines);
