@@ -4753,7 +4753,9 @@ if (! function_exists('booking_attach_api_change_logs')) {
 
         $booking->setRelation(
             'change_logs',
-            $query->orderByDesc('created_at')->get()->map(function ($log) {
+            $query->orderByDesc('created_at')->get()
+                ->filter(fn ($log) => ! booking_change_log_hide_from_mobile_api($log))
+                ->map(function ($log) {
                 $log->event_title = booking_change_log_mobile_title((string) $log->property_key);
                 $log->event_description = booking_change_log_mobile_description($log);
                 $log->event_type = booking_change_log_mobile_event_type((string) $log->property_key);
@@ -4764,11 +4766,43 @@ if (! function_exists('booking_attach_api_change_logs')) {
     }
 }
 
+if (! function_exists('booking_change_log_hide_from_mobile_api')) {
+    /**
+     * Hide internal reopen bookkeeping rows from customer/provider history.
+     */
+    function booking_change_log_hide_from_mobile_api(\Modules\BookingModule\Entities\BookingChangeLog $log): bool
+    {
+        $key = (string) ($log->property_key ?? '');
+        if ($key === 'booking.reopened') {
+            return false;
+        }
+
+        if ($key !== 'booking.updated.other') {
+            return false;
+        }
+
+        $new = trim((string) ($log->new_value ?? ''));
+        $old = trim((string) ($log->old_value ?? ''));
+        $combined = $new . ' ' . $old;
+
+        if ($new !== '' && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $new)) {
+            return true;
+        }
+
+        if (preg_match('/\b(reopened_by|last_reopen_event_at|reopen_resolved_at|reopen_resolved_by|reopen_resolve_remarks|reopen_completion_allowed|originated_from_booking_id)\b/i', $combined)) {
+            return true;
+        }
+
+        return false;
+    }
+}
+
 if (! function_exists('booking_change_log_mobile_title')) {
     function booking_change_log_mobile_title(string $propertyKey): string
     {
         return match (true) {
             $propertyKey === 'booking.created' => translate('Booking_created'),
+            $propertyKey === 'booking.reopened' => translate('Booking_reopened'),
             str_starts_with($propertyKey, 'booking.updated.status') => translate('Booking_status_update'),
             str_starts_with($propertyKey, 'repeat.') && str_contains($propertyKey, 'status') => translate('Booking_status_update'),
             str_starts_with($propertyKey, 'booking.updated.schedule') => translate('Booking_schedule_change'),

@@ -765,7 +765,7 @@ class BookingController extends Controller
     {
         $provider_id = $request->user()->provider->id;
         $booking = $this->booking->with([
-            'detail.service', 'schedule_histories.user', 'status_histories.user', 'change_logs.changedBy', 'customer',
+            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'change_logs.changedBy', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
             'repeat.detail.service', 'repeat.repeatHistories'
@@ -2162,7 +2162,7 @@ class BookingController extends Controller
         }
 
         $freshBooking = $this->booking->with([
-            'detail.service', 'schedule_histories.user', 'status_histories.user', 'change_logs.changedBy', 'customer',
+            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'change_logs.changedBy', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
         ])->find($booking->id);

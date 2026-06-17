@@ -8,6 +8,7 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingChangeLog;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingExtraService;
+use Modules\BookingModule\Entities\BookingHoldReopenReason;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\CategoryManagement\Entities\Category;
@@ -25,6 +26,14 @@ final class BookingAuditLogger
 
     private const SKIP_BOOKING_KEYS = [
         'updated_at',
+        'last_reopen_event_at',
+        'reopened_by',
+        'reopen_resolved_at',
+        'reopen_resolved_by',
+        'reopen_resolve_remarks',
+        'reopen_completion_allowed',
+        'reopen_disputed_snapshot',
+        'originated_from_booking_id',
     ];
 
     /** @var list<string> */
@@ -144,6 +153,44 @@ final class BookingAuditLogger
             translate('Booking created'),
             '—',
             '#' . $ref,
+            null
+        );
+    }
+
+    /**
+     * Customer/provider-visible reopen event (in-place from completed).
+     */
+    public static function logBookingReopenedInPlace(
+        Booking $booking,
+        string $targetStatus,
+        ?string $complaintNotes = null,
+        ?int $holdReopenReasonId = null
+    ): void {
+        self::clearCache();
+        $statusKey = strtolower(trim($targetStatus));
+        if ($statusKey === 'cancelled') {
+            $statusKey = 'canceled';
+        }
+        $displayKey = 'reopened_and_' . ($statusKey !== '' ? $statusKey : 'pending');
+        $display = translate($displayKey);
+        $reasonName = null;
+        if ($holdReopenReasonId) {
+            $reasonName = BookingHoldReopenReason::query()->whereKey($holdReopenReasonId)->value('name');
+        }
+        if (is_string($reasonName) && trim($reasonName) !== '') {
+            $display .= ' — ' . trim($reasonName);
+        }
+        $notes = trim((string) ($complaintNotes ?? ''));
+        if ($notes !== '') {
+            $display .= ' — ' . $notes;
+        }
+
+        self::log(
+            (string) $booking->id,
+            'booking.reopened',
+            translate('Booking_reopened'),
+            translate('completed'),
+            $display,
             null
         );
     }

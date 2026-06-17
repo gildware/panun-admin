@@ -356,6 +356,7 @@ class BookingController extends Controller
                 'detail.service',
                 'schedule_histories.user',
                 'status_histories.user',
+                'status_histories.holdReopenReason',
                 'change_logs.changedBy',
                 'customer',
                 'provider',

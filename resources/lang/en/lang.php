@@ -8008,6 +8008,7 @@ _Message' => 'Customer notification for provider bid offer
   'Complaint_or_notes' => 'Complaint / notes',
   'Describe_the_issue_optional' => 'Describe the issue (optional)',
   'Booking_reopened_in_place' => 'Booking reopened successfully.',
+  'Booking_reopened' => 'Booking reopened',
   'Follow_up_booking_created_from_reopen' => 'Follow-up booking created and linked to the original.',
   'Reopen_follow_up_redirect_to_create' => 'Use the form below to add a new booking. It will be linked to the original job when you confirm.',
   'Invalid_reopen_follow_up_session' => 'This follow-up link is missing or no longer valid. Start again from the completed booking, or continue without a link.',
@@ -9120,4 +9121,9 @@ _Message' => 'Customer notification for provider bid offer
   'Open_in_new_tab' => 'Open in new tab',
   'Go_to_message' => 'Go to message',
   'Select_or_type_to_add_area' => 'Select or type to add area',
+  'Booking_status_update' => 'Booking status update',
+  'Service_added' => 'Service added',
+  'on_hold' => 'On hold',
+  'Booking_created' => 'Booking created',
+  'Booking_provider_change' => 'Booking provider change',
 );

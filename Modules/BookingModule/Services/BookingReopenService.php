@@ -112,6 +112,13 @@ class BookingReopenService
 
             $this->recordProviderReopenIncident($source, $actor, $complaintNotes, 'reopen_in_place');
 
+            BookingAuditLogger::logBookingReopenedInPlace(
+                $source->fresh() ?? $source,
+                $targetStatus,
+                $complaintNotes !== '' ? $complaintNotes : null,
+                $holdReopenReasonId
+            );
+
             return ['event' => $event, 'booking' => $source->fresh()];
         });
     }
