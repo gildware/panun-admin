@@ -411,6 +411,72 @@ final class BookingAuditLogger
         return null;
     }
 
+    public static function resolveServiceSummaryForDisplay(BookingChangeLog $log): ?string
+    {
+        $fromContext = self::resolveServiceSummaryFromContext($log);
+        if ($fromContext !== null && $fromContext !== '') {
+            return $fromContext;
+        }
+
+        $fromLabel = self::resolveServiceSummaryFromPropertyLabel((string) ($log->property_label ?? ''));
+        if ($fromLabel !== null && $fromLabel !== '') {
+            return $fromLabel;
+        }
+
+        foreach ([(string) ($log->new_value ?? ''), (string) ($log->old_value ?? '')] as $raw) {
+            $fromChange = self::extractServiceSummaryFromChangeText($raw);
+            if ($fromChange !== null && $fromChange !== '') {
+                return $fromChange;
+            }
+        }
+
+        return null;
+    }
+
+    public static function resolveServiceSummaryFromPropertyLabel(string $label): ?string
+    {
+        $label = trim($label);
+        if ($label === '') {
+            return null;
+        }
+
+        $withoutUpdated = trim(preg_split('/\s[—-]\s/u', $label)[0] ?? $label);
+        if ($withoutUpdated === '') {
+            return null;
+        }
+
+        if (preg_match('/^(.+?)\s*[×x]\s*(\d+)\s*$/u', $withoutUpdated, $matches)) {
+            return trim($matches[1]) . ' ×' . $matches[2];
+        }
+
+        if (str_starts_with(strtolower($withoutUpdated), 'service line')) {
+            return null;
+        }
+
+        return $withoutUpdated;
+    }
+
+    public static function extractServiceSummaryFromChangeText(string $text): ?string
+    {
+        $text = trim($text);
+        if ($text === '' || $text === '—') {
+            return null;
+        }
+
+        if (preg_match('/^(.+?)\s*[×x]\s*(\d+)\s*$/u', $text, $matches)) {
+            return trim($matches[1]) . ' ×' . $matches[2];
+        }
+
+        if (preg_match('/service(?:\s+name)?\s*:\s*(.+?)(?:\s*;|$)/i', $text, $matches)) {
+            $name = trim($matches[1]);
+            if ($name !== '' && $name !== '—') {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
     public static function logBookingExtraServiceChange(string $action, BookingExtraService $row, ?array $changes = null): void
     {
         if (!$row->booking_id) {
