@@ -76,7 +76,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'limit' => 'required|numeric|min:1|max:200',
             'offset' => 'required|numeric|min:1|max:100000',
-            'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')) . ',all',
+            'booking_status' => 'required|in:all,reopened,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'from_date' => 'date',
             'to_date' => 'date',
             'sub_category_ids' => 'array',
@@ -141,6 +141,17 @@ class BookingController extends Controller
             })
             ->count();
 
+        $bookings_count['reopened'] = $this->booking
+            ->where('provider_id', $providerId)
+            ->openReopenTickets()
+            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                $query->where('provider_id', $providerId);
+            })
+            ->when($request['service_type'] != 'all', function ($query) use ($request) {
+                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
+            })
+            ->count();
+
         $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
         $serviceLocations = getProviderSettings(providerId: $providerId, key: 'service_location', type: 'provider_config') ?? ['customer'];
 
@@ -151,7 +162,14 @@ class BookingController extends Controller
                     $query->first() ?? [];
             }])
             ->withCount('compensations')
-            ->when(!in_array($request['booking_status'], ['pending', 'all']), function ($query) use ($providerId, $request, $maxBookingAmount) {
+            ->when($request['booking_status'] == 'reopened', function ($query) use ($providerId) {
+                $query->where('provider_id', $providerId)
+                    ->openReopenTickets()
+                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                        $query->where('provider_id', $providerId);
+                    });
+            })
+            ->when(!in_array($request['booking_status'], ['pending', 'all', 'reopened']), function ($query) use ($providerId, $request, $maxBookingAmount) {
                 $query->ofBookingStatus($request['booking_status'])
                     ->where('provider_id', $providerId)
                     ->whereDoesntHave('ignores', function ($query) use ($providerId) {
@@ -227,6 +245,7 @@ class BookingController extends Controller
         $bookingsCount = collect(BOOKING_STATUSES)->mapWithKeys(function ($item) {
             return [$item['key'] => 0];
         })->toArray();
+        $bookingsCount['reopened'] = 0;
 
         $bookings = $this->booking
             ->whereRaw('1 = 0')

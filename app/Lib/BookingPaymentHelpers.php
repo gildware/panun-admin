@@ -1188,6 +1188,44 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
     }
 }
 
+if (! function_exists('booking_reopen_combined_status_key')) {
+    /**
+     * Translation key for open reopen tickets, e.g. reopened_and_pending.
+     * Returns null when the booking is not an active reopen case.
+     */
+    function booking_reopen_combined_status_key(Booking $booking): ?string
+    {
+        if ((int) ($booking->is_repeated ?? 0) !== 0) {
+            return null;
+        }
+        if (! $booking->isOpenReopenTicket()) {
+            return null;
+        }
+
+        $st = strtolower((string) ($booking->booking_status ?? ''));
+        if ($st === 'cancelled') {
+            $st = 'canceled';
+        }
+        if ($st === 'on_hold') {
+            return 'reopened_and_on_hold';
+        }
+        if ($st === 'canceled') {
+            return 'reopened_and_cancelled';
+        }
+        if ($st === 'refunded') {
+            return 'reopened_and_refunded';
+        }
+        if ($st === 'completed') {
+            return 'reopened_and_completed';
+        }
+        if (in_array($st, ['pending', 'accepted', 'ongoing'], true)) {
+            return 'reopened_and_' . $st;
+        }
+
+        return 'reopened_and_' . ($st !== '' ? $st : 'pending');
+    }
+}
+
 if (!function_exists('booking_admin_booking_status_display_label')) {
     /**
      * Admin UI label for {@see Booking::booking_status}: use "Hold after visit" when hold followed ongoing.
@@ -1196,6 +1234,10 @@ if (!function_exists('booking_admin_booking_status_display_label')) {
      */
     function booking_admin_booking_status_display_label(Booking $booking): string
     {
+        if ($reopenKey = booking_reopen_combined_status_key($booking)) {
+            return translate($reopenKey);
+        }
+
         $hasDisputedSnapshot = ! empty($booking->reopen_disputed_snapshot)
             && is_array($booking->reopen_disputed_snapshot)
             && $booking->reopen_disputed_snapshot !== [];
@@ -1399,6 +1441,10 @@ if (! function_exists('booking_admin_status_badge_variant')) {
      */
     function booking_admin_status_badge_variant(Booking $booking): string
     {
+        if (booking_reopen_combined_status_key($booking) !== null) {
+            return 'warning';
+        }
+
         $st = strtolower((string) ($booking->booking_status ?? ''));
         $hasDisputedSnapshot = ! empty($booking->reopen_disputed_snapshot)
             && is_array($booking->reopen_disputed_snapshot);
@@ -1431,6 +1477,10 @@ if (! function_exists('booking_admin_status_display_key')) {
      */
     function booking_admin_status_display_key(Booking $booking): string
     {
+        if ($reopenKey = booking_reopen_combined_status_key($booking)) {
+            return $reopenKey;
+        }
+
         $hasDisputedSnapshot = ! empty($booking->reopen_disputed_snapshot)
             && is_array($booking->reopen_disputed_snapshot)
             && $booking->reopen_disputed_snapshot !== [];
@@ -1491,7 +1541,7 @@ if (! function_exists('booking_admin_status_tags_for_api')) {
             $tags[] = ['key' => 'case_closed', 'label' => 'booking_tag_case_closed', 'variant' => 'success'];
         }
         if (empty($booking->is_repeated)) {
-            if ($booking->isOpenReopenTicket()) {
+            if ($booking->isOpenReopenTicket() && booking_reopen_combined_status_key($booking) === null) {
                 $tags[] = ['key' => 'reopened', 'label' => 'reopened', 'variant' => 'warning'];
             } elseif ($booking->isReopenedTagged() && ! booking_admin_has_disputed_reopen_snapshot($booking)) {
                 $tags[] = ['key' => 'resolved', 'label' => 'resolved', 'variant' => 'success'];
@@ -1544,6 +1594,16 @@ if (! function_exists('booking_append_provider_api_ui_fields')) {
         $booking->setAttribute('booking_status_display_key', booking_admin_status_display_key($booking));
         $booking->setAttribute('booking_status_badge_variant', booking_admin_status_badge_variant($booking));
         $booking->setAttribute('booking_status_tags', booking_admin_status_tags_for_api($booking));
+    }
+}
+
+if (! function_exists('booking_append_customer_api_ui_fields')) {
+    /**
+     * Attach display status + tags for customer mobile API JSON serialization.
+     */
+    function booking_append_customer_api_ui_fields(Booking $booking): void
+    {
+        booking_append_provider_api_ui_fields($booking);
     }
 }
 
@@ -1830,6 +1890,7 @@ if (! function_exists('booking_append_provider_api_financial_fields')) {
             ->all();
 
         $target = $booking instanceof BookingRepeat ? $booking : $main;
+        $target->setAttribute('payable_grand_total', round((float) get_booking_total_amount($main), 2));
         $target->setAttribute('payment_details', $paymentPayload);
         $target->setAttribute('payment_ledger', [
             'installments' => $installments,
@@ -4761,7 +4822,7 @@ if (! function_exists('booking_change_log_mobile_description')) {
         if (str_starts_with($key, 'booking_detail.updated')
             || str_starts_with($key, 'booking_repeat_detail.updated')
             || str_starts_with($key, 'booking_extra_service.updated')) {
-            $summary = \Modules\BookingModule\Services\BookingAuditLogger::resolveServiceSummaryFromContext($log);
+            $summary = \Modules\BookingModule\Services\BookingAuditLogger::resolveServiceSummaryForDisplay($log);
             if ($summary !== null && $summary !== '') {
                 return $summary;
             }
@@ -4802,7 +4863,11 @@ if (! function_exists('booking_change_log_humanize_text')) {
             }
 
             if (preg_match('/^([^:]+):\s*(.+)$/u', $segment, $matches)) {
-                $field = strtolower(str_replace(' ', '_', trim($matches[1])));
+                $fieldRaw = trim($matches[1]);
+                if (! preg_match('/[a-zA-Z]/', $fieldRaw)) {
+                    continue;
+                }
+                $field = strtolower(str_replace(' ', '_', $fieldRaw));
                 $value = trim($matches[2]);
 
                 if (in_array($field, ['evidence_photos', 'service_address_location', 'additional_charges_breakdown'], true)) {
@@ -4875,6 +4940,12 @@ if (! function_exists('booking_change_log_is_garbage_text')) {
             return true;
         }
         if (preg_match('/^[\d.,;\s]+$/', $text)) {
+            return true;
+        }
+        if (preg_match('/^\d{1,2}:\d{2}(:\d{2})?$/', $text)) {
+            return true;
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}/', $text)) {
             return true;
         }
 

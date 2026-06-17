@@ -292,7 +292,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'limit' => 'required|numeric|min:1|max:200',
             'offset' => 'required|numeric|min:1|max:100000',
-            'booking_status' => 'required|in:all,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'booking_status' => 'required|in:all,reopened,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'service_type' => 'required|in:all,regular,repeat',
             'string' => 'string'
         ]);
@@ -305,7 +305,10 @@ class BookingController extends Controller
             ->with(['customer', 'repeat', 'customizeBooking', 'extra_services'])
             ->where(['customer_id' => $request->user()->id])
             ->search(base64_decode($request['string']), ['readable_id'])
-            ->when($request['booking_status'] != 'all', function ($query) use ($request) {
+            ->when($request['booking_status'] == 'reopened', function ($query) {
+                return $query->openReopenTickets();
+            })
+            ->when($request['booking_status'] != 'all' && $request['booking_status'] != 'reopened', function ($query) use ($request) {
                 return $query->ofBookingStatus($request['booking_status']);
             })
             ->when($request['service_type'] != 'all', function ($query) use ($request) {
@@ -329,6 +332,7 @@ class BookingController extends Controller
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
             $booking->setAttribute('list_display_total', $listDisplayTotal);
             $booking->setAttribute('payable_grand_total', $listDisplayTotal);
+            booking_append_customer_api_ui_fields($booking);
 
             unset($booking->repeat);
             unset($booking->customizeBooking);
@@ -447,6 +451,7 @@ class BookingController extends Controller
             unset($booking->customizeBooking);
 
             booking_append_customer_api_financial_fields($booking);
+            booking_append_customer_api_ui_fields($booking);
             booking_attach_api_change_logs($booking);
 
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
