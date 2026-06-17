@@ -147,7 +147,7 @@ class BookingController extends Controller
 
         //bookings list
         $bookings = $this->booking
-            ->with(['customer', 'subCategory:id,name', 'repeat', 'booking_offline_payments' => function ($query) {
+            ->with(['customer', 'subCategory:id,name', 'repeat', 'extra_services', 'booking_offline_payments' => function ($query) {
                     $query->first() ?? [];
             }])
             ->withCount('compensations')
@@ -208,8 +208,12 @@ class BookingController extends Controller
                 });
                 $booking->repeats = $sortedRepeats->values()->toArray();
             }
-            unset($booking->repeat);
             booking_append_provider_api_ui_fields($booking);
+            $listDisplayTotal = get_customer_booking_list_display_total($booking);
+            $booking->setAttribute('list_display_total', $listDisplayTotal);
+            $booking->setAttribute('payable_grand_total', $listDisplayTotal);
+            unset($booking->repeat);
+            unset($booking->extra_services);
         }
 
         return response()->json(response_formatter(DEFAULT_200, [
@@ -522,7 +526,7 @@ class BookingController extends Controller
                 $request->filled('booking_type') && $request->booking_type !== 'all',
                 fn ($q) => $q->where('is_repeated', $request->booking_type === 'repeat' ? 1 : 0)
             )
-            ->with('repeat')
+            ->with(['repeat', 'extra_services'])
             ->withCount('compensations')
             ->get()
             ->unique('id');
@@ -636,6 +640,7 @@ class BookingController extends Controller
             $groups[$key]['count']++;
 
             booking_append_provider_api_ui_fields($booking);
+            $listDisplayTotal = get_customer_booking_list_display_total($booking);
             $groups[$key]['bookings'][] = [
                 'id' => $booking->id,
                 'readable_id' => $booking->readable_id,
@@ -647,6 +652,8 @@ class BookingController extends Controller
                 'booking_status_tags' => $booking->booking_status_tags,
                 'service_location' => $booking->service_location ?? 'At your location',
                 'total_booking_amount' => $booking->total_booking_amount,
+                'list_display_total' => $listDisplayTotal,
+                'payable_grand_total' => $listDisplayTotal,
                 'created_at' => $booking->created_at
             ];
         }
