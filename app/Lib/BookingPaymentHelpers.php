@@ -1541,7 +1541,7 @@ if (! function_exists('booking_admin_status_tags_for_api')) {
             $tags[] = ['key' => 'case_closed', 'label' => 'booking_tag_case_closed', 'variant' => 'success'];
         }
         if (empty($booking->is_repeated)) {
-            if ($booking->isOpenReopenTicket() && booking_reopen_combined_status_key($booking) === null) {
+            if ($booking->isOpenReopenTicket()) {
                 $tags[] = ['key' => 'reopened', 'label' => 'reopened', 'variant' => 'warning'];
             } elseif ($booking->isReopenedTagged() && ! booking_admin_has_disputed_reopen_snapshot($booking)) {
                 $tags[] = ['key' => 'resolved', 'label' => 'resolved', 'variant' => 'success'];
