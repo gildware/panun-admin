@@ -1597,6 +1597,88 @@ if (! function_exists('booking_append_provider_api_ui_fields')) {
     }
 }
 
+if (! function_exists('booking_api_list_filter_tab_order')) {
+    /**
+     * Booking list tab keys in the same order as admin web.
+     *
+     * @return list<string>
+     */
+    function booking_api_list_filter_tab_order(): array
+    {
+        return [
+            'all',
+            'pending',
+            'accepted',
+            'canceled',
+            'ongoing',
+            'completed',
+            'reopened',
+            'resolved',
+            'disputed_cancelled',
+            'disputed_completed',
+            'on_hold',
+            'hold_after_visit',
+            'completed_no_or_little',
+            'cancelled_after_visit',
+            'loss_making_pending',
+            'loss_recovered',
+            'loss_settled',
+        ];
+    }
+}
+
+if (! function_exists('booking_api_list_filter_status_keys')) {
+    /**
+     * Allowed booking_status query values for customer/provider mobile list APIs.
+     *
+     * @return list<string>
+     */
+    function booking_api_list_filter_status_keys(): array
+    {
+        return array_values(array_unique(array_merge(
+            booking_api_list_filter_tab_order(),
+            array_column(BOOKING_STATUSES, 'key'),
+            ['loss_making', 'refunded'],
+        )));
+    }
+}
+
+if (! function_exists('booking_api_list_status_tab_counts')) {
+    /**
+     * Counts for each booking list tab on a base query (already scoped to customer/provider).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $baseQuery
+     * @param  array{max_booking_amount?: float|null, provider?: \Modules\ProviderManagement\Entities\Provider|null, provider_id?: string|null}  $options
+     * @return array<string, int>
+     */
+    function booking_api_list_status_tab_counts($baseQuery, array $options = []): array
+    {
+        $clone = fn () => clone $baseQuery;
+        $maxBookingAmount = $options['max_booking_amount'] ?? null;
+        $provider = $options['provider'] ?? null;
+        $providerId = $options['provider_id'] ?? ($provider?->id);
+
+        $tabOptions = array_filter([
+            'max_booking_amount' => $maxBookingAmount,
+            'provider' => $provider,
+            'provider_id' => $providerId,
+        ], fn ($v) => $v !== null);
+
+        $counts = [];
+        foreach (booking_api_list_filter_tab_order() as $tab) {
+            if ($tab === 'all') {
+                $counts[$tab] = (int) $clone()->count();
+                continue;
+            }
+            $q = $clone();
+            $q->applyBookingListStatusTab($tab, $tabOptions);
+            $counts[$tab] = (int) $q->count();
+        }
+
+        return $counts;
+    }
+}
+
 if (! function_exists('booking_append_customer_api_ui_fields')) {
     /**
      * Attach display status + tags for customer mobile API JSON serialization.
@@ -4777,13 +4859,17 @@ if (! function_exists('booking_change_log_hide_from_mobile_api')) {
             return false;
         }
 
-        if ($key !== 'booking.updated.other') {
-            return false;
-        }
-
         $new = trim((string) ($log->new_value ?? ''));
         $old = trim((string) ($log->old_value ?? ''));
         $combined = $new . ' ' . $old;
+
+        if (! booking_change_log_value_is_meaningful($old) && ! booking_change_log_value_is_meaningful($new)) {
+            return true;
+        }
+
+        if ($key !== 'booking.updated.other') {
+            return false;
+        }
 
         if ($new !== '' && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $new)) {
             return true;
@@ -4794,6 +4880,46 @@ if (! function_exists('booking_change_log_hide_from_mobile_api')) {
         }
 
         return false;
+    }
+}
+
+if (! function_exists('booking_change_log_value_is_meaningful')) {
+    function booking_change_log_value_is_meaningful(?string $value): bool
+    {
+        $v = trim((string) ($value ?? ''));
+        if ($v === '') {
+            return false;
+        }
+
+        if (preg_match('/^[\s,;—\-–−‐‑‒―]+$/u', $v)) {
+            return false;
+        }
+
+        if (str_contains($v, ':')) {
+            $segments = preg_split('/;\s*/', $v) ?: [];
+            $hasMeaningfulSegment = false;
+            foreach ($segments as $segment) {
+                $segment = trim($segment);
+                if ($segment === '') {
+                    continue;
+                }
+                if (preg_match('/^([^:]+):\s*(.+)$/u', $segment, $matches)) {
+                    if (booking_change_log_value_is_meaningful($matches[2])) {
+                        $hasMeaningfulSegment = true;
+                        break;
+                    }
+                    continue;
+                }
+                if (booking_change_log_value_is_meaningful($segment)) {
+                    $hasMeaningfulSegment = true;
+                    break;
+                }
+            }
+
+            return $hasMeaningfulSegment;
+        }
+
+        return true;
     }
 }
 
@@ -4843,6 +4969,10 @@ if (! function_exists('booking_change_log_mobile_description')) {
         $key = (string) $log->property_key;
         $new = booking_change_log_clean_value($log->new_value);
         $old = booking_change_log_clean_value($log->old_value);
+
+        if (! booking_change_log_value_is_meaningful($old) && ! booking_change_log_value_is_meaningful($new)) {
+            return null;
+        }
 
         if (str_ends_with($key, '.deleted') || $key === '_deleted') {
             return booking_change_log_humanize_text($old);
@@ -4967,7 +5097,7 @@ if (! function_exists('booking_change_log_is_garbage_text')) {
             return true;
         }
         $text = trim($text);
-        if ($text === '' || $text === '—') {
+        if ($text === '' || ! booking_change_log_value_is_meaningful($text)) {
             return true;
         }
         if (preg_match('/^json\s*\(\d+\)$/i', $text)) {

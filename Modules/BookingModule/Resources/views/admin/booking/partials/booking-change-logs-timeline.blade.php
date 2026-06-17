@@ -15,13 +15,12 @@
             $propertyKey = (string) ($log->property_key ?? '');
             $isServiceUpdate = str_contains($propertyKey, 'detail.updated')
                 || str_contains($propertyKey, 'extra_service.updated');
-            $displayTitle = $log->property_label ?: str_replace('_', ' ', $propertyKey);
-            if ($isServiceUpdate) {
-                $summary = \Modules\BookingModule\Services\BookingAuditLogger::resolveServiceSummaryFromContext($log);
-                if ($summary) {
-                    $displayTitle = $summary . ' — ' . translate('Updated');
-                }
-            }
+            $serviceSummary = $isServiceUpdate
+                ? \Modules\BookingModule\Services\BookingAuditLogger::resolveServiceSummaryForDisplay($log)
+                : null;
+            $displayTitle = $isServiceUpdate
+                ? translate('Service_updated')
+                : ($log->property_label ?: str_replace('_', ' ', $propertyKey));
         @endphp
         <li class="border-bottom pb-3 mb-3">
             <div class="d-flex flex-wrap justify-content-between gap-2 mb-1">
@@ -29,7 +28,15 @@
                 <span class="text-muted small text-nowrap">{{ $log->created_at?->timezone(config('app.timezone'))->format('d-M-Y h:ia') }}</span>
             </div>
             @if($isServiceUpdate)
-                <p class="mb-1 small text-break">{{ translate('Service_updated') }}</p>
+                @if($serviceSummary)
+                    <p class="mb-1 small text-break fw-medium">{{ $serviceSummary }}</p>
+                @endif
+                @if(!empty($log->old_value) && !empty($log->new_value) && $log->old_value !== '—')
+                    <p class="mb-1 small text-break text-muted">
+                        <span>{{ translate('from') }}:</span> {{ $log->old_value }}
+                        <span class="ms-1">{{ translate('to') }}:</span> {{ $log->new_value }}
+                    </p>
+                @endif
             @else
                 <p class="mb-1 small text-break">
                     <span class="text-muted">{{ translate('from') }}:</span> {{ $log->old_value ?? '—' }}

@@ -292,7 +292,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'limit' => 'required|numeric|min:1|max:200',
             'offset' => 'required|numeric|min:1|max:100000',
-            'booking_status' => 'required|in:all,reopened,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'booking_status' => 'required|in:' . implode(',', booking_api_list_filter_status_keys()),
             'service_type' => 'required|in:all,regular,repeat',
             'string' => 'string'
         ]);
@@ -305,11 +305,8 @@ class BookingController extends Controller
             ->with(['customer', 'repeat', 'customizeBooking', 'extra_services'])
             ->where(['customer_id' => $request->user()->id])
             ->search(base64_decode($request['string']), ['readable_id'])
-            ->when($request['booking_status'] == 'reopened', function ($query) {
-                return $query->openReopenTickets();
-            })
-            ->when($request['booking_status'] != 'all' && $request['booking_status'] != 'reopened', function ($query) use ($request) {
-                return $query->ofBookingStatus($request['booking_status']);
+            ->when($request['booking_status'] != 'all', function ($query) use ($request) {
+                $query->applyBookingListStatusTab($request['booking_status']);
             })
             ->when($request['service_type'] != 'all', function ($query) use ($request) {
                 return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
@@ -317,6 +314,14 @@ class BookingController extends Controller
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
+
+        $countBase = $this->booking->newQuery()
+            ->where(['customer_id' => $request->user()->id])
+            ->when($request['service_type'] != 'all', function ($query) use ($request) {
+                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
+            });
+
+        $bookings_count = booking_api_list_status_tab_counts($countBase, []);
 
         foreach ($bookings as $booking) {
             if ($booking->repeat->isNotEmpty()) {
@@ -339,7 +344,10 @@ class BookingController extends Controller
             unset($booking->extra_services);
         }
 
-        return response()->json(response_formatter(DEFAULT_200, $bookings), 200);
+        return response()->json(response_formatter(DEFAULT_200, [
+            'bookings_count' => $bookings_count,
+            'bookings' => $bookings,
+        ]), 200);
     }
 
     /**

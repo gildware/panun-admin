@@ -228,6 +228,9 @@ final class BookingAuditLogger
                 $handled[$k] = true;
             }
             [$oldText, $newText] = self::summarizeBookingFieldGroup($booking, $inGroup, $original, $changes);
+            if (! self::auditDisplayIsMeaningful($oldText) && ! self::auditDisplayIsMeaningful($newText)) {
+                continue;
+            }
             self::log(
                 (string) $booking->id,
                 'booking.updated.' . $groupId,
@@ -241,14 +244,16 @@ final class BookingAuditLogger
         $remaining = array_values(array_diff($keysChanged, array_keys($handled)));
         if ($remaining !== []) {
             [$oldText, $newText] = self::summarizeBookingFieldGroup($booking, $remaining, $original, $changes);
-            self::log(
-                (string) $booking->id,
-                'booking.updated.other',
-                translate('Booking updated'),
-                $oldText,
-                $newText,
-                null
-            );
+            if (self::auditDisplayIsMeaningful($oldText) || self::auditDisplayIsMeaningful($newText)) {
+                self::log(
+                    (string) $booking->id,
+                    'booking.updated.other',
+                    translate('Booking updated'),
+                    $oldText,
+                    $newText,
+                    null
+                );
+            }
         }
     }
 
@@ -661,6 +666,20 @@ final class BookingAuditLogger
             'status' => translate('Status updated'),
             default => translate('Booking updated'),
         };
+    }
+
+    private static function auditDisplayIsMeaningful(?string $value): bool
+    {
+        if (function_exists('booking_change_log_value_is_meaningful')) {
+            return booking_change_log_value_is_meaningful($value);
+        }
+
+        $v = trim((string) ($value ?? ''));
+        if ($v === '' || $v === '—' || $v === '-' || $v === '–') {
+            return false;
+        }
+
+        return ! preg_match('/^[\s,;—\-–]+$/u', $v);
     }
 
     /**

@@ -76,7 +76,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'limit' => 'required|numeric|min:1|max:200',
             'offset' => 'required|numeric|min:1|max:100000',
-            'booking_status' => 'required|in:all,reopened,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'booking_status' => 'required|in:' . implode(',', booking_api_list_filter_status_keys()),
             'from_date' => 'date',
             'to_date' => 'date',
             'sub_category_ids' => 'array',
@@ -96,65 +96,23 @@ class BookingController extends Controller
 
         $providerId = $provider->id;
         $maxBookingAmount = business_config('max_booking_amount', 'booking_setup')->live_values;
-
-        //status wise bookings count
-        $status_wise_bookings_count = $this->booking
-            ->where('provider_id', $request->user()->provider->id)
-            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId);
-            })
-            ->when($request['service_type'] != 'all', function ($query) use ($request) {
-                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
-            })
-            ->select('booking_status', DB::raw('count(*) as total'))
-            ->groupBy('booking_status')
-            ->get();
-
-        $bookings_count = collect(BOOKING_STATUSES)->mapWithKeys(function ($item) use ($status_wise_bookings_count) {
-            $total = $status_wise_bookings_count->where('booking_status', $item['key'])->first();
-            return [$item['key'] => $total ? $total->total : 0];
-        })->toArray();
-
         $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
         $serviceLocations = getProviderSettings(providerId: $providerId, key: 'service_location', type: 'provider_config') ?? ['customer'];
+        $bookingStatus = (string) $request['booking_status'];
+        $tabOptions = [
+            'max_booking_amount' => $maxBookingAmount,
+            'provider' => $provider,
+            'provider_id' => $providerId,
+        ];
 
-        $bookings_count['pending'] = $this->booking
-            ->providerPendingBookings($request->user()->provider, $maxBookingAmount)
-            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId);
-            })
-            ->when($request['service_type'] != 'all', function ($query) use ($request) {
-                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
-            })
-            ->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
-                $query->whereIn('service_location', $serviceLocations);
-            })
-            ->count();
-
-        $bookings_count['accepted'] = $this->booking
-            ->providerAcceptedBookings($request->user()->provider->id, $maxBookingAmount)
-            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId);
-            })
-            ->when($request['service_type'] != 'all', function ($query) use ($request) {
-                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
-            })
-            ->count();
-
-        $bookings_count['reopened'] = $this->booking
-            ->where('provider_id', $providerId)
-            ->openReopenTickets()
-            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId);
-            })
-            ->when($request['service_type'] != 'all', function ($query) use ($request) {
-                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
-            })
-            ->count();
-
-        $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
-        $serviceLocations = getProviderSettings(providerId: $providerId, key: 'service_location', type: 'provider_config') ?? ['customer'];
-
+        $bookings_count = $this->providerBookingListTabCounts(
+            $request,
+            $provider,
+            $providerId,
+            $maxBookingAmount,
+            $serviceAtProviderPlace,
+            $serviceLocations,
+        );
 
         //bookings list
         $bookings = $this->booking
@@ -162,28 +120,7 @@ class BookingController extends Controller
                     $query->first() ?? [];
             }])
             ->withCount('compensations')
-            ->when($request['booking_status'] == 'reopened', function ($query) use ($providerId) {
-                $query->where('provider_id', $providerId)
-                    ->openReopenTickets()
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    });
-            })
-            ->when(!in_array($request['booking_status'], ['pending', 'all', 'reopened']), function ($query) use ($providerId, $request, $maxBookingAmount) {
-                $query->ofBookingStatus($request['booking_status'])
-                    ->where('provider_id', $providerId)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })
-                    ->when($request['booking_status'] == 'accepted', function ($query) use ($providerId, $request, $maxBookingAmount) {
-                        $query->providerAcceptedBookings($request->user()->provider->id, $maxBookingAmount)
-                            ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                                $query->where('provider_id', $providerId);
-                            });
-                    });
-            })
-            ->when($request['booking_status'] == 'all', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
-
+            ->when($bookingStatus === 'all', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
                 $query->where(function ($query) use ($providerId) {
                     $query->where('provider_id', $providerId)
                         ->whereNotIn('booking_status', ['pending'])
@@ -198,13 +135,24 @@ class BookingController extends Controller
                             });
                     });
             })
-            ->when($request['booking_status'] == 'pending', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
+            ->when($bookingStatus === 'pending', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
                 $query->providerPendingBookings($request->user()->provider, $maxBookingAmount)
                     ->whereDoesntHave('ignores', function ($query) use ($providerId) {
                         $query->where('provider_id', $providerId);
                     })->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
                         $query->whereIn('service_location', $serviceLocations);
                     });
+            })
+            ->when(! in_array($bookingStatus, ['all', 'pending'], true), function ($query) use ($bookingStatus, $providerId, $tabOptions) {
+                $query->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                    $query->where('provider_id', $providerId);
+                });
+                if ($bookingStatus === 'accepted') {
+                    $query->applyBookingListStatusTab('accepted', $tabOptions);
+                } else {
+                    $query->where('provider_id', $providerId)
+                        ->applyBookingListStatusTab($bookingStatus, $tabOptions);
+                }
             })
             ->when($request['service_type'] != 'all', function ($query) use ($request) {
                 return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
@@ -242,10 +190,7 @@ class BookingController extends Controller
 
     private function emptyProviderBookingsListResponse(Request $request): JsonResponse
     {
-        $bookingsCount = collect(BOOKING_STATUSES)->mapWithKeys(function ($item) {
-            return [$item['key'] => 0];
-        })->toArray();
-        $bookingsCount['reopened'] = 0;
+        $bookingsCount = array_fill_keys(booking_api_list_filter_tab_order(), 0);
 
         $bookings = $this->booking
             ->whereRaw('1 = 0')
@@ -256,6 +201,89 @@ class BookingController extends Controller
             'bookings_count' => $bookingsCount,
             'bookings' => $bookings,
         ]), 200);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function providerBookingListTabCounts(
+        Request $request,
+        $provider,
+        string $providerId,
+        $maxBookingAmount,
+        int $serviceAtProviderPlace,
+        array $serviceLocations,
+    ): array {
+        $tabOptions = [
+            'max_booking_amount' => $maxBookingAmount,
+            'provider' => $provider,
+            'provider_id' => $providerId,
+        ];
+        $counts = [];
+
+        foreach (booking_api_list_filter_tab_order() as $tab) {
+            if ($tab === 'all') {
+                $assigned = $this->booking
+                    ->where('provider_id', $providerId)
+                    ->whereNotIn('booking_status', ['pending'])
+                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                        $query->where('provider_id', $providerId);
+                    })
+                    ->when($request['service_type'] != 'all', function ($query) use ($request) {
+                        return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
+                    })
+                    ->count();
+                $pending = $this->booking
+                    ->providerPendingBookings($provider, $maxBookingAmount)
+                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                        $query->where('provider_id', $providerId);
+                    })
+                    ->when($request['service_type'] != 'all', function ($query) use ($request) {
+                        return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
+                    })
+                    ->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
+                        $query->whereIn('service_location', $serviceLocations);
+                    })
+                    ->count();
+                $counts[$tab] = $assigned + $pending;
+                continue;
+            }
+
+            if ($tab === 'pending') {
+                $counts[$tab] = $this->booking
+                    ->providerPendingBookings($provider, $maxBookingAmount)
+                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                        $query->where('provider_id', $providerId);
+                    })
+                    ->when($request['service_type'] != 'all', function ($query) use ($request) {
+                        return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
+                    })
+                    ->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
+                        $query->whereIn('service_location', $serviceLocations);
+                    })
+                    ->count();
+                continue;
+            }
+
+            $query = $this->booking->newQuery()
+                ->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                    $query->where('provider_id', $providerId);
+                })
+                ->when($request['service_type'] != 'all', function ($query) use ($request) {
+                    return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
+                });
+
+            if ($tab === 'accepted') {
+                $query->applyBookingListStatusTab('accepted', $tabOptions);
+            } else {
+                $query->where('provider_id', $providerId)
+                    ->applyBookingListStatusTab($tab, $tabOptions);
+            }
+
+            $counts[$tab] = (int) $query->count();
+        }
+
+        return $counts;
     }
 
 //    public function bookingCalendar(Request $request)
