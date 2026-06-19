@@ -30,12 +30,6 @@
         $bfsDecided = BookingFinancialSettlementService::outcomeUsesDecidedVisitCharges($outcome);
         $bfsScaledOutcome = $outcome === BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
         $bfsCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
-        $bfsScaledWriteoffCo = $bfsScaledOutcome
-            ? round(max(0.0, (float) ($bfsCfg['scaled_loss_writeoff_company_amount'] ?? 0)), 2)
-            : 0.0;
-        $bfsScaledWriteoffPr = $bfsScaledOutcome
-            ? round(max(0.0, (float) ($bfsCfg['scaled_loss_writeoff_provider_amount'] ?? 0)), 2)
-            : 0.0;
         $bfsCustom = $outcome === BookingFinancialSettlementService::OUTCOME_CUSTOM_COMMISSION;
         $bfsAddPaymentModalOnPage = (bool) ($bfsAddPaymentModalOnPage ?? false);
         $bfsInvoiceRecoveryRemaining = 0.0;
@@ -140,10 +134,6 @@
                     @if ($bfsScaledWriteoff > 0.009)
                         <dt class="col-sm-4 col-md-3">{{ translate('Write_off_amount') }}</dt>
                         <dd class="col-sm-8 col-md-9 fw-semibold">{{ with_currency_symbol($bfsScaledWriteoff) }}</dd>
-                        <dt class="col-sm-4 col-md-3">{{ translate('Write_off_company_amount') }}</dt>
-                        <dd class="col-sm-8 col-md-9">{{ with_currency_symbol($bfsScaledWriteoffCo) }}</dd>
-                        <dt class="col-sm-4 col-md-3">{{ translate('Write_off_provider_amount') }}</dt>
-                        <dd class="col-sm-8 col-md-9">{{ with_currency_symbol($bfsScaledWriteoffPr) }}</dd>
                     @endif
                     @if($bookingNotEditable)
                         <dt class="col-sm-4 col-md-3">{{ translate('Bfs_gross_company_commission_full_booking') }}</dt>

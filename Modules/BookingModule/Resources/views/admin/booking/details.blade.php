@@ -1489,13 +1489,7 @@
 
             @php
                 $revenueSettlement = get_booking_received_and_settlement($booking);
-                $dueBalanceDisplay = round(max(0, (float) $bookingTotalForPayment - (float) $displayPaidAmount), 2);
-                if ($dueBalanceDisplay > 0 && in_array($booking->booking_status, ['pending', 'accepted', 'ongoing'], true) && $booking->payment_method != 'cash_after_service' && (float) ($booking->additional_charge ?? 0) > 0) {
-                    $dueBalanceDisplay = round($dueBalanceDisplay + (float) $booking->additional_charge, 2);
-                }
-                if ($__bfsScaledPaymentCard) {
-                    $dueBalanceDisplay = round(max(0.0, (float) get_booking_total_amount($booking) - (float) get_booking_total_paid($booking)), 2);
-                }
+                $dueBalanceDisplay = round(max(0, (float) $paymentDetailsTotalAmount - (float) $paymentDetailsAmountPaid), 2);
                 $__bfsPaymentCardVisitRetainedCanceled = (string) ($booking->booking_status ?? '') === 'canceled'
                     && (
                         !empty($booking->after_visit_cancel)
@@ -2100,21 +2094,6 @@
                                         <span>{{ translate('Write_off_amount') }}:</span>
                                         <span class="text-end text-break min-w-0">{{ with_currency_symbol((float) $__bfsScaledLive['scaled_loss_writeoff_amount']) }}</span>
                                     </div>
-                                    @php
-                                        $__bfsWriteCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
-                                        $__bfsWriteCo = isset($__bfsWriteCfg['scaled_loss_writeoff_company_amount']) && is_numeric($__bfsWriteCfg['scaled_loss_writeoff_company_amount'])
-                                            ? (float) $__bfsWriteCfg['scaled_loss_writeoff_company_amount'] : 0.0;
-                                        $__bfsWritePr = isset($__bfsWriteCfg['scaled_loss_writeoff_provider_amount']) && is_numeric($__bfsWriteCfg['scaled_loss_writeoff_provider_amount'])
-                                            ? (float) $__bfsWriteCfg['scaled_loss_writeoff_provider_amount'] : 0.0;
-                                    @endphp
-                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
-                                        <span>{{ translate('Write_off_company_amount') }}:</span>
-                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__bfsWriteCo) }}</span>
-                                    </div>
-                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
-                                        <span>{{ translate('Write_off_provider_amount') }}:</span>
-                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__bfsWritePr) }}</span>
-                                    </div>
                                     @endif
                                     </div>
                                     @if(!empty($__rev['net_revenue_zeroed_after_refund']))
@@ -2654,16 +2633,17 @@
                                     <tbody>
                                         @php
                                             $subTotal = 0;
+                                            $catalogDiscountedSubtotal = 0;
                                             $extraServicesTotal = 0;
                                             $extraServicesServiceTotal = 0;
                                             $extraServicesSpareTotal = 0;
                                             $extraGrossService = 0.0;
                                             $extraGrossSpare = 0.0;
-                                            $extraSpareDiscountSum = 0.0;
                                         @endphp
                                         @foreach ($bookingDetail as $detail)
                                             @php
-                                                $detailLineTotal = round(($detail->service_cost * $detail->quantity) - ($detail->discount_amount ?? 0) - ($detail->campaign_discount_amount ?? 0) + ($detail->tax_amount ?? 0), 2);
+                                                $detailLineGross = booking_detail_line_gross_total($detail);
+                                                $detailLineDiscounted = booking_detail_line_discounted_total($detail);
                                                 $__lineCategoryName = optional($detail->service?->category ?? $booking->category ?? $category)->name;
                                                 $__lineSubCategoryName = optional($detail->service?->subCategory ?? $booking->subCategory ?? $subCategory)->name;
                                             @endphp
@@ -2714,10 +2694,11 @@
                                                 @if($bookingHasTax)
                                                 <td>{{ with_currency_symbol($detail->tax_amount) }}</td>
                                                 @endif
-                                                <td class="text--end">{{ with_currency_symbol($detailLineTotal) }}</td>
+                                                <td class="text--end">{!! booking_summary_dual_price_html($detailLineGross, $detailLineDiscounted) !!}</td>
                                             </tr>
                                             @php
                                                 $subTotal += $detail->service_cost * $detail->quantity;
+                                                $catalogDiscountedSubtotal += $detailLineDiscounted;
                                             @endphp
                                         @endforeach
                                         @foreach ($booking->extra_services ?? [] as $extra)
@@ -2750,15 +2731,14 @@
                                                 @if($bookingHasTax)
                                                 <td>—</td>
                                                 @endif
-                                                <td class="text--end">{{ with_currency_symbol($extra->total) }}</td>
+                                                <td class="text--end">{!! booking_summary_dual_price_html(booking_extra_service_line_gross_total($extra), (float) $extra->total) !!}</td>
                                             </tr>
                                             @php
-                                                $extraLineGross = (float) $extra->price * (int) $extra->quantity;
+                                                $extraLineGross = booking_extra_service_line_gross_total($extra);
                                                 $extraServicesTotal += $extra->total;
                                                 if ($extra->type === \Modules\BookingModule\Entities\BookingExtraService::TYPE_SPARE_PART) {
                                                     $extraServicesSpareTotal += $extra->total;
                                                     $extraGrossSpare += $extraLineGross;
-                                                    $extraSpareDiscountSum += (float) ($extra->discount ?? 0);
                                                 } else {
                                                     $extraServicesServiceTotal += $extra->total;
                                                     $extraGrossService += $extraLineGross;
@@ -2783,12 +2763,11 @@
                                     ? round(get_booking_total_amount($booking), 2)
                                     : round(get_booking_payable_total_for_partial_dues($booking), 2);
                                 $acDisplayRows = $additionalChargesDisplayRows ?? enrich_booking_additional_charges_breakdown_for_display($booking);
-                                $displayBookingServiceDiscount = round((float) ($booking->total_discount_amount ?? 0) + get_booking_extra_service_line_discount_total($booking) + $extraSpareDiscountSum, 2);
                                 $catalogGrossSubtotal = round((float) $subTotal, 2);
+                                $catalogDiscountedSubtotal = round((float) $catalogDiscountedSubtotal, 2);
                                 $additionalChargesTotal = round((float) ($booking->extra_fee ?? 0), 2);
                                 $summaryGrossTotal = round($catalogGrossSubtotal + $extraGrossService + $extraGrossSpare + $additionalChargesTotal, 2);
-                                $couponDiscountAmount = round((float) ($booking->total_coupon_discount_amount ?? 0), 2);
-                                $campaignDiscountAmount = round((float) ($booking->total_campaign_discount_amount ?? 0), 2);
+                                $summaryDiscountedSubtotal = round($catalogDiscountedSubtotal + $extraServicesServiceTotal + $extraServicesSpareTotal + $additionalChargesTotal, 2);
                                 $referralDiscountAmount = round((float) ($booking->total_referral_discount_amount ?? 0), 2);
                             @endphp
                             <div class="row justify-content-end mt-3">
@@ -2799,18 +2778,18 @@
                                                 <tr class="booking-summary-row--charge">
                                                     <td class="text-capitalize">{{ translate('service_amount') }}@if($bookingHasTax) <small
                                                             class="fz-12">{{ booking_tax_excluded_bracket_hint() }}</small>@endif</td>
-                                                    <td class="text--end pe--4">{{ with_currency_symbol($catalogGrossSubtotal) }}</td>
+                                                    <td class="text--end pe--4">{!! booking_summary_dual_price_html($catalogGrossSubtotal, $catalogDiscountedSubtotal) !!}</td>
                                                 </tr>
                                                 @if($extraGrossService > 0)
                                                 <tr class="booking-summary-row--charge">
                                                     <td class="text-capitalize">{{ translate('Extra_Services') }}</td>
-                                                    <td class="text--end pe--4">{{ with_currency_symbol(round($extraGrossService, 2)) }}</td>
+                                                    <td class="text--end pe--4">{!! booking_summary_dual_price_html(round($extraGrossService, 2), round($extraServicesServiceTotal, 2)) !!}</td>
                                                 </tr>
                                                 @endif
                                                 @if($extraGrossSpare > 0)
                                                 <tr class="booking-summary-row--charge">
                                                     <td class="text-capitalize">{{ translate('Spare_Parts') }}</td>
-                                                    <td class="text--end pe--4">{{ with_currency_symbol(round($extraGrossSpare, 2)) }}</td>
+                                                    <td class="text--end pe--4">{!! booking_summary_dual_price_html(round($extraGrossSpare, 2), round($extraServicesSpareTotal, 2)) !!}</td>
                                                 </tr>
                                                 @endif
                                                 @if ($booking->extra_fee > 0)
@@ -2867,26 +2846,8 @@
                                                 @endif
                                                 <tr class="border-top booking-summary-row--subtotal">
                                                     <td class="text-capitalize fw-semibold">{{ translate('total') }}</td>
-                                                    <td class="text--end pe--4 fw-semibold">{{ with_currency_symbol($summaryGrossTotal) }}</td>
+                                                    <td class="text--end pe--4">{!! booking_summary_dual_price_html($summaryGrossTotal, $summaryDiscountedSubtotal, true) !!}</td>
                                                 </tr>
-                                                @if($displayBookingServiceDiscount > 0)
-                                                <tr class="booking-summary-row--discount">
-                                                    <td class="text-capitalize">{{ translate('service_discount') }}</td>
-                                                    <td class="text--end pe--4">{{ with_currency_symbol($displayBookingServiceDiscount) }}</td>
-                                                </tr>
-                                                @endif
-                                                @if($couponDiscountAmount > 0)
-                                                <tr class="booking-summary-row--discount">
-                                                    <td class="text-capitalize">{{ translate('coupon_discount') }}</td>
-                                                    <td class="text--end pe--4">{{ with_currency_symbol($couponDiscountAmount) }}</td>
-                                                </tr>
-                                                @endif
-                                                @if($campaignDiscountAmount > 0)
-                                                <tr class="booking-summary-row--discount">
-                                                    <td class="text-capitalize">{{ translate('campaign_discount') }}</td>
-                                                    <td class="text--end pe--4">{{ with_currency_symbol($campaignDiscountAmount) }}</td>
-                                                </tr>
-                                                @endif
                                                 @if($referralDiscountAmount > 0)
                                                 <tr class="booking-summary-row--discount">
                                                     <td class="text-capitalize">{{ translate('Referral Discount') }}</td>

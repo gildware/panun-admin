@@ -5,6 +5,7 @@ namespace Modules\BusinessSettingsModule\Services;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
+use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\Banner;
 use Modules\ProviderManagement\Entities\Provider;
@@ -1038,6 +1039,7 @@ class MobileAppManagementService
         }
 
         $this->persistJsonSetting(self::HOME_SECTIONS_KEY, $normalized);
+        CustomerApiResponseCache::forgetConfigCaches();
     }
 
     /**
@@ -1107,6 +1109,7 @@ class MobileAppManagementService
         }
 
         $this->persistJsonSetting(self::ICONS_KEY, $normalized);
+        CustomerApiResponseCache::forgetConfigCaches();
     }
 
     /**

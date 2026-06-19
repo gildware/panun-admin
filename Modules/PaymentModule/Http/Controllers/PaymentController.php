@@ -56,6 +56,7 @@ class PaymentController extends Controller
                 'payment_method' => 'required|in:' . implode(',', array_column(GATEWAYS_PAYMENT_METHODS, 'key')),
                 'payment_platform' => 'nullable|in:web,app',
                 'booking_repeat_id' => 'required|uuid',
+                'amount' => 'nullable|numeric|min:0.01',
             ]);
         } elseif ($request->has('switch_offline_to_digital')) {
             $validator = Validator::make($request->all(), [
@@ -63,6 +64,7 @@ class PaymentController extends Controller
                 'payment_method' => 'required|in:' . implode(',', array_column(GATEWAYS_PAYMENT_METHODS, 'key')),
                 'payment_platform' => 'nullable|in:web,app',
                 'booking_id' => 'required|uuid',
+                'amount' => 'nullable|numeric|min:0.01',
             ]);
         }else {
             $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
@@ -201,7 +203,18 @@ class PaymentController extends Controller
 
             if ($repeatBooking) {
                 $customer = User::find($customer_user_id);
-                $amount = $repeatBooking->total_booking_amount;
+                $amount = round((float) $repeatBooking->total_booking_amount, 2);
+                if ($request->filled('amount')) {
+                    $requested = round((float) $request['amount'], 2);
+                    if ($requested <= 0 || $requested > $amount + 0.009) {
+                        if ($request->has('callback')) {
+                            return redirect($request['callback'] . '?flag=fail');
+                        }
+
+                        return response()->json(response_formatter(DEFAULT_400), 400);
+                    }
+                    $amount = $requested;
+                }
                 $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');
                 $additional_data = $request->all();
 
@@ -241,8 +254,30 @@ class PaymentController extends Controller
             $payer = new Payer('first name' . ' ' . 'last name', 'first@last.com', '1234567890', '');
             $additional_data = $request->all();
 
+            $dueAmount = function_exists('get_booking_invoice_due_amount')
+                ? round((float) get_booking_invoice_due_amount($booking), 2)
+                : round(max(0.0, (float) $booking->total_booking_amount), 2);
+            $amount_to_pay = $dueAmount > 0
+                ? $dueAmount
+                : round((float) $booking->total_booking_amount, 2);
+
+            if ($request->filled('amount')) {
+                $requested = round((float) $request['amount'], 2);
+                $maxPayable = $dueAmount > 0 ? $dueAmount : $amount_to_pay;
+                if ($requested <= 0 || $requested > $maxPayable + 0.009) {
+                    if ($request->has('callback')) {
+                        return redirect($request['callback'] . '?flag=fail');
+                    }
+
+                    return response()->json(response_formatter(DEFAULT_400), 400);
+                }
+                $amount_to_pay = $requested;
+            }
+
+            $additional_data['collect_due_amount'] = 1;
+            $additional_data['requested_amount'] = round((float) $amount_to_pay, 2);
+
             $total_booking_amount = $booking->total_booking_amount;
-            $amount_to_pay = $total_booking_amount;
 
             if ($request['is_partial']){
                 $customer_wallet_balance = User::find($customer_user_id)?->wallet_balance;

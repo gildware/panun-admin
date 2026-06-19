@@ -95,13 +95,7 @@
 @endif
 @if($bfsHasWriteoff)
     @php
-        $bfsWriteCo = isset($bfsCfg['scaled_loss_writeoff_company_amount']) && is_numeric($bfsCfg['scaled_loss_writeoff_company_amount'])
-            ? (float) $bfsCfg['scaled_loss_writeoff_company_amount'] : 0.0;
-        $bfsWritePr = isset($bfsCfg['scaled_loss_writeoff_provider_amount']) && is_numeric($bfsCfg['scaled_loss_writeoff_provider_amount'])
-            ? (float) $bfsCfg['scaled_loss_writeoff_provider_amount'] : 0.0;
-        $bfsWriteTitle = translate('Write_off_amount') . ': ' . with_currency_symbol((float) $bfsCfg['scaled_loss_writeoff_amount'])
-            . ' — ' . translate('Write_off_company_amount') . ': ' . with_currency_symbol($bfsWriteCo)
-            . ', ' . translate('Write_off_provider_amount') . ': ' . with_currency_symbol($bfsWritePr);
+        $bfsWriteTitle = translate('Write_off_amount') . ': ' . with_currency_symbol((float) $bfsCfg['scaled_loss_writeoff_amount']);
     @endphp
     <span class="badge bg-danger text-nowrap text-start {{ $bfsTagGapClass }} d-inline-block lh-sm{{ $bfsTagFz }}"
           title="{{ $bfsWriteTitle }}">{{ translate('Settled') }}</span>

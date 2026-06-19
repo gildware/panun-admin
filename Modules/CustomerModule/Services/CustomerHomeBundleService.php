@@ -82,7 +82,7 @@ class CustomerHomeBundleService
     {
         $sections = [];
 
-        foreach ($this->mobileAppManagementService->homeSectionsForApi() as $section) {
+        foreach ($this->mobileAppManagementService->homeSectionsForApi()['sections'] ?? [] as $section) {
             if (! ($section['enabled'] ?? false) || ($section['data_mode'] ?? 'default') !== 'manual') {
                 continue;
             }

@@ -56,6 +56,10 @@ class ConfigController extends Controller
         );
         $content['maintenance'] = $this->checkMaintenanceMode();
 
+        $mobileAppService = app(MobileAppManagementService::class);
+        $content['mobile_app_icons'] = $mobileAppService->iconsForApi()['customer'] ?? [];
+        $content['mobile_app_home'] = $mobileAppService->homeSectionsForApi();
+
         return response()
             ->json(response_formatter(DEFAULT_200, $content), 200)
             ->header('Cache-Control', 'public, max-age=300');

@@ -392,13 +392,11 @@ class BookingFinancialSettlementService
             [$sx, $sLoss, $sy, $sz] = $this->resolveScaledLossBreakdown($booking, $config, $grandTotal, $paid);
             $commissionWo = (float) $details['adminCommissionWithoutCost'];
             $providerGross = round(max(0.0, $grandTotal - $commissionWo), 2);
-            $netCompany = round($commissionWo - $sy, 2);
-            $netProvider = round($providerGross - $sz, 2);
+            [$netCompany, $netProvider] = $this->scaledNetSharesFromCustomerPaid($grandTotal, $sx, $commissionWo, $providerGross);
             $scaledLossBlock = [
                 'scaled_loss_mode' => true,
                 'scaled_total_booking_amount' => round($grandTotal, 2),
-                // Display should reflect actual customer payments recorded, not the declared scaled cap.
-                'scaled_customer_paid_amount' => round(min($grandTotal, max(0.0, (float) $paid)), 2),
+                'scaled_customer_paid_amount' => round($sx, 2),
                 'scaled_loss_amount' => $sLoss,
                 'scaled_loss_writeoff_amount' => isset($config['scaled_loss_writeoff_amount']) && is_numeric($config['scaled_loss_writeoff_amount'])
                     ? round(max(0.0, (float) $config['scaled_loss_writeoff_amount']), 2)
@@ -566,6 +564,38 @@ class BookingFinancialSettlementService
         }
 
         return [$x, $lossTotal, $y, $z];
+    }
+
+    /**
+     * Loss-making (scaled): net company/provider shares from amount paid by customer, using the same
+     * company vs provider ratio as on the full booking total (not gross minus loss allocation).
+     *
+     * @return array{0: float, 1: float} [net_company_share, net_provider_share]
+     */
+    public function scaledNetSharesFromCustomerPaid(
+        float $grandTotal,
+        float $customerPaidCapped,
+        float $grossCompanyCommission,
+        float $grossProviderShare
+    ): array {
+        $grandTotal = round(max(0.0, $grandTotal), 2);
+        $customerPaid = round(max(0.0, min($grandTotal, $customerPaidCapped)), 2);
+        $grossCompany = round(max(0.0, $grossCompanyCommission), 2);
+        $grossProvider = round(max(0.0, $grossProviderShare), 2);
+
+        if ($customerPaid <= 0.009 || $grandTotal <= 0.009) {
+            return [0.0, 0.0];
+        }
+
+        $grossSum = round($grossCompany + $grossProvider, 2);
+        if ($grossSum <= 0.009) {
+            return [0.0, $customerPaid];
+        }
+
+        $netCompany = round($customerPaid * ($grossCompany / $grossSum), 2);
+        $netProvider = round($customerPaid - $netCompany, 2);
+
+        return [$netCompany, $netProvider];
     }
 
     /**

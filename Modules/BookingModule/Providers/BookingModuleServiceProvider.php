@@ -8,9 +8,11 @@ use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingExtraService;
 use Modules\BookingModule\Entities\BookingRepeat;
+use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\BookingModule\Observers\BookingDetailObserver;
 use Modules\BookingModule\Observers\BookingExtraServiceObserver;
 use Modules\BookingModule\Observers\BookingObserver;
+use Modules\BookingModule\Observers\BookingRepeatDetailsObserver;
 use Modules\BookingModule\Observers\BookingRepeatObserver;
 
 class BookingModuleServiceProvider extends ServiceProvider
@@ -39,6 +41,7 @@ class BookingModuleServiceProvider extends ServiceProvider
 
         Booking::observe(BookingObserver::class);
         BookingDetail::observe(BookingDetailObserver::class);
+        BookingRepeatDetails::observe(BookingRepeatDetailsObserver::class);
         BookingExtraService::observe(BookingExtraServiceObserver::class);
         BookingRepeat::observe(BookingRepeatObserver::class);
     }

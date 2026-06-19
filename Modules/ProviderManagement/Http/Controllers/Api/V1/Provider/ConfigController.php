@@ -67,6 +67,7 @@ class ConfigController extends Controller
             CustomerApiResponseCache::CONFIG_TTL
         );
         $content['maintenance'] = $this->checkMaintenanceMode();
+        $content['mobile_app_icons'] = app(MobileAppManagementService::class)->iconsForApi()['provider'] ?? [];
 
         return response()
             ->json(response_formatter(DEFAULT_200, $content), 200)

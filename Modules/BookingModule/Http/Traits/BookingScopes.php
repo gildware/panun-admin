@@ -209,6 +209,96 @@ trait BookingScopes
         });
     }
 
+    /**
+     * Same booking-list tab filters as admin web + mobile apps.
+     *
+     * @param  array{max_booking_amount?: float|null, provider?: \Modules\ProviderManagement\Entities\Provider|null, provider_id?: string|null}  $options
+     */
+    public function scopeApplyBookingListStatusTab($query, string $bookingStatus, array $options = []): void
+    {
+        if ($bookingStatus === 'all') {
+            return;
+        }
+
+        $maxBookingAmount = $options['max_booking_amount'] ?? null;
+        $provider = $options['provider'] ?? null;
+        $providerId = $options['provider_id'] ?? ($provider?->id);
+
+        if ($bookingStatus === 'reopened') {
+            $query->openReopenTickets();
+
+            return;
+        }
+        if ($bookingStatus === 'resolved') {
+            $query->resolvedReopenCase();
+
+            return;
+        }
+        if ($bookingStatus === 'disputed_cancelled') {
+            $query->disputedClosedCancelled();
+
+            return;
+        }
+        if ($bookingStatus === 'disputed_completed') {
+            $query->disputedClosedCompleted();
+
+            return;
+        }
+        if ($bookingStatus === 'hold_after_visit') {
+            $query->holdAfterVisit();
+
+            return;
+        }
+        if ($bookingStatus === 'cancelled_after_visit') {
+            $query->cancelledAfterVisit();
+
+            return;
+        }
+        if ($bookingStatus === 'completed_no_or_little') {
+            $query->completedNoOrLittle();
+
+            return;
+        }
+        if ($bookingStatus === 'loss_making_pending' || $bookingStatus === 'loss_making') {
+            $query->lossMakingPending();
+
+            return;
+        }
+        if ($bookingStatus === 'loss_recovered') {
+            $query->lossRecovered();
+
+            return;
+        }
+        if ($bookingStatus === 'loss_settled') {
+            $query->lossSettled();
+
+            return;
+        }
+
+        if ($bookingStatus === 'pending' && $provider instanceof Provider) {
+            $query->providerPendingBookings($provider, $maxBookingAmount);
+
+            return;
+        }
+        if ($bookingStatus === 'accepted' && $providerId) {
+            $query->providerAcceptedBookings($providerId, $maxBookingAmount);
+
+            return;
+        }
+        if ($bookingStatus === 'pending' && $maxBookingAmount !== null) {
+            $query->adminPendingBookings($maxBookingAmount);
+
+            return;
+        }
+        if ($bookingStatus === 'accepted' && $maxBookingAmount !== null) {
+            $query->adminAcceptedBookings($maxBookingAmount);
+
+            return;
+        }
+
+        $query->ofBookingStatus($bookingStatus);
+    }
+
     public function scopeSearch($query, $keywords, array $searchColumns): mixed
     {
         return $query->when($keywords && $searchColumns, function ($query) use ($keywords, $searchColumns) {

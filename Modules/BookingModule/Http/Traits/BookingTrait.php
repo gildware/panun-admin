@@ -28,6 +28,7 @@ use Modules\BookingModule\Events\BookingRequested;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingOfflinePayment;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Services\BookingAuditLogger;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
@@ -1045,7 +1046,6 @@ trait BookingTrait
                 }
             }
 
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
 
@@ -1108,7 +1108,7 @@ trait BookingTrait
             $detail->overall_coupon_discount_amount = 0;
             $detail->tax_amount = round($tax, 2);
             $detail->total_cost = $newTotal;
-            $detail->save();
+            $this->persistBookingDetailWithServiceAudit($detail);
 
             $booking->total_booking_amount += $newTotal;
             $booking->total_tax_amount += $tax;
@@ -1139,8 +1139,6 @@ trait BookingTrait
             $bookingDetailsAmount->coupon_discount_by_admin = 0;
             $bookingDetailsAmount->coupon_discount_by_provider = 0;
             $bookingDetailsAmount->save();
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($detail->booking_id));
         });
     }
 
@@ -1223,7 +1221,7 @@ trait BookingTrait
             $tax = round($taxable * $taxPct / 100, 2);
             $detail->tax_amount = $tax;
             $detail->total_cost = round($taxable + $tax, 2);
-            $detail->save();
+            $this->persistBookingDetailWithServiceAudit($detail);
 
             $bookingDetailsAmount = BookingDetailsAmount::query()
                 ->where('booking_id', $bookingId)
@@ -1333,7 +1331,7 @@ trait BookingTrait
             $bookingDetails->discount_amount = $basicDiscount;
             $bookingDetails->campaign_discount_amount = $campaignDiscount;
             $bookingDetails->overall_coupon_discount_amount = 0;
-            $bookingDetails->save();
+            $this->persistBookingDetailWithServiceAudit($bookingDetails);
 
             $bookingDetailsAmount = BookingDetailsAmount::where('booking_id', $request['booking_id'])->where('booking_details_id', $bookingDetails->id)->first();
             $bookingDetailsAmount->service_quantity = $newQuantity;
@@ -1408,8 +1406,6 @@ trait BookingTrait
                     }
                 }
             }
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
     protected function increase_service_quantity_from_booking_repeat($request): void
@@ -1481,7 +1477,7 @@ trait BookingTrait
             $bookingDetails->discount_amount = $basicDiscount;
             $bookingDetails->campaign_discount_amount = $campaignDiscount;
             $bookingDetails->overall_coupon_discount_amount = 0;
-            $bookingDetails->save();
+            $this->persistBookingRepeatDetailWithServiceAudit($bookingDetails);
 
             $bookingDetailsAmount = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->where('booking_repeat_details_id', $bookingDetails->id)->first();
             $bookingDetailsAmount->service_quantity = $newQuantity;
@@ -1557,8 +1553,6 @@ trait BookingTrait
                 }
             }
 
-            $repeatRow = BookingRepeat::query()->findOrFail($request['booking_repeat_id']);
-            sync_repeat_series_additional_charges((string) $repeatRow->booking_id);
         });
     }
 
@@ -1675,8 +1669,6 @@ trait BookingTrait
                     }
                 }
             }
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
 
@@ -1755,7 +1747,7 @@ trait BookingTrait
             $bookingDetails->discount_amount = $basicDiscount;
             $bookingDetails->campaign_discount_amount = $campaignDiscount;
             $bookingDetails->overall_coupon_discount_amount = 0;
-            $bookingDetails->save();
+            $this->persistBookingDetailWithServiceAudit($bookingDetails);
 
             $bookingDetailsAmount = BookingDetailsAmount::where('booking_id', $request['booking_id'])->where('booking_details_id', $bookingDetails->id)->first();
             $bookingDetailsAmount->service_quantity = $newQuantity;
@@ -1834,8 +1826,6 @@ trait BookingTrait
                     }
                 }
             }
-
-            recalculate_and_apply_booking_additional_charges(Booking::query()->findOrFail($request['booking_id']));
         });
     }
     protected function decrease_service_quantity_from_booking_repeat($request): void
@@ -1913,7 +1903,7 @@ trait BookingTrait
             $bookingDetails->discount_amount = $basicDiscount;
             $bookingDetails->campaign_discount_amount = $campaignDiscount;
             $bookingDetails->overall_coupon_discount_amount = 0;
-            $bookingDetails->save();
+            $this->persistBookingRepeatDetailWithServiceAudit($bookingDetails);
 
             $bookingDetailsAmount = BookingDetailsAmount::where('booking_repeat_id', $booking->id)->where('booking_repeat_details_id', $bookingDetails->id)->first();
             $bookingDetailsAmount->service_quantity = $newQuantity;
@@ -1993,8 +1983,6 @@ trait BookingTrait
                 }
             }
 
-            $repeatRowDec = BookingRepeat::query()->findOrFail($request['booking_repeat_id']);
-            sync_repeat_series_additional_charges((string) $repeatRowDec->booking_id);
         });
     }
 
@@ -2351,6 +2339,60 @@ trait BookingTrait
             'user' => $user,
             'loginToken' => $loginToken,
         ];
+    }
+
+    protected function persistBookingDetailWithServiceAudit(BookingDetail $detail): bool
+    {
+        if (!$detail->isDirty()) {
+            return false;
+        }
+
+        $pairs = [];
+        foreach ($detail->getDirty() as $key => $newVal) {
+            if ($key === 'updated_at') {
+                continue;
+            }
+            $pairs[$key] = [
+                'old' => $detail->getOriginal($key),
+                'new' => $newVal,
+            ];
+        }
+
+        if ($pairs === []) {
+            return false;
+        }
+
+        $detail->saveQuietly();
+        BookingAuditLogger::logBookingDetailChange('updated', $detail, $pairs);
+
+        return true;
+    }
+
+    protected function persistBookingRepeatDetailWithServiceAudit(BookingRepeatDetails $detail): bool
+    {
+        if (!$detail->isDirty()) {
+            return false;
+        }
+
+        $pairs = [];
+        foreach ($detail->getDirty() as $key => $newVal) {
+            if ($key === 'updated_at') {
+                continue;
+            }
+            $pairs[$key] = [
+                'old' => $detail->getOriginal($key),
+                'new' => $newVal,
+            ];
+        }
+
+        if ($pairs === []) {
+            return false;
+        }
+
+        $detail->saveQuietly();
+        BookingAuditLogger::logBookingRepeatDetailChange('updated', $detail, $pairs);
+
+        return true;
     }
 
 }

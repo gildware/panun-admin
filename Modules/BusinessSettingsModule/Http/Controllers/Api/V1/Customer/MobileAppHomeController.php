@@ -319,8 +319,6 @@ class MobileAppHomeController extends Controller
 
             if ($categoryType === 'sub') {
                 $collectionQuery->withActiveServices();
-            } else {
-                $collectionQuery->mainWithActiveCatalog();
             }
 
             $collection = $collectionQuery->orderByRaw($orderSql)->get();

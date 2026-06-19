@@ -86,6 +86,10 @@ class ReviewController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 200);
         }
 
+        if ($booking->isLossMakingFinancialSettlement()) {
+            return response()->json(response_formatter(DEFAULT_403, null, [['error_code' => 'loss_making_pending', 'message' => translate('Review_not_available_until_loss_settled')]]), 403);
+        }
+
         $images = [];
         if ($request->has('images')) {
             foreach ($request->images as $image) {

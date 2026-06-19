@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 @php
     $site_direction = session()->get('site_direction');
+    $adminAssetVersion = max(
+        (int) @filemtime(public_path('assets/admin-module/css/style.css')),
+        (int) @filemtime(public_path('assets/admin-module/css/dev.css')),
+        (int) @filemtime(public_path('assets/admin-module/js/custom.js')),
+    ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
 
@@ -35,8 +40,8 @@
 
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/toastr.css">
 
-    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css"/>
-    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css"/>
+    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css?v={{$adminAssetVersion}}"/>
+    <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css?v={{$adminAssetVersion}}"/>
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/common.css"/>
     <link rel="stylesheet" href="{{asset('assets/provider-module')}}/css/view-guideline.css"/>
 
@@ -92,6 +97,7 @@
 <script src="{{asset('assets/admin-module')}}/js/bootstrap.bundle.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/main.js"></script>
+<script src="{{asset('assets/admin-module')}}/js/custom.js?v={{$adminAssetVersion}}"></script>
 <script src="{{asset('assets/admin-module')}}/js/helper.js"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
 <script src="{{asset('assets/common')}}/js/form-submit-once.js"></script>

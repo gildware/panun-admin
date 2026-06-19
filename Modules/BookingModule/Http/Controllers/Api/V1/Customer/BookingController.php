@@ -292,7 +292,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'limit' => 'required|numeric|min:1|max:200',
             'offset' => 'required|numeric|min:1|max:100000',
-            'booking_status' => 'required|in:all,' . implode(',', array_column(BOOKING_STATUSES, 'key')),
+            'booking_status' => 'required|in:' . implode(',', booking_api_list_filter_status_keys()),
             'service_type' => 'required|in:all,regular,repeat',
             'string' => 'string'
         ]);
@@ -306,7 +306,7 @@ class BookingController extends Controller
             ->where(['customer_id' => $request->user()->id])
             ->search(base64_decode($request['string']), ['readable_id'])
             ->when($request['booking_status'] != 'all', function ($query) use ($request) {
-                return $query->ofBookingStatus($request['booking_status']);
+                $query->applyBookingListStatusTab($request['booking_status']);
             })
             ->when($request['service_type'] != 'all', function ($query) use ($request) {
                 return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
@@ -314,6 +314,14 @@ class BookingController extends Controller
             ->latest()
             ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
             ->withPath('');
+
+        $countBase = $this->booking->newQuery()
+            ->where(['customer_id' => $request->user()->id])
+            ->when($request['service_type'] != 'all', function ($query) use ($request) {
+                return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
+            });
+
+        $bookings_count = booking_api_list_status_tab_counts($countBase, []);
 
         foreach ($bookings as $booking) {
             if ($booking->repeat->isNotEmpty()) {
@@ -327,15 +335,20 @@ class BookingController extends Controller
             $booking->is_customize_booking = $booking->customizeBooking ? 1 : 0;
 
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
+            $originalGrandTotal = round((float) get_booking_total_amount($booking), 2);
             $booking->setAttribute('list_display_total', $listDisplayTotal);
-            $booking->setAttribute('payable_grand_total', $listDisplayTotal);
+            $booking->setAttribute('payable_grand_total', $originalGrandTotal);
+            booking_append_customer_api_ui_fields($booking);
 
             unset($booking->repeat);
             unset($booking->customizeBooking);
             unset($booking->extra_services);
         }
 
-        return response()->json(response_formatter(DEFAULT_200, $bookings), 200);
+        return response()->json(response_formatter(DEFAULT_200, [
+            'bookings_count' => $bookings_count,
+            'bookings' => $bookings,
+        ]), 200);
     }
 
     /**
@@ -352,6 +365,8 @@ class BookingController extends Controller
                 'detail.service',
                 'schedule_histories.user',
                 'status_histories.user',
+                'status_histories.holdReopenReason',
+                'change_logs.changedBy',
                 'customer',
                 'provider',
                 'category',
@@ -446,6 +461,8 @@ class BookingController extends Controller
             unset($booking->customizeBooking);
 
             booking_append_customer_api_financial_fields($booking);
+            booking_append_customer_api_ui_fields($booking);
+            booking_attach_api_change_logs($booking);
 
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }
@@ -479,6 +496,8 @@ class BookingController extends Controller
                 $booking->provider->chatEligibility = chatEligibility($booking->provider_id);
             }
             booking_append_customer_api_financial_fields($booking);
+            booking_append_customer_api_ui_fields($booking);
+            booking_attach_api_change_logs($booking, (string) $booking->id);
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }
         return response()->json(response_formatter(DEFAULT_204), 204);
@@ -506,7 +525,7 @@ class BookingController extends Controller
 
         $phone = (string) $request['phone'];
         $booking = $this->booking
-            ->with(['detail.service', 'schedule_histories.user', 'status_histories.user', 'customer', 'provider', 'zone', 'serviceman.user', 'service_address'])
+            ->with(['detail.service', 'schedule_histories.user', 'status_histories.user', 'change_logs.changedBy', 'customer', 'provider', 'zone', 'serviceman.user', 'service_address'])
             ->where(['readable_id' => $id])
             ->first();
 
@@ -517,6 +536,8 @@ class BookingController extends Controller
         $booking->service_address = $booking->service_address_location != null ? json_decode($booking->service_address_location) : $booking->service_address;
 
         unset($booking->service_address_location);
+
+        booking_attach_api_change_logs($booking);
 
         return response()->json(response_formatter(DEFAULT_200, $booking), 200);
     }
