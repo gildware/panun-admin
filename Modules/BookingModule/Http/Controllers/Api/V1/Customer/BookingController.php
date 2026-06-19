@@ -335,8 +335,9 @@ class BookingController extends Controller
             $booking->is_customize_booking = $booking->customizeBooking ? 1 : 0;
 
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
+            $originalGrandTotal = round((float) get_booking_total_amount($booking), 2);
             $booking->setAttribute('list_display_total', $listDisplayTotal);
-            $booking->setAttribute('payable_grand_total', $listDisplayTotal);
+            $booking->setAttribute('payable_grand_total', $originalGrandTotal);
             booking_append_customer_api_ui_fields($booking);
 
             unset($booking->repeat);
@@ -495,6 +496,7 @@ class BookingController extends Controller
                 $booking->provider->chatEligibility = chatEligibility($booking->provider_id);
             }
             booking_append_customer_api_financial_fields($booking);
+            booking_append_customer_api_ui_fields($booking);
             booking_attach_api_change_logs($booking, (string) $booking->id);
             return response()->json(response_formatter(DEFAULT_200, $booking), 200);
         }

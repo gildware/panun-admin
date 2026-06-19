@@ -2094,21 +2094,6 @@
                                         <span>{{ translate('Write_off_amount') }}:</span>
                                         <span class="text-end text-break min-w-0">{{ with_currency_symbol((float) $__bfsScaledLive['scaled_loss_writeoff_amount']) }}</span>
                                     </div>
-                                    @php
-                                        $__bfsWriteCfg = is_array($booking->settlement_config ?? null) ? $booking->settlement_config : [];
-                                        $__bfsWriteCo = isset($__bfsWriteCfg['scaled_loss_writeoff_company_amount']) && is_numeric($__bfsWriteCfg['scaled_loss_writeoff_company_amount'])
-                                            ? (float) $__bfsWriteCfg['scaled_loss_writeoff_company_amount'] : 0.0;
-                                        $__bfsWritePr = isset($__bfsWriteCfg['scaled_loss_writeoff_provider_amount']) && is_numeric($__bfsWriteCfg['scaled_loss_writeoff_provider_amount'])
-                                            ? (float) $__bfsWriteCfg['scaled_loss_writeoff_provider_amount'] : 0.0;
-                                    @endphp
-                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
-                                        <span>{{ translate('Write_off_company_amount') }}:</span>
-                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__bfsWriteCo) }}</span>
-                                    </div>
-                                    <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline text-muted">
-                                        <span>{{ translate('Write_off_provider_amount') }}:</span>
-                                        <span class="text-end text-break min-w-0">{{ with_currency_symbol($__bfsWritePr) }}</span>
-                                    </div>
                                     @endif
                                     </div>
                                     @if(!empty($__rev['net_revenue_zeroed_after_refund']))

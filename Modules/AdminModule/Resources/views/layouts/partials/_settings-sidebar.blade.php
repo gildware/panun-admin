@@ -1,118 +1,8 @@
 <?php
     $setup = getSetupGuideSteps('admin_panel', auth()->user());
     $steps = collect($setup['steps'])->sortBy('order');
-    $percentage = $setup['percentage'];
-    $rotation = $setup['rotation'];
-    $showAutoWelcomeModal = session()->pull('admin_show_setup_welcome', false);
-    $arrowStep = $steps->take(1)->firstWhere('checked', false);
-    $firstUncheckedStep = $steps->firstWhere('checked', false);
-    $allCompleted = $steps->every(fn ($step) => $step['checked'] === true);
-    $uncheckedCount = $steps->where('checked', false);
-
-    $uncheckedStepKeys  = $steps->where('checked', false)->pluck('key')->values();
+    $uncheckedStepKeys = $steps->where('checked', false)->pluck('key')->values();
 ?>
-
-@if(!$allCompleted)
-    <!-- Guidline Button -->
-    <div class="setup-guide">
-        <div class="setup-guide__button d-flex gap-2 justify-content-between align-items-center bg-primary text-white p-3 position-relative rounded pointer shadow"
-             data-bs-toggle="modal" data-bs-target="#guideModal">
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-3 d-center fs-12 fw-semibold text-absolute-white p-1 w-h-26 w-max-content"
-                  id="setupGuideBadge">
-                {{ count($uncheckedCount) }}
-            </span>
-            <div class="d-flex gap-2 align-items-center font-weight-bold text-absolute-white">
-                <img width="20" src="{{asset('assets/admin-module/img/setup_guide.png')}}" alt="">
-                <span class="d-none d-lg-flex">{{ translate('Setup_Guide') }}</span>
-            </div>
-            <div class="d-none d-lg-flex text-white">
-                <img width="20" src="{{asset('assets/admin-module/img/comment-alt-dots.png')}}" alt="">
-            </div>
-        </div>
-    </div>
-
-    <!-- Guidline Modal -->
-    <div class="modal fade" id="guideModal" tabindex="-1" aria-labelledby="guideModalLabel" aria-hidden="true"
-         data-bs-backdrop="true" data-bs-keyboard="true">
-        <div class="modal-dialog modal-dialog-end guide-modal-dialog" id="guideModalDialog" style="max-width: 400px">
-            <div class="modal-content modal-content_cont rounded-3 overflow-visible">
-
-                <div class="modal-header guide-modal-drag-handle justify-content-between p-xxl-4 p-3 bg-light rounded border-0 gap-3">
-                    <div class="">
-                        <h3 class="mb-1" id="guideModalLabel">{{ translate('Set up and take bookings.') }}</h3>
-                        <p>{{ translate('Set up and start managing your business with ease.') }}</p>
-                    </div>
-
-                    <div class="progress-pie-chart {{ $percentage > 50 ? 'gt-50' : '' }}">
-                        <div class="ppc-progress">
-                            <div class="ppc-progress-fill" style="transform: rotate({{ $rotation }}deg);">
-
-                            </div>
-                        </div>
-                        <div class="ppc-percents">
-                            <div class="pcc-percents-wrapper">
-                                <span id="setupGuidePercentage">{{ $percentage }}</span>
-                                <span class="fs-12 fw-bold text-dark">%</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="button" data-bs-dismiss="modal" aria-label="Close"
-                            class="close border-0 bg-white rounded-circle d-flex align-items-center justify-content-center w-30 h-30 guideline-close m-2 p-1">
-                        <span class="material-symbols-outlined position-relative top-01">close</span>
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    @if($arrowStep)
-                        <div class="modal-instruction-content position-absolute top-0">
-                            <img class="mb-3" src="{{ asset('assets/admin-module/img/modal-arrow.svg') }}" alt="">
-                            <h3 class="fs-28 max-w-250 text-white ms-5 text-start">
-                                {{ translate('Setup Your') }} <br> {{ translate('Business') }}
-                            </h3>
-                        </div>
-                    @endif
-
-                    <div class="d-flex flex-column gap-3 overflow-y-auto" style="max-height: 340px;">
-                        @foreach ($steps as $step)
-                            <div class="p-20 bg-light rounded">
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="custom-checkbox d-flex gap-1 align-items-center">
-                                        <input class="mb-1 custom-checkbox__input"
-                                               type="checkbox"
-                                               id="guide-step-{{ $step['key'] }}"
-                                               {{ $step['checked'] ? 'checked' : '' }} disabled>
-
-                                        <label class="custom-checkbox__label user-select-none flex-grow-1" for="{{ $step['key'] }}">
-                                            <a href="{{ setupGuidelineRouteModify($step['route']) }}" class="text-decoration-none text-dark">
-                                                {{ ucwords(str_replace('_', ' ', $step['title'])) }}
-                                            </a>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-
-
-                        <div class="">
-                            <div class="d-flex justify-content-between align-items-center pt-2">
-                                <button type="button" class="btn btn--secondary rounded border-0" id="skipSetupGuide" data-bs-dismiss="modal">{{ translate('skip_for_now') }}</button>
-                                @if($firstUncheckedStep)
-                                    <a class="btn btn--primary rounded px-3 d-inline-flex  align-items-center bottom-0 gap-1 btn-sm position-relative"
-                                       href="{{ setupGuidelineRouteModify($firstUncheckedStep['route']) }}">
-                                        {{ translate('Lets_Start') }}
-                                        <span class="material-symbols-outlined">arrow_right_alt</span>
-                                    </a>
-                                @endif
-                            </div>
-                        </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-@endif
-
 
 <div class="view-guideline-btn w-50px h-50px bg-white position-fixed pointer show">
     <button type="button" class="view-guideline-dismiss btn-close" aria-label="{{ translate('Close') }}"></button>
@@ -673,12 +563,7 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-
-        /* ===============================
-         * ELEMENTS
-         * =============================== */
         const uncheckedStepKeys = @json($uncheckedStepKeys);
-        const guideModalEl  = document.getElementById('guideModal');
 
         const offcanvasMap = {
             business_setup: document.getElementById('offcanvasSetupGuideForBusinessInformation'),
@@ -690,26 +575,11 @@
             login_option: document.getElementById('offcanvasSetupGuideForLoginOption'),
         };
 
-        /* ===============================
-         * CONTEXT FROM BACKEND
-         * =============================== */
-        const showAutoWelcomeModal = {{ $showAutoWelcomeModal ? 'true' : 'false' }};
-        const allCompleted    = {{ $allCompleted ? 'true' : 'false' }};
-
         const currentRoute   = "{{ request()->route()->getName() }}";
         const currentWebPage = "{{ request()->query('web_page', '') }}";
         const currentPath    = "{{ request()->path() }}";
-
         const fromGuide = {{ request()->boolean('from_guide') ? 'true' : 'false' }};
 
-        /* ===============================
-         * LOCAL STORAGE
-         * =============================== */
-        const SKIP_KEY = 'setup_guide_skipped';
-
-        /* ===============================
-         * HELPERS
-         * =============================== */
         function cleanupBackdrop() {
             document.querySelectorAll('.modal-backdrop, .offcanvas-backdrop')
                 .forEach(el => el.remove());
@@ -727,230 +597,52 @@
             }
         }
 
-        function postSetupGuideWelcomeAck() {
-            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            if (!token) return;
-            fetch('{{ route('admin.setup-guide.welcome-ack') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': token,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({}),
-            }).catch(() => {});
-        }
-
-        function initGuideModalDraggable() {
-            if (!guideModalEl) return;
-            const dialog = guideModalEl.querySelector('#guideModalDialog');
-            const header = guideModalEl.querySelector('.guide-modal-drag-handle');
-            if (!dialog || !header || header.dataset.dragInit === '1') return;
-            header.dataset.dragInit = '1';
-            header.style.cursor = 'grab';
-
-            let dragging = false;
-            let startX = 0;
-            let startY = 0;
-            let originLeft = 0;
-            let originTop = 0;
-
-            header.addEventListener('mousedown', function (e) {
-                if (e.button !== 0) return;
-                if (e.target.closest('button, a, input, textarea, select, label')) return;
-
-                const rect = dialog.getBoundingClientRect();
-                dragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                originLeft = rect.left;
-                originTop = rect.top;
-
-                dialog.style.margin = '0';
-                dialog.style.position = 'fixed';
-                dialog.style.left = rect.left + 'px';
-                dialog.style.top = rect.top + 'px';
-                dialog.style.right = 'auto';
-                dialog.style.bottom = 'auto';
-                dialog.style.transform = 'none';
-                header.style.cursor = 'grabbing';
-
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', function (e) {
-                if (!dragging) return;
-
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
-                let nextLeft = originLeft + deltaX;
-                let nextTop = originTop + deltaY;
-
-                const maxLeft = window.innerWidth - dialog.offsetWidth;
-                const maxTop = window.innerHeight - dialog.offsetHeight;
-
-                nextLeft = Math.max(0, Math.min(nextLeft, Math.max(0, maxLeft)));
-                nextTop = Math.max(0, Math.min(nextTop, Math.max(0, maxTop)));
-
-                dialog.style.left = nextLeft + 'px';
-                dialog.style.top = nextTop + 'px';
-            });
-
-            document.addEventListener('mouseup', function () {
-                if (!dragging) return;
-                dragging = false;
-                header.style.cursor = 'grab';
-            });
-
-            guideModalEl.addEventListener('hidden.bs.modal', function resetGuideDialogPosition() {
-                dialog.style.position = '';
-                dialog.style.left = '';
-                dialog.style.top = '';
-                dialog.style.right = '';
-                dialog.style.bottom = '';
-                dialog.style.margin = '';
-                dialog.style.transform = '';
-            });
-        }
-
         function showOffcanvas(el) {
             if (!el) return false;
 
             cleanupBackdrop();
-            guideModalEl && bootstrap.Modal.getInstance(guideModalEl)?.hide();
-
             new bootstrap.Offcanvas(el).show();
             removeFromGuideParam();
             return true;
         }
 
-        /* ===============================
-         * AUTO OPEN LOGIC
-         * =============================== */
         let offcanvasOpened = false;
 
-        if(fromGuide){
-            // Business Info
+        if (fromGuide) {
             if (currentRoute === 'admin.business-settings.get-business-information' &&
                 currentWebPage === 'business_setup' &&
                 uncheckedStepKeys.includes('business_information')) {
                 offcanvasOpened = showOffcanvas(offcanvasMap.business_setup);
-            }
-
-            // Business Plan
-            else if (currentRoute === 'admin.business-settings.get-business-information' &&
+            } else if (currentRoute === 'admin.business-settings.get-business-information' &&
                 currentWebPage === 'business_plan' &&
                 uncheckedStepKeys.includes('business_plan')) {
                 offcanvasOpened = showOffcanvas(offcanvasMap.business_plan);
-            }
-
-            // Google Map
-            else if (currentRoute === 'admin.configuration.third-party' &&
+            } else if (currentRoute === 'admin.configuration.third-party' &&
                 currentPath.includes('map-api') &&
                 uncheckedStepKeys.includes('google_map_configuration')) {
                 offcanvasOpened = showOffcanvas(offcanvasMap.map_api);
-            }
-
-            // Email
-            else if (currentRoute === 'admin.configuration.third-party' &&
+            } else if (currentRoute === 'admin.configuration.third-party' &&
                 currentPath.includes('email-config') &&
                 uncheckedStepKeys.includes('email_configuration')) {
                 offcanvasOpened = showOffcanvas(offcanvasMap.email_config);
-            }
-
-            // Notification
-            else if (currentRoute === 'admin.configuration.third-party' &&
+            } else if (currentRoute === 'admin.configuration.third-party' &&
                 currentPath.includes('firebase-configuration') &&
                 uncheckedStepKeys.includes('notification_configuration')) {
                 offcanvasOpened = showOffcanvas(offcanvasMap.firebase_config);
-            }
-
-            // Payment
-            else if (currentRoute === 'admin.configuration.third-party' &&
+            } else if (currentRoute === 'admin.configuration.third-party' &&
                 currentPath.includes('payment_config') &&
                 uncheckedStepKeys.includes('digital_payment')) {
                 offcanvasOpened = showOffcanvas(offcanvasMap.payment_config);
-            }
-
-            // Login Option
-            else if (currentRoute === 'admin.business-settings.login.setup' &&
+            } else if (currentRoute === 'admin.business-settings.login.setup' &&
                 uncheckedStepKeys.includes('login_option')) {
                 offcanvasOpened = showOffcanvas(offcanvasMap.login_option);
             }
         }
 
-
-        /* ===============================
-         * GUIDE MODAL (ONLY IF NO OFFCANVAS)
-         * =============================== */
-        if (!offcanvasOpened && showAutoWelcomeModal && !allCompleted && guideModalEl) {
-            cleanupBackdrop();
-            new bootstrap.Modal(guideModalEl).show();
-            removeFromGuideParam();
-        }
-
-        initGuideModalDraggable();
-
-        guideModalEl?.addEventListener('click', function (e) {
-            const a = e.target.closest('a[href]');
-            if (!a) return;
-            const href = a.getAttribute('href') || '';
-            if (href.startsWith('javascript:')) return;
-            postSetupGuideWelcomeAck();
-        });
-
-        /* ===============================
-         * SKIP FOR NOW
-         * =============================== */
-        document.getElementById('skipSetupGuide')?.addEventListener('click', function () {
-            localStorage.setItem(SKIP_KEY, '1');
-            postSetupGuideWelcomeAck();
-        });
-
-        /* ===============================
-         * CLEANUP ON CLOSE
-         * =============================== */
-        guideModalEl?.addEventListener('hidden.bs.modal', function () {
-            postSetupGuideWelcomeAck();
-            cleanupBackdrop();
-        });
         Object.values(offcanvasMap).forEach(el => {
             el?.addEventListener('hidden.bs.offcanvas', cleanupBackdrop);
         });
-
     });
 
-    function refreshSetupGuideUI() {
-        fetch('{{ route('admin.setup-guide.status') }}')
-            .then(res => res.json())
-            .then(data => {
-
-                // Badge count
-                const badge = document.getElementById('setupGuideBadge');
-                if (badge) {
-                    badge.textContent = data.unchecked_count;
-                }
-
-                // Percentage
-                const percentageEl = document.getElementById('setupGuidePercentage');
-                if (percentageEl) {
-                    percentageEl.innerHTML = data.percentage;
-                }
-
-                // Checkboxes
-                Object.values(data.steps).forEach(step => {
-                    const checkbox = document.getElementById(`guide-step-${step.key}`);
-                    if (checkbox) {
-                        checkbox.checked = step.checked === true;
-                    }
-                });
-
-                // Hide guide completely if done
-                if (data.all_completed) {
-                    document.querySelector('.setup-guide')?.remove();
-                    bootstrap.Modal.getInstance(document.getElementById('guideModal'))?.hide();
-                }
-            });
-    }
-
+    function refreshSetupGuideUI() {}
 </script>

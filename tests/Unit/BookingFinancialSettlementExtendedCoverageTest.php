@@ -252,8 +252,42 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         $this->assertSame(300.0, $preview['scaled_loss_provider_share']);
         $this->assertArrayHasKey('scaled_net_company_share', $preview);
         $this->assertArrayHasKey('scaled_net_provider_share', $preview);
+        $this->assertSame(400.0, round((float) $preview['scaled_net_company_share'] + (float) $preview['scaled_net_provider_share'], 2));
         $this->assertArrayHasKey('scaled_bad_debt_balance_not_due', $preview);
         $this->assertSame(0.0, $preview['amount_to_collect_from_customer']);
+    }
+
+    public function test_scaled_net_shares_are_proportional_to_customer_paid_not_gross_minus_loss(): void
+    {
+        [$netCo, $netPr] = $this->service->scaledNetSharesFromCustomerPaid(1000.0, 600.0, 300.0, 700.0);
+
+        $this->assertSame(180.0, $netCo);
+        $this->assertSame(420.0, $netPr);
+
+        $b = $this->memoryBooking();
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 600.0,
+            'scaled_loss_company_amount' => 200.0,
+            'scaled_loss_provider_amount' => 200.0,
+        ];
+        $b->setRelation('booking_partial_payments', collect([
+            (object) ['paid_amount' => 600.0, 'received_by' => 'company'],
+        ]));
+
+        $details = $this->service->calculateAdminCommissionDetails($b, $b->provider_id);
+        $grossCo = (float) $details['adminCommissionWithoutCost'];
+        $grossPr = round(1000.0 - $grossCo, 2);
+        [$expectedCo, $expectedPr] = $this->service->scaledNetSharesFromCustomerPaid(1000.0, 600.0, $grossCo, $grossPr);
+
+        $preview = $this->service->buildPreview($b);
+        $settlement = get_booking_received_and_settlement($b);
+
+        $this->assertSame($expectedCo, $preview['scaled_net_company_share']);
+        $this->assertSame($expectedPr, $preview['scaled_net_provider_share']);
+        $this->assertSame($expectedCo, $settlement['company_share']);
+        $this->assertSame($expectedPr, $settlement['provider_share']);
+        $this->assertNotSame(round($grossCo - 200.0, 2), $preview['scaled_net_company_share']);
     }
 
     public function test_build_preview_scaled_reflects_additional_partials_beyond_saved_scaled_customer_paid(): void
@@ -775,10 +809,21 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         ]));
 
         $s = get_booking_received_and_settlement($b);
+        $preview = $this->service->buildPreview($b);
+
         $this->assertSame(0.0, $s['amount_received_by_company']);
         $this->assertSame(400.0, $s['amount_received_by_provider']);
+        $this->assertSame($preview['scaled_net_company_share'], $s['company_share']);
+        $this->assertSame($preview['scaled_net_provider_share'], $s['provider_share']);
+
+        $companyKeep = max(0.0, (float) $s['company_share']);
+        $commissionShortfall = max(0.0, $companyKeep - (float) $s['amount_received_by_company']);
+        $expectedProviderOwes = (float) $s['amount_received_by_provider'] > 0
+            ? round(min((float) $s['amount_received_by_provider'], $commissionShortfall), 2)
+            : 0.0;
+
         $this->assertSame(0.0, $s['pay_to_provider']);
-        $this->assertSame(0.0, $s['provider_owes_company']);
+        $this->assertSame($expectedProviderOwes, $s['provider_owes_company']);
     }
 
     public function test_scaled_pay_to_provider_increases_when_company_collects_provider_recovery_slice(): void
@@ -804,9 +849,18 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         ]));
 
         $s = get_booking_received_and_settlement($b);
+        $preview = $this->service->buildPreview($b);
+
         $this->assertSame(400.0, $s['amount_received_by_company']);
         $this->assertSame(0.0, $s['amount_received_by_provider']);
-        $this->assertSame(400.0, $s['pay_to_provider']);
+        $this->assertSame($preview['scaled_net_company_share'], $s['company_share']);
+        $this->assertSame($preview['scaled_net_provider_share'], $s['provider_share']);
+
+        $companyKeep = max(0.0, (float) $s['company_share']);
+        $companySupport = max(0.0, -(float) $s['company_share']);
+        $expectedPayToProvider = round(max(0.0, (float) $s['amount_received_by_company'] - $companyKeep) + $companySupport, 2);
+
+        $this->assertSame($expectedPayToProvider, $s['pay_to_provider']);
         $this->assertSame(0.0, $s['provider_owes_company']);
     }
 
@@ -845,5 +899,22 @@ class BookingFinancialSettlementExtendedCoverageTest extends TestCase
         ]));
 
         $this->assertSame(600.0, get_booking_admin_add_payment_remaining_amount($b));
+    }
+
+    public function test_scaled_loss_recovery_allocation_splits_payment_equally_between_sides(): void
+    {
+        $b = $this->memoryBooking();
+        $b->settlement_outcome = BookingFinancialSettlementService::OUTCOME_SCALED_TO_PAYMENTS;
+        $b->settlement_config = [
+            'scaled_customer_paid_amount' => 300.0,
+            'scaled_loss_company_amount' => 400.0,
+            'scaled_loss_provider_amount' => 600.0,
+        ];
+
+        $companyPath = booking_scaled_loss_recovery_allocation_for_payment($b, 200.0, 'company');
+        $providerPath = booking_scaled_loss_recovery_allocation_for_payment($b, 200.0, 'provider');
+
+        $this->assertSame(['provider' => 100.0, 'company' => 100.0], $companyPath);
+        $this->assertSame(['provider' => 100.0, 'company' => 100.0], $providerPath);
     }
 }

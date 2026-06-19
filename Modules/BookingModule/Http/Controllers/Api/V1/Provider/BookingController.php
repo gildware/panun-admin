@@ -176,8 +176,9 @@ class BookingController extends Controller
             }
             booking_append_provider_api_ui_fields($booking);
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
+            $originalGrandTotal = round((float) get_booking_total_amount($booking), 2);
             $booking->setAttribute('list_display_total', $listDisplayTotal);
-            $booking->setAttribute('payable_grand_total', $listDisplayTotal);
+            $booking->setAttribute('payable_grand_total', $originalGrandTotal);
             unset($booking->repeat);
             unset($booking->extra_services);
         }
@@ -688,6 +689,7 @@ class BookingController extends Controller
 
             booking_append_provider_api_ui_fields($booking);
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
+            $originalGrandTotal = round((float) get_booking_total_amount($booking), 2);
             $groups[$key]['bookings'][] = [
                 'id' => $booking->id,
                 'readable_id' => $booking->readable_id,
@@ -700,7 +702,7 @@ class BookingController extends Controller
                 'service_location' => $booking->service_location ?? 'At your location',
                 'total_booking_amount' => $booking->total_booking_amount,
                 'list_display_total' => $listDisplayTotal,
-                'payable_grand_total' => $listDisplayTotal,
+                'payable_grand_total' => $originalGrandTotal,
                 'created_at' => $booking->created_at
             ];
         }

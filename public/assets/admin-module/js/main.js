@@ -64,6 +64,10 @@ We may release future updates so it will overwrite this file. it's better and sa
 
     /* Active Menu Open */
     $(window).on("load", function () {
+        if (typeof window.initAdminNavMenuGroups === "function") {
+            window.initAdminNavMenuGroups();
+        }
+
         $(".aside .aside-body")
             .find(".sub-menu-opened a")
             .siblings("ul")
@@ -71,6 +75,9 @@ We may release future updates so it will overwrite this file. it's better and sa
             .show();
 
         var $active = highlightAdminSidebarMenu();
+        if (typeof window.openAdminNavMenuGroupsWithActive === "function") {
+            window.openAdminNavMenuGroupsWithActive();
+        }
         scrollActiveAdminMenuIntoView($active);
     });
 

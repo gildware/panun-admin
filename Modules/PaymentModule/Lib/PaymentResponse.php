@@ -241,10 +241,7 @@ class PaymentResponse
 
             $booking->refresh();
             $booking->loadMissing('booking_partial_payments');
-            $payableCap = round((float) get_booking_payable_total_for_partial_dues($booking), 2);
-            $paidTotal = round((float) get_booking_total_paid($booking), 2);
-            $booking->is_paid = ($payableCap > 0.009 && $paidTotal + 0.009 >= $payableCap) ? 1 : 0;
-            $booking->save();
+            booking_after_partial_payment_booking_refresh($booking);
 
             $response = [
                 'flag' => 'success',

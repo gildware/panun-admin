@@ -69,7 +69,10 @@ class Category extends Model
     {
         return $query
             ->whereHas('children', function ($childQuery) {
-                $childQuery->ofStatus(1)->ofType('sub');
+                // Sub-categories inherit zone visibility from the parent; they are often not linked in category_zone.
+                $childQuery->withoutGlobalScope('zone_wise_data')
+                    ->ofStatus(1)
+                    ->ofType('sub');
             })
             ->where(function ($catalogQuery) {
                 $catalogQuery
@@ -77,7 +80,10 @@ class Category extends Model
                         $serviceQuery->where('is_active', 1);
                     })
                     ->orWhereHas('children', function ($childQuery) {
-                        $childQuery->ofStatus(1)->ofType('sub')->withActiveServices();
+                        $childQuery->withoutGlobalScope('zone_wise_data')
+                            ->ofStatus(1)
+                            ->ofType('sub')
+                            ->withActiveServices();
                     });
             });
     }

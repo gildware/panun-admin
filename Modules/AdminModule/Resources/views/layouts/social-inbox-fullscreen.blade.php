@@ -73,6 +73,7 @@
 <script src="{{ asset('assets/admin-module') }}/js/bootstrap.bundle.min.js"></script>
 <script src="{{ asset('assets/admin-module') }}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/main.js"></script>
+<script src="{{ asset('assets/admin-module') }}/js/custom.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/helper.js"></script>
 <script src="{{ asset('assets/common') }}/js/common.js"></script>
 <script src="{{ asset('assets/common') }}/js/form-submit-once.js"></script>
