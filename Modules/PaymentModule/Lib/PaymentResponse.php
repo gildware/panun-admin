@@ -13,6 +13,7 @@ use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\PaymentModule\Entities\PaymentRequest;
+use Modules\PaymentModule\Services\PaymentRequestFulfillmentService;
 use Modules\PaymentModule\Traits\SubscriptionTrait;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
@@ -28,7 +29,8 @@ class PaymentResponse
      */
     public static function success($data): array
     {
-        $fulfilled = payment_request_booking_fulfillment_response($data);
+        $fulfillment = app(PaymentRequestFulfillmentService::class);
+        $fulfilled = $fulfillment->bookingFulfillmentResponse($data);
         if ($fulfilled !== null) {
             return $fulfilled;
         }
@@ -39,7 +41,7 @@ class PaymentResponse
 
         $additional_data = json_decode($data['additional_data'], true);
         $additional_data = is_array($additional_data) ? $additional_data : [];
-        $paymentAmountType = resolve_checkout_payment_amount_type_from_request($data, $additional_data);
+        $paymentAmountType = $fulfillment->resolveCheckoutPaymentAmountType($data, $additional_data);
         $request = collect([
             'access_token' => $additional_data['access_token'] ?? null,
             'zone_id' => $additional_data['zone_id'] ?? null,
@@ -212,7 +214,7 @@ class PaymentResponse
                 ];
             }
 
-            if (booking_partial_payment_exists_for_transaction($booking, $tran_id)) {
+            if (app(PaymentRequestFulfillmentService::class)->bookingPartialPaymentExistsForTransaction($booking, $tran_id)) {
                 $booking->loadMissing('booking_partial_payments');
                 booking_after_partial_payment_booking_refresh($booking);
 

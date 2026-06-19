@@ -63,7 +63,7 @@ final class PaymentRequestCompletionService
                     return self::STATUS_NOT_FOUND;
                 }
 
-                if ((int) $locked->is_paid === 1 && payment_request_fulfillment_complete($locked)) {
+                if ((int) $locked->is_paid === 1 && app(PaymentRequestFulfillmentService::class)->isComplete($locked)) {
                     return self::STATUS_ALREADY_COMPLETED;
                 }
 
@@ -84,7 +84,7 @@ final class PaymentRequestCompletionService
                 $this->runSuccessHook($locked);
 
                 $fresh = PaymentRequest::query()->find($locked->id);
-                if (! $fresh || ! payment_request_fulfillment_complete($fresh)) {
+                if (! $fresh || ! app(PaymentRequestFulfillmentService::class)->isComplete($fresh)) {
                     $this->lastError = 'Payment captured but booking was not created (check cart / checkout data)';
 
                     Log::error('Payment fulfillment incomplete after success hook', [
