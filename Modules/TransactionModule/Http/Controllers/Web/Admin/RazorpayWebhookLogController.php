@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Modules\PaymentModule\Entities\RazorpayWebhookLog;
+use Modules\PaymentModule\Services\RazorpayWebhookLogService;
 
 class RazorpayWebhookLogController extends Controller
 {
@@ -70,9 +71,11 @@ class RazorpayWebhookLogController extends Controller
         $this->authorize('transaction_view');
 
         $log = RazorpayWebhookLog::query()->findOrFail($id);
+        $detail = app(RazorpayWebhookLogService::class)->buildAdminDetail($log);
 
         return view('transactionmodule::admin.razorpay-webhook-log-details', [
             'log' => $log,
+            'detail' => $detail,
         ]);
     }
 }

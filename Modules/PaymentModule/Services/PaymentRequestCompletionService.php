@@ -8,6 +8,8 @@ use Modules\PaymentModule\Entities\PaymentRequest;
 
 final class PaymentRequestCompletionService
 {
+    private ?string $lastError = null;
+
     public const STATUS_COMPLETED = 'completed';
 
     public const STATUS_ALREADY_COMPLETED = 'already_completed';
@@ -35,12 +37,19 @@ final class PaymentRequestCompletionService
     /**
      * Idempotently run success hook and mark payment paid only after fulfillment succeeds.
      */
+    public function lastError(): ?string
+    {
+        return $this->lastError;
+    }
+
     public function complete(
         PaymentRequest $paymentRequest,
         string $transactionId,
         string $paymentMethod,
         ?float $paidAmount = null
     ): string {
+        $this->lastError = null;
+
         try {
             return DB::transaction(function () use ($paymentRequest, $transactionId, $paymentMethod, $paidAmount) {
                 $locked = PaymentRequest::query()
@@ -49,6 +58,8 @@ final class PaymentRequestCompletionService
                     ->first();
 
                 if (! $locked) {
+                    $this->lastError = 'Payment request record not found in database';
+
                     return self::STATUS_NOT_FOUND;
                 }
 
@@ -57,6 +68,12 @@ final class PaymentRequestCompletionService
                 }
 
                 if ((int) $locked->is_paid !== 1 && $paidAmount !== null && ! $this->amountMatches($locked, $paidAmount)) {
+                    $this->lastError = sprintf(
+                        'Paid amount (%.2f) is less than expected checkout amount (%.2f)',
+                        $paidAmount,
+                        (float) $locked->payment_amount
+                    );
+
                     return self::STATUS_AMOUNT_MISMATCH;
                 }
 
@@ -68,6 +85,8 @@ final class PaymentRequestCompletionService
 
                 $fresh = PaymentRequest::query()->find($locked->id);
                 if (! $fresh || ! payment_request_fulfillment_complete($fresh)) {
+                    $this->lastError = 'Payment captured but booking was not created (check cart / checkout data)';
+
                     Log::error('Payment fulfillment incomplete after success hook', [
                         'payment_request_id' => $locked->id,
                         'success_hook' => $locked->success_hook,
@@ -89,6 +108,8 @@ final class PaymentRequestCompletionService
                 return self::STATUS_FULFILLMENT_FAILED;
             }
 
+            $this->lastError = $e->getMessage();
+
             Log::error('Payment request completion failed', [
                 'payment_request_id' => $paymentRequest->id,
                 'transaction_id' => $transactionId,
@@ -98,6 +119,8 @@ final class PaymentRequestCompletionService
 
             return self::STATUS_FAILED;
         } catch (\Throwable $e) {
+            $this->lastError = $e->getMessage();
+
             Log::error('Payment request completion failed', [
                 'payment_request_id' => $paymentRequest->id,
                 'transaction_id' => $transactionId,

@@ -24,6 +24,8 @@ final class RazorpayCheckoutCompletionService
 
     public const STATUS_FULFILLMENT_FAILED = 'fulfillment_failed';
 
+    private ?string $lastCompletionError = null;
+
     /**
      * @return array<string, mixed>
      */
@@ -204,12 +206,15 @@ final class RazorpayCheckoutCompletionService
             }
         }
 
-        $result = app(PaymentRequestCompletionService::class)->complete(
+        $completionService = app(PaymentRequestCompletionService::class);
+        $result = $completionService->complete(
             $paymentRequest,
             $razorpayPaymentId,
             'razor_pay',
             round((int) $razorpayPayment['amount'] / 100, 2)
         );
+
+        $this->lastCompletionError = $completionService->lastError();
 
         if ($result === PaymentRequestCompletionService::STATUS_FULFILLMENT_FAILED) {
             return self::STATUS_FULFILLMENT_FAILED;
@@ -256,27 +261,43 @@ final class RazorpayCheckoutCompletionService
         $paymentRequest = $this->resolvePaymentRequestFromWebhook($entity, $api);
 
         if (! $paymentRequest) {
+            $notes = is_array($entity['notes'] ?? null) ? $entity['notes'] : [];
+            $hintPaymentRequestId = trim((string) ($notes['payment_request_id'] ?? ''));
+
             Log::warning('Razorpay webhook: payment request not found', [
                 'order_id' => $entity['order_id'] ?? null,
                 'payment_id' => $paymentId,
+                'payment_request_id_hint' => $hintPaymentRequestId !== '' ? $hintPaymentRequestId : null,
             ]);
 
             return [
                 'status' => self::STATUS_NOT_FOUND,
-                'payment_request_id' => null,
-                'error' => 'Payment request not found for Razorpay order',
+                'payment_request_id' => $hintPaymentRequestId !== '' ? $hintPaymentRequestId : null,
+                'error' => $hintPaymentRequestId !== ''
+                    ? 'Payment request ID from Razorpay order was not found in database (record may be missing or from another environment)'
+                    : 'Payment request not found for Razorpay order',
             ];
         }
 
         $result = $this->completeIfValid($paymentRequest, $paymentId, $entity, $api, false);
+        $completionError = $this->lastCompletionError;
 
         return [
             'status' => $result,
             'payment_request_id' => (string) $paymentRequest->id,
-            'error' => $result === self::STATUS_FULFILLMENT_FAILED
-                ? 'Payment captured but booking was not created (check cart / checkout data)'
-                : null,
+            'error' => $completionError ?? $this->defaultErrorForStatus($result),
         ];
+    }
+
+    private function defaultErrorForStatus(string $status): ?string
+    {
+        return match ($status) {
+            self::STATUS_FULFILLMENT_FAILED => 'Payment captured but booking was not created (check cart / checkout data)',
+            self::STATUS_FAILED => 'Payment completion failed',
+            self::STATUS_AMOUNT_MISMATCH => 'Razorpay captured amount is less than expected checkout amount',
+            self::STATUS_NOT_FOUND => 'Payment request not found for Razorpay order',
+            default => null,
+        };
     }
 
     public function razorpayPaidAmountMatchesRequest(PaymentRequest $paymentRequest, array $razorpayPayment): bool

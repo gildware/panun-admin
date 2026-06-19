@@ -393,6 +393,10 @@ class PaymentController extends Controller
         }
 
         //make payment
+        if (! isset($request['post_id']) || is_null($request['post_id'])) {
+            $query_params['cart_snapshot'] = build_payment_request_cart_snapshot($customer_user_id);
+        }
+
         $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');
         $payment_info = new Payment(
             success_hook: 'digital_payment_success',
