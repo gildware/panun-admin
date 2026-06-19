@@ -1,7 +1,62 @@
 <?php
 
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\PaymentModule\Entities\PaymentRequest;
+
+if (! function_exists('payment_request_fulfillment_complete')) {
+    function payment_request_fulfillment_complete(PaymentRequest $data): bool
+    {
+        $fresh = PaymentRequest::query()->find($data->id);
+        if (! $fresh) {
+            return false;
+        }
+
+        $hook = (string) ($fresh->success_hook ?? '');
+
+        if ($hook === 'digital_payment_success') {
+            return $fresh->attribute === 'booking'
+                && ! empty($fresh->attribute_id)
+                && Booking::query()->where('readable_id', $fresh->attribute_id)->exists();
+        }
+
+        if ($hook === 'repeat_booking_payment_success') {
+            $additional = json_decode($fresh->additional_data, true);
+            $repeatId = is_array($additional) ? ($additional['booking_repeat_id'] ?? null) : null;
+            if (! $repeatId) {
+                return false;
+            }
+
+            return (int) (BookingRepeat::query()->find($repeatId)?->is_paid ?? 0) === 1;
+        }
+
+        if ($hook === 'switch_offline_to_digital_payment_success') {
+            $additional = json_decode($fresh->additional_data, true);
+            $bookingId = is_array($additional) ? ($additional['booking_id'] ?? null) : null;
+            $transactionId = trim((string) ($fresh->transaction_id ?? ''));
+            if (! $bookingId || $transactionId === '') {
+                return false;
+            }
+
+            $booking = Booking::query()->find($bookingId);
+
+            return $booking && booking_partial_payment_exists_for_transaction($booking, $transactionId);
+        }
+
+        if ($hook === 'subscription_success') {
+            return ! empty($fresh->transaction_id);
+        }
+
+        return ! empty($fresh->transaction_id);
+    }
+}
+
+if (! function_exists('payment_request_needs_fulfillment')) {
+    function payment_request_needs_fulfillment(PaymentRequest $data): bool
+    {
+        return ! payment_request_fulfillment_complete($data);
+    }
+}
 
 if (! function_exists('payment_request_booking_fulfillment_response')) {
     /**

@@ -27,6 +27,10 @@ try {
 Route::match(['get', 'post'],'payment', [PaymentController::class, 'index']);
 Route::match(['get', 'post'],'payment/subscription', [SubscriptionPaymentController::class, 'index']);
 
+Route::post('payment/razor-pay/webhook', [RazorpayWebhookController::class, 'handle'])
+    ->name('razor-pay.webhook')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
 if (!$isPublished) {
     Route::group(['prefix' => 'payment'], function () {
         Route::match(['get', 'post'],'/', [PaymentController::class, 'index']);

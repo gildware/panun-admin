@@ -22,6 +22,8 @@ final class RazorpayCheckoutCompletionService
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_FULFILLMENT_FAILED = 'fulfillment_failed';
+
     /**
      * @return array<string, mixed>
      */
@@ -49,8 +51,8 @@ final class RazorpayCheckoutCompletionService
             return null;
         }
 
-        $env = env('APP_ENV') === 'live' ? 'live' : 'test';
-        $credentialsColumn = $env . '_values';
+        $mode = ($config->mode ?? 'test') === 'live' ? 'live' : 'test';
+        $credentialsColumn = $mode . '_values';
         $razor = json_decode($config->{$credentialsColumn} ?? '{}');
 
         if (! $razor || empty($razor->api_key) || empty($razor->api_secret)) {
@@ -68,6 +70,10 @@ final class RazorpayCheckoutCompletionService
 
     public function webhookSecret(): ?string
     {
+        if (! config('razor_config')) {
+            $this->configureApiFromGatewaySettings();
+        }
+
         $secret = config('razor_config.webhook_secret') ?: env('RAZORPAY_WEBHOOK_SECRET');
 
         return is_string($secret) && trim($secret) !== '' ? trim($secret) : null;
@@ -80,22 +86,9 @@ final class RazorpayCheckoutCompletionService
             return false;
         }
 
-        try {
-            $api = $this->configureApiFromGatewaySettings();
-            if (! $api) {
-                return false;
-            }
+        $expected = hash_hmac('sha256', $payload, $secret);
 
-            $api->utility->verifyWebhookSignature($payload, $signature, $secret);
-
-            return true;
-        } catch (\Throwable $e) {
-            Log::warning('Razorpay webhook signature verification failed', [
-                'message' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
+        return hash_equals($expected, trim($signature));
     }
 
     public function resolvePaymentRequestFromRazorpayOrder(Api $api, string $orderId): ?PaymentRequest
@@ -109,7 +102,7 @@ final class RazorpayCheckoutCompletionService
                 'message' => $e->getMessage(),
             ]);
 
-            return null;
+            return $this->resolvePaymentRequestById($orderId);
         }
 
         $paymentRequestId = (string) ($orderArray['notes']['payment_request_id'] ?? '');
@@ -117,11 +110,62 @@ final class RazorpayCheckoutCompletionService
             $paymentRequestId = (string) $orderArray['receipt'];
         }
 
+        return $this->resolvePaymentRequestById($paymentRequestId);
+    }
+
+    /**
+     * @param  array<string, mixed>  $paymentEntity
+     */
+    public function resolvePaymentRequestFromWebhook(array $paymentEntity, ?Api $api = null): ?PaymentRequest
+    {
+        $notes = is_array($paymentEntity['notes'] ?? null) ? $paymentEntity['notes'] : [];
+        $paymentRequestId = (string) ($notes['payment_request_id'] ?? '');
+
+        if ($paymentRequestId !== '') {
+            $resolved = $this->resolvePaymentRequestById($paymentRequestId);
+            if ($resolved) {
+                return $resolved;
+            }
+        }
+
+        $orderId = (string) ($paymentEntity['order_id'] ?? '');
+        if ($orderId !== '') {
+            $resolved = $this->resolvePaymentRequestById($orderId);
+            if ($resolved) {
+                return $resolved;
+            }
+
+            if ($api) {
+                $resolved = $this->resolvePaymentRequestFromRazorpayOrder($api, $orderId);
+                if ($resolved) {
+                    return $resolved;
+                }
+            }
+        }
+
+        $paymentId = (string) ($paymentEntity['id'] ?? '');
+        if ($paymentId !== '') {
+            return PaymentRequest::query()
+                ->where('transaction_id', $paymentId)
+                ->latest()
+                ->first();
+        }
+
+        return null;
+    }
+
+    public function resolvePaymentRequestById(string $paymentRequestId): ?PaymentRequest
+    {
+        $paymentRequestId = trim($paymentRequestId);
         if ($paymentRequestId === '') {
             return null;
         }
 
-        return PaymentRequest::query()->find($paymentRequestId);
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $paymentRequestId)) {
+            return PaymentRequest::query()->find($paymentRequestId);
+        }
+
+        return null;
     }
 
     /**
@@ -160,57 +204,79 @@ final class RazorpayCheckoutCompletionService
             }
         }
 
-        return app(PaymentRequestCompletionService::class)->complete(
+        $result = app(PaymentRequestCompletionService::class)->complete(
             $paymentRequest,
             $razorpayPaymentId,
             'razor_pay',
             round((int) $razorpayPayment['amount'] / 100, 2)
         );
+
+        if ($result === PaymentRequestCompletionService::STATUS_FULFILLMENT_FAILED) {
+            return self::STATUS_FULFILLMENT_FAILED;
+        }
+
+        return $result;
     }
 
     /**
      * @param  array<string, mixed>  $payload
+     * @return array{status: string, payment_request_id: string|null, error: string|null}
      */
-    public function handleWebhookPayload(array $payload): string
+    public function handleWebhookPayload(array $payload): array
     {
         $event = (string) ($payload['event'] ?? '');
 
         if ($event !== 'payment.captured') {
-            return 'ignored';
+            return [
+                'status' => 'ignored',
+                'payment_request_id' => null,
+                'error' => null,
+            ];
         }
 
         $entity = $payload['payload']['payment']['entity'] ?? null;
         if (! is_array($entity)) {
-            return 'invalid_payload';
+            return [
+                'status' => 'invalid_payload',
+                'payment_request_id' => null,
+                'error' => 'Missing payment entity',
+            ];
         }
 
         $paymentId = (string) ($entity['id'] ?? '');
-        $orderId = (string) ($entity['order_id'] ?? '');
-
-        if ($paymentId === '' || $orderId === '') {
-            return 'invalid_payload';
+        if ($paymentId === '') {
+            return [
+                'status' => 'invalid_payload',
+                'payment_request_id' => null,
+                'error' => 'Missing Razorpay payment id',
+            ];
         }
 
         $api = $this->configureApiFromGatewaySettings();
-        if (! $api) {
-            return 'api_unavailable';
-        }
+        $paymentRequest = $this->resolvePaymentRequestFromWebhook($entity, $api);
 
-        $paymentRequest = $this->resolvePaymentRequestFromRazorpayOrder($api, $orderId);
         if (! $paymentRequest) {
-            Log::warning('Razorpay webhook: payment request not found for order', [
-                'order_id' => $orderId,
+            Log::warning('Razorpay webhook: payment request not found', [
+                'order_id' => $entity['order_id'] ?? null,
                 'payment_id' => $paymentId,
             ]);
 
-            return self::STATUS_NOT_FOUND;
+            return [
+                'status' => self::STATUS_NOT_FOUND,
+                'payment_request_id' => null,
+                'error' => 'Payment request not found for Razorpay order',
+            ];
         }
 
-        if ((string) ($paymentRequest->payment_method ?? '') !== 'razor_pay') {
-            // Payment request stores gateway key before redirect; allow completion regardless.
-        }
+        $result = $this->completeIfValid($paymentRequest, $paymentId, $entity, $api, false);
 
-        return $this->completeIfValid($paymentRequest, $paymentId, $entity, $api, false);
+        return [
+            'status' => $result,
+            'payment_request_id' => (string) $paymentRequest->id,
+            'error' => $result === self::STATUS_FULFILLMENT_FAILED
+                ? 'Payment captured but booking was not created (check cart / checkout data)'
+                : null,
+        ];
     }
 
     public function razorpayPaidAmountMatchesRequest(PaymentRequest $paymentRequest, array $razorpayPayment): bool

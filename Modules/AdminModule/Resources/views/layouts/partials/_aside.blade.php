@@ -351,6 +351,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                             <span class="link-title">{{ translate('All Transactions') }}</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('admin.transaction.razorpay_webhooks.index') }}"
+                           class="{{ request()->is('admin/transaction/razorpay-webhooks*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('Razorpay_webhook_logs') }}">notifications_active</span>
+                            <span class="link-title">{{ translate('Razorpay_webhook_logs') }}</span>
+                        </a>
+                    </li>
                 @endcan
                 @can('ledger_view')
                     <li>
