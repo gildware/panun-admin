@@ -215,7 +215,8 @@ class MobileAppHomeController extends Controller
 
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
-        $banners = $this->banner->with(['service', 'category'])
+        $banners = $this->banner->withoutGlobalScope('zone_wise_data')
+            ->with(['service', 'category'])
             ->ofStatus(1)
             ->whereIn('id', $pageIds)
             ->orderByRaw($orderSql)

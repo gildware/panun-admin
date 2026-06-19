@@ -986,19 +986,28 @@ if (!function_exists('public_storage_asset_url')) {
     {
         $relativePath = ltrim(str_replace(['storage/', '/storage/'], '', $relativePath), '/');
 
+        // API responses must use APP_URL so mobile clients and home-bundle sub-requests
+        // never emit http://localhost/... when the public API host differs.
+        if (request()?->is('api/*')) {
+            $appUrl = rtrim((string) config('app.url', ''), '/');
+            if ($appUrl !== '') {
+                return $appUrl.'/storage/'.$relativePath;
+            }
+        }
+
         if (request()) {
             $host = request()->getSchemeAndHttpHost();
             if ($host !== '') {
-                return rtrim($host, '/') . '/storage/' . $relativePath;
+                return rtrim($host, '/').'/storage/'.$relativePath;
             }
         }
 
         $appUrl = rtrim((string) config('app.url', ''), '/');
         if ($appUrl !== '') {
-            return $appUrl . '/storage/' . $relativePath;
+            return $appUrl.'/storage/'.$relativePath;
         }
 
-        return asset('storage/' . $relativePath);
+        return asset('storage/'.$relativePath);
     }
 }
 
