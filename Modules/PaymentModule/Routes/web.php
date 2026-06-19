@@ -6,6 +6,7 @@ use Modules\PaymentModule\Http\Controllers\PaytmController;
 use Modules\PaymentModule\Http\Controllers\PaymentController;
 use Modules\PaymentModule\Http\Controllers\PaystackController;
 use Modules\PaymentModule\Http\Controllers\RazorPayController;
+use Modules\PaymentModule\Http\Controllers\RazorpayWebhookController;
 use Modules\PaymentModule\Http\Controllers\SenangPayController;
 use Modules\PaymentModule\Http\Controllers\FlutterwaveV3Controller;
 use Modules\PaymentModule\Http\Controllers\StripePaymentController;
@@ -54,6 +55,7 @@ if (!$isPublished) {
             Route::any('create-order', [RazorPayController::class, 'createOrder'])->name('create-order')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::any('native-prepare', [RazorPayController::class, 'nativePrepare'])->name('native-prepare')->withoutMiddleware([VerifyCsrfToken::class]);
             Route::any('verify-payment', [RazorPayController::class, 'verifyPayment'])->name('verify-payment')->withoutMiddleware([VerifyCsrfToken::class]);
+            Route::post('webhook', [RazorpayWebhookController::class, 'handle'])->name('webhook')->withoutMiddleware([VerifyCsrfToken::class]);
         });
 
         //SENANG-PAY

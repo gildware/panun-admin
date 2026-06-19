@@ -102,20 +102,23 @@ class StripePaymentController extends Controller
         $session = Session::retrieve($request->get('session_id'));
 
         if ($session->payment_status == 'paid' && $session->status == 'complete') {
-
-            $this->payment::where(['id' => $request['payment_id']])->update([
-                'payment_method' => 'stripe',
-                'is_paid' => 1,
-                'transaction_id' => $session->payment_intent,
-            ]);
-
             $data = $this->payment::where(['id' => $request['payment_id']])->first();
+            $paidAmount = isset($session->amount_total)
+                ? round(((int) $session->amount_total) / 100, 2)
+                : null;
 
-            if (isset($data) && function_exists($data->success_hook)) {
-                call_user_func($data->success_hook, $data);
+            $status = $this->completeVerifiedPayment(
+                $data,
+                (string) $session->payment_intent,
+                'stripe',
+                $paidAmount
+            );
+
+            if ($this->paymentCompletionSucceeded($status)) {
+                $data = $this->payment::where(['id' => $request['payment_id']])->first();
+
+                return $this->payment_response($data, 'success');
             }
-
-            return $this->payment_response($data,'success');
         }
         $payment_data = $this->payment::where(['id' => $request['payment_id']])->first();
         if (isset($payment_data) && function_exists($payment_data->failure_hook)) {

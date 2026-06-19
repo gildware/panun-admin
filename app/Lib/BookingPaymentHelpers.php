@@ -5243,10 +5243,14 @@ if (!function_exists('record_booking_advance_checkout_payment')) {
     /**
      * After booking create: store advance partial row + ledger when customer paid confirmation only.
      */
-    function record_booking_advance_checkout_payment($booking, iterable $cartItems, $request, float $totalBookingAmount): void
+    function record_booking_advance_checkout_payment($booking, iterable $cartItems, $request, float $totalBookingAmount, ?float $verifiedPaidAmount = null): void
     {
         $units = booking_confirmation_units_for_cart_items($cartItems);
-        $advancePaid = round(min($totalBookingAmount, booking_confirmation_amount_per_service() * max(1, $units)), 2);
+        $computedAdvance = round(min($totalBookingAmount, booking_confirmation_amount_per_service() * max(1, $units)), 2);
+        $verifiedPaidAmount = $verifiedPaidAmount !== null ? round(max(0.0, $verifiedPaidAmount), 2) : 0.0;
+        $advancePaid = $verifiedPaidAmount > 0
+            ? round(min($totalBookingAmount, $verifiedPaidAmount), 2)
+            : $computedAdvance;
         $dueAmount = round(max(0.0, $totalBookingAmount - $advancePaid), 2);
 
         $paidWith = map_booking_payment_paid_with((string) $request['payment_method']);
@@ -5299,7 +5303,14 @@ if (!function_exists('finalize_booking_checkout_transactions')) {
         $paymentAmountType = $request['payment_amount_type'] ?? 'full';
 
         if ($paymentAmountType === 'confirmation') {
-            record_booking_advance_checkout_payment($booking, $cartItems, $request, $totalBookingAmount);
+            $verified = round((float) ($request['verified_checkout_amount'] ?? 0), 2);
+            record_booking_advance_checkout_payment(
+                $booking,
+                $cartItems,
+                $request,
+                $totalBookingAmount,
+                $verified > 0 ? $verified : null
+            );
 
             return;
         }

@@ -176,19 +176,24 @@ class PaypalPaymentController extends Controller
         $response = json_decode($result);
 
         if($response->status === 'COMPLETED'){
-            $this->payment::where(['id' => $request['payment_id']])->update([
-                'payment_method' => 'paypal',
-                'is_paid' => 1,
-                'transaction_id' => $response->id,
-            ]);
-
             $data = $this->payment::where(['id' => $request['payment_id']])->first();
-
-            if (isset($data) && function_exists($data->success_hook)) {
-                call_user_func($data->success_hook, $data);
+            $paidAmount = null;
+            if (isset($response->purchase_units[0]->payments->captures[0]->amount->value)) {
+                $paidAmount = round((float) $response->purchase_units[0]->payments->captures[0]->amount->value, 2);
             }
 
-            return $this->payment_response($data,'success');
+            $status = $this->completeVerifiedPayment(
+                $data,
+                (string) $response->id,
+                'paypal',
+                $paidAmount
+            );
+
+            if ($this->paymentCompletionSucceeded($status)) {
+                $data = $this->payment::where(['id' => $request['payment_id']])->first();
+
+                return $this->payment_response($data, 'success');
+            }
         }
         $payment_data = $this->payment::where(['id' => $request['payment_id']])->first();
         if (isset($payment_data) && function_exists($payment_data->failure_hook)) {

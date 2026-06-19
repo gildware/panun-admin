@@ -7,7 +7,7 @@
     'username' => 'gildwaretechnologies',
     'purchase_key' => 'b2f34439-3306-4b59-becb-37f0808fb25c',
     'software_id' => 'NDAyMjQ3NzI=',
-    'domain' => '127.0.0.1:8000',
+    'domain' => 'dev.panunkaergar.com',
     'software_type' => 'product',
     'errors' => 
     array (

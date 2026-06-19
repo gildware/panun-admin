@@ -22,7 +22,7 @@
                 <input type="hidden" name="currency"
                        value="{{$data->currency_code}}">
                 <input type="hidden" name="metadata"
-                       value="{{ json_encode($array = ['attribute_id' => $data->attribute_id,]) }}">
+                       value="{{ json_encode(['payment_request_id' => $data->id, 'attribute_id' => $data->attribute_id]) }}">
                 <input type="hidden" name="reference"
                        value="{{ $reference }}">
 

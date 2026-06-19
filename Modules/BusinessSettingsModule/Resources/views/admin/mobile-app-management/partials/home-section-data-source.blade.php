@@ -11,12 +11,14 @@
     $providerIds = $providerIds ?? [];
     $bannerIds = $bannerIds ?? [];
     $categoryIds = $categoryIds ?? [];
-    $picklists = $picklists ?? ['services' => [], 'providers' => [], 'banners' => [], 'categories' => [], 'sub_categories' => []];
+    $campaignIds = $campaignIds ?? [];
+    $picklists = $picklists ?? ['services' => [], 'providers' => [], 'banners' => [], 'categories' => [], 'sub_categories' => [], 'campaigns' => []];
     $isManual = $dataMode === 'manual';
-    $pickType = in_array($contentType, ['providers', 'banners', 'categories', 'sub_categories'], true) ? $contentType : 'services';
+    $pickType = in_array($contentType, ['providers', 'banners', 'categories', 'sub_categories', 'campaigns'], true) ? $contentType : 'services';
     $pickLabel = match ($pickType) {
         'providers' => translate('Select_providers'),
         'banners' => translate('Select_banners'),
+        'campaigns' => translate('Select_campaigns'),
         'sub_categories' => translate('Select_sub_categories'),
         'categories' => translate('Select_categories'),
         default => translate('Select_services'),
@@ -66,6 +68,10 @@
                 @foreach($bannerIds as $bid)
                     <option value="{{ $bid }}" selected>{{ $picklists['banners'][$bid] ?? $bid }}</option>
                 @endforeach
+            @elseif($pickType === 'campaigns')
+                @foreach($campaignIds as $cid)
+                    <option value="{{ $cid }}" selected>{{ $picklists['campaigns'][$cid] ?? $cid }}</option>
+                @endforeach
             @elseif($pickType === 'categories')
                 @foreach($categoryIds as $cid)
                     <option value="{{ $cid }}" selected>{{ $picklists['categories'][$cid] ?? $cid }}</option>
@@ -88,6 +94,10 @@
             @elseif($pickType === 'banners')
                 @foreach($bannerIds as $bid)
                     <input type="hidden" name="sections[{{ $idx }}][banner_ids][]" value="{{ $bid }}">
+                @endforeach
+            @elseif($pickType === 'campaigns')
+                @foreach($campaignIds as $cid)
+                    <input type="hidden" name="sections[{{ $idx }}][campaign_ids][]" value="{{ $cid }}">
                 @endforeach
             @elseif($pickType === 'categories' || $pickType === 'sub_categories')
                 @foreach($categoryIds as $cid)

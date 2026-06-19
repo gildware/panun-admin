@@ -8,6 +8,7 @@ use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\Banner;
+use Modules\PromotionManagement\Entities\Campaign;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ServiceManagement\Entities\Service;
 
@@ -36,6 +37,8 @@ class MobileAppManagementService
 
     public const CONTENT_SUB_CATEGORIES = 'sub_categories';
 
+    public const CONTENT_CAMPAIGNS = 'campaigns';
+
     /** @var list<string> */
     public const BANNER_MANUAL_KEYS = [
         'banners',
@@ -60,6 +63,11 @@ class MobileAppManagementService
         'nearby_providers',
         'recommended_providers',
         'highlight_providers',
+    ];
+
+    /** @var list<string> */
+    public const CAMPAIGN_MANUAL_KEYS = [
+        'campaigns',
     ];
 
     /**
@@ -147,10 +155,10 @@ class MobileAppManagementService
                 'icon' => 'campaign',
                 'default_enabled' => true,
                 'fixed' => false,
-                'default_item_limit' => null,
+                'default_item_limit' => 10,
                 'conditional' => null,
-                'supports_manual_data' => false,
-                'content_type' => null,
+                'supports_manual_data' => true,
+                'content_type' => self::CONTENT_CAMPAIGNS,
             ],
             [
                 'key' => 'recommended_services',
@@ -283,6 +291,7 @@ class MobileAppManagementService
             self::PROVIDER_MANUAL_KEYS,
             self::BANNER_MANUAL_KEYS,
             self::CATEGORY_MANUAL_KEYS,
+            self::CAMPAIGN_MANUAL_KEYS,
         ), true);
     }
 
@@ -294,6 +303,7 @@ class MobileAppManagementService
             self::CONTENT_BANNERS,
             self::CONTENT_CATEGORIES,
             self::CONTENT_SUB_CATEGORIES,
+            self::CONTENT_CAMPAIGNS,
         ];
 
         if (self::isCustomSectionKey($key)) {
@@ -318,6 +328,10 @@ class MobileAppManagementService
             return self::CONTENT_PROVIDERS;
         }
 
+        if (in_array($key, self::CAMPAIGN_MANUAL_KEYS, true)) {
+            return self::CONTENT_CAMPAIGNS;
+        }
+
         return null;
     }
 
@@ -329,6 +343,7 @@ class MobileAppManagementService
                 self::CONTENT_CATEGORIES => 'mah_default_hint_categories',
                 self::CONTENT_SUB_CATEGORIES => 'mah_default_hint_sub_categories',
                 self::CONTENT_PROVIDERS => 'mah_default_hint_providers',
+                self::CONTENT_CAMPAIGNS => 'mah_default_hint_campaigns',
                 default => 'mah_default_hint_services',
             },
             $key === 'banners' => 'mah_default_hint_banners',
@@ -336,6 +351,7 @@ class MobileAppManagementService
             $key === 'feathered_categories' => 'mah_default_hint_feathered_categories',
             $key === 'highlight_providers' => 'mah_default_hint_highlight_providers',
             $key === 'popular_services' => 'mah_default_hint_popular_services',
+            $key === 'campaigns' => 'mah_default_hint_campaigns',
             $key === 'recommended_services' => 'mah_default_hint_recommended_services',
             $key === 'trending_services' => 'mah_default_hint_trending_services',
             $key === 'recently_viewed' => 'mah_default_hint_recently_viewed',
@@ -355,10 +371,12 @@ class MobileAppManagementService
                 self::CONTENT_CATEGORIES => 'mah_manual_hint_categories',
                 self::CONTENT_SUB_CATEGORIES => 'mah_manual_hint_sub_categories',
                 self::CONTENT_PROVIDERS => 'mah_manual_hint_providers',
+                self::CONTENT_CAMPAIGNS => 'mah_manual_hint_campaigns',
                 default => 'mah_manual_hint_services',
             },
             $key === 'banners' => 'mah_manual_hint_banners',
             $key === 'categories', $key === 'feathered_categories' => 'mah_manual_hint_categories',
+            $key === 'campaigns' => 'mah_manual_hint_campaigns',
             $key === 'highlight_providers', $key === 'nearby_providers', $key === 'recommended_providers' => 'mah_manual_hint_providers',
             $key === 'popular_services' => 'mah_manual_hint_popular_services',
             $key === 'recommended_services' => 'mah_manual_hint_recommended_services',
@@ -388,7 +406,7 @@ class MobileAppManagementService
         }
 
         $byContentType = [];
-        foreach ([self::CONTENT_SERVICES, self::CONTENT_PROVIDERS, self::CONTENT_BANNERS, self::CONTENT_CATEGORIES, self::CONTENT_SUB_CATEGORIES] as $type) {
+        foreach ([self::CONTENT_SERVICES, self::CONTENT_PROVIDERS, self::CONTENT_BANNERS, self::CONTENT_CATEGORIES, self::CONTENT_SUB_CATEGORIES, self::CONTENT_CAMPAIGNS] as $type) {
             $byContentType[$type] = [
                 'default' => self::sectionDefaultDataHint('custom_placeholder', $type),
                 'manual' => self::sectionManualDataHint('custom_placeholder', $type),
@@ -497,7 +515,7 @@ class MobileAppManagementService
      * Catalog + default lists for admin home-page live preview (real DB records).
      *
      * @return array{
-     *     catalog: array{services: array<string, array{id: string, name: string, url: string}>, providers: array, banners: array, categories: array},
+     *     catalog: array{services: array<string, array{id: string, name: string, url: string}>, providers: array, banners: array, categories: array, campaigns: array},
      *     defaults: array<string, list<array{id: string, name: string, url: string}>>
      * }
      */
@@ -507,6 +525,7 @@ class MobileAppManagementService
         $providerIds = [];
         $bannerIds = [];
         $categoryIds = [];
+        $campaignIds = [];
 
         foreach ($this->mergeHomeSectionRows() as $row) {
             if (($row['data_mode'] ?? self::DATA_MODE_DEFAULT) !== self::DATA_MODE_MANUAL) {
@@ -524,6 +543,9 @@ class MobileAppManagementService
             foreach ($row['category_ids'] ?? [] as $id) {
                 $categoryIds[$id] = $id;
             }
+            foreach ($row['campaign_ids'] ?? [] as $id) {
+                $campaignIds[$id] = $id;
+            }
         }
 
         $catalog = [
@@ -531,6 +553,7 @@ class MobileAppManagementService
             'providers' => $this->previewProvidersByIds(array_keys($providerIds)),
             'banners' => $this->previewBannersByIds(array_keys($bannerIds)),
             'categories' => $this->previewCategoriesByIds(array_keys($categoryIds)),
+            'campaigns' => $this->previewCampaignsByIds(array_keys($campaignIds)),
         ];
 
         $defaults = [
@@ -538,6 +561,7 @@ class MobileAppManagementService
             'categories' => $this->previewCategoryList(8),
             'sub_categories' => $this->previewSubCategoryList(8),
             'feathered_categories' => $this->previewCategoryList(6),
+            'campaigns' => $this->previewCampaignList(5),
             'popular_services' => $this->previewPopularServices(5),
             'trending_services' => $this->previewTrendingServices(5),
             'recommended_services' => $this->previewRecommendedServices(5),
@@ -618,6 +642,82 @@ class MobileAppManagementService
             ->whereIn('id', $ids)
             ->get()
             ->mapWithKeys(fn (Category $c) => [$c->id => $this->formatCategoryPreview($c)])
+            ->all();
+    }
+
+    /**
+     * @param list<string> $ids
+     * @return array<string, array{id: string, name: string, url: string}>
+     */
+    private function previewCampaignsByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return Campaign::query()
+            ->withoutGlobalScope('zone_wise_data')
+            ->whereIn('id', $ids)
+            ->get()
+            ->mapWithKeys(fn (Campaign $c) => [$c->id => $this->formatCampaignPreview($c)])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: string, name: string, url: string}>
+     */
+    private function previewCampaignList(int $limit): array
+    {
+        return Campaign::query()
+            ->withoutGlobalScope('zone_wise_data')
+            ->ofStatus(1)
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Campaign $c) => $this->formatCampaignPreview($c))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{id: string, name: string, url: string}
+     */
+    private function formatCampaignPreview(Campaign $campaign): array
+    {
+        return [
+            'id' => (string) $campaign->id,
+            'name' => (string) ($campaign->campaign_name ?: ('Campaign #'.substr((string) $campaign->id, 0, 8))),
+            'url' => (string) ($campaign->cover_image_full_path ?? $campaign->thumbnail_full_path ?? ''),
+        ];
+    }
+
+    /**
+     * @return list<array{id: string, text: string, image: string}>
+     */
+    public function searchCampaignsForPicker(string $query = '', int $limit = 30): array
+    {
+        $builder = Campaign::query()
+            ->withoutGlobalScope('zone_wise_data')
+            ->ofStatus(1);
+
+        if ($query !== '') {
+            $builder->where('campaign_name', 'like', '%'.$query.'%');
+        }
+
+        return $builder
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->map(function (Campaign $campaign) {
+                $label = trim((string) ($campaign->campaign_name ?? ''));
+
+                return [
+                    'id' => (string) $campaign->id,
+                    'text' => $label !== '' ? $label : ('Campaign #'.substr((string) $campaign->id, 0, 8)),
+                    'image' => (string) ($campaign->cover_image_full_path ?? $campaign->thumbnail_full_path ?? ''),
+                ];
+            })
+            ->values()
             ->all();
     }
 
@@ -876,7 +976,7 @@ class MobileAppManagementService
     }
 
     /**
-     * @return array{services: array<string, string>, providers: array<string, string>, banners: array<string, string>, categories: array<string, string>, sub_categories: array<string, string>}
+     * @return array{services: array<string, string>, providers: array<string, string>, banners: array<string, string>, categories: array<string, string>, sub_categories: array<string, string>, campaigns: array<string, string>}
      */
     public function resolvePicklistLabels(): array
     {
@@ -884,6 +984,7 @@ class MobileAppManagementService
         $providerIds = [];
         $bannerIds = [];
         $categoryIds = [];
+        $campaignIds = [];
 
         foreach ($this->mergeHomeSectionRows() as $row) {
             if (($row['data_mode'] ?? self::DATA_MODE_DEFAULT) !== self::DATA_MODE_MANUAL) {
@@ -900,6 +1001,9 @@ class MobileAppManagementService
             }
             foreach ($row['category_ids'] ?? [] as $id) {
                 $categoryIds[$id] = $id;
+            }
+            foreach ($row['campaign_ids'] ?? [] as $id) {
+                $campaignIds[$id] = $id;
             }
         }
 
@@ -932,6 +1036,7 @@ class MobileAppManagementService
 
         $categories = [];
         $subCategories = [];
+        $campaigns = [];
         if ($categoryIds !== []) {
             foreach (Category::query()->whereIn('id', array_keys($categoryIds))->get(['id', 'name', 'position']) as $category) {
                 $label = $category->name ?: ('Category #'.substr((string) $category->id, 0, 8));
@@ -944,12 +1049,24 @@ class MobileAppManagementService
             }
         }
 
+        if ($campaignIds !== []) {
+            $campaigns = Campaign::query()
+                ->withoutGlobalScope('zone_wise_data')
+                ->whereIn('id', array_keys($campaignIds))
+                ->get()
+                ->mapWithKeys(fn ($c) => [
+                    $c->id => $c->campaign_name ?: ('Campaign #'.substr($c->id, 0, 8)),
+                ])
+                ->all();
+        }
+
         return [
             'services' => $services,
             'providers' => $providers,
             'banners' => $banners,
             'categories' => $categories,
             'sub_categories' => $subCategories,
+            'campaigns' => $campaigns,
         ];
     }
 
@@ -1001,6 +1118,7 @@ class MobileAppManagementService
             $providerIds = $this->normalizeUuidList($row['provider_ids'] ?? []);
             $bannerIds = $this->normalizeUuidList($row['banner_ids'] ?? []);
             $categoryIds = $this->normalizeUuidList($row['category_ids'] ?? []);
+            $campaignIds = $this->normalizeUuidList($row['campaign_ids'] ?? []);
 
             if ($dataMode === self::DATA_MODE_MANUAL) {
                 $serviceIds = $contentType === self::CONTENT_SERVICES ? $serviceIds : [];
@@ -1009,11 +1127,13 @@ class MobileAppManagementService
                 $categoryIds = in_array($contentType, [self::CONTENT_CATEGORIES, self::CONTENT_SUB_CATEGORIES], true)
                     ? $categoryIds
                     : [];
+                $campaignIds = $contentType === self::CONTENT_CAMPAIGNS ? $campaignIds : [];
             } else {
                 $serviceIds = [];
                 $providerIds = [];
                 $bannerIds = [];
                 $categoryIds = [];
+                $campaignIds = [];
             }
 
             $entry = [
@@ -1027,6 +1147,7 @@ class MobileAppManagementService
                 'provider_ids' => $providerIds,
                 'banner_ids' => $bannerIds,
                 'category_ids' => $categoryIds,
+                'campaign_ids' => $campaignIds,
             ];
 
             if ($isCustom) {
@@ -1062,6 +1183,7 @@ class MobileAppManagementService
                 'provider_ids' => $row['data_mode'] === self::DATA_MODE_MANUAL ? ($row['provider_ids'] ?? []) : [],
                 'banner_ids' => $row['data_mode'] === self::DATA_MODE_MANUAL ? ($row['banner_ids'] ?? []) : [],
                 'category_ids' => $row['data_mode'] === self::DATA_MODE_MANUAL ? ($row['category_ids'] ?? []) : [],
+                'campaign_ids' => $row['data_mode'] === self::DATA_MODE_MANUAL ? ($row['campaign_ids'] ?? []) : [],
             ];
         }
 
@@ -1372,6 +1494,7 @@ class MobileAppManagementService
             'provider_ids' => $this->normalizeUuidList($row['provider_ids'] ?? []),
             'banner_ids' => $this->normalizeUuidList($row['banner_ids'] ?? []),
             'category_ids' => $this->normalizeUuidList($row['category_ids'] ?? []),
+            'campaign_ids' => $this->normalizeUuidList($row['campaign_ids'] ?? []),
         ]);
     }
 
@@ -1392,6 +1515,7 @@ class MobileAppManagementService
         $previewType = match ($contentType) {
             self::CONTENT_PROVIDERS => 'providers_horizontal',
             self::CONTENT_BANNERS => 'banner',
+            self::CONTENT_CAMPAIGNS => 'campaign',
             self::CONTENT_CATEGORIES => 'categories',
             self::CONTENT_SUB_CATEGORIES => 'sub_categories',
             default => 'services_horizontal',
@@ -1400,6 +1524,7 @@ class MobileAppManagementService
         $typeLabel = match ($contentType) {
             self::CONTENT_PROVIDERS => 'providers',
             self::CONTENT_BANNERS => 'banners',
+            self::CONTENT_CAMPAIGNS => 'campaigns',
             self::CONTENT_CATEGORIES => 'categories',
             self::CONTENT_SUB_CATEGORIES => 'sub categories',
             default => 'services',
@@ -1414,6 +1539,7 @@ class MobileAppManagementService
             'icon' => match ($contentType) {
                 self::CONTENT_PROVIDERS => 'groups',
                 self::CONTENT_BANNERS => 'view_carousel',
+                self::CONTENT_CAMPAIGNS => 'campaign',
                 self::CONTENT_CATEGORIES, self::CONTENT_SUB_CATEGORIES => 'category',
                 default => 'view_list',
             },
@@ -1433,6 +1559,7 @@ class MobileAppManagementService
             'provider_ids' => $this->normalizeUuidList($row['provider_ids'] ?? []),
             'banner_ids' => $this->normalizeUuidList($row['banner_ids'] ?? []),
             'category_ids' => $this->normalizeUuidList($row['category_ids'] ?? []),
+            'campaign_ids' => $this->normalizeUuidList($row['campaign_ids'] ?? []),
         ];
     }
 

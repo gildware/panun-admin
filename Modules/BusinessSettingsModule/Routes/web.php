@@ -212,6 +212,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('home-page/search-services', [MobileAppManagementController::class, 'searchServices'])->name('home-page.search-services');
         Route::get('home-page/search-providers', [MobileAppManagementController::class, 'searchProviders'])->name('home-page.search-providers');
         Route::get('home-page/search-banners', [MobileAppManagementController::class, 'searchBanners'])->name('home-page.search-banners');
+        Route::get('home-page/search-campaigns', [MobileAppManagementController::class, 'searchCampaigns'])->name('home-page.search-campaigns');
         Route::get('home-page/search-categories', [MobileAppManagementController::class, 'searchCategories'])->name('home-page.search-categories');
         Route::get('home-page/search-sub-categories', [MobileAppManagementController::class, 'searchSubCategories'])->name('home-page.search-sub-categories');
         Route::get('icons', [MobileAppManagementController::class, 'icons'])->name('icons');

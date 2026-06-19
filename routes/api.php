@@ -4,9 +4,12 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Internal\WhatsAppSyncController;
 use Modules\WhatsAppModule\Http\Controllers\Api\MetaSocialMessagingWebhookController;
 use Modules\WhatsAppModule\Http\Controllers\Api\WhatsAppMarketingWebhookController;
+use Modules\PaymentModule\Http\Controllers\RazorpayWebhookController;
 
 Route::get('webhooks/whatsapp-marketing', [WhatsAppMarketingWebhookController::class, 'verify']);
 Route::post('webhooks/whatsapp-marketing', [WhatsAppMarketingWebhookController::class, 'handle']);
+
+Route::post('webhooks/razorpay', [RazorpayWebhookController::class, 'handle']);
 
 Route::get('webhooks/meta-social', [MetaSocialMessagingWebhookController::class, 'verify']);
 Route::post('webhooks/meta-social', [MetaSocialMessagingWebhookController::class, 'handle']);

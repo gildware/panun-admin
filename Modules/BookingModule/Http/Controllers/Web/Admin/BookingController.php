@@ -1868,6 +1868,8 @@ class BookingController extends Controller
                     'created_by' => auth()->id(),
                     'booking_partial_payment_id' => $advancePartial->id,
                 ]);
+
+                placeBookingTransactionForAdminAdvance($booking, $paidAmount);
             }
 
             foreach ($cartPricing['lines'] as $calc) {

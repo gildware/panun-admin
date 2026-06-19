@@ -15,6 +15,7 @@
     $providerIds = $section['provider_ids'] ?? [];
     $bannerIds = $section['banner_ids'] ?? [];
     $categoryIds = $section['category_ids'] ?? [];
+    $campaignIds = $section['campaign_ids'] ?? [];
     $idx = $index ?? 0;
 @endphp
 <li class="mah-section-item {{ $section['enabled'] ? '' : 'is-disabled' }} {{ $isCustom ? 'is-custom' : '' }} {{ $dataMode === 'manual' ? 'is-manual-mode' : '' }} {{ ($expandSection ?? false) ? 'is-expanded' : '' }}"
@@ -76,6 +77,7 @@
                         <option value="services" {{ $contentType === 'services' ? 'selected' : '' }}>{{ translate('Services') }}</option>
                         <option value="providers" {{ $contentType === 'providers' ? 'selected' : '' }}>{{ translate('Providers') }}</option>
                         <option value="banners" {{ $contentType === 'banners' ? 'selected' : '' }}>{{ translate('Banners') }}</option>
+                        <option value="campaigns" {{ $contentType === 'campaigns' ? 'selected' : '' }}>{{ translate('Campaigns') }}</option>
                         <option value="categories" {{ $contentType === 'categories' ? 'selected' : '' }}>{{ translate('Categories') }}</option>
                         <option value="sub_categories" {{ $contentType === 'sub_categories' ? 'selected' : '' }}>{{ translate('Sub_categories') }}</option>
                     </select>
@@ -111,6 +113,7 @@
                 'providerIds' => $providerIds,
                 'bannerIds' => $bannerIds,
                 'categoryIds' => $categoryIds,
+                'campaignIds' => $campaignIds,
                 'picklists' => $picklists,
             ])
         @endif

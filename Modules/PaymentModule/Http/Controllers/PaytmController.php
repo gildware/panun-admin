@@ -385,19 +385,23 @@ class PaytmController extends Controller
 
         if ($isValidChecksum == "TRUE") {
             if ($request["STATUS"] == "TXN_SUCCESS") {
-
-                $this->payment::where(['id' => $request['payment_id']])->update([
-                    'payment_method' => 'paytm',
-                    'is_paid' => 1,
-                    'transaction_id' => $request['TXNID'],
-                ]);
-
                 $data = $this->payment::where(['id' => $request['payment_id']])->first();
+                $paidAmount = isset($paramList['TXNAMOUNT'])
+                    ? round((float) $paramList['TXNAMOUNT'], 2)
+                    : null;
 
-                if (isset($data) && function_exists($data->success_hook)) {
-                    call_user_func($data->success_hook, $data);
+                $status = $this->completeVerifiedPayment(
+                    $data,
+                    (string) $request['TXNID'],
+                    'paytm',
+                    $paidAmount
+                );
+
+                if ($this->paymentCompletionSucceeded($status)) {
+                    $data = $this->payment::where(['id' => $request['payment_id']])->first();
+
+                    return $this->payment_response($data, 'success');
                 }
-                return $this->payment_response($data,'success');
             }
         }
         $payment_data = $this->payment::where(['id' => $request['payment_id']])->first();

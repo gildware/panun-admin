@@ -210,6 +210,18 @@ class MobileAppManagementController extends Controller
         return response()->json(['results' => $results]);
     }
 
+    public function searchCampaigns(Request $request): JsonResponse
+    {
+        $this->authorize('mobile_app_home_page_view');
+
+        return response()->json([
+            'results' => $this->managementService->searchCampaignsForPicker(
+                trim((string) $request->query('q', '')),
+                30
+            ),
+        ]);
+    }
+
     public function searchCategories(Request $request): JsonResponse
     {
         $this->authorize('mobile_app_home_page_view');
@@ -249,13 +261,15 @@ class MobileAppManagementController extends Controller
             'sections.*.title' => 'nullable|string|max:120',
             'sections.*.item_limit' => 'nullable|integer|min:1|max:50',
             'sections.*.data_mode' => 'nullable|in:default,manual',
-            'sections.*.content_type' => 'nullable|in:services,providers,banners,categories,sub_categories',
+            'sections.*.content_type' => 'nullable|in:services,providers,banners,categories,sub_categories,campaigns',
             'sections.*.service_ids' => 'nullable|array',
             'sections.*.service_ids.*' => 'uuid',
             'sections.*.provider_ids' => 'nullable|array',
             'sections.*.provider_ids.*' => 'uuid',
             'sections.*.banner_ids' => 'nullable|array',
             'sections.*.banner_ids.*' => 'uuid',
+            'sections.*.campaign_ids' => 'nullable|array',
+            'sections.*.campaign_ids.*' => 'uuid',
             'sections.*.category_ids' => 'nullable|array',
             'sections.*.category_ids.*' => 'uuid',
         ]);
@@ -277,6 +291,7 @@ class MobileAppManagementController extends Controller
                 'service_ids' => $row['service_ids'] ?? [],
                 'provider_ids' => $row['provider_ids'] ?? [],
                 'banner_ids' => $row['banner_ids'] ?? [],
+                'campaign_ids' => $row['campaign_ids'] ?? [],
                 'category_ids' => $row['category_ids'] ?? [],
             ];
         }
@@ -435,7 +450,7 @@ class MobileAppManagementController extends Controller
                 continue;
             }
 
-            foreach (['service_ids', 'provider_ids', 'banner_ids', 'category_ids'] as $field) {
+            foreach (['service_ids', 'provider_ids', 'banner_ids', 'campaign_ids', 'category_ids'] as $field) {
                 $ids = $row[$field] ?? [];
                 if (!is_array($ids)) {
                     $ids = $ids === null || $ids === '' ? [] : [$ids];
@@ -452,6 +467,7 @@ class MobileAppManagementController extends Controller
                 $row['service_ids'] = [];
                 $row['provider_ids'] = [];
                 $row['banner_ids'] = [];
+                $row['campaign_ids'] = [];
                 $row['category_ids'] = [];
             }
 
