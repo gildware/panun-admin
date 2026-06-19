@@ -3,7 +3,6 @@
 use Illuminate\Support\Collection;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingRepeat;
-use Modules\CartModule\Entities\Cart;
 use Modules\PaymentModule\Entities\PaymentRequest;
 
 if (! function_exists('payment_request_fulfillment_complete')) {
@@ -136,16 +135,8 @@ if (! function_exists('build_payment_request_cart_snapshot')) {
      */
     function build_payment_request_cart_snapshot(string $customerUserId): array
     {
-        if ($customerUserId === '') {
-            return [];
-        }
-
-        return Cart::query()
-            ->where('customer_id', $customerUserId)
-            ->get()
-            ->map(static fn (Cart $item) => $item->toArray())
-            ->values()
-            ->all();
+        return app(\Modules\PaymentModule\Services\PaymentRequestCartSnapshotService::class)
+            ->buildSnapshot($customerUserId);
     }
 }
 
@@ -155,30 +146,7 @@ if (! function_exists('payment_request_cart_lines_for_booking')) {
      */
     function payment_request_cart_lines_for_booking(string $customerUserId, mixed $request): Collection
     {
-        $cartData = Cart::with(['service.category', 'service.subCategory'])
-            ->where('customer_id', $customerUserId)
-            ->get();
-
-        if ($cartData->isNotEmpty()) {
-            return $cartData;
-        }
-
-        $snapshot = match (true) {
-            $request instanceof Collection => $request->get('cart_snapshot'),
-            is_array($request) => $request['cart_snapshot'] ?? null,
-            default => null,
-        };
-
-        if (! is_array($snapshot) || $snapshot === []) {
-            return $cartData;
-        }
-
-        return collect($snapshot)->map(static function (array $row) {
-            $cart = new Cart();
-            $cart->forceFill($row);
-            $cart->exists = true;
-
-            return $cart;
-        });
+        return app(\Modules\PaymentModule\Services\PaymentRequestCartSnapshotService::class)
+            ->cartLinesForBooking($customerUserId, $request);
     }
 }

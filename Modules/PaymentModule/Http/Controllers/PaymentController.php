@@ -23,6 +23,7 @@ use Modules\PaymentModule\Library\Payment as Payment;
 use Modules\PaymentModule\Library\Payer;
 use Modules\PaymentModule\Library\Receiver;
 use App\Lib\PaymentAccessToken;
+use Modules\PaymentModule\Services\PaymentRequestCartSnapshotService;
 
 
 class PaymentController extends Controller
@@ -394,7 +395,8 @@ class PaymentController extends Controller
 
         //make payment
         if (! isset($request['post_id']) || is_null($request['post_id'])) {
-            $query_params['cart_snapshot'] = build_payment_request_cart_snapshot($customer_user_id);
+            $query_params['cart_snapshot'] = app(PaymentRequestCartSnapshotService::class)
+                ->buildSnapshot($customer_user_id);
         }
 
         $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');
