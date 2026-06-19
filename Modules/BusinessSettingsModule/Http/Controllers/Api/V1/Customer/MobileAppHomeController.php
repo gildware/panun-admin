@@ -215,22 +215,20 @@ class MobileAppHomeController extends Controller
 
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
+        // Admin-picked banners must not be dropped by zone scopes on banner/category/service.
         $banners = $this->banner->withoutGlobalScope('zone_wise_data')
-            ->with(['service', 'category'])
+            ->with([
+                'service' => function ($query) {
+                    $query->withoutGlobalScope('zone_wise_data');
+                },
+                'category' => function ($query) {
+                    $query->withoutGlobalScope('zone_wise_data');
+                },
+            ])
             ->ofStatus(1)
             ->whereIn('id', $pageIds)
             ->orderByRaw($orderSql)
             ->get()
-            ->filter(function ($item) {
-                if ($item->resource_type == 'service' && is_null($item->service)) {
-                    return false;
-                }
-                if ($item->resource_type == 'category' && is_null($item->category)) {
-                    return false;
-                }
-
-                return true;
-            })
             ->values();
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(

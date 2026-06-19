@@ -20,7 +20,7 @@ class CustomerHomeBundleService
             : 'guest:'.(string) ($request->input('guest_id') ?? $request->header('guest_id') ?? 'anon');
 
         $layoutHash = substr(md5(json_encode($this->mobileAppManagementService->homeSectionsForApi())), 0, 12);
-        $cacheKey = 'customer_home_bundle:v3:'.$layoutHash.':'.$zoneId.':'.$locale.':'.$authKey;
+        $cacheKey = 'customer_home_bundle:v4:'.$layoutHash.':'.$zoneId.':'.$locale.':'.$authKey;
 
         return CustomerApiResponseCache::remember(
             $cacheKey,
