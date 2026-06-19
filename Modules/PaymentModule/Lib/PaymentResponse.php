@@ -33,6 +33,18 @@ class PaymentResponse
         $payment_request_id = $data->id;
 
         $additional_data = json_decode($data['additional_data'], true);
+        $paymentAmountType = $additional_data['payment_amount_type'] ?? null;
+        if (! in_array($paymentAmountType, ['confirmation', 'full'], true) && function_exists('require_booking_upfront_payment') && require_booking_upfront_payment()) {
+            $fullAmount = function_exists('booking_full_checkout_amount_for_customer')
+                ? booking_full_checkout_amount_for_customer((string) $customer_user_id)
+                : 0.0;
+            $chargedAmount = round((float) ($data->payment_amount ?? 0), 2);
+            if ($fullAmount > 0 && $chargedAmount > 0 && $chargedAmount < $fullAmount - 0.009) {
+                $paymentAmountType = 'confirmation';
+            } else {
+                $paymentAmountType = 'full';
+            }
+        }
         $request = collect([
             'access_token' => $additional_data['access_token'] ?? null,
             'zone_id' => $additional_data['zone_id'] ?? null,
@@ -42,6 +54,7 @@ class PaymentResponse
             'payment_method' => $additional_data['payment_method'] ?? null,
             'callback' => $additional_data['callback'] ?? null,
             'is_partial' => $additional_data['is_partial'] ?? null,
+            'payment_amount_type' => $paymentAmountType,
             'post_id' => $additional_data['post_id'] ?? null,
             'provider_id' => $additional_data['provider_id'] ?? null,
             'register_new_customer' => $additional_data['register_new_customer'] ?? 0,
