@@ -19,6 +19,126 @@ body.aside-folded .aside-body li:has(> a.active-menu) > a .material-symbols-outl
     color: var(--bs-primary) !important;
 }
 
+/* Collapsible sidebar menu groups (custom.js) */
+.aside-body .nav li.nav-menu-group {
+    padding: 0;
+    display: block;
+    width: 100%;
+    list-style: none;
+}
+
+.aside-body .nav .nav-menu-group-toggle {
+    width: 100%;
+    margin: 0;
+    border: 0 !important;
+    background: transparent;
+    box-shadow: none !important;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    text-align: start;
+    padding: 0.875rem 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: inherit;
+    position: relative;
+    font: inherit;
+}
+
+.aside-body .nav .nav-menu-group-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    flex: 1;
+    min-width: 0;
+}
+
+.aside-body .nav .nav-menu-group-icon {
+    font-size: 1.125rem;
+    line-height: 1;
+    color: var(--bs-body-color);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.aside-body .nav .nav-menu-group.is-open > .nav-menu-group-toggle .nav-menu-group-icon {
+    transform: rotate(180deg);
+}
+
+.aside-body .nav .nav-menu-group.is-open > .nav-menu-group-toggle,
+.aside-body .nav .nav-menu-group.is-active > .nav-menu-group-toggle {
+    background-color: var(--bs-primary);
+    color: var(--absolute-white);
+    border-radius: 0.375rem;
+    padding: 0.875rem 0.75rem;
+}
+
+.aside-body .nav .nav-menu-group.is-open > .nav-menu-group-toggle .nav-menu-group-label,
+.aside-body .nav .nav-menu-group.is-active > .nav-menu-group-toggle .nav-menu-group-label,
+.aside-body .nav .nav-menu-group.is-open > .nav-menu-group-toggle .nav-menu-group-icon,
+.aside-body .nav .nav-menu-group.is-active > .nav-menu-group-toggle .nav-menu-group-icon {
+    color: var(--absolute-white);
+}
+
+.aside-body .nav .nav-menu-group-items {
+    display: none;
+    padding-block-start: 0;
+    padding-inline-start: 0;
+    list-style: none;
+    margin: 0;
+}
+
+.aside-body .nav .nav-menu-group-items > li {
+    padding-inline-start: 0;
+}
+
+.aside-body .nav .nav-menu-group-items > li.active > a,
+.aside-body .nav .nav-menu-group-items a.active-menu {
+    background-color: var(--bs-primary);
+    color: var(--absolute-white) !important;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.aside-body .nav .nav-menu-group-items > li.active > a .material-icons,
+.aside-body .nav .nav-menu-group-items a.active-menu .material-icons {
+    color: var(--absolute-white) !important;
+}
+
+.aside-body .nav .nav-menu-group-items > li.active > a .link-title .count,
+.aside-body .nav .nav-menu-group-items a.active-menu .link-title .count {
+    background-color: var(--absolute-white);
+    color: var(--bs-primary);
+}
+
+body.aside-folded .aside-body .nav-menu-group-toggle {
+    visibility: hidden;
+    max-height: 42px;
+}
+
+body.aside-folded .aside-body .nav-menu-group-toggle:before {
+    position: absolute;
+    content: "";
+    width: 0.3125rem;
+    height: 0.125rem;
+    inset-inline-start: 0;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    background-color: var(--bs-dark);
+    visibility: visible;
+}
+
+body.aside-folded.open-aside-folded .aside .aside-body .nav-menu-group-toggle {
+    visibility: visible;
+}
+
+body.aside-folded.open-aside-folded .aside .aside-body .nav-menu-group-toggle:before {
+    display: none;
+}
+
 .hide-div {
     display: none;
 }

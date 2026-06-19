@@ -3548,12 +3548,19 @@ svg.danger circle {
 .aside-body .nav li.nav-menu-group {
     padding: 0;
     display: block;
+    width: 100%;
+    list-style: none;
 }
 
 .aside-body .nav .nav-menu-group-toggle {
     width: 100%;
+    margin: 0;
     border: 0;
     background: transparent;
+    box-shadow: none;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
     text-align: start;
     padding: 0.875rem 0;
     cursor: pointer;
@@ -3563,6 +3570,7 @@ svg.danger circle {
     gap: 0.5rem;
     color: inherit;
     position: relative;
+    font: inherit;
 }
 
 .aside-body .nav .nav-menu-group-label {
