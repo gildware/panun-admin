@@ -6,7 +6,24 @@ use Illuminate\Http\Request;
 
 class ProviderDashboardBundleService
 {
-    private const DASHBOARD_SECTIONS = 'top_cards,earning_stats,booking_stats,recent_bookings,my_subscriptions,customized_post,additional_info_count';
+    private function dashboardSections(): string
+    {
+        $sections = [
+            'top_cards',
+            'earning_stats',
+            'booking_stats',
+            'recent_bookings',
+            'my_subscriptions',
+        ];
+
+        if ((int) ((business_config('bidding_status', 'bidding_system'))?->live_values ?? 0) === 1) {
+            $sections[] = 'customized_post';
+        }
+
+        $sections[] = 'additional_info_count';
+
+        return implode(',', $sections);
+    }
 
     public function build(Request $request): array
     {
@@ -26,7 +43,7 @@ class ProviderDashboardBundleService
         $dashboard = $this->dispatchGet(
             $request,
             '/api/v1/provider/dashboard',
-            ['sections' => self::DASHBOARD_SECTIONS]
+            ['sections' => $this->dashboardSections()]
         );
 
         $earning = $this->dispatchGet($request, '/api/v1/provider/dashboard/earning');

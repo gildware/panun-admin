@@ -196,8 +196,11 @@ class ProviderController extends Controller
         }
 
         if (in_array('customized_post', $request['sections'])) {
+            $biddingStatus = (int) ((business_config('bidding_status', 'bidding_system'))?->live_values ?? 0);
 
-
+            if ($biddingStatus !== 1) {
+                $data[] = ['customized_post' => []];
+            } else {
             $subCategories = $this->subscribedService
                 ->where(['provider_id' => $request->user()->provider->id])
                 ->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
@@ -224,14 +227,20 @@ class ProviderController extends Controller
                 ->take(5)->get();
 
             $data[] = ['customized_post' => $posts];
+            }
         }
 
         if (in_array('additional_info_count', $request['sections'])) {
 
+            $biddingStatus = (int) ((business_config('bidding_status', 'bidding_system'))?->live_values ?? 0);
+            $postCount = 0;
+
+            if ($biddingStatus === 1) {
             $ignoredPosts = $this->ignoredPost->where('provider_id', $request->user()->provider->id)->pluck('post_id')->toArray();
             $subCategories = $this->subscribedService
                 ->where(['provider_id' => $request->user()->provider->id])
                 ->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
+            $biddingPostValidity = (int)(business_config('bidding_post_validity', 'bidding_system'))->live_values;
 
             $postCount = $this->post
                 ->where('is_booked', 0)
@@ -249,6 +258,7 @@ class ProviderController extends Controller
                     }
                 })
                 ->latest()->count();
+            }
 
             $advertisementCount = $this->advertisement->with(['attachments'])
                 ->where('provider_id', auth('api')->user()->provider->id)
