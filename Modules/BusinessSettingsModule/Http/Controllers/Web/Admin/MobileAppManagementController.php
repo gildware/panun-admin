@@ -11,8 +11,10 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Modules\BusinessSettingsModule\Entities\MobileAppAiConversation;
 use Modules\BusinessSettingsModule\Entities\MobileAppAiMessage;
+use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Services\MobileAppAiSettingsService;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
+use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\Banner;
 use Modules\ProviderManagement\Entities\Provider;
@@ -379,6 +381,60 @@ class MobileAppManagementController extends Controller
         return redirect()->route('admin.mobile-app-management.icons', [
             'tab' => $this->normalizeIconTab($request->input('tab')),
         ]);
+    }
+
+    public function settings(): View
+    {
+        $this->authorize('mobile_app_home_page_view');
+
+        return view('businesssettingsmodule::admin.mobile-app-management.settings', [
+            'biddingStatus' => (int) ((business_config('bidding_status', 'bidding_system'))?->live_values ?? 0),
+            'biddingPostValidity' => (int) ((business_config('bidding_post_validity', 'bidding_system'))?->live_values ?? 7),
+            'bidOffersVisibility' => (int) ((business_config('bid_offers_visibility_for_providers', 'bidding_system'))?->live_values ?? 0),
+        ]);
+    }
+
+    public function updateSettings(Request $request): RedirectResponse
+    {
+        $this->authorize('mobile_app_home_page_update');
+
+        $validator = Validator::make($request->all(), [
+            'bidding_status' => 'required|in:0,1',
+            'bidding_post_validity' => 'required_if:bidding_status,1|nullable|integer|min:1|max:365',
+            'bid_offers_visibility_for_providers' => 'required|in:0,1',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $validated = $validator->validated();
+        $biddingEnabled = (string) $validated['bidding_status'] === '1';
+
+        foreach ([
+            'bidding_status' => $validated['bidding_status'],
+            'bidding_post_validity' => $biddingEnabled
+                ? ($validated['bidding_post_validity'] ?? 7)
+                : ((business_config('bidding_post_validity', 'bidding_system'))?->live_values ?? 7),
+            'bid_offers_visibility_for_providers' => $validated['bid_offers_visibility_for_providers'],
+        ] as $key => $value) {
+            BusinessSettings::query()->updateOrCreate(
+                ['key_name' => $key],
+                [
+                    'key_name' => $key,
+                    'live_values' => $value,
+                    'test_values' => $value,
+                    'settings_type' => 'bidding_system',
+                    'mode' => 'live',
+                    'is_active' => 1,
+                ],
+            );
+        }
+
+        CustomerApiResponseCache::forgetConfigCaches();
+        Toastr::success(translate('settings_updated'));
+
+        return redirect()->route('admin.mobile-app-management.settings');
     }
 
     /**

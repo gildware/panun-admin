@@ -745,6 +745,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
             @endcanany
             @can('mobile_app_home_page_view')
                 <li>
+                    <a href="{{ route('admin.mobile-app-management.settings') }}"
+                       class="{{ request()->is('admin/mobile-app-management/settings*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('App_Features') }}">tune</span>
+                        <span class="link-title">{{ translate('App_Features') }}</span>
+                    </a>
+                </li>
+                <li>
                     <a href="{{ route('admin.mobile-app-management.home-page') }}"
                        class="{{ request()->is('admin/mobile-app-management/home-page*') ? 'active-menu' : '' }}">
                         <span class="material-icons" title="{{ translate('Home_Page') }}">home</span>

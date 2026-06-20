@@ -217,6 +217,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('home-page/search-sub-categories', [MobileAppManagementController::class, 'searchSubCategories'])->name('home-page.search-sub-categories');
         Route::get('icons', [MobileAppManagementController::class, 'icons'])->name('icons');
         Route::post('icons', [MobileAppManagementController::class, 'updateIcons'])->name('icons.update');
+        Route::get('settings', [MobileAppManagementController::class, 'settings'])->name('settings');
+        Route::post('settings', [MobileAppManagementController::class, 'updateSettings'])->name('settings.update');
     });
 
     Route::group(['prefix' => 'mobile-app-configuration', 'as' => 'mobile-app-configuration.'], function () {

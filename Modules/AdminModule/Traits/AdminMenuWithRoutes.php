@@ -867,6 +867,14 @@ trait AdminMenuWithRoutes
                 'type' => 'menu',
             ],
             [
+                'route_name' => 'Mobile_App_Settings',
+                'uri' => 'admin/mobile-app-management/settings',
+                'full_route' => url('admin/mobile-app-management/settings'),
+                'page_title' => 'App_Features',
+                'keywords' => 'Mobile App Management, features, bidding, post system, settings',
+                'type' => 'menu',
+            ],
+            [
                 'route_name' => 'Mobile_App_Home_Page',
                 'uri' => 'admin/mobile-app-management/home-page',
                 'full_route' => url('admin/mobile-app-management/home-page'),
