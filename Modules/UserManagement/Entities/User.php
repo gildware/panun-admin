@@ -45,6 +45,8 @@ class User extends Authenticatable
         'identification_image' => 'array',
         'wallet_balance' => 'float',
         'loyalty_point' => 'float',
+        'received_avg_rating' => 'float',
+        'received_rating_count' => 'integer',
         'customer_app_access' => 'boolean',
         'last_seen_at' => 'datetime',
     ];
@@ -71,6 +73,11 @@ class User extends Authenticatable
     public function reviews(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Review::class, 'customer_id');
+    }
+
+    public function receivedProviderReviews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\ReviewModule\Entities\ProviderCustomerReview::class, 'customer_id');
     }
 
     public function zones(): \Illuminate\Database\Eloquent\Relations\BelongsToMany

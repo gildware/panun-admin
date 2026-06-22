@@ -47,8 +47,24 @@
                 </ul>
             </div>
 
+            <ul class="nav nav--tabs nav--tabs__style2 mb-3">
+                <li class="nav-item">
+                    <a class="nav-link {{ ($reviewTab ?? 'received') === 'received' ? 'active' : '' }}"
+                       href="{{ url()->current() }}?web_page=reviews&review_tab=received">
+                        {{ translate('Reviews_Received') }}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ ($reviewTab ?? 'received') === 'given' ? 'active' : '' }}"
+                       href="{{ url()->current() }}?web_page=reviews&review_tab=given">
+                        {{ translate('Reviews_Given') }}
+                    </a>
+                </li>
+            </ul>
+
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="review-tab-pane">
+                    @if(($reviewTab ?? 'received') === 'received')
                     <div class="card mb-30">
                         <div class="card-body p-30">
                             <div class="row align-items-center">
@@ -155,7 +171,7 @@
                     <div class="card">
                         <div class="card-body">
                             <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                <form action="{{url()->current()}}?web_page={{$webPage}}"
+                                <form action="{{ url()->current() }}?web_page={{$webPage}}&review_tab=received"
                                       class="search-form search-form_style-two"
                                       method="POST">
                                     @csrf
@@ -196,9 +212,7 @@
                                         <th>{{translate('reviewer')}}</th>
                                         <th>{{translate('date')}}</th>
                                         <th>{{translate('ratings')}}</th>
-                                        <th>{{translate('reviews')}}</th>
-                                        <th>{{translate('reply')}}</th>
-                                        <th>{{translate('status')}}</th>
+                                        <th class="text-nowrap">{{translate('status')}}</th>
                                         <th class="text-center">{{translate('action')}}</th>
                                     </tr>
                                     </thead>
@@ -232,15 +246,11 @@
                                                             stroke-linecap="round" stroke-linejoin="round"/>
                                                     </svg>
                                                     <span>{{ number_format($review->reviews->pluck('review_rating')->avg(),1) }}</span>
-
                                                 </td>
-                                                <td><a href="">{{translate('see_all')}}</a></td>
-                                                <td><a href="">{{translate('see_all')}}</a></td>
-                                                <td><a href="">{{translate('see_all')}}</a></td>
-                                                <td><a href="">{{translate('see_all')}}</a></td>
+                                                <td colspan="2"><a href="">{{translate('see_all')}}</a></td>
                                             </tr>
                                             <tr id="group-{{$bookingId}}" class="collapse">
-                                                <td colspan="9">
+                                                <td colspan="7">
                                                     <table class="table align-middle">
                                                         @foreach($review->reviews as $key => $providerReview)
                                                             <tr>
@@ -266,21 +276,17 @@
                                                                     </svg>
                                                                     {{$providerReview->review_rating}}
                                                                 </td>
-                                                                <td data-bs-custom-class="review-tooltip" data-bs-toggle="tooltip" title="{{$providerReview->review_comment}}">{{ Str::limit($providerReview->review_comment, 100) ?? translate('No review yet') }}</td>
-                                                                <td data-bs-custom-class="review-tooltip" data-bs-toggle="tooltip" title="{{$providerReview->reviewReply?->reply}}">{{ Str::limit($providerReview->reviewReply?->reply, 100) ?? translate('No reply yet') }}</td>
-                                                                <td>
-                                                                    @if(!empty($providerReview->review_comment))
-                                                                        <label class="switcher">
-                                                                            <input class="switcher_input route-alert"
-                                                                                   data-route="{{ route('admin.service.review-status-update', $providerReview->id) }}"
-                                                                                   data-message="{{translate('want_to_update_status')}}"
-                                                                                   type="checkbox" {{ $providerReview->is_active ? 'checked' : '' }}>
-                                                                            <span class="switcher_control"></span>
-                                                                        </label>
+                                                                <td class="text-nowrap">
+                                                                    @if($providerReview->review_rating > 0)
+                                                                        @include('reviewmodule::admin.partials._review-actions', [
+                                                                            'isApproved' => (bool) $providerReview->is_active,
+                                                                            'approveRoute' => route('admin.service.review-approve', $providerReview->id),
+                                                                            'deleteRoute' => route('admin.service.review-delete', $providerReview->id),
+                                                                        ])
                                                                     @endif
                                                                 </td>
                                                                 <td>
-                                                                    @if(!empty($providerReview->review_comment))
+                                                                    @if($providerReview->review_rating > 0)
                                                                         <div
                                                                             class="d-flex gap-2 justify-content-center">
                                                                             <button class="action-btn btn--light-primary fw-medium text-capitalize fz-14" data-bs-toggle="modal" id="replyModalBtn"
@@ -300,6 +306,12 @@
                                                                     @endif
                                                                 </td>
                                                             </tr>
+                                                            @include('reviewmodule::admin.partials._review-description-row', [
+                                                                'colspan' => 7,
+                                                                'description' => $providerReview->review_comment,
+                                                                'showReply' => true,
+                                                                'reply' => $providerReview->reviewReply?->reply,
+                                                            ])
                                                         @endforeach
                                                     </table>
                                                 </td>
@@ -330,23 +342,17 @@
                                                     </svg>
                                                     {{$getReview->review_rating}}
                                                 </td>
-                                                <td  data-bs-custom-class="review-tooltip" data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="{{$getReview->review_comment}}">{{ Str::limit($getReview->review_comment, 100) ?? translate('No review yet') }}</td>
-                                                <td  data-bs-custom-class="review-tooltip" data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="{{$getReview->reviewReply?->reply}}">{{ Str::limit($getReview->reviewReply?->reply, 100) ?? translate('No reply yet') }}</td>
-                                                <td>
-                                                    @if(!empty($getReview->review_comment))
-                                                        <label class="switcher">
-                                                            <input class="switcher_input route-alert"
-                                                                   data-route="{{ route('admin.service.review-status-update', $getReview->id) }}"
-                                                                   data-message="{{translate('want_to_update_status')}}"
-                                                                   type="checkbox" {{ $getReview->is_active ? 'checked' : '' }}>
-                                                            <span class="switcher_control"></span>
-                                                        </label>
+                                                <td class="text-nowrap">
+                                                    @if($getReview->review_rating > 0)
+                                                        @include('reviewmodule::admin.partials._review-actions', [
+                                                            'isApproved' => (bool) $getReview->is_active,
+                                                            'approveRoute' => route('admin.service.review-approve', $getReview->id),
+                                                            'deleteRoute' => route('admin.service.review-delete', $getReview->id),
+                                                        ])
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    @if(!empty($getReview->review_comment))
+                                                    @if($getReview->review_rating > 0)
                                                         <div class="d-flex gap-2 justify-content-center">
                                                             <button
                                                                 class="action-btn btn--light-primary fw-medium text-capitalize fz-14"
@@ -366,6 +372,12 @@
                                                     @endif
                                                 </td>
                                             </tr>
+                                            @include('reviewmodule::admin.partials._review-description-row', [
+                                                'colspan' => 7,
+                                                'description' => $getReview->review_comment,
+                                                'showReply' => true,
+                                                'reply' => $getReview->reviewReply?->reply,
+                                            ])
                                         @endif
                                     @endforeach
                                     </tbody>
@@ -376,6 +388,129 @@
                             </div>
                         </div>
                     </div>
+                    @else
+                    @php
+                        $givenReviewCount = $provider->givenCustomerReviews()->where('is_active', 1)->count();
+                        $givenAverageRating = round((float) $provider->givenCustomerReviews()->where('is_active', 1)->avg('review_rating'), 2);
+                    @endphp
+                    <div class="card mb-30">
+                        <div class="card-body p-30">
+                            <div class="row align-items-center">
+                                <div class="col-lg-5 mb-30 mb-lg-0 d-flex justify-content-center">
+                                    <div class="rating-review">
+                                        <h2 class="rating-review__title">
+                                            <span class="rating-review__out-of">{{ $givenAverageRating }}</span>/5
+                                        </h2>
+                                        <div class="rating-review__info d-flex flex-wrap gap-3">
+                                            <span>{{ $givenReviewCount }} {{ translate('approved_reviews') }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-7">
+                                    <p class="text-muted mb-0">{{ translate('Provider_given_customer_reviews_help') }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end border-bottom pb-2 mb-10">
+                        <div class="d-flex gap-2 fw-medium pe--4">
+                            <span class="opacity-75">{{ translate('Total_Reviews') }}:</span>
+                            <span class="title-color">{{ $reviews->total() }}</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
+                                <form action="{{ url()->current() }}?web_page={{ $webPage }}&review_tab=given"
+                                      class="search-form search-form_style-two"
+                                      method="POST">
+                                    @csrf
+                                    <div class="input-group search-form__input_group">
+                                        <span class="search-form__icon">
+                                            <span class="material-icons">search</span>
+                                        </span>
+                                        <input type="search" class="theme-input-style search-form__input"
+                                               value="{{ $search ?? '' }}" name="search"
+                                               placeholder="{{ translate('search_here') }}">
+                                    </div>
+                                    <button type="submit" class="btn btn--primary">{{ translate('search') }}</button>
+                                </form>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table align-middle">
+                                    <thead class="align-middle text-nowrap">
+                                    <tr>
+                                        <th>{{ translate('Review ID') }}</th>
+                                        <th>{{ translate('Booking_ID') }}</th>
+                                        <th>{{ translate('customer') }}</th>
+                                        <th>{{ translate('Booking_Date') }}</th>
+                                        <th>{{ translate('Ratings') }}</th>
+                                        <th class="text-nowrap">{{ translate('status') }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @forelse($reviews as $review)
+                                        <tr>
+                                            <td>{{ $review->readable_id ?? 'N/A' }}</td>
+                                            <td>
+                                                @if($review->booking)
+                                                    <a href="{{ route('admin.booking.details', [$review->booking->id, 'web_page' => 'details']) }}"
+                                                       target="_blank"
+                                                       rel="noopener noreferrer">
+                                                        {{ $review->booking->readable_id }}
+                                                    </a>
+                                                @else
+                                                    N/A
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($review->customer)
+                                                    @php
+                                                        $customerName = trim(($review->customer->first_name ?? '') . ' ' . ($review->customer->last_name ?? ''));
+                                                        $customerName = $customerName !== '' ? $customerName : ($review->customer->email ?? translate('Customer'));
+                                                    @endphp
+                                                    <a href="{{ route('admin.customer.detail', [$review->customer->id, 'web_page' => 'overview']) }}"
+                                                       target="_blank"
+                                                       rel="noopener noreferrer">
+                                                        {{ $customerName }}
+                                                    </a>
+                                                @else
+                                                    {{ translate('Customer_not_available') }}
+                                                @endif
+                                            </td>
+                                            <td>{{ $review->booking ? date('d-M-y H:iA', strtotime($review->booking->created_at)) : 'N/A' }}</td>
+                                            <td>{{ $review->review_rating }}</td>
+                                            <td class="text-nowrap">
+                                                @if($review->review_rating > 0)
+                                                    @include('reviewmodule::admin.partials._review-actions', [
+                                                        'isApproved' => (bool) $review->is_active,
+                                                        'approveRoute' => route('admin.customer.customer-review-approve', $review->id),
+                                                        'deleteRoute' => route('admin.customer.customer-review-delete', $review->id),
+                                                    ])
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @include('reviewmodule::admin.partials._review-description-row', [
+                                            'colspan' => 6,
+                                            'description' => $review->review_comment,
+                                        ])
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-4">{{ translate('no_data_found') }}</td>
+                                        </tr>
+                                    @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                {!! $reviews->links() !!}
+                            </div>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>

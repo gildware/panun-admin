@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use Modules\BookingModule\Entities\Booking;
 use Modules\ReviewModule\Entities\Review;
+use Modules\ReviewModule\Entities\ProviderCustomerReview;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
 use Modules\ZoneManagement\Services\ZoneGeometryService;
@@ -176,7 +177,12 @@ class CustomerController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $reviews = $this->review->where(['customer_id' => $id])->orderBy('created_at', 'desc')->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        $reviews = ProviderCustomerReview::query()
+            ->with(['booking', 'provider.owner'])
+            ->where('customer_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
+            ->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $reviews), 200);
     }

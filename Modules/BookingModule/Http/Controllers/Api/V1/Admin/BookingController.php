@@ -162,6 +162,12 @@ class BookingController extends Controller
         $booking = $this->booking->where('id', $booking_id)->first();
 
         if (isset($booking)) {
+            if (! booking_admin_provider_assigned_for_status($booking, (string) $request['booking_status'])) {
+                return response()->json(response_formatter([
+                    'response_code' => 'default_400',
+                    'message' => translate('Assign_provider_before_accept_or_ongoing'),
+                ]), 422);
+            }
             if (! booking_admin_status_transition_allowed_for_booking($booking, (string) $booking->booking_status, (string) $request['booking_status'])) {
                 return response()->json(response_formatter([
                     'response_code' => 'default_400',

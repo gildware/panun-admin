@@ -57,6 +57,7 @@ use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ProviderManagement\Support\ProviderPhoneUpdateNormalizer;
 use Modules\ProviderManagement\Traits\PreservesAdminProviderFormDrafts;
 use Modules\ReviewModule\Entities\Review;
+use Modules\ReviewModule\Entities\ProviderCustomerReview;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\LedgerTransaction;
@@ -1259,28 +1260,54 @@ class ProviderController extends Controller
         elseif ($request->web_page == 'reviews') {
 
             $search = $request->has('search') ? $request['search'] : '';
-            $queryParam = ['search' => $search, 'web_page' => $request['web_page']];
+            $reviewTab = $request->get('review_tab', 'received');
+            if (!in_array($reviewTab, ['received', 'given'], true)) {
+                $reviewTab = 'received';
+            }
+            $queryParam = ['search' => $search, 'web_page' => $request['web_page'], 'review_tab' => $reviewTab];
 
-            $provider = $this->provider->with(['reviews'])->where('user_id', $request->user()->id)->first();
+            $provider = $this->provider->with(['owner.account', 'reviews'])->withCount(['bookings'])->find($id);
 
-            $reviews = $this->booking->with(['reviews.service'])
-                ->when($request->has('search'), function ($query) use ($request) {
-                    $keys = explode(' ', $request['search']);
-                    $query->whereHas('reviews', function ($query) use ($keys) {
+            if ($reviewTab === 'given') {
+                $reviews = ProviderCustomerReview::query()
+                    ->with(['booking', 'customer'])
+                    ->where('provider_id', $id)
+                    ->when($search, function ($query) use ($search) {
+                        $keys = explode(' ', $search);
                         foreach ($keys as $key) {
-                            $query->where('review_comment', 'LIKE', '%' . $key . '%')
-                                ->orWhere('readable_id', 'LIKE', '%' . $key . '%');
+                            $query->where(function ($q) use ($key) {
+                                $q->where('review_comment', 'LIKE', '%' . $key . '%')
+                                    ->orWhere('readable_id', 'LIKE', '%' . $key . '%')
+                                    ->orWhereHas('booking', fn ($bq) => $bq->where('readable_id', 'LIKE', '%' . $key . '%'))
+                                    ->orWhereHas('customer', function ($cq) use ($key) {
+                                        $cq->where('first_name', 'LIKE', '%' . $key . '%')
+                                            ->orWhere('last_name', 'LIKE', '%' . $key . '%')
+                                            ->orWhere('email', 'LIKE', '%' . $key . '%');
+                                    });
+                            });
                         }
-                    });
-                })
-                ->whereHas('reviews', function ($query) use ($id) {
-                    $query->where('provider_id', $id);
-                })
-                ->latest()
-                ->paginate(pagination_limit())
-                ->appends($queryParam);
-
-            $provider = $this->provider->with('owner.account')->withCount(['bookings'])->find($id);
+                    })
+                    ->latest()
+                    ->paginate(pagination_limit())
+                    ->appends($queryParam);
+            } else {
+                $reviews = $this->booking->with(['reviews.service'])
+                    ->when($request->has('search'), function ($query) use ($request) {
+                        $keys = explode(' ', $request['search']);
+                        $query->whereHas('reviews', function ($query) use ($keys) {
+                            foreach ($keys as $key) {
+                                $query->where('review_comment', 'LIKE', '%' . $key . '%')
+                                    ->orWhere('readable_id', 'LIKE', '%' . $key . '%');
+                            }
+                        });
+                    })
+                    ->whereHas('reviews', function ($query) use ($id) {
+                        $query->where('provider_id', $id);
+                    })
+                    ->latest()
+                    ->paginate(pagination_limit())
+                    ->appends($queryParam);
+            }
 
             $bookingOverview = DB::table('bookings')
                 ->where('provider_id', $id)
@@ -1299,7 +1326,7 @@ class ProviderController extends Controller
             }
 
 
-            return view('providermanagement::admin.provider.detail.reviews', compact('webPage', 'provider', 'reviews', 'search', 'provider', 'total'));
+            return view('providermanagement::admin.provider.detail.reviews', compact('webPage', 'provider', 'reviews', 'search', 'provider', 'total', 'reviewTab'));
 
         }//reviews
         elseif ($request->web_page == 'performance') {

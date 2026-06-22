@@ -457,7 +457,10 @@ class MobileAppManagementController extends Controller
         if ($tab === 'customer') {
             return array_map(
                 fn (array $def) => ['appKey' => 'customer', 'def' => $def],
-                $groups['menu']['customer'] ?? [],
+                array_merge(
+                    $groups['menu']['customer'] ?? [],
+                    $groups['bottom_navigation']['customer'] ?? [],
+                ),
             );
         }
 

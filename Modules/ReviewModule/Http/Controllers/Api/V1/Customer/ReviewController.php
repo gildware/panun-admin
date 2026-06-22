@@ -102,8 +102,10 @@ class ReviewController extends Controller
             ->where('customer_id', $request->user()->id)
             ->first();
 
-        if (!isset($review)) {
-            $review = $this->review;
+        $isNewReview = !isset($review);
+
+        if ($isNewReview) {
+            $review = new Review();
         }
 
         $review->booking_id = $request->booking_id;
@@ -114,6 +116,7 @@ class ReviewController extends Controller
         $review->provider_id = $booking->provider_id;
         $review->review_images = $images;
         $review->booking_date = $booking->created_at;
+        $review->is_active = 0;
 
         $baseReadableId = $booking->readable_id;
 
@@ -135,9 +138,10 @@ class ReviewController extends Controller
 
         $review->save();
 
-
         foreach (['service_id' => $request->service_id, 'provider_id' => $booking->provider_id] as $key => $value) {
-            $ratingGroupCount = DB::table('reviews')->where($key, $value)
+            $ratingGroupCount = DB::table('reviews')
+                ->where($key, $value)
+                ->where('is_active', 1)
                 ->select('review_rating', DB::raw('count(*) as total'))
                 ->groupBy('review_rating')
                 ->get();
@@ -158,11 +162,10 @@ class ReviewController extends Controller
 
             $query->update([
                 'rating_count' => $ratingCount,
-                'avg_rating' => round($totalRating / $ratingCount, 2)
+                'avg_rating' => $ratingCount > 0 ? round($totalRating / $ratingCount, 2) : 0,
             ]);
         }
 
-
-        return response()->json(response_formatter(DEFAULT_STORE_200), 200);
+        return response()->json(response_formatter(REVIEW_SUBMITTED_PENDING_APPROVAL_200, $review), 200);
     }
 }

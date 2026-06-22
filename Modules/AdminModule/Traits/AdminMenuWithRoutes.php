@@ -57,6 +57,16 @@ trait AdminMenuWithRoutes
                 'sorting' => 3.5,
             ],
             [
+                'route_name' => 'Booking_Review',
+                'uri' => 'admin/booking/reviews/list',
+                'full_route' => url('admin/booking/reviews/list'),
+                'page_title' => 'Booking_Review',
+                'keywords' => 'Booking Review, reviews, ratings, pending reviews, approval',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 3.6,
+            ],
+            [
                 'route_name' => 'Booking_Configuration',
                 'uri' => 'admin/booking/configuration',
                 'full_route' => url('admin/booking/configuration'),

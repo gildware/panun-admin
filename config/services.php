@@ -77,6 +77,12 @@ return [
         'token' => env('INTERNAL_WHATSAPP_API_TOKEN'),
     ],
 
+    'call_center' => [
+        'api_key' => env('CALL_CENTER_API_KEY'),
+        'webhook_url' => env('CALL_CENTER_WEBHOOK_URL'),
+        'webhook_secret' => env('CALL_CENTER_WEBHOOK_SECRET'),
+    ],
+
     /** Facebook Page Messenger + Instagram DM webhooks / outbound (Graph). Often same Meta app as WhatsApp. */
     'meta_social' => [
         'app_secret' => env('META_SOCIAL_APP_SECRET', env('WHATSAPP_APP_SECRET')),

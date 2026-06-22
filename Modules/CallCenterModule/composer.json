@@ -1,0 +1,21 @@
+{
+    "name": "nwidart/callcentermodule",
+    "description": "",
+    "authors": [
+        {
+            "name": "Panun Kaergar",
+            "email": "dev@panunkaergar.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\CallCenterModule\\": ""
+        }
+    }
+}

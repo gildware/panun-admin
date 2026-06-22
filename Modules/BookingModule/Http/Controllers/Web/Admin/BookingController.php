@@ -3726,6 +3726,12 @@ class BookingController extends Controller
 
         try {
             if ($booking) {
+                if (! booking_admin_provider_assigned_for_status($booking, $to)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Assign_provider_before_accept_or_ongoing'),
+                    ]), 422);
+                }
                 if (! booking_admin_status_transition_allowed_for_booking($booking, $current, $to)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
@@ -3772,6 +3778,12 @@ class BookingController extends Controller
             }
 
             if ($repeatBooking) {
+                if (! booking_admin_provider_assigned_for_status($repeatBooking, $to)) {
+                    return response()->json(response_formatter([
+                        'response_code' => 'default_400',
+                        'message' => translate('Assign_provider_before_accept_or_ongoing'),
+                    ]), 422);
+                }
                 if (! booking_admin_status_transition_allowed_for_booking($repeatBooking, $current, $to)) {
                     return response()->json(response_formatter([
                         'response_code' => 'default_400',
@@ -4063,6 +4075,12 @@ class BookingController extends Controller
 
         $from = (string) $repeatBooking->booking_status;
         $toInput = (string) $request->input('booking_status');
+
+        if (! booking_admin_provider_assigned_for_status($repeatBooking, $toInput)) {
+            Toastr::error(translate('Assign_provider_before_accept_or_ongoing'));
+
+            return back();
+        }
 
         if (! booking_admin_status_transition_allowed_for_booking($repeatBooking, $from, $toInput)) {
             Toastr::error(translate('Invalid_booking_status_transition'));

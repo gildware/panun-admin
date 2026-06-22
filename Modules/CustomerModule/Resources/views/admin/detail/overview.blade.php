@@ -6,28 +6,7 @@
     <div class="main-content">
         <div class="container-fluid">
             <div class="page-title-wrap mb-4">
-                @php
-                    $customerDisplayName = trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? ''));
-                    $customerDisplayName = $customerDisplayName !== '' ? $customerDisplayName : ($customer->email ?? translate('Customer'));
-                    $customerStatus = (string) ($customer->manual_performance_status ?? 'active');
-                    $customerStatusLabel = match($customerStatus) {
-                        'blacklisted' => translate('Blacklisted'),
-                        'suspended' => translate('Suspended'),
-                        default => translate('Active'),
-                    };
-                    $customerStatusClass = match($customerStatus) {
-                        'blacklisted' => 'bg-danger',
-                        'suspended' => 'bg-warning text-dark',
-                        default => 'bg-success',
-                    };
-                @endphp
-                <div class="d-flex justify-content-between align-items-start gap-2">
-                    <div>
-                        <h2 class="page-title mb-2">{{ $customerDisplayName }}</h2>
-                        <div>{{translate('Joined_on')}} {{date('d-M-y H:iA', strtotime($customer?->created_at))}}</div>
-                    </div>
-                    <span class="badge {{ $customerStatusClass }}">{{ $customerStatusLabel }}</span>
-                </div>
+                @include('customermodule::admin.detail.partials.page-header', ['customer' => $customer])
             </div>
 
             @include('customermodule::admin.detail.partials.sub-nav', ['webPage' => $webPage ?? 'overview'])

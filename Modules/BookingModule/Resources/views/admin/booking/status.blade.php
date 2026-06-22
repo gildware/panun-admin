@@ -1063,16 +1063,23 @@
 
         $(document).on('click', '.reassign-provider', function() {
             let newProviderId = $(this).data('provider-reassign');
-            pendingReassignProviderId = newProviderId;
-            pendingPostFeedbackAction = 'reassign';
-
-            const evaluatedProviderId = bookingCurrentProviderId ?? newProviderId;
-            if (!evaluatedProviderId) {
+            if (!newProviderId) {
                 toastr.error('{{ translate('Provider not found for feedback.') }}');
                 return;
             }
 
-            openProviderPerformanceFeedbackModal(evaluatedProviderId, 'provider_changed');
+            if (!bookingCurrentProviderId) {
+                if (typeof window.updateProvider === 'function') {
+                    window.updateProvider(newProviderId);
+                } else {
+                    reassignProviderAfterFeedback(newProviderId);
+                }
+                return;
+            }
+
+            pendingReassignProviderId = newProviderId;
+            pendingPostFeedbackAction = 'reassign';
+            openProviderPerformanceFeedbackModal(bookingCurrentProviderId, 'provider_changed');
         })
 
         $('.open-feedback-manual').on('click', function() {

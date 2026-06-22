@@ -478,7 +478,10 @@ class MobileAppManagementService
                 ],
             ],
             'bottom_navigation' => [
-                'customer' => [],
+                'customer' => [
+                    ['key' => 'bottom_home', 'label' => 'Home (bottom navigation)'],
+                    ['key' => 'bottom_more', 'label' => 'More (bottom navigation)'],
+                ],
                 'provider' => [
                     ['key' => 'bottom_dashboard', 'label' => 'Dashboard (bottom navigation)'],
                     ['key' => 'bottom_requests', 'label' => 'Requests (bottom navigation)'],
@@ -1285,6 +1288,8 @@ class MobileAppManagementService
             'language' => 'select_language.png',
             'settings' => 'settings.png',
             'bookings' => 'bookings_icon.png',
+            'bottom_home' => 'home.png',
+            'bottom_more' => 'menu.png',
             'vouchers' => 'voucher_icon.png',
             'my_favorite' => 'my_favorite.png',
             'custom_post' => 'custom_post_icon.png',

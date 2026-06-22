@@ -1,14 +1,10 @@
 @push('css_or_js')
     <style>
-        .provider-identity-pill {
-            display: inline-block;
-            padding: 0;
-            background: transparent;
-            border: 0;
-            border-radius: 0;
+        .provider-identity-name {
             color: #1f2d3d;
             font-weight: 900;
             font-size: 1.05rem;
+            line-height: 1.2;
         }
 
         .status-pill {
@@ -36,10 +32,31 @@
     </style>
 @endpush
 
+@php
+    $company = trim((string) ($provider->company_name ?? ''));
+    $contact = trim((string) ($provider->contact_person_name ?? ''));
+    $providerDisplayName = $company !== '' && $contact !== ''
+        ? $company . ' | ' . $contact
+        : ($company !== '' ? $company : ($contact !== '' ? $contact : translate('Provider')));
+@endphp
+
 <div class="page-title-wrap mb-3">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div class="provider-identity-pill">
-            {{ $provider->company_name ?? '-' }} | {{ $provider->contact_person_name ?? '-' }}
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+        <div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="profile-role-pill profile-role-pill--provider">
+                    {{ translate('Provider') }}
+                </span>
+                <h2 class="page-title mb-0 provider-identity-name">{{ $providerDisplayName }}</h2>
+                @include('reviewmodule::admin.partials._profile-role-rating', [
+                    'compact' => true,
+                    'avgRating' => $provider->avg_rating ?? 0,
+                    'ratingCount' => $provider->rating_count ?? 0,
+                ])
+            </div>
+            <div class="profile-rating-meta">
+                {{ (int) ($provider->rating_count ?? 0) }} {{ translate('provider_ratings') }}
+            </div>
         </div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -58,4 +75,3 @@
         </div>
     </div>
 </div>
-

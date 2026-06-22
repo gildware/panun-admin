@@ -184,6 +184,11 @@ class Provider extends Model
         return $this->hasMany(Review::class, 'provider_id', 'id');
     }
 
+    public function givenCustomerReviews(): HasMany
+    {
+        return $this->hasMany(\Modules\ReviewModule\Entities\ProviderCustomerReview::class, 'provider_id', 'id');
+    }
+
     public function incidents(): HasMany
     {
         return $this->hasMany(\Modules\ProviderManagement\Entities\ProviderIncident::class, 'provider_id', 'id');
