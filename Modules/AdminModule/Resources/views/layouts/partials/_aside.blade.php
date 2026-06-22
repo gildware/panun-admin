@@ -1,6 +1,8 @@
 <?php
 $max_booking_amount = (business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0;
 $all_bookings_menu_count = \Modules\BookingModule\Entities\Booking::count();
+$pending_booking_reviews_count = \Modules\ReviewModule\Entities\Review::where('is_active', 0)->count()
+    + \Modules\ReviewModule\Entities\ProviderCustomerReview::where('is_active', 0)->count();
 $special_scenarios_menu_count = \Modules\BookingModule\Entities\Booking::query()
     ->where('is_repeated', 0)
     ->whereNotNull('settlement_outcome')
@@ -241,7 +243,7 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </li>
                         <li>
                             <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
-                               class="{{ (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') ? 'active-menu' : '' }}">
+                               class="{{ (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') && ! request()->is('admin/booking/reviews/list') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Booking_Requests') }}
                                     <span class="count">{{ $all_bookings_menu_count }}</span>
                                 </span>
@@ -252,6 +254,14 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                                class="{{ request()->is('admin/booking/list/special-scenarios') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Special_scenario_bookings') }}
                                     <span class="count">{{ $special_scenarios_menu_count }}</span>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.booking.reviews.list') }}"
+                               class="{{ request()->is('admin/booking/reviews/list') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Booking_Review') }}
+                                    <span class="count">{{ $pending_booking_reviews_count }}</span>
                                 </span>
                             </a>
                         </li>
@@ -349,6 +359,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                            class="{{ request()->is('admin/transaction/list*') ? 'active-menu' : '' }}">
                             <span class="material-icons" title="Customers">article</span>
                             <span class="link-title">{{ translate('All Transactions') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.transaction.razorpay_webhooks.index') }}"
+                           class="{{ request()->is('admin/transaction/razorpay-webhooks*') ? 'active-menu' : '' }}">
+                            <span class="material-icons" title="{{ translate('Razorpay_webhook_logs') }}">notifications_active</span>
+                            <span class="link-title">{{ translate('Razorpay_webhook_logs') }}</span>
                         </a>
                     </li>
                 @endcan
@@ -737,6 +754,13 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                 </li>
             @endcanany
             @can('mobile_app_home_page_view')
+                <li>
+                    <a href="{{ route('admin.mobile-app-management.settings') }}"
+                       class="{{ request()->is('admin/mobile-app-management/settings*') ? 'active-menu' : '' }}">
+                        <span class="material-icons" title="{{ translate('App_Features') }}">tune</span>
+                        <span class="link-title">{{ translate('App_Features') }}</span>
+                    </a>
+                </li>
                 <li>
                     <a href="{{ route('admin.mobile-app-management.home-page') }}"
                        class="{{ request()->is('admin/mobile-app-management/home-page*') ? 'active-menu' : '' }}">

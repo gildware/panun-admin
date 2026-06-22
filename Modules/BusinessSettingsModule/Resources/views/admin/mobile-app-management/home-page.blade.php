@@ -47,6 +47,15 @@
             width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.6);
         }
         .mah-preview-banner-dots span.active { background: #fff; width: 14px; border-radius: 4px; }
+        .mah-preview-banner-slider { position: relative; }
+        .mah-preview-banner-track {
+            height: 120px; border-radius: 12px; overflow: hidden; position: relative;
+            background: #e5e7eb;
+        }
+        .mah-preview-banner-slide {
+            position: absolute; inset: 0; opacity: 0; transition: opacity .35s ease;
+        }
+        .mah-preview-banner-slide.active { opacity: 1; z-index: 1; }
         .mah-preview-title {
             font-size: 12px; font-weight: 600; margin-bottom: 8px;
             display: flex; justify-content: space-between; align-items: center;
@@ -321,6 +330,7 @@
             'searchServicesUrl' => route('admin.mobile-app-management.home-page.search-services'),
             'searchProvidersUrl' => route('admin.mobile-app-management.home-page.search-providers'),
             'searchBannersUrl' => route('admin.mobile-app-management.home-page.search-banners'),
+            'searchCampaignsUrl' => route('admin.mobile-app-management.home-page.search-campaigns'),
             'searchCategoriesUrl' => route('admin.mobile-app-management.home-page.search-categories'),
             'searchSubCategoriesUrl' => route('admin.mobile-app-management.home-page.search-sub-categories'),
             'dataSourceHints' => \Modules\BusinessSettingsModule\Services\MobileAppManagementService::dataSourceHintsForAdmin(),
@@ -362,6 +372,7 @@
             const list = document.getElementById('mahSectionList');
             const phoneScroll = document.getElementById('mahPhoneScroll');
             const form = document.getElementById('mahHomeForm');
+            let bannerSliderTimers = [];
 
             const condLabels = {
                 direct_provider_booking: '{{ translate('Requires_direct_provider_booking') }}',
@@ -391,9 +402,16 @@
             function catalogKeyForPickType(type) {
                 if (type === 'providers') return 'providers';
                 if (type === 'banners') return 'banners';
+                if (type === 'campaigns') return 'campaigns';
                 if (type === 'sub_categories') return 'sub_categories';
                 if (type === 'categories') return 'categories';
                 return 'services';
+            }
+
+            function sectionItemLimit(item, fallback) {
+                const input = item.querySelector('.mah-limit-input');
+                const parsed = parseInt(input?.value ?? '', 10);
+                return Number.isFinite(parsed) && parsed > 0 ? parsed : (fallback || 10);
             }
 
             function sectionDataMode(item) {
@@ -429,22 +447,25 @@
             }
 
             function getSectionPreviewItems(item) {
+                const key = item.dataset.key || '';
+                const limit = sectionItemLimit(item, null);
                 if (sectionDataMode(item) === 'manual') {
                     const manual = getManualPickItems(item);
-                    if (manual.length) return manual;
+                    return limit ? manual.slice(0, limit) : manual;
                 }
-                const key = item.dataset.key || '';
                 const defaults = previewData.defaults || {};
-                if (defaults[key]?.length) return defaults[key];
-                if (key.startsWith('custom_')) {
+                let items = [];
+                if (defaults[key]?.length) items = defaults[key];
+                else if (key.startsWith('custom_')) {
                     const ct = item.dataset.contentType || 'services';
-                    if (ct === 'banners') return defaults.banners || [];
-                    if (ct === 'categories') return defaults.categories || [];
-                    if (ct === 'sub_categories') return defaults.sub_categories || [];
-                    if (ct === 'providers') return defaults.nearby_providers || [];
-                    return defaults.popular_services || [];
+                    if (ct === 'banners') items = defaults.banners || [];
+                    else if (ct === 'campaigns') items = defaults.campaigns || [];
+                    else if (ct === 'categories') items = defaults.categories || [];
+                    else if (ct === 'sub_categories') items = defaults.sub_categories || [];
+                    else if (ct === 'providers') items = defaults.nearby_providers || [];
+                    else items = defaults.popular_services || [];
                 }
-                return [];
+                return limit ? items.slice(0, limit) : items;
             }
 
             function renderPreviewImg(url, placeholderBg) {
@@ -476,15 +497,26 @@
                 ).join('') + '</div>';
             }
 
-            function renderBanners(items) {
+            function renderImageSlider(items, placeholderText) {
                 const list = items || [];
                 if (!list.length) {
-                    return '<div class="mah-preview-banner" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">{{ translate('Banner_placeholder') }}</div>';
+                    return '<div class="mah-preview-banner" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:11px;">' + placeholderText + '</div>';
                 }
-                const b = list[0];
-                const dots = list.slice(0, 4).map((_, i) => '<span class="' + (i === 0 ? 'active' : '') + '"></span>').join('');
-                return '<div class="mah-preview-banner">' + renderPreviewImg(b.url) +
+                const slides = list.map((item, i) =>
+                    '<div class="mah-preview-banner-slide' + (i === 0 ? ' active' : '') + '">' + renderPreviewImg(item.url) + '</div>'
+                ).join('');
+                const dots = list.map((_, i) => '<span class="' + (i === 0 ? 'active' : '') + '" data-slide="' + i + '"></span>').join('');
+                return '<div class="mah-preview-banner-slider" data-slide-count="' + list.length + '">' +
+                    '<div class="mah-preview-banner-track">' + slides + '</div>' +
                     '<div class="mah-preview-banner-dots">' + dots + '</div></div>';
+            }
+
+            function renderBanners(items) {
+                return renderImageSlider(items, '{{ translate('Banner_placeholder') }}');
+            }
+
+            function renderCampaigns(items) {
+                return renderImageSlider(items, '{{ translate('Campaign_placeholder') }}');
             }
 
             function renderProviderCards(items, max) {
@@ -525,16 +557,10 @@
                         html += '<div class="mah-preview-title"><span>' + escapeHtml(title) + '</span><a href="#">{{ translate('see_all') }}</a></div>';
                         html += renderCategoryRow(getSectionPreviewItems(item), type === 'categories_strip' ? 6 : 8);
                         break;
-                    case 'highlight_providers': {
-                        const hp = getSectionPreviewItems(item);
-                        const p = hp[0];
-                        const avHtml = p?.url
-                            ? '<img src="' + escapeAttr(p.url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-                            : '';
-                        const sub = p?.name ? escapeHtml(p.name) : '{{ translate('Provider') }}';
-                        html += '<div class="mah-preview-highlight"><div class="av">' + avHtml + '</div><div><div class="fw-semibold" style="font-size:11px">' + escapeHtml(title) + '</div><div style="font-size:10px;color:#6b7280">' + sub + '</div></div></div>';
+                    case 'highlight_providers':
+                        html += '<div class="mah-preview-title"><span>' + escapeHtml(title) + '</span></div>';
+                        html += renderProviderCards(getSectionPreviewItems(item), 4);
                         break;
-                    }
                     case 'services_horizontal':
                     case 'recommended':
                         html += '<div class="mah-preview-title"><span>' + escapeHtml(title) + '</span><a href="#">{{ translate('see_all') }}</a></div>';
@@ -546,7 +572,8 @@
                         html += renderProviderCards(getSectionPreviewItems(item), 4) + condNote;
                         break;
                     case 'campaign':
-                        html += '<div class="mah-preview-campaign"><strong>' + escapeHtml(title) + '</strong><br><span style="opacity:.8">Campaign offers</span></div>';
+                        html += '<div class="mah-preview-title"><span>' + escapeHtml(title) + '</span></div>';
+                        html += renderCampaigns(getSectionPreviewItems(item));
                         break;
                     case 'explore_card':
                         html += '<div class="mah-preview-explore">' + escapeHtml(title) + '</div>' + condNote;
@@ -559,6 +586,8 @@
                         html += '<div class="mah-preview-title"><span>' + escapeHtml(title) + '</span></div>';
                         if (ct === 'banners') {
                             html += renderBanners(getSectionPreviewItems(item));
+                        } else if (ct === 'campaigns') {
+                            html += renderCampaigns(getSectionPreviewItems(item));
                         } else if (ct === 'categories' || ct === 'sub_categories') {
                             html += renderCategoryRow(getSectionPreviewItems(item), 6);
                         } else if (ct === 'providers') {
@@ -579,6 +608,34 @@
                 return d.innerHTML;
             }
 
+            function initBannerSliders() {
+                bannerSliderTimers.forEach(timer => clearInterval(timer));
+                bannerSliderTimers = [];
+
+                phoneScroll.querySelectorAll('.mah-preview-banner-slider').forEach(slider => {
+                    const slides = [...slider.querySelectorAll('.mah-preview-banner-slide')];
+                    const dots = [...slider.querySelectorAll('.mah-preview-banner-dots span')];
+                    if (slides.length <= 1) return;
+
+                    let active = 0;
+                    const show = (index) => {
+                        active = index;
+                        slides.forEach((slide, i) => slide.classList.toggle('active', i === index));
+                        dots.forEach((dot, i) => dot.classList.toggle('active', i === index));
+                    };
+
+                    dots.forEach(dot => {
+                        dot.addEventListener('click', () => {
+                            const idx = parseInt(dot.dataset.slide ?? '0', 10);
+                            if (Number.isFinite(idx)) show(idx);
+                        });
+                    });
+
+                    const timer = setInterval(() => show((active + 1) % slides.length), 3500);
+                    bannerSliderTimers.push(timer);
+                });
+            }
+
             function refreshPreview() {
                 const items = [...list.querySelectorAll('.mah-section-item')];
                 let blocks = items.map(renderPreviewBlock).filter(Boolean);
@@ -586,6 +643,7 @@
                     blocks = ['<div class="mah-preview-empty">{{ translate('No_sections_enabled') }}</div>'];
                 }
                 phoneScroll.innerHTML = blocks.join('');
+                initBannerSliders();
             }
 
             function reindexFormFields() {
@@ -602,6 +660,7 @@
             function pickFieldName(type) {
                 if (type === 'providers') return 'provider_ids';
                 if (type === 'banners') return 'banner_ids';
+                if (type === 'campaigns') return 'campaign_ids';
                 if (type === 'categories' || type === 'sub_categories') return 'category_ids';
                 return 'service_ids';
             }
@@ -609,6 +668,7 @@
             function pickSearchUrl(type) {
                 if (type === 'providers') return previewData.searchProvidersUrl;
                 if (type === 'banners') return previewData.searchBannersUrl;
+                if (type === 'campaigns') return previewData.searchCampaignsUrl;
                 if (type === 'sub_categories') return previewData.searchSubCategoriesUrl;
                 if (type === 'categories') return previewData.searchCategoriesUrl;
                 return previewData.searchServicesUrl;
@@ -617,6 +677,7 @@
             function pickPlaceholder(type) {
                 if (type === 'providers') return '{{ translate('Select_providers') }}';
                 if (type === 'banners') return '{{ translate('Select_banners') }}';
+                if (type === 'campaigns') return '{{ translate('Select_campaigns') }}';
                 if (type === 'sub_categories') return '{{ translate('Select_sub_categories') }}';
                 if (type === 'categories') return '{{ translate('Select_categories') }}';
                 return '{{ translate('Select_services') }}';
@@ -805,6 +866,7 @@
                     const previewMap = {
                         providers: 'providers_horizontal',
                         banners: 'banner',
+                        campaigns: 'campaign',
                         categories: 'categories',
                         sub_categories: 'sub_categories',
                         services: 'services_horizontal',

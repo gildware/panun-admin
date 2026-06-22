@@ -95,6 +95,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'provider' => ProviderMiddleware::class,
             'ensureBiddingIsActive' => EnsureBiddingIsActive::class,
             'subscription' => Subscription::class,
+            'callcenter.service' => \Modules\CallCenterModule\Http\Middleware\EnsureCallCenterServiceToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

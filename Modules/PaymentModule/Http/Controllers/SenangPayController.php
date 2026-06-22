@@ -58,22 +58,43 @@ class SenangPayController extends Controller
 
     public function return_senang_pay(Request $request): JsonResponse|Redirector|RedirectResponse|Application
     {
-        if ($request['status_id'] == 1) {
-            $this->payment::where(['id' => session()->get('payment_id')])->update([
-                'payment_method' => 'senang_pay',
-                'is_paid' => 1,
-                'transaction_id' => $request['transaction_id'],
-            ]);
-            $data = $this->payment::where(['id' => session()->get('payment_id')])->first();
-            if (isset($data) && function_exists($data->success_hook)) {
-                call_user_func($data->success_hook, $data);
+        $orderId = (string) ($request['order_id'] ?? session()->get('payment_id') ?? '');
+        $paymentData = $orderId !== ''
+            ? $this->payment::where(['id' => $orderId])->first()
+            : null;
+
+        $secretKey = (string) ($this->config_values->secret_key ?? '');
+        $statusId = (string) ($request['status_id'] ?? '');
+        $transactionId = (string) ($request['transaction_id'] ?? '');
+        $msg = (string) ($request['msg'] ?? '');
+        $receivedHash = (string) ($request['hash'] ?? '');
+
+        $expectedHash = md5($secretKey . urldecode($statusId) . urldecode($orderId) . urldecode($transactionId) . urldecode($msg));
+        $hashValid = $secretKey !== '' && hash_equals($expectedHash, $receivedHash);
+
+        if ($hashValid && $statusId === '1' && $paymentData) {
+            $paidAmount = $request->filled('amount')
+                ? round((float) $request->input('amount'), 2)
+                : round((float) $paymentData->payment_amount, 2);
+
+            $status = $this->completeVerifiedPayment(
+                $paymentData,
+                $transactionId,
+                'senang_pay',
+                $paidAmount
+            );
+
+            if ($this->paymentCompletionSucceeded($status)) {
+                $data = $this->payment::where(['id' => $paymentData->id])->first();
+
+                return $this->payment_response($data, 'success');
             }
-            return $this->payment_response($data,'success');
         }
-        $payment_data = $this->payment::where(['id' => session()->get('payment_id')])->first();
-        if (isset($payment_data) && function_exists($payment_data->failure_hook)) {
-            call_user_func($payment_data->failure_hook, $payment_data);
+
+        if (isset($paymentData) && function_exists($paymentData->failure_hook)) {
+            call_user_func($paymentData->failure_hook, $paymentData);
         }
-        return $this->payment_response($payment_data,'fail');
+
+        return $this->payment_response($paymentData, 'fail');
     }
 }

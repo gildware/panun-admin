@@ -57,6 +57,16 @@ trait AdminMenuWithRoutes
                 'sorting' => 3.5,
             ],
             [
+                'route_name' => 'Booking_Review',
+                'uri' => 'admin/booking/reviews/list',
+                'full_route' => url('admin/booking/reviews/list'),
+                'page_title' => 'Booking_Review',
+                'keywords' => 'Booking Review, reviews, ratings, pending reviews, approval',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 3.6,
+            ],
+            [
                 'route_name' => 'Booking_Configuration',
                 'uri' => 'admin/booking/configuration',
                 'full_route' => url('admin/booking/configuration'),
@@ -864,6 +874,14 @@ trait AdminMenuWithRoutes
                 'full_route' => url('admin/mobile-app-management/ai'),
                 'page_title' => 'AI',
                 'keywords' => 'Mobile App Management, AI, AI chat, mobile app',
+                'type' => 'menu',
+            ],
+            [
+                'route_name' => 'Mobile_App_Settings',
+                'uri' => 'admin/mobile-app-management/settings',
+                'full_route' => url('admin/mobile-app-management/settings'),
+                'page_title' => 'App_Features',
+                'keywords' => 'Mobile App Management, features, bidding, post system, settings',
                 'type' => 'menu',
             ],
             [

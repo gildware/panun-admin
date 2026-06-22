@@ -9,21 +9,28 @@
             align-items: stretch;
             /* Taller base so Payment / Revenue / left cards show full content without tight scroll areas */
             --booking-overview-small-card-h: 9.5rem;
+            --booking-overview-provider-card-h: 12.5rem;
             --booking-overview-column-gap: 1rem;
-            /* Left: Customer + tall Provider (2× small + gap); same total as former 3 small cards + 2 gaps */
-            --booking-overview-left-stack-h: calc(3 * var(--booking-overview-small-card-h) + 2 * var(--booking-overview-column-gap));
-            --booking-overview-provider-card-h: calc(2 * var(--booking-overview-small-card-h) + var(--booking-overview-column-gap));
+            /* Left: Customer + taller Provider */
+            --booking-overview-left-stack-h: calc(var(--booking-overview-small-card-h) + var(--booking-overview-provider-card-h) + var(--booking-overview-column-gap));
             --booking-overview-mid-card-h: calc((var(--booking-overview-left-stack-h) - var(--booking-overview-column-gap)) / 2);
-            /* Shift a bit from Payment → Revenue (heights still sum to stack − gap) */
-            --booking-overview-mid-split-shift: 1rem;
+            /* Shift height from Payment → Revenue (heights still sum to stack − gap) */
+            --booking-overview-mid-split-shift: 2.5rem;
             --booking-overview-mid-payment-h: calc(var(--booking-overview-mid-card-h) - var(--booking-overview-mid-split-shift));
             --booking-overview-mid-revenue-h: calc(var(--booking-overview-mid-card-h) + var(--booking-overview-mid-split-shift));
-            /* Right: Booking dates + Booking Information + Service location (2 gaps between three cards) */
+            /* Right: Booking dates + Booking Information (flex) + Service location */
             --booking-overview-right-dates-shift: 2rem;
             --booking-overview-right-dates-h: calc(var(--booking-overview-small-card-h) + 2rem - var(--booking-overview-right-dates-shift));
+            --booking-overview-right-info-min-h: 11rem;
             --booking-overview-right-service-loc-h: var(--booking-overview-small-card-h);
-            --booking-overview-right-info-h: calc(var(--booking-overview-left-stack-h) - 2 * var(--booking-overview-column-gap) - var(--booking-overview-right-dates-h) - var(--booking-overview-right-service-loc-h));
-            min-height: var(--booking-overview-left-stack-h);
+            --booking-overview-right-stack-h: calc(
+                var(--booking-overview-right-dates-h)
+                + var(--booking-overview-right-info-min-h)
+                + var(--booking-overview-right-service-loc-h)
+                + 2 * var(--booking-overview-column-gap)
+            );
+            --booking-overview-row-h: max(var(--booking-overview-left-stack-h), var(--booking-overview-right-stack-h));
+            min-height: var(--booking-overview-row-h);
         }
         .booking-details-overview-row > [class*="col-"] {
             min-height: 0;
@@ -38,7 +45,8 @@
             display: flex;
             flex-direction: column;
             gap: var(--booking-overview-column-gap);
-            min-height: var(--booking-overview-left-stack-h);
+            min-height: var(--booking-overview-row-h);
+            height: var(--booking-overview-row-h);
         }
         .booking-details-overview-row .booking-overview-left-card {
             flex: 0 0 var(--booking-overview-small-card-h);
@@ -47,10 +55,10 @@
             height: var(--booking-overview-small-card-h);
         }
         .booking-details-overview-row .booking-overview-left-card--provider {
-            flex: 0 0 var(--booking-overview-provider-card-h);
+            flex: 1 1 var(--booking-overview-provider-card-h);
             min-height: var(--booking-overview-provider-card-h);
-            max-height: var(--booking-overview-provider-card-h);
-            height: var(--booking-overview-provider-card-h);
+            height: auto;
+            max-height: none;
         }
         .booking-details-overview-row .booking-overview-mid-card--payment {
             flex: 0 0 var(--booking-overview-mid-payment-h);
@@ -59,10 +67,10 @@
             height: var(--booking-overview-mid-payment-h);
         }
         .booking-details-overview-row .booking-overview-mid-card--revenue {
-            flex: 0 0 var(--booking-overview-mid-revenue-h);
+            flex: 1 1 var(--booking-overview-mid-revenue-h);
             min-height: var(--booking-overview-mid-revenue-h);
-            max-height: var(--booking-overview-mid-revenue-h);
-            height: var(--booking-overview-mid-revenue-h);
+            height: auto;
+            max-height: none;
         }
         .booking-details-overview-row .booking-overview-booking-dates-card {
             flex: 0 0 var(--booking-overview-right-dates-h);
@@ -71,10 +79,10 @@
             height: var(--booking-overview-right-dates-h);
         }
         .booking-details-overview-row .booking-overview-booking-info-card {
-            flex: 0 0 var(--booking-overview-right-info-h);
-            min-height: var(--booking-overview-right-info-h);
-            max-height: var(--booking-overview-right-info-h);
-            height: var(--booking-overview-right-info-h);
+            flex: 1 1 var(--booking-overview-right-info-min-h);
+            min-height: var(--booking-overview-right-info-min-h);
+            height: auto;
+            max-height: none;
         }
         .booking-details-overview-row .booking-overview-right-service-loc-card {
             flex: 0 0 var(--booking-overview-right-service-loc-h);
@@ -1391,12 +1399,17 @@
                                                 if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
                                                     $__btnDisabled = true;
                                                 }
+                                                if (booking_status_requires_assigned_provider($__nextSt) && ! booking_has_assigned_provider($booking)) {
+                                                    $__btnDisabled = true;
+                                                }
                                                 if ($__nextSt === 'completed' && ! booking_can_be_completed($booking)) {
                                                     $__btnDisabled = true;
                                                 }
                                                 $__btnDisabledTitle = translate('Not available for this booking');
                                                 if ($__nextSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
                                                     $__btnDisabledTitle = translate('Booking_ongoing_only_on_or_after_schedule_date');
+                                                } elseif (booking_status_requires_assigned_provider($__nextSt) && ! booking_has_assigned_provider($booking)) {
+                                                    $__btnDisabledTitle = translate('Assign_provider_before_accept_or_ongoing');
                                                 }
                                                 $__pillClass = match ($__nextSt) {
                                                     'accepted' => 'booking-status-pill--success',
@@ -1609,7 +1622,7 @@
                             <div class="card-body py-3 px-3 d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-hidden">
                                 <div class="d-flex align-items-center justify-content-between gap-1 border-bottom pb-2 mb-2 flex-shrink-0">
                                     <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
-                                        <span class="material-icons title-color fz-16">person</span>
+                                        <span class="material-icons title-color fz-16">store</span>
                                         {{ translate('Provider_Information') }}
                                     </h6>
                                     @if (isset($booking->provider))
@@ -1638,9 +1651,9 @@
                                         </div>
                                     @endif
                                 </div>
-                                <div class="d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-y-auto gap-2">
+                                <div class="d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
                                     @if (isset($booking->provider))
-                                        <div class="d-flex align-items-center gap-2">
+                                        <div class="d-flex align-items-center gap-2 flex-grow-1">
                                             <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover align-self-start" src="{{ $booking?->provider?->logo_full_path }}" alt="">
                                             <div class="min-w-0 flex-grow-1 small">
                                                 <a href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}" class="c1 d-block text-break fw-semibold fz-12">{{ Str::limit($booking->provider->company_name ?? '', 48) }}</a>
@@ -1649,72 +1662,19 @@
                                             </div>
                                         </div>
                                     @else
-                                        <div class="d-flex align-items-center justify-content-between gap-2 py-1">
-                                            <span class="text-muted small mb-0">{{ translate('No Provider Information') }}</span>
-                                            @if($booking->is_verified != 2)
-                                                <button type="button" class="btn btn-sm btn--primary py-0 px-2 fz-11 flex-shrink-0" data-bs-target="#providerModal" data-bs-toggle="modal">{{ translate('assign provider') }}</button>
-                                            @endif
+                                        <div class="d-flex flex-column gap-2 align-items-center py-2 flex-grow-1 justify-content-center">
+                                            <span class="material-icons text-muted fs-2">account_circle</span>
+                                            <p class="text-muted text-center fw-medium mb-2 fz-12">{{ translate('No Provider Information') }}</p>
                                         </div>
-                                    @endif
-                                    <div class="border-top pt-2 mt-1">
-                                        <div class="d-flex align-items-center justify-content-between gap-1 pb-2 mb-0 flex-shrink-0">
-                                            <h6 class="c1 mb-0 d-flex align-items-center gap-1 fz-12 text-uppercase">
-                                                <span class="material-icons title-color fz-16">engineering</span>
-                                                {{ translate('Serviceman_Information') }}
-                                            </h6>
-                                            @if (isset($booking->serviceman))
-                                                <div class="btn-group">
-                                                    @if (in_array($booking->booking_status, ['ongoing', 'accepted']))
-                                                        <div class="cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false">
-                                                            <span class="material-symbols-outlined fz-18">more_vert</span>
-                                                        </div>
-                                                        <ul class="dropdown-menu dropdown-menu__custom border-none dropdown-menu-end">
-                                                            <li>
-                                                                <div class="d-flex align-items-center gap-2 cursor-pointer provider-chat">
-                                                                    <span class="material-symbols-outlined">chat</span>
-                                                                    {{ translate('chat_with_Serviceman') }}
-                                                                    <form action="{{ route('admin.chat.create-channel') }}" method="post" id="chatForm-serviceman-overview-{{ $booking->id }}">
-                                                                        @csrf
-                                                                        <input type="hidden" name="serviceman_id" value="{{ $booking?->serviceman?->user?->id }}">
-                                                                        <input type="hidden" name="type" value="booking">
-                                                                        <input type="hidden" name="user_type" value="provider-serviceman">
-                                                                    </form>
-                                                                </div>
-                                                            </li>
-                                                            @can('booking_can_manage_status')
-                                                                <li>
-                                                                    <div class="d-flex align-items-center gap-2" data-bs-target="#servicemanModal" data-bs-toggle="modal">
-                                                                        <span class="material-symbols-outlined">manage_history</span>
-                                                                        {{ translate('change serviceman') }}
-                                                                    </div>
-                                                                </li>
-                                                            @endcan
-                                                        </ul>
-                                                    @endif
-                                                </div>
-                                            @endif
-                                        </div>
-                                        @if (isset($booking->serviceman))
-                                            <div class="d-flex align-items-center gap-2">
-                                                <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover align-self-start" src="{{ $booking?->serviceman?->user?->profile_image_full_path }}" alt="{{ translate('serviceman') }}">
-                                                <div class="min-w-0 flex-grow-1 small">
-                                                    <span class="c1 d-block text-break fw-semibold fz-12">{{ Str::limit($booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->first_name . ' ' . $booking->serviceman->user->last_name : '', 48) }}</span>
-                                                    <a href="tel:{{ $booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->phone : '' }}" class="d-block text-break fz-12 text-muted">{{ $booking->serviceman && $booking->serviceman->user ? $booking->serviceman->user->phone : '' }}</a>
-                                                </div>
-                                            </div>
-                                        @else
-                                            <div class="d-flex flex-column gap-2 align-items-center py-2">
-                                                <span class="material-icons text-muted fs-2">account_circle</span>
-                                                <p class="text-muted text-center fw-medium mb-2 fz-12">{{ translate('No Serviceman Information') }}</p>
-                                            </div>
+                                        @if($booking->is_verified != 2)
                                             <div class="text-center pb-1">
-                                                <button type="button" class="btn btn--primary" data-bs-target="#servicemanModal" data-bs-toggle="modal"
-                                                    @if($booking['booking_status'] == 'completed' || $booking['booking_status'] == 'canceled' || !isset($booking->provider)) disabled @endif>
-                                                    {{ translate('assign Serviceman') }}
+                                                <button type="button" class="btn btn--primary" data-bs-target="#providerModal" data-bs-toggle="modal"
+                                                    @if(in_array($booking['booking_status'], ['completed', 'canceled'], true)) disabled @endif>
+                                                    {{ translate('assign provider') }}
                                                 </button>
                                             </div>
                                         @endif
-                                    </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -2943,6 +2903,9 @@
                                             if ($__selSt === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($booking)) {
                                                 $__optDisabled = true;
                                             }
+                                            if (booking_status_requires_assigned_provider($__selSt) && ! booking_has_assigned_provider($booking)) {
+                                                $__optDisabled = true;
+                                            }
                                             if ($__selSt === 'completed' && ! booking_can_be_completed($booking)) {
                                                 $__optDisabled = true;
                                             }
@@ -3136,13 +3099,6 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content modal-content-data" id="modal-data-info">
                 @include('bookingmodule::admin.booking.partials.details.provider-info-modal-data')
-            </div>
-        </div>
-    </div>
-    <div class="modal fade" id="servicemanModal" tabindex="-1" aria-labelledby="servicemanModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content modal-content-data1" id="modal-data-info1">
-                @include('bookingmodule::admin.booking.partials.details.serviceman-info-modal-data')
             </div>
         </div>
     </div>
@@ -3573,17 +3529,24 @@
 
         $(document).on('click', '.reassign-provider', function() {
             let newProviderId = $(this).data('provider-reassign');
-            pendingReassignProviderId = newProviderId;
-            pendingPostFeedbackAction = 'reassign';
-
-            // Evaluate the currently assigned provider (if present); otherwise evaluate the provider being assigned.
-            const evaluatedProviderId = bookingCurrentProviderId ?? newProviderId;
-            if (!evaluatedProviderId) {
+            if (!newProviderId) {
                 toastr.error('{{ translate('Provider not found for feedback.') }}');
                 return;
             }
 
-            openProviderPerformanceFeedbackModal(evaluatedProviderId, 'provider_changed');
+            // First-time assignment: no previous provider to evaluate.
+            if (!bookingCurrentProviderId) {
+                if (typeof window.updateProvider === 'function') {
+                    window.updateProvider(newProviderId);
+                } else {
+                    reassignProviderAfterFeedback(newProviderId);
+                }
+                return;
+            }
+
+            pendingReassignProviderId = newProviderId;
+            pendingPostFeedbackAction = 'reassign';
+            openProviderPerformanceFeedbackModal(bookingCurrentProviderId, 'provider_changed');
         })
 
         $('.open-feedback-manual').on('click', function() {
@@ -3636,11 +3599,6 @@
             });
         });
 
-        $('.reassign-serviceman').on('click', function() {
-            let id = $(this).data('serviceman-reassign');
-            updateServiceman(id)
-        })
-
         $('.offline-payment').on('click', function() {
             let route = '{{ route('admin.booking.offline-payment.verify', ['booking_id' => $booking->id]) }}'+ '&payment_status=' + 'approved';
             route_alert_reload(route, '{{ translate('Want to verify the payment') }}', true);
@@ -3648,7 +3606,6 @@
 
         @if ($booking->booking_status == 'pending')
             $(document).ready(function() {
-                selectElementVisibility('serviceman_assign', false);
                 selectElementVisibility('payment_status', false);
             });
         @endif
@@ -3660,6 +3617,14 @@
             if (booking_status && booking_status !== '0') {
                 if (booking_status === 'completed' && $select.data('can-complete') === '0') {
                     toastr.error('{{ translate('Booking cannot be completed until full payment is received.') }}', { CloseButton: true, ProgressBar: true });
+                    $select.val(previous_status).trigger('change');
+                    if ($select.next(".select2-container").length) {
+                        $select.next(".select2-container").find(".select2-selection__rendered").text($select.find("option:selected").text());
+                    }
+                    return;
+                }
+                if ((booking_status === 'accepted' || booking_status === 'ongoing') && !bookingCurrentProviderId) {
+                    toastr.error('{{ translate('Assign_provider_before_accept_or_ongoing') }}', { CloseButton: true, ProgressBar: true });
                     $select.val(previous_status).trigger('change');
                     if ($select.next(".select2-container").length) {
                         $select.next(".select2-container").find(".select2-selection__rendered").text($select.find("option:selected").text());
@@ -3698,6 +3663,10 @@
             }
             if (status === 'completed' && $select.data('can-complete') === '0') {
                 toastr.error('{{ translate('Booking cannot be completed until full payment is received.') }}', { CloseButton: true, ProgressBar: true });
+                return;
+            }
+            if ((status === 'accepted' || status === 'ongoing') && !bookingCurrentProviderId) {
+                toastr.error('{{ translate('Assign_provider_before_accept_or_ongoing') }}', { CloseButton: true, ProgressBar: true });
                 return;
             }
             $select.val(status);
@@ -3755,19 +3724,6 @@
             $('#booking-schedule-edit-mode').addClass('d-none');
             $('#booking-schedule-view-mode').removeClass('d-none');
         }
-
-        $("#serviceman_assign").change(function() {
-            var serviceman_id = $("#serviceman_assign option:selected").val();
-            if (serviceman_id !== 'no_serviceman') {
-                var route = '{{ route('admin.booking.serviceman_update', [$booking->id]) }}' + '?serviceman_id=' +
-                    serviceman_id;
-
-                update_booking_details(route, '{{ translate('want_to_assign_the_serviceman') }}?',
-                    'serviceman_assign', serviceman_id);
-            } else {
-                toastr.error('{{ translate('choose_proper_serviceman') }}');
-            }
-        });
 
         function payment_status_change(payment_status) {
             var route = '{{ route('admin.booking.payment_update', [$booking->id]) }}' + '?payment_status=' +
@@ -4248,7 +4204,7 @@
                                 }
 
                                 if (componentId === 'booking_status' || componentId === 'payment_status' ||
-                                    componentId === 'service_schedule' || componentId === 'serviceman_assign' || componentId === 'payment_method' ) {
+                                    componentId === 'service_schedule' || componentId === 'payment_method' ) {
                                     location.reload();
                                 }
                             };
@@ -4305,7 +4261,6 @@
             if (componentId === 'booking_status') {
                 $("#booking_status__span").html(updatedValue);
 
-                selectElementVisibility('serviceman_assign', true);
                 selectElementVisibility('payment_status', true);
 
             } else if (componentId === 'payment_status') {
@@ -4955,79 +4910,6 @@
                 complete: function() {},
                 error: function(xhr) {
                     toastr.error(xhr?.responseJSON?.message ?? '{{ translate('Failed to load') }}');
-                }
-            });
-        }
-
-        $(document).ready(function() {
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            $(document).on('keyup', '.search-form-input1', function() {
-                const route = '{{ url('admin/booking/serviceman-update', $booking->id) }}';
-                let searchTerm = $('.search-form-input1').val();
-
-                $.ajax({
-                    url: route,
-                    type: 'PUT',
-                    dataType: 'json',
-                    data: {
-                        booking_id: "{{ $booking->id }}",
-                        search: searchTerm,
-                    },
-                    beforeSend: function() {},
-                    success: function(response) {
-                        $('.modal-content-data1').html(response.view);
-                    },
-                    complete: function() {},
-                    error: function(xhr) {
-                        if (xhr.status === 419) {
-                            toastr.error('{{ translate('Session expired, please refresh the page.') }}');
-                        } else {
-                            toastr.error('{{ translate('Failed to load') }}');
-                        }
-                    }
-                });
-            });
-        });
-
-
-        function updateServiceman(servicemanId) {
-            const bookingId = "{{ $booking->id }}";
-            const route = '{{ url('admin/booking/serviceman-update') }}' + '/' + bookingId;
-            const searchTerm = $('.search-form-input1').val();
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            $.ajax({
-                url: route,
-                type: 'PUT',
-                dataType: 'json',
-                data: {
-                    booking_id: bookingId,
-                    search: searchTerm,
-                    serviceman_id: servicemanId
-                },
-                beforeSend: function() {
-                    toastr.info('{{ translate('Processing request...') }}');
-                },
-                success: function(response) {
-                    $('.modal-content-data').html(response.view);
-                    toastr.success('{{ translate('Successfully reassign provider') }}');
-                    setTimeout(function() {
-                        location.reload()
-                    }, 600);
-                },
-                complete: function() {},
-                error: function() {
-                    toastr.error('{{ translate('Failed to load') }}');
                 }
             });
         }

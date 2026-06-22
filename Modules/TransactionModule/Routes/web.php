@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\WithdrawnController;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\WithdrawRequestController;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\TransactionController;
+use Modules\TransactionModule\Http\Controllers\Web\Admin\RazorpayWebhookLogController;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\LedgerController;
 use Modules\TransactionModule\Http\Controllers\Web\Admin\PendingProviderBalancesController;
 use Modules\TransactionModule\Http\Controllers\Web\Provider\WithdrawController as ProviderWithdrawnController;
@@ -14,6 +15,8 @@ Route::group(['prefix' => 'admin', 'as'=>'admin.', 'namespace' => 'Web\Admin','m
     Route::group(['prefix' => 'transaction', 'as'=>'transaction.'], function () {
         Route::any('list', [TransactionController::class, 'index'])->name('list');
         Route::any('download', [TransactionController::class, 'download'])->name('download');
+        Route::get('razorpay-webhooks', [RazorpayWebhookLogController::class, 'index'])->name('razorpay_webhooks.index');
+        Route::get('razorpay-webhooks/{id}', [RazorpayWebhookLogController::class, 'show'])->name('razorpay_webhooks.show');
     });
 
     Route::get('ledger', [LedgerController::class, 'index'])->middleware(['can:ledger_view'])->name('ledger.index');

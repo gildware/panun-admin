@@ -23,5 +23,6 @@
     "SystemModule": true,
     "AI": true,
     "WhatsAppModule": true,
-    "LeadManagement": true
+    "LeadManagement": true,
+    "CallCenterModule": true
 }

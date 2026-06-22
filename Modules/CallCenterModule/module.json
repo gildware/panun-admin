@@ -1,0 +1,13 @@
+{
+    "name": "CallCenterModule",
+    "alias": "callcentermodule",
+    "description": "Call center integration APIs for customer lookup and interaction sync",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\CallCenterModule\\Providers\\CallCenterModuleServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}

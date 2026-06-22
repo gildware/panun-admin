@@ -19,7 +19,8 @@ class CustomerHomeBundleService
             ? 'user:'.auth('api')->id()
             : 'guest:'.(string) ($request->input('guest_id') ?? $request->header('guest_id') ?? 'anon');
 
-        $cacheKey = 'customer_home_bundle:v1:'.$zoneId.':'.$locale.':'.$authKey;
+        $layoutHash = substr(md5(json_encode($this->mobileAppManagementService->homeSectionsForApi())), 0, 12);
+        $cacheKey = 'customer_home_bundle:v4:'.$layoutHash.':'.$zoneId.':'.$locale.':'.$authKey;
 
         return CustomerApiResponseCache::remember(
             $cacheKey,
@@ -117,6 +118,11 @@ class CustomerHomeBundleService
                 ], true) => $this->dispatchGet(
                     $request,
                     "/api/v1/customer/mobile-app-home/section/{$key}/categories",
+                    ['limit' => $limit, 'offset' => 1]
+                ),
+                $contentType === MobileAppManagementService::CONTENT_CAMPAIGNS => $this->dispatchGet(
+                    $request,
+                    "/api/v1/customer/mobile-app-home/section/{$key}/campaigns",
                     ['limit' => $limit, 'offset' => 1]
                 ),
                 default => null,

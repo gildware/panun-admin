@@ -15,6 +15,7 @@ Route::group(['prefix' => 'customer', 'as' => 'customer.', 'namespace' => 'Api\V
         Route::get('section/{key}/services', [MobileAppHomeController::class, 'sectionServices']);
         Route::get('section/{key}/providers', [MobileAppHomeController::class, 'sectionProviders']);
         Route::get('section/{key}/banners', [MobileAppHomeController::class, 'sectionBanners']);
+        Route::get('section/{key}/campaigns', [MobileAppHomeController::class, 'sectionCampaigns']);
         Route::get('section/{key}/categories', [MobileAppHomeController::class, 'sectionCategories']);
     });
 });

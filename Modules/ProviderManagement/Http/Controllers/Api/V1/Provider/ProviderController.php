@@ -23,6 +23,7 @@ use Modules\PromotionManagement\Entities\PushNotification;
 use Modules\ProviderManagement\Entities\BankDetail;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderDashboardEarningStatsService;
 use Modules\ReviewModule\Entities\Review;
 use Modules\SMSModule\Lib\SMS_gateway;
 use Modules\TransactionModule\Entities\Account;
@@ -196,8 +197,11 @@ class ProviderController extends Controller
         }
 
         if (in_array('customized_post', $request['sections'])) {
+            $biddingStatus = (int) ((business_config('bidding_status', 'bidding_system'))?->live_values ?? 0);
 
-
+            if ($biddingStatus !== 1) {
+                $data[] = ['customized_post' => []];
+            } else {
             $subCategories = $this->subscribedService
                 ->where(['provider_id' => $request->user()->provider->id])
                 ->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
@@ -224,14 +228,20 @@ class ProviderController extends Controller
                 ->take(5)->get();
 
             $data[] = ['customized_post' => $posts];
+            }
         }
 
         if (in_array('additional_info_count', $request['sections'])) {
 
+            $biddingStatus = (int) ((business_config('bidding_status', 'bidding_system'))?->live_values ?? 0);
+            $postCount = 0;
+
+            if ($biddingStatus === 1) {
             $ignoredPosts = $this->ignoredPost->where('provider_id', $request->user()->provider->id)->pluck('post_id')->toArray();
             $subCategories = $this->subscribedService
                 ->where(['provider_id' => $request->user()->provider->id])
                 ->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
+            $biddingPostValidity = (int)(business_config('bidding_post_validity', 'bidding_system'))->live_values;
 
             $postCount = $this->post
                 ->where('is_booked', 0)
@@ -249,6 +259,7 @@ class ProviderController extends Controller
                     }
                 })
                 ->latest()->count();
+            }
 
             $advertisementCount = $this->advertisement->with(['attachments'])
                 ->where('provider_id', auth('api')->user()->provider->id)
@@ -285,70 +296,8 @@ class ProviderController extends Controller
 
     public function earningStatistics(Request $request)
     {
-        $userId = $request->user()->id;
-        $now = Carbon::now();
-
-        // Week starts on Sunday
-        $startOfWeek = $now->copy()->startOfWeek(Carbon::MONDAY);
-        $endOfWeek   = $now->copy()->endOfWeek(Carbon::SUNDAY);
-
-        $startOfMonth = $now->copy()->startOfMonth();
-        $endOfMonth   = $now->copy()->endOfMonth();
-
-        $startOfYear = $now->copy()->startOfYear();
-        $endOfYear   = $now->copy()->endOfYear();
-
-        // Previous periods
-        $lastWeekStart = $startOfWeek->copy()->subWeek();
-        $lastWeekEnd   = $endOfWeek->copy()->subWeek();
-
-        $lastMonthStart = $startOfMonth->copy()->subMonth();
-        $lastMonthEnd   = $endOfMonth->copy()->subMonth();
-
-        $lastYearStart = $startOfYear->copy()->subYear();
-        $lastYearEnd   = $endOfYear->copy()->subYear();
-
-        $transaction = DB::table('transactions')
-            ->where('to_user_id', $userId)
-            ->where('credit', '>', 0)
-            ->whereIn('to_user_account', ['received_balance', 'total_withdrawn']);
-
-        // Helper to calculate total credit in range
-        $calcEarning = function ($start, $end) use ($transaction) {
-            return (clone $transaction)
-                ->whereBetween('created_at', [$start, $end])
-                ->sum('credit');
-        };
-
-        // Current
-        $thisWeek  = $calcEarning($startOfWeek, $endOfWeek);
-        $thisMonth = $calcEarning($startOfMonth, $endOfMonth);
-        $thisYear  = $calcEarning($startOfYear, $endOfYear);
-
-        // Previous
-        $lastWeek  = $calcEarning($lastWeekStart, $lastWeekEnd);
-        $lastMonth = $calcEarning($lastMonthStart, $lastMonthEnd);
-        $lastYear  = $calcEarning($lastYearStart, $lastYearEnd);
-
-        // % change
-        $weekChange  = $lastWeek  > 0 ? (($thisWeek  - $lastWeek)  / $lastWeek)  * 100 : 0;
-        $monthChange = $lastMonth > 0 ? (($thisMonth - $lastMonth) / $lastMonth) * 100 : 0;
-        $yearChange  = $lastYear  > 0 ? (($thisYear  - $lastYear)  / $lastYear)  * 100 : 0;
-
-        $data = [
-            'this_week' => [
-                'total' => round($thisWeek, 2),
-                'change' => round($weekChange, 2),
-            ],
-            'this_month' => [
-                'total' => round($thisMonth, 2),
-                'change' => round($monthChange, 2),
-            ],
-            'this_year' => [
-                'total' => round($thisYear, 2),
-                'change' => round($yearChange, 2),
-            ],
-        ];
+        $providerId = (string) $request->user()->provider->id;
+        $data = app(ProviderDashboardEarningStatsService::class)->forProvider($providerId);
 
         return response()->json(response_formatter(DEFAULT_200, $data), 200);
     }

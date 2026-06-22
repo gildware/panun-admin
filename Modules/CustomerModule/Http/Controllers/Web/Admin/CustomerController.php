@@ -24,6 +24,7 @@ use Modules\CustomerModule\Emails\CustomerRegistrationMail;
 use Modules\ProviderManagement\Entities\CustomerIncident;
 use Modules\ProviderManagement\Services\CustomerPerformanceService;
 use Modules\ReviewModule\Entities\Review;
+use Modules\ReviewModule\Entities\ProviderCustomerReview;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Modules\UserManagement\Entities\User;
 use Modules\UserManagement\Entities\UserAddress;
@@ -520,7 +521,12 @@ class CustomerController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $reviews = $this->review->where(['customer_id' => $id])->orderBy('created_at', 'desc')->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
+        $reviews = ProviderCustomerReview::query()
+            ->with(['booking', 'provider.owner'])
+            ->where('customer_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])
+            ->withPath('');
 
         return response()->json(response_formatter(DEFAULT_200, $reviews), 200);
     }
@@ -904,14 +910,49 @@ class CustomerController extends Controller
 
         } elseif ($webPage == 'reviews') {
             $search = $request->has('search') ? $request['search'] : '';
-            $queryParam = ['web_page' => $webPage];
-            $bookingIds = $this->booking->where('customer_id', $id)->pluck('id')->toArray();
-            $reviews = $this->review->with(['booking'])
-                ->whereIn('booking_id', $bookingIds)
-                ->latest()
-                ->paginate(pagination_limit())->appends($queryParam);
+            $reviewTab = $request->get('review_tab', 'received');
+            if (!in_array($reviewTab, ['received', 'given'], true)) {
+                $reviewTab = 'received';
+            }
+            $queryParam = ['web_page' => $webPage, 'search' => $search, 'review_tab' => $reviewTab];
             $customer = $this->user->inCustomerDirectory()->find($id);
-            return view('customermodule::admin.detail.reviews', compact('reviews', 'webPage', 'customer', 'search'));
+
+            if ($reviewTab === 'given') {
+                $reviews = Review::query()
+                    ->with(['booking', 'provider', 'service'])
+                    ->where('customer_id', $id)
+                    ->when($search, function ($query) use ($search) {
+                        $keys = explode(' ', $search);
+                        foreach ($keys as $key) {
+                            $query->where(function ($q) use ($key) {
+                                $q->where('review_comment', 'LIKE', '%' . $key . '%')
+                                    ->orWhere('readable_id', 'LIKE', '%' . $key . '%')
+                                    ->orWhereHas('booking', fn ($bq) => $bq->where('readable_id', 'LIKE', '%' . $key . '%'))
+                                    ->orWhereHas('provider', fn ($pq) => $pq->where('company_name', 'LIKE', '%' . $key . '%'));
+                            });
+                        }
+                    })
+                    ->latest()
+                    ->paginate(pagination_limit())->appends($queryParam);
+            } else {
+                $reviews = ProviderCustomerReview::query()
+                    ->with(['booking', 'provider.owner'])
+                    ->where('customer_id', $id)
+                    ->when($search, function ($query) use ($search) {
+                        $keys = explode(' ', $search);
+                        foreach ($keys as $key) {
+                            $query->where(function ($q) use ($key) {
+                                $q->where('review_comment', 'LIKE', '%' . $key . '%')
+                                    ->orWhere('readable_id', 'LIKE', '%' . $key . '%')
+                                    ->orWhereHas('booking', fn ($bq) => $bq->where('readable_id', 'LIKE', '%' . $key . '%'));
+                            });
+                        }
+                    })
+                    ->latest()
+                    ->paginate(pagination_limit())->appends($queryParam);
+            }
+
+            return view('customermodule::admin.detail.reviews', compact('reviews', 'webPage', 'customer', 'search', 'reviewTab'));
 
         } elseif ($webPage == 'performance') {
             $customer = $this->user->inCustomerDirectory()->find($id);

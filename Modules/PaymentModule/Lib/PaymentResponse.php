@@ -13,6 +13,7 @@ use Modules\BookingModule\Entities\BookingPartialPayment;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\PaymentModule\Entities\PaymentRequest;
+use Modules\PaymentModule\Services\PaymentRequestFulfillmentService;
 use Modules\PaymentModule\Traits\SubscriptionTrait;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\UserManagement\Entities\User;
@@ -28,11 +29,19 @@ class PaymentResponse
      */
     public static function success($data): array
     {
+        $fulfillment = app(PaymentRequestFulfillmentService::class);
+        $fulfilled = $fulfillment->bookingFulfillmentResponse($data);
+        if ($fulfilled !== null) {
+            return $fulfilled;
+        }
+
         $customer_user_id = $data['payer_id'];
         $tran_id = $data['transaction_id'];
         $payment_request_id = $data->id;
 
         $additional_data = json_decode($data['additional_data'], true);
+        $additional_data = is_array($additional_data) ? $additional_data : [];
+        $paymentAmountType = $fulfillment->resolveCheckoutPaymentAmountType($data, $additional_data);
         $request = collect([
             'access_token' => $additional_data['access_token'] ?? null,
             'zone_id' => $additional_data['zone_id'] ?? null,
@@ -42,6 +51,8 @@ class PaymentResponse
             'payment_method' => $additional_data['payment_method'] ?? null,
             'callback' => $additional_data['callback'] ?? null,
             'is_partial' => $additional_data['is_partial'] ?? null,
+            'payment_amount_type' => $paymentAmountType,
+            'verified_checkout_amount' => round((float) ($data->payment_amount ?? 0), 2),
             'post_id' => $additional_data['post_id'] ?? null,
             'provider_id' => $additional_data['provider_id'] ?? null,
             'register_new_customer' => $additional_data['register_new_customer'] ?? 0,
@@ -49,6 +60,7 @@ class PaymentResponse
             'phone' => $additional_data['phone'] ?? null,
             'password' => $additional_data['password'] ?? null,
             'service_location' => $additional_data['service_location'] ?? 'customer',
+            'cart_snapshot' => $additional_data['cart_snapshot'] ?? null,
         ]);
 
         if (!$request->has('post_id') || is_null($request['post_id'])) {
@@ -125,6 +137,7 @@ class PaymentResponse
         $payment_request_id = $data->id;
 
         $additional_data = json_decode($data['additional_data'], true);
+        $additional_data = is_array($additional_data) ? $additional_data : [];
         $request = collect([
             'access_token' => $additional_data['access_token'] ?? null,
             'booking_repeat_id' => $additional_data['booking_repeat_id'] ?? null,
@@ -132,21 +145,32 @@ class PaymentResponse
             'callback' => $additional_data['callback'] ?? null,
         ]);
 
-        if (!is_null($request['booking_repeat_id'])) {
+        $response = [
+            'flag' => 'fail',
+            'booking_id' => null,
+            'readable_id' => null,
+            'callback' => $request['callback'],
+        ];
+
+        if (! is_null($request['booking_repeat_id'])) {
             $repeatBooking = BookingRepeat::find($request['booking_repeat_id']);
-            $repeatBooking->is_paid = 1;
-            $repeatBooking->payment_method = $request['payment_method'];
-            $repeatBooking->transaction_id = $tran_id;
-            $repeatBooking->save();
+            if ($repeatBooking) {
+                if ((int) $repeatBooking->is_paid !== 1) {
+                    $repeatBooking->is_paid = 1;
+                    $repeatBooking->payment_method = $request['payment_method'];
+                    $repeatBooking->transaction_id = $tran_id;
+                    $repeatBooking->save();
 
-            placeBookingRepeatTransactionForDigitalPayment($repeatBooking);
+                    placeBookingRepeatTransactionForDigitalPayment($repeatBooking);
+                }
 
-            $response = [
-                'flag' => 'success',
-                'booking_id' => $repeatBooking->id,
-                'readable_id' => $repeatBooking->readable_id
-            ];
-
+                $response = [
+                    'flag' => 'success',
+                    'booking_id' => $repeatBooking->id,
+                    'readable_id' => $repeatBooking->readable_id,
+                    'callback' => $request['callback'],
+                ];
+            }
         }
 
         //update payment request
@@ -157,7 +181,6 @@ class PaymentResponse
             $payment_request->save();
         }
 
-        $response['callback'] = $request['callback'];
         return $response;
     }
 
@@ -184,6 +207,25 @@ class PaymentResponse
 
         if (!is_null($request['booking_id'])) {
             $booking = Booking::find($request['booking_id']);
+            if (! $booking) {
+                return [
+                    'flag' => 'fail',
+                    'callback' => $request['callback'],
+                ];
+            }
+
+            if (app(PaymentRequestFulfillmentService::class)->bookingPartialPaymentExistsForTransaction($booking, $tran_id)) {
+                $booking->loadMissing('booking_partial_payments');
+                booking_after_partial_payment_booking_refresh($booking);
+
+                return [
+                    'flag' => 'success',
+                    'booking_id' => $booking->id,
+                    'readable_id' => $booking->readable_id,
+                    'callback' => $request['callback'],
+                ];
+            }
+
             $paymentRequest = PaymentRequest::find($payment_request_id);
             $chargedAmount = round((float) ($paymentRequest->payment_amount ?? 0), 2);
             $invoiceDueBefore = function_exists('get_booking_invoice_due_amount')
@@ -224,7 +266,11 @@ class PaymentResponse
                 ]);
 
                 placeBookingTransactionForPartialDigital($booking);
-                $booking->is_paid = 1;
+                $booking->refresh();
+                $booking->loadMissing('booking_partial_payments');
+                $payableCap = round((float) get_booking_total_amount($booking), 2);
+                $paidTotal = round((float) get_booking_total_paid($booking), 2);
+                $booking->is_paid = ($payableCap <= 0.009 || $paidTotal + 0.009 >= $payableCap) ? 1 : 0;
                 $booking->save();
             } elseif ($isDueCollection) {
                 record_customer_booking_due_payment(
@@ -246,9 +292,15 @@ class PaymentResponse
             $response = [
                 'flag' => 'success',
                 'booking_id' => $booking->id,
-                'readable_id' => $booking->readable_id
+                'readable_id' => $booking->readable_id,
+                'callback' => $request['callback'],
             ];
 
+        } else {
+            $response = [
+                'flag' => 'fail',
+                'callback' => $request['callback'],
+            ];
         }
 
         //update payment request

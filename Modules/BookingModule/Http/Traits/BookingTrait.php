@@ -48,7 +48,8 @@ trait BookingTrait
     public function placeBookingRequest($userId, $request, $transactionId, $newUserInfo = null, int $isGuest = 0): array
     {
         $oldUserId = $userId;
-        $cartData = Cart::with(['service.category', 'service.subCategory'])->where(['customer_id' => $userId])->get();
+        $cartData = app(\Modules\PaymentModule\Services\PaymentRequestCartSnapshotService::class)
+            ->cartLinesForBooking($userId, $request);
 
         if ($cartData->count() == 0) {
             return ['flag' => 'failed', 'message' => 'no data found'];

@@ -381,7 +381,7 @@
                                             <td data-bs-custom-class="review-tooltip" data-bs-toggle="tooltip" title="{{$review->review_comment}}">{{ Str::limit($review->review_comment, 100) ?? translate('No review yet') }}</td>
                                             <td data-bs-custom-class="review-tooltip" data-bs-toggle="tooltip" title="{{$review->reviewReply?->reply}}">{{ Str::limit($review->reviewReply?->reply, 100) ?? translate('No reply yet') }}</td>
                                             <td>
-                                                @if(!empty($review->review_comment))
+                                                @if($review->review_rating > 0)
                                                 <label class="switcher">
                                                     <input class="switcher_input route-alert"
                                                            data-route="{{ route('admin.service.review-status-update', $review->id) }}"
@@ -392,7 +392,7 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                @if(!empty($review->review_comment))
+                                                @if($review->review_rating > 0)
                                                 <div class="d-flex gap-2 justify-content-center">
                                                     <button class="action-btn btn--light-primary fw-medium text-capitalize fz-14" data-bs-toggle="modal" id="replyModalBtn"
                                                             data-bs-target="#replyModal"

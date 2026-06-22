@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingConfigurationController;
 use Modules\BookingModule\Http\Controllers\Web\Admin\BookingController;
+use Modules\ReviewModule\Http\Controllers\Web\Admin\BookingReviewController;
 use Modules\WhatsAppModule\Http\Controllers\Web\Admin\BookingWhatsAppAdminPromptController;
 use Modules\BookingModule\Http\Controllers\Web\Provider\BookingController as ProviderBookingController;
 
@@ -19,6 +20,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('whatsapp-automation-prompt/skip-row', [BookingWhatsAppAdminPromptController::class, 'skipRow'])->name('whatsapp_automation_prompt.skip_row');
         Route::get('success/{id}', [BookingController::class, 'success'])->name('success');
         Route::any('list/special-scenarios', [BookingController::class, 'specialScenarioBookings'])->name('list.special_scenarios');
+        Route::any('reviews/list', [BookingReviewController::class, 'index'])->name('reviews.list');
         Route::any('list', [BookingController::class, 'index'])->name('list');
         Route::any('list/verification', [BookingController::class, 'bookingVerificationList'])->name('list.verification');
         Route::any('list/verification/download', [BookingController::class, 'downloadBookingVerificationList'])->name('list.verification.download');

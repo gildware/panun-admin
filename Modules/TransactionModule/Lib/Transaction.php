@@ -187,71 +187,133 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
      */
     function placeBookingTransactionForPartialDigital($booking): void
     {
+        $freshBooking = Booking::query()->with('booking_partial_payments')->find($booking['id'] ?? $booking->id);
+        if (! $freshBooking) {
+            return;
+        }
+
+        $walletPaid = round((float) $freshBooking->booking_partial_payments
+            ->where('paid_with', 'wallet')
+            ->sum('paid_amount'), 2);
+
+        $digitalPaid = round((float) $freshBooking->booking_partial_payments
+            ->filter(fn ($partial) => ! in_array($partial->paid_with, ['wallet', 'cash_after_service'], true))
+            ->sum('paid_amount'), 2);
+
+        if ($freshBooking->booking_partial_payments->isEmpty()) {
+            $userWalletBalance = (float) (User::find($freshBooking->customer_id)?->wallet_balance ?? 0);
+            $grand = round((float) get_booking_total_amount($freshBooking), 2);
+            $walletPaid = round(min($userWalletBalance, $grand), 2);
+            $digitalPaid = round(max(0.0, $grand - $walletPaid), 2);
+        }
+
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
-        $user_wallet_balance = User::find($booking->customer_id)?->wallet_balance;
 
-        $paid_amount =$user_wallet_balance;
-        $due_amount =  $booking['total_booking_amount'] - $paid_amount;
+        DB::transaction(function () use ($freshBooking, $admin_user_id, $walletPaid, $digitalPaid) {
+            if ($walletPaid > 0) {
+                $account = Account::where('user_id', $admin_user_id)->first();
+                $account->balance_pending += $walletPaid;
+                $account->save();
 
-        DB::transaction(function () use ($booking, $admin_user_id, $paid_amount, $due_amount) {
-            /** wallet partial */
-            //Admin transaction
-            $account = Account::where('user_id', $admin_user_id)->first();
-            $account->balance_pending += $paid_amount;
+                Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $freshBooking['id'],
+                    'trx_type' => TRX_TYPE['booking_amount'],
+                    'company_flow' => Transaction::FLOW_IN,
+                    'debit' => 0,
+                    'credit' => $walletPaid,
+                    'balance' => $account->balance_pending,
+                    'from_user_id' => $freshBooking->customer_id,
+                    'to_user_id' => $admin_user_id,
+                    'from_user_account' => null,
+                    'to_user_account' => ACCOUNT_STATES[0]['value'],
+                ]);
+
+                $user = User::find($freshBooking['customer_id']);
+                if ($user && $user->wallet_balance >= $walletPaid) {
+                    $user->wallet_balance -= $walletPaid;
+                    $user->save();
+                }
+
+                Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $freshBooking['id'],
+                    'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
+                    'company_flow' => Transaction::FLOW_NONE,
+                    'debit' => $walletPaid,
+                    'credit' => 0,
+                    'balance' => $user?->wallet_balance ?? 0,
+                    'from_user_id' => $freshBooking->customer_id,
+                    'to_user_id' => $freshBooking->customer_id,
+                    'from_user_account' => null,
+                    'to_user_account' => 'user_wallet',
+                ]);
+            }
+
+            if ($digitalPaid > 0) {
+                $account = Account::where('user_id', $admin_user_id)->first();
+                $account->balance_pending += $digitalPaid;
+                $account->save();
+
+                Transaction::create([
+                    'ref_trx_id' => null,
+                    'booking_id' => $freshBooking['id'],
+                    'trx_type' => TRX_TYPE['booking_amount'],
+                    'company_flow' => Transaction::FLOW_IN,
+                    'debit' => 0,
+                    'credit' => $digitalPaid,
+                    'balance' => $account->balance_pending,
+                    'from_user_id' => $freshBooking->customer_id,
+                    'to_user_id' => $admin_user_id,
+                    'from_user_account' => null,
+                    'to_user_account' => ACCOUNT_STATES[0]['value'],
+                    'is_guest' => $freshBooking->is_guest,
+                ]);
+            }
+        });
+    }
+}
+
+if (!function_exists('placeBookingTransactionForAdminAdvance')) {
+    function placeBookingTransactionForAdminAdvance($booking, float $paidAmount): void
+    {
+        $paidAmount = round(max(0.0, $paidAmount), 2);
+        if ($paidAmount <= 0) {
+            return;
+        }
+
+        $freshBooking = Booking::query()->find($booking['id'] ?? $booking->id);
+        if (! $freshBooking) {
+            return;
+        }
+
+        $adminUserId = User::where('user_type', ADMIN_USER_TYPES[0])->first()?->id;
+        if (! $adminUserId) {
+            return;
+        }
+
+        DB::transaction(function () use ($freshBooking, $adminUserId, $paidAmount) {
+            $account = Account::where('user_id', $adminUserId)->lockForUpdate()->first();
+            if (! $account) {
+                return;
+            }
+
+            $account->balance_pending += $paidAmount;
             $account->save();
 
             Transaction::create([
                 'ref_trx_id' => null,
-                'booking_id' => $booking['id'],
+                'booking_id' => $freshBooking->id,
                 'trx_type' => TRX_TYPE['booking_amount'],
                 'company_flow' => Transaction::FLOW_IN,
                 'debit' => 0,
-                'credit' => $paid_amount,
+                'credit' => $paidAmount,
                 'balance' => $account->balance_pending,
-                'from_user_id' => $booking->customer_id,
-                'to_user_id' => $admin_user_id,
-                'from_user_account' => null,
-                'to_user_account' => ACCOUNT_STATES[0]['value']
-            ]);
-
-            //customer transaction (wallet)
-            $user = User::find($booking['customer_id']);
-            if ($user->wallet_balance >= $paid_amount) $user->wallet_balance -= $paid_amount;
-            $user->save();
-
-            Transaction::create([
-                'ref_trx_id' => null,
-                'booking_id' => $booking['id'],
-                'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
-                'company_flow' => Transaction::FLOW_NONE,
-                'debit' => $paid_amount,
-                'credit' => 0,
-                'balance' => $user->wallet_balance,
-                'from_user_id' => $booking->customer_id,
-                'to_user_id' => $booking->customer_id,
-                'from_user_account' => null,
-                'to_user_account' => 'user_wallet'
-            ]);
-
-            /** CAS partial */
-            //Admin transaction
-            $account = Account::where('user_id', $admin_user_id)->first();
-            $account->balance_pending += $due_amount;
-            $account->save();
-
-            Transaction::create([
-                'ref_trx_id' => null,
-                'booking_id' => $booking['id'],
-                'trx_type' => TRX_TYPE['booking_amount'],
-                'company_flow' => Transaction::FLOW_IN,
-                'debit' => 0,
-                'credit' => $due_amount,
-                'balance' => $account->balance_pending,
-                'from_user_id' => $booking->customer_id,
-                'to_user_id' => $admin_user_id,
+                'from_user_id' => $freshBooking->customer_id,
+                'to_user_id' => $adminUserId,
                 'from_user_account' => null,
                 'to_user_account' => ACCOUNT_STATES[0]['value'],
-                'is_guest' => $booking->is_guest
+                'is_guest' => $freshBooking->is_guest,
             ]);
         });
     }

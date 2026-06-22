@@ -1,6 +1,17 @@
 @php
     $providerRows = $providers ?? [];
     $eligibleCount = is_countable($providerRows) ? count($providerRows) : 0;
+    $canAdminReassignProvider = booking_admin_can_reassign_provider($booking);
+    $matchedProvider = null;
+    $otherProviders = [];
+
+    foreach ($providerRows as $provider) {
+        if ($booking->provider_id && (string) $booking->provider_id === (string) $provider->id) {
+            $matchedProvider = $provider;
+        } else {
+            $otherProviders[] = $provider;
+        }
+    }
 @endphp
 <div class="modal-header border-0 pb-1 pb-lg-1 p-lg-5">
     <div class="d-flex flex-column gap-1">
@@ -9,10 +20,7 @@
     </div>
     <button type="button" class="btn-close provider-cross" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
-<div class="modal-body p-lg-5 pt-3">
-    @php
-        $canAdminReassignProvider = booking_admin_can_reassign_provider($booking);
-    @endphp
+<div class="modal-body p-lg-5 pt-lg-3">
     @if (! $canAdminReassignProvider)
         <div class="alert alert-light border fz-12 mb-3 text-start" role="alert">
             {{ translate('Provider_reassign_not_allowed_after_ongoing') }}
@@ -61,7 +69,35 @@
     </div>
 
     <div class="d-flex flex-column">
-        @forelse($providerRows as $provider)
+        @if($matchedProvider)
+            <div class="d-flex gap-2 justify-content-between align-items-center mt-4 pb-3 flex-wrap">
+                <div class="media gap-2">
+                    <img width="60" class="rounded"
+                         src="{{ $matchedProvider->logo_full_path }}"
+                         alt="{{ translate('provider-logo') }}">
+                    <div class="media-body">
+                        <h5 class="mb-2">{{ $matchedProvider->company_name }}</h5>
+                        <div class="mb-1 fs-12"><a href="tel:{{ $matchedProvider->contact_person_phone }}">{{ $matchedProvider->contact_person_phone }}</a></div>
+                        <div class="provider-devider">
+                            <ol class="breadcrumb fs-12 mb-0">
+                                <li class="breadcrumb-item">
+                                    <span class="common-list_rating d-flex gap-1 text-secondary">
+                                        <span class="material-icons">star</span>
+                                        {{ $matchedProvider->avg_rating }} ({{ $matchedProvider->reviews_count }})
+                                    </span>
+                                </li>
+                                <li class="breadcrumb-item active">{{ translate('Bookings') }} - {{ $matchedProvider->bookings_count }}</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-success">{{ translate('Currently Assigned') }}</div>
+                </div>
+            </div>
+        @endif
+
+        @forelse($otherProviders as $provider)
             <div class="d-flex gap-2 justify-content-between align-items-center mt-4 pb-3 flex-wrap">
                 <div class="media gap-2">
                     <img width="60" class="rounded"
@@ -84,22 +120,20 @@
                     </div>
                 </div>
                 <div>
-                    @if($booking->provider_id && (string) $booking->provider_id === (string) $provider->id)
-                        <div class="text-success">{{ translate('Currently Assigned') }}</div>
+                    @if ($canAdminReassignProvider)
+                        <button type="button" class="btn btn-primary w-100 max-w320 reassign-provider"
+                                data-provider-reassign="{{ $provider->id }}">
+                            {{ $booking->provider_id ? translate('Re Assign') : translate('assign provider') }}
+                        </button>
                     @else
-                        @if ($canAdminReassignProvider)
-                            <button type="button" class="btn btn-primary w-100 max-w320 reassign-provider"
-                                    data-provider-reassign="{{ $provider->id }}">
-                                {{ $booking->provider_id ? translate('Re Assign') : translate('assign provider') }}
-                            </button>
-                        @else
-                            <span class="text-muted fz-12">{{ translate('not_available') }}</span>
-                        @endif
+                        <span class="text-muted fz-12">{{ translate('not_available') }}</span>
                     @endif
                 </div>
             </div>
         @empty
-            <p class="text-muted mt-4 mb-0">{{ translate('no data available') }}</p>
+            @if(! $matchedProvider)
+                <p class="text-muted mt-4 mb-0">{{ translate('no data available') }}</p>
+            @endif
         @endforelse
     </div>
 </div>

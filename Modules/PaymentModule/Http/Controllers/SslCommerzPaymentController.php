@@ -185,19 +185,23 @@ class SslCommerzPaymentController extends Controller
     public function success(Request $request): JsonResponse|Redirector|RedirectResponse|Application
     {
         if ($request['status'] == 'VALID' && $this->SSLCOMMERZ_hash_verify($this->store_password, $request)) {
-
-            $this->payment::where(['id' => $request['payment_id']])->update([
-                'payment_method' => 'ssl_commerz',
-                'is_paid' => 1,
-                'transaction_id' => $request->input('tran_id')
-            ]);
-
             $data = $this->payment::where(['id' => $request['payment_id']])->first();
+            $paidAmount = $request->filled('amount')
+                ? round((float) $request->input('amount'), 2)
+                : null;
 
-            if (isset($data) && function_exists($data->success_hook)) {
-                call_user_func($data->success_hook, $data);
+            $status = $this->completeVerifiedPayment(
+                $data,
+                (string) $request->input('tran_id'),
+                'ssl_commerz',
+                $paidAmount
+            );
+
+            if ($this->paymentCompletionSucceeded($status)) {
+                $data = $this->payment::where(['id' => $request['payment_id']])->first();
+
+                return $this->payment_response($data, 'success');
             }
-            return $this->payment_response($data, 'success');
         }
         $payment_data = $this->payment::where(['id' => $request['payment_id']])->first();
         if (isset($payment_data) && function_exists($payment_data->failure_hook)) {

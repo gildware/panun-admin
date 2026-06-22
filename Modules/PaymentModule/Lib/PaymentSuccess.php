@@ -19,7 +19,12 @@ if (!function_exists('digital_payment_success')) {
      */
     function digital_payment_success($data): void
     {
-        PaymentResponse::success($data);
+        $response = PaymentResponse::success($data);
+        if (($response['flag'] ?? '') !== 'success') {
+            throw new \RuntimeException(
+                'Booking creation failed: ' . ($response['message'] ?? json_encode($response))
+            );
+        }
     }
 }
 
@@ -40,7 +45,12 @@ if (!function_exists('repeat_booking_payment_success')) {
      */
     function repeat_booking_payment_success($data): void
     {
-        PaymentResponse::repeatBookingPaymentSuccess($data);
+        $response = PaymentResponse::repeatBookingPaymentSuccess($data);
+        if (($response['flag'] ?? '') !== 'success') {
+            throw new \RuntimeException(
+                'Repeat booking payment failed: ' . ($response['message'] ?? json_encode($response))
+            );
+        }
     }
 }
 
@@ -51,7 +61,12 @@ if (!function_exists('switch_offline_to_digital_payment_success')) {
      */
     function switch_offline_to_digital_payment_success($data): void
     {
-        PaymentResponse::switchOfflineToDigitalPaymentSuccess($data);
+        $response = PaymentResponse::switchOfflineToDigitalPaymentSuccess($data);
+        if (($response['flag'] ?? '') !== 'success') {
+            throw new \RuntimeException(
+                'Due payment failed: ' . ($response['message'] ?? json_encode($response))
+            );
+        }
     }
 }
 

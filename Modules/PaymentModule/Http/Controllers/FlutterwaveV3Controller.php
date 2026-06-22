@@ -128,22 +128,20 @@ class FlutterwaveV3Controller extends Controller
 
             $res = json_decode($response);
             if ($res->status) {
-                $amountPaid = $res->data->charged_amount;
-                $amountToPay = $res->data->meta->price;
-                if ($amountPaid >= $amountToPay) {
+                $amountPaid = round((float) $res->data->charged_amount, 2);
+                $data = $this->payment::where(['id' => $request['payment_id']])->first();
 
-                    $this->payment::where(['id' => $request['payment_id']])->update([
-                        'payment_method' => 'flutterwave',
-                        'is_paid' => 1,
-                        'transaction_id' => $txid,
-                    ]);
+                $status = $this->completeVerifiedPayment(
+                    $data,
+                    (string) $txid,
+                    'flutterwave',
+                    $amountPaid
+                );
 
+                if ($this->paymentCompletionSucceeded($status)) {
                     $data = $this->payment::where(['id' => $request['payment_id']])->first();
 
-                    if (isset($data) && function_exists($data->success_hook)) {
-                        call_user_func($data->success_hook, $data);
-                    }
-                    return $this->payment_response($data,'success');
+                    return $this->payment_response($data, 'success');
                 }
             }
         }

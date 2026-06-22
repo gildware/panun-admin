@@ -95,6 +95,11 @@ const DEFAULT_STORE_200 = [
     'message' => 'successfully added'
 ];
 
+const REVIEW_SUBMITTED_PENDING_APPROVAL_200 = [
+    'response_code' => 'review_submitted_pending_approval_200',
+    'message' => 'Review submitted successfully and is pending admin approval',
+];
+
 const DEFAULT_CART_STORE_200 = [
     'response_code' => 'default_cart_store_200',
     'message' => 'Successfully added to the cart'

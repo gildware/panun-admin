@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\BusinessSettingsModule\Services\MobileAppManagementService;
 use Modules\CategoryManagement\Entities\Category;
 use Modules\PromotionManagement\Entities\Banner;
+use Modules\PromotionManagement\Entities\Campaign;
 use Modules\ProviderManagement\Entities\FavoriteProvider;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ServiceManagement\Entities\FavoriteService;
@@ -23,6 +24,7 @@ class MobileAppHomeController extends Controller
         protected Service $service,
         protected Provider $provider,
         protected Banner $banner,
+        protected Campaign $campaign,
         protected Category $category,
         protected FavoriteService $favoriteService,
         protected FavoriteProvider $favoriteProvider,
@@ -144,11 +146,11 @@ class MobileAppHomeController extends Controller
 
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
+        // Admin-picked provider IDs must resolve regardless of customer zone.
         $providers = $this->provider
             ->with(['owner', 'subscribed_services.sub_category' => function ($query) {
                 $query->withoutGlobalScopes();
             }])
-            ->coveringLeafZone(Config::get('zone_id'))
             ->whereIn('id', $pageIds)
             ->ofStatus(1)
             ->where('app_availability', 1)
@@ -213,25 +215,78 @@ class MobileAppHomeController extends Controller
 
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
-        $banners = $this->banner->with(['service', 'category'])
+        // Admin-picked banners must not be dropped by zone scopes on banner/category/service.
+        $banners = $this->banner->withoutGlobalScope('zone_wise_data')
+            ->with([
+                'service' => function ($query) {
+                    $query->withoutGlobalScope('zone_wise_data');
+                },
+                'category' => function ($query) {
+                    $query->withoutGlobalScope('zone_wise_data');
+                },
+            ])
             ->ofStatus(1)
             ->whereIn('id', $pageIds)
             ->orderByRaw($orderSql)
             ->get()
-            ->filter(function ($item) {
-                if ($item->resource_type == 'service' && is_null($item->service)) {
-                    return false;
-                }
-                if ($item->resource_type == 'category' && is_null($item->category)) {
-                    return false;
-                }
-
-                return true;
-            })
             ->values();
 
         $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
             $banners,
+            count($ids),
+            $limit,
+            $offset,
+            ['path' => '']
+        );
+
+        return response()->json(response_formatter(DEFAULT_200, $paginator), 200);
+    }
+
+    public function sectionCampaigns(Request $request, string $key): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'limit' => 'required|numeric|min:1|max:50',
+            'offset' => 'required|numeric|min:1|max:100000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
+        $section = $this->managementService->getSectionByKey($key);
+        if (!$section || !($section['enabled'] ?? false)) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        if (($section['data_mode'] ?? 'default') !== 'manual') {
+            return response()->json(response_formatter(DEFAULT_400, null, [['error_code' => 'data_mode', 'message' => 'Section does not use manual campaign data']]), 400);
+        }
+
+        $ids = array_values(array_filter($section['campaign_ids'] ?? []));
+        if ($ids === []) {
+            return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
+        }
+
+        $limit = (int) $request['limit'];
+        $offset = (int) $request['offset'];
+        $pageIds = array_slice($ids, ($offset - 1) * $limit, $limit);
+
+        if ($pageIds === []) {
+            return response()->json(response_formatter(DEFAULT_200, $this->emptyPaginator($request)), 200);
+        }
+
+        $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
+
+        $campaigns = $this->campaign
+            ->withoutGlobalScope('zone_wise_data')
+            ->with(['discount', 'discount.category_types.category', 'discount.service_types.service.category', 'discount.service_types.service.subCategory'])
+            ->whereIn('id', $pageIds)
+            ->ofStatus(1)
+            ->orderByRaw($orderSql)
+            ->get();
+
+        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+            $campaigns,
             count($ids),
             $limit,
             $offset,

@@ -195,23 +195,23 @@
                                 <div class="col-lg-5 mb-30 mb-lg-0 d-flex justify-content-center">
                                     <div class="rating-review">
                                         <h2 class="rating-review__title">
-                                            <span class="rating-review__out-of">{{$customer->avg_rating}}</span>/5
+                                            <span class="rating-review__out-of">{{$customer->received_avg_rating ?? 0}}</span>/5
                                         </h2>
                                         <div class="rating">
                                             <span
-                                                class="{{$customer->avg_rating>=1?'material-icons':'material-symbols-outlined'}}">{{$customer->avg_rating>=1?'star':'grade'}}</span>
+                                                class="{{($customer->received_avg_rating ?? 0)>=1?'material-icons':'material-symbols-outlined'}}">{{($customer->received_avg_rating ?? 0)>=1?'star':'grade'}}</span>
                                             <span
-                                                class="{{$customer->avg_rating>=2?'material-icons':'material-symbols-outlined'}}">{{$customer->avg_rating>=2?'star':'grade'}}</span>
+                                                class="{{($customer->received_avg_rating ?? 0)>=2?'material-icons':'material-symbols-outlined'}}">{{($customer->received_avg_rating ?? 0)>=2?'star':'grade'}}</span>
                                             <span
-                                                class="{{$customer->avg_rating>=3?'material-icons':'material-symbols-outlined'}}">{{$customer->avg_rating>=3?'star':'grade'}}</span>
+                                                class="{{($customer->received_avg_rating ?? 0)>=3?'material-icons':'material-symbols-outlined'}}">{{($customer->received_avg_rating ?? 0)>=3?'star':'grade'}}</span>
                                             <span
-                                                class="{{$customer->avg_rating>=4?'material-icons':'material-symbols-outlined'}}">{{$customer->avg_rating>=4?'star':'grade'}}</span>
+                                                class="{{($customer->received_avg_rating ?? 0)>=4?'material-icons':'material-symbols-outlined'}}">{{($customer->received_avg_rating ?? 0)>=4?'star':'grade'}}</span>
                                             <span
-                                                class="{{$customer->avg_rating>=5?'material-icons':'material-symbols-outlined'}}">{{$customer->avg_rating>=5?'star':'grade'}}</span>
+                                                class="{{($customer->received_avg_rating ?? 0)>=5?'material-icons':'material-symbols-outlined'}}">{{($customer->received_avg_rating ?? 0)>=5?'star':'grade'}}</span>
                                         </div>
                                         <div class="rating-review__info d-flex flex-wrap gap-3">
                                             @php($total_review_count=$customer->reviews->count())
-                                            <span>{{$customer->rating_count}} {{translate('ratings')}}</span>
+                                            <span>{{$customer->received_rating_count ?? 0}} {{translate('ratings')}}</span>
                                             <span>{{$total_review_count}} {{translate('reviews')}}</span>
                                         </div>
                                     </div>

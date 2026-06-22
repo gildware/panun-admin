@@ -77,6 +77,42 @@ if (! function_exists('booking_admin_status_transition_allowed')) {
     }
 }
 
+if (! function_exists('booking_has_assigned_provider')) {
+    /**
+     * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat|object|null  $booking
+     */
+    function booking_has_assigned_provider($booking): bool
+    {
+        if ($booking instanceof \Modules\BookingModule\Entities\Booking
+            || $booking instanceof \Modules\BookingModule\Entities\BookingRepeat) {
+            return ! empty($booking->provider_id);
+        }
+
+        return false;
+    }
+}
+
+if (! function_exists('booking_status_requires_assigned_provider')) {
+    function booking_status_requires_assigned_provider(string $status): bool
+    {
+        return in_array(strtolower(trim($status)), ['accepted', 'ongoing'], true);
+    }
+}
+
+if (! function_exists('booking_admin_provider_assigned_for_status')) {
+    /**
+     * @param  \Modules\BookingModule\Entities\Booking|\Modules\BookingModule\Entities\BookingRepeat|object|null  $booking
+     */
+    function booking_admin_provider_assigned_for_status($booking, string $status): bool
+    {
+        if (! booking_status_requires_assigned_provider($status)) {
+            return true;
+        }
+
+        return booking_has_assigned_provider($booking);
+    }
+}
+
 if (! function_exists('booking_admin_status_transition_allowed_for_booking')) {
     function booking_admin_status_transition_allowed_for_booking($booking, string $from, string $to): bool
     {
@@ -84,6 +120,10 @@ if (! function_exists('booking_admin_status_transition_allowed_for_booking')) {
         $to = strtolower(trim($to));
 
         if ($from === $to) {
+            return false;
+        }
+
+        if (! booking_admin_provider_assigned_for_status($booking, $to)) {
             return false;
         }
 

@@ -12,6 +12,7 @@ use Illuminate\Foundation\Application;
 use Modules\BookingModule\Entities\Booking;
 use Modules\PaymentModule\Entities\PaymentRequest;
 use Modules\PaymentModule\Entities\Setting;
+use Modules\PaymentModule\Services\PaymentRequestCompletionService;
 use Illuminate\Support\Facades\Storage;
 use Modules\UserManagement\Entities\User;
 
@@ -101,5 +102,31 @@ trait  Processor
             return redirect($payment_info['external_redirect_link'] . '?flag=' . $payment_flag . '&&token=' . base64_encode($token_string));
         }
         return redirect()->route('payment-' . $payment_flag, ['token' => base64_encode($token_string)]);
+    }
+
+    protected function completeVerifiedPayment(
+        ?PaymentRequest $paymentRequest,
+        string $transactionId,
+        string $gatewayKey,
+        ?float $paidAmount = null
+    ): string {
+        if (! $paymentRequest) {
+            return PaymentRequestCompletionService::STATUS_NOT_FOUND;
+        }
+
+        return app(PaymentRequestCompletionService::class)->complete(
+            $paymentRequest,
+            $transactionId,
+            $gatewayKey,
+            $paidAmount
+        );
+    }
+
+    protected function paymentCompletionSucceeded(string $status): bool
+    {
+        return in_array($status, [
+            PaymentRequestCompletionService::STATUS_COMPLETED,
+            PaymentRequestCompletionService::STATUS_ALREADY_COMPLETED,
+        ], true);
     }
 }

@@ -74,19 +74,37 @@ class PaystackController extends Controller
     {
         $paymentDetails = Paystack::getPaymentData();
         if ($paymentDetails['status'] == true) {
-            $this->payment::where(['attribute_id' => $paymentDetails['data']['metadata']['attribute_id']])->update([
-                'payment_method' => 'paystack',
-                'is_paid' => 1,
-                'transaction_id' => $request['trxref'],
-            ]);
-            $data = $this->payment::where(['attribute_id' => $paymentDetails['data']['metadata']['attribute_id']])->first();
-            if (isset($data) && function_exists($data->success_hook)) {
-                call_user_func($data->success_hook, $data);
+            $metadata = $paymentDetails['data']['metadata'] ?? [];
+            $paymentRequestId = $metadata['payment_request_id'] ?? null;
+
+            $data = $paymentRequestId
+                ? $this->payment::where(['id' => $paymentRequestId])->first()
+                : $this->payment::where(['attribute_id' => $metadata['attribute_id'] ?? null])->first();
+
+            $paidAmount = isset($paymentDetails['data']['amount'])
+                ? round(((int) $paymentDetails['data']['amount']) / 100, 2)
+                : null;
+
+            $status = $this->completeVerifiedPayment(
+                $data,
+                (string) $request['trxref'],
+                'paystack',
+                $paidAmount
+            );
+
+            if ($this->paymentCompletionSucceeded($status)) {
+                $data = $data?->fresh() ?? $this->payment::find($paymentRequestId);
+
+                return $this->payment_response($data, 'success');
             }
-            return $this->payment_response($data, 'success');
         }
 
-        $payment_data = $this->payment::where(['attribute_id' => $paymentDetails['data']['metadata']['attribute_id']])->first();
+        $metadata = is_array($paymentDetails['data']['metadata'] ?? null)
+            ? $paymentDetails['data']['metadata']
+            : [];
+        $payment_data = ! empty($metadata['payment_request_id'])
+            ? $this->payment::where(['id' => $metadata['payment_request_id']])->first()
+            : $this->payment::where(['attribute_id' => $metadata['attribute_id'] ?? null])->first();
         if (isset($payment_data) && function_exists($payment_data->failure_hook)) {
             call_user_func($payment_data->failure_hook, $payment_data);
         }
