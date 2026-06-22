@@ -1625,6 +1625,17 @@ if (! function_exists('booking_append_provider_api_ui_fields')) {
         $booking->setAttribute('booking_status_display_key', booking_admin_status_display_key($booking));
         $booking->setAttribute('booking_status_badge_variant', booking_admin_status_badge_variant($booking));
         $booking->setAttribute('booking_status_tags', booking_admin_status_tags_for_api($booking));
+
+        if ($booking->relationLoaded('customer') && $booking->customer) {
+            $booking->customer->setAttribute(
+                'received_avg_rating',
+                (float) ($booking->customer->received_avg_rating ?? 0)
+            );
+            $booking->customer->setAttribute(
+                'received_rating_count',
+                (int) ($booking->customer->received_rating_count ?? 0)
+            );
+        }
     }
 }
 
