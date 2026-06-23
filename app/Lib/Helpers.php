@@ -1436,8 +1436,7 @@ if (!function_exists('resolve_company_service_schedule')) {
 
             $start = \Carbon\Carbon::parse($day->format('Y-m-d') . ' ' . $config['start_time']);
             $end = \Carbon\Carbon::parse($day->format('Y-m-d') . ' ' . $config['end_time']);
-            $preferred = $start->copy()->addHour();
-            $slot = $preferred->lte($end) ? $preferred : $start->copy();
+            $slot = $start->copy();
 
             if ($dayOffset === 0) {
                 if ($anchor->lt($slot)) {

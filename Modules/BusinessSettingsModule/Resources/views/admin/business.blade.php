@@ -1219,7 +1219,7 @@
                                             </div>
                                             <div class="pick-map p-12 rounded d-flex flex-md-nowrap flex-wrap align-items-center gap-1 bg-primary bg-opacity-10 mt-20">
                                                 <i class="material-icons fz-14 text-primary">info</i>
-                                                <p class="fz-12 mb-0">{{ translate('If a customer books ASAP and the earliest possible time falls outside these hours, the booking will automatically be scheduled for the next available day one hour after service hours begin. Customers will be notified about the scheduled time.') }}</p>
+                                                <p class="fz-12 mb-0">{{ translate('If a customer books ASAP and the earliest possible time falls outside these hours, the booking will automatically be scheduled for the next available day at the start of service hours. Customers will be notified about the scheduled time.') }}</p>
                                             </div>
                                         </div>
                                     </div>
