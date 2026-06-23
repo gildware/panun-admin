@@ -5114,13 +5114,14 @@ if (!function_exists('require_booking_upfront_payment')) {
 
 if (!function_exists('booking_confirmation_units_for_cart')) {
   /**
-   * Service units in cart (sum of line quantities).
+   * Distinct cart service lines (line quantity does not multiply confirmation units).
    */
     function booking_confirmation_units_for_cart(string $customerUserId): int
     {
         return max(0, (int) \Modules\CartModule\Entities\Cart::query()
             ->where('customer_id', $customerUserId)
-            ->sum('quantity'));
+            ->where('quantity', '>', 0)
+            ->count());
     }
 }
 
@@ -5129,7 +5130,9 @@ if (!function_exists('booking_confirmation_units_for_cart_items')) {
     {
         $units = 0;
         foreach ($cartItems as $item) {
-            $units += max(0, (int) ($item->quantity ?? 0));
+            if (max(0, (int) ($item->quantity ?? 0)) > 0) {
+                $units += 1;
+            }
         }
 
         return $units;
