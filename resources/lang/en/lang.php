@@ -9187,4 +9187,7 @@ _Message' => 'Customer notification for provider bid offer
   'Show_other_providers_bids_to_providers' => 'Show other providers bids to providers',
   'Number_of_days_a_customer_post_remains_active' => 'Number of days a customer post remains active',
   'Mobile_App_Settings' => 'Mobile App Settings',
+  'If a customer books ASAP and the earliest possible time falls outside these hours, the booking will automatically be scheduled for the next available day at the start of service hours. Customers will be notified about the scheduled time.' => 'If a customer books ASAP and the earliest possible time falls outside these hours, the booking will automatically be scheduled for the next available day at the start of service hours. Customers will be notified about the scheduled time.',
+  'If a customer books ASAP and the earliest possible time falls outside these hours, the booking will automatically be scheduled for the next available day one hour after service hours begin. Customers will be notified about the scheduled time.' => 'If a customer books ASAP and the earliest possible time falls outside these hours, the booking will automatically be scheduled for the next available day one hour after service hours begin. Customers will be notified about the scheduled time.',
+  'Select days when services are not available. ASAP bookings on these days will be scheduled for the next working day.' => 'Select days when services are not available. ASAP bookings on these days will be scheduled for the next working day.',
 );

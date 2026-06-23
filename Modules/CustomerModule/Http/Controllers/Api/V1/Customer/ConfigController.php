@@ -81,6 +81,15 @@ class ConfigController extends Controller
             'advanced_booking_restriction_type' => business_config('advanced_booking_restriction_type', 'booking_setup')?->live_values,
         ];
 
+        $companyWeekends = business_config('company_service_weekends', 'booking_setup')?->live_values;
+        $companyWeekends = $companyWeekends ? json_decode($companyWeekends, true) : [];
+        $companyServiceAvailability = [
+            'enabled' => (int)(business_config('company_service_hours_enabled', 'booking_setup')?->live_values ?? 0),
+            'start_time' => business_config('company_service_start_time', 'booking_setup')?->live_values,
+            'end_time' => business_config('company_service_end_time', 'booking_setup')?->live_values,
+            'weekends' => is_array($companyWeekends) ? $companyWeekends : [],
+        ];
+
         //payment gateways
         $isPublished = 0;
         try {
@@ -221,6 +230,7 @@ class ConfigController extends Controller
             'schedule_booking' => (int)business_config('schedule_booking', 'booking_setup')?->live_values,
             'schedule_booking_time_restriction' => (int)business_config('schedule_booking_time_restriction', 'booking_setup')?->live_values,
             'advanced_booking' => $advancedBooking,
+            'company_service_availability' => $companyServiceAvailability,
             'system_language' => $country,
             'login_setup' => $customerLogin,
             'firebase_otp_verification' => $firebaseOtpStatus,

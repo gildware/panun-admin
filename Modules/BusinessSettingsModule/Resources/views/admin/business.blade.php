@@ -1147,6 +1147,83 @@
                                         </div>
                                     </div>
 
+                                    <!-- Company Service Availability -->
+                                    @php
+                                        $companyWeekendsRaw = $dataValues->where('key_name', 'company_service_weekends')->first()?->live_values;
+                                        $companyWeekends = $companyWeekendsRaw ? json_decode($companyWeekendsRaw, true) : [];
+                                        $companyWeekends = is_array($companyWeekends) ? $companyWeekends : [];
+                                    @endphp
+                                    <div class="card p-20 mb-15">
+                                        <div class="row g-3 mb-20">
+                                            <div class="col-md-8">
+                                                <h5 class="mb-1 fz-16">{{ translate('Service Availability Hours') }}</h5>
+                                                <p class="fz-12 mb-0">{{ translate('Set the time frame when Panun Kaergar can provide services to customers. Bookings outside these hours will be scheduled for the next available slot.') }}</p>
+                                            </div>
+                                            <div class="col-sm-4">
+                                                <div class="border p-12 rounded d-flex justify-content-between bg-white">
+                                                    <span class="text-dark fz-14">{{ translate('Status') }}</span>
+                                                    <label class="switcher">
+                                                        <input class="switcher_input" type="checkbox"
+                                                               name="company_service_hours_enabled" value="1"
+                                                               id="company_service_hours_enabled"
+                                                            {{$dataValues->where('key_name', 'company_service_hours_enabled')->first()?->live_values ?'checked':''}}>
+                                                        <span class="switcher_control"></span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card2 p-20" id="company_service_hours_section">
+                                            <div class="row align-items-center g-3 mb-20">
+                                                <div class="col-lg-6">
+                                                    <h5 class="mb-1 fz-14 fw-medium">{{ translate('Service Providing Time') }}</h5>
+                                                    <p class="fz-12 mb-0">{{ translate('Choose the daily time range when services can be provided to customers.') }}</p>
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <label class="mb-2 text-dark">{{translate('Select Time Range')}} <span class="text-danger">*</span></label>
+                                                    <div class="table-responsive rounded border">
+                                                        <table class="table border-0 align-middle text-nowrap bg-white mb-0">
+                                                            <tr>
+                                                                <td class="h-40 py-0 px-0 border-inline-end">
+                                                                    <input type="time"
+                                                                           name="company_service_start_time"
+                                                                           class="custom-time-input form-control border-0 m-0 py-0 ps-36 shadow-none bg-transparent"
+                                                                           value="{{$dataValues->where('key_name', 'company_service_start_time')->first()?->live_values ?? '09:00'}}">
+                                                                </td>
+                                                                <td class="h-40 py-0 px-0">
+                                                                    <input type="time"
+                                                                           name="company_service_end_time"
+                                                                           class="custom-time-input form-control border-0 m-0 py-0 ps-36 shadow-none bg-transparent"
+                                                                           value="{{$dataValues->where('key_name', 'company_service_end_time')->first()?->live_values ?? '17:00'}}">
+                                                                </td>
+                                                            </tr>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row align-items-center g-3">
+                                                <div class="col-lg-6">
+                                                    <h5 class="mb-1 fz-14 fw-medium">{{ translate('Weekend / Off Days') }}</h5>
+                                                    <p class="fz-12 mb-0">{{ translate('Select days when services are not available. ASAP bookings on these days will be scheduled for the next working day.') }}</p>
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <div class="bg-white border p-20 rounded d-flex align-items-center gap-20 flex-wrap">
+                                                        @foreach(['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as $day)
+                                                            <label class="m-0">
+                                                                <input type="checkbox" class="form-check-input" name="company_service_weekends[]" value="{{ $day }}"
+                                                                    {{ in_array($day, $companyWeekends) ? 'checked' : '' }}>
+                                                                <span class="form-check-label">{{ translate(ucfirst($day)) }}</span>
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="pick-map p-12 rounded d-flex flex-md-nowrap flex-wrap align-items-center gap-1 bg-primary bg-opacity-10 mt-20">
+                                                <i class="material-icons fz-14 text-primary">info</i>
+                                                <p class="fz-12 mb-0">{{ translate('If a customer books ASAP and the earliest possible time falls outside these hours, the booking will automatically be scheduled for the next available day one hour after service hours begin. Customers will be notified about the scheduled time.') }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Booking Setup -->
                                     <div class="card p-20 mb-20">
                                         <div class="border-bottom mb-20 pb-3">
