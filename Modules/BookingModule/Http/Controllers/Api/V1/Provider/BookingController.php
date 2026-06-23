@@ -120,19 +120,10 @@ class BookingController extends Controller
                     $query->first() ?? [];
             }])
             ->withCount('compensations')
-            ->when($bookingStatus === 'all', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
-                $query->where(function ($query) use ($providerId) {
-                    $query->where('provider_id', $providerId)
-                        ->whereNotIn('booking_status', ['pending'])
-                        ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                            $query->where('provider_id', $providerId);
-                        });
-                })
-                    ->orWhere(function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
-                        $query->providerPendingBookings($request->user()->provider, $maxBookingAmount)
-                            ->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
-                                $query->whereIn('service_location', $serviceLocations);
-                            });
+            ->when($bookingStatus === 'all', function ($query) use ($providerId) {
+                $query->where('provider_id', $providerId)
+                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
+                        $query->where('provider_id', $providerId);
                     });
             })
             ->when($bookingStatus === 'pending', function ($query) use ($providerId, $request, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
@@ -224,9 +215,8 @@ class BookingController extends Controller
 
         foreach (booking_api_list_filter_tab_order() as $tab) {
             if ($tab === 'all') {
-                $assigned = $this->booking
+                $counts[$tab] = $this->booking
                     ->where('provider_id', $providerId)
-                    ->whereNotIn('booking_status', ['pending'])
                     ->whereDoesntHave('ignores', function ($query) use ($providerId) {
                         $query->where('provider_id', $providerId);
                     })
@@ -234,19 +224,6 @@ class BookingController extends Controller
                         return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
                     })
                     ->count();
-                $pending = $this->booking
-                    ->providerPendingBookings($provider, $maxBookingAmount)
-                    ->whereDoesntHave('ignores', function ($query) use ($providerId) {
-                        $query->where('provider_id', $providerId);
-                    })
-                    ->when($request['service_type'] != 'all', function ($query) use ($request) {
-                        return $query->ofRepeatBookingStatus($request['service_type'] === 'repeat' ? 1 : ($request['service_type'] === 'regular' ? 0 : null));
-                    })
-                    ->when($serviceAtProviderPlace == 1, function ($query) use ($serviceLocations) {
-                        $query->whereIn('service_location', $serviceLocations);
-                    })
-                    ->count();
-                $counts[$tab] = $assigned + $pending;
                 continue;
             }
 
@@ -535,37 +512,28 @@ class BookingController extends Controller
         |--------------------------------------------------------------------------
         */
         $bookings = Booking::query()
-            ->where(function ($query) use ($providerId, $provider, $sDate, $eDate, $maxBookingAmount, $serviceAtProviderPlace, $serviceLocations) {
-                $query->where(function ($assignedQuery) use ($providerId, $sDate, $eDate) {
-                    $assignedQuery->where('provider_id', $providerId)
-                        ->whereDoesntHave('ignores', function ($ignoreQuery) use ($providerId) {
-                            $ignoreQuery->where('provider_id', $providerId);
-                        })
-                        ->where(function ($scheduleQuery) use ($sDate, $eDate) {
-                            $scheduleQuery->where(function ($regularQuery) use ($sDate, $eDate) {
-                                $regularQuery->where('is_repeated', 0)
-                                    ->where(function ($dateQuery) use ($sDate, $eDate) {
-                                        $dateQuery->whereBetween('service_schedule', [$sDate, $eDate])
-                                            ->orWhere(function ($createdQuery) use ($sDate, $eDate) {
-                                                $createdQuery->whereNull('service_schedule')
-                                                    ->whereBetween('created_at', [$sDate, $eDate]);
-                                            });
-                                    });
-                            })->orWhere(function ($repeatQuery) use ($sDate, $eDate) {
-                                $repeatQuery->where('is_repeated', 1)
-                                    ->whereHas('repeat', function ($repeatScheduleQuery) use ($sDate, $eDate) {
-                                        $repeatScheduleQuery->whereBetween('service_schedule', [$sDate, $eDate]);
-                                    });
-                            });
+            ->where(function ($query) use ($providerId, $sDate, $eDate) {
+                $query->where('provider_id', $providerId)
+                    ->whereDoesntHave('ignores', function ($ignoreQuery) use ($providerId) {
+                        $ignoreQuery->where('provider_id', $providerId);
+                    })
+                    ->where(function ($scheduleQuery) use ($sDate, $eDate) {
+                        $scheduleQuery->where(function ($regularQuery) use ($sDate, $eDate) {
+                            $regularQuery->where('is_repeated', 0)
+                                ->where(function ($dateQuery) use ($sDate, $eDate) {
+                                    $dateQuery->whereBetween('service_schedule', [$sDate, $eDate])
+                                        ->orWhere(function ($createdQuery) use ($sDate, $eDate) {
+                                            $createdQuery->whereNull('service_schedule')
+                                                ->whereBetween('created_at', [$sDate, $eDate]);
+                                        });
+                                });
+                        })->orWhere(function ($repeatQuery) use ($sDate, $eDate) {
+                            $repeatQuery->where('is_repeated', 1)
+                                ->whereHas('repeat', function ($repeatScheduleQuery) use ($sDate, $eDate) {
+                                    $repeatScheduleQuery->whereBetween('service_schedule', [$sDate, $eDate]);
+                                });
                         });
-                })->orWhere(function ($pendingQuery) use ($provider, $maxBookingAmount, $sDate, $eDate, $serviceAtProviderPlace, $serviceLocations) {
-                    $pendingQuery->providerPendingBookings($provider, $maxBookingAmount)
-                        ->when($serviceAtProviderPlace == 1, function ($locationQuery) use ($serviceLocations) {
-                            $locationQuery->whereIn('service_location', $serviceLocations);
-                        })
-                        ->where('is_repeated', 0)
-                        ->whereBetween('service_schedule', [$sDate, $eDate]);
-                });
+                    });
             })
             ->when($request->filled('booking_status'), function ($q) use ($request) {
                 $q->whereIn('booking_status', (array)$request->booking_status);
@@ -799,13 +767,11 @@ class BookingController extends Controller
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
             'repeat.detail.service', 'repeat.repeatHistories'
-        ])->where(function ($query) use ($provider_id, $request) {
-            return $query->where(function ($query) use ($provider_id) {
-                $query->where('provider_id', $provider_id)
-                    ->orWhereHas('repeat', function ($subQuery) use ($provider_id) {
-                        $subQuery->where('provider_id', $provider_id);
-                    });
-            })->orWhereNull('provider_id');
+        ])->where(function ($query) use ($provider_id) {
+            $query->where('provider_id', $provider_id)
+                ->orWhereHas('repeat', function ($subQuery) use ($provider_id) {
+                    $subQuery->where('provider_id', $provider_id);
+                });
         })->where(['id' => $id])->first();
 
         if (isset($booking)) {
@@ -896,9 +862,7 @@ class BookingController extends Controller
             'detail.service', 'scheduleHistories.user', 'statusHistories.user',
             'booking.customer', 'booking.provider', 'booking.zone.parentZone', 'booking.booking_partial_payments.ledgerTransactions',
             'booking.booking_offline_payments', 'serviceman.user'
-        ])->where(function ($query) use ($request) {
-            return $query->where('provider_id', $request->user()->provider->id)->orWhereNull('provider_id');
-        })->where(['id' => $id])->first();
+        ])->where('provider_id', $request->user()->provider->id)->where(['id' => $id])->first();
 
         if (isset($booking)) {
             $booking->booking->service_address = $booking->booking->service_address_location != null ? json_decode($booking->booking->service_address_location) : $booking->booking->service_address;
@@ -917,7 +881,7 @@ class BookingController extends Controller
      */
     public function requestAccept(Request $request, string $bookingId): JsonResponse
     {
-        $booking = $this->booking->where('id', $bookingId)->first();
+        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
 
         if (isset($booking)) {
 
@@ -991,7 +955,7 @@ class BookingController extends Controller
         }
 
         $providerId = $provider->id;
-        $booking = $this->booking->where('id', $bookingId)->first();
+        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $providerId)->first();
         $repeatBookings = $this->bookingRepeat->where('booking_id', $bookingId)->get();
 
         if (isset($booking)) {
@@ -1083,9 +1047,7 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $booking = $this->booking->where('id', $bookingId)->where(function ($query) use ($request) {
-            return $query->where('provider_id', $request->user()->provider->id)->orWhereNull('provider_id');
-        })->first();
+        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
 
         if (isset($booking)) {
 
@@ -1199,9 +1161,7 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $booking = $this->bookingRepeat->where('id', $repeatId)->where(function ($query) use ($request) {
-            return $query->where('provider_id', $request->user()->provider->id)->orWhereNull('provider_id');
-        })->first();
+        $booking = $this->bookingRepeat->where('id', $repeatId)->where('provider_id', $request->user()->provider->id)->first();
 
         if (isset($booking)) {
             $evidence_photos = [];
@@ -1568,9 +1528,7 @@ class BookingController extends Controller
         $booking = $this->booking
             ->with('detail')
             ->where('id', $request['booking_id'])
-            ->where(function ($query) use ($request) {
-                return $query->where('provider_id', $request->user()->provider->id)->orWhereNull('provider_id');
-            })->first();
+            ->where('provider_id', $request->user()->provider->id)->first();
 
         $previousIsPaid = isset($booking) ? (int) ($booking->is_paid ?? 0) : 0;
         $previousSchedule = isset($booking) && $booking->service_schedule ? (string) $booking->service_schedule : null;
@@ -1727,9 +1685,7 @@ class BookingController extends Controller
         $booking = $this->bookingRepeat
             ->with('detail')
             ->where('id', $request['booking_repeat_id'])
-            ->where(function ($query) use ($request) {
-                return $query->where('provider_id', $request->user()->provider->id)->orWhereNull('provider_id');
-            })->first();
+            ->where('provider_id', $request->user()->provider->id)->first();
 
         $previousIsPaid = isset($booking) ? (int) ($booking->is_paid ?? 0) : 0;
         $previousSchedule = isset($booking) && $booking->service_schedule ? (string) $booking->service_schedule : null;
@@ -1990,7 +1946,7 @@ class BookingController extends Controller
 
         $booking = $this->booking->with('detail')
             ->where('id', $request['booking_id'])
-            ->where(fn($query) => $query->where('provider_id', $request->user()->provider->id)->orWhereNull('provider_id'))
+            ->where('provider_id', $request->user()->provider->id)
             ->first();
 
         if ($booking?->detail->count() < 2) {
