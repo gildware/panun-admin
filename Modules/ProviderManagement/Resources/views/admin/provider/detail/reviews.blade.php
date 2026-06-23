@@ -62,6 +62,24 @@
                 </li>
             </ul>
 
+            @php
+                $activeReviews = $provider->reviews->where('is_active', 1);
+                $total_review_count = $activeReviews->whereNotNull('review_comment')->count();
+                $totalReviews = $activeReviews->whereNotNull('review_rating')->count();
+                $excellent_count = $activeReviews->where('review_rating', 5)->count();
+                $excellent = (divnum($excellent_count, $total_review_count)) * 100;
+                $good_count = $activeReviews->where('review_rating', 4)->count();
+                $good = (divnum($good_count, $total_review_count)) * 100;
+                $average_count = $activeReviews->where('review_rating', 3)->count();
+                $average = (divnum($average_count, $total_review_count)) * 100;
+                $below_average_count = $activeReviews->where('review_rating', 2)->count();
+                $below_average = (divnum($below_average_count, $total_review_count)) * 100;
+                $poor_count = $activeReviews->where('review_rating', 1)->count();
+                $poor = (divnum($poor_count, $total_review_count)) * 100;
+                $givenReviewCount = $provider->givenCustomerReviews()->where('is_active', 1)->count();
+                $givenAverageRating = round((float) $provider->givenCustomerReviews()->where('is_active', 1)->avg('review_rating'), 2);
+            @endphp
+
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="review-tab-pane">
                     @if(($reviewTab ?? 'received') === 'received')
@@ -86,8 +104,6 @@
                                                 class="{{$provider->avg_rating>=5?'material-icons':'material-symbols-outlined'}}">{{$provider->avg_rating>=5?'star':'grade'}}</span>
                                         </div>
                                         <div class="rating-review__info d-flex flex-wrap gap-3">
-                                            @php($total_review_count = $provider->reviews->where('is_active', 1)->whereNotNull('review_comment')->count())
-                                            @php($totalReviews = $provider->reviews->where('is_active', 1)->whereNotNull('review_rating')->count())
                                             <span>{{$totalReviews}} {{translate('ratings')}}</span>
                                             <span>{{$total_review_count}} {{translate('reviews')}}</span>
                                         </div>
@@ -97,8 +113,6 @@
                                     <ul class="common-list common-list__style2 after-none gap-10">
                                         <li>
                                             <span class="review-name">{{translate('excellent')}}</span>
-                                            @php($excellent_count=$provider->reviews->where('is_active', 1)->where('review_rating',5)->count())
-                                            @php($excellent=(divnum($excellent_count,$total_review_count))*100)
                                             <div class="progress">
                                                 <div class="progress-bar" role="progressbar"
                                                      style="width: {{$excellent}}%"
@@ -110,8 +124,6 @@
                                         </li>
                                         <li>
                                             <span class="review-name">{{translate('good')}}</span>
-                                            @php($good_count=$provider->reviews->where('is_active', 1)->where('review_rating',4)->count())
-                                            @php($good=(divnum($good_count,$total_review_count))*100)
                                             <div class="progress">
                                                 <div class="progress-bar" role="progressbar" style="width: {{$good}}%"
                                                      aria-valuenow="{{$good}}" aria-valuemin="0" aria-valuemax="100">
@@ -121,8 +133,6 @@
                                         </li>
                                         <li>
                                             <span class="review-name">{{translate('avarage')}}</span>
-                                            @php($average_count=$provider->reviews->where('is_active', 1)->where('review_rating',3)->count())
-                                            @php($average=(divnum($average_count,$total_review_count))*100)
                                             <div class="progress">
                                                 <div class="progress-bar" role="progressbar"
                                                      style="width: {{$average}}%"
@@ -133,8 +143,6 @@
                                         </li>
                                         <li>
                                             <span class="review-name">{{translate('below_avarage')}}</span>
-                                            @php($below_average_count=$provider->reviews->where('is_active', 1)->where('review_rating',2)->count())
-                                            @php($below_average=(divnum($below_average_count,$total_review_count))*100)
                                             <div class="progress">
                                                 <div class="progress-bar" role="progressbar"
                                                      style="width: {{$below_average}}%"
@@ -146,8 +154,6 @@
                                         </li>
                                         <li>
                                             <span class="review-name">{{translate('poor')}}</span>
-                                            @php($poor_count=$provider->reviews->where('is_active', 1)->where('review_rating',1)->count())
-                                            @php($poor=(divnum($poor_count,$total_review_count))*100)
                                             <div class="progress">
                                                 <div class="progress-bar" role="progressbar" style="width: {{$poor}}%"
                                                      aria-valuenow="{{$poor}}" aria-valuemin="0" aria-valuemax="100">
@@ -219,7 +225,6 @@
                                     <tbody>
                                     @foreach($reviews as $bookingId => $review)
                                         @if($review->reviews->count() > 1)
-                                            @php($getReviewInfo = $review->reviews->first())
                                             <tr class="clickable-row" data-toggle="collapse"
                                                 data-target="#group-{{$bookingId}}" aria-expanded="false">
                                                 <td>{{$bookingId+$reviews?->firstItem()}}</td>
@@ -227,8 +232,8 @@
                                                     {{ Str::limit($review->reviews->pluck('readable_id')->implode(', '), 18) }}
                                                 </td>
                                                 <td>
-                                                    @if(isset($getReviewInfo->customer))
-                                                        <span>{{$getReviewInfo->customer->first_name . ' ' .$getReviewInfo->customer->last_name}}</span>
+                                                    @if(isset($review->reviews->first()->customer))
+                                                        <span>{{$review->reviews->first()->customer->first_name . ' ' .$review->reviews->first()->customer->last_name}}</span>
                                                         <br>
                                                         <span>{{ translate('Booking ID #') . $review->readable_id ?? 'N/A' }}</span>
                                                     @else
@@ -236,7 +241,7 @@
                                                             class="opacity-50">{{translate('Customer_not_available')}}</span>
                                                     @endif
                                                 </td>
-                                                <td>{{$getReviewInfo->created_at}}</td>
+                                                <td>{{$review->reviews->first()->created_at}}</td>
                                                 <td>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="15"
                                                          viewBox="0 0 14 15" fill="none">
@@ -317,10 +322,9 @@
                                                 </td>
                                             </tr>
                                         @else
-                                            @php($getReview = $review->reviews->first())
                                             <tr>
                                                 <td>{{$bookingId+$reviews?->firstItem()}}</td>
-                                                <td>{{ $getReview->readable_id == 0 ? 'N/A' : $getReview->readable_id }}</td>
+                                                <td>{{ $review->reviews->first()->readable_id == 0 ? 'N/A' : $review->reviews->first()->readable_id }}</td>
                                                 <td>
                                                     @if(isset($review->customer))
                                                         <span>{{$review->customer->first_name . ' ' .$review->customer->last_name}}</span>
@@ -331,7 +335,7 @@
                                                             class="opacity-50">{{translate('Customer_not_available')}}</span>
                                                     @endif
                                                 </td>
-                                                <td>{{$getReview->created_at}}</td>
+                                                <td>{{$review->reviews->first()->created_at}}</td>
                                                 <td>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="15"
                                                          viewBox="0 0 14 15" fill="none">
@@ -340,31 +344,31 @@
                                                             fill="#FFB900" stroke="#FFB900" stroke-width="2"
                                                             stroke-linecap="round" stroke-linejoin="round"/>
                                                     </svg>
-                                                    {{$getReview->review_rating}}
+                                                    {{$review->reviews->first()->review_rating}}
                                                 </td>
                                                 <td class="text-nowrap">
-                                                    @if($getReview->review_rating > 0)
+                                                    @if($review->reviews->first()->review_rating > 0)
                                                         @include('reviewmodule::admin.partials._review-actions', [
-                                                            'isApproved' => (bool) $getReview->is_active,
-                                                            'approveRoute' => route('admin.service.review-approve', $getReview->id),
-                                                            'deleteRoute' => route('admin.service.review-delete', $getReview->id),
+                                                            'isApproved' => (bool) $review->reviews->first()->is_active,
+                                                            'approveRoute' => route('admin.service.review-approve', $review->reviews->first()->id),
+                                                            'deleteRoute' => route('admin.service.review-delete', $review->reviews->first()->id),
                                                         ])
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    @if($getReview->review_rating > 0)
+                                                    @if($review->reviews->first()->review_rating > 0)
                                                         <div class="d-flex gap-2 justify-content-center">
                                                             <button
                                                                 class="action-btn btn--light-primary fw-medium text-capitalize fz-14"
                                                                 data-bs-toggle="modal" id="replyModalBtn"
                                                                 data-bs-target="#replyModal"
-                                                                data-booking_id="{{$getReview?->booking?->readable_id}}"
-                                                                data-readable_id="{{$getReview->readable_id}}"
-                                                                data-service_name="{{$getReview->service->name}}"
-                                                                data-service_img="{{$getReview->service->cover_image_full_path}}"
-                                                                data-review="{{$getReview->review_comment ?? translate('No review yet')}}"
-                                                                data-review_reply="{{$getReview->reviewReply?->reply ?? translate('No reply yet')}}"
-                                                                data-variant_key="{{ $getReview->booking?->detail[0]?->variant_key }}"
+                                                                data-booking_id="{{$review->reviews->first()?->booking?->readable_id}}"
+                                                                data-readable_id="{{$review->reviews->first()->readable_id}}"
+                                                                data-service_name="{{$review->reviews->first()->service->name}}"
+                                                                data-service_img="{{$review->reviews->first()->service->cover_image_full_path}}"
+                                                                data-review="{{$review->reviews->first()->review_comment ?? translate('No review yet')}}"
+                                                                data-review_reply="{{$review->reviews->first()->reviewReply?->reply ?? translate('No reply yet')}}"
+                                                                data-variant_key="{{ $review->reviews->first()->booking?->detail[0]?->variant_key }}"
                                                             >
                                                                 <span class="material-icons">visibility</span>
                                                             </button>
@@ -374,9 +378,9 @@
                                             </tr>
                                             @include('reviewmodule::admin.partials._review-description-row', [
                                                 'colspan' => 7,
-                                                'description' => $getReview->review_comment,
+                                                'description' => $review->reviews->first()->review_comment,
                                                 'showReply' => true,
-                                                'reply' => $getReview->reviewReply?->reply,
+                                                'reply' => $review->reviews->first()->reviewReply?->reply,
                                             ])
                                         @endif
                                     @endforeach
@@ -389,10 +393,6 @@
                         </div>
                     </div>
                     @else
-                    @php
-                        $givenReviewCount = $provider->givenCustomerReviews()->where('is_active', 1)->count();
-                        $givenAverageRating = round((float) $provider->givenCustomerReviews()->where('is_active', 1)->avg('review_rating'), 2);
-                    @endphp
                     <div class="card mb-30">
                         <div class="card-body p-30">
                             <div class="row align-items-center">
