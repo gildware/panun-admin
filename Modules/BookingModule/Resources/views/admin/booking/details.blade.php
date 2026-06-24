@@ -14,10 +14,10 @@
             /* Left: Customer + taller Provider */
             --booking-overview-left-stack-h: calc(var(--booking-overview-small-card-h) + var(--booking-overview-provider-card-h) + var(--booking-overview-column-gap));
             --booking-overview-mid-card-h: calc((var(--booking-overview-left-stack-h) - var(--booking-overview-column-gap)) / 2);
-            /* Shift height from Payment → Revenue (heights still sum to stack − gap) */
-            --booking-overview-mid-split-shift: 2.5rem;
-            --booking-overview-mid-payment-h: calc(var(--booking-overview-mid-card-h) - var(--booking-overview-mid-split-shift));
-            --booking-overview-mid-revenue-h: calc(var(--booking-overview-mid-card-h) + var(--booking-overview-mid-split-shift));
+            /* Shift height between Payment ↔ Revenue (heights still sum to stack − gap) */
+            --booking-overview-mid-split-shift: 0.5rem;
+            --booking-overview-mid-payment-h: calc(var(--booking-overview-mid-card-h) + var(--booking-overview-mid-split-shift));
+            --booking-overview-mid-revenue-h: calc(var(--booking-overview-mid-card-h) - var(--booking-overview-mid-split-shift));
             /* Right: Booking dates + Booking Information (flex) + Service location */
             --booking-overview-right-dates-shift: 2rem;
             --booking-overview-right-dates-h: calc(var(--booking-overview-small-card-h) + 2rem - var(--booking-overview-right-dates-shift));
@@ -61,10 +61,10 @@
             max-height: none;
         }
         .booking-details-overview-row .booking-overview-mid-card--payment {
-            flex: 0 0 var(--booking-overview-mid-payment-h);
+            flex: 1 1 var(--booking-overview-mid-payment-h);
             min-height: var(--booking-overview-mid-payment-h);
-            max-height: var(--booking-overview-mid-payment-h);
-            height: var(--booking-overview-mid-payment-h);
+            height: auto;
+            max-height: none;
         }
         .booking-details-overview-row .booking-overview-mid-card--revenue {
             flex: 1 1 var(--booking-overview-mid-revenue-h);

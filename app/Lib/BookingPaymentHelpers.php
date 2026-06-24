@@ -5213,6 +5213,33 @@ if (!function_exists('map_booking_payment_paid_with')) {
     }
 }
 
+if (!function_exists('wallet_transaction_booking_reference_note')) {
+    function wallet_transaction_booking_reference_note($booking): ?string
+    {
+        if ($booking === null) {
+            return null;
+        }
+
+        $readableId = '';
+        if ($booking instanceof Booking) {
+            $readableId = trim((string) ($booking->readable_id ?? ''));
+        } elseif (is_array($booking)) {
+            $readableId = trim((string) ($booking['readable_id'] ?? ''));
+            if ($readableId === '' && ! empty($booking['id'])) {
+                $readableId = trim((string) (Booking::query()->whereKey($booking['id'])->value('readable_id') ?? ''));
+            }
+        } else {
+            $readableId = trim((string) ($booking->readable_id ?? ''));
+        }
+
+        if ($readableId === '') {
+            return null;
+        }
+
+        return translate('Booking') . ' #' . $readableId;
+    }
+}
+
 if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
     /**
      * Record customer advance (booking confirmation) payment — not the full booking total.
@@ -5269,6 +5296,7 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                     'from_user_account' => null,
                     'to_user_account' => 'user_wallet',
                     'is_guest' => $booking->is_guest,
+                    'reference_note' => wallet_transaction_booking_reference_note($booking),
                 ]);
             }
 

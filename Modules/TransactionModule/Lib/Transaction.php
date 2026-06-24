@@ -171,7 +171,8 @@ if (!function_exists('placeBookingTransactionForPartialCas')) {
                 'from_user_id' => $booking->customer_id,
                 'to_user_id' => $booking->customer_id,
                 'from_user_account' => null,
-                'to_user_account' => 'user_wallet'
+                'to_user_account' => 'user_wallet',
+                'reference_note' => wallet_transaction_booking_reference_note($booking),
             ]);
         });
     }
@@ -253,6 +254,7 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
                     'to_user_id' => $freshBooking->customer_id,
                     'from_user_account' => null,
                     'to_user_account' => 'user_wallet',
+                    'reference_note' => wallet_transaction_booking_reference_note($freshBooking),
                 ]);
             }
 
@@ -390,7 +392,8 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
                 'from_user_id' => $freshBooking->customer_id,
                 'to_user_id' => $freshBooking->customer_id,
                 'from_user_account' => null,
-                'to_user_account' => 'user_wallet'
+                'to_user_account' => 'user_wallet',
+                'reference_note' => wallet_transaction_booking_reference_note($freshBooking),
             ]);
 
             ledger_record_in([
