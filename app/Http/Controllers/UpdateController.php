@@ -452,6 +452,20 @@ class UpdateController extends Controller
             ]);
         }
 
+        if (BusinessSettings::where(['key_name' => 'cart_checkout_leniency_value', 'settings_type' => 'booking_setup'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'cart_checkout_leniency_value', 'settings_type' => 'booking_setup'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'cart_checkout_leniency_type', 'settings_type' => 'booking_setup'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'cart_checkout_leniency_type', 'settings_type' => 'booking_setup'], [
+                'live_values' => 'minute',
+                'test_values' => 'minute'
+            ]);
+        }
+
         if (BusinessSettings::where(['key_name' => 'partial_payment', 'settings_type' => 'service_setup'])->first() == false) {
             BusinessSettings::updateOrCreate(['key_name' => 'partial_payment', 'settings_type' => 'service_setup'], [
                 'live_values' => 0,

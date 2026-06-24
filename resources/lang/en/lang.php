@@ -9213,4 +9213,8 @@ _Message' => 'Customer notification for provider bid offer
   'If you switch this newly uploaded created files & data will store to 3rd party storage' => 'If you switch this newly uploaded created files & data will store to 3rd party storage',
   'To get site key and secret key Go to the Credentials page' => 'To get site key and secret key Go to the Credentials page',
   'Sending...' => 'Sending...',
+  'Choose the daily time range when services can be provided to customers.' => 'Choose the daily time range when services can be provided to customers.',
+  'Set the time frame when Panun Kaergar can provide services to customers. Bookings outside these hours will be scheduled for the next available slot.' => 'Set the time frame when Panun Kaergar can provide services to customers. Bookings outside these hours will be scheduled for the next available slot.',
+  'Service Availability Hours' => 'Service Availability Hours',
+  'Minutes' => 'Minutes',
 );

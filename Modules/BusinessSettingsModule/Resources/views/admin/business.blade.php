@@ -1135,9 +1135,31 @@
                                                                     <option value="0" selected
                                                                             disabled>{{translate('Select')}}</option>
                                                                     <option
+                                                                        value="minute" {{$dataValues->where('key_name', 'advanced_booking_restriction_type')->first()?->live_values == 'minute' ?'selected':''}}>{{translate('Minutes')}}</option>
+                                                                    <option
                                                                         value="hour" {{$dataValues->where('key_name', 'advanced_booking_restriction_type')->first()?->live_values == 'hour' ?'selected':''}}>{{translate('Hour')}}</option>
                                                                     <option
                                                                         value="day" {{$dataValues->where('key_name', 'advanced_booking_restriction_type')->first()?->live_values == 'day' ?'selected':''}}>{{translate('Days')}}</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="mb-2 text-dark">{{translate('Cart, Checkout Leniency Time')}}</label>
+                                                            <p class="fz-12 mb-2">{{ translate('Extra time allowed in cart and checkout before a scheduled booking becomes invalid. Booking still uses the full restriction time.') }}</p>
+                                                            <div class="d-flex align-items-center restriction-time rounded border">
+                                                                <div class="flex-grow-1">
+                                                                    <input class="form-control border-0" min="0" type="number"
+                                                                           value="{{$dataValues->where('key_name', 'cart_checkout_leniency_value')->first()?->live_values ?? 0}}"
+                                                                           name="cart_checkout_leniency_value"
+                                                                           required>
+                                                                </div>
+                                                                <select class="form-select w-auto bg-light border-0" name="cart_checkout_leniency_type">
+                                                                    <option
+                                                                        value="minute" {{($dataValues->where('key_name', 'cart_checkout_leniency_type')->first()?->live_values ?? 'minute') == 'minute' ?'selected':''}}>{{translate('Minutes')}}</option>
+                                                                    <option
+                                                                        value="hour" {{$dataValues->where('key_name', 'cart_checkout_leniency_type')->first()?->live_values == 'hour' ?'selected':''}}>{{translate('Hour')}}</option>
+                                                                    <option
+                                                                        value="day" {{$dataValues->where('key_name', 'cart_checkout_leniency_type')->first()?->live_values == 'day' ?'selected':''}}>{{translate('Days')}}</option>
                                                                 </select>
                                                             </div>
                                                         </div>
