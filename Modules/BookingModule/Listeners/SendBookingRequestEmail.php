@@ -44,8 +44,9 @@ class SendBookingRequestEmail
         if ($config->live_values['push_notification_booking']) {
             $repeatOrRegular = $event->booking?->is_repeated ? 'repeat' : 'regular';
             $title = get_push_notification_message('booking_place', 'customer_notification', $event->booking?->customer?->current_language_key);
+            $description = get_push_notification_description('booking_place', 'customer_notification', $event->booking?->customer?->current_language_key);
             if (isset($event->booking->customer->fcm_token) && $title && $notification) {
-                device_notification($event->booking->customer->fcm_token, $title, null, null, $event->booking->id, 'booking', '', '', '', '', $repeatOrRegular);
+                device_notification($event->booking->customer->fcm_token, $title, $description, null, $event->booking->id, 'booking', '', '', '', '', $repeatOrRegular);
             }
         }
     }

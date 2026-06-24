@@ -16,12 +16,13 @@ if (!function_exists('add_fund_success')) {
         //send notification
         $user = User::find($customer_user_id);
         $title =  with_currency_symbol($amount) . ' ' . get_push_notification_message('add_fund_wallet', 'customer_notification', $user?->current_language_key);
+        $description = get_push_notification_description('add_fund_wallet', 'customer_notification', $user?->current_language_key);
         $permission = isNotificationActive($user?->provider?->id, 'wallet', 'notification', 'user');
         $data_info = [
             'user_name' => $user?->first_name . ' '. $user->last_name
         ];
         if ($user->fcm_token && $title && $permission) {
-            device_notification($user->fcm_token, $title, null, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
+            device_notification($user->fcm_token, $title, $description, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
         }
     }
 }

@@ -163,6 +163,7 @@ class ConfigurationController extends Controller
 
 
         $columnName = $request->id . '_message';
+        $descriptionColumnName = $request->id . '_description';
         $requiredMessage = $columnName . '.0.' . 'required';
         $requiredMessageValue = "default_{$columnName}_is_required";
 
@@ -181,15 +182,22 @@ class ConfigurationController extends Controller
             "$columnName.0" => 'required'
         ]);
 
+        $defaultMessageIndex = array_search('default', $request->lang);
+        $defaultDescription = $request->has($descriptionColumnName)
+            ? ($request[$descriptionColumnName][$defaultMessageIndex] ?? '')
+            : '';
+
         $businessData = $this->businessSetting->updateOrCreate(['key_name' => $request->id, 'settings_type' => $settingsType], [
             'key_name' => $request->id,
             'live_values' => [
                 $request->id . '_status' => $request['status'],
-                $request->id . '_message' => $request[$columnName][array_search('default', $request->lang)],
+                $request->id . '_message' => $request[$columnName][$defaultMessageIndex],
+                $request->id . '_description' => $defaultDescription,
             ],
             'test_values' => [
                 $request->id . '_status' => $request['status'],
-                $request->id . '_message' => $request[$columnName][array_search('default', $request->lang)],
+                $request->id . '_message' => $request[$columnName][$defaultMessageIndex],
+                $request->id . '_description' => $defaultDescription,
             ],
             'is_active' => $request['status'],
         ]);
@@ -218,6 +226,29 @@ class ConfigurationController extends Controller
                             'key' => $businessData->key_name],
                         ['value' => $request[$columnName][$index]]
                     );
+                }
+            }
+
+            if ($request->has($descriptionColumnName)) {
+                $descriptionValue = $request[$descriptionColumnName][$index] ?? '';
+                if ($key != 'default') {
+                    if (filled($descriptionValue)) {
+                        Translation::updateOrInsert(
+                            [
+                                'translationable_type' => 'Modules\BusinessSettingsModule\Entities\BusinessSettings',
+                                'translationable_id' => $businessData->id,
+                                'locale' => $key,
+                                'key' => $businessData->key_name . '_description'],
+                            ['value' => $descriptionValue]
+                        );
+                    } else {
+                        Translation::where([
+                            'translationable_type' => 'Modules\BusinessSettingsModule\Entities\BusinessSettings',
+                            'translationable_id' => $businessData->id,
+                            'locale' => $key,
+                            'key' => $businessData->key_name . '_description',
+                        ])->delete();
+                    }
                 }
             }
         }

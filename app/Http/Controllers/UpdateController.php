@@ -601,10 +601,12 @@ class UpdateController extends Controller
                     'live_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'test_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'settings_type' => 'customer_notification',
                     'mode' => 'live',
@@ -626,10 +628,12 @@ class UpdateController extends Controller
                     'live_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'test_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'settings_type' => 'provider_notification',
                     'mode' => 'live',
@@ -651,10 +655,12 @@ class UpdateController extends Controller
                     'live_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'test_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'settings_type' => 'serviceman_notification',
                     'mode' => 'live',

@@ -278,8 +278,9 @@ trait BookingTrait
                             if (!is_null($fcmToken) && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                                $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                                 if ($title && sendDeviceNotificationPermission($booking?->provider_id) && $notification) {
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                 }
                             }
                         } else {
@@ -303,17 +304,17 @@ trait BookingTrait
                                 $fcmToken = $provider->owner->fcm_token ?? null;
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
-
+                                $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
                                 if (!is_null($fcmToken) && $provider->service_availability && $title && $notification && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($provider->id)) {
                                     $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
                                     $serviceLocations = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config') ?? ['customer'];
 
                                     if ($serviceAtProviderPlace == 1){
                                         if (in_array($booking->service_location, $serviceLocations)){
-                                            device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                         }
                                     }else{
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                     }
 
                                 }
@@ -327,8 +328,9 @@ trait BookingTrait
                         $languageKey = $provider?->owner?->current_language_key;
                         if (!is_null($fcmToken)) {
                             $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                            $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                             if ($title && $fcmToken && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($booking?->provider_id)) {
-                                device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                             }
                         }
                     } else {
@@ -351,17 +353,17 @@ trait BookingTrait
                         foreach ($providers as $provider) {
                             $fcmToken = $provider->owner->fcm_token ?? null;
                             $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
-
+                            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
                             if (!is_null($fcmToken) && $provider?->service_availability && $title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($booking?->provider_id)) {
                                 $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
                                 $serviceLocations = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config') ?? ['customer'];
 
                                 if ($serviceAtProviderPlace == 1){
                                     if (in_array($booking->service_location, $serviceLocations)){
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                     }
                                 }else{
-                                    device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                 }
                             }
                         }
@@ -649,8 +651,9 @@ trait BookingTrait
                             if (!is_null($fcmToken) && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                                $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                                 if ($title && sendDeviceNotificationPermission($booking?->provider_id) && $notification) {
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
                                 }
                             }
                         } else {
@@ -675,9 +678,9 @@ trait BookingTrait
                                 $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
-
+                                $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
                                 if (!is_null($fcmToken) && $provider->service_availability && $title && $notification && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($provider->id)) {
-                                    device_notification($fcmToken, $title, null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
                                 }
                             }
 
@@ -878,10 +881,11 @@ trait BookingTrait
             if ($booking->payment_method != 'cash_after_service' || ($booking->payment_method == 'cash_after_service' && $bidGrandForCap < $maxBookingAmount)) {
                if (!is_null($provider?->owner?->fcm_token) && $provider?->is_suspended == 0) {
                    $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                   $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                    $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
 
                    if ($title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
-                       device_notification($provider->owner->fcm_token, $title, null, null, $booking->id, 'booking');
+                       device_notification($provider->owner->fcm_token, $title, $description, null, $booking->id, 'booking');
                    }
                }
            }
@@ -1024,24 +1028,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1385,24 +1392,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1531,24 +1541,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
                         }
                     }
                 }
@@ -1648,24 +1661,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1805,24 +1821,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1961,24 +1980,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
                         }
                     }
                 }
@@ -2178,8 +2200,9 @@ trait BookingTrait
             referralEarningTransactionAfterBookingComplete($referredByUser, $amount);
             $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
             $title = with_currency_symbol($amount) . ' ' . get_push_notification_message('referral_earning', 'customer_notification', $referredByUser?->current_language_key);
+            $description = get_push_notification_description('referral_earning', 'customer_notification', $referredByUser?->current_language_key);
             if ($title && $referredByUser?->fcm_token && $userRefund) {
-                device_notification($referredByUser?->fcm_token, $title, null, null, null, 'general', null, $referredByUser?->id);
+                device_notification($referredByUser?->fcm_token, $title, $description, null, null, 'general', null, $referredByUser?->id);
             }
 
             $pushNotification = new PushNotification();
@@ -2244,8 +2267,9 @@ trait BookingTrait
                 if ($amount > 0){
                     $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
                     $title = with_currency_symbol($amount) . ' ' . get_push_notification_message('referral_earning_first_booking', 'customer_notification', $user?->current_language_key);
+                    $description = get_push_notification_description('referral_earning_first_booking', 'customer_notification', $user?->current_language_key);
                     if ($title && $user->fcm_token && $userRefund) {
-                        device_notification($user->fcm_token, $title, null, null, null, 'general', null, $user->id);
+                        device_notification($user->fcm_token, $title, $description, null, null, 'general', null, $user->id);
                     }
 
                     $pushNotification = new PushNotification();
@@ -2296,13 +2320,13 @@ trait BookingTrait
 
         $user = User::where('id', $userId)->first();
         $title = $pointAmount . ' ' . get_push_notification_message('loyalty_point', 'customer_notification', $user?->current_language_key);
-
+        $description = get_push_notification_description('loyalty_point', 'customer_notification', $user?->current_language_key);
         $customerNotification = isNotificationActive(null, 'loyality_point', 'notification', 'user');
         $dataInfo = [
             'user_name' => $user?->first_name . ' ' . $user?->last_name,
         ];
         if ($title && $user && $user->is_active && $user->fcm_token && $customerNotification) {
-            device_notification($user->fcm_token, $title, null, null, null, 'loyalty_point', null, $user->id, $dataInfo);
+            device_notification($user->fcm_token, $title, $description, null, null, 'loyalty_point', null, $user->id, $dataInfo);
         }
     }
 

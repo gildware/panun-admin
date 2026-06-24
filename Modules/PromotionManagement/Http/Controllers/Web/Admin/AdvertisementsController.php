@@ -165,9 +165,10 @@ class AdvertisementsController extends Controller
             if($advertisement->status == 'approved'){
                 $provider = $advertisement?->provider?->owner;
                 $title = get_push_notification_message('advertisement_created_by_admin', 'provider_notification', $provider->current_language_key);
+                $description = get_push_notification_description('advertisement_created_by_admin', 'provider_notification', $provider->current_language_key);
                 $notification = isNotificationActive($advertisement?->provider?->id, 'advertisement', 'notification', 'provider');
                 if ($provider->fcm_token && $title && $notification) {
-                    device_notification($provider->fcm_token, $title, null, null, null, 'advertisement', null, $provider->id, null, $advertisement->id);
+                    device_notification($provider->fcm_token, $title, $description, null, null, 'advertisement', null, $provider->id, null, $advertisement->id);
                 }
             }
 
@@ -707,21 +708,25 @@ class AdvertisementsController extends Controller
                 switch ($advertisement->status) {
                     case 'approved':
                         $title = get_push_notification_message('advertisement_approved', 'provider_notification', $provider->current_language_key);
+                        $description = get_push_notification_description('advertisement_approved', 'provider_notification', $provider->current_language_key);
                         break;
                     case 'denied':
                         $title = get_push_notification_message('advertisement_denied', 'provider_notification', $provider->current_language_key);
+                        $description = get_push_notification_description('advertisement_denied', 'provider_notification', $provider->current_language_key);
                         break;
                     case 'resumed':
                         $title = get_push_notification_message('advertisement_resumed', 'provider_notification', $provider->current_language_key);
+                        $description = get_push_notification_description('advertisement_resumed', 'provider_notification', $provider->current_language_key);
                         break;
                     case 'paused':
                         $title = get_push_notification_message('advertisement_paused', 'provider_notification', $provider->current_language_key);
+                        $description = get_push_notification_description('advertisement_paused', 'provider_notification', $provider->current_language_key);
                         break;
                 }
 
                 $notification = isNotificationActive($advertisement?->provider?->id, 'advertisement', 'notification', 'provider');
                 if ($provider->fcm_token && $title && $notification) {
-                    device_notification($provider->fcm_token, $title, null, null, null, 'advertisement', null, $provider->id, null, $advertisement->id);
+                    device_notification($provider->fcm_token, $title, $description, null, null, 'advertisement', null, $provider->id, null, $advertisement->id);
                 }
             }
 

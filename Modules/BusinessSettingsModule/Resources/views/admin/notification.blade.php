@@ -100,115 +100,12 @@
                                                   action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
                                                 @csrf
                                                 @method('PUT')
-                                                @if($language)
-                                                    <div class="mb-30 lang-form default-form">
-                                                        <div class="mb-20 d-flex justify-content-between">
-                                                            <b>{{ translate($userNotification['value'] . '_Message') }}</b>
-                                                            @can('notification_message_manage_status')
-                                                                <label class="switcher">
-                                                                    <input class="switcher_input update-message"
-                                                                           name="status"
-                                                                           id="{{$userNotification['key']}}_status"
-                                                                           {{$dataValues->where('key_name', $userNotification['key'])->where('settings_type', 'customer_notification')->first()?->live_values[$userNotification['key'].'_status']?'checked':''}}
-                                                                           data-key="{{$userNotification['key'] ?? ''}}"
-                                                                           type="checkbox"
-                                                                           value="1">
-                                                                    <span class="switcher_control"></span>
-                                                                </label>
-                                                            @endcan
-                                                        </div>
-                                                        <input type="hidden" name="id" value="{{ $userNotification['key'] }}">
-                                                        <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $userNotification['key'] }}_message"
-                                                                  name="{{ $userNotification['key'] ?? '' }}_message[]">{{$dataValues->where('key_name', $userNotification['key'])->where('settings_type', 'customer_notification')->first()?->live_values[$userNotification['key'].'_message']}}</textarea>
-                                                        </div>
-
-                                                        @can('notification_message_update')
-                                                            <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                            </div>
-                                                        @endcan
-                                                    </div>
-                                                    <input type="hidden" name="lang[]" value="default">
-                                                    @foreach ($language?->live_values as $lang)
-                                                            <?php
-                                                            $notificationRow = $dataValues->where('key_name', $userNotification['key'])->where('settings_type', 'customer_notification')->first();
-                                                            if (isset($notificationRow['translations']) && count($notificationRow['translations'])) {
-                                                                $translate = [];
-                                                                foreach ($notificationRow['translations'] as $t) {
-                                                                    if ($t->locale == $lang['code'] && $t->key == $notificationRow->key_name) {
-                                                                        $translate[$lang['code']][$notificationRow->key_name] = $t->value;
-                                                                    }
-                                                                }
-                                                            }
-                                                            ?>
-                                                        <div class="mb-30 d-none lang-form {{$lang['code']}}-form">
-                                                            <div class="mb-20 d-flex justify-content-between">
-                                                                <b>{{ translate($userNotification['value'] . '_Message') }}
-                                                                    ({{strtoupper($lang['code'])}})</b>
-
-                                                                @can('notification_message_manage_status')
-                                                                    <label class="switcher">
-                                                                        <input class="switcher_input update-message"
-                                                                               name="status"
-                                                                               id="{{$userNotification['key']}}_status"
-                                                                               {{$dataValues->where('key_name', $userNotification['key'])->where('settings_type', 'customer_notification')->first()?->live_values[$userNotification['key'].'_status']?'checked':''}}
-                                                                               data-key="{{$userNotification['key'] ?? ''}}"
-                                                                               type="checkbox"
-                                                                               value="1">
-                                                                        <span class="switcher_control"></span>
-                                                                    </label>
-                                                                @endcan
-                                                            </div>
-                                                            <input type="hidden" name="id" value="{{ $userNotification['key'] }}">
-                                                            <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $userNotification['key'] }}_message"
-                                                                  name="{{ $userNotification['key'] ?? '' }}_message[]">{{$translate[$lang['code']][$notificationRow?->key_name] ?? ''}}</textarea>
-                                                            </div>
-                                                            @can('notification_message_update')
-                                                                <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                    <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                    <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                                </div>
-                                                            @endcan
-                                                        </div>
-                                                        <input type="hidden" name="lang[]" value="{{$lang['code']}}">
-                                                    @endforeach
-                                                @else
-                                                    <div class="mb-30 lang-form">
-                                                        <div class="mb-20 d-flex justify-content-between">
-                                                            <b>{{ translate($userNotification['value'] . '_Message') }}</b>
-                                                            @can('notification_message_manage_status')
-                                                                <label class="switcher">
-                                                                    <input class="switcher_input update-message"
-                                                                           name="status"
-                                                                           id="{{$userNotification['key']}}_status"
-                                                                           {{$dataValues->where('key_name', $userNotification['key'])->where('settings_type', 'customer_notification')->first()?->live_values[$userNotification['key'].'_status']?'checked':''}}
-                                                                           data-key="{{$userNotification['key'] ?? ''}}"
-                                                                           type="checkbox"
-                                                                           value="1">
-                                                                    <span class="switcher_control"></span>
-                                                                </label>
-                                                            @endcan
-                                                        </div>
-                                                        <input type="hidden" name="id" value="{{ $userNotification['key'] }}">
-                                                        <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $userNotification['key'] }}_message"
-                                                                  name="{{ $userNotification['key'] ?? '' }}_message[]">{{$dataValues->where('key_name', $userNotification['key'])->where('settings_type', 'customer_notification')->first()?->live_values[$userNotification['key'].'_message']}}</textarea>
-                                                        </div>
-                                                        @can('notification_message_update')
-                                                            <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                            </div>
-                                                        @endcan
-                                                    </div>
-                                                    <input type="hidden" name="lang[]" value="default">
-                                                @endif
+                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
+                                                    'notification' => $userNotification,
+                                                    'settingsType' => 'customer_notification',
+                                                    'dataValues' => $dataValues,
+                                                    'language' => $language,
+                                                ])
                                             </form>
                                         </div>
                                     @endforeach
@@ -220,124 +117,12 @@
                                                   action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
                                                 @csrf
                                                 @method('PUT')
-                                                @if($language)
-                                                    <div class="mb-30 lang-form default-form">
-                                                        <div class="mb-20 d-flex justify-content-between">
-                                                            <b>{{ translate($providerNotification['value'] . '_Message') }}</b>
-
-                                                            @can('notification_message_manage_status')
-                                                                <label class="switcher">
-                                                                    <input class="switcher_input update-message"
-                                                                           name="status"
-                                                                           id="{{$providerNotification['key']}}_status"
-                                                                           {{$dataValues->where('key_name', $providerNotification['key'])->where('settings_type', 'provider_notification')->first()?->live_values[$providerNotification['key'].'_status']?'checked':''}}
-                                                                           data-key="{{$providerNotification['key'] ?? ''}}"
-                                                                           type="checkbox"
-                                                                           value="1">
-                                                                    <span class="switcher_control"></span>
-                                                                </label>
-                                                            @endcan
-
-                                                        </div>
-                                                        <input type="hidden" name="id" value="{{ $providerNotification['key'] }}">
-                                                        <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $providerNotification['key'] }}_message"
-                                                                  name="{{ $providerNotification['key'] ?? '' }}_message[]">{{$dataValues->where('key_name', $providerNotification['key'])->where('settings_type', 'provider_notification')->first()?->live_values[$providerNotification['key'].'_message']}}</textarea>
-                                                        </div>
-                                                        @can('notification_message_update')
-                                                            <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                            </div>
-                                                        @endcan
-                                                    </div>
-                                                    <input type="hidden" name="lang[]" value="default">
-                                                    @foreach ($language?->live_values as $lang)
-                                                            <?php
-                                                            $notificationRow = $dataValues->where('key_name', $providerNotification['key'])->where('settings_type', 'provider_notification')->first();
-                                                            if (isset($notificationRow['translations']) && count($notificationRow['translations'])) {
-                                                                $translate = [];
-                                                                foreach ($notificationRow['translations'] as $t) {
-                                                                    if ($t->locale == $lang['code'] && $t->key == $notificationRow->key_name) {
-                                                                        $translate[$lang['code']][$notificationRow->key_name] = $t->value;
-                                                                    }
-                                                                }
-                                                            }
-                                                            ?>
-                                                        <div class="mb-30 d-none lang-form {{$lang['code']}}-form">
-                                                            <div class="mb-20 d-flex justify-content-between">
-                                                                <b>{{ translate($providerNotification['value'] . '_Message') }}
-                                                                    ({{strtoupper($lang['code'])}})</b>
-
-                                                                @can('notification_message_manage_status')
-                                                                    <label class="switcher">
-                                                                        <input class="switcher_input update-message"
-                                                                               name="status"
-                                                                               id="{{$providerNotification['key']}}_status"
-                                                                               {{$dataValues->where('key_name', $providerNotification['key'])->where('settings_type', 'provider_notification')->first()?->live_values[$providerNotification['key'].'_status']?'checked':''}}
-                                                                               data-key="{{$providerNotification['key'] ?? ''}}"
-                                                                               type="checkbox"
-                                                                               value="1">
-                                                                        <span class="switcher_control"></span>
-                                                                    </label>
-                                                                @endcan
-                                                            </div>
-                                                            <input type="hidden" name="id" value="{{ $providerNotification['key'] }}">
-                                                            <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $providerNotification['key'] }}_message"
-                                                                  name="{{ $providerNotification['key'] ?? '' }}_message[]">{{$translate[$lang['code']][$notificationRow?->key_name] ?? ''}}</textarea>
-                                                            </div>
-                                                            @can('notification_message_update')
-                                                                <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                    <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                    <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                                </div>
-                                                            @endcan
-                                                        </div>
-                                                        <input type="hidden" name="lang[]" value="{{$lang['code']}}">
-                                                    @endforeach
-                                                @else
-                                                    <div class="mb-30 lang-form">
-                                                        <div class="mb-20 d-flex justify-content-between">
-                                                            <b>{{ translate($providerNotification['value'] . '_Message') }}</b>
-
-                                                            @can('notification_message_manage_status')
-                                                                <label class="switcher">
-                                                                    <input class="switcher_input update-message"
-                                                                           name="status"
-                                                                           id="{{$providerNotification['key']}}_status"
-                                                                           {{$dataValues->where('key_name', $providerNotification['key'])->where('settings_type', 'provider_notification')->first()?->live_values[$providerNotification['key'].'_status']?'checked':''}}
-                                                                           data-key="{{$providerNotification['key'] ?? ''}}"
-                                                                           type="checkbox"
-                                                                           value="1">
-                                                                    <span class="switcher_control"></span>
-                                                                </label>
-                                                            @endcan
-                                                        </div>
-                                                        <input type="hidden" name="id"
-                                                               value="{{ $providerNotification['key'] }}">
-                                                        <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $providerNotification['key'] }}_message"
-                                                                  name="{{ $providerNotification['key'] ?? '' }}_message[]">{{$dataValues->where('key_name', $providerNotification['key'])->where('settings_type', 'provider_notification')->first()?->live_values[$providerNotification['key'].'_message']}}</textarea>
-                                                        </div>
-                                                        @can('notification_message_update')
-                                                            <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                <button type="reset" class="btn btn--secondary rounded">
-                                                                    {{translate('reset')}}
-                                                                </button>
-                                                                <button type="submit"
-                                                                        class="btn btn--primary rounded demo_check">
-                                                                    {{translate('update')}}
-                                                                </button>
-                                                            </div>
-                                                        @endcan
-
-                                                    </div>
-                                                    <input type="hidden" name="lang[]" value="default">
-                                                @endif
+                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
+                                                    'notification' => $providerNotification,
+                                                    'settingsType' => 'provider_notification',
+                                                    'dataValues' => $dataValues,
+                                                    'language' => $language,
+                                                ])
                                             </form>
                                         </div>
                                     @endforeach
@@ -349,121 +134,12 @@
                                                   action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
                                                 @csrf
                                                 @method('PUT')
-                                                @if($language)
-                                                    <div class="mb-30 lang-form default-form">
-                                                        <div class="mb-20 d-flex justify-content-between">
-                                                            <b>{{ translate($servicemanNotification['value'] . '_Message') }}</b>
-
-                                                            @can('notification_message_manage_status')
-                                                                <label class="switcher">
-                                                                    <input class="switcher_input update-message"
-                                                                           name="status"
-                                                                           id="{{$servicemanNotification['key']}}_status"
-                                                                           {{$dataValues->where('key_name', $servicemanNotification['key'])->where('settings_type', 'serviceman_notification')->first()?->live_values[$servicemanNotification['key'].'_status']?'checked':''}}
-                                                                           data-key="{{$servicemanNotification['key'] ?? ''}}"
-                                                                           type="checkbox"
-                                                                           value="1">
-                                                                    <span class="switcher_control"></span>
-                                                                </label>
-                                                            @endcan
-
-                                                        </div>
-                                                        <input type="hidden" name="id" value="{{ $servicemanNotification['key'] }}">
-                                                        <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $servicemanNotification['key'] }}_message"
-                                                                  name="{{ $servicemanNotification['key'] ?? '' }}_message[]">{{$dataValues->where('key_name', $servicemanNotification['key'])->where('settings_type', 'serviceman_notification')->first()?->live_values[$servicemanNotification['key'].'_message']}}</textarea>
-                                                        </div>
-                                                        @can('notification_message_update')
-                                                            <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                            </div>
-                                                        @endcan
-                                                    </div>
-                                                    <input type="hidden" name="lang[]" value="default">
-                                                    @foreach ($language?->live_values as $lang)
-                                                            <?php
-                                                            $notificationRow = $dataValues->where('key_name', $servicemanNotification['key'])->where('settings_type', 'serviceman_notification')->first();
-                                                            if (isset($notificationRow['translations']) && count($notificationRow['translations'])) {
-                                                                $translate = [];
-                                                                foreach ($notificationRow['translations'] as $t) {
-                                                                    if ($t->locale == $lang['code'] && $t->key == $notificationRow->key_name) {
-                                                                        $translate[$lang['code']][$notificationRow->key_name] = $t->value;
-                                                                    }
-                                                                }
-                                                            }
-                                                            ?>
-                                                        <div class="mb-30 d-none lang-form {{$lang['code']}}-form">
-                                                            <div class="mb-20 d-flex justify-content-between">
-                                                                <b>{{ translate($servicemanNotification['value'] . '_Message') }}
-                                                                    ({{strtoupper($lang['code'])}})</b>
-
-                                                                @can('notification_message_manage_status')
-                                                                    <label class="switcher">
-                                                                        <input class="switcher_input update-message"
-                                                                               name="status"
-                                                                               id="{{$servicemanNotification['key']}}_status"
-                                                                               {{$dataValues->where('key_name', $servicemanNotification['key'])->where('settings_type', 'serviceman_notification')->first()?->live_values[$servicemanNotification['key'].'_status']?'checked':''}}
-                                                                               data-key="{{$servicemanNotification['key'] ?? ''}}"
-                                                                               type="checkbox"
-                                                                               value="1">
-                                                                        <span class="switcher_control"></span>
-                                                                    </label>
-                                                                @endcan
-
-                                                            </div>
-                                                            <input type="hidden" name="id"
-                                                                   value="{{ $servicemanNotification['key'] }}">
-                                                            <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $servicemanNotification['key'] }}_message"
-                                                                  name="{{ $servicemanNotification['key'] ?? '' }}_message[]">{{$translate[$lang['code']][$notificationRow?->key_name] ?? ''}}</textarea>
-                                                            </div>
-
-                                                            @can('notification_message_update')
-                                                                <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                    <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                    <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                                </div>
-                                                            @endcan
-                                                        </div>
-                                                        <input type="hidden" name="lang[]" value="{{$lang['code']}}">
-                                                    @endforeach
-                                                @else
-                                                    <div class="mb-30 lang-form">
-                                                        <div class="mb-20 d-flex justify-content-between">
-                                                            <b>{{ translate($servicemanNotification['value'] . '_Message') }}</b>
-
-                                                            @can('notification_message_manage_status')
-                                                                <label class="switcher">
-                                                                    <input class="switcher_input update-message"
-                                                                           name="status"
-                                                                           id="{{$servicemanNotification['key']}}_status"
-                                                                           {{$dataValues->where('key_name', $servicemanNotification['key'])->where('settings_type', 'serviceman_notification')->first()?->live_values[$servicemanNotification['key'].'_status']?'checked':''}}
-                                                                           data-key="{{$servicemanNotification['key'] ?? ''}}"
-                                                                           type="checkbox"
-                                                                           value="1">
-                                                                    <span class="switcher_control"></span>
-                                                                </label>
-                                                            @endcan
-                                                        </div>
-                                                        <input type="hidden" name="id" value="{{ $servicemanNotification['key'] }}">
-                                                        <div class="form-floating">
-                                                        <textarea class="form-control"
-                                                                  id="{{ $servicemanNotification['key'] }}_message"
-                                                                  name="{{ $servicemanNotification['key'] ?? '' }}_message[]">{{$dataValues->where('key_name', $servicemanNotification['key'])->where('settings_type', 'serviceman_notification')->first()?->live_values[$servicemanNotification['key'].'_message']}}</textarea>
-                                                        </div>
-
-                                                        @can('notification_message_update')
-                                                            <div class="d-flex justify-content-end mt-10 gap-2">
-                                                                <button type="reset" class="btn btn--secondary rounded">{{translate('reset')}}</button>
-                                                                <button type="submit" class="btn btn--primary rounded demo_check">{{translate('update')}}</button>
-                                                            </div>
-                                                        @endcan
-                                                    </div>
-                                                    <input type="hidden" name="lang[]" value="default">
-                                                @endif
+                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
+                                                    'notification' => $servicemanNotification,
+                                                    'settingsType' => 'serviceman_notification',
+                                                    'dataValues' => $dataValues,
+                                                    'language' => $language,
+                                                ])
                                             </form>
                                         </div>
                                     @endforeach

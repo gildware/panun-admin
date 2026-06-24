@@ -67,13 +67,15 @@ class ServiceRequestController extends Controller
                         'provider_name' => $userInfo?->company_name
                     ];
                     $title = get_push_notification_message('service_request_approve', 'provider_notification', $languageKey);
-                    device_notification($userInfo->owner?->fcm_token, $title, null, null, null, 'service_request', null,null, $dataInfo);
+                    $description = get_push_notification_description('service_request_approve', 'provider_notification', $languageKey);
+                    device_notification($userInfo->owner?->fcm_token, $title, $description, null, null, 'service_request', null,null, $dataInfo);
                 } elseif ($serviceRequest->status == 'denied') {
                     $dataInfo = [
                         'provider_name' => $userInfo?->company_name
                     ];
                     $title = get_push_notification_message('service_request_deny', 'provider_notification', $languageKey);
-                    device_notification($userInfo?->owner?->fcm_token, $title, null, null, null, 'service_request', null, null, $dataInfo);
+                    $description = get_push_notification_description('service_request_deny', 'provider_notification', $languageKey);
+                    device_notification($userInfo?->owner?->fcm_token, $title, $description, null, null, 'service_request', null, null, $dataInfo);
                 }
             }
         }

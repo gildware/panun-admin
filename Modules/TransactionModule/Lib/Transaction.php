@@ -2485,12 +2485,13 @@ if (!function_exists('addFundTransactions')) {
                 //send notification
                 $user = User::find($customer_user_id);
                 $title =  with_currency_symbol($bonus) . ' ' . get_push_notification_message('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
+                $description = get_push_notification_description('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
                 $permission = isNotificationActive($user?->provider?->id, 'wallet', 'notification', 'user');
                 $data_info = [
                     'user_name' => $user?->first_name . ' '. $user->last_name
                 ];
                 if ($user->fcm_token && $title && $permission) {
-                    device_notification($user->fcm_token, $title, null, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
+                    device_notification($user->fcm_token, $title, $description, null, null, NOTIFICATION_TYPE['wallet'], null, $customer_user_id, $data_info);
                 }
 
                 Transaction::create([
@@ -2610,8 +2611,9 @@ if (!function_exists('refundTransactionForCanceledBooking')) {
                 'to_user_account' => 'user_wallet'
             ]);
             $title =  get_push_notification_message('refund', 'customer_notification', $booking?->customer?->current_language_key);
+            $description = get_push_notification_description('refund', 'customer_notification', $booking?->customer?->current_language_key);
             if($title && $booking?->customer?->fcm_token){
-                device_notification($booking?->customer?->fcm_token, with_currency_symbol($refund_amount) . ' ' . $title, null, null, $booking->id, 'booking');
+                device_notification($booking?->customer?->fcm_token, with_currency_symbol($refund_amount) . ' ' . $title, $description, null, $booking->id, 'booking');
             }
         });
     }
