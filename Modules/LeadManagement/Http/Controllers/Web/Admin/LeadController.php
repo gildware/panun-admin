@@ -28,6 +28,7 @@ use Modules\LeadManagement\Entities\ProviderLeadStatus;
 use Modules\LeadManagement\Entities\District;
 use Modules\LeadManagement\Entities\LeadChangeLog;
 use Modules\LeadManagement\Entities\LeadTypeHistory;
+use Modules\LeadManagement\Entities\LeadOutboundEnquiryStatus;
 use Modules\LeadManagement\Services\LeadFollowupService;
 use Modules\LeadManagement\Services\LeadOpenStatusService;
 use Modules\ZoneManagement\Entities\Zone;
@@ -87,6 +88,14 @@ class LeadController extends Controller
             || ($estimatedDateFrom && $estimatedDateTo)
         );
 
+        $outboundEnquiryFilter = (string) $request->get('outbound_enquiry_filter', 'all');
+        if (!in_array($outboundEnquiryFilter, ['all', 'none', 'exact', 'min'], true)) {
+            $outboundEnquiryFilter = 'all';
+        }
+        $outboundEnquiryCount = $request->filled('outbound_enquiry_count')
+            ? max(0, (int) $request->get('outbound_enquiry_count'))
+            : null;
+
         $with = ['source', 'adSource'];
         if ($tab === 'customer') {
             $with[] = 'customerLeadTags';
@@ -112,7 +121,9 @@ class LeadController extends Controller
             $filterCustomerCategoryIds,
             $filterCustomerSubCategoryIds,
             $estimatedDateFrom,
-            $estimatedDateTo
+            $estimatedDateTo,
+            $outboundEnquiryFilter,
+            $outboundEnquiryCount
         );
         $this->applyLeadOpenClosedFilterToQuery($query, $leadStatusFilter);
 
@@ -136,7 +147,9 @@ class LeadController extends Controller
             $filterCustomerCategoryIds,
             $filterCustomerSubCategoryIds,
             $estimatedDateFrom,
-            $estimatedDateTo
+            $estimatedDateTo,
+            $outboundEnquiryFilter,
+            $outboundEnquiryCount
         );
 
         $query->with($with)->latest('date_time_of_lead_received');
@@ -192,6 +205,16 @@ class LeadController extends Controller
             if ($estimatedDateTo) {
                 $queryParams['estimated_date_to'] = $estimatedDateTo;
             }
+        }
+        if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
+            $queryParams['outbound_enquiry_filter'] = $outboundEnquiryFilter;
+            if (in_array($outboundEnquiryFilter, ['exact', 'min'], true) && $outboundEnquiryCount !== null) {
+                $queryParams['outbound_enquiry_count'] = $outboundEnquiryCount;
+            }
+        }
+
+        if ($tab === 'future_customer') {
+            $query->withCount('outboundEnquiries');
         }
 
         $leads = $query->paginate(pagination_limit())->appends($queryParams);
@@ -443,6 +466,9 @@ class LeadController extends Controller
             if ($tab === 'customer') {
                 $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0);
             }
+            if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
+                $filtersAppliedCount += 1;
+            }
             $html = view('leadmanagement::admin.leads.partials._table', compact('leads', 'handledByNames', 'tab', 'providerLeadData', 'customerLeadData', 'reasonLeadData', 'leadStatusMeta'))->render();
             return response()->json([
                 'html' => $html,
@@ -490,6 +516,8 @@ class LeadController extends Controller
             'estimatedDateTo',
             'dateFrom',
             'dateTo',
+            'outboundEnquiryFilter',
+            'outboundEnquiryCount',
             'invalidReasons',
             'futureCustomerReasons'
         ));
@@ -520,7 +548,9 @@ class LeadController extends Controller
         array $filterCustomerCategoryIds,
         array $filterCustomerSubCategoryIds,
         ?string $estimatedDateFrom,
-        ?string $estimatedDateTo
+        ?string $estimatedDateTo,
+        string $outboundEnquiryFilter = 'all',
+        ?int $outboundEnquiryCount = null
     ): Builder {
         $query = Lead::query()
             ->ofType($scopeTab === 'all' ? null : $scopeTab)
@@ -640,6 +670,15 @@ class LeadController extends Controller
             }
         }
 
+        if ($scopeTab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
+            match ($outboundEnquiryFilter) {
+                'none' => $query->whereDoesntHave('outboundEnquiries'),
+                'exact' => $query->has('outboundEnquiries', '=', $outboundEnquiryCount ?? 0),
+                'min' => $query->has('outboundEnquiries', '>=', max(1, $outboundEnquiryCount ?? 1)),
+                default => null,
+            };
+        }
+
         return $query;
     }
 
@@ -693,7 +732,9 @@ class LeadController extends Controller
         array $filterCustomerCategoryIds,
         array $filterCustomerSubCategoryIds,
         ?string $estimatedDateFrom,
-        ?string $estimatedDateTo
+        ?string $estimatedDateTo,
+        string $outboundEnquiryFilter = 'all',
+        ?int $outboundEnquiryCount = null
     ): array {
         $tabs = ['all', 'unknown', 'customer', 'future_customer', 'provider', 'invalid'];
         $out = [];
@@ -718,7 +759,9 @@ class LeadController extends Controller
                 $filterCustomerCategoryIds,
                 $filterCustomerSubCategoryIds,
                 $estimatedDateFrom,
-                $estimatedDateTo
+                $estimatedDateTo,
+                $outboundEnquiryFilter,
+                $outboundEnquiryCount
             );
             $this->applyLeadOpenClosedFilterToQuery($q, $leadStatusFilter);
             $out[$scopeTab] = $q->count();
@@ -1389,7 +1432,17 @@ class LeadController extends Controller
 
     public function show($id): View
     {
-        $lead = Lead::with(['source', 'adSource', 'followups.createdBy', 'changeLogs.changedByUser', 'createdBy', 'customerLeadTags'])->findOrFail($id);
+        $lead = Lead::with([
+            'source',
+            'adSource',
+            'followups.createdBy',
+            'changeLogs.changedByUser',
+            'createdBy',
+            'customerLeadTags',
+            'outboundEnquiries' => fn ($q) => $q->with(['handledBy', 'createdBy', 'statusConfig', 'relatedLead', 'booking']),
+        ])
+            ->withCount('outboundEnquiries')
+            ->findOrFail($id);
 
         $invalidReasons = LeadInvalidReason::where('is_active', true)->orderBy('name')->get();
         $futureCustomerReasons = LeadFutureCustomerReason::where('is_active', true)->orderBy('name')->get();
@@ -1499,6 +1552,11 @@ class LeadController extends Controller
                 ->all();
         }
 
+        $outboundEnquiryStatuses = collect();
+        if ($lead->lead_type === Lead::TYPE_FUTURE_CUSTOMER) {
+            $outboundEnquiryStatuses = LeadOutboundEnquiryStatus::active()->orderBy('name')->get(['id', 'name', 'link_type']);
+        }
+
         return view('leadmanagement::admin.leads.show', compact(
             'lead',
             'handledByName',
@@ -1526,7 +1584,8 @@ class LeadController extends Controller
             'providerChecklistDoneMap',
             'adSources',
             'employees',
-            'changeLogs'
+            'changeLogs',
+            'outboundEnquiryStatuses'
         ));
     }
 

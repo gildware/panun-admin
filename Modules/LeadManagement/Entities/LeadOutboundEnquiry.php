@@ -10,6 +10,9 @@ class LeadOutboundEnquiry extends Model
     protected $table = 'lead_outbound_enquiries';
 
     protected $fillable = [
+        'lead_id',
+        'related_lead_id',
+        'booking_id',
         'customer_name',
         'phone_number',
         'contacted_through',
@@ -24,6 +27,26 @@ class LeadOutboundEnquiry extends Model
     protected $casts = [
         'contacted_at' => 'datetime',
     ];
+
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class);
+    }
+
+    public function relatedLead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class, 'related_lead_id');
+    }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\BookingModule\Entities\Booking::class);
+    }
+
+    public function isFromFutureCustomerLead(): bool
+    {
+        return $this->lead?->lead_type === Lead::TYPE_FUTURE_CUSTOMER;
+    }
 
     public function createdBy(): BelongsTo
     {
@@ -40,4 +63,3 @@ class LeadOutboundEnquiry extends Model
         return $this->belongsTo(LeadOutboundEnquiryStatus::class, 'status_id');
     }
 }
-

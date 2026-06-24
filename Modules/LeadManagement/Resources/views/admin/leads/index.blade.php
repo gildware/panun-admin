@@ -124,6 +124,8 @@
                         $leadStatusFilter = $leadStatusFilter ?? 'all';
                         $estimatedDateFrom = $estimatedDateFrom ?? '';
                         $estimatedDateTo = $estimatedDateTo ?? '';
+                        $outboundEnquiryFilter = $outboundEnquiryFilter ?? 'all';
+                        $outboundEnquiryCount = $outboundEnquiryCount ?? '';
                         $filtersAppliedCount = count($sourceIds) + count($adSourceIds) + $handledByFilterSelections
                             + (!empty($dateFrom) && !empty($dateTo) ? 1 : 0);
                         if ($leadStatusFilter !== 'all') {
@@ -134,6 +136,9 @@
                         }
                         if ($tab === 'customer') {
                             $filtersAppliedCount += count($filterCustomerStatusIds) + count($filterCustomerZoneIds) + count($filterCustomerCategoryIds) + count($filterCustomerSubCategoryIds) + (!empty($estimatedDateFrom) && !empty($estimatedDateTo) ? 1 : 0);
+                        }
+                        if ($tab === 'future_customer' && $outboundEnquiryFilter !== 'all') {
+                            $filtersAppliedCount += 1;
                         }
                     @endphp
 
@@ -304,6 +309,32 @@
                                         <div>
                                             <label class="form-label">{{ translate('Estimated_Date_Time_of_Service') }} ({{ translate('To_Date') }})</label>
                                             <input type="date" name="estimated_date_to" class="form-control" value="{{ $estimatedDateTo }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
+
+                                @if($tab === 'future_customer')
+                                <div class="lead-filter-section mb-4">
+                                    <h6 class="text-muted text-uppercase small fw-semibold mb-3 pb-2 border-bottom">{{ translate('Future_Customer_Related_Filter') }}</h6>
+                                    <div class="d-flex flex-column gap-3">
+                                        <div>
+                                            <label class="form-label">{{ translate('Outbound_Enquiries') }}</label>
+                                            <select name="outbound_enquiry_filter" id="outbound-enquiry-filter" class="form-select">
+                                                <option value="all" {{ $outboundEnquiryFilter === 'all' ? 'selected' : '' }}>{{ translate('All') }}</option>
+                                                <option value="none" {{ $outboundEnquiryFilter === 'none' ? 'selected' : '' }}>{{ translate('No_enquiries') }}</option>
+                                                <option value="exact" {{ $outboundEnquiryFilter === 'exact' ? 'selected' : '' }}>{{ translate('Exact_number') }}</option>
+                                                <option value="min" {{ $outboundEnquiryFilter === 'min' ? 'selected' : '' }}>{{ translate('At_least') }}</option>
+                                            </select>
+                                        </div>
+                                        <div id="outbound-enquiry-count-wrap" class="{{ in_array($outboundEnquiryFilter, ['exact', 'min'], true) ? '' : 'd-none' }}">
+                                            <label class="form-label">{{ translate('Number_of_enquiries') }}</label>
+                                            <input type="number"
+                                                   name="outbound_enquiry_count"
+                                                   id="outbound-enquiry-count"
+                                                   class="form-control"
+                                                   min="0"
+                                                   value="{{ $outboundEnquiryCount !== '' ? $outboundEnquiryCount : ($outboundEnquiryFilter === 'min' ? 1 : 0) }}">
                                         </div>
                                     </div>
                                 </div>
@@ -615,6 +646,25 @@
                     }
                 });
             });
+
+            function toggleOutboundEnquiryCountField() {
+                const filter = $('#outbound-enquiry-filter').val();
+                const $wrap = $('#outbound-enquiry-count-wrap');
+                const $count = $('#outbound-enquiry-count');
+                if (filter === 'exact' || filter === 'min') {
+                    $wrap.removeClass('d-none');
+                    $count.prop('required', true);
+                    if (!$count.val() && filter === 'min') {
+                        $count.val(1);
+                    }
+                } else {
+                    $wrap.addClass('d-none');
+                    $count.prop('required', false);
+                }
+            }
+
+            $(document).on('change', '#outbound-enquiry-filter', toggleOutboundEnquiryCountField);
+            toggleOutboundEnquiryCountField();
         })(jQuery);
     </script>
     @include('leadmanagement::admin.leads.partials._lead_open_phone_check_script')

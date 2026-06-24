@@ -27,6 +27,8 @@ Route::group([
         Route::group(['prefix' => 'outbound-enquiry', 'as' => 'outbound-enquiry.', 'middleware' => ['can:lead_outbound_enquiry_view']], function () {
             Route::get('/', [LeadOutboundEnquiryController::class, 'index'])->name('index');
             Route::get('create', [LeadOutboundEnquiryController::class, 'create'])->middleware(['can:lead_outbound_enquiry_add'])->name('create');
+            Route::get('search-leads', [LeadOutboundEnquiryController::class, 'searchLeads'])->middleware(['can:lead_outbound_enquiry_add'])->name('search-leads');
+            Route::get('search-bookings', [LeadOutboundEnquiryController::class, 'searchBookings'])->middleware(['can:lead_outbound_enquiry_add'])->name('search-bookings');
             Route::post('store', [LeadOutboundEnquiryController::class, 'store'])->middleware(['can:lead_outbound_enquiry_add'])->name('store');
         });
 
@@ -55,6 +57,10 @@ Route::group([
         Route::put('{id}/customer-status', [LeadController::class, 'updateCustomerStatus'])->middleware(['can:lead_update'])->name('customer-status.update');
         Route::put('{id}/customer-tags', [LeadController::class, 'updateCustomerTags'])->middleware(['can:lead_update'])->name('customer-tags.update');
         Route::post('customer-tag', [LeadController::class, 'storeCustomerLeadTag'])->middleware(['can:lead_add'])->name('customer-tag.store');
+
+        Route::post('{id}/outbound-enquiry', [LeadOutboundEnquiryController::class, 'storeFromLead'])
+            ->middleware(['can:lead_outbound_enquiry_add'])
+            ->name('outbound-enquiry.store-from-lead');
 
         Route::get('{id}', [LeadController::class, 'show'])->middleware(['can:lead_view'])->name('show');
     });
