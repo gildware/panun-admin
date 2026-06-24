@@ -5203,6 +5203,91 @@ if (!function_exists('cap_wallet_spend_for_single_transaction')) {
     }
 }
 
+if (!function_exists('customer_wallet_feature_enabled')) {
+    function customer_wallet_feature_enabled(): bool
+    {
+        return (int) (business_config('customer_wallet', 'customer_config')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('customer_loyalty_point_feature_enabled')) {
+    function customer_loyalty_point_feature_enabled(): bool
+    {
+        return (int) (business_config('customer_loyalty_point', 'customer_config')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('add_to_fund_wallet_feature_enabled')) {
+    function add_to_fund_wallet_feature_enabled(): bool
+    {
+        return (int) (business_config('add_to_fund_wallet', 'customer_config')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('wallet_payment_feature_enabled')) {
+    function wallet_payment_feature_enabled(): bool
+    {
+        return (int) (business_config('wallet_payment', 'service_setup')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('lock_customer_user_for_wallet')) {
+    function lock_customer_user_for_wallet(string $userId): \Modules\UserManagement\Entities\User
+    {
+        $user = \Modules\UserManagement\Entities\User::where('id', $userId)->lockForUpdate()->first();
+        if (! $user) {
+            throw new \RuntimeException('customer_not_found');
+        }
+
+        return $user;
+    }
+}
+
+if (!function_exists('debit_customer_wallet_or_fail')) {
+    function debit_customer_wallet_or_fail(\Modules\UserManagement\Entities\User $user, float $amount): \Modules\UserManagement\Entities\User
+    {
+        $amount = round(max(0.0, $amount), 2);
+        if ($amount <= 0) {
+            return $user;
+        }
+        if ((float) $user->wallet_balance < $amount) {
+            throw new \RuntimeException('insufficient_wallet_balance');
+        }
+        $user->wallet_balance = round((float) $user->wallet_balance - $amount, 2);
+        $user->save();
+
+        return $user;
+    }
+}
+
+if (!function_exists('credit_customer_wallet')) {
+    function credit_customer_wallet(\Modules\UserManagement\Entities\User $user, float $amount): \Modules\UserManagement\Entities\User
+    {
+        $amount = round(max(0.0, $amount), 2);
+        if ($amount <= 0) {
+            return $user;
+        }
+        $user->wallet_balance = round((float) $user->wallet_balance + $amount, 2);
+        $user->save();
+
+        return $user;
+    }
+}
+
+if (!function_exists('debit_customer_loyalty_points_or_fail')) {
+    function debit_customer_loyalty_points_or_fail(\Modules\UserManagement\Entities\User $user, float $points): \Modules\UserManagement\Entities\User
+    {
+        $points = round(max(0.0, $points), 2);
+        if ((float) $user->loyalty_point < $points) {
+            throw new \RuntimeException('insufficient_loyalty_points');
+        }
+        $user->loyalty_point = round((float) $user->loyalty_point - $points, 2);
+        $user->save();
+
+        return $user;
+    }
+}
+
 if (!function_exists('booking_confirmation_units_for_cart')) {
   /**
    * Distinct cart service lines (line quantity does not multiply confirmation units).
@@ -5341,11 +5426,8 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
             $partialTransactionId = trim((string) ($booking->transaction_id ?? '')) ?: null;
 
             if ($paymentMethod === 'wallet_payment') {
-                $user = \Modules\UserManagement\Entities\User::find($booking->customer_id);
-                if ($user && $user->wallet_balance >= $paidAmount) {
-                    $user->wallet_balance -= $paidAmount;
-                    $user->save();
-                }
+                $user = lock_customer_user_for_wallet((string) $booking->customer_id);
+                $user = debit_customer_wallet_or_fail($user, $paidAmount);
 
                 $walletTransaction = \Modules\TransactionModule\Entities\Transaction::create([
                     'ref_trx_id' => null,

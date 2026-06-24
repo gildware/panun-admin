@@ -156,9 +156,8 @@ if (!function_exists('placeBookingTransactionForPartialCas')) {
             ]);
 
             //customer transaction (wallet)
-            $user = User::find($booking['customer_id']);
-            if ($user->wallet_balance >= $paid_amount) $user->wallet_balance -= $paid_amount;
-            $user->save();
+            $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
+            $user = debit_customer_wallet_or_fail($user, $paid_amount);
 
             Transaction::create([
                 'ref_trx_id' => null,
@@ -256,11 +255,8 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
                     'to_user_account' => ACCOUNT_STATES[0]['value'],
                 ]);
 
-                $user = User::find($freshBooking['customer_id']);
-                if ($user && $user->wallet_balance >= $walletPaid) {
-                    $user->wallet_balance -= $walletPaid;
-                    $user->save();
-                }
+                $user = lock_customer_user_for_wallet((string) $freshBooking['customer_id']);
+                $user = debit_customer_wallet_or_fail($user, $walletPaid);
 
                 $walletTransaction = Transaction::create([
                     'ref_trx_id' => null,
@@ -422,11 +418,8 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
 
 
             //Customer wallet update
-            $user = User::find($freshBooking['customer_id']);
-            if ($user->wallet_balance >= $receivedAmount) {
-                $user->wallet_balance -= $receivedAmount;
-            }
-            $user->save();
+            $user = lock_customer_user_for_wallet((string) $freshBooking['customer_id']);
+            $user = debit_customer_wallet_or_fail($user, $receivedAmount);
 
             //customer transaction (wallet)
             $walletTransaction = Transaction::create([
@@ -518,9 +511,8 @@ if (!function_exists('removeBookingServiceTransactionForDigitalPayment')) {
                 ]);
 
                 //customer transaction
-                $user = User::find($booking['customer_id']);
-                $user->wallet_balance += $amount;
-                $user->save();
+                $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
+                $user = credit_customer_wallet($user, $amount);
 
                 Transaction::create([
                     'ref_trx_id' => $primary_transaction->id,
@@ -2301,9 +2293,8 @@ if (!function_exists('addFundTransaction')) {
         DB::transaction(function () use ($user_id, $amount, $reference) {
 
             //Provider transactions
-            $user = User::where('id', $user_id)->first();
-            $user->wallet_balance += $amount;
-            $user->save();
+            $user = lock_customer_user_for_wallet((string) $user_id);
+            $user = credit_customer_wallet($user, $amount);
 
             Transaction::create([
                 'ref_trx_id' => null,
@@ -2377,9 +2368,8 @@ if (!function_exists('referralEarningTransactionAfterBookingComplete')) {
             ]);
 
             //Customer account (add in RECEIVABLE)
-            $user = User::where('id', $user->id)->first();
-            $user->wallet_balance += $amount;
-            $user->save();
+            $user = lock_customer_user_for_wallet((string) $user->id);
+            $user = credit_customer_wallet($user, $amount);
 
             Transaction::create([
                 'ref_trx_id' => null,
@@ -2457,11 +2447,9 @@ if (!function_exists('loyaltyPointWalletTransferTransaction')) {
 
         DB::transaction(function () use ($user_id, $point, $amount) {
 
-            //Customer (loyalty_point update)
-            $user = User::find($user_id);
-            $user->loyalty_point -= $point;
-            $user->wallet_balance += $amount;
-            $user->save();
+            $user = lock_customer_user_for_wallet((string) $user_id);
+            $user = debit_customer_loyalty_points_or_fail($user, (float) $point);
+            $user = credit_customer_wallet($user, (float) $amount);
 
             //transaction
             Transaction::create([
@@ -2470,7 +2458,7 @@ if (!function_exists('loyaltyPointWalletTransferTransaction')) {
                 'trx_type' => TRX_TYPE['loyalty_point_earning'],
                 'debit' => 0,
                 'credit' => $amount,
-                'balance' => $amount,
+                'balance' => $user->wallet_balance,
                 'from_user_id' => $user_id,
                 'to_user_id' => $user_id,
                 'from_user_account' => null,
@@ -2497,8 +2485,8 @@ if (!function_exists('loyaltyPointTransaction')) {
         DB::transaction(function () use ($user_id, $point) {
 
             //point update
-            $user = User::find($user_id);
-            $user->loyalty_point += $point;
+            $user = lock_customer_user_for_wallet((string) $user_id);
+            $user->loyalty_point = round((float) $user->loyalty_point + (float) $point, 2);
             $user->save();
 
             //transaction
@@ -2524,9 +2512,8 @@ if (!function_exists('addFundTransactions')) {
         DB::transaction(function () use ($customer_user_id, $amount, $admin_user_id, $bonus) {
 
             //customer wallet update
-            $user = User::find($customer_user_id);
-            $user->wallet_balance += $amount;
-            $user->save();
+            $user = lock_customer_user_for_wallet((string) $customer_user_id);
+            $user = credit_customer_wallet($user, (float) $amount);
 
             Transaction::create([
                 'ref_trx_id' => null,
@@ -2543,12 +2530,10 @@ if (!function_exists('addFundTransactions')) {
             ]);
 
             if($bonus > 0) {
-                $user = User::find($customer_user_id);
-                $user->wallet_balance += $bonus;
-                $user->save();
+                $user = lock_customer_user_for_wallet((string) $customer_user_id);
+                $user = credit_customer_wallet($user, (float) $bonus);
 
                 //send notification
-                $user = User::find($customer_user_id);
                 $title =  with_currency_symbol($bonus) . ' ' . get_push_notification_message('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
                 $description = get_push_notification_description('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
                 $permission = isNotificationActive($user?->provider?->id, 'wallet', 'notification', 'user');
@@ -2659,9 +2644,8 @@ if (!function_exists('refundTransactionForCanceledBooking')) {
             ]);
 
             //customer transaction (wallet)
-            $user = User::find($booking['customer_id']);
-            $user->wallet_balance += $refund_amount;
-            $user->save();
+            $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
+            $user = credit_customer_wallet($user, (float) $refund_amount);
 
             Transaction::create([
                 'ref_trx_id' => $primary_transaction->id,

@@ -109,7 +109,8 @@
                 body: JSON.stringify({
                     payment_request_id: "{{ $data->id }}",
                     payment_amount: "{{ $data->payment_amount }}",
-                    currency_code: "{{ $data->currency_code }}"
+                    currency_code: "{{ $data->currency_code }}",
+                    access_token: "{{ $paymentAccessToken ?? '' }}"
                 })
             })
                 .then(response => response.json())

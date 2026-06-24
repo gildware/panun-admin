@@ -31,7 +31,7 @@ trait NativeRazorpayRedirect
             ], 400);
         }
 
-        return app(RazorPayController::class)->buildNativePrepareResponse($paymentId);
+        return app(RazorPayController::class)->buildNativePrepareResponse($request, $paymentId);
     }
 
     protected function extractPaymentIdFromRedirectLink(string $redirectLink): ?string

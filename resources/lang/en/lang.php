@@ -9230,4 +9230,10 @@ _Message' => 'Customer notification for provider bid offer
   'Extra time allowed in cart and checkout before a scheduled booking becomes invalid. Booking still uses the full restriction time.' => 'Extra time allowed in cart and checkout before a scheduled booking becomes invalid. Booking still uses the full restriction time.',
   'Event' => 'Event',
   'Successful' => 'Successful',
+  'This feature is currently unavailable.' => 'This feature is currently unavailable.',
+  'The point must be a number.' => 'The point must be a number.',
+  'The point must be at least 100.' => 'The point must be at least 100.',
+  'Provider must have to pay greater than or equal to ' => 'Provider must have to pay greater than or equal to ',
+  'The transaction id field is required.' => 'The transaction id field is required.',
+  'Unauthorized payment request' => 'Unauthorized payment request',
 );

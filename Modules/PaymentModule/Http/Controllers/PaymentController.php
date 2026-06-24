@@ -23,6 +23,7 @@ use Modules\PaymentModule\Library\Payment as Payment;
 use Modules\PaymentModule\Library\Payer;
 use Modules\PaymentModule\Library\Receiver;
 use App\Lib\PaymentAccessToken;
+use App\Lib\PaymentRequestGuard;
 use Modules\PaymentModule\Services\PaymentRequestCartSnapshotService;
 
 
@@ -47,6 +48,7 @@ class PaymentController extends Controller
 
         }  elseif ($request->has('is_pay_to_admin')) {
             $validator_data = Validator::make($request->all(), [
+                'access_token' => 'nullable|string',
                 'payment_method' => 'required|in:' . implode(',', array_column(GATEWAYS_PAYMENT_METHODS, 'key')),
                 'provider_id' => 'required|uuid',
             ]);
@@ -116,13 +118,26 @@ class PaymentController extends Controller
         }
 
         $is_add_fund = $request['is_add_fund'] == 1 ? 1 : 0;
+        if ($is_add_fund && ! add_to_fund_wallet_feature_enabled()) {
+            if ($request->has('callback')) {
+                return redirect($request['callback'] . '?flag=fail');
+            }
+
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
         $is_pay_to_admin = $request['is_pay_to_admin'] == true ? 1 : 0;
         $is_repeat_single_booking = $request['is_repeat_single_booking'] == true ? 1 : 0;
         $switch_offline_to_digital = $request['switch_offline_to_digital'] ? 1 : 0;
 
-        //customer user
-        $customer_user_id = PaymentAccessToken::resolve($request['access_token']) ?? '';
-        if ($customer_user_id === '' && !$is_pay_to_admin) {
+        $customer_user_id = '';
+        if ($is_pay_to_admin) {
+            $providerForAuth = Provider::where('id', $request['provider_id'])->first();
+            $customer_user_id = PaymentRequestGuard::resolvePayToAdminSubjectId($request, $providerForAuth) ?? '';
+        } else {
+            $customer_user_id = PaymentAccessToken::resolve($request['access_token']) ?? '';
+        }
+
+        if ($customer_user_id === '') {
             if ($request->has('callback')) {
                 return redirect($request['callback'] . '?flag=fail');
             }
@@ -168,7 +183,10 @@ class PaymentController extends Controller
                 if ($provider->owner->account->account_payable > $provider->owner->account->account_receivable) {
                     $amount = $provider->owner->account->account_payable - $provider->owner->account->account_receivable;
                     $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');
-                    $additional_data = ['provider_id'=> $request['provider_id']];
+                    $additional_data = [
+                        'provider_id' => $request['provider_id'],
+                        'access_token' => $request['access_token'] ?? '',
+                    ];
 
                     $payment_info = new Payment(
                         success_hook: 'pay_to_admin_success',
@@ -200,9 +218,13 @@ class PaymentController extends Controller
         //==========>>>>>> Repeat Single Booking Payment <<<<<<<==============
 
         if ($is_repeat_single_booking) {
-            $repeatBooking = BookingRepeat::where('id', $request['booking_repeat_id'])->first();
+            $repeatBooking = BookingRepeat::with('booking')->where('id', $request['booking_repeat_id'])->first();
 
             if ($repeatBooking) {
+                if ($reject = $this->rejectUnlessPaymentSubjectOwnsBooking($customer_user_id, $repeatBooking->booking)) {
+                    return $reject;
+                }
+
                 $customer = User::find($customer_user_id);
                 $amount = round((float) $repeatBooking->total_booking_amount, 2);
                 if ($request->filled('amount')) {
@@ -250,6 +272,10 @@ class PaymentController extends Controller
 
             if (!isset($booking)){
                 return redirect()->back()->withErrors(translate('Booking Not Found'));
+            }
+
+            if ($reject = $this->rejectUnlessPaymentSubjectOwnsBooking($customer_user_id, $booking)) {
+                return $reject;
             }
 
             $payer = new Payer('first name' . ' ' . 'last name', 'first@last.com', '1234567890', '');
@@ -459,5 +485,21 @@ class PaymentController extends Controller
     {
         if ($request->has('callback')) return redirect($request['callback'] . '?flag=fail');
         else return response()->json(response_formatter(DEFAULT_400), 400);
+    }
+
+    /**
+     * @return JsonResponse|Redirector|RedirectResponse|null
+     */
+    private function rejectUnlessPaymentSubjectOwnsBooking(string $customerUserId, ?Booking $booking): JsonResponse|Redirector|RedirectResponse|null
+    {
+        if (! $booking || (string) $booking->customer_id !== $customerUserId) {
+            if (request()->has('callback')) {
+                return redirect(request('callback') . '?flag=fail');
+            }
+
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
+        return null;
     }
 }
