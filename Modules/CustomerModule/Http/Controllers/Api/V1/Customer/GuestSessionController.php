@@ -26,7 +26,9 @@ class GuestSessionController extends Controller
             return $reject;
         }
 
-        GuestSessionService::register($request->guest_id, $request->guest_secret);
+        if (! GuestSessionService::register($request->guest_id, $request->guest_secret)) {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
 
         return response()->json(response_formatter(DEFAULT_200), 200);
     }

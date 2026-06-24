@@ -534,6 +534,11 @@ const INSUFFICIENT_WALLET_BALANCE_400 = [
     'message' => 'Wallet balance is insufficient'
 ];
 
+const WALLET_MAX_SPEND_PER_TRANSACTION_400 = [
+    'response_code' => 'wallet_max_spend_per_transaction_400',
+    'message' => 'Wallet spend exceeds the maximum allowed per transaction'
+];
+
 const NOTIFICATION_SEND_SUCCESSFULLY_200 = [
     'response_code' => 'notification_send_successfully_200',
     'message' => 'Notification has been sent successfully'

@@ -29,6 +29,7 @@ use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingOfflinePayment;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Services\BookingAuditLogger;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
@@ -57,12 +58,24 @@ trait BookingTrait
 
 
         $isPartials = $request['is_partial'] ? 1 : 0;
-        if (($request['payment_amount_type'] ?? 'full') === 'confirmation') {
-            $isPartials = 0;
-        }
-        $customerWalletBalance = User::find($userId)?->wallet_balance;
-        if ($isPartials && $isGuest && ($customerWalletBalance <= 0 || $customerWalletBalance >= $cartData->sum('total_cost'))) {
-            return ['flag' => 'failed', 'message' => 'Invalid data'];
+        $paymentAmountType = $request['payment_amount_type'] ?? 'full';
+        $customerWalletBalance = User::find($userId)?->wallet_balance ?? 0;
+        if ($isPartials && ! $isGuest) {
+            $payableForValidation = (float) $cartData->sum('total_cost');
+            if ($paymentAmountType === 'confirmation') {
+                $payableForValidation = min(
+                    $payableForValidation,
+                    resolve_checkout_payment_amount($userId, 'confirmation')
+                );
+            }
+            $walletApplicable = min(
+                (float) $customerWalletBalance,
+                cap_wallet_spend_for_single_transaction((float) $customerWalletBalance),
+                $payableForValidation
+            );
+            if ($walletApplicable <= 0 || $walletApplicable >= $payableForValidation) {
+                return ['flag' => 'failed', 'message' => 'Invalid data'];
+            }
         }
 
         $loginToken = null;
@@ -77,7 +90,8 @@ trait BookingTrait
             $subCategory = $cartItem->sub_category_id;
             $booking = new Booking();
 
-            DB::transaction(function () use (
+            try {
+                DB::transaction(function () use (
                 $cartItem,
                 $subCategory,
                 $zoneIdDefault,
@@ -126,6 +140,15 @@ trait BookingTrait
                 $extraFee = $chargeRes['total'];
                 $totalBookingAmount += $extraFee;
 
+                if ($request['payment_method'] == 'wallet_payment') {
+                    $walletDebit = $isPartials
+                        ? cap_wallet_spend_for_single_transaction((float) $customerWalletBalance)
+                        : $totalBookingAmount;
+                    if (! $isPartials && wallet_spend_exceeds_per_transaction_limit($walletDebit)) {
+                        throw new \RuntimeException('wallet_max_spend_per_transaction');
+                    }
+                }
+
                 $booking->customer_id = $userId;
                 $booking->provider_id = $cartItem->provider_id;
                 $booking->category_id = $cartItem->category_id;
@@ -160,24 +183,20 @@ trait BookingTrait
                 $booking->save();
 
                 if ($isPartials) {
-                    $paidAmount = $customerWalletBalance;
-                    $due_amount = $totalBookingAmount - $paidAmount;
-
-                    $bookingPartialPayment = new BookingPartialPayment;
-                    $bookingPartialPayment->booking_id = $booking->id;
-                    $bookingPartialPayment->paid_with = 'wallet';
-                    $bookingPartialPayment->paid_amount = $paidAmount;
-                    $bookingPartialPayment->due_amount = $due_amount;
-                    $bookingPartialPayment->save();
-
-                    if ($request['payment_method'] != 'cash_after_service') {
-                        $bookingPartialPayment = new BookingPartialPayment;
-                        $bookingPartialPayment->booking_id = $booking->id;
-                        $bookingPartialPayment->paid_with = $request['payment_method'];
-                        $bookingPartialPayment->paid_amount = $due_amount;
-                        $bookingPartialPayment->due_amount = 0;
-                        $bookingPartialPayment->save();
+                    $checkoutPayable = $totalBookingAmount;
+                    if ($paymentAmountType === 'confirmation') {
+                        $checkoutPayable = min(
+                            $totalBookingAmount,
+                            booking_confirmation_amount_per_service() * max(1, booking_confirmation_units_for_cart_items($cartData))
+                        );
                     }
+                    record_checkout_wallet_digital_partial_payments(
+                        $booking,
+                        $request,
+                        $totalBookingAmount,
+                        $checkoutPayable,
+                        (float) $customerWalletBalance
+                    );
                 }
 
                 foreach ($cartData->all() as $datum) {
@@ -278,8 +297,9 @@ trait BookingTrait
                             if (!is_null($fcmToken) && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                                $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                                 if ($title && sendDeviceNotificationPermission($booking?->provider_id) && $notification) {
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                 }
                             }
                         } else {
@@ -303,17 +323,17 @@ trait BookingTrait
                                 $fcmToken = $provider->owner->fcm_token ?? null;
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
-
+                                $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
                                 if (!is_null($fcmToken) && $provider->service_availability && $title && $notification && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($provider->id)) {
                                     $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
                                     $serviceLocations = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config') ?? ['customer'];
 
                                     if ($serviceAtProviderPlace == 1){
                                         if (in_array($booking->service_location, $serviceLocations)){
-                                            device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                         }
                                     }else{
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                     }
 
                                 }
@@ -327,8 +347,9 @@ trait BookingTrait
                         $languageKey = $provider?->owner?->current_language_key;
                         if (!is_null($fcmToken)) {
                             $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                            $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                             if ($title && $fcmToken && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($booking?->provider_id)) {
-                                device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                             }
                         }
                     } else {
@@ -351,23 +372,30 @@ trait BookingTrait
                         foreach ($providers as $provider) {
                             $fcmToken = $provider->owner->fcm_token ?? null;
                             $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
-
+                            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
                             if (!is_null($fcmToken) && $provider?->service_availability && $title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($booking?->provider_id)) {
                                 $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
                                 $serviceLocations = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config') ?? ['customer'];
 
                                 if ($serviceAtProviderPlace == 1){
                                     if (in_array($booking->service_location, $serviceLocations)){
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                     }
                                 }else{
-                                    device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                                 }
                             }
                         }
                     }
                 }
             });
+            } catch (\RuntimeException $e) {
+                if ($e->getMessage() === 'wallet_max_spend_per_transaction') {
+                    return ['flag' => 'failed', 'message' => 'wallet_max_spend_per_transaction'];
+                }
+
+                throw $e;
+            }
             try {
                 $fresh = Booking::query()
                     ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
@@ -649,8 +677,9 @@ trait BookingTrait
                             if (!is_null($fcmToken) && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                                $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                                 if ($title && sendDeviceNotificationPermission($booking?->provider_id) && $notification) {
-                                        device_notification($fcmToken, $title, null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                                        device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
                                 }
                             }
                         } else {
@@ -675,9 +704,9 @@ trait BookingTrait
                                 $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
                                 $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
                                 $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
-
+                                $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', optional($provider->owner)->current_language_key);
                                 if (!is_null($fcmToken) && $provider->service_availability && $title && $notification && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($provider->id)) {
-                                    device_notification($fcmToken, $title, null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
                                 }
                             }
 
@@ -736,7 +765,8 @@ trait BookingTrait
     {
         $booking = new Booking();
 
-        DB::transaction(function () use ($booking, $transactionId, $request, $customerUserId, $data) {
+        try {
+            DB::transaction(function () use ($booking, $transactionId, $request, $customerUserId, $data) {
 
             if ($request->has('payment_method') && $request['payment_method'] == 'cash_after_service') {
                 $transactionId = 'cash-payment';
@@ -770,7 +800,16 @@ trait BookingTrait
             $isPartials = $data['is_partial'] ? 1 : 0;
             $customerWalletBalance = User::find($customerUserId)?->wallet_balance;
             if ($isPartials && ($customerWalletBalance <= 0 || $customerWalletBalance >= $totalBookingAmount)) {
-                return ['flag' => 'failed', 'message' => 'Invalid data'];
+                throw new \RuntimeException('invalid_partial_payment');
+            }
+
+            if ($data['payment_method'] == 'wallet_payment') {
+                $walletDebit = $isPartials
+                    ? cap_wallet_spend_for_single_transaction((float) $customerWalletBalance)
+                    : $totalBookingAmount;
+                if (! $isPartials && wallet_spend_exceeds_per_transaction_limit($walletDebit)) {
+                    throw new \RuntimeException('wallet_max_spend_per_transaction');
+                }
             }
 
             $booking->customer_id = $customerUserId;
@@ -797,7 +836,7 @@ trait BookingTrait
             $booking->save();
 
             if ($isPartials) {
-                $paidAmount = $customerWalletBalance;
+                $paidAmount = cap_wallet_spend_for_single_transaction((float) $customerWalletBalance);
                 $due_amount = $totalBookingAmount - $paidAmount;
 
                 $bookingPartialPayment = new BookingPartialPayment;
@@ -878,14 +917,22 @@ trait BookingTrait
             if ($booking->payment_method != 'cash_after_service' || ($booking->payment_method == 'cash_after_service' && $bidGrandForCap < $maxBookingAmount)) {
                if (!is_null($provider?->owner?->fcm_token) && $provider?->is_suspended == 0) {
                    $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
+                   $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
                    $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
 
                    if ($title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
-                       device_notification($provider->owner->fcm_token, $title, null, null, $booking->id, 'booking');
+                       device_notification($provider->owner->fcm_token, $title, $description, null, $booking->id, 'booking');
                    }
                }
            }
         });
+        } catch (\RuntimeException $e) {
+            if (in_array($e->getMessage(), ['wallet_max_spend_per_transaction', 'invalid_partial_payment'], true)) {
+                return ['flag' => 'failed', 'message' => $e->getMessage()];
+            }
+
+            throw $e;
+        }
 
         try {
             $fresh = Booking::query()
@@ -1024,24 +1071,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1385,24 +1435,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1531,24 +1584,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
                         }
                     }
                 }
@@ -1648,24 +1704,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1805,24 +1864,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
                         }
                     }
                 }
@@ -1961,24 +2023,27 @@ trait BookingTrait
                     if ($settingsType == 'customer_notification') {
                         $user = $booking?->booking?->customer;
                         $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($user?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'provider_notification') {
                         $provider = $booking?->provider?->owner;
                         $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                         if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, null, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
+                            device_notification($provider?->fcm_token, $title, $description, null, $booking->booking_id, 'booking', null, null, null, null, 'repeat');
                         }
                     }
 
                     if ($settingsType == 'serviceman_notification') {
                         $serviceman = $booking?->serviceman?->user;
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
+                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, null, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, null, null, 'repeat', 'single');
                         }
                     }
                 }
@@ -2178,8 +2243,9 @@ trait BookingTrait
             referralEarningTransactionAfterBookingComplete($referredByUser, $amount);
             $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
             $title = with_currency_symbol($amount) . ' ' . get_push_notification_message('referral_earning', 'customer_notification', $referredByUser?->current_language_key);
+            $description = get_push_notification_description('referral_earning', 'customer_notification', $referredByUser?->current_language_key);
             if ($title && $referredByUser?->fcm_token && $userRefund) {
-                device_notification($referredByUser?->fcm_token, $title, null, null, null, 'general', null, $referredByUser?->id);
+                device_notification($referredByUser?->fcm_token, $title, $description, null, null, 'general', null, $referredByUser?->id);
             }
 
             $pushNotification = new PushNotification();
@@ -2244,8 +2310,9 @@ trait BookingTrait
                 if ($amount > 0){
                     $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
                     $title = with_currency_symbol($amount) . ' ' . get_push_notification_message('referral_earning_first_booking', 'customer_notification', $user?->current_language_key);
+                    $description = get_push_notification_description('referral_earning_first_booking', 'customer_notification', $user?->current_language_key);
                     if ($title && $user->fcm_token && $userRefund) {
-                        device_notification($user->fcm_token, $title, null, null, null, 'general', null, $user->id);
+                        device_notification($user->fcm_token, $title, $description, null, null, 'general', null, $user->id);
                     }
 
                     $pushNotification = new PushNotification();
@@ -2276,17 +2343,26 @@ trait BookingTrait
 
     /**
      * @param $userId
-     * @param $bookingAmount
+     * @param Booking|BookingRepeat $booking
      * @return false|void
      */
-    private function loyaltyPointCalculation($userId, $bookingAmount)
+    private function loyaltyPointCalculation($userId, $booking)
     {
-
         $customerLoyaltyPoint = business_config('customer_loyalty_point', 'customer_config');
         if (isset($customerLoyaltyPoint) && $customerLoyaltyPoint->live_values != '1') return false;
 
+        $grandTotal = round((float) get_booking_total_amount($booking), 2);
+        $minGrandTotal = (float) (business_config('min_grand_total_for_loyalty_point', 'customer_config')->live_values ?? 0);
+        if ($minGrandTotal > 0 && $grandTotal < $minGrandTotal) {
+            return false;
+        }
+
+        if (! $this->bookingEligibleForLoyaltyByCompletionOutcome($booking)) {
+            return false;
+        }
+
         $percentagePerBooking = business_config('loyalty_point_percentage_per_booking', 'customer_config');
-        $pointAmount = ($percentagePerBooking->live_values * $bookingAmount) / 100;
+        $pointAmount = ($percentagePerBooking->live_values * $grandTotal) / 100;
 
        // $pointPerCurrencyUnit = business_config('loyalty_point_value_per_currency_unit', 'customer_config');
 
@@ -2296,14 +2372,34 @@ trait BookingTrait
 
         $user = User::where('id', $userId)->first();
         $title = $pointAmount . ' ' . get_push_notification_message('loyalty_point', 'customer_notification', $user?->current_language_key);
-
+        $description = get_push_notification_description('loyalty_point', 'customer_notification', $user?->current_language_key);
         $customerNotification = isNotificationActive(null, 'loyality_point', 'notification', 'user');
         $dataInfo = [
             'user_name' => $user?->first_name . ' ' . $user?->last_name,
         ];
         if ($title && $user && $user->is_active && $user->fcm_token && $customerNotification) {
-            device_notification($user->fcm_token, $title, null, null, null, 'loyalty_point', null, $user->id, $dataInfo);
+            device_notification($user->fcm_token, $title, $description, null, null, 'loyalty_point', null, $user->id, $dataInfo);
         }
+    }
+
+    /**
+     * @param Booking|BookingRepeat $booking
+     */
+    private function bookingEligibleForLoyaltyByCompletionOutcome($booking): bool
+    {
+        $rawOutcomes = business_config('loyalty_point_completion_outcomes', 'customer_config')->live_values ?? '[]';
+        $selectedOutcomes = json_decode((string) $rawOutcomes, true);
+        if (! is_array($selectedOutcomes) || $selectedOutcomes === []) {
+            return true;
+        }
+
+        $filterMode = (string) (business_config('loyalty_point_completion_outcome_filter_mode', 'customer_config')->live_values ?? 'include');
+        $selectedOutcomes = BookingFinancialSettlementService::normalizeLoyaltyPointCompletionTypeKeys($selectedOutcomes);
+        $bookingCompletionType = app(BookingFinancialSettlementService::class)
+            ->resolveLoyaltyPointCompletionType($booking);
+        $isSelected = in_array($bookingCompletionType, $selectedOutcomes, true);
+
+        return $filterMode === 'exclude' ? ! $isSelected : $isSelected;
     }
 
     function readableIdToNumber($suffix): float|int|string

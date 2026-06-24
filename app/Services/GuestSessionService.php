@@ -35,9 +35,25 @@ class GuestSessionService
         return null;
     }
 
-    public static function register(string $guestId, string $secret): void
+    /**
+     * Register a guest session. Returns true when registered or already registered with the same secret.
+     */
+    public static function register(string $guestId, string $secret): bool
     {
-        Cache::put(self::cacheKey($guestId), self::hashSecret($secret), now()->addDays(self::TTL_DAYS));
+        if ($guestId === '' || strlen($secret) < 32) {
+            return false;
+        }
+
+        $stored = Cache::get(self::cacheKey($guestId));
+        $hashed = self::hashSecret($secret);
+
+        if ($stored !== null) {
+            return hash_equals((string) $stored, $hashed);
+        }
+
+        Cache::put(self::cacheKey($guestId), $hashed, now()->addDays(self::TTL_DAYS));
+
+        return true;
     }
 
     public static function validate(string $guestId, ?string $secret): bool
@@ -48,9 +64,7 @@ class GuestSessionService
 
         $stored = Cache::get(self::cacheKey($guestId));
         if ($stored === null) {
-            self::register($guestId, $secret);
-
-            return true;
+            return false;
         }
 
         return hash_equals((string) $stored, self::hashSecret($secret));

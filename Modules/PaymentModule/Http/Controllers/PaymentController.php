@@ -23,6 +23,7 @@ use Modules\PaymentModule\Library\Payment as Payment;
 use Modules\PaymentModule\Library\Payer;
 use Modules\PaymentModule\Library\Receiver;
 use App\Lib\PaymentAccessToken;
+use App\Lib\PaymentRequestGuard;
 use Modules\PaymentModule\Services\PaymentRequestCartSnapshotService;
 
 
@@ -47,6 +48,7 @@ class PaymentController extends Controller
 
         }  elseif ($request->has('is_pay_to_admin')) {
             $validator_data = Validator::make($request->all(), [
+                'access_token' => 'nullable|string',
                 'payment_method' => 'required|in:' . implode(',', array_column(GATEWAYS_PAYMENT_METHODS, 'key')),
                 'provider_id' => 'required|uuid',
             ]);
@@ -81,7 +83,7 @@ class PaymentController extends Controller
                 //For bidding
                 'post_id' => 'nullable|uuid',
                 'provider_id' => 'nullable|uuid',
-                'is_partial' => 'nullable:in:0,1',
+                'is_partial' => 'nullable|in:0,1',
                 'payment_amount_type' => 'nullable|in:confirmation,full',
                 'payment_platform' => 'nullable|in:web,app',
                 'service_location' => 'required|in:customer,provider',
@@ -116,13 +118,26 @@ class PaymentController extends Controller
         }
 
         $is_add_fund = $request['is_add_fund'] == 1 ? 1 : 0;
+        if ($is_add_fund && ! add_to_fund_wallet_feature_enabled()) {
+            if ($request->has('callback')) {
+                return redirect($request['callback'] . '?flag=fail');
+            }
+
+            return response()->json(response_formatter(DEFAULT_400), 400);
+        }
         $is_pay_to_admin = $request['is_pay_to_admin'] == true ? 1 : 0;
         $is_repeat_single_booking = $request['is_repeat_single_booking'] == true ? 1 : 0;
         $switch_offline_to_digital = $request['switch_offline_to_digital'] ? 1 : 0;
 
-        //customer user
-        $customer_user_id = PaymentAccessToken::resolve($request['access_token']) ?? '';
-        if ($customer_user_id === '' && !$is_pay_to_admin) {
+        $customer_user_id = '';
+        if ($is_pay_to_admin) {
+            $providerForAuth = Provider::where('id', $request['provider_id'])->first();
+            $customer_user_id = PaymentRequestGuard::resolvePayToAdminSubjectId($request, $providerForAuth) ?? '';
+        } else {
+            $customer_user_id = PaymentAccessToken::resolve($request['access_token']) ?? '';
+        }
+
+        if ($customer_user_id === '') {
             if ($request->has('callback')) {
                 return redirect($request['callback'] . '?flag=fail');
             }
@@ -168,7 +183,10 @@ class PaymentController extends Controller
                 if ($provider->owner->account->account_payable > $provider->owner->account->account_receivable) {
                     $amount = $provider->owner->account->account_payable - $provider->owner->account->account_receivable;
                     $payer = new Payer($customer['first_name'] . ' ' . $customer['last_name'], $customer['email'], $customer['phone'], '');
-                    $additional_data = ['provider_id'=> $request['provider_id']];
+                    $additional_data = [
+                        'provider_id' => $request['provider_id'],
+                        'access_token' => $request['access_token'] ?? '',
+                    ];
 
                     $payment_info = new Payment(
                         success_hook: 'pay_to_admin_success',
@@ -200,9 +218,13 @@ class PaymentController extends Controller
         //==========>>>>>> Repeat Single Booking Payment <<<<<<<==============
 
         if ($is_repeat_single_booking) {
-            $repeatBooking = BookingRepeat::where('id', $request['booking_repeat_id'])->first();
+            $repeatBooking = BookingRepeat::with('booking')->where('id', $request['booking_repeat_id'])->first();
 
             if ($repeatBooking) {
+                if ($reject = $this->rejectUnlessPaymentSubjectOwnsBooking($customer_user_id, $repeatBooking->booking)) {
+                    return $reject;
+                }
+
                 $customer = User::find($customer_user_id);
                 $amount = round((float) $repeatBooking->total_booking_amount, 2);
                 if ($request->filled('amount')) {
@@ -252,6 +274,10 @@ class PaymentController extends Controller
                 return redirect()->back()->withErrors(translate('Booking Not Found'));
             }
 
+            if ($reject = $this->rejectUnlessPaymentSubjectOwnsBooking($customer_user_id, $booking)) {
+                return $reject;
+            }
+
             $payer = new Payer('first name' . ' ' . 'last name', 'first@last.com', '1234567890', '');
             $additional_data = $request->all();
 
@@ -281,17 +307,22 @@ class PaymentController extends Controller
             $total_booking_amount = $booking->total_booking_amount;
 
             if ($request['is_partial']){
-                $customer_wallet_balance = User::find($customer_user_id)?->wallet_balance;
+                $customer_wallet_balance = User::find($customer_user_id)?->wallet_balance ?? 0;
+                $wallet_applied = min(
+                    (float) $customer_wallet_balance,
+                    cap_wallet_spend_for_single_transaction((float) $customer_wallet_balance),
+                    (float) $amount_to_pay
+                );
 
                 //partial validation
-                if (!$is_guest && $request['is_partial'] && ($customer_wallet_balance <= 0 || $customer_wallet_balance >= $total_booking_amount)) {
+                if (!$is_guest && $request['is_partial'] && ($wallet_applied <= 0 || $wallet_applied >= $amount_to_pay)) {
                     return response()->json(response_formatter(DEFAULT_400), 400);
                 }
 
-                $amount_to_pay -= $customer_wallet_balance;
+                $amount_to_pay -= $wallet_applied;
 
                 $data = [
-                    'wallet_paid_amount' => $customer_wallet_balance,
+                    'wallet_paid_amount' => $wallet_applied,
                     'digitally_paid_amount' => $amount_to_pay,
                 ];
 
@@ -383,14 +414,30 @@ class PaymentController extends Controller
 
         $paymentAmountType = $request['payment_amount_type'] ?? 'full';
         if (!isset($request['post_id']) && require_booking_upfront_payment()) {
-            $amount_to_pay = resolve_checkout_payment_amount($customer_user_id, $paymentAmountType);
+            $payable_before_wallet = resolve_checkout_payment_amount($customer_user_id, $paymentAmountType);
         } else {
-            $amount_to_pay = $request['is_partial'] ? ($total_booking_amount - $customer_wallet_balance) : $total_booking_amount;
+            $payable_before_wallet = $total_booking_amount;
         }
 
-        //partial validation
-        if (!$is_guest && $request['is_partial'] && ($customer_wallet_balance <= 0 || $customer_wallet_balance >= $total_booking_amount)) {
+        $wallet_applied = 0.0;
+        if ($request['is_partial']) {
+            $wallet_applied = min(
+                (float) ($customer_wallet_balance ?? 0),
+                cap_wallet_spend_for_single_transaction((float) ($customer_wallet_balance ?? 0)),
+                (float) $payable_before_wallet
+            );
+        }
+
+        //partial validation — wallet must cover part but not all of the payable amount
+        if (!$is_guest && $request['is_partial'] && ($wallet_applied <= 0 || $wallet_applied >= $payable_before_wallet)) {
             return response()->json(response_formatter(DEFAULT_400), 400);
+        }
+
+        $amount_to_pay = $payable_before_wallet - $wallet_applied;
+
+        if ($request['is_partial'] && $wallet_applied > 0) {
+            $query_params['wallet_paid_amount'] = round($wallet_applied, 2);
+            $query_params['digitally_paid_amount'] = round($amount_to_pay, 2);
         }
 
         //make payment
@@ -438,5 +485,21 @@ class PaymentController extends Controller
     {
         if ($request->has('callback')) return redirect($request['callback'] . '?flag=fail');
         else return response()->json(response_formatter(DEFAULT_400), 400);
+    }
+
+    /**
+     * @return JsonResponse|Redirector|RedirectResponse|null
+     */
+    private function rejectUnlessPaymentSubjectOwnsBooking(string $customerUserId, ?Booking $booking): JsonResponse|Redirector|RedirectResponse|null
+    {
+        if (! $booking || (string) $booking->customer_id !== $customerUserId) {
+            if (request()->has('callback')) {
+                return redirect(request('callback') . '?flag=fail');
+            }
+
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
+        return null;
     }
 }

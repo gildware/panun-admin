@@ -170,8 +170,9 @@ class PostController extends Controller
         foreach ($providers as $provider) {
             $fcmToken = $provider->owner->fcm_token ?? null;
             $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider->owner?->current_language_key);
+            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider->owner?->current_language_key);
             if ($fcmToken && $provider->service_availability && $title && ($bookingNotificationStatus['push_notification_booking'] ?? false)) {
-                device_notification_for_bidding($fcmToken, $title, null, null, 'bidding', null, $post->id, null, [
+                device_notification_for_bidding($fcmToken, $title, $description, null, 'bidding', null, $post->id, null, [
                     'user_name' => $post->customer?->first_name . ' ' . $post->customer?->last_name,
                 ]);
             }
@@ -400,7 +401,8 @@ class PostController extends Controller
         $permission = isNotificationActive(null, 'booking', 'notification', 'user');
         if (!is_null($fcmToken) && $permission) {
             $title = get_push_notification_message('customized_booking_request_delete', 'customer_notification', $languageKey);
-            device_notification($fcmToken, $title, null, null, null, 'general');
+            $description = get_push_notification_description('customized_booking_request_delete', 'customer_notification', $languageKey);
+            device_notification($fcmToken, $title, $description, null, null, 'general');
         }
 
         $post->delete();
@@ -431,7 +433,8 @@ class PostController extends Controller
             if (!is_null($fcmToken)) {
                 $languageKey = $customer?->current_language_key;
                 $title = get_push_notification_message('customized_booking_request_delete', 'customer_notification', $languageKey);
-                device_notification($fcmToken, $title, null, null, null, 'bidding');
+                $description = get_push_notification_description('customized_booking_request_delete', 'customer_notification', $languageKey);
+                device_notification($fcmToken, $title, $description, null, null, 'bidding');
             }
         }
 

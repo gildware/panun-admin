@@ -24,11 +24,15 @@ class RazorpayWebhookLogController extends Controller
         ]);
 
         $search = trim((string) $request->get('search', ''));
-        $result = trim((string) $request->get('result', ''));
+        $result = $request->has('result')
+            ? trim((string) $request->get('result', ''))
+            : 'successful';
 
         $query = RazorpayWebhookLog::query()->latest();
 
-        if ($result !== '') {
+        if ($result === 'successful') {
+            $query->whereIn('result', ['completed', 'already_completed']);
+        } elseif ($result !== '') {
             $query->where('result', $result);
         }
 
@@ -43,7 +47,12 @@ class RazorpayWebhookLogController extends Controller
             });
         }
 
-        $logs = $query->paginate(pagination_limit())->appends($request->query());
+        $queryParams = $request->query();
+        if (! $request->has('result')) {
+            $queryParams['result'] = 'successful';
+        }
+
+        $logs = $query->paginate(pagination_limit())->appends($queryParams);
 
         $summary = [
             'total' => RazorpayWebhookLog::query()->count(),

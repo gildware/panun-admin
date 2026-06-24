@@ -152,9 +152,15 @@ class WalletController extends Controller
             ->latest()->get();
 
         return (new FastExcel($filteredTransactions))->download(time() . '-provider-report.xlsx', function ($transaction) {
+            $reference = $transaction->reference_note;
+            if (empty($reference) && isset($transaction->booking) && $transaction->booking?->readable_id) {
+                $reference = translate('Booking') . ' #' . $transaction->booking->readable_id;
+            }
+
             return [
                 'Transaction ID' => $transaction->id,
                 'Transaction Date' => date('d-M-Y h:ia', strtotime($transaction->created_at)),
+                'Reference' => $reference,
                 'Transaction To (full name)' => isset($transaction->to_user) ? $transaction->to_user->first_name . ' ' . $transaction->to_user->last_name : null,
                 'Transaction To (phone)' => isset($transaction->to_user) ? $transaction->to_user->phone : null,
                 'Transaction To (email)' => isset($transaction->to_user) ? $transaction->to_user->email : null,

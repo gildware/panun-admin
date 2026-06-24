@@ -90,13 +90,14 @@ class PostBidController extends Controller
 
         $customer = Post::with(['customer'])->find($request['post_id'])?->customer;
         $title = get_push_notification_message('customer_notification_for_provider_bid_offer', 'customer_notification', $customer?->current_language_key);
+        $description = get_push_notification_description('customer_notification_for_provider_bid_offer', 'customer_notification', $customer?->current_language_key);
         $data_info = [
             'provider_name' => $request->user()?->provider?->company_name,
         ];
         info($request->user()->provider?->company_name);
         $userNotify  = isNotificationActive(null, 'booking', 'notification', 'user');
         if ($customer && $title && $userNotify) {
-            device_notification_for_bidding($customer->fcm_token, $title, null, null, 'bidding', null, $post_bid->post_id, $request->user()->provider->id, data: $data_info);
+            device_notification_for_bidding($customer->fcm_token, $title, $description, null, 'bidding', null, $post_bid->post_id, $request->user()->provider->id, data: $data_info);
         }
 
         return response()->json(response_formatter(DEFAULT_STORE_200, null), 200);
@@ -130,9 +131,10 @@ class PostBidController extends Controller
         if (!is_null($fcmToken)) {
             $languageKey = $post_bids->first()?->post?->customer?->current_language_key;
             $title = get_push_notification_message('customer_notification_for_provider_bid_withdraw', 'customer_notification', $languageKey);
+            $description = get_push_notification_description('customer_notification_for_provider_bid_withdraw', 'customer_notification', $languageKey);
             $userNotify  = isNotificationActive(null, 'booking', 'notification', 'user');
             if ($userNotify) {
-                device_notification($fcmToken, $title, null, null, null, 'bid-withdraw');
+                device_notification($fcmToken, $title, $description, null, null, 'bid-withdraw');
             }
         }
 

@@ -866,9 +866,10 @@ class BookingController extends Controller
             if ($repeat){
                 $fcmToken = $repeat?->booking?->customer?->fcm_token;
                 $title = translate('Your booking verification OTP is') . ' ' . $repeat->booking_otp;
+                $description = get_push_notification_description('otp', 'customer_notification', $repeat?->booking?->customer?->current_language_key);
 
                 if ($fcmToken) {
-                    device_notification($fcmToken, $title, null, null, $repeat->id, 'booking', null, $repeat?->booking?->customer?->id);
+                    device_notification($fcmToken, $title, $description, null, $repeat->id, 'booking', null, $repeat?->booking?->customer?->id);
                     return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
                 } else {
@@ -881,9 +882,10 @@ class BookingController extends Controller
 
         $fcmToken = $booking?->customer?->fcm_token;
         $title = translate('Your booking verification OTP is') . ' ' . $booking->booking_otp;
+        $description = get_push_notification_description('otp', 'customer_notification', $booking?->customer?->current_language_key);
 
         if ($fcmToken) {
-            device_notification($fcmToken, $title, null, null, $booking->id, 'booking', null, $booking?->customer?->id);
+            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, $booking?->customer?->id);
             return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
         } else {

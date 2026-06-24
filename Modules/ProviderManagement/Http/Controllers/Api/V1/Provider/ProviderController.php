@@ -884,12 +884,23 @@ class ProviderController extends Controller
      */
     public function changeLanguage(Request $request): JsonResponse
     {
-        if (auth('api')->user()) {
-            $customer = $this->user::find(auth('api')->user()->id);
-            $customer->current_language_key = $request->header('X-localization') ?? 'en';
-            $customer->save();
+        $user = null;
+        try {
+            $user = auth('api')->user();
+        } catch (\Throwable $e) {
+            // Ignore invalid bearer tokens (e.g. "Bearer null" from mobile clients).
+        }
+
+        if ($user) {
+            $customer = $this->user::find($user->id);
+            if ($customer) {
+                $customer->current_language_key = $request->header('X-localization') ?? 'en';
+                $customer->save();
+            }
+
             return response()->json(response_formatter(DEFAULT_200), 200);
         }
+
         return response()->json(response_formatter(DEFAULT_404), 200);
     }
 

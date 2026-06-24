@@ -49,16 +49,107 @@ use Illuminate\Support\Facades\Http;
     return $response->json('access_token');
 }
 
+if (!function_exists('format_push_notification_body')) {
+    function format_push_notification_body($description, $booking_id, $type, $data = null, $bookingType = null): ?string
+    {
+        if (!filled(trim((string) $description))) {
+            return null;
+        }
+
+        $body = text_variable_data_format($description, $booking_id, $type, $data, $bookingType);
+
+        return filled(trim((string) $body)) ? (string) $body : null;
+    }
+}
+
+if (!function_exists('apply_push_notification_body')) {
+    function apply_push_notification_body(array &$postData, ?string $body): void
+    {
+        if ($body === null) {
+            return;
+        }
+
+        $postData['message']['data']['body'] = $body;
+        $postData['message']['notification']['body'] = $body;
+    }
+}
+
+if (!function_exists('push_notification_sound_for_type')) {
+    function push_notification_sound_for_type(?string $type): string
+    {
+        return match ($type) {
+            'booking', 'booking_ignored', 'offline-payment' => 'booking.wav',
+            'chatting' => 'chat.wav',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'wallet.wav',
+            'bidding', 'bid-withdraw' => 'bidding.wav',
+            default => 'notification.wav',
+        };
+    }
+}
+
+if (!function_exists('push_notification_android_channel_for_type')) {
+    function push_notification_android_channel_for_type(?string $type): string
+    {
+        return match ($type) {
+            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking',
+            'chatting' => 'demandium_chat',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet',
+            'bidding', 'bid-withdraw' => 'demandium_bidding',
+            default => 'demandium',
+        };
+    }
+}
+
+if (!function_exists('apply_push_notification_sound')) {
+    function apply_push_notification_sound(array &$postData, ?string $type): void
+    {
+        $sound = push_notification_sound_for_type($type);
+        $channelId = push_notification_android_channel_for_type($type);
+
+        $postData['message']['data']['notification_sound'] = $sound;
+        $postData['message']['data']['android_channel_id'] = $channelId;
+        $postData['message']['apns']['payload']['aps']['sound'] = $sound;
+        $postData['message']['android']['notification']['channelId'] = $channelId;
+    }
+}
+
+if (!function_exists('apply_push_notification_urgent_delivery')) {
+    function apply_push_notification_urgent_delivery(array &$postData, ?string $type): void
+    {
+        if ($type !== 'booking') {
+            return;
+        }
+
+        $title = $postData['message']['data']['title'] ?? '';
+        $body = $postData['message']['data']['body'] ?? '';
+
+        $postData['message']['android']['priority'] = 'HIGH';
+        if (!empty($postData['message']['android']['notification'])) {
+            $postData['message']['android']['notification']['notification_priority'] = 'PRIORITY_MAX';
+            $postData['message']['android']['notification']['visibility'] = 'PUBLIC';
+        }
+
+        $postData['message']['apns']['headers'] = [
+            'apns-priority' => '10',
+        ];
+        $postData['message']['apns']['payload']['aps']['interruption-level'] = 'time-sensitive';
+        $postData['message']['apns']['payload']['aps']['alert'] = [
+            'title' => (string) $title,
+            'body' => (string) $body,
+        ];
+    }
+}
+
 if (!function_exists('device_notification')) {
     function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null)
     {
         $title = text_variable_data_format($title, $booking_id, $type, $data, $bookingType);
+        $body = format_push_notification_body($description, $booking_id, $type, $data, $bookingType);
         $postData = [
             'message' => [
                 "token" => $fcm_token,
                 "data" => [
                     "title" => (string)$title,
-                    "body" => (string)$description,
                     "booking_id" => (string)$booking_id,
                     "channel_id" => (string)$channel_id,
                     "user_id" => (string)$user_id,
@@ -72,22 +163,21 @@ if (!function_exists('device_notification')) {
                 ],
                 "notification" => [
                     'title' => (string)$title,
-                    'body' => (string)$description,
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
+
+        apply_push_notification_body($postData, $body);
+        apply_push_notification_sound($postData, $type);
+        apply_push_notification_urgent_delivery($postData, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -97,13 +187,13 @@ if (!function_exists('topic_notification')) {
     function topic_notification($topic, $title, $description, $image, $booking_id, $type='status', $service_slug=null, $service_id=null)
     {
         $image = asset('storage/app/public/push-notification') . '/' . $image;
+        $body = format_push_notification_body($description, $booking_id, $type, null, null);
 
         $postData = [
             'message' => [
                 "topic" => $topic,
                 "data" => [
                     "title" => (string)$title,
-                    "body" => (string)$description,
                     "booking_id" => (string)$booking_id,
                     "type" => (string)$type,
                     "image" => (string)$image,
@@ -112,23 +202,21 @@ if (!function_exists('topic_notification')) {
                 ],
                 "notification" => [
                     "title" => (string)$title,
-                    "body" => (string)$description,
                     "image" => (string)$image,
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
+
+        apply_push_notification_body($postData, $body);
+        apply_push_notification_sound($postData, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -139,6 +227,7 @@ if (!function_exists('device_notification_for_bidding')) {
     function device_notification_for_bidding($fcm_token, $title, $description, $image, $type='bidding', $booking_id = null, $post_id = null, $provider_id = null, $data=null)
     {
         $title = text_variable_data_format($title, $booking_id, $type, $data);
+        $body = format_push_notification_body($description, $booking_id, $type, $data);
         $image = asset('storage/app/public/push-notification') . '/' . $image;
 
         $postData = [
@@ -146,7 +235,6 @@ if (!function_exists('device_notification_for_bidding')) {
                 "token" => $fcm_token,
                 "data" => [
                     "title" => (string)$title,
-                    "body" => (string)$description,
                     "booking_id" => (string)$booking_id,
                     "post_id" => (string)$post_id,
                     "provider_id" => (string)$provider_id,
@@ -155,22 +243,20 @@ if (!function_exists('device_notification_for_bidding')) {
                 ],
                 "notification" => [
                     "title" => (string)$title,
-                    "body" => (string)$description,
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
+
+        apply_push_notification_body($postData, $body);
+        apply_push_notification_sound($postData, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -203,18 +289,16 @@ if (!function_exists('device_notification_for_chatting')) {
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
+
+        apply_push_notification_sound($postData, $type);
 
         return sendNotificationToHttp($postData);
     }

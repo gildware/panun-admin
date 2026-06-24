@@ -111,8 +111,9 @@ class RegisterController extends Controller
 
                 $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
                 $title = get_push_notification_message('referral_code_used', 'customer_notification', $user?->current_language_key);
+                $description = get_push_notification_description('referral_code_used', 'customer_notification', $user?->current_language_key);
                 if ($title && $userWhoRerreded->fcm_token && $userRefund) {
-                    device_notification($userWhoRerreded->fcm_token, $title, null, null, null, 'general', null, $userWhoRerreded->id);
+                    device_notification($userWhoRerreded->fcm_token, $title, $description, null, null, 'general', null, $userWhoRerreded->id);
                 }
 
                 $pushNotification = new PushNotification();

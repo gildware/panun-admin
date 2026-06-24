@@ -224,7 +224,11 @@
                                                     <td>{{$transaction->id}}</td>
                                                     <td>
                                                         @if($transaction->reference_note)
-                                                            <span>{{$transaction->reference_note}}</span>
+                                                            <span>{{ $transaction->reference_note }}</span>
+                                                        @elseif(isset($transaction->booking) && $transaction->booking?->readable_id)
+                                                            <a href="{{ route('admin.booking.details', [$transaction->booking->id, 'web_page' => 'details']) }}">
+                                                                {{ translate('Booking') }} #{{ $transaction->booking->readable_id }}
+                                                            </a>
                                                         @else
                                                             <span>---</span>
                                                         @endif

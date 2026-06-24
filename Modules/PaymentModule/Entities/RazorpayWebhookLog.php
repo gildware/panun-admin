@@ -20,6 +20,7 @@ class RazorpayWebhookLog extends Model
         'result',
         'http_status',
         'booking_readable_id',
+        'paid_amount',
         'error_message',
         'payload',
     ];
@@ -28,4 +29,19 @@ class RazorpayWebhookLog extends Model
         'signature_valid' => 'boolean',
         'payload' => 'array',
     ];
+
+    public function getPaidAmountAttribute($value): ?float
+    {
+        if ($value !== null && $value !== '') {
+            return round((float) $value, 2);
+        }
+
+        $entity = is_array($this->payload['payload']['payment']['entity'] ?? null)
+            ? $this->payload['payload']['payment']['entity']
+            : [];
+
+        return isset($entity['amount'])
+            ? round((int) $entity['amount'] / 100, 2)
+            : null;
+    }
 }

@@ -2418,6 +2418,68 @@ if (! function_exists('booking_installment_received_by_label')) {
     }
 }
 
+if (! function_exists('booking_partial_payment_resolve_transaction_id')) {
+    /**
+     * Resolve display transaction id for a partial row (gateway id for digital, wallet trx uuid for wallet).
+     */
+    function booking_partial_payment_resolve_transaction_id(BookingPartialPayment $partial, Booking $main): ?string
+    {
+        $stored = trim((string) ($partial->transaction_id ?? ''));
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        $ledger = null;
+        if ($partial->relationLoaded('ledgerTransactions')) {
+            $ledger = $partial->ledgerTransactions
+                ->where('type', LedgerTransaction::TYPE_IN)
+                ->sortByDesc('created_at')
+                ->first();
+        } else {
+            $ledger = $partial->ledgerTransactions()
+                ->where('type', LedgerTransaction::TYPE_IN)
+                ->orderByDesc('created_at')
+                ->first();
+        }
+        if ($ledger instanceof LedgerTransaction) {
+            $ledgerId = trim((string) ($ledger->transaction_id ?? ''));
+            if ($ledgerId !== '') {
+                return $ledgerId;
+            }
+        }
+
+        $paidWith = (string) ($partial->paid_with ?? '');
+        $amount = round((float) ($partial->paid_amount ?? 0), 2);
+
+        if ($paidWith === 'wallet') {
+            $walletTrx = \Modules\TransactionModule\Entities\Transaction::query()
+                ->where('booking_id', $main->id)
+                ->where('trx_type', WALLET_TRX_TYPE['wallet_payment'])
+                ->whereBetween('debit', [$amount - 0.01, $amount + 0.01])
+                ->when(
+                    $partial->created_at,
+                    fn ($query) => $query->whereBetween('created_at', [
+                        $partial->created_at->copy()->subMinutes(5),
+                        $partial->created_at->copy()->addMinutes(5),
+                    ])
+                )
+                ->orderBy('created_at')
+                ->first();
+
+            return $walletTrx?->id ? (string) $walletTrx->id : null;
+        }
+
+        if (! in_array($paidWith, ['wallet', 'cash_after_service'], true)) {
+            $gatewayId = trim((string) ($main->transaction_id ?? ''));
+            if ($gatewayId !== '') {
+                return $gatewayId;
+            }
+        }
+
+        return null;
+    }
+}
+
 if (! function_exists('booking_installment_row_from_partial')) {
     /**
      * @return array<string, mixed>
@@ -2430,7 +2492,7 @@ if (! function_exists('booking_installment_row_from_partial')) {
             'received_by_label' => booking_installment_received_by_label($partial->received_by),
             'amount' => round((float) ($partial->paid_amount ?? 0), 2),
             'payment_method_label' => (string) $partial->paymentMethodLabelForAdmin($main),
-            'transaction_id' => $partial->transaction_id ?: null,
+            'transaction_id' => booking_partial_payment_resolve_transaction_id($partial, $main),
             'due_after_payment' => round(max(0.0, $dueAfterPayment), 2),
             'paid_with' => $partial->paid_with,
             'id' => $partial->id ? (string) $partial->id : null,
@@ -5112,6 +5174,120 @@ if (!function_exists('require_booking_upfront_payment')) {
     }
 }
 
+if (!function_exists('max_wallet_spend_per_transaction')) {
+    function max_wallet_spend_per_transaction(): float
+    {
+        return max(0.0, (float) (business_config('max_wallet_spend_per_transaction', 'customer_config')?->live_values ?? 0));
+    }
+}
+
+if (!function_exists('wallet_spend_exceeds_per_transaction_limit')) {
+    function wallet_spend_exceeds_per_transaction_limit(float $amount): bool
+    {
+        $max = max_wallet_spend_per_transaction();
+
+        return $max > 0.009 && round(max(0.0, $amount), 2) > round($max, 2);
+    }
+}
+
+if (!function_exists('cap_wallet_spend_for_single_transaction')) {
+    function cap_wallet_spend_for_single_transaction(float $amount): float
+    {
+        $max = max_wallet_spend_per_transaction();
+        $amount = round(max(0.0, $amount), 2);
+        if ($max <= 0) {
+            return $amount;
+        }
+
+        return round(min($amount, $max), 2);
+    }
+}
+
+if (!function_exists('customer_wallet_feature_enabled')) {
+    function customer_wallet_feature_enabled(): bool
+    {
+        return (int) (business_config('customer_wallet', 'customer_config')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('customer_loyalty_point_feature_enabled')) {
+    function customer_loyalty_point_feature_enabled(): bool
+    {
+        return (int) (business_config('customer_loyalty_point', 'customer_config')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('add_to_fund_wallet_feature_enabled')) {
+    function add_to_fund_wallet_feature_enabled(): bool
+    {
+        return (int) (business_config('add_to_fund_wallet', 'customer_config')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('wallet_payment_feature_enabled')) {
+    function wallet_payment_feature_enabled(): bool
+    {
+        return (int) (business_config('wallet_payment', 'service_setup')?->live_values ?? 0) === 1;
+    }
+}
+
+if (!function_exists('lock_customer_user_for_wallet')) {
+    function lock_customer_user_for_wallet(string $userId): \Modules\UserManagement\Entities\User
+    {
+        $user = \Modules\UserManagement\Entities\User::where('id', $userId)->lockForUpdate()->first();
+        if (! $user) {
+            throw new \RuntimeException('customer_not_found');
+        }
+
+        return $user;
+    }
+}
+
+if (!function_exists('debit_customer_wallet_or_fail')) {
+    function debit_customer_wallet_or_fail(\Modules\UserManagement\Entities\User $user, float $amount): \Modules\UserManagement\Entities\User
+    {
+        $amount = round(max(0.0, $amount), 2);
+        if ($amount <= 0) {
+            return $user;
+        }
+        if ((float) $user->wallet_balance < $amount) {
+            throw new \RuntimeException('insufficient_wallet_balance');
+        }
+        $user->wallet_balance = round((float) $user->wallet_balance - $amount, 2);
+        $user->save();
+
+        return $user;
+    }
+}
+
+if (!function_exists('credit_customer_wallet')) {
+    function credit_customer_wallet(\Modules\UserManagement\Entities\User $user, float $amount): \Modules\UserManagement\Entities\User
+    {
+        $amount = round(max(0.0, $amount), 2);
+        if ($amount <= 0) {
+            return $user;
+        }
+        $user->wallet_balance = round((float) $user->wallet_balance + $amount, 2);
+        $user->save();
+
+        return $user;
+    }
+}
+
+if (!function_exists('debit_customer_loyalty_points_or_fail')) {
+    function debit_customer_loyalty_points_or_fail(\Modules\UserManagement\Entities\User $user, float $points): \Modules\UserManagement\Entities\User
+    {
+        $points = round(max(0.0, $points), 2);
+        if ((float) $user->loyalty_point < $points) {
+            throw new \RuntimeException('insufficient_loyalty_points');
+        }
+        $user->loyalty_point = round((float) $user->loyalty_point - $points, 2);
+        $user->save();
+
+        return $user;
+    }
+}
+
 if (!function_exists('booking_confirmation_units_for_cart')) {
   /**
    * Distinct cart service lines (line quantity does not multiply confirmation units).
@@ -5184,6 +5360,33 @@ if (!function_exists('map_booking_payment_paid_with')) {
     }
 }
 
+if (!function_exists('wallet_transaction_booking_reference_note')) {
+    function wallet_transaction_booking_reference_note($booking): ?string
+    {
+        if ($booking === null) {
+            return null;
+        }
+
+        $readableId = '';
+        if ($booking instanceof Booking) {
+            $readableId = trim((string) ($booking->readable_id ?? ''));
+        } elseif (is_array($booking)) {
+            $readableId = trim((string) ($booking['readable_id'] ?? ''));
+            if ($readableId === '' && ! empty($booking['id'])) {
+                $readableId = trim((string) (Booking::query()->whereKey($booking['id'])->value('readable_id') ?? ''));
+            }
+        } else {
+            $readableId = trim((string) ($booking->readable_id ?? ''));
+        }
+
+        if ($readableId === '') {
+            return null;
+        }
+
+        return translate('Booking') . ' #' . $readableId;
+    }
+}
+
 if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
     /**
      * Record customer advance (booking confirmation) payment — not the full booking total.
@@ -5194,6 +5397,9 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
         if ($paidAmount <= 0) {
             return;
         }
+        if ($paymentMethod === 'wallet_payment' && wallet_spend_exceeds_per_transaction_limit($paidAmount)) {
+            throw new \RuntimeException('wallet_max_spend_per_transaction');
+        }
 
         $adminUserId = \Modules\UserManagement\Entities\User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
 
@@ -5202,11 +5408,11 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
             $account->balance_pending += $paidAmount;
             $account->save();
 
-            Transaction::create([
+            \Modules\TransactionModule\Entities\Transaction::create([
                 'ref_trx_id' => null,
                 'booking_id' => $booking->id,
                 'trx_type' => TRX_TYPE['booking_amount'],
-                'company_flow' => Transaction::FLOW_IN,
+                'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_IN,
                 'debit' => 0,
                 'credit' => $paidAmount,
                 'balance' => $account->balance_pending,
@@ -5217,18 +5423,17 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                 'is_guest' => $booking->is_guest,
             ]);
 
-            if ($paymentMethod === 'wallet_payment') {
-                $user = \Modules\UserManagement\Entities\User::find($booking->customer_id);
-                if ($user && $user->wallet_balance >= $paidAmount) {
-                    $user->wallet_balance -= $paidAmount;
-                    $user->save();
-                }
+            $partialTransactionId = trim((string) ($booking->transaction_id ?? '')) ?: null;
 
-                Transaction::create([
+            if ($paymentMethod === 'wallet_payment') {
+                $user = lock_customer_user_for_wallet((string) $booking->customer_id);
+                $user = debit_customer_wallet_or_fail($user, $paidAmount);
+
+                $walletTransaction = \Modules\TransactionModule\Entities\Transaction::create([
                     'ref_trx_id' => null,
                     'booking_id' => $booking->id,
                     'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
-                    'company_flow' => Transaction::FLOW_NONE,
+                    'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_NONE,
                     'debit' => $paidAmount,
                     'credit' => 0,
                     'balance' => $user?->wallet_balance ?? 0,
@@ -5237,12 +5442,20 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                     'from_user_account' => null,
                     'to_user_account' => 'user_wallet',
                     'is_guest' => $booking->is_guest,
+                    'reference_note' => wallet_transaction_booking_reference_note($booking),
                 ]);
+                $partialTransactionId = (string) $walletTransaction->id;
+            }
+
+            if ($partialPaymentId && $partialTransactionId) {
+                BookingPartialPayment::query()
+                    ->whereKey($partialPaymentId)
+                    ->update(['transaction_id' => $partialTransactionId]);
             }
 
             ledger_record_in([
                 'amount' => $paidAmount,
-                'transaction_id' => $booking->transaction_id ?? null,
+                'transaction_id' => $partialTransactionId,
                 'booking_id' => $booking->id,
                 'payment_method' => $paymentMethod === 'wallet_payment' ? 'wallet_payment' : ($paymentMethod === 'offline_payment' ? 'offline_payment' : 'digital_payment'),
                 'date' => now()->toDateString(),
@@ -5250,6 +5463,77 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                 'booking_partial_payment_id' => $partialPaymentId,
             ]);
         });
+    }
+}
+
+if (!function_exists('resolve_checkout_wallet_digital_split')) {
+    /**
+     * @return array{wallet_paid: float, digital_paid: float, checkout_paid: float}
+     */
+    function resolve_checkout_wallet_digital_split($request, float $checkoutPayable, float $customerWalletBalance): array
+    {
+        $checkoutPayable = round(max(0.0, $checkoutPayable), 2);
+        $walletPaid = round((float) ($request['wallet_paid_amount'] ?? 0), 2);
+        $digitalPaid = round((float) ($request['digitally_paid_amount'] ?? ($request['verified_checkout_amount'] ?? 0)), 2);
+
+        if ($walletPaid <= 0 && $digitalPaid <= 0) {
+            $walletPaid = round(min(
+                cap_wallet_spend_for_single_transaction((float) $customerWalletBalance),
+                $checkoutPayable
+            ), 2);
+            $digitalPaid = round(max(0.0, $checkoutPayable - $walletPaid), 2);
+        } elseif ($walletPaid <= 0) {
+            $digitalPaid = round(min($checkoutPayable, max(0.0, $digitalPaid)), 2);
+            $walletPaid = round(max(0.0, $checkoutPayable - $digitalPaid), 2);
+        } else {
+            $walletPaid = round(min($checkoutPayable, max(0.0, $walletPaid)), 2);
+            if ($digitalPaid <= 0) {
+                $digitalPaid = round(max(0.0, $checkoutPayable - $walletPaid), 2);
+            } else {
+                $digitalPaid = round(min(max(0.0, $checkoutPayable - $walletPaid), $digitalPaid), 2);
+            }
+        }
+
+        return [
+            'wallet_paid' => $walletPaid,
+            'digital_paid' => $digitalPaid,
+            'checkout_paid' => round($walletPaid + $digitalPaid, 2),
+        ];
+    }
+}
+
+if (!function_exists('record_checkout_wallet_digital_partial_payments')) {
+    function record_checkout_wallet_digital_partial_payments(
+        Booking $booking,
+        $request,
+        float $totalBookingAmount,
+        float $checkoutPayable,
+        float $customerWalletBalance
+    ): void {
+        $split = resolve_checkout_wallet_digital_split($request, $checkoutPayable, $customerWalletBalance);
+        $walletPaid = $split['wallet_paid'];
+        $digitalPaid = $split['digital_paid'];
+        $checkoutPaid = $split['checkout_paid'];
+
+        if ($walletPaid > 0) {
+            BookingPartialPayment::create([
+                'booking_id' => $booking->id,
+                'paid_with' => 'wallet',
+                'paid_amount' => $walletPaid,
+                'due_amount' => round(max(0.0, $checkoutPayable - $walletPaid), 2),
+                'received_by' => 'company',
+            ]);
+        }
+
+        if ($digitalPaid > 0 && ($request['payment_method'] ?? '') !== 'cash_after_service') {
+            BookingPartialPayment::create([
+                'booking_id' => $booking->id,
+                'paid_with' => map_booking_payment_paid_with((string) ($request['payment_method'] ?? '')),
+                'paid_amount' => $digitalPaid,
+                'due_amount' => round(max(0.0, $totalBookingAmount - $checkoutPaid), 2),
+                'received_by' => 'company',
+            ]);
+        }
     }
 }
 
@@ -5317,6 +5601,13 @@ if (!function_exists('finalize_booking_checkout_transactions')) {
         $paymentAmountType = $request['payment_amount_type'] ?? 'full';
 
         if ($paymentAmountType === 'confirmation') {
+            $booking->loadMissing('booking_partial_payments');
+            if ($booking->booking_partial_payments->contains(fn ($partial) => ($partial->paid_with ?? '') === 'wallet')) {
+                placeBookingTransactionForPartialDigital($booking);
+
+                return;
+            }
+
             $verified = round((float) ($request['verified_checkout_amount'] ?? 0), 2);
             record_booking_advance_checkout_payment(
                 $booking,

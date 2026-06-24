@@ -177,32 +177,45 @@ class CustomerController extends Controller
      */
     public function transferLoyaltyPointToWallet(Request $request): JsonResponse
     {
+        if (! customer_loyalty_point_feature_enabled() || ! customer_wallet_feature_enabled()) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'loyalty_point', 'message' => translate('This feature is currently unavailable.')],
+            ]), 400);
+        }
+
+        $minPoint = (float) (business_config('min_loyalty_point_to_transfer', 'customer_config')->live_values ?? 0);
+        $pointValuePerCurrencyUnit = (float) (business_config('loyalty_point_value_per_currency_unit', 'customer_config')->live_values ?? 0);
+
+        if ($pointValuePerCurrencyUnit <= 0) {
+            return response()->json(response_formatter(DEFAULT_400, null, [
+                ['error_code' => 'loyalty_point', 'message' => translate('Loyalty point conversion is not configured.')],
+            ]), 400);
+        }
+
         $validator = Validator::make($request->all(), [
-            'point' => 'required',
+            'point' => 'required|numeric|min:' . max(1, $minPoint),
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-
-        //user point check (if has sufficient amount)
+        $point = round((float) $request['point'], 2);
         $user = $this->customer->find($request->user()->id);
-        if($request['point'] > $user->loyalty_point) {
+
+        if ($point > (float) $user->loyalty_point) {
             return response()->json(response_formatter(DEFAULT_400, null, null), 400);
         }
 
-        //minimum point check (for transferring)
-        $minPoint = business_config('min_loyalty_point_to_transfer', 'customer_config')->live_values;
-        if ($request['point'] < $minPoint ) {
-            return response()->json(response_formatter(DEFAULT_400, null, null), 400);
+        try {
+            $loyaltyAmount = round($point / $pointValuePerCurrencyUnit, 2);
+            loyaltyPointWalletTransferTransaction($user->id, $point, $loyaltyAmount);
+        } catch (\RuntimeException $e) {
+            if (in_array($e->getMessage(), ['insufficient_loyalty_points', 'customer_not_found'], true)) {
+                return response()->json(response_formatter(DEFAULT_400, null, null), 400);
+            }
+            throw $e;
         }
-
-        $pointValuePerCurrencyUnit = business_config('loyalty_point_value_per_currency_unit', 'customer_config')->live_values;
-        $loyaltyAmount = $request['point']/$pointValuePerCurrencyUnit;
-
-        //point transfer transaction
-        loyaltyPointWalletTransferTransaction($user->id, $request['point'], $loyaltyAmount);
 
         return response()->json(response_formatter(DEFAULT_200), 200);
     }
@@ -276,12 +289,22 @@ class CustomerController extends Controller
      */
     public function changeLanguage(Request $request): JsonResponse
     {
-        if (auth('api')->user()){
-            $customer = $this->customer->find(auth('api')->user()->id);
-            $customer->current_language_key = $request->header('X-localization') ?? 'en';
-            $customer->save();
+        $user = null;
+        try {
+            $user = auth('api')->user();
+        } catch (\Throwable $e) {
+            // Ignore invalid bearer tokens (e.g. stale mobile sessions).
+        }
+
+        if ($user) {
+            $customer = $this->customer->find($user->id);
+            if ($customer) {
+                $customer->current_language_key = $request->header('X-localization') ?? 'en';
+                $customer->save();
+            }
+
             return response()->json(response_formatter(DEFAULT_200), 200);
-        }elseif($request->has('guest_id')){
+        } elseif ($request->has('guest_id')) {
             $guest = $this->guest::find($request->guest_id);
             if (!isset($guest)) {
                 $guest = $this->guest;

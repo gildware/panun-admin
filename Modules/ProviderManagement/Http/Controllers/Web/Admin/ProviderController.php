@@ -2882,8 +2882,9 @@ class ProviderController extends Controller
         if ($provider_info?->is_suspended == '1') {
             $provider = $provider_info?->owner;
             $title = get_push_notification_message('provider_suspend', 'provider_notification', $provider?->current_language_key);
+            $description = get_push_notification_description('provider_suspend', 'provider_notification', $provider?->current_language_key);
             if ($provider?->fcm_token && $title) {
-                device_notification($provider?->fcm_token, $title, null, null, $provider_info->id, 'suspend');
+                device_notification($provider?->fcm_token, $title, $description, null, $provider_info->id, 'suspend');
             }
 
             $emailStatus = business_config('email_config_status', 'email_config')->live_values;
@@ -2899,8 +2900,9 @@ class ProviderController extends Controller
         } else {
             $provider = $provider_info?->owner;
             $title = get_push_notification_message('provider_suspension_remove', 'provider_notification', $provider?->current_language_key);
+            $description = get_push_notification_description('provider_suspension_remove', 'provider_notification', $provider?->current_language_key);
             if ($provider?->fcm_token && $title) {
-                device_notification($provider?->fcm_token, $title, null, null, $provider_info->id, 'suspend');
+                device_notification($provider?->fcm_token, $title, $description, null, $provider_info->id, 'suspend');
             }
 
             $emailStatus = business_config('email_config_status', 'email_config')->live_values;

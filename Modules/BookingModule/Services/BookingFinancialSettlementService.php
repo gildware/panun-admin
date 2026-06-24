@@ -68,6 +68,124 @@ class BookingFinancialSettlementService
     }
 
     /**
+     * Admin loyalty-point settings: completed booking categories (aligned with booking list tabs).
+     *
+     * @return array<string, string>
+     */
+    public static function loyaltyPointCompletionTypeOptions(): array
+    {
+        return [
+            'completed' => translate('Booking_status_tpl_completed'),
+            'disputed_completed' => translate('Disputed_and_Completed'),
+            'disputed_cancelled' => translate('Disputed_and_Cancelled'),
+            'completed_no_or_little' => translate('Booking_tag_complete_no_service'),
+            'cancelled_after_visit' => translate('Booking_tag_cancel_after_visit'),
+            'loss_making_pending' => translate('Bfs_list_badge_loss_making'),
+            'loss_recovered' => translate('Bfs_list_badge_loss_recovered'),
+            'loss_settled' => translate('Settled'),
+            'reopen_resolved' => translate('Booking_status_tpl_reopen_resolved'),
+        ];
+    }
+
+    /**
+     * Map legacy settlement_outcome keys saved before completion-type options were introduced.
+     *
+     * @return array<string, string>
+     */
+    public static function loyaltyPointCompletionTypeLegacyKeyMap(): array
+    {
+        return [
+            self::OUTCOME_STANDARD => 'completed',
+            self::OUTCOME_VISIT_FEE_SPLIT => 'completed_no_or_little',
+            self::OUTCOME_VISIT_RETAINED_CANCEL => 'cancelled_after_visit',
+            self::OUTCOME_SCALED_TO_PAYMENTS => 'loss_making_pending',
+            self::OUTCOME_CUSTOM_COMMISSION => 'completed',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $selectedKeys
+     * @return list<string>
+     */
+    public static function normalizeLoyaltyPointCompletionTypeKeys(array $selectedKeys): array
+    {
+        $legacy = self::loyaltyPointCompletionTypeLegacyKeyMap();
+
+        return array_values(array_unique(array_map(
+            static fn (string $key): string => $legacy[$key] ?? $key,
+            $selectedKeys
+        )));
+    }
+
+    /**
+     * Classify a booking into a loyalty-point completion type (booking-list tab semantics).
+     */
+    public function resolveLoyaltyPointCompletionType(Booking|BookingRepeat $booking): string
+    {
+        $main = $this->mainBookingFor($booking);
+        $status = strtolower((string) ($main->booking_status ?? ''));
+        if ($status === 'cancelled') {
+            $status = 'canceled';
+        }
+
+        $disputedSnapshot = $main->reopen_disputed_snapshot ?? null;
+        $hasDisputedSnapshot = is_array($disputedSnapshot) && $disputedSnapshot !== [];
+
+        if ($hasDisputedSnapshot) {
+            return $status === 'completed' ? 'disputed_completed' : 'disputed_cancelled';
+        }
+
+        if (in_array($status, ['canceled', 'refunded'], true)) {
+            if ((bool) ($main->after_visit_cancel ?? false)
+                || trim((string) ($main->settlement_outcome ?? '')) === self::OUTCOME_VISIT_RETAINED_CANCEL) {
+                return 'cancelled_after_visit';
+            }
+
+            return 'disputed_cancelled';
+        }
+
+        if ($status !== 'completed') {
+            return 'completed';
+        }
+
+        $outcome = trim((string) ($main->settlement_outcome ?? ''));
+
+        if ($outcome === self::OUTCOME_VISIT_FEE_SPLIT) {
+            return 'completed_no_or_little';
+        }
+
+        if ($outcome === self::OUTCOME_SCALED_TO_PAYMENTS) {
+            if ($this->bookingHasScaledLossWriteoff($main)) {
+                return 'loss_settled';
+            }
+            if ($main->isLossMakingFinancialSettlement()) {
+                return 'loss_making_pending';
+            }
+            if ($main->isScaledSettlementLossRecovered()) {
+                return 'loss_recovered';
+            }
+
+            return 'loss_making_pending';
+        }
+
+        if ($main->reopen_resolved_at !== null) {
+            return 'reopen_resolved';
+        }
+
+        return 'completed';
+    }
+
+    private function bookingHasScaledLossWriteoff(Booking $booking): bool
+    {
+        $snapshot = is_array($booking->settlement_snapshot) ? $booking->settlement_snapshot : [];
+        $config = is_array($booking->settlement_config) ? $booking->settlement_config : [];
+        $writeoffSnapshot = (float) ($snapshot['scaled_loss_writeoff_amount'] ?? 0);
+        $writeoffConfig = (float) ($config['scaled_loss_writeoff_amount'] ?? 0);
+
+        return $writeoffSnapshot > 0.009 || $writeoffConfig > 0.009;
+    }
+
+    /**
      * True if any recorded partial payment (positive amount) is attributed to the provider as payee.
      */
     public static function bookingHasAnyCustomerPaymentReceivedByProvider(Booking $booking): bool

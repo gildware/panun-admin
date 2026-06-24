@@ -4168,7 +4168,8 @@ class BookingController extends Controller
                 $language_key = $this->provider->with('owner')->whereId($booking->provider_id)->first()->owner?->current_language_key;
                 if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $booking?->provider?->is_suspended == 0)) {
                     $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $language_key);
-                    device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                    $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $language_key);
+                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                 }
             } else {
                 $provider_ids = SubscribedService::where('sub_category_id', $booking->sub_category_id)->ofSubscription(1)->pluck('provider_id')->toArray();
@@ -4176,7 +4177,8 @@ class BookingController extends Controller
                 foreach ($providers as $provider) {
                     $fcmToken = $provider->owner->fcm_token ?? null;
                     $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
-                    if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                    $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
+                    if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                 }
             }
             return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
@@ -4246,7 +4248,8 @@ class BookingController extends Controller
                 $language_key = $this->provider->with('owner')->whereId($booking->provider_id)->first()->owner?->current_language_key;
                 if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $booking?->provider?->is_suspended == 0)) {
                     $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $language_key);
-                    device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                    $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $language_key);
+                    device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                 }
             } else {
                 $provider_ids = SubscribedService::where('sub_category_id', $booking->sub_category_id)->ofSubscription(1)->pluck('provider_id')->toArray();
@@ -4254,7 +4257,8 @@ class BookingController extends Controller
                 foreach ($providers as $provider) {
                     $fcmToken = $provider->owner->fcm_token ?? null;
                     $title = get_push_notification_message('booking_accepted', 'provider_notification', $provider?->owner?->current_language_key);
-                    if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) device_notification($fcmToken, $title, null, null, $booking->id, 'booking');
+                    $description = get_push_notification_description('booking_accepted', 'provider_notification', $provider?->owner?->current_language_key);
+                    if (!is_null($fcmToken) && (!business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values || $provider?->is_suspended == 0)) device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                 }
             }
 
@@ -6130,8 +6134,9 @@ class BookingController extends Controller
             $user = $booking->customer;
             $offline = isNotificationActive(null, 'booking', 'notification', 'user');
             $title = get_push_notification_message('offline_payment_approved', 'customer_notification', $user?->current_language_key);
+            $description = get_push_notification_description('offline_payment_approved', 'customer_notification', $user?->current_language_key);
             if ($user?->fcm_token && $title && $offline) {
-                device_notification($user?->fcm_token, $title, null, null, $booking->id, 'booking', null, $user->id);
+                device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking', null, $user->id);
             }
 
             placeBookingTransactionForDigitalPayment($booking);

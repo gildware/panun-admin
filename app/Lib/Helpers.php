@@ -1354,6 +1354,33 @@ if (!function_exists('nextBookingEligibility')) {
     }
 }
 
+if (!function_exists('minimum_booking_schedule_time')) {
+    function minimum_booking_schedule_time(): \Carbon\Carbon
+    {
+        $value = (int) (business_config('advanced_booking_restriction_value', 'booking_setup')?->live_values ?? 2);
+        $type = business_config('advanced_booking_restriction_type', 'booking_setup')?->live_values;
+        $restrictionEnabled = (int) (business_config('schedule_booking_time_restriction', 'booking_setup')?->live_values ?? 0);
+
+        if ($restrictionEnabled !== 1) {
+            return \Carbon\Carbon::now();
+        }
+
+        if ($type === 'day' && $value > 0) {
+            return \Carbon\Carbon::now()->addDays($value);
+        }
+
+        if ($type === 'hour' && $value > 0) {
+            return \Carbon\Carbon::now()->addHours($value);
+        }
+
+        if ($type === 'minute' && $value > 0) {
+            return \Carbon\Carbon::now()->addMinutes($value);
+        }
+
+        return \Carbon\Carbon::now()->addHours(2);
+    }
+}
+
 if (!function_exists('company_service_hours_config')) {
     function company_service_hours_config(): ?array
     {
@@ -1414,12 +1441,7 @@ if (!function_exists('resolve_company_service_schedule')) {
             return $requested;
         }
 
-        $minimumLeadHours = (int) (business_config('advanced_booking_restriction_value', 'booking_setup')?->live_values ?? 2);
-        $restrictionType = business_config('advanced_booking_restriction_type', 'booking_setup')?->live_values;
-        if ($restrictionType !== 'hour' || $minimumLeadHours <= 0) {
-            $minimumLeadHours = 2;
-        }
-        $minimum = \Carbon\Carbon::now()->addHours($minimumLeadHours);
+        $minimum = minimum_booking_schedule_time();
 
         if ($requested->gte($minimum) && is_within_company_service_hours($requested)) {
             return $requested;

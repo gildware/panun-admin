@@ -17,6 +17,7 @@ use Modules\PaymentModule\Traits\Processor;
 use Illuminate\Contracts\Foundation\Application;
 use Modules\PaymentModule\Entities\PaymentRequest;
 use Modules\PaymentModule\Services\RazorpayCheckoutCompletionService;
+use App\Lib\PaymentRequestGuard;
 
 class RazorPayController extends Controller
 {
@@ -82,11 +83,12 @@ class RazorPayController extends Controller
         $business_logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/',  defaultPath : 'assets/admin-module/img/placeholder.png');
 
         $isApp = $data->payment_platform === 'app';
+        $paymentAccessToken = PaymentRequestGuard::storedAccessToken($data) ?? '';
 
-        return view('paymentmodule::razor-pay', compact('data', 'payer', 'business_logo', 'business_name', 'isApp'));
+        return view('paymentmodule::razor-pay', compact('data', 'payer', 'business_logo', 'business_name', 'isApp', 'paymentAccessToken'));
     }
 
-    public function buildNativePrepareResponse(string $paymentId): JsonResponse
+    public function buildNativePrepareResponse(Request $request, string $paymentId): JsonResponse
     {
         $data = $this->payment::where(['id' => $paymentId])->where(['is_paid' => 0])->first();
         if (!isset($data)) {
@@ -94,6 +96,13 @@ class RazorPayController extends Controller
                 'status' => false,
                 'message' => translate('Payment request not found'),
             ], 404);
+        }
+
+        if (! PaymentRequestGuard::assertCanAccessPaymentRequest($request, $data)) {
+            return response()->json([
+                'status' => false,
+                'message' => translate('Unauthorized payment request'),
+            ], 403);
         }
 
         $payer = json_decode($data['payer_information']);
@@ -146,7 +155,7 @@ class RazorPayController extends Controller
             return response()->json($this->response_formatter(GATEWAYS_DEFAULT_400, null, $this->error_processor($validator)), 400);
         }
 
-        return $this->buildNativePrepareResponse($request['payment_id']);
+        return $this->buildNativePrepareResponse($request, $request['payment_id']);
     }
 
     public function payment(Request $request): JsonResponse|Redirector|RedirectResponse|Application
@@ -248,6 +257,7 @@ class RazorPayController extends Controller
             'payment_amount' => 'required|numeric',
             'currency_code' => 'required|string',
             'payment_request_id' => 'required|uuid',
+            'access_token' => 'nullable|string',
         ]);
 
         try {
@@ -259,6 +269,13 @@ class RazorPayController extends Controller
                     'status' => false,
                     'message' => translate('Payment request not found'),
                 ], 404);
+            }
+
+            if (! PaymentRequestGuard::assertCanAccessPaymentRequest($request, $paymentRequest)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => translate('Unauthorized payment request'),
+                ], 403);
             }
 
             $razorpayOrder = $api->order->create(
@@ -289,6 +306,18 @@ class RazorPayController extends Controller
             $paymentRequest = $this->payment::where(['id' => $request['payment_request_id']])->first();
 
             if (! $paymentRequest) {
+                return $this->payment_response($paymentRequest, 'fail', $nativeSdk);
+            }
+
+            if (! PaymentRequestGuard::assertCanAccessPaymentRequest($request, $paymentRequest)) {
+                if ($nativeSdk) {
+                    return response()->json([
+                        'status' => false,
+                        'flag' => 'fail',
+                        'message' => translate('Unauthorized payment request'),
+                    ], 403);
+                }
+
                 return $this->payment_response($paymentRequest, 'fail', $nativeSdk);
             }
 

@@ -22,6 +22,7 @@ use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Entities\NotificationSetup;
 use Modules\BusinessSettingsModule\Entities\Translation;
 use Modules\BusinessSettingsModule\Http\Requests\ThirdPartyDataStoreOrUpdateRequest;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\PaymentModule\Entities\OfflinePayment;
 use Modules\PaymentModule\Entities\Setting;
 use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -163,6 +164,7 @@ class ConfigurationController extends Controller
 
 
         $columnName = $request->id . '_message';
+        $descriptionColumnName = $request->id . '_description';
         $requiredMessage = $columnName . '.0.' . 'required';
         $requiredMessageValue = "default_{$columnName}_is_required";
 
@@ -181,15 +183,22 @@ class ConfigurationController extends Controller
             "$columnName.0" => 'required'
         ]);
 
+        $defaultMessageIndex = array_search('default', $request->lang);
+        $defaultDescription = $request->has($descriptionColumnName)
+            ? ($request[$descriptionColumnName][$defaultMessageIndex] ?? '')
+            : '';
+
         $businessData = $this->businessSetting->updateOrCreate(['key_name' => $request->id, 'settings_type' => $settingsType], [
             'key_name' => $request->id,
             'live_values' => [
                 $request->id . '_status' => $request['status'],
-                $request->id . '_message' => $request[$columnName][array_search('default', $request->lang)],
+                $request->id . '_message' => $request[$columnName][$defaultMessageIndex],
+                $request->id . '_description' => $defaultDescription,
             ],
             'test_values' => [
                 $request->id . '_status' => $request['status'],
-                $request->id . '_message' => $request[$columnName][array_search('default', $request->lang)],
+                $request->id . '_message' => $request[$columnName][$defaultMessageIndex],
+                $request->id . '_description' => $defaultDescription,
             ],
             'is_active' => $request['status'],
         ]);
@@ -218,6 +227,29 @@ class ConfigurationController extends Controller
                             'key' => $businessData->key_name],
                         ['value' => $request[$columnName][$index]]
                     );
+                }
+            }
+
+            if ($request->has($descriptionColumnName)) {
+                $descriptionValue = $request[$descriptionColumnName][$index] ?? '';
+                if ($key != 'default') {
+                    if (filled($descriptionValue)) {
+                        Translation::updateOrInsert(
+                            [
+                                'translationable_type' => 'Modules\BusinessSettingsModule\Entities\BusinessSettings',
+                                'translationable_id' => $businessData->id,
+                                'locale' => $key,
+                                'key' => $businessData->key_name . '_description'],
+                            ['value' => $descriptionValue]
+                        );
+                    } else {
+                        Translation::where([
+                            'translationable_type' => 'Modules\BusinessSettingsModule\Entities\BusinessSettings',
+                            'translationable_id' => $businessData->id,
+                            'locale' => $key,
+                            'key' => $businessData->key_name . '_description',
+                        ])->delete();
+                    }
                 }
             }
         }
@@ -737,7 +769,27 @@ class ConfigurationController extends Controller
     {
         $web_page = $request->has('web_page') ? $request['web_page'] : 'wallet';
         $data_values = $this->businessSetting->where('settings_type', 'customer_config')->get();
-        return view('customermodule::admin.customer.settings', compact('web_page', 'data_values'));
+
+        $loyaltyCompletionOutcomeOptions = BookingFinancialSettlementService::loyaltyPointCompletionTypeOptions();
+        $loyaltyOutcomeFilterMode = $data_values
+            ->where('key_name', 'loyalty_point_completion_outcome_filter_mode')
+            ->first()?->live_values ?? 'include';
+        $selectedOutcomesRaw = $data_values->where('key_name', 'loyalty_point_completion_outcomes')->first();
+        $loyaltySelectedOutcomes = [];
+        if ($selectedOutcomesRaw && ! empty($selectedOutcomesRaw->live_values)) {
+            $decoded = json_decode($selectedOutcomesRaw->live_values, true);
+            $loyaltySelectedOutcomes = is_array($decoded)
+                ? BookingFinancialSettlementService::normalizeLoyaltyPointCompletionTypeKeys($decoded)
+                : [];
+        }
+
+        return view('customermodule::admin.customer.settings', compact(
+            'web_page',
+            'data_values',
+            'loyaltyCompletionOutcomeOptions',
+            'loyaltyOutcomeFilterMode',
+            'loyaltySelectedOutcomes',
+        ));
     }
 
     /**
@@ -751,6 +803,7 @@ class ConfigurationController extends Controller
         if ($request['web_page'] == 'wallet') {
             $validator = Validator::make($request->all(), [
                 'customer_wallet' => 'in:0,1',
+                'max_wallet_spend_per_transaction' => 'required|numeric|min:0',
             ]);
 
             $filter = $validator->validated();
@@ -762,10 +815,19 @@ class ConfigurationController extends Controller
                 'loyalty_point_value_per_currency_unit' => 'required',
                 'loyalty_point_percentage_per_booking' => 'required',
                 'min_loyalty_point_to_transfer' => 'required',
+                'min_grand_total_for_loyalty_point' => 'required|numeric|min:0',
+                'loyalty_point_completion_outcome_filter_mode' => 'required|in:include,exclude',
+                'loyalty_point_completion_outcomes' => 'nullable|array',
+                'loyalty_point_completion_outcomes.*' => 'string|in:' . implode(',', array_keys(BookingFinancialSettlementService::loyaltyPointCompletionTypeOptions())),
             ]);
 
             $filter = $validator->validated();
             $filter['customer_loyalty_point'] = $request['customer_loyalty_point'] ?? 0;
+            $filter['loyalty_point_completion_outcomes'] = json_encode(
+                BookingFinancialSettlementService::normalizeLoyaltyPointCompletionTypeKeys(
+                    array_values($request->input('loyalty_point_completion_outcomes', []))
+                )
+            );
         } elseif ($request['web_page'] == 'referral_earning') {
             $validator = Validator::make($request->all(), [
                 'customer_referral_earning' => 'in:0,1',

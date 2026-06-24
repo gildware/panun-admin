@@ -505,27 +505,72 @@ if (!function_exists('get_language_name')) {
     }
 }
 
-if (!function_exists('get_push_notification_message')) {
-    function get_push_notification_message($key, $settings_type, $lang='en')
+if (!function_exists('get_push_notification_config')) {
+    function get_push_notification_config($key, $settings_type, $lang = 'en')
     {
         try {
-            $config = BusinessSettings::where('key_name', $key)->where('settings_type', $settings_type)->
-            with(['translations'=>function($query)use($lang){
-                $query->where('locale', $lang);
-            }])->first();
+            return BusinessSettings::where('key_name', $key)
+                ->where('settings_type', $settings_type)
+                ->with(['translations' => function ($query) use ($lang) {
+                    $query->where('locale', $lang);
+                }])
+                ->first();
         } catch (Exception $exception) {
             return null;
         }
+    }
+}
 
-        if($config){
-            if ($config->live_values[$key.'_status'] == 0) {
+if (!function_exists('get_push_notification_translation_value')) {
+    function get_push_notification_translation_value($config, string $translationKey, string $liveValueKey)
+    {
+        if (!$config) {
+            return null;
+        }
+
+        $translation = $config->translations->firstWhere('key', $translationKey);
+
+        if ($translation && filled($translation->value)) {
+            return $translation->value;
+        }
+
+        return $config->live_values[$liveValueKey] ?? null;
+    }
+}
+
+if (!function_exists('get_push_notification_message')) {
+    function get_push_notification_message($key, $settings_type, $lang = 'en')
+    {
+        $config = get_push_notification_config($key, $settings_type, $lang);
+
+        if ($config) {
+            if (($config->live_values[$key . '_status'] ?? 0) == 0) {
                 return 0;
             }
-            $message = $key.'_'.'message';
-            return count($config->translations) > 0 ? $config->translations[0]['value'] : $config->live_values[$message];
-        }else{
-            return false;
+
+            return get_push_notification_translation_value($config, $key, $key . '_message');
         }
+
+        return false;
+    }
+}
+
+if (!function_exists('get_push_notification_description')) {
+    function get_push_notification_description($key, $settings_type, $lang = 'en')
+    {
+        $config = get_push_notification_config($key, $settings_type, $lang);
+
+        if (!$config || ($config->live_values[$key . '_status'] ?? 0) == 0) {
+            return null;
+        }
+
+        $description = get_push_notification_translation_value(
+            $config,
+            $key . '_description',
+            $key . '_description'
+        );
+
+        return filled(trim((string) $description)) ? $description : null;
     }
 }
 

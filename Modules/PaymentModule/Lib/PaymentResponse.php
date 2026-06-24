@@ -61,6 +61,8 @@ class PaymentResponse
             'password' => $additional_data['password'] ?? null,
             'service_location' => $additional_data['service_location'] ?? 'customer',
             'cart_snapshot' => $additional_data['cart_snapshot'] ?? null,
+            'wallet_paid_amount' => $additional_data['wallet_paid_amount'] ?? 0,
+            'digitally_paid_amount' => $additional_data['digitally_paid_amount'] ?? 0,
         ]);
 
         if (!$request->has('post_id') || is_null($request['post_id'])) {

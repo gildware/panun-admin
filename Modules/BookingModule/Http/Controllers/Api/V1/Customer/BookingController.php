@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Modules\BidModule\Entities\PostBid;
 use Illuminate\Support\Facades\Validator;
 use Modules\BookingModule\Entities\BookingOfflinePayment;
@@ -23,6 +24,7 @@ use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BidModule\Http\Controllers\APi\V1\Customer\PostBidController;
 use App\Lib\BookingInvoiceUrl;
 use App\Lib\BookingTrackToken;
+use App\Lib\PaymentAccessToken;
 use App\Services\GuestCheckoutService;
 use App\Services\GuestSessionService;
 
@@ -189,6 +191,11 @@ class BookingController extends Controller
         }
 
         if ($request['payment_method'] == 'wallet_payment') {
+            if (! customer_wallet_feature_enabled() || ! wallet_payment_feature_enabled()) {
+                return response()->json(response_formatter(DEFAULT_400, null, [
+                    ['error_code' => 'payment', 'message' => translate('Wallet payment is not available.')],
+                ]), 400);
+            }
             if (!isset($request['post_id'])) {
                 $walletPayType = require_booking_upfront_payment()
                     ? ($request['payment_amount_type'] ?? 'full')
@@ -197,6 +204,9 @@ class BookingController extends Controller
                 $user = User::find($customerUserId);
                 if (isset($user) && $user->wallet_balance < $walletRequired) {
                     return response()->json(response_formatter(INSUFFICIENT_WALLET_BALANCE_400), 400);
+                }
+                if (! $request['is_partial'] && wallet_spend_exceeds_per_transaction_limit($walletRequired)) {
+                    return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
                 }
                 $response = $this->placeBookingRequest(userId: $customerUserId, request: $request, transactionId: 'wallet_payment', newUserInfo: $newUserInfo);
             } else {
@@ -224,8 +234,12 @@ class BookingController extends Controller
 
                 $user = User::find($customerUserId);
                 $tax = round(($postBid->offered_price * $bidTaxPct) / 100, 2);
-                if (isset($user) && $user->wallet_balance < ($postBid->offered_price + $tax)) {
+                $bidWalletAmount = (float) $postBid->offered_price + $tax;
+                if (isset($user) && $user->wallet_balance < $bidWalletAmount) {
                     return response()->json(response_formatter(INSUFFICIENT_WALLET_BALANCE_400), 400);
+                }
+                if (! $request['is_partial'] && wallet_spend_exceeds_per_transaction_limit($bidWalletAmount)) {
+                    return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
                 }
 
                 $response = $this->placeBookingRequestForBidding($customerUserId, $request, 'wallet_payment', $data);
@@ -276,9 +290,13 @@ class BookingController extends Controller
 
         if ($response['flag'] == 'success') {
             return response()->json(response_formatter(BOOKING_PLACE_SUCCESS_200, $response), 200);
-        } else {
-            return response()->json(response_formatter(BOOKING_PLACE_FAIL_200), 200);
         }
+
+        if (($response['message'] ?? '') === 'wallet_max_spend_per_transaction') {
+            return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
+        }
+
+        return response()->json(response_formatter(BOOKING_PLACE_FAIL_200), 200);
     }
 
 
@@ -719,7 +737,7 @@ class BookingController extends Controller
                 return response()->json(response_formatter(DEFAULT_400, null, 'Invalid partial payment data.'), 400);
             }
 
-            $paidAmount = $walletBalance;
+            $paidAmount = cap_wallet_spend_for_single_transaction((float) $walletBalance);
             $dueAmount = $booking->total_booking_amount - $paidAmount;
 
             // Save wallet payment
@@ -809,7 +827,7 @@ class BookingController extends Controller
                 return response()->json(response_formatter(DEFAULT_400, null, 'Invalid partial payment data.'), 400);
             }
 
-            $paidAmount = $walletBalance;
+            $paidAmount = cap_wallet_spend_for_single_transaction((float) $walletBalance);
             $dueAmount = $booking->total_booking_amount - $paidAmount;
 
             // Save wallet payment
@@ -843,6 +861,15 @@ class BookingController extends Controller
             }
 
         } elseif ($request->payment_method == 'wallet_payment') {
+            if (! customer_wallet_feature_enabled() || ! wallet_payment_feature_enabled()) {
+                return response()->json(response_formatter(DEFAULT_400, null, [
+                    ['error_code' => 'payment', 'message' => translate('Wallet payment is not available.')],
+                ]), 400);
+            }
+            $walletAmount = round((float) booking_digital_payment_ledger_amount($booking), 2);
+            if (wallet_spend_exceeds_per_transaction_limit($walletAmount)) {
+                return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
+            }
             $booking->update(['payment_method' => 'wallet_payment', 'transaction_id' => 'wallet-payment']);
             placeBookingTransactionForWalletPayment($booking);
 
@@ -858,6 +885,7 @@ class BookingController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'transaction_id' => 'required',
+            'access_token' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -870,11 +898,16 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_204), 204);
         }
 
+        if (! $this->assertPaymentResponseAuthorized($request, $payment_info)) {
+            return response()->json(response_formatter(DEFAULT_403), 403);
+        }
+
         $additional_data = json_decode($payment_info->additional_data, true);
+        $additional_data = is_array($additional_data) ? $additional_data : [];
 
         $booking_repeat_id = $additional_data['booking_repeat_id'] ?? null;
         $register_new_customer = $additional_data['register_new_customer'] ?? 0;
-        $new_user_phone = $register_new_customer == 1 ? $additional_data['phone'] : null;
+        $new_user_phone = $register_new_customer == 1 ? ($additional_data['phone'] ?? null) : null;
 
         $booking = null;
         $booking_id = null;
@@ -884,16 +917,21 @@ class BookingController extends Controller
         }
 
         $loginToken = null;
-        if ($register_new_customer == 1 && $new_user_phone != null){
-            $user = new User();
-            $user->first_name = $additional_data['first_name'];
-            $user->last_name = '';
-            $user->phone = $additional_data['phone'];
-            $user->password = bcrypt($additional_data['password']);
-            $user->user_type = 'customer';
-            $user->customer_app_access = true;
-            $user->is_active = 1;
-            $user->save();
+        if ($register_new_customer == 1 && $new_user_phone != null) {
+            $alreadyClaimed = ! empty($additional_data['login_token_claimed']);
+
+            $user = User::where('phone', $new_user_phone)->first();
+            if (! $user && ! $alreadyClaimed) {
+                $user = new User();
+                $user->first_name = $additional_data['first_name'] ?? '';
+                $user->last_name = '';
+                $user->phone = $new_user_phone;
+                $user->password = bcrypt($additional_data['password'] ?? Str::random(16));
+                $user->user_type = 'customer';
+                $user->customer_app_access = true;
+                $user->is_active = 1;
+                $user->save();
+            }
 
             if ($user && $booking) {
                 $booking->customer_id = $user->id;
@@ -901,10 +939,16 @@ class BookingController extends Controller
                 $booking->save();
             }
 
-            $loginToken = $user->createToken('CUSTOMER_PANEL_ACCESS')->accessToken;
+            if ($user && ! $alreadyClaimed) {
+                $loginToken = $user->createToken('CUSTOMER_PANEL_ACCESS')->accessToken;
+                $additional_data['login_token_claimed'] = 1;
+                $additional_data['login_token_user_id'] = $user->id;
+                $payment_info->additional_data = json_encode($additional_data);
+                $payment_info->save();
+            }
         }
 
-        $response =  [
+        $response = [
             'booking_id' => $booking_id,
             'booking_repeat_id' => $booking_repeat_id,
             'new_user_phone' => $new_user_phone,
@@ -912,7 +956,23 @@ class BookingController extends Controller
         ];
 
         return response()->json(response_formatter(DEFAULT_200, $response), 200);
+    }
 
+    private function assertPaymentResponseAuthorized(Request $request, PaymentRequest $paymentRequest): bool
+    {
+        $payerId = (string) $paymentRequest->payer_id;
+        if ($payerId === '') {
+            return false;
+        }
+
+        $user = api_user();
+        if ($user && (string) $user->id === $payerId) {
+            return true;
+        }
+
+        $tokenSubject = PaymentAccessToken::resolve($request->input('access_token'));
+
+        return $tokenSubject !== null && (string) $tokenSubject === $payerId;
     }
 
     private function rejectUnlessGuestBookingAllowed(Request $request): ?JsonResponse

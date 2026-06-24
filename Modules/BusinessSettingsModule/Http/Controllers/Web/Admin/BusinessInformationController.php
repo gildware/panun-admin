@@ -37,6 +37,7 @@ use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Entities\DataSetting;
 use Modules\BusinessSettingsModule\Entities\NotificationSetup;
 use Modules\BusinessSettingsModule\Entities\Translation;
+use Modules\CustomerModule\Services\CustomerApiResponseCache;
 use Modules\PromotionManagement\Entities\PushNotification;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ZoneManagement\Entities\Zone;
@@ -471,7 +472,9 @@ class BusinessInformationController extends Controller
             'repeat_booking' => 'required|in:0,1',
             'schedule_booking_time_restriction' => 'required|in:0,1',
             'advanced_booking_restriction_value' => 'required',
-            'advanced_booking_restriction_type' => 'required|in:day,hour',
+            'advanced_booking_restriction_type' => 'required|in:day,hour,minute',
+            'cart_checkout_leniency_value' => 'required|numeric|gte:0',
+            'cart_checkout_leniency_type' => 'required|in:minute,hour,day',
             'min_booking_amount' => 'required|numeric|gte:0',
             'max_booking_amount' => 'required|numeric|gt:min_booking_amount',
             'direct_provider_booking' => 'required|in:0,1',
@@ -512,6 +515,8 @@ class BusinessInformationController extends Controller
             'mode' => 'live',
             'is_active' => 1,
         ]);
+
+        CustomerApiResponseCache::forgetConfigCaches();
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }

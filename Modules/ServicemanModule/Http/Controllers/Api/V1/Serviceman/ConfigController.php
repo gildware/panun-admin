@@ -37,6 +37,8 @@ class ConfigController extends Controller
         $advancedBooking =  [
             'advanced_booking_restriction_value' => (int) business_config('advanced_booking_restriction_value', 'booking_setup')?->live_values,
             'advanced_booking_restriction_type' => business_config('advanced_booking_restriction_type', 'booking_setup')?->live_values,
+            'cart_checkout_leniency_value' => (int) (business_config('cart_checkout_leniency_value', 'booking_setup')?->live_values ?? 0),
+            'cart_checkout_leniency_type' => business_config('cart_checkout_leniency_type', 'booking_setup')?->live_values ?? 'minute',
         ];
 
         $countryData = business_config('system_language', 'business_information')?->live_values;

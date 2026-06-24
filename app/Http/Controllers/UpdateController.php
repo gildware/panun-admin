@@ -270,6 +270,13 @@ class UpdateController extends Controller
             ]);
         }
 
+        if (BusinessSettings::where(['key_name' => 'max_wallet_spend_per_transaction', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'max_wallet_spend_per_transaction', 'settings_type' => 'customer_config'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
         if (BusinessSettings::where(['key_name' => 'add_to_fund_wallet', 'settings_type' => 'customer_config'])->first() == false) {
             BusinessSettings::updateOrCreate(['key_name' => 'add_to_fund_wallet', 'settings_type' => 'customer_config'], [
                 'live_values' => 0,
@@ -302,6 +309,27 @@ class UpdateController extends Controller
             BusinessSettings::updateOrCreate(['key_name' => 'loyalty_point_percentage_per_booking', 'settings_type' => 'customer_config'], [
                 'live_values' => 0,
                 'test_values' => 0
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'min_grand_total_for_loyalty_point', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'min_grand_total_for_loyalty_point', 'settings_type' => 'customer_config'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'loyalty_point_completion_outcome_filter_mode', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'loyalty_point_completion_outcome_filter_mode', 'settings_type' => 'customer_config'], [
+                'live_values' => 'include',
+                'test_values' => 'include'
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'loyalty_point_completion_outcomes', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'loyalty_point_completion_outcomes', 'settings_type' => 'customer_config'], [
+                'live_values' => '[]',
+                'test_values' => '[]'
             ]);
         }
 
@@ -449,6 +477,20 @@ class UpdateController extends Controller
             BusinessSettings::updateOrCreate(['key_name' => 'advanced_booking_restriction_type', 'settings_type' => 'booking_setup'], [
                 'live_values' => 'hour',
                 'test_values' => 'hour'
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'cart_checkout_leniency_value', 'settings_type' => 'booking_setup'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'cart_checkout_leniency_value', 'settings_type' => 'booking_setup'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'cart_checkout_leniency_type', 'settings_type' => 'booking_setup'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'cart_checkout_leniency_type', 'settings_type' => 'booking_setup'], [
+                'live_values' => 'minute',
+                'test_values' => 'minute'
             ]);
         }
 
@@ -601,10 +643,12 @@ class UpdateController extends Controller
                     'live_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'test_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'settings_type' => 'customer_notification',
                     'mode' => 'live',
@@ -626,10 +670,12 @@ class UpdateController extends Controller
                     'live_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'test_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'settings_type' => 'provider_notification',
                     'mode' => 'live',
@@ -651,10 +697,12 @@ class UpdateController extends Controller
                     'live_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'test_values' => [
                         $keyName . '_status' => "1",
                         $keyName . '_message' => $value,
+                        $keyName . '_description' => '',
                     ],
                     'settings_type' => 'serviceman_notification',
                     'mode' => 'live',
