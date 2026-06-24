@@ -5112,6 +5112,35 @@ if (!function_exists('require_booking_upfront_payment')) {
     }
 }
 
+if (!function_exists('max_wallet_spend_per_transaction')) {
+    function max_wallet_spend_per_transaction(): float
+    {
+        return max(0.0, (float) (business_config('max_wallet_spend_per_transaction', 'customer_config')?->live_values ?? 0));
+    }
+}
+
+if (!function_exists('wallet_spend_exceeds_per_transaction_limit')) {
+    function wallet_spend_exceeds_per_transaction_limit(float $amount): bool
+    {
+        $max = max_wallet_spend_per_transaction();
+
+        return $max > 0.009 && round(max(0.0, $amount), 2) > round($max, 2);
+    }
+}
+
+if (!function_exists('cap_wallet_spend_for_single_transaction')) {
+    function cap_wallet_spend_for_single_transaction(float $amount): float
+    {
+        $max = max_wallet_spend_per_transaction();
+        $amount = round(max(0.0, $amount), 2);
+        if ($max <= 0) {
+            return $amount;
+        }
+
+        return round(min($amount, $max), 2);
+    }
+}
+
 if (!function_exists('booking_confirmation_units_for_cart')) {
   /**
    * Distinct cart service lines (line quantity does not multiply confirmation units).
@@ -5193,6 +5222,9 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
         $paidAmount = round(max(0.0, $paidAmount), 2);
         if ($paidAmount <= 0) {
             return;
+        }
+        if ($paymentMethod === 'wallet_payment' && wallet_spend_exceeds_per_transaction_limit($paidAmount)) {
+            throw new \RuntimeException('wallet_max_spend_per_transaction');
         }
 
         $adminUserId = \Modules\UserManagement\Entities\User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;

@@ -1297,12 +1297,12 @@ class MobileAppManagementService
             'loyalty_point' => 'my_point.png',
             'refer_and_earn' => 'share_icon.png',
             'service_area' => 'area_menu_icon.png',
-            'help_support' => 'help_icon.png',
+            'help_support' => 'help_support_icon.png',
             'become_provider' => 'provider_image.png',
             'logout' => 'logout.png',
             'about_us' => 'about_us.png',
             'terms' => 'terms_icon.png',
-            'privacy_policy' => 'privacy_policy_icon.png',
+            'privacy_policy' => 'privacy_icon.png',
             'cancellation_policy' => 'cancellation_policy.png',
             'refund_policy' => 'refund_policy.png',
             'other_pages' => 'others_page.png',
@@ -1395,18 +1395,67 @@ class MobileAppManagementService
     }
 
     /**
+     * @return list<string>
+     */
+    public static function allIconKeysForApp(string $app): array
+    {
+        $keys = [];
+        foreach (self::iconGroupDefinitions() as $group) {
+            foreach ($group[$app] ?? [] as $def) {
+                $keys[] = $def['key'];
+            }
+        }
+
+        return array_values(array_unique($keys));
+    }
+
+    public function defaultIconPathForApi(string $app, string $key): ?string
+    {
+        $filename = self::defaultIconAssetName($app, $key);
+        $relative = 'assets/mobile-app-defaults/'.$app.'/'.$filename;
+
+        return is_file(public_path($relative)) ? '/'.$relative : null;
+    }
+
+    public function defaultIconFullPath(string $app, string $key): ?string
+    {
+        $path = $this->defaultIconPathForApi($app, $key);
+
+        return $path ? url($path) : null;
+    }
+
+    public function resolveIconPathForApi(string $app, string $key, string $variant): ?string
+    {
+        $icons = $this->getIcons();
+        $stored = $icons[$app][$key][$variant] ?? null;
+
+        return $this->iconPathForApi($stored) ?? $this->defaultIconPathForApi($app, $key);
+    }
+
+    public function resolveIconFullPath(string $app, string $key, string $variant): ?string
+    {
+        $icons = $this->getIcons();
+        $stored = $icons[$app][$key][$variant] ?? null;
+        $custom = $this->iconFullPath($stored);
+        if ($custom) {
+            return $custom;
+        }
+
+        return $this->defaultIconFullPath($app, $key);
+    }
+
+    /**
      * @return array{customer: array<string, array{light: ?string, dark: ?string}>, provider: array<string, array{light: ?string, dark: ?string}>}
      */
     public function iconsForApi(): array
     {
-        $icons = $this->getIcons();
         $out = ['customer' => [], 'provider' => []];
 
         foreach (['customer', 'provider'] as $app) {
-            foreach ($icons[$app] ?? [] as $key => $variants) {
+            foreach (self::allIconKeysForApp($app) as $key) {
                 $out[$app][$key] = [
-                    'light' => $this->iconPathForApi($variants['light'] ?? null),
-                    'dark' => $this->iconPathForApi($variants['dark'] ?? null),
+                    'light' => $this->resolveIconPathForApi($app, $key, 'light'),
+                    'dark' => $this->resolveIconPathForApi($app, $key, 'dark'),
                 ];
             }
         }

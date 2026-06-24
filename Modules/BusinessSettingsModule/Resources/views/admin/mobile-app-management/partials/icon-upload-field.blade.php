@@ -1,7 +1,11 @@
 @php
     $variants = $iconVariants ?? \Modules\BusinessSettingsModule\Services\MobileAppManagementService::ICON_VARIANTS;
     $storedVariants = $icons[$appKey][$def['key']] ?? ['light' => null, 'dark' => null];
-    $previews = $iconPreviews[$appKey][$def['key']] ?? ['light' => null, 'dark' => null];
+    $service = app(\Modules\BusinessSettingsModule\Services\MobileAppManagementService::class);
+    $previews = [
+        'light' => $service->resolveIconFullPath($appKey, $def['key'], 'light'),
+        'dark' => $service->resolveIconFullPath($appKey, $def['key'], 'dark'),
+    ];
     $defaultAsset = \Modules\BusinessSettingsModule\Services\MobileAppManagementService::defaultIconAssetName($appKey, $def['key']);
 @endphp
 <div class="col-12">

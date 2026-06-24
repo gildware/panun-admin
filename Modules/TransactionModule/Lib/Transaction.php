@@ -131,7 +131,7 @@ if (!function_exists('placeBookingTransactionForPartialCas')) {
     {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $user_wallet_balance = User::find($booking->customer_id)?->wallet_balance;
-        $paid_amount = $user_wallet_balance;
+        $paid_amount = cap_wallet_spend_for_single_transaction((float) $user_wallet_balance);
 
         DB::transaction(function () use ($booking, $admin_user_id, $paid_amount) {
             /** wallet partial */
@@ -203,8 +203,14 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
         if ($freshBooking->booking_partial_payments->isEmpty()) {
             $userWalletBalance = (float) (User::find($freshBooking->customer_id)?->wallet_balance ?? 0);
             $grand = round((float) get_booking_total_amount($freshBooking), 2);
-            $walletPaid = round(min($userWalletBalance, $grand), 2);
+            $walletPaid = cap_wallet_spend_for_single_transaction(round(min($userWalletBalance, $grand), 2));
             $digitalPaid = round(max(0.0, $grand - $walletPaid), 2);
+        } else {
+            $walletPaid = cap_wallet_spend_for_single_transaction($walletPaid);
+        }
+
+        if ($walletPaid > 0 && wallet_spend_exceeds_per_transaction_limit($walletPaid)) {
+            throw new \RuntimeException('wallet_max_spend_per_transaction');
         }
 
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
@@ -330,6 +336,9 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
         $receivedAmount = booking_digital_payment_ledger_amount($freshBooking);
         if ($receivedAmount <= 0) {
             return;
+        }
+        if (wallet_spend_exceeds_per_transaction_limit($receivedAmount)) {
+            throw new \RuntimeException('wallet_max_spend_per_transaction');
         }
 
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;

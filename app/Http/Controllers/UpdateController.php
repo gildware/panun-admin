@@ -270,6 +270,13 @@ class UpdateController extends Controller
             ]);
         }
 
+        if (BusinessSettings::where(['key_name' => 'max_wallet_spend_per_transaction', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'max_wallet_spend_per_transaction', 'settings_type' => 'customer_config'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
         if (BusinessSettings::where(['key_name' => 'add_to_fund_wallet', 'settings_type' => 'customer_config'])->first() == false) {
             BusinessSettings::updateOrCreate(['key_name' => 'add_to_fund_wallet', 'settings_type' => 'customer_config'], [
                 'live_values' => 0,
@@ -302,6 +309,27 @@ class UpdateController extends Controller
             BusinessSettings::updateOrCreate(['key_name' => 'loyalty_point_percentage_per_booking', 'settings_type' => 'customer_config'], [
                 'live_values' => 0,
                 'test_values' => 0
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'min_grand_total_for_loyalty_point', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'min_grand_total_for_loyalty_point', 'settings_type' => 'customer_config'], [
+                'live_values' => 0,
+                'test_values' => 0
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'loyalty_point_completion_outcome_filter_mode', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'loyalty_point_completion_outcome_filter_mode', 'settings_type' => 'customer_config'], [
+                'live_values' => 'include',
+                'test_values' => 'include'
+            ]);
+        }
+
+        if (BusinessSettings::where(['key_name' => 'loyalty_point_completion_outcomes', 'settings_type' => 'customer_config'])->first() == false) {
+            BusinessSettings::updateOrCreate(['key_name' => 'loyalty_point_completion_outcomes', 'settings_type' => 'customer_config'], [
+                'live_values' => '[]',
+                'test_values' => '[]'
             ]);
         }
 

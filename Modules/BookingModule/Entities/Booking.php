@@ -795,7 +795,7 @@ class Booking extends Model
                 if (!$skipHeavyCompletionAccounting && !$model->is_guest && $model?->customer) {
                     $model->referral_earning_calculation($model->customer_id, $model->zone_id);
 
-                    $model->loyaltyPointCalculation($model->customer_id, $model->total_booking_amount);
+                    $model->loyaltyPointCalculation($model->customer_id, $model);
 
                     if ($model->total_referral_discount_amount > 0){
                         referralEarningTransactionAfterBookingCompleteFirst($model->customer, $model->total_referral_discount_amount, $model->id);

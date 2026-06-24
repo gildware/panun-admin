@@ -222,7 +222,7 @@ class BookingRepeat extends Model
                     if (!$model?->booking?->is_guest && $model?->booking?->customer) {
                         $model->referral_earning_calculation($model?->booking?->customer_id, $model?->booking?->zone_id);
 
-                        $model->loyaltyPointCalculation($model?->booking?->customer_id, $model->total_booking_amount);
+                        $model->loyaltyPointCalculation($model?->booking?->customer_id, $model);
 
                         if ($model->total_referral_discount_amount > 0){
                             referralEarningTransactionAfterBookingRepeatCompleteFirst($model->customer, $model->total_referral_discount_amount, $model->id);

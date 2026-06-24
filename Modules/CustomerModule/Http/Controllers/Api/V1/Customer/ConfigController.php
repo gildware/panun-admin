@@ -201,6 +201,7 @@ class ConfigController extends Controller
             'apple_social_login' => (int)($appleSocialLogin ?? 0),
             'phone_number_visibility_for_chatting' => (int)((business_config('phone_number_visibility_for_chatting', 'business_information'))->live_values ?? 0),
             'wallet_status' => (int)((business_config('customer_wallet', 'customer_config'))->live_values ?? 0),
+            'max_wallet_spend_per_transaction' => max_wallet_spend_per_transaction(),
             'add_to_fund_wallet' => (int)((business_config('add_to_fund_wallet', 'customer_config'))->live_values ?? 0),
             'loyalty_point_status' => (int)((business_config('customer_loyalty_point', 'customer_config'))->live_values ?? 0),
             'referral_earning_status' => (int)((business_config('customer_referral_earning', 'customer_config'))->live_values ?? 0),

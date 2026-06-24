@@ -198,6 +198,9 @@ class BookingController extends Controller
                 if (isset($user) && $user->wallet_balance < $walletRequired) {
                     return response()->json(response_formatter(INSUFFICIENT_WALLET_BALANCE_400), 400);
                 }
+                if (! $request['is_partial'] && wallet_spend_exceeds_per_transaction_limit($walletRequired)) {
+                    return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
+                }
                 $response = $this->placeBookingRequest(userId: $customerUserId, request: $request, transactionId: 'wallet_payment', newUserInfo: $newUserInfo);
             } else {
                 $postBid = PostBid::with(['post.service.category', 'post.service.subCategory'])
@@ -224,8 +227,12 @@ class BookingController extends Controller
 
                 $user = User::find($customerUserId);
                 $tax = round(($postBid->offered_price * $bidTaxPct) / 100, 2);
-                if (isset($user) && $user->wallet_balance < ($postBid->offered_price + $tax)) {
+                $bidWalletAmount = (float) $postBid->offered_price + $tax;
+                if (isset($user) && $user->wallet_balance < $bidWalletAmount) {
                     return response()->json(response_formatter(INSUFFICIENT_WALLET_BALANCE_400), 400);
+                }
+                if (! $request['is_partial'] && wallet_spend_exceeds_per_transaction_limit($bidWalletAmount)) {
+                    return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
                 }
 
                 $response = $this->placeBookingRequestForBidding($customerUserId, $request, 'wallet_payment', $data);
@@ -276,9 +283,13 @@ class BookingController extends Controller
 
         if ($response['flag'] == 'success') {
             return response()->json(response_formatter(BOOKING_PLACE_SUCCESS_200, $response), 200);
-        } else {
-            return response()->json(response_formatter(BOOKING_PLACE_FAIL_200), 200);
         }
+
+        if (($response['message'] ?? '') === 'wallet_max_spend_per_transaction') {
+            return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
+        }
+
+        return response()->json(response_formatter(BOOKING_PLACE_FAIL_200), 200);
     }
 
 
@@ -719,7 +730,7 @@ class BookingController extends Controller
                 return response()->json(response_formatter(DEFAULT_400, null, 'Invalid partial payment data.'), 400);
             }
 
-            $paidAmount = $walletBalance;
+            $paidAmount = cap_wallet_spend_for_single_transaction((float) $walletBalance);
             $dueAmount = $booking->total_booking_amount - $paidAmount;
 
             // Save wallet payment
@@ -809,7 +820,7 @@ class BookingController extends Controller
                 return response()->json(response_formatter(DEFAULT_400, null, 'Invalid partial payment data.'), 400);
             }
 
-            $paidAmount = $walletBalance;
+            $paidAmount = cap_wallet_spend_for_single_transaction((float) $walletBalance);
             $dueAmount = $booking->total_booking_amount - $paidAmount;
 
             // Save wallet payment
@@ -843,6 +854,10 @@ class BookingController extends Controller
             }
 
         } elseif ($request->payment_method == 'wallet_payment') {
+            $walletAmount = round((float) booking_digital_payment_ledger_amount($booking), 2);
+            if (wallet_spend_exceeds_per_transaction_limit($walletAmount)) {
+                return response()->json(response_formatter(WALLET_MAX_SPEND_PER_TRANSACTION_400), 400);
+            }
             $booking->update(['payment_method' => 'wallet_payment', 'transaction_id' => 'wallet-payment']);
             placeBookingTransactionForWalletPayment($booking);
 

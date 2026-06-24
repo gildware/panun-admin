@@ -29,6 +29,7 @@ use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingOfflinePayment;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Services\BookingAuditLogger;
+use Modules\BookingModule\Services\BookingFinancialSettlementService;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
@@ -77,7 +78,8 @@ trait BookingTrait
             $subCategory = $cartItem->sub_category_id;
             $booking = new Booking();
 
-            DB::transaction(function () use (
+            try {
+                DB::transaction(function () use (
                 $cartItem,
                 $subCategory,
                 $zoneIdDefault,
@@ -126,6 +128,15 @@ trait BookingTrait
                 $extraFee = $chargeRes['total'];
                 $totalBookingAmount += $extraFee;
 
+                if ($request['payment_method'] == 'wallet_payment') {
+                    $walletDebit = $isPartials
+                        ? cap_wallet_spend_for_single_transaction((float) $customerWalletBalance)
+                        : $totalBookingAmount;
+                    if (! $isPartials && wallet_spend_exceeds_per_transaction_limit($walletDebit)) {
+                        throw new \RuntimeException('wallet_max_spend_per_transaction');
+                    }
+                }
+
                 $booking->customer_id = $userId;
                 $booking->provider_id = $cartItem->provider_id;
                 $booking->category_id = $cartItem->category_id;
@@ -160,7 +171,7 @@ trait BookingTrait
                 $booking->save();
 
                 if ($isPartials) {
-                    $paidAmount = $customerWalletBalance;
+                    $paidAmount = cap_wallet_spend_for_single_transaction((float) $customerWalletBalance);
                     $due_amount = $totalBookingAmount - $paidAmount;
 
                     $bookingPartialPayment = new BookingPartialPayment;
@@ -370,6 +381,13 @@ trait BookingTrait
                     }
                 }
             });
+            } catch (\RuntimeException $e) {
+                if ($e->getMessage() === 'wallet_max_spend_per_transaction') {
+                    return ['flag' => 'failed', 'message' => 'wallet_max_spend_per_transaction'];
+                }
+
+                throw $e;
+            }
             try {
                 $fresh = Booking::query()
                     ->with(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments'])
@@ -739,7 +757,8 @@ trait BookingTrait
     {
         $booking = new Booking();
 
-        DB::transaction(function () use ($booking, $transactionId, $request, $customerUserId, $data) {
+        try {
+            DB::transaction(function () use ($booking, $transactionId, $request, $customerUserId, $data) {
 
             if ($request->has('payment_method') && $request['payment_method'] == 'cash_after_service') {
                 $transactionId = 'cash-payment';
@@ -773,7 +792,16 @@ trait BookingTrait
             $isPartials = $data['is_partial'] ? 1 : 0;
             $customerWalletBalance = User::find($customerUserId)?->wallet_balance;
             if ($isPartials && ($customerWalletBalance <= 0 || $customerWalletBalance >= $totalBookingAmount)) {
-                return ['flag' => 'failed', 'message' => 'Invalid data'];
+                throw new \RuntimeException('invalid_partial_payment');
+            }
+
+            if ($data['payment_method'] == 'wallet_payment') {
+                $walletDebit = $isPartials
+                    ? cap_wallet_spend_for_single_transaction((float) $customerWalletBalance)
+                    : $totalBookingAmount;
+                if (! $isPartials && wallet_spend_exceeds_per_transaction_limit($walletDebit)) {
+                    throw new \RuntimeException('wallet_max_spend_per_transaction');
+                }
             }
 
             $booking->customer_id = $customerUserId;
@@ -800,7 +828,7 @@ trait BookingTrait
             $booking->save();
 
             if ($isPartials) {
-                $paidAmount = $customerWalletBalance;
+                $paidAmount = cap_wallet_spend_for_single_transaction((float) $customerWalletBalance);
                 $due_amount = $totalBookingAmount - $paidAmount;
 
                 $bookingPartialPayment = new BookingPartialPayment;
@@ -890,6 +918,13 @@ trait BookingTrait
                }
            }
         });
+        } catch (\RuntimeException $e) {
+            if (in_array($e->getMessage(), ['wallet_max_spend_per_transaction', 'invalid_partial_payment'], true)) {
+                return ['flag' => 'failed', 'message' => $e->getMessage()];
+            }
+
+            throw $e;
+        }
 
         try {
             $fresh = Booking::query()
@@ -2300,17 +2335,26 @@ trait BookingTrait
 
     /**
      * @param $userId
-     * @param $bookingAmount
+     * @param Booking|BookingRepeat $booking
      * @return false|void
      */
-    private function loyaltyPointCalculation($userId, $bookingAmount)
+    private function loyaltyPointCalculation($userId, $booking)
     {
-
         $customerLoyaltyPoint = business_config('customer_loyalty_point', 'customer_config');
         if (isset($customerLoyaltyPoint) && $customerLoyaltyPoint->live_values != '1') return false;
 
+        $grandTotal = round((float) get_booking_total_amount($booking), 2);
+        $minGrandTotal = (float) (business_config('min_grand_total_for_loyalty_point', 'customer_config')->live_values ?? 0);
+        if ($minGrandTotal > 0 && $grandTotal < $minGrandTotal) {
+            return false;
+        }
+
+        if (! $this->bookingEligibleForLoyaltyByCompletionOutcome($booking)) {
+            return false;
+        }
+
         $percentagePerBooking = business_config('loyalty_point_percentage_per_booking', 'customer_config');
-        $pointAmount = ($percentagePerBooking->live_values * $bookingAmount) / 100;
+        $pointAmount = ($percentagePerBooking->live_values * $grandTotal) / 100;
 
        // $pointPerCurrencyUnit = business_config('loyalty_point_value_per_currency_unit', 'customer_config');
 
@@ -2328,6 +2372,26 @@ trait BookingTrait
         if ($title && $user && $user->is_active && $user->fcm_token && $customerNotification) {
             device_notification($user->fcm_token, $title, $description, null, null, 'loyalty_point', null, $user->id, $dataInfo);
         }
+    }
+
+    /**
+     * @param Booking|BookingRepeat $booking
+     */
+    private function bookingEligibleForLoyaltyByCompletionOutcome($booking): bool
+    {
+        $rawOutcomes = business_config('loyalty_point_completion_outcomes', 'customer_config')->live_values ?? '[]';
+        $selectedOutcomes = json_decode((string) $rawOutcomes, true);
+        if (! is_array($selectedOutcomes) || $selectedOutcomes === []) {
+            return true;
+        }
+
+        $filterMode = (string) (business_config('loyalty_point_completion_outcome_filter_mode', 'customer_config')->live_values ?? 'include');
+        $selectedOutcomes = BookingFinancialSettlementService::normalizeLoyaltyPointCompletionTypeKeys($selectedOutcomes);
+        $bookingCompletionType = app(BookingFinancialSettlementService::class)
+            ->resolveLoyaltyPointCompletionType($booking);
+        $isSelected = in_array($bookingCompletionType, $selectedOutcomes, true);
+
+        return $filterMode === 'exclude' ? ! $isSelected : $isSelected;
     }
 
     function readableIdToNumber($suffix): float|int|string

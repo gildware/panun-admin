@@ -93,6 +93,58 @@
                                                                    name="min_loyalty_point_to_transfer" step="any"
                                                                    min="0" value="{{$value->live_values??''}}">
                                                         </div>
+                                                        @php($value=$data_values->where('key_name','min_grand_total_for_loyalty_point')->first())
+                                                        <div class="col-md-4 col-12 mb-30">
+                                                            <label class="mb-1">
+                                                                {{translate('Minimum grand total to receive loyalty points')}}
+                                                                <i class="material-icons" data-bs-toggle="tooltip"
+                                                                   data-bs-placement="top"
+                                                                   title="{{translate('If the final grand total is below this amount, the customer will not receive loyalty points')}}">info</i>
+                                                            </label>
+                                                            <input type="number" class="form-control"
+                                                                   name="min_grand_total_for_loyalty_point" step="any"
+                                                                   min="0" value="{{$value->live_values ?? 0}}">
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-12 mb-30">
+                                                        <label class="mb-2 d-block fw-semibold">
+                                                            {{translate('Completed booking types for loyalty points')}}
+                                                            <i class="material-icons" data-bs-toggle="tooltip"
+                                                               data-bs-placement="top"
+                                                               title="{{translate('Choose which completed booking settlement types earn loyalty points')}}">info</i>
+                                                        </label>
+                                                        <div class="d-flex flex-wrap gap-4 mb-3">
+                                                            <label class="d-flex align-items-center gap-2 mb-0">
+                                                                <input type="radio" name="loyalty_point_completion_outcome_filter_mode"
+                                                                       value="include" {{ ($loyaltyOutcomeFilterMode ?? 'include') === 'include' ? 'checked' : '' }}>
+                                                                {{translate('Include only selected types')}}
+                                                            </label>
+                                                            <label class="d-flex align-items-center gap-2 mb-0">
+                                                                <input type="radio" name="loyalty_point_completion_outcome_filter_mode"
+                                                                       value="exclude" {{ ($loyaltyOutcomeFilterMode ?? 'include') === 'exclude' ? 'checked' : '' }}>
+                                                                {{translate('Exclude selected types')}}
+                                                            </label>
+                                                        </div>
+                                                        <div class="row g-3">
+                                                            @foreach(($loyaltyCompletionOutcomeOptions ?? []) as $outcomeKey => $outcomeLabel)
+                                                                <div class="col-md-6 col-lg-4">
+                                                                    <div class="custom__checkbox d-flex align-items-start gap-2">
+                                                                        <input type="checkbox"
+                                                                               id="loyalty_outcome_{{ $outcomeKey }}"
+                                                                               name="loyalty_point_completion_outcomes[]"
+                                                                               value="{{ $outcomeKey }}"
+                                                                               {{ in_array($outcomeKey, $loyaltySelectedOutcomes ?? [], true) ? 'checked' : '' }}>
+                                                                        <label for="loyalty_outcome_{{ $outcomeKey }}" class="m-0">
+                                                                            {{ $outcomeLabel }}
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                        <p class="text-muted fz-12 mt-2 mb-0">
+                                                            {{translate('Leave all unchecked to allow every completed booking type. Standard applies when no special settlement was used.')}}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -129,6 +181,18 @@
                                                             {{isset($value) && $value->live_values == '1' ? 'checked' : ''}}>
                                                         <span class="switcher_control"></span>
                                                     </label>
+                                                </div>
+                                                @php($value=$data_values->where('key_name','max_wallet_spend_per_transaction')->first())
+                                                <div class="col-md-6 col-12 mb-30">
+                                                    <label class="mb-1">
+                                                        {{translate('Maximum wallet spend per transaction')}}
+                                                        <i class="material-icons" data-bs-toggle="tooltip"
+                                                           data-bs-placement="top"
+                                                           title="{{translate('Customers cannot pay more than this amount from wallet in a single transaction. Set 0 for no limit.')}}">info</i>
+                                                    </label>
+                                                    <input type="number" class="form-control"
+                                                           name="max_wallet_spend_per_transaction" step="any"
+                                                           min="0" value="{{ $value->live_values ?? 0 }}">
                                                 </div>
                                             </div>
 
