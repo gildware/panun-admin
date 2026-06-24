@@ -61,6 +61,7 @@
                                 </div>
                                 <div class="col-md-3">
                                     <select name="result" class="form-select">
+                                        <option value="successful" @selected($result === 'successful')>{{ translate('Successfully_paid') }}</option>
                                         <option value="">{{ translate('All_results') }}</option>
                                         @foreach (['completed', 'already_completed', 'fulfillment_failed', 'not_found', 'amount_mismatch', 'invalid_signature', 'ignored', 'failed'] as $option)
                                             <option value="{{ $option }}" @selected($result === $option)>{{ $option }}</option>
@@ -79,6 +80,7 @@
                                         <th>{{ translate('Time') }}</th>
                                         <th>{{ translate('Event') }}</th>
                                         <th>{{ translate('Razorpay_payment_id') }}</th>
+                                        <th>{{ translate('Paid_amount') }}</th>
                                         <th>{{ translate('Result') }}</th>
                                         <th>{{ translate('Booking_ID') }}</th>
                                         <th>{{ translate('HTTP') }}</th>
@@ -91,6 +93,13 @@
                                             <td>{{ $log->created_at?->format('d M Y, h:i A') }}</td>
                                             <td>{{ $log->event ?: '-' }}</td>
                                             <td>{{ $log->razorpay_payment_id ?: '-' }}</td>
+                                            <td>
+                                                @if ($log->paid_amount !== null)
+                                                    {{ with_currency_symbol($log->paid_amount) }}
+                                                @else
+                                                    -
+                                                @endif
+                                            </td>
                                             <td>
                                                 @php
                                                     $badgeClass = in_array($log->result, ['completed', 'already_completed'], true)
@@ -111,7 +120,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted py-4">
+                                            <td colspan="8" class="text-center text-muted py-4">
                                                 {{ translate('No_webhook_logs_yet') }}
                                             </td>
                                         </tr>

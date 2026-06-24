@@ -9189,6 +9189,7 @@ _Message' => 'Customer notification for provider bid offer
   'Razorpay_webhook_log_details' => 'Razorpay webhook log details',
   'Search_by_payment_order_or_booking_id' => 'Search by payment, order, or booking id',
   'All_results' => 'All results',
+  'Successfully_paid' => 'Successfully paid',
   'Razorpay_payment_id' => 'Razorpay payment id',
   'No_webhook_logs_yet' => 'No webhook logs yet. Make a test payment after configuring the webhook URL in Razorpay.',
   'Signature_valid' => 'Signature valid',
@@ -9227,4 +9228,6 @@ _Message' => 'Customer notification for provider bid offer
   'Service Availability Hours' => 'Service Availability Hours',
   'Minutes' => 'Minutes',
   'Extra time allowed in cart and checkout before a scheduled booking becomes invalid. Booking still uses the full restriction time.' => 'Extra time allowed in cart and checkout before a scheduled booking becomes invalid. Booking still uses the full restriction time.',
+  'Event' => 'Event',
+  'Successful' => 'Successful',
 );

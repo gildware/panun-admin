@@ -38,6 +38,8 @@ final class RazorpayWebhookLogService
             }
         }
 
+        $paidAmount = isset($entity['amount']) ? round((int) $entity['amount'] / 100, 2) : null;
+
         return RazorpayWebhookLog::query()->create([
             'event' => (string) ($payload['event'] ?? ''),
             'razorpay_payment_id' => (string) ($entity['id'] ?? ''),
@@ -47,6 +49,7 @@ final class RazorpayWebhookLogService
             'result' => $result,
             'http_status' => $httpStatus,
             'booking_readable_id' => $bookingReadableId,
+            'paid_amount' => $paidAmount,
             'error_message' => $errorMessage,
             'payload' => $payload,
         ]);
