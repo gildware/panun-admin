@@ -74,6 +74,72 @@ if (!function_exists('apply_push_notification_body')) {
     }
 }
 
+if (!function_exists('push_notification_sound_for_type')) {
+    function push_notification_sound_for_type(?string $type): string
+    {
+        return match ($type) {
+            'booking', 'booking_ignored', 'offline-payment' => 'booking.wav',
+            'chatting' => 'chat.wav',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'wallet.wav',
+            'bidding', 'bid-withdraw' => 'bidding.wav',
+            default => 'notification.wav',
+        };
+    }
+}
+
+if (!function_exists('push_notification_android_channel_for_type')) {
+    function push_notification_android_channel_for_type(?string $type): string
+    {
+        return match ($type) {
+            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking',
+            'chatting' => 'demandium_chat',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet',
+            'bidding', 'bid-withdraw' => 'demandium_bidding',
+            default => 'demandium',
+        };
+    }
+}
+
+if (!function_exists('apply_push_notification_sound')) {
+    function apply_push_notification_sound(array &$postData, ?string $type): void
+    {
+        $sound = push_notification_sound_for_type($type);
+        $channelId = push_notification_android_channel_for_type($type);
+
+        $postData['message']['data']['notification_sound'] = $sound;
+        $postData['message']['data']['android_channel_id'] = $channelId;
+        $postData['message']['apns']['payload']['aps']['sound'] = $sound;
+        $postData['message']['android']['notification']['channelId'] = $channelId;
+    }
+}
+
+if (!function_exists('apply_push_notification_urgent_delivery')) {
+    function apply_push_notification_urgent_delivery(array &$postData, ?string $type): void
+    {
+        if ($type !== 'booking') {
+            return;
+        }
+
+        $title = $postData['message']['data']['title'] ?? '';
+        $body = $postData['message']['data']['body'] ?? '';
+
+        $postData['message']['android']['priority'] = 'HIGH';
+        if (!empty($postData['message']['android']['notification'])) {
+            $postData['message']['android']['notification']['notification_priority'] = 'PRIORITY_MAX';
+            $postData['message']['android']['notification']['visibility'] = 'PUBLIC';
+        }
+
+        $postData['message']['apns']['headers'] = [
+            'apns-priority' => '10',
+        ];
+        $postData['message']['apns']['payload']['aps']['interruption-level'] = 'time-sensitive';
+        $postData['message']['apns']['payload']['aps']['alert'] = [
+            'title' => (string) $title,
+            'body' => (string) $body,
+        ];
+    }
+}
+
 if (!function_exists('device_notification')) {
     function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null)
     {
@@ -100,20 +166,18 @@ if (!function_exists('device_notification')) {
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
 
         apply_push_notification_body($postData, $body);
+        apply_push_notification_sound($postData, $type);
+        apply_push_notification_urgent_delivery($postData, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -142,20 +206,17 @@ if (!function_exists('topic_notification')) {
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
 
         apply_push_notification_body($postData, $body);
+        apply_push_notification_sound($postData, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -185,20 +246,17 @@ if (!function_exists('device_notification_for_bidding')) {
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
 
         apply_push_notification_body($postData, $body);
+        apply_push_notification_sound($postData, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -231,18 +289,16 @@ if (!function_exists('device_notification_for_chatting')) {
                 ],
                 "apns" => [
                     "payload" => [
-                        "aps" => [
-                            "sound" => "notification.wav"
-                        ]
+                        "aps" => []
                     ]
                 ],
                 "android" => [
-                    "notification" => [
-                        "channelId" => "demandium"
-                    ]
+                    "notification" => []
                 ],
             ]
         ];
+
+        apply_push_notification_sound($postData, $type);
 
         return sendNotificationToHttp($postData);
     }
