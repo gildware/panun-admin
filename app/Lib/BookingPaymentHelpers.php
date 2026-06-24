@@ -5285,6 +5285,77 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
     }
 }
 
+if (!function_exists('resolve_checkout_wallet_digital_split')) {
+    /**
+     * @return array{wallet_paid: float, digital_paid: float, checkout_paid: float}
+     */
+    function resolve_checkout_wallet_digital_split($request, float $checkoutPayable, float $customerWalletBalance): array
+    {
+        $checkoutPayable = round(max(0.0, $checkoutPayable), 2);
+        $walletPaid = round((float) ($request['wallet_paid_amount'] ?? 0), 2);
+        $digitalPaid = round((float) ($request['digitally_paid_amount'] ?? ($request['verified_checkout_amount'] ?? 0)), 2);
+
+        if ($walletPaid <= 0 && $digitalPaid <= 0) {
+            $walletPaid = round(min(
+                cap_wallet_spend_for_single_transaction((float) $customerWalletBalance),
+                $checkoutPayable
+            ), 2);
+            $digitalPaid = round(max(0.0, $checkoutPayable - $walletPaid), 2);
+        } elseif ($walletPaid <= 0) {
+            $digitalPaid = round(min($checkoutPayable, max(0.0, $digitalPaid)), 2);
+            $walletPaid = round(max(0.0, $checkoutPayable - $digitalPaid), 2);
+        } else {
+            $walletPaid = round(min($checkoutPayable, max(0.0, $walletPaid)), 2);
+            if ($digitalPaid <= 0) {
+                $digitalPaid = round(max(0.0, $checkoutPayable - $walletPaid), 2);
+            } else {
+                $digitalPaid = round(min(max(0.0, $checkoutPayable - $walletPaid), $digitalPaid), 2);
+            }
+        }
+
+        return [
+            'wallet_paid' => $walletPaid,
+            'digital_paid' => $digitalPaid,
+            'checkout_paid' => round($walletPaid + $digitalPaid, 2),
+        ];
+    }
+}
+
+if (!function_exists('record_checkout_wallet_digital_partial_payments')) {
+    function record_checkout_wallet_digital_partial_payments(
+        Booking $booking,
+        $request,
+        float $totalBookingAmount,
+        float $checkoutPayable,
+        float $customerWalletBalance
+    ): void {
+        $split = resolve_checkout_wallet_digital_split($request, $checkoutPayable, $customerWalletBalance);
+        $walletPaid = $split['wallet_paid'];
+        $digitalPaid = $split['digital_paid'];
+        $checkoutPaid = $split['checkout_paid'];
+
+        if ($walletPaid > 0) {
+            BookingPartialPayment::create([
+                'booking_id' => $booking->id,
+                'paid_with' => 'wallet',
+                'paid_amount' => $walletPaid,
+                'due_amount' => round(max(0.0, $checkoutPayable - $walletPaid), 2),
+                'received_by' => 'company',
+            ]);
+        }
+
+        if ($digitalPaid > 0 && ($request['payment_method'] ?? '') !== 'cash_after_service') {
+            BookingPartialPayment::create([
+                'booking_id' => $booking->id,
+                'paid_with' => map_booking_payment_paid_with((string) ($request['payment_method'] ?? '')),
+                'paid_amount' => $digitalPaid,
+                'due_amount' => round(max(0.0, $totalBookingAmount - $checkoutPaid), 2),
+                'received_by' => 'company',
+            ]);
+        }
+    }
+}
+
 if (!function_exists('record_booking_advance_checkout_payment')) {
     /**
      * After booking create: store advance partial row + ledger when customer paid confirmation only.
@@ -5349,6 +5420,13 @@ if (!function_exists('finalize_booking_checkout_transactions')) {
         $paymentAmountType = $request['payment_amount_type'] ?? 'full';
 
         if ($paymentAmountType === 'confirmation') {
+            $booking->loadMissing('booking_partial_payments');
+            if ($booking->booking_partial_payments->contains(fn ($partial) => ($partial->paid_with ?? '') === 'wallet')) {
+                placeBookingTransactionForPartialDigital($booking);
+
+                return;
+            }
+
             $verified = round((float) ($request['verified_checkout_amount'] ?? 0), 2);
             record_booking_advance_checkout_payment(
                 $booking,

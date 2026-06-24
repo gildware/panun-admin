@@ -409,6 +409,11 @@ class PaymentController extends Controller
 
         $amount_to_pay = $payable_before_wallet - $wallet_applied;
 
+        if ($request['is_partial'] && $wallet_applied > 0) {
+            $query_params['wallet_paid_amount'] = round($wallet_applied, 2);
+            $query_params['digitally_paid_amount'] = round($amount_to_pay, 2);
+        }
+
         //make payment
         if (! isset($request['post_id']) || is_null($request['post_id'])) {
             $query_params['cart_snapshot'] = app(PaymentRequestCartSnapshotService::class)

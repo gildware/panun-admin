@@ -58,12 +58,24 @@ trait BookingTrait
 
 
         $isPartials = $request['is_partial'] ? 1 : 0;
-        if (($request['payment_amount_type'] ?? 'full') === 'confirmation') {
-            $isPartials = 0;
-        }
-        $customerWalletBalance = User::find($userId)?->wallet_balance;
-        if ($isPartials && $isGuest && ($customerWalletBalance <= 0 || $customerWalletBalance >= $cartData->sum('total_cost'))) {
-            return ['flag' => 'failed', 'message' => 'Invalid data'];
+        $paymentAmountType = $request['payment_amount_type'] ?? 'full';
+        $customerWalletBalance = User::find($userId)?->wallet_balance ?? 0;
+        if ($isPartials && ! $isGuest) {
+            $payableForValidation = (float) $cartData->sum('total_cost');
+            if ($paymentAmountType === 'confirmation') {
+                $payableForValidation = min(
+                    $payableForValidation,
+                    resolve_checkout_payment_amount($userId, 'confirmation')
+                );
+            }
+            $walletApplicable = min(
+                (float) $customerWalletBalance,
+                cap_wallet_spend_for_single_transaction((float) $customerWalletBalance),
+                $payableForValidation
+            );
+            if ($walletApplicable <= 0 || $walletApplicable >= $payableForValidation) {
+                return ['flag' => 'failed', 'message' => 'Invalid data'];
+            }
         }
 
         $loginToken = null;
@@ -171,24 +183,20 @@ trait BookingTrait
                 $booking->save();
 
                 if ($isPartials) {
-                    $paidAmount = cap_wallet_spend_for_single_transaction((float) $customerWalletBalance);
-                    $due_amount = $totalBookingAmount - $paidAmount;
-
-                    $bookingPartialPayment = new BookingPartialPayment;
-                    $bookingPartialPayment->booking_id = $booking->id;
-                    $bookingPartialPayment->paid_with = 'wallet';
-                    $bookingPartialPayment->paid_amount = $paidAmount;
-                    $bookingPartialPayment->due_amount = $due_amount;
-                    $bookingPartialPayment->save();
-
-                    if ($request['payment_method'] != 'cash_after_service') {
-                        $bookingPartialPayment = new BookingPartialPayment;
-                        $bookingPartialPayment->booking_id = $booking->id;
-                        $bookingPartialPayment->paid_with = $request['payment_method'];
-                        $bookingPartialPayment->paid_amount = $due_amount;
-                        $bookingPartialPayment->due_amount = 0;
-                        $bookingPartialPayment->save();
+                    $checkoutPayable = $totalBookingAmount;
+                    if ($paymentAmountType === 'confirmation') {
+                        $checkoutPayable = min(
+                            $totalBookingAmount,
+                            booking_confirmation_amount_per_service() * max(1, booking_confirmation_units_for_cart_items($cartData))
+                        );
                     }
+                    record_checkout_wallet_digital_partial_payments(
+                        $booking,
+                        $request,
+                        $totalBookingAmount,
+                        $checkoutPayable,
+                        (float) $customerWalletBalance
+                    );
                 }
 
                 foreach ($cartData->all() as $datum) {
