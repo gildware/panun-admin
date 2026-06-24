@@ -81,7 +81,7 @@ class PaymentController extends Controller
                 //For bidding
                 'post_id' => 'nullable|uuid',
                 'provider_id' => 'nullable|uuid',
-                'is_partial' => 'nullable:in:0,1',
+                'is_partial' => 'nullable|in:0,1',
                 'payment_amount_type' => 'nullable|in:confirmation,full',
                 'payment_platform' => 'nullable|in:web,app',
                 'service_location' => 'required|in:customer,provider',
@@ -281,17 +281,22 @@ class PaymentController extends Controller
             $total_booking_amount = $booking->total_booking_amount;
 
             if ($request['is_partial']){
-                $customer_wallet_balance = User::find($customer_user_id)?->wallet_balance;
+                $customer_wallet_balance = User::find($customer_user_id)?->wallet_balance ?? 0;
+                $wallet_applied = min(
+                    (float) $customer_wallet_balance,
+                    cap_wallet_spend_for_single_transaction((float) $customer_wallet_balance),
+                    (float) $amount_to_pay
+                );
 
                 //partial validation
-                if (!$is_guest && $request['is_partial'] && ($customer_wallet_balance <= 0 || $customer_wallet_balance >= $total_booking_amount)) {
+                if (!$is_guest && $request['is_partial'] && ($wallet_applied <= 0 || $wallet_applied >= $amount_to_pay)) {
                     return response()->json(response_formatter(DEFAULT_400), 400);
                 }
 
-                $amount_to_pay -= $customer_wallet_balance;
+                $amount_to_pay -= $wallet_applied;
 
                 $data = [
-                    'wallet_paid_amount' => $customer_wallet_balance,
+                    'wallet_paid_amount' => $wallet_applied,
                     'digitally_paid_amount' => $amount_to_pay,
                 ];
 
@@ -383,15 +388,26 @@ class PaymentController extends Controller
 
         $paymentAmountType = $request['payment_amount_type'] ?? 'full';
         if (!isset($request['post_id']) && require_booking_upfront_payment()) {
-            $amount_to_pay = resolve_checkout_payment_amount($customer_user_id, $paymentAmountType);
+            $payable_before_wallet = resolve_checkout_payment_amount($customer_user_id, $paymentAmountType);
         } else {
-            $amount_to_pay = $request['is_partial'] ? ($total_booking_amount - $customer_wallet_balance) : $total_booking_amount;
+            $payable_before_wallet = $total_booking_amount;
         }
 
-        //partial validation
-        if (!$is_guest && $request['is_partial'] && ($customer_wallet_balance <= 0 || $customer_wallet_balance >= $total_booking_amount)) {
+        $wallet_applied = 0.0;
+        if ($request['is_partial']) {
+            $wallet_applied = min(
+                (float) ($customer_wallet_balance ?? 0),
+                cap_wallet_spend_for_single_transaction((float) ($customer_wallet_balance ?? 0)),
+                (float) $payable_before_wallet
+            );
+        }
+
+        //partial validation — wallet must cover part but not all of the payable amount
+        if (!$is_guest && $request['is_partial'] && ($wallet_applied <= 0 || $wallet_applied >= $payable_before_wallet)) {
             return response()->json(response_formatter(DEFAULT_400), 400);
         }
+
+        $amount_to_pay = $payable_before_wallet - $wallet_applied;
 
         //make payment
         if (! isset($request['post_id']) || is_null($request['post_id'])) {
