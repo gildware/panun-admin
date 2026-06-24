@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Schema;
 use Modules\BookingModule\Entities\BookingReopenEvent;
 use Modules\BusinessSettingsModule\Entities\PackageSubscriber;
 use Modules\ProviderManagement\Entities\Provider;
-use Modules\ProviderManagement\Entities\SubscribedService;
 
 trait BookingScopes
 {
@@ -430,67 +429,31 @@ trait BookingScopes
         $isPackageEnded = $packageEndDate ? $currentDate->diffInDays($packageEndDate, false) : null;
         $scheduleBookingEligibility = nextBookingEligibility($providerId);
 
+        $canViewAssignedPending = $provider->service_availability
+            && (int) ($provider->is_active_for_jobs ?? 1) === 1
+            && (! $provider->is_suspended || ! business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values);
+
         if ($packageSubscriber) {
-            if ($isPackageEnded > 0 && $scheduleBookingEligibility && !$canceled) {
-                if ($provider->service_availability && (int)($provider->is_active_for_jobs ?? 1) === 1 && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
-                    $zoneIds = $provider->zones()->pluck('zones.id')->filter()->values()->all();
-                    if ($zoneIds === [] && $provider->zone_id) {
-                        $zoneIds = [(string) $provider->zone_id];
-                    }
-                    $subscribedSubCategories = SubscribedService::where(['provider_id' => $provider->id])->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
-
-                    return $query
-                        ->ofBookingStatus('pending')
-                        ->whereIn('sub_category_id', $subscribedSubCategories)
-                        ->whereIn('zone_id', $zoneIds)
-                        ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
-                            $query->where(function ($query) use ($maxBookingAmount) {
-                                $query->where('payment_method', 'cash_after_service')
-                                    ->where(function ($query) use ($maxBookingAmount) {
-                                        $query->where('is_verified', 1)
-                                            ->orWhere('total_booking_amount', '<=', $maxBookingAmount);
-                                    })
-                                    ->orWhere('payment_method', '<>', 'cash_after_service');
-                            });
-                        })
-                        ->where(function($query) use ($provider) {
-                            $query->whereNull('provider_id')->orWhere('provider_id', $provider->id);
-                        });
-                } else {
-                    return $query->whereNull('id');
-                }
-            } else {
-                return $query->whereRaw('1 = 0'); // This ensures no results are returned
+            if (! ($isPackageEnded > 0 && $scheduleBookingEligibility && ! $canceled && $canViewAssignedPending)) {
+                return $query->whereRaw('1 = 0');
             }
-        } else {
-            if ($provider->service_availability && (int)($provider->is_active_for_jobs ?? 1) === 1 && (!$provider->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)) {
-                $zoneIds = $provider->zones()->pluck('zones.id')->filter()->values()->all();
-                if ($zoneIds === [] && $provider->zone_id) {
-                    $zoneIds = [(string) $provider->zone_id];
-                }
-                $subscribedSubCategories = SubscribedService::where(['provider_id' => $provider->id])->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
-
-                return $query
-                    ->ofBookingStatus('pending')
-                    ->whereIn('sub_category_id', $subscribedSubCategories)
-                    ->whereIn('zone_id', $zoneIds)
-                    ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
-                        $query->where(function ($query) use ($maxBookingAmount) {
-                            $query->where('payment_method', 'cash_after_service')
-                                ->where(function ($query) use ($maxBookingAmount) {
-                                    $query->where('is_verified', 1)
-                                        ->orWhere('total_booking_amount', '<=', $maxBookingAmount);
-                                })
-                                ->orWhere('payment_method', '<>', 'cash_after_service');
-                        });
-                    })
-                    ->where(function($query) use ($provider) {
-                        $query->whereNull('provider_id')->orWhere('provider_id', $provider->id);
-                    });
-            } else {
-                return $query->whereNull('id');
-            }
+        } elseif (! $canViewAssignedPending) {
+            return $query->whereNull('id');
         }
+
+        return $query
+            ->ofBookingStatus('pending')
+            ->where('provider_id', $providerId)
+            ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
+                $query->where(function ($query) use ($maxBookingAmount) {
+                    $query->where('payment_method', 'cash_after_service')
+                        ->where(function ($query) use ($maxBookingAmount) {
+                            $query->where('is_verified', 1)
+                                ->orWhere('total_booking_amount', '<=', $maxBookingAmount);
+                        })
+                        ->orWhere('payment_method', '<>', 'cash_after_service');
+                });
+            });
     }
 
     public function scopeProviderAcceptedBookings($query, $provider_id, $maxBookingAmount): mixed

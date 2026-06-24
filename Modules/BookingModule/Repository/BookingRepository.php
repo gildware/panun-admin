@@ -19,8 +19,6 @@ class BookingRepository implements QueryInterface
     {
         return $this->booking->with([
             'detail.service', 'schedule_histories', 'status_histories', 'service_address', 'customer', 'provider', 'zone', 'serviceman'
-        ])->where(function ($query) use ($value) {
-            return $query->where('provider_id', auth()->user()->provider->id)->orWhereNull('provider_id');
-        })->where([$column => $value])->first();
+        ])->where('provider_id', auth()->user()->provider->id)->where([$column => $value])->first();
     }
 }

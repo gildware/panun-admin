@@ -260,9 +260,10 @@ class ProviderController extends Controller
     public function getProviderListBySubCategory(Request $request): JsonResponse
     {
         $providers = $this->provider->with(['owner'])
-            ->coveringLeafZone(Config::get('zone_id'))
+            ->coveringZoneOrDescendants(Config::get('zone_id'))
             ->whereHas('subscribed_services', function ($query) use ($request) {
-                $query->where('sub_category_id', $request['sub_category_id']);
+                $query->where('sub_category_id', $request['sub_category_id'])
+                    ->where('is_subscribed', 1);
             })
             ->where('app_availability', 1)
             ->where('service_availability', 1)

@@ -1987,7 +1987,7 @@
                             renderBookingServiceInfoAlert();
                         }
                     }
-                    loadProvidersForCategory(categoryId, categoryGen);
+                    loadEligibleProviders({ categoryId: categoryId, requestGen: categoryGen });
                 }).fail(function(xhr) {
                     if (categoryGen !== ajaxBookingCategoryGen) {
                         return;
@@ -2015,6 +2015,11 @@
                 resetBookingServiceInfoAlert();
                 toggleServiceControls(2);
                 var subcatServicesGen = ++ajaxBookingSubcatServicesGen;
+                var categoryGen = ajaxBookingCategoryGen;
+                loadEligibleProviders({
+                    subCategoryId: subCategoryId,
+                    requestGen: categoryGen
+                });
                 $serviceSelect.prop('disabled', false);
                 $serviceSelect.empty().append(
                     new Option('{{ translate('Loading...') }}', '', true, true)
@@ -2267,8 +2272,11 @@
                 $serviceLocationSection.hide();
             }
 
-            function loadProvidersForCategory(categoryId, categoryRequestGen) {
-                if (!categoryId) {
+            function loadEligibleProviders(options) {
+                var categoryId = options.categoryId || null;
+                var subCategoryId = options.subCategoryId || null;
+                var categoryRequestGen = options.requestGen;
+                if (!categoryId && !subCategoryId) {
                     return;
                 }
                 var preserveProviderId = $providerSelect.val() || null;
@@ -2285,7 +2293,13 @@
                 );
                 initializeProviderSelect2();
                 var route = '{{ route('admin.booking.service.ajax-get-providers') }}';
-                $.get(route, { category_id: categoryId, zone_id: $zoneSelect.val() || '' }, function (response) {
+                var params = { zone_id: $zoneSelect.val() || '' };
+                if (subCategoryId) {
+                    params.sub_category_id = subCategoryId;
+                } else {
+                    params.category_id = categoryId;
+                }
+                $.get(route, params, function (response) {
                     if (categoryRequestGen !== ajaxBookingCategoryGen) {
                         return;
                     }

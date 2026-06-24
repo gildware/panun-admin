@@ -83,33 +83,29 @@ class Provider extends Model
 
     public function scopeCoveringLeafZone($query, ?string $leafZoneId)
     {
-        if (! $leafZoneId) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        $table = $query->getModel()->getTable();
-
-        return $query->where(function ($outer) use ($leafZoneId, $table) {
-            $outer->whereHas('zones', function ($q) use ($leafZoneId) {
-                $q->where('zones.id', $leafZoneId);
-            })->orWhere(function ($q) use ($leafZoneId, $table) {
-                $q->whereDoesntHave('zones')
-                    ->where($table . '.zone_id', $leafZoneId);
-            });
-        });
+        return static::applyCoveringZoneScope($query, $leafZoneId);
     }
 
     /**
      * Cover providers for a zone, whether it's a leaf or a parent zone.
-     * If a parent zone is selected, providers serving any descendant zone are eligible.
+     * Matches providers whose coverage overlaps the selection (parent, exact, or child zones).
      */
     public function scopeCoveringZoneOrDescendants($query, ?string $zoneId)
+    {
+        return static::applyCoveringZoneScope($query, $zoneId);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    protected static function applyCoveringZoneScope($query, ?string $zoneId)
     {
         if (! $zoneId) {
             return $query->whereRaw('1 = 0');
         }
 
-        $zoneIds = Zone::selfAndDescendantIds((string) $zoneId);
+        $zoneIds = Zone::coverageMatchZoneIds((string) $zoneId);
         if ($zoneIds === []) {
             return $query->whereRaw('1 = 0');
         }

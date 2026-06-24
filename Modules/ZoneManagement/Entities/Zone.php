@@ -215,4 +215,48 @@ class Zone extends Model
 
         return array_keys($seen);
     }
+
+    /**
+     * Return the given zone id plus all ancestor zone ids (walk up parent_id).
+     *
+     * @return array<int, string>
+     */
+    public static function selfAndAncestorIds(string $zoneId): array
+    {
+        $seen = [];
+        $current = (string) $zoneId;
+
+        while ($current !== '') {
+            $seen[$current] = true;
+            $parent = static::query()
+                ->withoutGlobalScope('translate')
+                ->where('id', $current)
+                ->value('parent_id');
+            $current = $parent ? (string) $parent : '';
+        }
+
+        return array_keys($seen);
+    }
+
+    /**
+     * Zone ids that overlap provider coverage for a booking/service zone selection.
+     * Matches providers assigned to the zone, a parent (wider coverage), or a descendant (narrower).
+     *
+     * @return array<int, string>
+     */
+    public static function coverageMatchZoneIds(string $zoneId): array
+    {
+        $zoneId = (string) $zoneId;
+        if ($zoneId === '') {
+            return [];
+        }
+
+        $bookingZoneIds = static::selfAndDescendantIds($zoneId);
+        $match = [];
+        foreach ($bookingZoneIds as $id) {
+            $match = array_merge($match, static::selfAndAncestorIds($id), static::selfAndDescendantIds($id));
+        }
+
+        return array_values(array_unique($match));
+    }
 }

@@ -457,7 +457,7 @@ class BusinessInformationController extends Controller
     {
         $this->authorize('business_update');
 
-        collect(['booking_otp', 'service_complete_photo_evidence', 'bidding_status', 'bid_offers_visibility_for_providers', 'instant_booking', 'repeat_booking', 'schedule_booking_time_restriction', 'schedule_booking', 'direct_provider_booking'])
+        collect(['booking_otp', 'service_complete_photo_evidence', 'bidding_status', 'bid_offers_visibility_for_providers', 'instant_booking', 'repeat_booking', 'schedule_booking_time_restriction', 'schedule_booking', 'direct_provider_booking', 'company_service_hours_enabled'])
             ->each(fn($item, $key) => $request[$item] = $request->has($item) ? (int)$request[$item] : 0);
 
         $validator = Validator::make($request->all(), [
@@ -475,13 +475,24 @@ class BusinessInformationController extends Controller
             'min_booking_amount' => 'required|numeric|gte:0',
             'max_booking_amount' => 'required|numeric|gt:min_booking_amount',
             'direct_provider_booking' => 'required|in:0,1',
+            'company_service_hours_enabled' => 'required|in:0,1',
+            'company_service_start_time' => 'required_if:company_service_hours_enabled,1|nullable|date_format:H:i',
+            'company_service_end_time' => 'required_if:company_service_hours_enabled,1|nullable|date_format:H:i|after:company_service_start_time',
+            'company_service_weekends' => 'nullable|array',
+            'company_service_weekends.*' => 'in:saturday,sunday,monday,tuesday,wednesday,thursday,friday',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        foreach ($validator->validated() as $key => $value) {
+        $validated = $validator->validated();
+        $weekends = $request->input('company_service_weekends', []);
+
+        foreach ($validated as $key => $value) {
+            if ($key === 'company_service_weekends') {
+                continue;
+            }
 
             $this->businessSetting->updateOrCreate(['key_name' => $key], [
                 'key_name' => $key,
@@ -492,6 +503,15 @@ class BusinessInformationController extends Controller
                 'is_active' => 1,
             ]);
         }
+
+        $this->businessSetting->updateOrCreate(['key_name' => 'company_service_weekends'], [
+            'key_name' => 'company_service_weekends',
+            'live_values' => json_encode($weekends),
+            'test_values' => json_encode($weekends),
+            'settings_type' => 'booking_setup',
+            'mode' => 'live',
+            'is_active' => 1,
+        ]);
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
     }

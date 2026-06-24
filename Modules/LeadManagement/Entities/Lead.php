@@ -71,6 +71,11 @@ class Lead extends Model
         return $this->belongsTo(\Modules\UserManagement\Entities\User::class, 'created_by', 'id');
     }
 
+    public function outboundEnquiries(): HasMany
+    {
+        return $this->hasMany(LeadOutboundEnquiry::class)->latest('contacted_at');
+    }
+
     public function followups(): HasMany
     {
         return $this->hasMany(LeadFollowup::class)->latest('followup_at');

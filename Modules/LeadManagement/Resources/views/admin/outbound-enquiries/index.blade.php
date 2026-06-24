@@ -52,6 +52,8 @@
                                         <th>{{ translate('Phone_Number') }}</th>
                                         <th>{{ translate('Contacted_Through') }}</th>
                                         <th>{{ translate('Status') }}</th>
+                                        <th>{{ translate('Link_Lead') }}</th>
+                                        <th>{{ translate('Booking_ID') }}</th>
                                         <th>{{ translate('Date_Time') }}</th>
                                         <th>{{ translate('Handled_By') }}</th>
                                         <th>{{ translate('Remarks') }}</th>
@@ -66,10 +68,33 @@
                                         @endphp
                                         <tr>
                                             <td>{{ $enquiries->firstItem() + $key }}</td>
-                                            <td>{{ $enquiry->customer_name }}</td>
+                                            <td>
+                                                <div>{{ $enquiry->customer_name }}</div>
+                                                @if($enquiry->isFromFutureCustomerLead())
+                                                    <span class="badge rounded-pill bg-info text-capitalize mt-1">{{ translate('Future_Customer') }}</span>
+                                                @endif
+                                            </td>
                                             <td>{{ $enquiry->phone_number }}</td>
                                             <td class="text-capitalize">{{ $enquiry->contacted_through }}</td>
                                             <td>{{ $statusName }}</td>
+                                            <td>
+                                                @if($enquiry->relatedLead)
+                                                    <a href="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}?in_modal=1" class="link-primary">
+                                                        #{{ $enquiry->relatedLead->id }} — {{ $enquiry->relatedLead->name ?: '—' }}
+                                                    </a>
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($enquiry->booking)
+                                                    <a href="{{ route('admin.booking.details', $enquiry->booking->id) }}" class="link-primary">
+                                                        {{ $enquiry->booking->readable_id ?: $enquiry->booking->id }}
+                                                    </a>
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
                                             <td>
                                                 {{ $enquiry->contacted_at ? $enquiry->contacted_at->format('d F Y h:i a') : '—' }}
                                             </td>
@@ -78,7 +103,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">
+                                            <td colspan="10" class="text-center text-muted py-4">
                                                 {{ translate('No_data_found') }}
                                             </td>
                                         </tr>

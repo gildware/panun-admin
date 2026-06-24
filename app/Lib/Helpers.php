@@ -1354,6 +1354,123 @@ if (!function_exists('nextBookingEligibility')) {
     }
 }
 
+if (!function_exists('company_service_hours_config')) {
+    function company_service_hours_config(): ?array
+    {
+        $enabled = (int) (business_config('company_service_hours_enabled', 'booking_setup')?->live_values ?? 0);
+        if ($enabled !== 1) {
+            return null;
+        }
+
+        $startTime = business_config('company_service_start_time', 'booking_setup')?->live_values;
+        $endTime = business_config('company_service_end_time', 'booking_setup')?->live_values;
+        if (empty($startTime) || empty($endTime)) {
+            return null;
+        }
+
+        $weekendsRaw = business_config('company_service_weekends', 'booking_setup')?->live_values;
+        $weekends = $weekendsRaw ? json_decode($weekendsRaw, true) : [];
+        $weekends = is_array($weekends) ? array_map('strtolower', $weekends) : [];
+
+        return [
+            'enabled' => true,
+            'start_time' => (string) $startTime,
+            'end_time' => (string) $endTime,
+            'weekends' => $weekends,
+        ];
+    }
+}
+
+if (!function_exists('is_within_company_service_hours')) {
+    function is_within_company_service_hours(\Carbon\Carbon $dateTime): bool
+    {
+        $config = company_service_hours_config();
+        if ($config === null) {
+            return true;
+        }
+
+        $day = strtolower($dateTime->format('l'));
+        if (in_array($day, $config['weekends'], true)) {
+            return false;
+        }
+
+        $time = $dateTime->format('H:i:s');
+        $start = strlen($config['start_time']) === 5
+            ? $config['start_time'] . ':00'
+            : $config['start_time'];
+        $end = strlen($config['end_time']) === 5
+            ? $config['end_time'] . ':00'
+            : $config['end_time'];
+
+        return $time >= $start && $time <= $end;
+    }
+}
+
+if (!function_exists('resolve_company_service_schedule')) {
+    function resolve_company_service_schedule(\Carbon\Carbon $requested): \Carbon\Carbon
+    {
+        $config = company_service_hours_config();
+        if ($config === null) {
+            return $requested;
+        }
+
+        $minimumLeadHours = (int) (business_config('advanced_booking_restriction_value', 'booking_setup')?->live_values ?? 2);
+        $restrictionType = business_config('advanced_booking_restriction_type', 'booking_setup')?->live_values;
+        if ($restrictionType !== 'hour' || $minimumLeadHours <= 0) {
+            $minimumLeadHours = 2;
+        }
+        $minimum = \Carbon\Carbon::now()->addHours($minimumLeadHours);
+
+        if ($requested->gte($minimum) && is_within_company_service_hours($requested)) {
+            return $requested;
+        }
+
+        $anchor = $requested->lt($minimum) ? $minimum->copy() : $requested->copy();
+
+        for ($dayOffset = 0; $dayOffset < 14; $dayOffset++) {
+            $day = $anchor->copy()->startOfDay()->addDays($dayOffset);
+            $dayName = strtolower($day->format('l'));
+            if (in_array($dayName, $config['weekends'], true)) {
+                continue;
+            }
+
+            $start = \Carbon\Carbon::parse($day->format('Y-m-d') . ' ' . $config['start_time']);
+            $end = \Carbon\Carbon::parse($day->format('Y-m-d') . ' ' . $config['end_time']);
+            $slot = $start->copy();
+
+            if ($dayOffset === 0) {
+                if ($anchor->lt($slot)) {
+                    $candidate = $slot->lt($minimum) ? $minimum->copy() : $slot->copy();
+                    if ($candidate->gte($minimum) && is_within_company_service_hours($candidate)) {
+                        return $candidate;
+                    }
+                    continue;
+                }
+                if ($anchor->lte($end) && is_within_company_service_hours($anchor)) {
+                    return $anchor->lt($minimum) ? $minimum->copy() : $anchor->copy();
+                }
+                continue;
+            }
+
+            $candidate = $slot->lt($minimum) ? $minimum->copy() : $slot->copy();
+            if ($candidate->gte($minimum) && is_within_company_service_hours($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $anchor->lt($minimum) ? $minimum->copy() : $anchor->copy();
+    }
+}
+
+if (!function_exists('normalize_company_service_schedule')) {
+    function normalize_company_service_schedule(string $schedule): string
+    {
+        $dateTime = \Carbon\Carbon::parse($schedule);
+
+        return resolve_company_service_schedule($dateTime)->format('Y-m-d H:i:s');
+    }
+}
+
 if (!function_exists('scheduleBookingEligibility')) {
     function scheduleBookingEligibility($providerId): bool
     {

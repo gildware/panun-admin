@@ -142,32 +142,25 @@ class ProviderController extends Controller
         }
 
         if (in_array('recent_bookings', $request['sections'])) {
-            $subscribedSubCategories = $this->subscribedService
-                ->where(['provider_id' => $request->user()->provider->id])
-                ->where(['is_subscribed' => 1])->pluck('sub_category_id')->toArray();
+            $provider = $request->user()->provider;
+            $recentBookings = collect();
 
-            $recentBookings = $this->booking->with(['detail.service' => function ($query) {
-                $query->select('id', 'name', 'thumbnail');
+            if (
+                provider_can_receive_bookings($provider)
+                && ($provider->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
+            ) {
+                $recentBookings = $this->booking->with(['detail.service' => function ($query) {
+                    $query->select('id', 'name', 'thumbnail');
+                }])
+                    ->providerPendingBookings($provider, $maxBookingAmount)
+                    ->whereDoesntHave('ignores', function ($query) use ($provider) {
+                        $query->where('provider_id', $provider->id);
+                    })
+                    ->latest()
+                    ->take(5)
+                    ->get();
+            }
 
-            }])->where('booking_status', 'pending')
-                ->whereIn('sub_category_id', $subscribedSubCategories)
-                ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
-                    $query->where(function ($query) use ($maxBookingAmount) {
-                        $query->where('payment_method', 'cash_after_service')
-                            ->where(function ($query) use ($maxBookingAmount) {
-                                $query->where('is_verified', 1)
-                                    ->orWhere('total_booking_amount', '<=', $maxBookingAmount);
-                            })
-                            ->orWhere('payment_method', '<>', 'cash_after_service');
-                    });
-                })
-                ->whereDoesntHave('ignores', function ($query) use ($request) {
-                    $query->where('provider_id', $request->user()->provider->id);
-                })
-                ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
-                ->latest()->take(5)->get();
-            $recentNotBooking = [];
-            $recentBookings = $request->user()?->provider?->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values ? $recentBookings : $recentNotBooking;
             $data[] = ['recent_bookings' => $recentBookings];
         }
 
@@ -265,23 +258,20 @@ class ProviderController extends Controller
                 ->where('provider_id', auth('api')->user()->provider->id)
                 ->count();
 
-            $pendingBookingCount = $this->booking->where('booking_status', 'pending')
-                ->whereIn('sub_category_id', $subscribedSubCategories)
-                ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount) {
-                    $query->where(function ($query) use ($maxBookingAmount) {
-                        $query->where('payment_method', 'cash_after_service')
-                            ->where(function ($query) use ($maxBookingAmount) {
-                                $query->where('is_verified', 1)
-                                    ->orWhere('total_booking_amount', '<=', $maxBookingAmount);
-                            })
-                            ->orWhere('payment_method', '<>', 'cash_after_service');
-                    });
-                })
-                ->whereIn('zone_id', $request->user()->provider->coveredLeafZoneIds())
-                ->count();
+            $provider = $request->user()->provider;
+            $pendingBookingCount = 0;
 
-            $recentNotBooking = [];
-            $pendingBookingCount = $request->user()?->provider?->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values ? $pendingBookingCount : $recentNotBooking;
+            if (
+                provider_can_receive_bookings($provider)
+                && ($provider->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
+            ) {
+                $pendingBookingCount = $this->booking
+                    ->providerPendingBookings($provider, $maxBookingAmount)
+                    ->whereDoesntHave('ignores', function ($query) use ($provider) {
+                        $query->where('provider_id', $provider->id);
+                    })
+                    ->count();
+            }
 
             $data[] = ['additional_info_count' =>
                 [

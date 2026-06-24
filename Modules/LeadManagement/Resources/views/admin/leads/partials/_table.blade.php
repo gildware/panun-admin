@@ -1,10 +1,19 @@
 @php
     $isProviderTab = isset($tab) && $tab === 'provider';
     $isCustomerTab = isset($tab) && $tab === 'customer';
-    $isReasonTab = isset($tab) && in_array($tab, ['invalid', 'future_customer'], true);
+    $isInvalidTab = isset($tab) && $tab === 'invalid';
+    $isFutureCustomerTab = isset($tab) && $tab === 'future_customer';
+    $isReasonTab = $isInvalidTab || $isFutureCustomerTab;
     $providerLeadData = $providerLeadData ?? [];
     $customerLeadData = $customerLeadData ?? [];
     $reasonLeadData = $reasonLeadData ?? [];
+    $emptyColspan = match (true) {
+        $isProviderTab => 13,
+        $isCustomerTab => 16,
+        $isFutureCustomerTab => 11,
+        $isInvalidTab => 10,
+        default => 11,
+    };
 @endphp
 <div class="card">
     <div class="card-body">
@@ -33,6 +42,9 @@
                     @elseif($isReasonTab)
                         <th>{{ translate('Source') }}</th>
                         <th>{{ translate('Reason') }}</th>
+                        @if($isFutureCustomerTab)
+                            <th>{{ translate('Outbound_Enquiries') }}</th>
+                        @endif
                     @else
                         <th>{{ translate('Source') }}</th>
                         <th>{{ translate('Lead_Type') }}</th>
@@ -96,6 +108,9 @@
                         @elseif($isReasonTab)
                             <td>{{ $lead->source?->name ?? '—' }}</td>
                             <td>{{ $reasonLeadData[$lead->id] ?? '—' }}</td>
+                            @if($isFutureCustomerTab)
+                                <td>{{ $lead->outbound_enquiries_count ?? 0 }}</td>
+                            @endif
                         @else
                             <td>{{ $lead->source?->name ?? '—' }}</td>
                             <td>
@@ -156,7 +171,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $isProviderTab ? 13 : ($isCustomerTab ? 16 : ($isReasonTab ? 10 : 11)) }}" class="text-center py-4">{{ translate('No_leads_found') }}</td>
+                        <td colspan="{{ $emptyColspan }}" class="text-center py-4">{{ translate('No_leads_found') }}</td>
                     </tr>
                 @endforelse
                 </tbody>

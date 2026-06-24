@@ -71,6 +71,11 @@
                             <span class="badge rounded-pill {{ !empty($leadOpenStatus) ? 'bg-danger' : 'bg-success' }}">
                                 {{ !empty($leadOpenStatus) ? 'Open' : 'Closed' }}
                             </span>
+                            @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
+                                <span class="badge rounded-pill bg-secondary">
+                                    {{ $lead->outbound_enquiries_count }} {{ translate('Outbound_Enquiries') }}
+                                </span>
+                            @endif
                             @if(!empty($whatsappChatUrl))
                                 <a href="{{ $whatsappChatUrl }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" target="_blank" rel="noopener noreferrer">
                                     <span class="material-icons" style="font-size: 18px;">chat</span>
@@ -161,6 +166,16 @@
                                    @if(!empty($inModal)) target="_top" rel="noopener" @endif>
                                     {{ translate('Create_Booking_for_this_Lead') }}
                                 </a>
+                            @elseif($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
+                                @can('lead_outbound_enquiry_add')
+                                    <button type="button"
+                                            class="btn btn--primary btn-sm d-inline-flex align-items-center gap-1"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#addOutboundEnquiryModal">
+                                        <span class="material-icons" style="font-size: 18px;">add</span>
+                                        {{ translate('Add_Outbound_Enquiry') }}
+                                    </button>
+                                @endcan
                             @endif
                             @if(empty($inModal))
                                 <a href="{{ route('admin.lead.index') }}" class="btn btn--secondary btn-sm">{{ translate('Back_to_Leads') }}</a>
@@ -571,6 +586,79 @@
                                         </div>
                                     @endforeach
                                 </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
+                        <div class="card mb-3" id="lead-outbound-enquiries-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                    <h3 class="c1 mb-0">{{ translate('Outbound_Enquiries') }}</h3>
+                                    @can('lead_outbound_enquiry_add')
+                                        <button type="button"
+                                                class="btn btn--primary btn-sm d-inline-flex align-items-center gap-1"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#addOutboundEnquiryModal">
+                                            <span class="material-icons" style="font-size: 18px;">add</span>
+                                            {{ translate('Add_Outbound_Enquiry') }}
+                                        </button>
+                                    @endcan
+                                </div>
+                                <hr>
+                                @if($lead->outboundEnquiries->isEmpty())
+                                    <p class="mb-0 text-muted">{{ translate('No_outbound_enquiries_yet') }}</p>
+                                @else
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle mb-0">
+                                            <thead>
+                                            <tr>
+                                                <th>{{ translate('Contacted_Through') }}</th>
+                                                <th>{{ translate('Status') }}</th>
+                                                <th>{{ translate('Link_Lead') }}</th>
+                                                <th>{{ translate('Booking_ID') }}</th>
+                                                <th>{{ translate('Date_Time') }}</th>
+                                                <th>{{ translate('Handled_By') }}</th>
+                                                <th>{{ translate('Remarks') }}</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            @foreach($lead->outboundEnquiries as $enquiry)
+                                                @php
+                                                    $employee = $enquiry->handledBy ?: $enquiry->createdBy;
+                                                    $employeeName = $employee ? (trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? '')) ?: $employee->email) : '—';
+                                                    $statusName = $enquiry->statusConfig?->name ?? $enquiry->status ?? '—';
+                                                @endphp
+                                                <tr>
+                                                    <td class="text-capitalize">{{ $enquiry->contacted_through }}</td>
+                                                    <td>{{ $statusName }}</td>
+                                                    <td>
+                                                        @if($enquiry->relatedLead)
+                                                            <a href="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}?in_modal=1" class="link-primary btn-lead-view" data-lead-url="{{ route('admin.lead.show', $enquiry->relatedLead->id) }}?in_modal=1">
+                                                                #{{ $enquiry->relatedLead->id }} — {{ $enquiry->relatedLead->name ?: '—' }}
+                                                            </a>
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        @if($enquiry->booking)
+                                                            <a href="{{ route('admin.booking.details', $enquiry->booking->id) }}" class="link-primary" @if(!empty($inModal)) target="_top" @endif>
+                                                                {{ $enquiry->booking->readable_id ?: $enquiry->booking->id }}
+                                                            </a>
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                    <td>{{ $enquiry->contacted_at ? $enquiry->contacted_at->format('d F Y h:i a') : '—' }}</td>
+                                                    <td>{{ $employeeName }}</td>
+                                                    <td>{{ $enquiry->remarks ?: '—' }}</td>
+                                                </tr>
+                                            @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -1056,6 +1144,47 @@
                             </div>
                         </div>
                     </div>
+
+                    @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
+                        @can('lead_outbound_enquiry_add')
+                            <div class="modal fade" id="addOutboundEnquiryModal" tabindex="-1" aria-labelledby="addOutboundEnquiryModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header border-0">
+                                            <h5 class="modal-title" id="addOutboundEnquiryModalLabel">{{ translate('Add_Outbound_Enquiry') }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
+                                        </div>
+                                        <form method="POST" action="{{ route('admin.lead.outbound-enquiry.store-from-lead', $lead->id) }}">
+                                            @csrf
+                                            @if(!empty($inModal))
+                                                <input type="hidden" name="in_modal" value="1">
+                                            @endif
+                                            <div class="modal-body pt-0">
+                                                @include('leadmanagement::admin.outbound-enquiries.partials._form_fields', [
+                                                    'formPrefix' => 'outbound-lead-modal',
+                                                    'defaultCustomerName' => old('customer_name', $lead->name),
+                                                    'defaultPhoneNumber' => old('phone_number', $lead->phone_number),
+                                                    'employees' => $employees,
+                                                    'statuses' => $outboundEnquiryStatuses ?? [],
+                                                    'currentEmployeeId' => auth()->id(),
+                                                ])
+                                            </div>
+                                            <div class="modal-footer border-0 d-flex justify-content-end gap-2 pb-4">
+                                                <button type="button"
+                                                        class="btn btn--secondary"
+                                                        data-bs-dismiss="modal">
+                                                    {{ translate('Cancel') }}
+                                                </button>
+                                                <button type="submit" class="btn btn--primary">
+                                                    {{ translate('Submit') }}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        @endcan
+                    @endif
 
                     <div class="modal fade" id="deleteLeadModal" tabindex="-1" aria-labelledby="deleteLeadModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
@@ -2111,6 +2240,19 @@
                 });
             });
         })();
+
+        @if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER && $errors->hasAny(['customer_name', 'phone_number', 'contacted_through', 'status_id', 'handled_by', 'contacted_at', 'remarks', 'related_lead_id', 'booking_id']))
+            $(function () {
+                const modalEl = document.getElementById('addOutboundEnquiryModal');
+                if (modalEl && window.bootstrap?.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            });
+        @endif
     </script>
 @endpush
+
+@if($lead->lead_type === \Modules\LeadManagement\Entities\Lead::TYPE_FUTURE_CUSTOMER)
+    @include('leadmanagement::admin.outbound-enquiries.partials._form_script')
+@endif
 

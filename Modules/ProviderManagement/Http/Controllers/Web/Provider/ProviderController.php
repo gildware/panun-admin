@@ -231,30 +231,24 @@ class ProviderController extends Controller
 
 
         //recent_bookings
-        $subCategoryIds = $this->subscribed_service->where('provider_id', $request->user()->provider->id)->ofSubscription(1)->pluck('sub_category_id')->toArray();
-        $recent_bookings = $this->booking->with(['detail.service' => function ($query) {
-            $query->select('id', 'name', 'thumbnail');
-        }])
-            ->whereIn('sub_category_id', $subCategoryIds)
-            ->when($maxBookingAmount > 0, function ($query) use ($maxBookingAmount, $request) {
-                if (!$request->user()?->provider?->is_suspended || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values) {
-                    $query->where(function ($query) use ($maxBookingAmount) {
-                        $query->where('payment_method', 'cash_after_service')
-                            ->where(function ($query) use ($maxBookingAmount) {
-                                $query->where('is_verified', 1)
-                                    ->orWhere('total_booking_amount', '<=', $maxBookingAmount);
-                            })
-                            ->orWhere('payment_method', '<>', 'cash_after_service');
-                    });
-                } else {
-                    $query->whereNull('id');
-                }
-            })
-            ->where('booking_status', 'pending')
-            ->whereIn('zone_id', $dashboardZoneIds)
-            ->latest()
-            ->take(5)
-            ->get();
+        $provider = $request->user()->provider;
+        $recent_bookings = collect();
+
+        if (
+            provider_can_receive_bookings($provider)
+            && ($provider->is_suspended == 0 || !business_config('suspend_on_exceed_cash_limit_provider', 'provider_config')->live_values)
+        ) {
+            $recent_bookings = $this->booking->with(['detail.service' => function ($query) {
+                $query->select('id', 'name', 'thumbnail');
+            }])
+                ->providerPendingBookings($provider, $maxBookingAmount)
+                ->whereDoesntHave('ignores', function ($query) use ($provider) {
+                    $query->where('provider_id', $provider->id);
+                })
+                ->latest()
+                ->take(5)
+                ->get();
+        }
         $data[] = ['recent_bookings' => $recent_bookings];
 
         //my_subscriptions

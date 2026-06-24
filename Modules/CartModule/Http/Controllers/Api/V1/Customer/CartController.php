@@ -119,7 +119,7 @@ class CartController extends Controller
             $service = $this->service->with(['category', 'subCategory'])->find($request['service_id']);
 
             $normalizedSchedule = $request->filled('service_schedule')
-                ? date('Y-m-d H:i:s', strtotime($request['service_schedule']))
+                ? normalize_company_service_schedule(date('Y-m-d H:i:s', strtotime($request['service_schedule'])))
                 : null;
 
             $existingCart = $this->findCartLineForBooking(
@@ -244,7 +244,9 @@ class CartController extends Controller
             [
                 'zone_id' => $request['zone_id'],
                 'service_address_id' => $request['service_address_id'],
-                'service_schedule' => date('Y-m-d H:i:s', strtotime($request['service_schedule'])),
+                'service_schedule' => normalize_company_service_schedule(
+                    date('Y-m-d H:i:s', strtotime($request['service_schedule']))
+                ),
             ]
         );
 
@@ -280,7 +282,9 @@ class CartController extends Controller
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
 
-        $normalizedSchedule = date('Y-m-d H:i:s', strtotime($request['service_schedule']));
+        $normalizedSchedule = normalize_company_service_schedule(
+            date('Y-m-d H:i:s', strtotime($request['service_schedule']))
+        );
 
         $this->cart
             ->where(['id' => $id, 'customer_id' => $customerUserId])
