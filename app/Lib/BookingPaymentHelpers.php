@@ -2418,6 +2418,68 @@ if (! function_exists('booking_installment_received_by_label')) {
     }
 }
 
+if (! function_exists('booking_partial_payment_resolve_transaction_id')) {
+    /**
+     * Resolve display transaction id for a partial row (gateway id for digital, wallet trx uuid for wallet).
+     */
+    function booking_partial_payment_resolve_transaction_id(BookingPartialPayment $partial, Booking $main): ?string
+    {
+        $stored = trim((string) ($partial->transaction_id ?? ''));
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        $ledger = null;
+        if ($partial->relationLoaded('ledgerTransactions')) {
+            $ledger = $partial->ledgerTransactions
+                ->where('type', LedgerTransaction::TYPE_IN)
+                ->sortByDesc('created_at')
+                ->first();
+        } else {
+            $ledger = $partial->ledgerTransactions()
+                ->where('type', LedgerTransaction::TYPE_IN)
+                ->orderByDesc('created_at')
+                ->first();
+        }
+        if ($ledger instanceof LedgerTransaction) {
+            $ledgerId = trim((string) ($ledger->transaction_id ?? ''));
+            if ($ledgerId !== '') {
+                return $ledgerId;
+            }
+        }
+
+        $paidWith = (string) ($partial->paid_with ?? '');
+        $amount = round((float) ($partial->paid_amount ?? 0), 2);
+
+        if ($paidWith === 'wallet') {
+            $walletTrx = \Modules\TransactionModule\Entities\Transaction::query()
+                ->where('booking_id', $main->id)
+                ->where('trx_type', WALLET_TRX_TYPE['wallet_payment'])
+                ->whereBetween('debit', [$amount - 0.01, $amount + 0.01])
+                ->when(
+                    $partial->created_at,
+                    fn ($query) => $query->whereBetween('created_at', [
+                        $partial->created_at->copy()->subMinutes(5),
+                        $partial->created_at->copy()->addMinutes(5),
+                    ])
+                )
+                ->orderBy('created_at')
+                ->first();
+
+            return $walletTrx?->id ? (string) $walletTrx->id : null;
+        }
+
+        if (! in_array($paidWith, ['wallet', 'cash_after_service'], true)) {
+            $gatewayId = trim((string) ($main->transaction_id ?? ''));
+            if ($gatewayId !== '') {
+                return $gatewayId;
+            }
+        }
+
+        return null;
+    }
+}
+
 if (! function_exists('booking_installment_row_from_partial')) {
     /**
      * @return array<string, mixed>
@@ -2430,7 +2492,7 @@ if (! function_exists('booking_installment_row_from_partial')) {
             'received_by_label' => booking_installment_received_by_label($partial->received_by),
             'amount' => round((float) ($partial->paid_amount ?? 0), 2),
             'payment_method_label' => (string) $partial->paymentMethodLabelForAdmin($main),
-            'transaction_id' => $partial->transaction_id ?: null,
+            'transaction_id' => booking_partial_payment_resolve_transaction_id($partial, $main),
             'due_after_payment' => round(max(0.0, $dueAfterPayment), 2),
             'paid_with' => $partial->paid_with,
             'id' => $partial->id ? (string) $partial->id : null,
@@ -5261,11 +5323,11 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
             $account->balance_pending += $paidAmount;
             $account->save();
 
-            Transaction::create([
+            \Modules\TransactionModule\Entities\Transaction::create([
                 'ref_trx_id' => null,
                 'booking_id' => $booking->id,
                 'trx_type' => TRX_TYPE['booking_amount'],
-                'company_flow' => Transaction::FLOW_IN,
+                'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_IN,
                 'debit' => 0,
                 'credit' => $paidAmount,
                 'balance' => $account->balance_pending,
@@ -5276,6 +5338,8 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                 'is_guest' => $booking->is_guest,
             ]);
 
+            $partialTransactionId = trim((string) ($booking->transaction_id ?? '')) ?: null;
+
             if ($paymentMethod === 'wallet_payment') {
                 $user = \Modules\UserManagement\Entities\User::find($booking->customer_id);
                 if ($user && $user->wallet_balance >= $paidAmount) {
@@ -5283,11 +5347,11 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                     $user->save();
                 }
 
-                Transaction::create([
+                $walletTransaction = \Modules\TransactionModule\Entities\Transaction::create([
                     'ref_trx_id' => null,
                     'booking_id' => $booking->id,
                     'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
-                    'company_flow' => Transaction::FLOW_NONE,
+                    'company_flow' => \Modules\TransactionModule\Entities\Transaction::FLOW_NONE,
                     'debit' => $paidAmount,
                     'credit' => 0,
                     'balance' => $user?->wallet_balance ?? 0,
@@ -5298,11 +5362,18 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
                     'is_guest' => $booking->is_guest,
                     'reference_note' => wallet_transaction_booking_reference_note($booking),
                 ]);
+                $partialTransactionId = (string) $walletTransaction->id;
+            }
+
+            if ($partialPaymentId && $partialTransactionId) {
+                BookingPartialPayment::query()
+                    ->whereKey($partialPaymentId)
+                    ->update(['transaction_id' => $partialTransactionId]);
             }
 
             ledger_record_in([
                 'amount' => $paidAmount,
-                'transaction_id' => $booking->transaction_id ?? null,
+                'transaction_id' => $partialTransactionId,
                 'booking_id' => $booking->id,
                 'payment_method' => $paymentMethod === 'wallet_payment' ? 'wallet_payment' : ($paymentMethod === 'offline_payment' ? 'offline_payment' : 'digital_payment'),
                 'date' => now()->toDateString(),

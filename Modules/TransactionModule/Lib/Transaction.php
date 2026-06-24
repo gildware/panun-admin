@@ -216,7 +216,27 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
 
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
 
-        DB::transaction(function () use ($freshBooking, $admin_user_id, $walletPaid, $digitalPaid) {
+        $walletPartial = $freshBooking->booking_partial_payments
+            ->where('paid_with', 'wallet')
+            ->sortBy('created_at')
+            ->first();
+        $digitalPartial = $freshBooking->booking_partial_payments
+            ->filter(fn ($partial) => ! in_array($partial->paid_with, ['wallet', 'cash_after_service'], true))
+            ->sortBy('created_at')
+            ->first();
+        $digitalTransactionId = trim((string) ($freshBooking->transaction_id ?? '')) ?: null;
+
+        DB::transaction(function () use (
+            $freshBooking,
+            $admin_user_id,
+            $walletPaid,
+            $digitalPaid,
+            $walletPartial,
+            $digitalPartial,
+            $digitalTransactionId
+        ) {
+            $walletTransactionId = null;
+
             if ($walletPaid > 0) {
                 $account = Account::where('user_id', $admin_user_id)->first();
                 $account->balance_pending += $walletPaid;
@@ -242,7 +262,7 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
                     $user->save();
                 }
 
-                Transaction::create([
+                $walletTransaction = Transaction::create([
                     'ref_trx_id' => null,
                     'booking_id' => $freshBooking['id'],
                     'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
@@ -255,6 +275,17 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
                     'from_user_account' => null,
                     'to_user_account' => 'user_wallet',
                     'reference_note' => wallet_transaction_booking_reference_note($freshBooking),
+                ]);
+                $walletTransactionId = (string) $walletTransaction->id;
+
+                ledger_record_in([
+                    'amount' => $walletPaid,
+                    'transaction_id' => $walletTransactionId,
+                    'booking_id' => $freshBooking['id'],
+                    'payment_method' => 'wallet_payment',
+                    'date' => now()->toDateString(),
+                    'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                    'booking_partial_payment_id' => $walletPartial?->id,
                 ]);
             }
 
@@ -277,6 +308,23 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
                     'to_user_account' => ACCOUNT_STATES[0]['value'],
                     'is_guest' => $freshBooking->is_guest,
                 ]);
+
+                ledger_record_in([
+                    'amount' => $digitalPaid,
+                    'transaction_id' => $digitalTransactionId,
+                    'booking_id' => $freshBooking['id'],
+                    'payment_method' => $freshBooking->payment_method ?? 'digital_payment',
+                    'date' => now()->toDateString(),
+                    'received_by' => \Modules\TransactionModule\Entities\LedgerTransaction::RECEIVED_BY_COMPANY,
+                    'booking_partial_payment_id' => $digitalPartial?->id,
+                ]);
+            }
+
+            if ($walletPartial && $walletTransactionId) {
+                $walletPartial->update(['transaction_id' => $walletTransactionId]);
+            }
+            if ($digitalPartial && $digitalTransactionId) {
+                $digitalPartial->update(['transaction_id' => $digitalTransactionId]);
             }
         });
     }
@@ -348,7 +396,7 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
             $partial = ensure_booking_company_payment_partial_for_ledger(
                 $freshBooking,
                 $receivedAmount,
-                $freshBooking->transaction_id ?? null
+                null
             );
 
             //Admin account update
@@ -381,7 +429,7 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
             $user->save();
 
             //customer transaction (wallet)
-            Transaction::create([
+            $walletTransaction = Transaction::create([
                 'ref_trx_id' => null,
                 'booking_id' => $freshBooking['id'],
                 'trx_type' => WALLET_TRX_TYPE['wallet_payment'],
@@ -396,9 +444,14 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
                 'reference_note' => wallet_transaction_booking_reference_note($freshBooking),
             ]);
 
+            $walletTransactionId = (string) $walletTransaction->id;
+            if ($partial) {
+                $partial->update(['transaction_id' => $walletTransactionId]);
+            }
+
             ledger_record_in([
                 'amount' => $receivedAmount,
-                'transaction_id' => $freshBooking->transaction_id ?? null,
+                'transaction_id' => $walletTransactionId,
                 'booking_id' => $freshBooking['id'],
                 'payment_method' => 'wallet_payment',
                 'date' => now()->toDateString(),
