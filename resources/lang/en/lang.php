@@ -6899,6 +6899,7 @@ _Message' => 'Customer notification for provider bid offer
   'Select_Service_or_leave_for_custom' => 'Select Service or leave for custom',
   'Add_another' => 'Add another',
   'Gateway or manual reference' => 'Gateway or manual reference',
+  'Note visible to provider' => 'Note visible to provider',
   'if received by company' => 'If received by company',
   'Company' => 'Company',
   'Individual' => 'Individual',

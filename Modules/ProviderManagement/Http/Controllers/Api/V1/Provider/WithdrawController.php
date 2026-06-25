@@ -74,25 +74,11 @@ class WithdrawController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:1',
-            'note' => 'max:255',
-            'withdrawal_method_id' => 'required',
-            'withdrawal_method_fields' => 'required',
+            'note' => 'nullable|max:255',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
-        }
-
-        //input fields validation check
-        $withdrawalMethod = $this->withdrawalMethod->find($request['withdrawal_method_id']);
-        $fields = array_column($withdrawalMethod->method_fields, 'input_name');
-
-        $values = (array)json_decode(base64_decode($request['withdrawal_method_fields']))[0];
-
-        foreach ($fields as $field) {
-            if(!key_exists($field, $values)) {
-                return response()->json(response_formatter(DEFAULT_400, $fields, null), 400);
-            }
         }
 
         $providerUser = $this->user->with(['account'])->find($request->user()->id);
@@ -137,7 +123,7 @@ class WithdrawController extends Controller
         }
 
 
-        DB::transaction(function () use ($account, $request, $payable, $values) {
+        DB::transaction(function () use ($account, $request, $payable) {
             withdrawRequestTransaction($request->user()->id, $request['amount']);
 
             //admin payment transaction
@@ -156,8 +142,6 @@ class WithdrawController extends Controller
                 'request_status' => 'pending',
                 'is_paid' => 0,
                 'note' => $request['note'],
-                'withdrawal_method_id' => $request['withdrawal_method_id'],
-                'withdrawal_method_fields' => $values,
             ]);
         });
 

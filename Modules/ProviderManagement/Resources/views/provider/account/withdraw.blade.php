@@ -69,6 +69,7 @@
                                     <th>{{translate('Provide_Note')}}</th>
                                     <th>{{translate('Total_Amount')}}</th>
                                     <th>{{translate('Admin_Note')}}</th>
+                                    <th>{{translate('Transaction_ID')}}</th>
                                     <th>{{translate('Requested_at')}}</th>
                                     <th>{{translate('Status')}}</th>
                                 </tr>
@@ -82,6 +83,7 @@
                                     <td>
                                         <div title="{{$withdrawRequest->admin_note}}">{{$withdrawRequest->admin_note}}</div>
                                     </td>
+                                    <td>{{$withdrawRequest->transaction_id ?? '—'}}</td>
                                     <td>
                                         <div>{{date('d-M-y',strtotime($withdrawRequest->created_at))}}</div>
                                         <div>{{date('H:i a',strtotime($withdrawRequest->created_at))}}</div>

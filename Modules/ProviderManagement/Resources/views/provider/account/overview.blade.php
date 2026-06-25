@@ -337,32 +337,6 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         <h3 class="modal-body_title mb-4">{{translate('Withdraw_Request')}}</h3>
 
-                        <select class="js-select" id="withdraw_method" name="withdraw_method" required>
-                            <option value="" disabled>{{translate('my methods')}}</option>
-                            @foreach($savedWithdrawMethods as $savedItem)
-                                <option value="{{$savedItem['withdrawal_method_id']}}"
-                                        data-fields='@json($savedItem->method_field_data)'
-                                        data-method-fields='@json($savedItem->withdrawalMethod->method_fields)'
-                                        @if($savedItem->is_default == 1) selected @endif>
-                                    {{ $savedItem['method_name'] }}
-                                </option>
-                            @endforeach
-                            <option value="" disabled>{{translate('others')}}</option>
-                            @foreach($withdrawalMethods as $item)
-                                <option value="{{$item['id']}}"
-                                        data-fields=''
-                                        data-method-fields='@json($item->method_fields)'
-                                        @if(empty($savedWithdrawMethods) && $item->is_default == 1) selected @endif>
-                                    {{$item['method_name']}}
-                                </option>
-                            @endforeach
-
-                        </select>
-
-                        <div id="method-filed__div">
-
-                        </div>
-
                         <div class="form-group mt-2">
                             <label for="wr_num" class="fz-16 c1 mb-2">{{translate('Note')}}</label>
                             <textarea type="text" class="form-control" name="note" placeholder="{{translate('Note')}}"
@@ -470,32 +444,6 @@
         $('.withdraw-class').on('click', function () {
             let withdrawAmount = $(this).data('withdraw');
             predefined_amount_input(withdrawAmount)
-        });
-
-        $('#withdraw_method').on('change', function () {
-            let selectedOption = $(this).find(':selected');
-            let savedData = selectedOption.data('fields');
-            let methodFields = selectedOption.data('method-fields');
-
-            $("#method-filed__div").html("");
-
-            methodFields.forEach((element) => {
-                let value = savedData && savedData[element.input_name] ? savedData[element.input_name] : '';
-                $("#method-filed__div").append(`
-            <div class="form-group mt-2">
-                <label class="fz-16 c1 mb-2">${element.input_name.replaceAll('_', ' ')}</label>
-                <input type="${element.input_type}" class="form-control"
-                       name="${element.input_name}"
-                       placeholder="${element.placeholder}"
-                       value="${value}"
-                       ${element.is_required === 1 ? 'required' : ''}>
-            </div>
-        `);
-            });
-        });
-
-        $(document).ready(function () {
-            $('#withdraw_method').trigger('change');
         });
 
         function predefined_amount_input(amount) {

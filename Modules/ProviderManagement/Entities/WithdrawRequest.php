@@ -27,6 +27,7 @@ class WithdrawRequest extends Model
         'is_paid',
         'note',
         'admin_note',
+        'transaction_id',
         'withdrawal_method_id',
         'withdrawal_method_fields'
     ];

@@ -211,14 +211,30 @@ class WithdrawRequestController extends Controller
     public function updateStatus(Request $request, string $id): RedirectResponse
     {
         $this->authorize('withdraw_manage_status');
-        Validator::make($request->all(), [
+
+        $rules = [
             'status' => 'required|in:approved,denied,settled',
-            'note' => 'max:255',
-        ])->validate();
+            'note' => 'nullable|max:255',
+        ];
+
+        if ($request['status'] === 'settled') {
+            $rules['transaction_id'] = 'required|string|max:100';
+        }
+
+        Validator::make($request->all(), $rules)->validate();
 
         $withdrawRequest = $this->withdraw_request::find($id);
 
+        if (!$withdrawRequest) {
+            Toastr::error(translate(DEFAULT_404['message']));
+            return back();
+        }
+
         if ($request['status'] == 'approved') {
+            if ($withdrawRequest->request_status !== 'pending') {
+                Toastr::error(translate(DEFAULT_400['message']));
+                return back();
+            }
             withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
 
             $withdrawRequest->request_status = 'approved';
@@ -242,12 +258,22 @@ class WithdrawRequestController extends Controller
             }
 
         } else if ($request['status'] == 'settled') {
+            if ($withdrawRequest->request_status !== 'approved') {
+                Toastr::error(translate(DEFAULT_400['message']));
+                return back();
+            }
+
             $withdrawRequest->request_status = 'settled';
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->admin_note = $request->note;
+            $withdrawRequest->transaction_id = $request->transaction_id;
             $withdrawRequest->save();
 
         } else if ($request['status'] == 'denied') {
+            if ($withdrawRequest->request_status !== 'pending') {
+                Toastr::error(translate(DEFAULT_400['message']));
+                return back();
+            }
             withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
 
             $withdrawRequest->request_status = 'denied';
@@ -284,10 +310,10 @@ class WithdrawRequestController extends Controller
     {
         $this->authorize('withdraw_manage_status');
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:approved,denied,settled',
+            'status' => 'required|in:approved,denied',
             'request_ids' => 'required|array',
             'request_ids.*' => 'uuid',
-            'note' => 'max:255',
+            'note' => 'nullable|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -305,16 +331,6 @@ class WithdrawRequestController extends Controller
                     $withdrawRequest->request_updated_by = $request->user()->id;
                     $withdrawRequest->admin_note = $request->note;
                     $withdrawRequest->is_paid = 1;
-                    $withdrawRequest->save();
-                }
-            }
-
-        } else if ($request['status'] == 'settled') {
-            foreach ($withdrawRequests as $withdrawRequest) {
-                if($withdrawRequest->request_status == 'approved') {
-                    $withdrawRequest->request_status = 'settled';
-                    $withdrawRequest->request_updated_by = $request->user()->id;
-                    $withdrawRequest->admin_note = $request->note;
                     $withdrawRequest->save();
                 }
             }

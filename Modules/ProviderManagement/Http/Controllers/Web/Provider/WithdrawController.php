@@ -125,21 +125,9 @@ class WithdrawController extends Controller
      */
     public function withdraw(Request $request): RedirectResponse
     {
-        $method = $this->withdrawal_method->find($request['withdraw_method']);
-        $fields = array_column($method->method_fields, 'input_name');
-
-        $values = $request->all();
-        $data = [];
-
-        foreach ($fields as $field) {
-            if(key_exists($field, $values)) {
-                $data[$field] = $values[$field];
-            }
-        }
-
         $request->validate([
             'amount' => 'required|numeric|min:1',
-            'note' => 'max:255'
+            'note' => 'nullable|max:255'
         ]);
 
         $provider_user = $this->user->with(['account'])->find($request->user()->id);
@@ -191,7 +179,7 @@ class WithdrawController extends Controller
         }
 
 
-        DB::transaction(function () use ($account, $request, $payable, $data,) {
+        DB::transaction(function () use ($account, $request, $payable) {
             withdrawRequestTransaction($request->user()->id, $request['amount']);
 
             //admin payment transaction
@@ -210,8 +198,6 @@ class WithdrawController extends Controller
                 'request_status' => 'pending',
                 'is_paid' => 0,
                 'note' => $request['note'],
-                'withdrawal_method_id' => $request['withdraw_method'],
-                'withdrawal_method_fields' => $data,
             ]);
         });
 
