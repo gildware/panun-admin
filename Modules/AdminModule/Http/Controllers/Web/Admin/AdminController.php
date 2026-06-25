@@ -42,6 +42,8 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Modules\TransactionModule\Entities\Transaction;
 use Modules\AdminModule\Entities\RouteSearchHistory;
 use Modules\AdminModule\Services\StaffPresenceService;
+use Modules\AdminModule\Services\AdminInboxNotificationService;
+use Modules\AdminModule\Entities\UserNotification;
 use Modules\BookingModule\Entities\BookingDetailsAmount;
 use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\BookingModule\Entities\BookingCompensation;
@@ -450,11 +452,11 @@ class AdminController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function getUpdatedData(Request $request, StaffPresenceService $staffPresenceService): JsonResponse
+    public function getUpdatedData(Request $request, StaffPresenceService $staffPresenceService, AdminInboxNotificationService $inboxNotificationService): JsonResponse
     {
         $userId = $request->user()->id;
 
-        $counts = Cache::remember("admin_header_counts:{$userId}", 15, function () use ($userId, $request) {
+        $counts = Cache::remember("admin_header_counts:{$userId}", 15, function () use ($userId, $request, $inboxNotificationService) {
             $message = $this->channelList->wherehas('channelUsers', function ($query) use ($userId) {
                 $query->where('user_id', $userId)->where('is_read', 0);
             })->count();
@@ -484,18 +486,72 @@ class AdminController extends Controller
                 })
                 ->count();
 
+            $customerProviderUnreadChannels = $this->channelList
+                ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
+                ->whereHas('channelUsers', function ($query) use ($userId) {
+                    $query->where('user_id', '!=', $userId)
+                        ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', [USER_TYPES[2]['value'], USER_TYPES[4]['value']]));
+                })
+                ->pluck('id');
+
+            $customerProviderUnreadMessages = ChannelConversation::whereIn('channel_id', $customerProviderUnreadChannels)
+                ->where('user_id', '!=', $userId)
+                ->whereExists(function ($query) use ($userId) {
+                    $query->selectRaw('1')
+                        ->from('channel_users')
+                        ->whereColumn('channel_users.channel_id', 'channel_conversations.channel_id')
+                        ->where('channel_users.user_id', $userId)
+                        ->whereNull('channel_users.deleted_at')
+                        ->where(function ($inner) {
+                            $inner->whereNull('channel_users.read_at')
+                                ->orWhereColumn('channel_conversations.created_at', '>', 'channel_users.read_at');
+                        });
+                })
+                ->count();
+
             $whatsappUnreadChats = 0;
             $whatsappUnreadMessages = 0;
             if ($request->user()->can('whatsapp_chat_view')) {
                 [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
             }
 
+            $notificationUnreadCount = $inboxNotificationService->unreadCount((string) $userId);
+            $notificationReadCount = $inboxNotificationService->readCount((string) $userId);
+            $notifications = $inboxNotificationService->recent((string) $userId, 50);
+            $notificationTemplate = view('adminmodule::admin.partials._notifications', [
+                'notifications' => $notifications,
+                'unreadCount' => $notificationUnreadCount,
+                'readCount' => $notificationReadCount,
+            ])->render();
+
+            $newNotificationAlerts = UserNotification::query()
+                ->where('user_id', $userId)
+                ->whereNull('read_at')
+                ->where('created_at', '>=', now()->subMinutes(2))
+                ->latest()
+                ->take(5)
+                ->get(['id', 'type', 'title', 'body', 'action_url'])
+                ->map(fn ($n) => [
+                    'id' => $n->id,
+                    'type' => $n->type,
+                    'title' => $n->title,
+                    'body' => $n->body,
+                    'action_url' => $n->action_url,
+                ])
+                ->values()
+                ->all();
+
             return [
                 'message' => $message,
                 'staff_message' => $staffMessage,
                 'staff_unread_messages' => $staffUnreadMessages,
+                'customer_provider_unread_messages' => $customerProviderUnreadMessages,
                 'whatsapp_unread_chats' => $whatsappUnreadChats,
                 'whatsapp_unread_messages' => $whatsappUnreadMessages,
+                'notification_unread_count' => $notificationUnreadCount,
+                'notification_read_count' => $notificationReadCount,
+                'notification_template' => $notificationTemplate,
+                'new_notification_alerts' => $newNotificationAlerts,
             ];
         });
 
@@ -508,6 +564,26 @@ class AdminController extends Controller
                 'presence_status' => $presenceStatus,
                 'presence_label' => $presenceLabel,
             ]),
+        ]);
+    }
+
+    public function markNotificationRead(Request $request, string $id, AdminInboxNotificationService $inboxNotificationService): JsonResponse
+    {
+        $inboxNotificationService->markAsRead($id, (string) $request->user()->id);
+
+        return response()->json([
+            'status' => 1,
+            'message' => translate(DEFAULT_UPDATE_200['message']),
+        ]);
+    }
+
+    public function markAllNotificationsRead(Request $request, AdminInboxNotificationService $inboxNotificationService): JsonResponse
+    {
+        $inboxNotificationService->markAllAsRead((string) $request->user()->id);
+
+        return response()->json([
+            'status' => 1,
+            'message' => translate(DEFAULT_UPDATE_200['message']),
         ]);
     }
 

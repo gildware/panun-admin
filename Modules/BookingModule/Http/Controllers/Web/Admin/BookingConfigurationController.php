@@ -9,18 +9,21 @@ use Illuminate\Routing\Controller;
 use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingDisputeReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
+use Modules\BookingModule\Entities\BookingProviderCancellationReason;
 
 class BookingConfigurationController extends Controller
 {
     public function index(): View
     {
         $bookingCancellationReasons = BookingCancellationReason::orderBy('name')->get();
+        $bookingProviderCancellationReasons = BookingProviderCancellationReason::orderBy('name')->get();
         $bookingHoldReasons = BookingHoldReopenReason::where('kind', BookingHoldReopenReason::KIND_HOLD)->orderBy('name')->get();
         $bookingReopenReasons = BookingHoldReopenReason::where('kind', BookingHoldReopenReason::KIND_REOPEN)->orderBy('name')->get();
         $bookingDisputeReasons = BookingDisputeReason::orderBy('name')->get();
 
         return view('bookingmodule::admin.configuration.index', compact(
             'bookingCancellationReasons',
+            'bookingProviderCancellationReasons',
             'bookingHoldReasons',
             'bookingReopenReasons',
             'bookingDisputeReasons'
@@ -35,17 +38,21 @@ class BookingConfigurationController extends Controller
         $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'responsible' => 'required|in:' . implode(',', BookingCancellationReason::responsibleOptions()),
             'is_active' => 'nullable|boolean',
         ];
+        if ($extra['show_responsible'] ?? false) {
+            $rules['responsible'] = 'required|in:' . implode(',', BookingCancellationReason::responsibleOptions());
+        }
         $data = $request->validate($rules);
 
         $payload = [
             $nameField => $data['title'],
             'description' => $data['description'] ?? null,
-            'responsible' => $data['responsible'],
             'is_active' => $request->boolean('is_active', true),
         ];
+        if ($extra['show_responsible'] ?? false) {
+            $payload['responsible'] = $data['responsible'];
+        }
         if (($extra['kind'] ?? null) !== null) {
             $payload['kind'] = $extra['kind'];
         }
@@ -80,15 +87,19 @@ class BookingConfigurationController extends Controller
         $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'responsible' => 'required|in:' . implode(',', BookingCancellationReason::responsibleOptions()),
             'is_active' => 'nullable|boolean',
         ];
+        if ($extra['show_responsible'] ?? false) {
+            $rules['responsible'] = 'required|in:' . implode(',', BookingCancellationReason::responsibleOptions());
+        }
         $data = $request->validate($rules);
 
         $item->{$nameField} = $data['title'];
         $item->description = $data['description'] ?? null;
-        $item->responsible = $data['responsible'];
         $item->is_active = $request->boolean('is_active', true);
+        if ($extra['show_responsible'] ?? false) {
+            $item->responsible = $data['responsible'];
+        }
         $item->save();
 
         return back()->with('success', translate('Configuration_updated_successfully'));
@@ -110,15 +121,16 @@ class BookingConfigurationController extends Controller
     }
 
     /**
-     * @return array{0: class-string, 1: string, 2: array{kind?: string}}
+     * @return array{0: class-string, 1: string, 2: array{kind?: string, show_responsible?: bool}}
      */
     protected function resolveType(string $type): array
     {
         return match ($type) {
-            'booking_cancellation_reason' => [BookingCancellationReason::class, 'name', []],
-            'booking_hold_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_HOLD]],
-            'booking_reopen_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_REOPEN]],
-            'booking_dispute_reason' => [BookingDisputeReason::class, 'name', []],
+            'booking_cancellation_reason' => [BookingCancellationReason::class, 'name', ['show_responsible' => true]],
+            'booking_provider_cancellation_reason' => [BookingProviderCancellationReason::class, 'name', ['show_responsible' => false]],
+            'booking_hold_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_HOLD, 'show_responsible' => true]],
+            'booking_reopen_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_REOPEN, 'show_responsible' => true]],
+            'booking_dispute_reason' => [BookingDisputeReason::class, 'name', ['show_responsible' => true]],
             default => abort(400, 'Unknown configuration type'),
         };
     }

@@ -79,6 +79,54 @@
             font-size: 1.375rem;
             opacity: 0.85;
         }
+        /* Dashboard widget headers: medium dark (not too dark), white text */
+        .main-content .container-fluid .card > .card-header {
+            background-color: #43466e;
+            color: #fff;
+            border-color: transparent;
+        }
+        .main-content .container-fluid .card > .card-header .dashboard-widget-title,
+        .main-content .container-fluid .card > .card-header h4,
+        .main-content .container-fluid .card > .card-header h5 {
+            color: #fff;
+        }
+        .main-content .container-fluid .card > .card-header .text-muted {
+            color: rgba(255, 255, 255, 0.75) !important;
+        }
+        .main-content .container-fluid .card > .card-header .dashboard-widget-title__icon,
+        .main-content .container-fluid .card > .card-header .text-primary {
+            color: #fff !important;
+            opacity: 0.95;
+        }
+        .main-content .container-fluid .card > .card-header .btn-link {
+            color: rgba(255, 255, 255, 0.92);
+        }
+        .main-content .container-fluid .card > .card-header .btn-link:hover,
+        .main-content .container-fluid .card > .card-header .btn-link:focus {
+            color: #fff;
+        }
+        .main-content .container-fluid .card > .card-header .btn-outline-primary {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.55);
+        }
+        .main-content .container-fluid .card > .card-header .btn-outline-primary:hover,
+        .main-content .container-fluid .card > .card-header .btn-outline-primary:focus {
+            background-color: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            border-color: #fff;
+        }
+        /* Keep widget list/table body light — clearly different from the dark header */
+        .main-content .container-fluid .card > .card-body {
+            background-color: #fff;
+        }
+        .main-content .container-fluid .card .card-body .table thead,
+        .main-content .container-fluid .card .card-body .table thead th {
+            background-color: #f3f4f8;
+            color: #5e6472;
+        }
+        .main-content .container-fluid .card .card-body .common-list li h5 {
+            color: var(--bs-dark);
+        }
         .missed-followup-row,
         .missed-followup-row > td {
             background-color: #fff !important;
@@ -110,8 +158,8 @@
         }
 
         /* Keep "half" widgets visually aligned (same min/max height). */
-        .dashboard-widget-recent-bookings-leads .card-body,
-        .dashboard-widget-top-providers-customers .card-body {
+        .dashboard-widgets-grid .dashboard-collapsible-widget .card-body,
+        .dashboard-widget-followups-row .dashboard-collapsible-widget .card-body {
             min-height: 420px;
             max-height: 420px;
             overflow: auto;
@@ -165,12 +213,12 @@
             object-fit: cover;
         }
 
-        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table {
+        .dashboard-widgets-grid .dashboard-ranking-widget-table {
             table-layout: fixed;
             width: 100%;
             margin-bottom: 0;
         }
-        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table thead th {
+        .dashboard-widgets-grid .dashboard-ranking-widget-table thead th {
             font-size: 0.75rem;
             font-weight: 600;
             color: var(--bs-secondary);
@@ -179,23 +227,90 @@
             padding-bottom: 0.625rem;
             border-bottom: 1px solid var(--border-color);
         }
-        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table tbody td {
+        .dashboard-widgets-grid .dashboard-ranking-widget-table tbody td {
             padding-top: 0.625rem;
             padding-bottom: 0.625rem;
             vertical-align: middle;
             border-bottom: 1px solid var(--border-color);
         }
-        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table tbody tr:last-child td {
+        .dashboard-widgets-grid .dashboard-ranking-widget-table tbody tr:last-child td {
             border-bottom: none;
         }
-        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table .col-score {
+        .dashboard-widgets-grid .dashboard-ranking-widget-table .col-score {
             width: 4.5rem;
         }
-        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table .col-bookings {
+        .dashboard-widgets-grid .dashboard-ranking-widget-table .col-bookings {
             width: 5rem;
         }
-        .dashboard-widget-top-providers-customers .dashboard-ranking-widget-table tbody tr {
+        .dashboard-widgets-grid .dashboard-ranking-widget-table tbody tr {
             cursor: pointer;
+        }
+
+        /* Collapsible dashboard widgets (accordion) */
+        .dashboard-collapsible-widget .dashboard-widget-collapse-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.75rem;
+            height: 1.75rem;
+            padding: 0;
+            margin: 0;
+            border: 0;
+            border-radius: 0.25rem;
+            background: transparent;
+            color: #fff;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .dashboard-collapsible-widget .dashboard-widget-collapse-btn:hover,
+        .dashboard-collapsible-widget .dashboard-widget-collapse-btn:focus {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            outline: none;
+        }
+        .dashboard-collapsible-widget .dashboard-widget-collapse-icon {
+            font-size: 1.375rem;
+            transition: transform 0.2s ease;
+        }
+        .dashboard-collapsible-widget .dashboard-widget-collapse-btn[aria-expanded="false"] .dashboard-widget-collapse-icon {
+            transform: rotate(-90deg);
+        }
+        .dashboard-collapsible-widget > .dashboard-widget-collapse-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .dashboard-collapsible-widget .dashboard-widget-header-main {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+            flex: 1 1 auto;
+            justify-content: flex-start;
+        }
+        .dashboard-collapsible-widget .dashboard-widget-header-main .dashboard-widget-title {
+            justify-content: flex-start;
+            text-align: left;
+        }
+        .dashboard-collapsible-widget .dashboard-widget-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+            margin-left: auto;
+            flex-wrap: wrap;
+        }
+        .dashboard-collapsible-widget > .dashboard-widget-collapse-header a,
+        .dashboard-collapsible-widget > .dashboard-widget-collapse-header button:not(.dashboard-widget-collapse-btn) {
+            cursor: pointer;
+        }
+        .dashboard-collapsible-widget > .dashboard-widget-collapse-header select,
+        .dashboard-collapsible-widget > .dashboard-widget-collapse-header label,
+        .dashboard-collapsible-widget > .dashboard-widget-collapse-header .select2-container {
+            cursor: default;
         }
 
     </style>
@@ -310,14 +425,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="row g-4 mb-4">
-                    <div class="col-12">
-                        @include('adminmodule::admin.partials._staff-presence-widget')
-                    </div>
-                </div>
-                <div class="row g-4 mb-4">
-                    <div class="col-12">
-                        <div class="card dashboard-widget-todays-followups">
+                <div class="row g-4 mb-4 dashboard-widget-followups-row">
+                    <div class="col-lg-6 col-12">
+                        <div class="card dashboard-widget-todays-followups dashboard-collapsible-widget" id="dashboard-booking-followups">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">event_repeat</span>
@@ -335,19 +445,39 @@
                                         <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
                                             <thead class="text-secondary border-bottom">
                                                 <tr>
+                                                    <th>{{translate('Followup_On')}}</th>
                                                     <th>{{translate('Booking_ID')}}</th>
                                                     <th>{{translate('Follow_up_for')}}</th>
                                                     <th>{{translate('Urgency')}}</th>
                                                     <th>{{translate('Customer_Info')}}</th>
                                                     <th>{{translate('Provider_Info')}}</th>
                                                     <th>{{translate('Assignee')}}</th>
-                                                    <th>{{translate('Followup_On')}}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 @foreach($data[6]['todays_pending_followups'] as $followup)
                                                     <tr class="cursor-pointer todays-followup-redirect {{ $followup->date && !$followup->date->isToday() ? 'missed-followup-row' : '' }}"
                                                         data-route="{{ $followup->booking ? (route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups'])) : '#' }}">
+                                                        <td>
+                                                            @php($due = $followup->date)
+                                                            @if(!$due)
+                                                                —
+                                                            @else
+                                                                @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
+                                                                @php($dueDays = intdiv($totalMinutes, 1440))
+                                                                @php($dueHours = intdiv($totalMinutes % 1440, 60))
+                                                                @if($dueDays > 0 && $dueHours > 0)
+                                                                    {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                @elseif($dueDays > 0)
+                                                                    {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
+                                                                @elseif($dueHours > 0)
+                                                                    {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
+                                                                @else
+                                                                    {{ translate('less_than_an_hour') }}
+                                                                @endif
+                                                                <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
+                                                            @endif
+                                                        </td>
                                                         <td>
                                                             @if($followup->booking)
                                                                 <a href="{{ route('admin.booking.details', [$followup->booking_id, 'web_page' => 'followups']) }}"
@@ -381,8 +511,53 @@
                                                             @endif
                                                         </td>
                                                         <td>{{ $followup->booking && $followup->booking->assignee ? $followup->booking->assignee->first_name . ' ' . $followup->booking->assignee->last_name : translate('Unassigned') }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="d-flex align-items-center justify-content-center p-4">
+                                        <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-12">
+                        <div class="card dashboard-widget-todays-followups dashboard-collapsible-widget" id="dashboard-leads-followups">
+                            <div class="card-header d-flex justify-content-between gap-10">
+                                <h5 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">contact_phone</span>
+                                    Leads Follow-ups- Pending Till Today's
+                                    <span class="text-muted">
+                                        ({{ $data[7]['todays_pending_lead_followups_total'] ?? 0 }})
+                                    </span>
+                                </h5>
+                                <a href="{{ route('admin.lead.todays_followups') }}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
+                            <div class="card-body p-0">
+                                @if(isset($data[7]['todays_pending_lead_followups']) && $data[7]['todays_pending_lead_followups']->isNotEmpty())
+                                    <div class="table-responsive px-3 overflow-auto">
+                                        <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
+                                            <thead class="text-secondary border-bottom">
+                                                <tr>
+                                                    <th>{{translate('Followup_On')}}</th>
+                                                    <th>{{translate('Lead_ID')}}</th>
+                                                    <th>{{translate('Lead_Type')}}</th>
+                                                    <th>{{translate('Urgency')}}</th>
+                                                    <th>{{translate('Name')}}</th>
+                                                    <th>{{translate('Phone')}}</th>
+                                                    <th>{{translate('Handled_By')}}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($data[7]['todays_pending_lead_followups'] as $lead)
+                                                    <tr class="cursor-pointer todays-followup-redirect {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? 'missed-followup-row' : '' }}"
+                                                        data-route="{{ route('admin.lead.show', $lead->id) }}">
                                                         <td>
-                                                            @php($due = $followup->date)
+                                                            @php($due = $lead->next_followup_at)
                                                             @if(!$due)
                                                                 —
                                                             @else
@@ -401,51 +576,6 @@
                                                                 <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
                                                             @endif
                                                         </td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                @else
-                                    <div class="d-flex align-items-center justify-content-center p-4">
-                                        <span class="opacity-50">{{translate('No_follow_ups_yet')}}</span>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="card dashboard-widget-todays-followups">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5 class="dashboard-widget-title mb-0">
-                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">contact_phone</span>
-                                    Leads Follow-ups- Pending Till Today's
-                                    <span class="text-muted">
-                                        ({{ $data[7]['todays_pending_lead_followups_total'] ?? 0 }})
-                                    </span>
-                                </h5>
-                                <a href="{{ route('admin.lead.todays_followups') }}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body p-0">
-                                @if(isset($data[7]['todays_pending_lead_followups']) && $data[7]['todays_pending_lead_followups']->isNotEmpty())
-                                    <div class="table-responsive px-3 overflow-auto">
-                                        <table class="table table-hover align-middle mb-0 fs-13 text-nowrap">
-                                            <thead class="text-secondary border-bottom">
-                                                <tr>
-                                                    <th>{{translate('Lead_ID')}}</th>
-                                                    <th>{{translate('Lead_Type')}}</th>
-                                                    <th>{{translate('Urgency')}}</th>
-                                                    <th>{{translate('Name')}}</th>
-                                                    <th>{{translate('Phone')}}</th>
-                                                    <th>{{translate('Handled_By')}}</th>
-                                                    <th>{{translate('Followup_On')}}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach($data[7]['todays_pending_lead_followups'] as $lead)
-                                                    <tr class="cursor-pointer todays-followup-redirect {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? 'missed-followup-row' : '' }}"
-                                                        data-route="{{ route('admin.lead.show', $lead->id) }}">
                                                         <td>
                                                             <a href="{{ route('admin.lead.show', $lead->id) }}"
                                                                class="text-decoration-none {{ $lead->next_followup_at && !$lead->next_followup_at->isToday() ? '' : 'text-primary' }}"
@@ -473,26 +603,6 @@
                                                             @endif
                                                         </td>
                                                         <td>{{ $lead->handled_by_name ?? '—' }}</td>
-                                                        <td>
-                                                            @php($due = $lead->next_followup_at)
-                                                            @if(!$due)
-                                                                —
-                                                            @else
-                                                                @php($totalMinutes = (int) round(abs($due->diffInMinutes(\Carbon\Carbon::now()))))
-                                                                @php($dueDays = intdiv($totalMinutes, 1440))
-                                                                @php($dueHours = intdiv($totalMinutes % 1440, 60))
-                                                                @if($dueDays > 0 && $dueHours > 0)
-                                                                    {{ $dueDays }} {{ translate('days') }} {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
-                                                                @elseif($dueDays > 0)
-                                                                    {{ $dueDays }} {{ translate('days') }} {{ translate('before') }}
-                                                                @elseif($dueHours > 0)
-                                                                    {{ $dueHours }} {{ translate('hours') }} {{ translate('before') }}
-                                                                @else
-                                                                    {{ translate('less_than_an_hour') }}
-                                                                @endif
-                                                                <br><span class="small text-muted">{{ $due->format('d M Y, h:i A') }}</span>
-                                                            @endif
-                                                        </td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -508,56 +618,44 @@
                     </div>
                 </div>
 
-                <div class="row g-4 mb-4">
-                    <div class="col-lg-6 col-12 col-sm-6">
-                        <div class="card earning-statistics">
-                            <div class="card-body ps-0">
-                                <div class="ps-20 d-flex flex-wrap align-items-center justify-content-between gap-3">
-                                    <h4 class="dashboard-widget-title mb-0">
-                                        <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">show_chart</span>
-                                        {{translate('earning_statistics')}}
-                                    </h4>
-                                    <div
-                                        class="position-relative index-2 d-flex flex-wrap gap-3 align-items-center justify-content-between">
-                                        <ul class="option-select-btn">
-                                            <li>
-                                                <label>
-                                                    <input type="radio" name="statistics" hidden checked>
-                                                    <span class="d-flex align-items-center border shadow-none h-36">{{translate('Yearly')}}</span>
-                                                </label>
-                                            </li>
-                                        </ul>
-
-                                        <div class="select-wrap d-flex flex-wrap gap-10">
-                                            <select class="js-select update-chart">
-                                                @php($from_year=date('Y'))
-                                                @php($to_year=$from_year-10)
-                                                @while($from_year!=$to_year)
-                                                    <option
-                                                        value="{{$from_year}}" {{session()->has('dashboard_earning_graph_year') && session('dashboard_earning_graph_year') == $from_year?'selected':''}}>
-                                                        {{$from_year}}
-                                                    </option>
-                                                    @php($from_year--)
-                                                @endwhile
-                                            </select>
-                                        </div>
-                                    </div>
+                <div class="row g-4 mb-4 dashboard-widgets-grid">
+                    <div class="col-lg-4 col-md-6 col-12">
+                        <div class="card earning-statistics dashboard-collapsible-widget h-100" id="dashboard-earning-statistics">
+                            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <h4 class="dashboard-widget-title mb-0">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">show_chart</span>
+                                    {{translate('earning_statistics')}}
+                                </h4>
+                                <div class="select-wrap d-flex flex-wrap gap-10">
+                                    <select class="js-select update-chart">
+                                        @php($from_year=date('Y'))
+                                        @php($to_year=$from_year-10)
+                                        @while($from_year!=$to_year)
+                                            <option
+                                                value="{{$from_year}}" {{session()->has('dashboard_earning_graph_year') && session('dashboard_earning_graph_year') == $from_year?'selected':''}}>
+                                                {{$from_year}}
+                                            </option>
+                                            @php($from_year--)
+                                        @endwhile
+                                    </select>
                                 </div>
+                            </div>
+                            <div class="card-body ps-0 pt-0">
                                 <div id="apex_line-chart"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-6 col-12 col-sm-6">
-                        <div class="card recent-transactions h-100 w-100">
+                    <div class="col-lg-4 col-md-6 col-12">
+                        <div class="card recent-transactions h-100 w-100 dashboard-collapsible-widget" id="dashboard-recent-transactions">
+                            <div class="card-header d-flex justify-content-between align-items-center gap-10">
+                                <h4 class="mb-0 dashboard-widget-title">
+                                    <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">receipt_long</span>
+                                    {{translate('recent_ledger_transactions')}}
+                                </h4>
+                                <a href="{{route('admin.ledger.index')}}"
+                                   class="btn-link">{{translate('view_all')}}</a>
+                            </div>
                             <div class="card-body">
-                                <div class="d-flex justify-content-between gap-10">
-                                    <h4 class="mb-3 dashboard-widget-title">
-                                        <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">receipt_long</span>
-                                        {{translate('recent_ledger_transactions')}}
-                                    </h4>
-                                    <a href="{{route('admin.ledger.index')}}"
-                                       class="btn-link">{{translate('view_all')}}</a>
-                                </div>
                                 @if(isset($data[1]['recent_ledger_transactions']) && count($data[1]['recent_ledger_transactions']) > 0)
                                     <div class="d-flex align-items-center gap-3 mb-4">
                                         <img src="{{asset('assets/admin-module')}}/img/icons/arrow-up.png"
@@ -605,112 +703,8 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                {{-- <div class="row g-4 mb-4 pk-dashboard-old-widgets">
-                    <div class="col-lg-4 col-12 col-sm-6">
-                        <div class="card top-providers">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>{{translate('top_providers')}}</h5>
-                                <a href="{{route('admin.provider.top-providers')}}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body">
-                                <ul class="common-list">
-                                    @foreach($data[3]['top_providers'] as $provider)
-                                        <li class="provider-redirect"
-                                            data-route="{{route('admin.provider.details',[$provider->id])}}?web_page=overview">
-                                            <div class="media gap-3">
-                                                <div class="avatar avatar-lg">
-                                                    <img class="avatar-img rounded-circle" src="{{ $provider->logo_full_path }}" alt="{{ translate('logo') }}">
-                                                </div>
-                                                <div class="media-body ">
-                                                    <h5>{{\Illuminate\Support\Str::limit($provider->company_name,20)}}</h5>
-                                                    <span class="common-list_rating d-flex gap-1">
-                                                        <span class="material-icons">star</span>
-                                                        {{$provider->avg_rating}}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-5 col-12 col-sm-6">
-                        <div class="card recent-activities">
-                            <div class="card-header d-flex justify-content-between gap-10">
-                                <h5>{{translate('recent_bookings')}}</h5>
-                                <a href="{{route('admin.booking.list', ['booking_status'=>'all', 'service_type' => 'all'])}}"
-                                   class="btn-link">{{translate('view_all')}}</a>
-                            </div>
-                            <div class="card-body">
-                                <ul class="common-list">
-                                    @foreach($data[2]['bookings'] as $booking)
-                                        <li class="d-flex flex-wrap gap-2 align-items-center justify-content-between cursor-pointer recent-booking-redirect"
-                                            data-route="@if($booking->is_repeated) {{ route('admin.booking.repeat_details', [$booking->id]) }}?web_page=details @else {{ route('admin.booking.details', [$booking->id]) }}?web_page=details @endif">
-                                        <div class="media align-items-center gap-3">
-                                                <div class="avatar avatar-lg">
-                                                    <img class="avatar-img rounded"
-                                                         src="{{ $booking->detail->isNotEmpty() ? ($booking->detail[0]->service?->thumbnail_full_path ?? asset('assets/admin-module/img/icons/service-placeholder.png')) : asset('assets/admin-module/img/icons/service-placeholder.png') }}"
-                                                         alt="{{ translate('provider-logo') }}">
-                                                </div>
-                                                <div class="media-body ">
-                                                    <h5 class="d-flex align-items-center">{{translate('Booking')}}# {{$booking->readable_id}}
-                                                        @if($booking->is_repeated)
-                                                            <img src="{{ asset('assets/admin-module/img/icons/repeat.svg') }}"
-                                                                 class="rounded-circle repeat-icon m-1" alt="{{ translate('repeat') }}">
-                                                        @endif
-                                                    </h5>
-                                                    <p>{{date('d-m-Y, H:i a',strtotime($booking->created_at))}}</p>
-                                                </div>
-                                            </div>
-                                            <span
-                                                class="badge rounded-pill py-2 px-3 badge-primary text-capitalize">{{$booking->booking_status}}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-3 col-12 col-sm-6">
-                        <div class="card top-providers">
-                            <div class="card-header d-flex flex-column gap-10">
-                                <h5>{{translate('booking_statistics')}} - {{date('M, Y')}}</h5>
-                            </div>
-                            <div class="card-body booking-statistics-info">
-                                @if(isset($data[4]['zone_wise_bookings']))
-                                    <ul class="common-list after-none gap-10 d-flex flex-column">
-                                        @foreach($data[4]['zone_wise_bookings'] as $booking)
-                                            <li>
-                                                <div
-                                                    class="mb-2 d-flex align-items-center justify-content-between gap-10 flex-wrap">
-                                                    <span
-                                                        class="zone-name">{{$booking->zone?$booking->zone->name:translate('zone_not_available')}}</span>
-                                                    <span
-                                                        class="booking-count">{{$booking->total}} {{translate('bookings')}}</span>
-                                                </div>
-                                                <div class="progress">
-                                                    <div class="progress-bar" role="progressbar"
-                                                         style="width: {{$booking->total}}%"
-                                                         aria-valuenow="{{$booking->total}}" aria-valuemin="0"
-                                                         aria-valuemax="100"></div>
-                                                </div>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @else
-                                    <div class="d-flex align-items-center justify-content-center h-100">
-                                        <span class="opacity-50">{{translate('No Bookings Found')}}</span>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                </div>--}}
-                <div class="row g-4 mb-4 dashboard-widget-recent-bookings-leads">
-                    <div class="col-lg-6 col-12 col-sm-6">
-                        <div class="card recent-activities">
+                    <div class="col-lg-4 col-md-6 col-12">
+                        <div class="card recent-activities dashboard-collapsible-widget h-100" id="dashboard-recent-bookings">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">calendar_month</span>
@@ -754,8 +748,8 @@
                         </div>
                     </div>
 
-                    <div class="col-lg-6 col-12 col-sm-6">
-                        <div class="card recent-leads">
+                    <div class="col-lg-4 col-md-6 col-12">
+                        <div class="card recent-leads dashboard-collapsible-widget h-100" id="dashboard-recent-leads">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
                                     <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">person_add</span>
@@ -799,11 +793,9 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="row g-4 mb-4 dashboard-widget-top-providers-customers">
-                    <div class="col-lg-6 col-12 col-sm-6">
-                        <div class="card top-providers">
+                    <div class="col-lg-4 col-md-6 col-12">
+                        <div class="card top-providers dashboard-collapsible-widget h-100" id="dashboard-top-providers">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
                                     <span class="material-icons dashboard-widget-title__icon text-primary" aria-hidden="true">emoji_events</span>
@@ -865,8 +857,8 @@
                         </div>
                     </div>
 
-                    <div class="col-lg-6 col-12 col-sm-6">
-                        <div class="card top-providers">
+                    <div class="col-lg-4 col-md-6 col-12">
+                        <div class="card top-providers dashboard-collapsible-widget h-100" id="dashboard-top-customers">
                             <div class="card-header d-flex justify-content-between gap-10">
                                 <h5 class="dashboard-widget-title mb-0">
                                     <span class="material-icons dashboard-widget-title__icon text-primary" aria-hidden="true">groups</span>
@@ -930,6 +922,11 @@
                         </div>
                     </div>
                 </div>
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        @include('adminmodule::admin.partials._staff-presence-widget')
+                    </div>
+                </div>
             @else
                 <div class="row">
                     <div class="col-12">
@@ -971,6 +968,110 @@
     <script>
         'use strict';
 
+        function initDashboardCollapsibleWidgets() {
+            var storageKey = 'adminDashboardWidgetStates';
+
+            function getWidgetStates() {
+                try {
+                    return JSON.parse(localStorage.getItem(storageKey) || '{}');
+                } catch (e) {
+                    return {};
+                }
+            }
+
+            function saveWidgetState(widgetId, expanded) {
+                var states = getWidgetStates();
+                states[widgetId] = expanded;
+                localStorage.setItem(storageKey, JSON.stringify(states));
+            }
+
+            var widgetStates = getWidgetStates();
+
+            $('.main-content .dashboard-collapsible-widget').each(function (index) {
+                var $card = $(this);
+                if ($card.data('collapse-initialized')) {
+                    return;
+                }
+                $card.data('collapse-initialized', true);
+
+                var widgetId = $card.attr('id');
+                if (!widgetId) {
+                    widgetId = 'dashboard-widget-' + index;
+                    $card.attr('id', widgetId);
+                }
+                var bodyId = widgetId + '-body';
+                var isExpanded = widgetStates[widgetId] === true;
+
+                var $header = $card.children('.card-header').first();
+                var $body = $card.children('.card-body').first();
+                if (!$header.length || !$body.length) {
+                    return;
+                }
+
+                var $collapse = $('<div class="collapse dashboard-widget-collapse-panel"></div>');
+                if (isExpanded) {
+                    $collapse.addClass('show');
+                }
+                $collapse.attr('id', bodyId);
+                $body.detach().appendTo($collapse);
+                $card.append($collapse);
+
+                var $toggle = $(
+                    '<button type="button" class="dashboard-widget-collapse-btn" data-bs-toggle="collapse" data-bs-target="#' + bodyId + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="' + bodyId + '" aria-label="Toggle widget">' +
+                    '<span class="material-symbols-outlined dashboard-widget-collapse-icon" aria-hidden="true">expand_more</span>' +
+                    '</button>'
+                );
+
+                var $title = $header.find('.dashboard-widget-title').first();
+                var $main = $('<div class="dashboard-widget-header-main"></div>');
+                if ($title.length) {
+                    $title.detach();
+                    $main.append($toggle);
+                    $main.append($title);
+                    $header.prepend($main);
+                } else {
+                    $header.prepend($toggle);
+                }
+
+                var $otherChildren = $header.children().not('.dashboard-widget-header-main');
+                if ($otherChildren.length) {
+                    var $actions = $('<div class="dashboard-widget-header-actions"></div>');
+                    $otherChildren.appendTo($actions);
+                    $header.append($actions);
+                }
+
+                $header.addClass('dashboard-widget-collapse-header');
+
+                $header.on('click', function (e) {
+                    if ($(e.target).closest('a, button:not(.dashboard-widget-collapse-btn), select, input, label, .select2-container, .badge').length) {
+                        return;
+                    }
+                    var collapseEl = document.getElementById(bodyId);
+                    if (!collapseEl || typeof bootstrap === 'undefined') {
+                        return;
+                    }
+                    bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false }).toggle();
+                });
+
+                $collapse.on('shown.bs.collapse hidden.bs.collapse', function () {
+                    var expanded = $collapse.hasClass('show');
+                    $toggle.attr('aria-expanded', expanded ? 'true' : 'false');
+                    saveWidgetState(widgetId, expanded);
+                    if (expanded && typeof chart !== 'undefined' && chart && $card.hasClass('earning-statistics')) {
+                        setTimeout(function () {
+                            chart.resize();
+                        }, 50);
+                    }
+                });
+
+                if (isExpanded && $card.hasClass('earning-statistics') && typeof chart !== 'undefined' && chart) {
+                    setTimeout(function () {
+                        chart.resize();
+                    }, 100);
+                }
+            });
+        }
+
         $('.js-select.update-chart').on('change', function() {
             var selectedYear = $(this).val();
             localStorage.setItem('selectedYear', selectedYear); // Store the selected year in local storage
@@ -979,6 +1080,8 @@
 
         // On page load, check if a year is stored in local storage
         $(document).ready(function() {
+            initDashboardCollapsibleWidgets();
+
             var storedYear = localStorage.getItem('selectedYear');
             if (storedYear) {
                 $('.js-select.update-chart').val(storedYear); // Set the select to the stored year
@@ -1075,6 +1178,14 @@
 
         var chart = new ApexCharts(document.querySelector("#apex_line-chart"), options);
         chart.render();
+        try {
+            var dashboardWidgetStates = JSON.parse(localStorage.getItem('adminDashboardWidgetStates') || '{}');
+            if (dashboardWidgetStates['dashboard-earning-statistics']) {
+                setTimeout(function () {
+                    chart.resize();
+                }, 150);
+            }
+        } catch (e) {}
 
         function update_chart(year) {
             var url = '{{route('admin.update-dashboard-earning-graph')}}?year=' + year;

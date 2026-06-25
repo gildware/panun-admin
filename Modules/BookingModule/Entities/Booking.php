@@ -714,13 +714,13 @@ class Booking extends Model
                 } elseif ($model->booking_status == 'ongoing') {
                     if ($permission) {
                         $notifications[] = [
-                            'key' => 'booking_ongoing',
+                            'key' => 'booking_status_change',
                             'settings_type' => 'customer_notification'
                         ];
                     }
                     if ($providerPermission){
                             $notifications[] = [
-                                'key' => 'ongoing_booking',
+                                'key' => 'booking_status_change',
                                 'settings_type' => 'provider_notification'
                             ];
                     }
@@ -880,13 +880,13 @@ class Booking extends Model
             } elseif ($model->booking_status == 'canceled') {
                 if ($permission) {
                     $notifications[] = [
-                        'key' => 'booking_cancel',
+                        'key' => 'booking_status_change',
                         'settings_type' => 'customer_notification'
                     ];
                 }
                 if ($providerPermission) {
                     $notifications[] = [
-                        'key' => 'booking_cancel',
+                        'key' => 'booking_status_change',
                         'settings_type' => 'provider_notification'
                     ];
                 }
@@ -913,10 +913,27 @@ class Booking extends Model
             } elseif ($model->booking_status == 'refund_request') {
                 if ($permission) {
                     $notifications[] = [
-                        [
-                            'key' => 'refund',
-                            'settings_type' => 'customer_notification'
-                        ]
+                        'key' => 'refund',
+                        'settings_type' => 'customer_notification'
+                    ];
+                }
+            } elseif (! in_array($model->booking_status, ['pending', 'accepted', 'completed', 'canceled', 'refund_request'], true)) {
+                if ($permission) {
+                    $notifications[] = [
+                        'key' => 'booking_status_change',
+                        'settings_type' => 'customer_notification',
+                    ];
+                }
+                if ($providerPermission) {
+                    $notifications[] = [
+                        'key' => 'booking_status_change',
+                        'settings_type' => 'provider_notification',
+                    ];
+                }
+                if ($servicemanPermission) {
+                    $notifications[] = [
+                        'key' => 'ongoing_booking',
+                        'settings_type' => 'serviceman_notification',
                     ];
                 }
             }
@@ -1041,13 +1058,22 @@ class Booking extends Model
             $notifications = [];
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
 
-            if ($model->isDirty('serviceman_id') && !$model->is_repeted) {
+            if ($model->isDirty('provider_id') && $model->provider_id && !$model->is_repeted) {
                 if ($bookingScheduleTimeChange) {
                     $notifications[] = [
-                        'key' => 'serviceman_assign',
+                        'key' => 'provider_assign',
                         'settings_type' => 'customer_notification'
                     ];
                 }
+                if ($bookingScheduleTimeChangeProvider) {
+                    $notifications[] = [
+                        'key' => 'booking_assigned_to_provider',
+                        'settings_type' => 'provider_notification'
+                    ];
+                }
+            }
+
+            if ($model->isDirty('serviceman_id') && !$model->is_repeted) {
                 if ($bookingScheduleTimeChangeProvider && !$model->is_repeted) {
                     $notifications[] = [
                         'key' => 'serviceman_assign',

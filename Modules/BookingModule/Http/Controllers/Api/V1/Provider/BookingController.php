@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingDetail;
 use Modules\BookingModule\Entities\BookingIgnore;
@@ -24,6 +25,7 @@ use Modules\BookingModule\Entities\BookingRepeatDetails;
 use Modules\BookingModule\Entities\BookingRepeatHistory;
 use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
+use Modules\BookingModule\Entities\BookingProviderCancellationReason;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CartModule\Entities\Cart;
 use Modules\ProviderManagement\Entities\SubscribedService;
@@ -763,7 +765,7 @@ class BookingController extends Controller
     {
         $provider_id = $request->user()->provider->id;
         $booking = $this->booking->with([
-            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'change_logs.changedBy', 'customer',
+            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'status_histories.providerCancellationReason', 'change_logs.changedBy', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
             'repeat.detail.service', 'repeat.repeatHistories'
@@ -1029,6 +1031,19 @@ class BookingController extends Controller
     }
 
     /**
+     * Active cancellation reasons for provider-initiated booking cancellations.
+     */
+    public function providerCancellationReasons(Request $request): JsonResponse
+    {
+        $reasons = BookingProviderCancellationReason::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'description']);
+
+        return response()->json(response_formatter(DEFAULT_200, $reasons), 200);
+    }
+
+    /**
      * Show the specified resource.
      * @param Request $request
      * @param string $bookingId
@@ -1036,10 +1051,18 @@ class BookingController extends Controller
      */
     public function statusUpdate(Request $request, string $bookingId): JsonResponse
     {
+        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
+        $requiresProviderCancelReason = isset($booking)
+            && $request->input('booking_status') === 'canceled'
+            && (string) $booking->booking_status === 'accepted';
+
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
             'booking_hold_reopen_reason_id' => ($request->booking_status == 'on_hold') ? 'required|integer' : 'nullable|integer',
+            'booking_provider_cancellation_reason_id' => $requiresProviderCancelReason
+                ? ['required', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))]
+                : ['nullable', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))],
             'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
@@ -1047,7 +1070,9 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
+        if (! isset($booking)) {
+            $booking = $this->booking->where('id', $bookingId)->where('provider_id', $request->user()->provider->id)->first();
+        }
 
         if (isset($booking)) {
 
@@ -1127,6 +1152,7 @@ class BookingController extends Controller
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
             $bookingStatusHistory->booking_hold_reopen_reason_id = $request->input('booking_hold_reopen_reason_id');
+            $bookingStatusHistory->booking_provider_cancellation_reason_id = $request->input('booking_provider_cancellation_reason_id');
             $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
 
             if ($booking->isDirty('booking_status')) {
@@ -1150,10 +1176,18 @@ class BookingController extends Controller
      */
     public function singleBookingStatusUpdate(Request $request, string $repeatId): JsonResponse
     {
+        $booking = $this->bookingRepeat->where('id', $repeatId)->where('provider_id', $request->user()->provider->id)->first();
+        $requiresProviderCancelReason = isset($booking)
+            && $request->input('booking_status') === 'canceled'
+            && (string) $booking->booking_status === 'accepted';
+
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:' . implode(',', array_column(BOOKING_STATUSES, 'key')),
             'payment_received_confirmed' => ($request->booking_status == 'completed') ? 'required|accepted' : 'nullable',
             'booking_hold_reopen_reason_id' => ($request->booking_status == 'on_hold') ? 'required|integer' : 'nullable|integer',
+            'booking_provider_cancellation_reason_id' => $requiresProviderCancelReason
+                ? ['required', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))]
+                : ['nullable', 'integer', Rule::exists('booking_provider_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1))],
             'status_change_remarks' => 'nullable|string|max:2000',
         ]);
 
@@ -1161,7 +1195,9 @@ class BookingController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $booking = $this->bookingRepeat->where('id', $repeatId)->where('provider_id', $request->user()->provider->id)->first();
+        if (! isset($booking)) {
+            $booking = $this->bookingRepeat->where('id', $repeatId)->where('provider_id', $request->user()->provider->id)->first();
+        }
 
         if (isset($booking)) {
             $evidence_photos = [];
@@ -1230,6 +1266,7 @@ class BookingController extends Controller
             $bookingStatusHistory->changed_by = $request->user()->id;
             $bookingStatusHistory->booking_status = $request['booking_status'];
             $bookingStatusHistory->booking_hold_reopen_reason_id = $request->input('booking_hold_reopen_reason_id');
+            $bookingStatusHistory->booking_provider_cancellation_reason_id = $request->input('booking_provider_cancellation_reason_id');
             $bookingStatusHistory->status_change_remarks = $request->input('status_change_remarks');
 
             if ($booking->isDirty('booking_status')) {
@@ -1420,10 +1457,10 @@ class BookingController extends Controller
         if (!isset($booking)) {
             if ($bookingRepeat) {
                 $fcmToken = $bookingRepeat?->booking?->customer?->fcm_token;
-                $title = get_push_notification_message('otp', 'customer_notification', $bookingRepeat?->booking?->customer?->current_language_key) . ' ' . $bookingRepeat->booking_otp;
+                $title = get_push_notification_message('otp', 'customer_notification', $bookingRepeat?->booking?->customer?->current_language_key);
                 $description = get_push_notification_description('otp', 'customer_notification', $bookingRepeat?->booking?->customer?->current_language_key);
                 if ($fcmToken) {
-                    device_notification($fcmToken, $title, $description, null, $bookingRepeat->id, 'booking', null, $bookingRepeat?->booking?->customer?->id, null, null, 'repeat');
+                    device_notification($fcmToken, $title, $description, null, $bookingRepeat->id, 'booking', null, $bookingRepeat?->booking?->customer?->id, ['otp' => $bookingRepeat->booking_otp], null, 'repeat');
                     return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
                 } else {
@@ -1434,10 +1471,10 @@ class BookingController extends Controller
         }
 
         $fcmToken = $booking?->customer?->fcm_token;
-        $title = get_push_notification_message('otp', 'customer_notification', $booking?->customer?->current_language_key) . ' ' . $booking->booking_otp;
+        $title = get_push_notification_message('otp', 'customer_notification', $booking?->customer?->current_language_key);
         $description = get_push_notification_description('otp', 'customer_notification', $booking?->customer?->current_language_key);
         if ($fcmToken) {
-            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, $booking?->customer?->id);
+            device_notification($fcmToken, $title, $description, null, $booking->id, 'booking', null, $booking?->customer?->id, ['otp' => $booking->booking_otp]);
             return response()->json(response_formatter(NOTIFICATION_SEND_SUCCESSFULLY_200), 200);
 
         } else {
@@ -2148,7 +2185,7 @@ class BookingController extends Controller
         }
 
         $freshBooking = $this->booking->with([
-            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'change_logs.changedBy', 'customer',
+            'detail.service', 'schedule_histories.user', 'status_histories.user', 'status_histories.holdReopenReason', 'status_histories.providerCancellationReason', 'change_logs.changedBy', 'customer',
             'provider', 'zone.parentZone', 'serviceman.user', 'booking_partial_payments.ledgerTransactions', 'booking_offline_payments',
             'category', 'subCategory:id,name',
         ])->find($booking->id);

@@ -26,11 +26,13 @@
                             {{ translate('Providers') }}
                         </a>
                     </li>
+                    {{-- Servicemen tab disabled for now
                     <li class="nav-item">
                         <a class="nav-link {{ request('type', 'serviceman') == 'serviceman' ? 'active' : '' }}" href="{{ request()->fullUrlWithQuery(['type' => 'serviceman']) }}">
                             {{ translate('Servicemen') }}
                         </a>
                     </li>
+                    --}}
                 </ul>
                 <div class="nav--tab__prev position-absolute top-0 start-3">
                     <button class="border-0 w-38 h-38 d-flex align-items-center justify-content-center rounded-full p-0 bg-white text-primary">
@@ -90,43 +92,29 @@
                             @endif
                         </div>
 
-                        <div class="bg-light rounded p-20 mb-20">
+                        @if($queryParams == 'customers')
+                            @include('businesssettingsmodule::admin.partials.notification-message-groups', [
+                                'groupedNotifications' => $groupedCustomerNotifications,
+                                'categoryLabels' => $notificationCategoryLabels,
+                                'settingsType' => 'customer_notification',
+                                'queryParams' => $queryParams,
+                                'dataValues' => $dataValues,
+                                'language' => $language,
+                            ])
+                        @endif
 
-                            <div class="row">
-                                @if($queryParams == 'customers')
-                                    @foreach(NOTIFICATION_FOR_USER as $userNotification)
-                                        <div class="col-md-6">
-                                            <form method="POST"
-                                                  action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
-                                                @csrf
-                                                @method('PUT')
-                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
-                                                    'notification' => $userNotification,
-                                                    'settingsType' => 'customer_notification',
-                                                    'dataValues' => $dataValues,
-                                                    'language' => $language,
-                                                ])
-                                            </form>
-                                        </div>
-                                    @endforeach
-                                @endif
-                                @if($queryParams == 'providers')
-                                    @foreach(NOTIFICATION_FOR_PROVIDER as $providerNotification)
-                                        <div class="col-md-6">
-                                            <form method="POST"
-                                                  action="{{route('admin.configuration.set-message-setting', ['type' => $queryParams])}}">
-                                                @csrf
-                                                @method('PUT')
-                                                @include('businesssettingsmodule::admin.partials.notification-message-fields', [
-                                                    'notification' => $providerNotification,
-                                                    'settingsType' => 'provider_notification',
-                                                    'dataValues' => $dataValues,
-                                                    'language' => $language,
-                                                ])
-                                            </form>
-                                        </div>
-                                    @endforeach
-                                @endif
+                        @if($queryParams == 'providers')
+                            @include('businesssettingsmodule::admin.partials.notification-message-groups', [
+                                'groupedNotifications' => $groupedProviderNotifications,
+                                'categoryLabels' => $notificationCategoryLabels,
+                                'settingsType' => 'provider_notification',
+                                'queryParams' => $queryParams,
+                                'dataValues' => $dataValues,
+                                'language' => $language,
+                            ])
+                        @endif
+
+                        {{-- Servicemen notifications disabled for now
                                 @if($queryParams == 'serviceman')
                                     @foreach(NOTIFICATION_FOR_SERVICEMAN as $servicemanNotification)
                                         <div class="col-md-6">
@@ -144,9 +132,9 @@
                                         </div>
                                     @endforeach
                                 @endif
-                            </div>
-                        </div>
+                                --}}
                     </div>
+
                 </div>
             </div>
         </div>
@@ -313,167 +301,275 @@
 @endsection
 
 @push('script')
-    <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
+    <script>
+        (function () {
+            if (!window.__notificationExtrasToggleBound) {
+                window.__notificationExtrasToggleBound = true;
+
+                document.addEventListener('click', function (e) {
+                    const btn = e.target.closest('.notification-toggle-btn, .notification-trigger-info-btn');
+                    if (!btn) {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const selector = btn.getAttribute('data-toggle-target');
+                    if (!selector) {
+                        return;
+                    }
+
+                    const scope = btn.closest('.notification-message-form');
+                    let panel = scope ? scope.querySelector(selector) : null;
+                    if (!panel) {
+                        panel = document.querySelector(selector);
+                    }
+                    if (!panel) {
+                        return;
+                    }
+
+                    panel.classList.toggle('d-none');
+                    const isOpen = !panel.classList.contains('d-none');
+
+                    if (btn.classList.contains('notification-toggle-btn')) {
+                        btn.classList.toggle('active', isOpen);
+                        const hideLabel = btn.getAttribute('data-hide-label');
+                        const showLabel = btn.getAttribute('data-show-label');
+                        if (hideLabel && showLabel) {
+                            btn.textContent = isOpen ? hideLabel : showLabel;
+                        }
+                    } else {
+                        btn.classList.toggle('active', isOpen);
+                        btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                    }
+                });
+            }
+        })();
+    </script>
+
     <script src="{{asset('assets/admin-module')}}/plugins/swiper/swiper-bundle.min.js"></script>
-    <script src="{{asset('assets/admin-module')}}/plugins/dataTables/jquery.dataTables.min.js"></script>
-    <script src="{{asset('assets/admin-module')}}/plugins/dataTables/dataTables.select.min.js"></script>
 
     <script>
         "use strict";
 
-        let swiper = new Swiper(".modalSwiper", {
-            pagination: {
-                el: ".swiper-pagination",
-                clickable: true,
-                dynamicBullets: true,
-                autoHeight: true,
-            },
-        });
-
-        $(document).ready(function () {
-            $('.js-select').select2();
-        });
-
-        $('.update-message').on('click', function () {
-            let id = $(this).data('key');
-            update_message(id)
-        });
-
-        $('#business-info-update-form').on('submit', function (event) {
-            event.preventDefault();
-
-            var form = $('#business-info-update-form')[0];
-            var formData = new FormData(form);
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        (function () {
+            function whenJQueryReady(callback) {
+                if (window.jQuery) {
+                    callback(window.jQuery);
+                    return;
                 }
+
+                setTimeout(function () {
+                    whenJQueryReady(callback);
+                }, 50);
+            }
+
+            if (document.querySelector('.modalSwiper') && typeof Swiper !== 'undefined') {
+                new Swiper('.modalSwiper', {
+                    pagination: {
+                        el: '.swiper-pagination',
+                        clickable: true,
+                        dynamicBullets: true,
+                        autoHeight: true,
+                    },
+                });
+            }
+
+            const notificationPreviewSamples = @json(notification_message_preview_samples());
+
+            whenJQueryReady(function ($) {
+                function applyNotificationPreview(text) {
+                    let output = text || '';
+                    Object.keys(notificationPreviewSamples).forEach(function (name) {
+                        const token = '{' + '{' + name + '}' + '}';
+                        output = output.split(token).join(notificationPreviewSamples[name]);
+                    });
+                    return output;
+                }
+
+                function refreshNotificationPreviewForField(fieldId) {
+                    const $field = $('#' + fieldId);
+                    if (!$field.length) return;
+
+                    const role = $field.attr('data-preview-role');
+                    const previewText = applyNotificationPreview($field.val());
+                    if (role === 'title') {
+                        $('[data-preview-title-for="' + fieldId + '"]').text(previewText);
+                    } else if (role === 'description') {
+                        $('[data-preview-desc-for="' + fieldId + '"]').text(previewText);
+                    }
+                }
+
+                function initNotificationMessagePreview() {
+                    $(document).off('input.notificationExtras', '.notification-message-input');
+                    $(document).on('input.notificationExtras', '.notification-message-input', function () {
+                        refreshNotificationPreviewForField($(this).attr('id'));
+                    });
+
+                    $(document).off('click.notificationExtras', '.notification-var-chip');
+                    $(document).on('click.notificationExtras', '.notification-var-chip', function (e) {
+                        e.preventDefault();
+                        const targetId = $(this).attr('data-target');
+                        const variable = $(this).attr('data-var');
+                        const $target = $('#' + targetId);
+                        if (!$target.length) return;
+
+                        const el = $target.get(0);
+                        const start = el.selectionStart ?? $target.val().length;
+                        const end = el.selectionEnd ?? start;
+                        const value = $target.val();
+                        $target.val(value.slice(0, start) + variable + value.slice(end));
+                        $target.trigger('input').focus();
+                        el.selectionStart = el.selectionEnd = start + String(variable).length;
+                    });
+                }
+
+                function bindNotificationPageActions() {
+                    $('.js-select').select2();
+                    initNotificationMessagePreview();
+
+                    $('.update-message').off('click.notificationPage').on('click.notificationPage', function () {
+                        update_message($(this).attr('data-key'));
+                    });
+
+                    $(".lang_link").off('click.notificationPage').on('click.notificationPage', function (e) {
+                        e.preventDefault();
+                        $(".lang_link").removeClass('active');
+                        $(".lang-form").addClass('d-none');
+                        $(this).addClass('active');
+
+                        let form_id = this.id;
+                        let lang = form_id.substring(0, form_id.length - 5);
+                        $("." + lang + "-form").removeClass('d-none');
+                    });
+
+                    $('#notification_type').off('change.notificationPage').on('change.notificationPage', function () {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('type', $(this).val());
+                        window.location.href = url.toString();
+                    });
+                }
+
+                function update_action_status(key_name, value) {
+                    Swal.fire({
+                        title: "{{translate('are_you_sure')}}?",
+                        text: '{{translate('want_to_update_status')}}',
+                        type: 'warning',
+                        showCloseButton: true,
+                        showCancelButton: true,
+                        cancelButtonColor: 'var(--bs-secondary)',
+                        confirmButtonColor: 'var(--bs-primary)',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonText: 'Yes',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.value) {
+                            $.ajaxSetup({
+                                headers: {
+                                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                                }
+                            });
+                            $.ajax({
+                                url: "{{route('admin.configuration.set-notification-setting')}}",
+                                data: {
+                                    key: key_name,
+                                    value: value,
+                                },
+                                type: 'put',
+                                success: function (response) {
+                                    console.log(response)
+                                    toastr.success('{{translate('successfully_updated')}}')
+                                },
+                                error: function () {
+
+                                }
+                            });
+                        }
+                    })
+                }
+
+                function update_message(id) {
+                    Swal.fire({
+                        title: "{{translate('are_you_sure')}}?",
+                        text: '{{translate('want_to_update')}}',
+                        type: 'warning',
+                        showCloseButton: true,
+                        showCancelButton: true,
+                        cancelButtonColor: 'var(--bs-secondary)',
+                        confirmButtonColor: 'var(--bs-primary)',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonText: 'Yes',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.value) {
+
+                            $.ajaxSetup({
+                                headers: {
+                                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                                }
+                            });
+                            $.ajax({
+                                url: "{{route('admin.configuration.set-message-setting')}}",
+                                data: {
+                                    id: id,
+                                    status: $('#' + id + '_status').is(':checked') === true ? 1 : 0,
+                                    message: $('#' + id + '_message').val(),
+                                    type: "{{$queryParams}}",
+                                    change_type: "status"
+                                },
+                                type: 'post',
+                                success: function (response) {
+                                    console.log(response)
+                                    toastr.success('{{translate('successfully_updated')}}')
+                                },
+                                error: function () {
+
+                                }
+                            });
+                        }
+                    })
+                }
+
+                function bootNotificationPage() {
+                    bindNotificationPageActions();
+
+                    $('#business-info-update-form').off('submit.notificationPage').on('submit.notificationPage', function (event) {
+                        event.preventDefault();
+
+                        var form = $('#business-info-update-form')[0];
+                        var formData = new FormData(form);
+
+                        $.ajaxSetup({
+                            headers: {
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                            }
+                        });
+                        $.ajax({
+                            url: "{{route('admin.business-settings.set-business-information')}}",
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            type: 'POST',
+                            success: function (response) {
+                                toastr.success('{{translate('successfully_updated')}}')
+                            },
+                            error: function () {
+
+                            }
+                        });
+                    });
+
+                    $(".push-notification-update-action-status").off('click.notificationPage').on('click.notificationPage', function () {
+                        let keyName = $(this).attr('data-keyname');
+                        let value = $(this).is(':checked') === true ? 1 : 0
+                        update_action_status(keyName, value);
+                    });
+                }
+
+                $(document).ready(bootNotificationPage);
+                document.addEventListener('admin:page-loaded', bootNotificationPage);
             });
-            $.ajax({
-                url: "{{route('admin.business-settings.set-business-information')}}",
-                data: formData,
-                processData: false,
-                contentType: false,
-                type: 'POST',
-                success: function (response) {
-                    toastr.success('{{translate('successfully_updated')}}')
-                },
-                error: function () {
-
-                }
-            });
-        });
-
-        $(".push-notification-update-action-status").on('click', function () {
-            let keyName = $(this).data('keyname');
-            let value = $(this).is(':checked') === true ? 1 : 0
-            update_action_status(keyName, value);
-        })
-
-        function update_action_status(key_name, value) {
-            Swal.fire({
-                title: "{{translate('are_you_sure')}}?",
-                text: '{{translate('want_to_update_status')}}',
-                type: 'warning',
-                showCloseButton: true,
-                showCancelButton: true,
-                cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Yes',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
-                    $.ajaxSetup({
-                        headers: {
-                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                        }
-                    });
-                    $.ajax({
-                        url: "{{route('admin.configuration.set-notification-setting')}}",
-                        data: {
-                            key: key_name,
-                            value: value,
-                        },
-                        type: 'put',
-                        success: function (response) {
-                            console.log(response)
-                            toastr.success('{{translate('successfully_updated')}}')
-                        },
-                        error: function () {
-
-                        }
-                    });
-                }
-            })
-        }
-
-        function update_message(id) {
-            Swal.fire({
-                title: "{{translate('are_you_sure')}}?",
-                text: '{{translate('want_to_update')}}',
-                type: 'warning',
-                showCloseButton: true,
-                showCancelButton: true,
-                cancelButtonColor: 'var(--bs-secondary)',
-                confirmButtonColor: 'var(--bs-primary)',
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Yes',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.value) {
-
-                    $.ajaxSetup({
-                        headers: {
-                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                        }
-                    });
-                    $.ajax({
-                        url: "{{route('admin.configuration.set-message-setting')}}",
-                        data: {
-                            id: id,
-                            status: $('#' + id + '_status').is(':checked') === true ? 1 : 0,
-                            message: $('#' + id + '_message').val(),
-                            type: "{{$queryParams}}",
-                            change_type: "status"
-                        },
-                        type: 'post',
-                        success: function (response) {
-                            console.log(response)
-                            toastr.success('{{translate('successfully_updated')}}')
-                        },
-                        error: function () {
-
-                        }
-                    });
-                }
-            })
-        }
-
-        $(document).ready(function () {
-            $('#notification_type').on('change', function () {
-                var selectedOption = $(this).val();
-
-                var currentUrl = window.location.href;
-                var url = new URL(currentUrl);
-
-                url.searchParams.set('type', selectedOption);
-
-                window.location.href = url.toString();
-            });
-        });
-
-        $(".lang_link").on('click', function (e) {
-            e.preventDefault();
-            $(".lang_link").removeClass('active');
-            $(".lang-form").addClass('d-none');
-            $(this).addClass('active');
-
-            let form_id = this.id;
-            let lang = form_id.substring(0, form_id.length - 5);
-            console.log(lang);
-            $("." + lang + "-form").removeClass('d-none');
-        });
+        })();
     </script>
 @endpush

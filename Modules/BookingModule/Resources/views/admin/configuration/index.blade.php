@@ -17,6 +17,15 @@
                                 'title' => translate('Booking_cancellation_reasons'),
                                 'type' => 'booking_cancellation_reason',
                                 'items' => $bookingCancellationReasons,
+                                'showResponsible' => true,
+                            ])
+                        </div>
+                        <div class="col-lg-6">
+                            @include('bookingmodule::admin.configuration.partials._booking-config-card', [
+                                'title' => translate('Booking_provider_cancellation_reasons'),
+                                'type' => 'booking_provider_cancellation_reason',
+                                'items' => $bookingProviderCancellationReasons,
+                                'showResponsible' => false,
                             ])
                         </div>
                         <div class="col-lg-6">
@@ -24,6 +33,7 @@
                                 'title' => translate('Booking_dispute_reasons'),
                                 'type' => 'booking_dispute_reason',
                                 'items' => $bookingDisputeReasons,
+                                'showResponsible' => true,
                             ])
                         </div>
                         <div class="col-lg-6">
@@ -31,6 +41,7 @@
                                 'title' => translate('Booking_hold_reasons'),
                                 'type' => 'booking_hold_reason',
                                 'items' => $bookingHoldReasons,
+                                'showResponsible' => true,
                             ])
                         </div>
                         <div class="col-lg-6">
@@ -38,6 +49,7 @@
                                 'title' => translate('Booking_reopen_reasons'),
                                 'type' => 'booking_reopen_reason',
                                 'items' => $bookingReopenReasons,
+                                'showResponsible' => true,
                             ])
                         </div>
                     </div>

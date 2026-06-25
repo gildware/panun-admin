@@ -53,10 +53,38 @@ class ConfigurationController extends Controller
     public function notificationSettingsGet(Request $request): Factory|View|Application
     {
         $this->authorize('notification_message_view');
-        $queryParams = $request->type;
+        $queryParams = $request->get('type', 'customers');
+        $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_USER, 'customer_notification', 'serviceman_assign', 'provider_assign');
+        $this->migrateNotificationMessageFromLegacyKeys('customer_notification', [
+            'booking_ongoing' => 'booking_status_change',
+            'booking_cancel' => 'booking_status_change',
+            'booking_edit_service_remove' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_increase' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_decrease' => 'booking_edit_service_update',
+        ]);
+        $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_USER, 'customer_notification');
+        $this->migrateNotificationMessageFromLegacyKeys('provider_notification', [
+            'ongoing_booking' => 'booking_status_change',
+            'booking_cancel' => 'booking_status_change',
+            'booking_edit_service_remove' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_increase' => 'booking_edit_service_update',
+            'booking_edit_service_quantity_decrease' => 'booking_edit_service_update',
+        ]);
+        $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_PROVIDER, 'provider_notification');
         $dataSettingsValue = $this->businessSetting->whereIn('settings_type', ['notification_settings'])->get();
         $dataValues = $this->businessSetting->whereIn('settings_type', ['customer_notification', 'provider_notification', 'serviceman_notification'])->with('translations')->get();
-        return view('businesssettingsmodule::admin.notification', compact('dataValues', 'queryParams', 'dataSettingsValue'));
+        $groupedCustomerNotifications = group_notification_messages_by_category(NOTIFICATION_FOR_USER);
+        $groupedProviderNotifications = group_notification_messages_by_category(NOTIFICATION_FOR_PROVIDER);
+        $notificationCategoryLabels = NOTIFICATION_MESSAGE_CATEGORY_LABELS;
+
+        return view('businesssettingsmodule::admin.notification', compact(
+            'dataValues',
+            'queryParams',
+            'dataSettingsValue',
+            'groupedCustomerNotifications',
+            'groupedProviderNotifications',
+            'notificationCategoryLabels'
+        ));
     }
 
     /**
@@ -1268,5 +1296,95 @@ class ConfigurationController extends Controller
         }
 
         return [];
+    }
+
+    private function ensureNotificationMessageSettings(
+        array $notifications,
+        string $settingsType,
+        ?string $migrateFromKey = null,
+        ?string $migrateToKey = null
+    ): void {
+        foreach ($notifications as $notification) {
+            $keyName = $notification['key'];
+            $value = $notification['value'];
+
+            if ($this->businessSetting->where(['key_name' => $keyName, 'settings_type' => $settingsType])->exists()) {
+                continue;
+            }
+
+            $liveValues = [
+                $keyName . '_status' => '1',
+                $keyName . '_message' => $value,
+                $keyName . '_description' => '',
+            ];
+
+            if ($migrateFromKey && $migrateToKey === $keyName) {
+                $legacy = $this->businessSetting
+                    ->where(['key_name' => $migrateFromKey, 'settings_type' => $settingsType])
+                    ->with('translations')
+                    ->first();
+
+                if ($legacy) {
+                    $legacyValues = is_string($legacy->live_values)
+                        ? json_decode($legacy->live_values, true)
+                        : (array) $legacy->live_values;
+
+                    $liveValues = [
+                        $keyName . '_status' => $legacyValues[$migrateFromKey . '_status'] ?? '1',
+                        $keyName . '_message' => $legacyValues[$migrateFromKey . '_message'] ?? $value,
+                        $keyName . '_description' => $legacyValues[$migrateFromKey . '_description'] ?? '',
+                    ];
+                }
+            }
+
+            $record = $this->businessSetting->updateOrCreate(
+                ['key_name' => $keyName, 'settings_type' => $settingsType],
+                [
+                    'key_name' => $keyName,
+                    'live_values' => $liveValues,
+                    'test_values' => $liveValues,
+                    'settings_type' => $settingsType,
+                    'mode' => 'live',
+                    'is_active' => 1,
+                ]
+            );
+
+            if ($migrateFromKey && $migrateToKey === $keyName && isset($legacy) && $legacy->relationLoaded('translations')) {
+                foreach ($legacy->translations as $translation) {
+                    $newKey = match ($translation->key) {
+                        $migrateFromKey => $keyName,
+                        $migrateFromKey . '_description' => $keyName . '_description',
+                        default => null,
+                    };
+
+                    if ($newKey) {
+                        $record->translations()->updateOrCreate(
+                            ['locale' => $translation->locale, 'key' => $newKey],
+                            ['value' => $translation->value]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    private function migrateNotificationMessageFromLegacyKeys(string $settingsType, array $legacyToNew): void
+    {
+        foreach ($legacyToNew as $fromKey => $toKey) {
+            if ($this->businessSetting->where(['key_name' => $toKey, 'settings_type' => $settingsType])->exists()) {
+                continue;
+            }
+
+            $label = collect(
+                $settingsType === 'customer_notification' ? NOTIFICATION_FOR_USER : NOTIFICATION_FOR_PROVIDER
+            )->firstWhere('key', $toKey)['value'] ?? ucwords(str_replace('_', ' ', $toKey));
+
+            $this->ensureNotificationMessageSettings(
+                [['key' => $toKey, 'value' => $label]],
+                $settingsType,
+                $fromKey,
+                $toKey
+            );
+        }
     }
 }

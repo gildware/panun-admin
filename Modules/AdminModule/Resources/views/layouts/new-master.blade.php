@@ -1,10 +1,16 @@
 <!DOCTYPE html>
 @php
     $site_direction = session()->get('site_direction');
+    $adminUsesTopNav = admin_uses_top_nav();
+    $adminUsesPartialNav = admin_uses_partial_nav();
     $adminAssetVersion = max(
         (int) @filemtime(public_path('assets/admin-module/css/style.css')),
         (int) @filemtime(public_path('assets/admin-module/css/dev.css')),
         (int) @filemtime(public_path('assets/admin-module/js/custom.js')),
+        (int) @filemtime(public_path('assets/admin-module/css/top-nav.css')),
+        (int) @filemtime(public_path('assets/admin-module/js/top-nav.js')),
+        (int) @filemtime(public_path('assets/admin-module/js/admin-partial-nav.js')),
+        (int) @filemtime(public_path('assets/admin-module/js/admin-pinned-nav.js')),
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -46,12 +52,20 @@
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/style.css?v={{$adminAssetVersion}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev.css?v={{$adminAssetVersion}}"/>
     <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/dev-tahir.css"/>
+    @if($adminUsesTopNav)
+        <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/top-nav.css?v={{$adminAssetVersion}}"/>
+    @endif
+    @if($adminUsesPartialNav)
+        <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.13/dist/turbo.es2017-umd.min.js" data-turbo-suppress-warning></script>
+    @endif
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/common.css"/>
 
-    @stack('css_or_js')
+    @unless($adminUsesPartialNav)
+        @stack('css_or_js')
+    @endunless
 </head>
 
-<body>
+<body class="{{ $adminUsesTopNav ? 'nav-top' : '' }}">
 <script>
     localStorage.theme && document.querySelector('body').setAttribute("data-bs-theme", localStorage.theme);
 </script>
@@ -61,19 +75,23 @@
 
 <div class="preloader"></div>
 
+@if($adminUsesPartialNav)
+    <div id="admin-partial-progress" class="admin-partial-progress" aria-hidden="true"></div>
+@endif
 
-@include('adminmodule::layouts.partials._header')
-
-
-@include('adminmodule::layouts.partials._aside')
+@include('adminmodule::layouts.partials._nav-layout')
 
 
 @include('adminmodule::layouts.partials._settings-sidebar')
 
 
 <main class="main-area">
-    @yield('content')
+    @if($adminUsesPartialNav)
+        <turbo-frame id="admin-main" class="admin-main-frame" data-turbo-cache="false">
+            @stack('css_or_js')
+    @endif
 
+    @yield('content')
 
     @include('adminmodule::layouts.partials._footer')
 
@@ -96,6 +114,12 @@
 
     @include('adminmodule::layouts.partials._delete-modal')
 
+    @if($adminUsesPartialNav)
+            {{-- Page scripts in the turbo frame need jQuery; the global bundle loads after </main>. --}}
+            <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
+            @stack('script')
+        </turbo-frame>
+    @endif
 </main>
 
 
@@ -104,6 +128,13 @@
 <script src="{{asset('assets/admin-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/main.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/custom.js?v={{$adminAssetVersion}}"></script>
+@if($adminUsesTopNav)
+    <script src="{{asset('assets/admin-module')}}/js/top-nav.js?v={{$adminAssetVersion}}"></script>
+    <script src="{{asset('assets/admin-module')}}/js/admin-pinned-nav.js?v={{$adminAssetVersion}}"></script>
+@endif
+@if($adminUsesPartialNav)
+    <script src="{{asset('assets/admin-module')}}/js/admin-partial-nav.js?v={{$adminAssetVersion}}"></script>
+@endif
 <script src="{{asset('assets/admin-module')}}/js/helper.js"></script>
 
 
@@ -364,6 +395,10 @@
             }
             sessionStorage.setItem(waPrevKey, String(msgTotal));
         }
+
+        if (typeof window.pkHandleAdminInboxNotifications === 'function') {
+            window.pkHandleAdminInboxNotifications(data, opts);
+        }
     }
 
     window.pkAdminRefreshWhatsAppUnread = function (opts) {
@@ -387,7 +422,7 @@
     });
 
     (function () {
-        var adminHeaderPollMs = 30000;
+        var adminHeaderPollMs = 10000;
         try {
             if (/\/admin\/(whatsapp|social-inbox)\//i.test(window.location.pathname || '')) {
                 adminHeaderPollMs = 60000;
@@ -419,10 +454,19 @@
         }
         var pillEl = document.getElementById('staff-header-status-pill');
         if (pillEl) {
-            pillEl.className = 'staff-header-status-pill dropdown-toggle border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 ' + window.pkStaffPresencePillClass(data.presence_status);
-            pillEl.setAttribute('data-presence-status', data.presence_status || '');
-            if (labelEl) {
-                labelEl.classList.add('d-none', 'd-md-block');
+            var isUtility = document.body.classList.contains('nav-top');
+            if (isUtility) {
+                pillEl.className = 'staff-header-status-pill staff-header-status-pill--utility dropdown-toggle border-0 rounded align-items-center d-inline-flex gap-1';
+                pillEl.setAttribute('data-presence-status', data.presence_status || '');
+                if (labelEl) {
+                    labelEl.classList.add('d-none', 'd-lg-inline');
+                }
+            } else {
+                pillEl.className = 'staff-header-status-pill dropdown-toggle border-0 rounded align-items-center py-2 px-2 px-md-3 d-inline-flex gap-1 ' + window.pkStaffPresencePillClass(data.presence_status);
+                pillEl.setAttribute('data-presence-status', data.presence_status || '');
+                if (labelEl) {
+                    labelEl.classList.add('d-none', 'd-md-block');
+                }
             }
         }
         document.querySelectorAll('.staff-presence-btn').forEach(function (btn) {
@@ -496,7 +540,7 @@
         }
     });
 
-    $('.admin-logout').on('click', function (event) {
+    $(document).on('click', '.admin-logout', function (event) {
         Swal.fire({
             title: "{{translate('are_you_sure')}}?",
             text: "{{translate('want_to_logout')}}",
@@ -853,7 +897,11 @@
     });
 </script>
 
+@include('adminmodule::layouts.partials._admin-notification-scripts')
+
+@unless($adminUsesPartialNav)
 @stack('script')
+@endunless
 </body>
 
 </html>

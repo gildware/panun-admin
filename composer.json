@@ -58,6 +58,8 @@
         ],
         "files": [
             "app/Lib/Helpers.php",
+            "app/Lib/NotificationMessageHelpers.php",
+            "app/Lib/AdminInboxNotificationHelpers.php",
             "app/Lib/BookingPaymentHelpers.php",
             "app/Lib/BookingStatusTransitions.php",
             "app/Lib/AdditionalChargeHelpers.php",

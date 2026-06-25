@@ -208,6 +208,10 @@
             }
             sessionStorage.setItem(waPrevKey, String(msgTotal));
         }
+
+        if (typeof window.pkHandleAdminInboxNotifications === 'function') {
+            window.pkHandleAdminInboxNotifications(data, opts);
+        }
     }
 
     window.pkAdminRefreshWhatsAppUnread = function (opts) {
@@ -366,6 +370,8 @@
         }
     });
 </script>
+
+@include('adminmodule::layouts.partials._admin-notification-scripts')
 
 @stack('script')
 </body>

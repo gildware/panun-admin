@@ -157,7 +157,7 @@ if (!function_exists('placeBookingTransactionForPartialCas')) {
 
             //customer transaction (wallet)
             $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
-            $user = debit_customer_wallet_or_fail($user, $paid_amount);
+            $user = debit_customer_wallet_or_fail($user, $paid_amount, (string) $booking['id']);
 
             Transaction::create([
                 'ref_trx_id' => null,
@@ -256,7 +256,7 @@ if (!function_exists('placeBookingTransactionForPartialDigital')) {
                 ]);
 
                 $user = lock_customer_user_for_wallet((string) $freshBooking['customer_id']);
-                $user = debit_customer_wallet_or_fail($user, $walletPaid);
+                $user = debit_customer_wallet_or_fail($user, $walletPaid, (string) $freshBooking['id']);
 
                 $walletTransaction = Transaction::create([
                     'ref_trx_id' => null,
@@ -419,7 +419,7 @@ if (!function_exists('placeBookingTransactionForWalletPayment')) {
 
             //Customer wallet update
             $user = lock_customer_user_for_wallet((string) $freshBooking['customer_id']);
-            $user = debit_customer_wallet_or_fail($user, $receivedAmount);
+            $user = debit_customer_wallet_or_fail($user, $receivedAmount, (string) $freshBooking['id']);
 
             //customer transaction (wallet)
             $walletTransaction = Transaction::create([
@@ -2304,6 +2304,13 @@ if (!function_exists('recordPaymentToProvider')) {
                 'to_user_account' => ACCOUNT_STATES[2]['value'],
             ]);
         });
+
+        $resolvedProviderId = $provider_id;
+        if (! $resolvedProviderId) {
+            $resolvedProviderId = \Modules\ProviderManagement\Entities\Provider::where('user_id', $provider_user_id)->value('id');
+        }
+
+        send_provider_settlement_received_notification($resolvedProviderId, $amount);
     }
 }
 
@@ -2600,8 +2607,8 @@ if (!function_exists('addFundTransactions')) {
                 $user = credit_customer_wallet($user, (float) $bonus);
 
                 //send notification
-                $title =  with_currency_symbol($bonus) . ' ' . get_push_notification_message('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
-                $description = get_push_notification_description('add_fund_wallet_bonus', 'customer_notification', $user?->current_language_key);
+                $title =  with_currency_symbol($bonus) . ' ' . get_push_notification_message('add_fund_wallet', 'customer_notification', $user?->current_language_key);
+                $description = get_push_notification_description('add_fund_wallet', 'customer_notification', $user?->current_language_key);
                 $permission = isNotificationActive($user?->provider?->id, 'wallet', 'notification', 'user');
                 $data_info = [
                     'user_name' => $user?->first_name . ' '. $user->last_name

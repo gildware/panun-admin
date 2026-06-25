@@ -2,6 +2,11 @@
 
 namespace Modules\AdminModule\Providers;
 
+use App\Support\AdminMenuCounts;
+use App\Support\AdminBreadcrumb;
+use App\Support\AdminNavRegistry;
+use App\Support\AdminPinnedNav;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Factory;
 
@@ -27,7 +32,42 @@ class AdminModuleServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
+        $this->registerAdminMenuViewComposer();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+    }
+
+    protected function registerAdminMenuViewComposer(): void
+    {
+        View::composer([
+            'adminmodule::layouts.partials._top-chrome',
+            'adminmodule::layouts.partials._top-nav-menu',
+            'adminmodule::layouts.partials._top-pinned',
+            'adminmodule::layouts.partials._top-group-subnav',
+            'adminmodule::layouts.partials._top-breadcrumbs',
+            'adminmodule::layouts.partials.top-nav.*',
+        ], function ($view) {
+            $menuCounts = AdminMenuCounts::all();
+            $view->with([
+                'menuCounts' => $menuCounts,
+                'all_bookings_menu_count' => $menuCounts['all_bookings'],
+                'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
+                'special_scenarios_menu_count' => $menuCounts['special_scenarios'],
+                'pending_providers' => $menuCounts['pending_providers'],
+                'pending_showcase_items' => $menuCounts['pending_showcase_items'],
+                'pending_profile_changes' => $menuCounts['pending_profile_changes'],
+                'denied_providers' => $menuCounts['denied_providers'],
+                'max_booking_amount' => (business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0,
+                'adminBreadcrumbs' => AdminBreadcrumb::resolve(),
+                'adminNavMatch' => AdminNavRegistry::match(),
+                'adminGroupSubmenu' => AdminNavRegistry::groupSubmenu(),
+                'adminPinnedCatalog' => AdminPinnedNav::catalogForChrome(
+                    $menuCounts,
+                    (float) ((business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0)
+                ),
+                'adminDefaultPinKeys' => AdminNavRegistry::defaultPinKeys(),
+                'adminUserPinnedKeys' => AdminPinnedNav::pinnedKeysForUser(auth()->user()),
+            ]);
+        });
     }
 
     /**

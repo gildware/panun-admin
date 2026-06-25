@@ -17,6 +17,49 @@ use Modules\UserManagement\Entities\User;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Http\UploadedFile;
 
+if (!function_exists('admin_uses_top_nav')) {
+    /**
+     * When true, admin uses the top navigation chrome instead of sidebar + legacy header.
+     * Rollback: set ADMIN_TOP_NAV=false in .env and php artisan config:clear
+     */
+    function admin_uses_top_nav(): bool
+    {
+        return filter_var(config('admin.top_nav', false), FILTER_VALIDATE_BOOLEAN);
+    }
+}
+
+if (!function_exists('admin_uses_partial_nav')) {
+    function admin_uses_partial_nav(): bool
+    {
+        return admin_uses_top_nav()
+            && filter_var(config('admin.partial_nav', true), FILTER_VALIDATE_BOOLEAN);
+    }
+}
+
+if (!function_exists('admin_nav_placeholder')) {
+    function admin_nav_placeholder(string $type = 'image'): string
+    {
+        return match ($type) {
+            'logo' => asset('assets/admin-module/img/placeholder.png'),
+            'profile' => asset('assets/admin-module/img/customer.png'),
+            default => asset('assets/placeholder.png'),
+        };
+    }
+}
+
+if (!function_exists('admin_nav_image_src')) {
+    function admin_nav_image_src(?string $src, string $placeholderType = 'image'): string
+    {
+        $src = trim((string) $src);
+
+        if ($src === '' || $src === 'null' || str_ends_with($src, '/null')) {
+            return admin_nav_placeholder($placeholderType);
+        }
+
+        return $src;
+    }
+}
+
 if (!function_exists('use_dummy_login_otp')) {
     /**
      * When true, login OTP is a fixed code (default 123456) for customer/provider apps.
@@ -819,59 +862,58 @@ if (!function_exists('remove_invalid_charcaters')) {
 if (!function_exists('text_variable_data_format')) {
     function text_variable_data_format($title, $booking_id, ?string $type = null, array|object|string|null $data = null, ?string $bookingType = null): array|string
     {
+        $dataArray = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
+
         $replaceMap = [
-            '{{providerName}}' => '',
-            '{{scheduleTime}}' => '',
-            '{{userName}}' => '',
-            '{{zoneName}}' => '',
-            '{{serviceManName}}' => '',
+            '{{providerName}}' => (string) ($dataArray['provider_name'] ?? ''),
+            '{{scheduleTime}}' => (string) ($dataArray['schedule_time'] ?? ''),
+            '{{userName}}' => (string) ($dataArray['user_name'] ?? ''),
+            '{{zoneName}}' => (string) ($dataArray['zone_name'] ?? ''),
+            '{{serviceManName}}' => (string) ($dataArray['service_man_name'] ?? ''),
+            '{{bookingId}}' => (string) ($dataArray['booking_id'] ?? ''),
+            '{{bookingStatus}}' => (string) ($dataArray['booking_status'] ?? ''),
+            '{{amount}}' => (string) ($dataArray['amount'] ?? ''),
+            '{{serviceName}}' => (string) ($dataArray['service_name'] ?? ''),
+            '{{otp}}' => (string) ($dataArray['otp'] ?? ''),
         ];
 
         if ($type == 'booking' || $type == 'offline-payment') {
             $booking = null;
 
             if ($bookingType == 'repeat') {
-                $booking = BookingRepeat::find($booking_id) ?? Booking::find($booking_id);
+                $booking = \Modules\BookingModule\Entities\BookingRepeat::find($booking_id) ?? \Modules\BookingModule\Entities\Booking::find($booking_id);
             } else {
-                $booking = Booking::find($booking_id);
+                $booking = \Modules\BookingModule\Entities\Booking::find($booking_id);
             }
 
             if (!$booking) {
-                return $title;
+                return str_replace(array_keys($replaceMap), array_values($replaceMap), $title);
             }
 
-            $replaceMap['{{providerName}}'] = $booking?->provider?->company_name ?? '';
-            $replaceMap['{{bookingId}}'] = $booking->readable_id;
-            $replaceMap['{{scheduleTime}}'] = $booking->service_schedule;
+            $replaceMap['{{providerName}}'] = $booking?->provider?->company_name ?? $replaceMap['{{providerName}}'];
+            $replaceMap['{{bookingId}}'] = $booking->readable_id ?? $replaceMap['{{bookingId}}'];
+            $replaceMap['{{scheduleTime}}'] = (string) ($booking->service_schedule ?? $replaceMap['{{scheduleTime}}']);
+            $replaceMap['{{bookingStatus}}'] = ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? $replaceMap['{{bookingStatus}}'])));
+            $replaceMap['{{otp}}'] = (string) ($booking->booking_otp ?? $replaceMap['{{otp}}']);
 
             if ($bookingType == 'repeat') {
                 if ($booking->booking) {
-                    $replaceMap['{{userName}}'] = $booking->booking->customer ? $booking->booking->customer->first_name . ' ' . $booking->booking->customer->last_name : '';
-                    $replaceMap['{{zoneName}}'] = $booking->booking->zone?->name ?? '';
+                    $replaceMap['{{userName}}'] = $booking->booking->customer ? $booking->booking->customer->first_name . ' ' . $booking->booking->customer->last_name : $replaceMap['{{userName}}'];
+                    $replaceMap['{{zoneName}}'] = $booking->booking->zone?->name ?? $replaceMap['{{zoneName}}'];
                 } else {
-                    $replaceMap['{{userName}}'] = $booking->customer?->first_name . ' ' . $booking->customer?->last_name;
-                    $replaceMap['{{zoneName}}'] = $booking->zone?->name;
+                    $replaceMap['{{userName}}'] = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? '')) ?: $replaceMap['{{userName}}'];
+                    $replaceMap['{{zoneName}}'] = $booking->zone?->name ?? $replaceMap['{{zoneName}}'];
                 }
             } else {
-                $replaceMap['{{userName}}'] = $booking->customer?->first_name . ' ' . $booking->customer?->last_name;
-                $replaceMap['{{zoneName}}'] = $booking->zone?->name;
+                $replaceMap['{{userName}}'] = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? '')) ?: $replaceMap['{{userName}}'];
+                $replaceMap['{{zoneName}}'] = $booking->zone?->name ?? $replaceMap['{{zoneName}}'];
             }
 
-            $replaceMap['{{serviceManName}}'] = $booking?->serviceman?->user?->first_name . ' ' . $booking?->serviceman?->user?->last_name;
+            $replaceMap['{{serviceManName}}'] = trim(($booking?->serviceman?->user?->first_name ?? '') . ' ' . ($booking?->serviceman?->user?->last_name ?? '')) ?: $replaceMap['{{serviceManName}}'];
 
-        } else {
-            if (is_array($data) && !empty($data)) {
-                $replaceMap['{{providerName}}'] = $data['provider_name'] ?? '';
-                $replaceMap['{{scheduleTime}}'] = $data['schedule_time'] ?? '';
-                $replaceMap['{{userName}}'] = $data['user_name'] ?? '';
-                $replaceMap['{{zoneName}}'] = $data['zone_name'] ?? '';
-                $replaceMap['{{serviceManName}}'] = $data['service_man_name'] ?? '';
-            }
         }
 
-        $formattedTitle = str_replace(array_keys($replaceMap), array_values($replaceMap), $title);
-
-        return ($formattedTitle === $title) ? $title : $formattedTitle;
+        return str_replace(array_keys($replaceMap), array_values($replaceMap), $title);
     }
 }
 
@@ -1920,6 +1962,30 @@ if (!function_exists('isNotificationActive')) {
         }
 
         return false;
+    }
+}
+
+if (!function_exists('group_notification_messages_by_category')) {
+    function group_notification_messages_by_category(array $notifications): array
+    {
+        $grouped = [];
+        foreach ($notifications as $notification) {
+            $category = $notification['category'] ?? 'other';
+            $grouped[$category][] = $notification;
+        }
+
+        $ordered = [];
+        foreach (NOTIFICATION_MESSAGE_CATEGORIES as $category) {
+            if (!empty($grouped[$category])) {
+                $ordered[$category] = $grouped[$category];
+            }
+        }
+
+        if (!empty($grouped['other'])) {
+            $ordered['other'] = $grouped['other'];
+        }
+
+        return $ordered;
     }
 }
 

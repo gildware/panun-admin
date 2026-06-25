@@ -6133,10 +6133,13 @@ class BookingController extends Controller
         if ($isApproved) {
             $user = $booking->customer;
             $offline = isNotificationActive(null, 'booking', 'notification', 'user');
-            $title = get_push_notification_message('offline_payment_approved', 'customer_notification', $user?->current_language_key);
-            $description = get_push_notification_description('offline_payment_approved', 'customer_notification', $user?->current_language_key);
+            $title = get_push_notification_message('payment_collected_company', 'customer_notification', $user?->current_language_key);
+            $description = get_push_notification_description('payment_collected_company', 'customer_notification', $user?->current_language_key);
             if ($user?->fcm_token && $title && $offline) {
-                device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking', null, $user->id);
+                device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking', null, $user->id, [
+                    'amount' => with_currency_symbol((float) get_booking_total_amount($booking)),
+                    'booking_status' => (string) ($booking->booking_status ?? ''),
+                ]);
             }
 
             placeBookingTransactionForDigitalPayment($booking);
@@ -6470,6 +6473,17 @@ class BookingController extends Controller
             }
         } catch (\Throwable $e) {
             Log::warning('WhatsApp booking payment added prompt failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
+        }
+
+        if ($partial) {
+            $freshForNotify = $this->booking->with(['customer', 'provider.owner'])->find($booking->id);
+            if ($freshForNotify) {
+                send_booking_payment_collected_notifications(
+                    $freshForNotify,
+                    round((float) $request->input('amount'), 2),
+                    (string) $request->input('received_by', 'company')
+                );
+            }
         }
 
         if ($request->wantsJson()) {

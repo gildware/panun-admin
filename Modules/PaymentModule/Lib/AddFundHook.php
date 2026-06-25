@@ -34,6 +34,10 @@ if (!function_exists('add_fund_fail')) {
      */
     function add_fund_fail($data): void
     {
-        //
+        $customerUserId = $data['payer_id'] ?? null;
+        $amount = isset($data['payment_amount']) ? (float) $data['payment_amount'] : null;
+        if ($customerUserId) {
+            send_customer_payment_failed_notification($customerUserId, $amount);
+        }
     }
 }

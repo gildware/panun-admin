@@ -1408,19 +1408,19 @@ trait BookingTrait
             if ($serviceQty) {
                 $notifications[] =
                     [
-                        'key' => 'booking_edit_service_quantity_increase',
+                        'key' => 'booking_edit_service_update',
                         'settings_type' => 'customer_notification'
                     ];
             }
             if ($providerQtyNotification) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_increase',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'provider_notification'
                 ];
             }
             if ($servicemanQtyNotification) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_increase',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'serviceman_notification'
                 ];
             }
@@ -1557,19 +1557,19 @@ trait BookingTrait
             if ($serviceQty) {
                 $notifications[] =
                     [
-                        'key' => 'booking_edit_service_quantity_increase',
+                        'key' => 'booking_edit_service_update',
                         'settings_type' => 'customer_notification'
                     ];
             }
             if ($providerQtyNotification) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_increase',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'provider_notification'
                 ];
             }
             if ($servicemanQtyNotification) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_increase',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'serviceman_notification'
                 ];
             }
@@ -1676,19 +1676,19 @@ trait BookingTrait
             $servicemanNotificationDelete = isNotificationActive(null, 'booking', 'notification', 'serviceman');
             if ($serviceDelete) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_remove',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'customer_notification'
                 ];
             }
             if ($providerNotificationDelete) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_remove',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'provider_notification'
                 ];
             }
             if ($servicemanNotificationDelete) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_remove',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'serviceman_notification'
                 ];
             }
@@ -1836,19 +1836,19 @@ trait BookingTrait
             $servicemanQtyDecrease = isNotificationActive(null, 'booking', 'notification', 'serviceman');
             if ($otyDecrease) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_decrease',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'customer_notification'
                 ];
             }
             if ($providerQtyDecrease) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_decrease',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'provider_notification'
                 ];
             }
             if ($servicemanQtyDecrease) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_decrease',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'serviceman_notification'
                 ];
             }
@@ -1995,19 +1995,19 @@ trait BookingTrait
             $servicemanQtyDecrease = isNotificationActive(null, 'booking', 'notification', 'serviceman');
             if ($otyDecrease) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_decrease',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'customer_notification'
                 ];
             }
             if ($providerQtyDecrease) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_decrease',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'provider_notification'
                 ];
             }
             if ($servicemanQtyDecrease) {
                 $notifications[] = [
-                    'key' => 'booking_edit_service_quantity_decrease',
+                    'key' => 'booking_edit_service_update',
                     'settings_type' => 'serviceman_notification'
                 ];
             }
@@ -2309,8 +2309,8 @@ trait BookingTrait
 
                 if ($amount > 0){
                     $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
-                    $title = with_currency_symbol($amount) . ' ' . get_push_notification_message('referral_earning_first_booking', 'customer_notification', $user?->current_language_key);
-                    $description = get_push_notification_description('referral_earning_first_booking', 'customer_notification', $user?->current_language_key);
+                    $title = with_currency_symbol($amount) . ' ' . get_push_notification_message('referral_earning', 'customer_notification', $user?->current_language_key);
+                    $description = get_push_notification_description('referral_earning', 'customer_notification', $user?->current_language_key);
                     if ($title && $user->fcm_token && $userRefund) {
                         device_notification($user->fcm_token, $title, $description, null, null, 'general', null, $user->id);
                     }

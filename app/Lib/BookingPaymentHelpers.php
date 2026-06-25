@@ -2784,6 +2784,11 @@ if (! function_exists('record_customer_booking_due_payment')) {
             $fresh->transaction_id = $transactionId;
             booking_after_partial_payment_booking_refresh($fresh);
         });
+
+        $freshBooking = $booking->fresh(['customer', 'provider.owner']);
+        if ($freshBooking) {
+            send_booking_payment_collected_notifications($freshBooking, $amount, 'company');
+        }
     }
 }
 
@@ -2868,6 +2873,11 @@ if (! function_exists('record_provider_booking_customer_payment')) {
 
         if (! $partial instanceof \Modules\BookingModule\Entities\BookingPartialPayment) {
             throw new \RuntimeException(translate('Payment recording failed.'));
+        }
+
+        $freshBooking = $booking->fresh(['customer', 'provider.owner']);
+        if ($freshBooking) {
+            send_booking_payment_collected_notifications($freshBooking, $amount, 'provider');
         }
 
         return $partial;
@@ -5414,7 +5424,7 @@ if (!function_exists('lock_customer_user_for_wallet')) {
 }
 
 if (!function_exists('debit_customer_wallet_or_fail')) {
-    function debit_customer_wallet_or_fail(\Modules\UserManagement\Entities\User $user, float $amount): \Modules\UserManagement\Entities\User
+    function debit_customer_wallet_or_fail(\Modules\UserManagement\Entities\User $user, float $amount, ?string $bookingId = null): \Modules\UserManagement\Entities\User
     {
         $amount = round(max(0.0, $amount), 2);
         if ($amount <= 0) {
@@ -5425,6 +5435,8 @@ if (!function_exists('debit_customer_wallet_or_fail')) {
         }
         $user->wallet_balance = round((float) $user->wallet_balance - $amount, 2);
         $user->save();
+
+        send_customer_wallet_deducted_notification($user, $amount, $bookingId);
 
         return $user;
     }
@@ -5597,7 +5609,7 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
 
             if ($paymentMethod === 'wallet_payment') {
                 $user = lock_customer_user_for_wallet((string) $booking->customer_id);
-                $user = debit_customer_wallet_or_fail($user, $paidAmount);
+                $user = debit_customer_wallet_or_fail($user, $paidAmount, (string) $booking->id);
 
                 $walletTransaction = \Modules\TransactionModule\Entities\Transaction::create([
                     'ref_trx_id' => null,

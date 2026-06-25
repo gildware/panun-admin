@@ -43,6 +43,7 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
         Route::post('request-ignore/{booking_id}', [ProviderBookingController::class, 'requestIgnore']);
         Route::post('single-repeat-cancel/{repeat_id}', [ProviderBookingController::class, 'singleBookingCancel']);
         Route::put('single-repeat-status-update/{repeat_id}', [ProviderBookingController::class, 'singleBookingStatusUpdate']);
+        Route::get('provider-cancellation-reasons', [ProviderBookingController::class, 'providerCancellationReasons']);
         Route::put('status-update/{booking_id}', [ProviderBookingController::class, 'statusUpdate']);
         Route::post('record-payment/{booking_id}', [ProviderBookingController::class, 'recordPayment']);
         Route::put('schedule-update/{booking_id}', [ProviderBookingController::class, 'scheduleUpdate']);

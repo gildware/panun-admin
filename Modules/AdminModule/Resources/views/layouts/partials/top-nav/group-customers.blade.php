@@ -1,0 +1,70 @@
+@canany(['wallet_add', 'wallet_view', 'customer_view', 'customer_add', 'point_view', 'newsletter_view'])
+@php($groupActive = \App\Support\AdminNavRegistry::groupIsActive('customers'))
+<div class="top-nav-item">
+    <button type="button" class="top-nav-trigger {{ $groupActive ? 'is-active' : '' }}">
+        {{ translate('Customers') }} <span class="material-icons">expand_more</span>
+    </button>
+    <div class="top-nav-dropdown top-nav-dropdown--menu">
+        @canany(['customer_view', 'customer_add'])
+            @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('customer_management')])
+            @can('customer_view')
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.customer.index'),
+                    'label' => translate('customer_list'),
+                    'active' => request()->is('admin/customer/list') || request()->is('admin/customer/detail*') || request()->is('admin/customer/edit/*'),
+                ])
+            @endcan
+            @can('customer_add')
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.customer.create'),
+                    'label' => translate('add_new_customer'),
+                    'active' => request()->is('admin/customer/create'),
+                ])
+            @endcan
+        @endcanany
+
+        @can('customer_view')
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.customer-cart.index'),
+                'label' => translate('Customer_Cart'),
+                'active' => request()->is('admin/customer-cart*'),
+            ])
+        @endcan
+
+        @canany(['wallet_add', 'wallet_view'])
+            @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('customer_wallet')])
+            @can('wallet_add')
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.customer.wallet.add-fund'),
+                    'label' => translate('Add Fund to Wallet'),
+                    'active' => request()->is('admin/customer/wallet/add-fund'),
+                ])
+            @endcan
+            @can('wallet_view')
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.customer.wallet.report'),
+                    'label' => translate('Wallet Transactions'),
+                    'active' => request()->is('admin/customer/wallet/report'),
+                ])
+            @endcan
+        @endcanany
+
+        @can('point_view')
+            @include('adminmodule::layouts.partials.top-nav._section', ['label' => translate('loyalty_point')])
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.customer.loyalty-point.report'),
+                'label' => translate('Loyalty Points Transactions'),
+                'active' => request()->is('admin/customer/loyalty-point/report'),
+            ])
+        @endcan
+
+        @can('newsletter_view')
+            @include('adminmodule::layouts.partials.top-nav._link', [
+                'href' => route('admin.customer.newsletter.index'),
+                'label' => translate('Subscribed Newsletter'),
+                'active' => request()->is('admin/customer/newsletter/*'),
+            ])
+        @endcan
+    </div>
+</div>
+@endcanany

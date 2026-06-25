@@ -8,7 +8,7 @@
         'offline' => $staffList->where('presence_status', 'offline')->count(),
     ];
 @endphp
-<div class="card dashboard-widget-staff-presence" id="staff-presence-widget">
+<div class="card dashboard-widget-staff-presence dashboard-collapsible-widget" id="staff-presence-widget">
     <div class="card-header d-flex justify-content-between align-items-center gap-10 flex-wrap">
         <h5 class="dashboard-widget-title mb-0">
             <span class="material-symbols-outlined dashboard-widget-title__icon text-primary" aria-hidden="true">badge</span>

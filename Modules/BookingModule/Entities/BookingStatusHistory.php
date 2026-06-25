@@ -17,6 +17,7 @@ class BookingStatusHistory extends Model
         'is_guest',
         'booking_repeat_id',
         'booking_cancellation_reason_id',
+        'booking_provider_cancellation_reason_id',
         'booking_hold_reopen_reason_id',
         'booking_dispute_reason_id',
         'status_change_remarks',
@@ -30,6 +31,11 @@ class BookingStatusHistory extends Model
     public function cancellationReason(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(BookingCancellationReason::class, 'booking_cancellation_reason_id');
+    }
+
+    public function providerCancellationReason(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(BookingProviderCancellationReason::class, 'booking_provider_cancellation_reason_id');
     }
 
     public function holdReopenReason(): \Illuminate\Database\Eloquent\Relations\BelongsTo

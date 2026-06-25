@@ -288,6 +288,10 @@ class RegisterController extends Controller
             ]);
         });
 
+        if (function_exists('admin_inbox_notify_provider_request')) {
+            admin_inbox_notify_provider_request($provider);
+        }
+
         $emailStatus = business_config('email_config_status', 'email_config')->live_values;
         if ($emailStatus){
             try {

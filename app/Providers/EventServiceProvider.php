@@ -6,6 +6,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Modules\AdminModule\Listeners\CreateAdminBookingNotification;
 use Modules\BookingModule\Events\BookingRequested;
 use Modules\BookingModule\Listeners\SendBookingRequestEmail;
 
@@ -32,6 +33,10 @@ class EventServiceProvider extends ServiceProvider
         Event::listen(
             BookingRequested::class,
             [SendBookingRequestEmail::class, 'handle']
+        );
+        Event::listen(
+            BookingRequested::class,
+            [CreateAdminBookingNotification::class, 'handle']
         );
     }
 }

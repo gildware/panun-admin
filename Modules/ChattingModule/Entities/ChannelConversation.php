@@ -186,20 +186,20 @@ class ChannelConversation extends Model
                     }
 
                     if ($userNotification) {
-                        device_notification_for_chatting(
-                            $to_user->fcm_token,
-                            translate('New message has been arrived'),
-                            null,
-                            null,
-                            $model->channel_id,
+                        send_chat_message_push_notification(
+                            $to_user,
+                            (string) $model->channel_id,
                             $user_name,
                             $user_image,
                             $user_phone,
-                            $user_type,
-                            'chatting'
+                            $user_type
                         );
                     }
                 });
+
+            if (function_exists('admin_inbox_notify_chat_message')) {
+                admin_inbox_notify_chat_message($model);
+            }
         });
 
         self::updating(function ($model) {

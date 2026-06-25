@@ -1,5 +1,6 @@
 @php
     $modalId = 'bkg-config-modal-' . $type;
+    $showResponsible = $showResponsible ?? true;
     $responsibleLabels = [
         'customer' => translate('Customer'),
         'provider' => translate('Provider'),
@@ -30,7 +31,9 @@
                     <th>#</th>
                     <th>{{ translate('Title') }}</th>
                     <th>{{ translate('Description') }}</th>
-                    <th>{{ translate('Responsible') }}</th>
+                    @if($showResponsible)
+                        <th>{{ translate('Responsible') }}</th>
+                    @endif
                     <th>{{ translate('Active') }}</th>
                     <th class="text-end">{{ translate('Action') }}</th>
                 </tr>
@@ -41,7 +44,9 @@
                         <td>{{ $item->id }}</td>
                         <td>{{ $item->name }}</td>
                         <td>{{ $item->description ?? '—' }}</td>
-                        <td class="text-capitalize">{{ $responsibleLabels[$item->responsible] ?? $item->responsible }}</td>
+                        @if($showResponsible)
+                            <td class="text-capitalize">{{ $responsibleLabels[$item->responsible] ?? $item->responsible }}</td>
+                        @endif
                         <td class="text-center">
                             <button type="button"
                                     class="action-btn {{ $item->is_active ? 'btn--light-success' : 'btn--light-secondary' }} fw-medium"
@@ -88,7 +93,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="text-center text-muted">{{ translate('No_data_found') }}</td>
+                        <td colspan="{{ $showResponsible ? 6 : 5 }}" class="text-center text-muted">{{ translate('No_data_found') }}</td>
                     </tr>
                 @endforelse
                 </tbody>
@@ -117,14 +122,16 @@
                         <label class="form-label">{{ translate('Description') }}</label>
                         <textarea name="description" class="form-control" rows="3"></textarea>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ translate('Responsible') }}</label>
-                        <select name="responsible" class="form-select" required>
-                            @foreach($responsibleLabels as $val => $label)
-                                <option value="{{ $val }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    @if($showResponsible)
+                        <div class="mb-3">
+                            <label class="form-label">{{ translate('Responsible') }}</label>
+                            <select name="responsible" class="form-select" required>
+                                @foreach($responsibleLabels as $val => $label)
+                                    <option value="{{ $val }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
                     <div class="form-check form-switch mb-0">
                         <input class="form-check-input" type="checkbox" id="{{ $modalId }}-active" name="is_active" value="1" checked>
                         <label class="form-check-label" for="{{ $modalId }}-active">{{ translate('Active') }}</label>

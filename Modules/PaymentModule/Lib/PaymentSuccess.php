@@ -35,7 +35,13 @@ if (!function_exists('digital_payment_fail')) {
      */
     function digital_payment_fail($data): void
     {
-        //
+        $additional = json_decode($data['additional_data'] ?? '{}', true);
+        $customerUserId = $data['payer_id'] ?? ($additional['customer_id'] ?? null);
+        $amount = isset($data['payment_amount']) ? (float) $data['payment_amount'] : null;
+        $bookingId = $additional['booking_id'] ?? null;
+        if ($customerUserId) {
+            send_customer_payment_failed_notification($customerUserId, $amount, $bookingId ? (string) $bookingId : null);
+        }
     }
 }
 if (!function_exists('repeat_booking_payment_success')) {
@@ -50,6 +56,19 @@ if (!function_exists('repeat_booking_payment_success')) {
             throw new \RuntimeException(
                 'Repeat booking payment failed: ' . ($response['message'] ?? json_encode($response))
             );
+        }
+    }
+}
+
+if (!function_exists('repeat_booking_payment_fail')) {
+    function repeat_booking_payment_fail($data): void
+    {
+        $additional = json_decode($data['additional_data'] ?? '{}', true);
+        $customerUserId = $data['payer_id'] ?? ($additional['customer_id'] ?? null);
+        $amount = isset($data['payment_amount']) ? (float) $data['payment_amount'] : null;
+        $bookingId = $additional['booking_id'] ?? null;
+        if ($customerUserId) {
+            send_customer_payment_failed_notification($customerUserId, $amount, $bookingId ? (string) $bookingId : null);
         }
     }
 }
@@ -77,7 +96,13 @@ if (!function_exists('switch_offline_to_digital_payment_fail')) {
      */
     function switch_offline_to_digital_payment_fail($data): void
     {
-        //
+        $additional = json_decode($data['additional_data'] ?? '{}', true);
+        $customerUserId = $data['payer_id'] ?? ($additional['customer_id'] ?? null);
+        $amount = isset($data['payment_amount']) ? (float) $data['payment_amount'] : null;
+        $bookingId = $additional['booking_id'] ?? null;
+        if ($customerUserId) {
+            send_customer_payment_failed_notification($customerUserId, $amount, $bookingId ? (string) $bookingId : null);
+        }
     }
 }
 
