@@ -1,11 +1,7 @@
 @php
     $variants = $iconVariants ?? \Modules\BusinessSettingsModule\Services\MobileAppManagementService::ICON_VARIANTS;
     $storedVariants = $icons[$appKey][$def['key']] ?? ['light' => null, 'dark' => null];
-    $service = app(\Modules\BusinessSettingsModule\Services\MobileAppManagementService::class);
-    $previews = [
-        'light' => $service->resolveIconFullPath($appKey, $def['key'], 'light'),
-        'dark' => $service->resolveIconFullPath($appKey, $def['key'], 'dark'),
-    ];
+    $previews = $iconPreviews[$appKey][$def['key']] ?? ['light' => null, 'dark' => null];
     $defaultAsset = \Modules\BusinessSettingsModule\Services\MobileAppManagementService::defaultIconAssetName($appKey, $def['key']);
 @endphp
 <div class="col-12">
@@ -46,7 +42,9 @@
                                 <span class="material-icons fz-28 opacity-50">broken_image</span>
                                 <p class="fz-11 mb-0 mt-1 opacity-75">{{ translate('Preview_unavailable') }}</p>
                             </div>
-                            <span class="badge bg-success position-absolute top-0 end-0 m-2 fz-10">{{ translate('Custom_upload') }}</span>
+                            @if($hasCustom)
+                                <span class="badge bg-success position-absolute top-0 end-0 m-2 fz-10">{{ translate('Custom_upload') }}</span>
+                            @endif
                         @else
                             <div class="text-center">
                                 <span class="material-icons fz-28 opacity-50">image</span>

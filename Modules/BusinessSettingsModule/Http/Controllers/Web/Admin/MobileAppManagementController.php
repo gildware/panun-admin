@@ -311,17 +311,8 @@ class MobileAppManagementController extends Controller
         $tab = $this->normalizeIconTab($request->query('tab'));
         $groups = MobileAppManagementService::iconGroupDefinitions();
         $icons = $this->managementService->getIcons();
-        $groups = MobileAppManagementService::iconGroupDefinitions();
-
-        $iconPreviews = ['customer' => [], 'provider' => []];
-        foreach (['customer', 'provider'] as $app) {
-            foreach (MobileAppManagementService::allIconKeysForApp($app) as $key) {
-                $iconPreviews[$app][$key] = [
-                    'light' => $this->managementService->resolveIconFullPath($app, $key, 'light'),
-                    'dark' => $this->managementService->resolveIconFullPath($app, $key, 'dark'),
-                ];
-            }
-        }
+        $tabIconItems = $this->iconItemsForTab($tab, $groups);
+        $iconPreviews = $this->managementService->buildIconPreviewsForItems($tabIconItems);
 
         return view('businesssettingsmodule::admin.mobile-app-management.icons', [
             'tab' => $tab,
@@ -330,7 +321,7 @@ class MobileAppManagementController extends Controller
                 ['id' => 'customer', 'label' => translate('Customer_icons')],
                 ['id' => 'provider', 'label' => translate('Provider_icons')],
             ],
-            'tabIconItems' => $this->iconItemsForTab($tab, $groups),
+            'tabIconItems' => $tabIconItems,
             'icons' => $icons,
             'iconPreviews' => $iconPreviews,
             'iconVariants' => MobileAppManagementService::ICON_VARIANTS,

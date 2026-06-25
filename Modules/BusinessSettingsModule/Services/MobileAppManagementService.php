@@ -2,7 +2,6 @@
 
 namespace Modules\BusinessSettingsModule\Services;
 
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\CustomerModule\Services\CustomerApiResponseCache;
@@ -14,6 +13,9 @@ use Modules\ServiceManagement\Entities\Service;
 
 class MobileAppManagementService
 {
+    /** @var array<string, array<string, array{light: ?string, dark: ?string}>>|null */
+    private static ?array $iconsMemoryCache = null;
+
     public const SETTINGS_TYPE = 'mobile_app';
 
     public const HOME_SECTIONS_KEY = 'customer_app_home_sections';
@@ -1198,6 +1200,10 @@ class MobileAppManagementService
      */
     public function getIcons(): array
     {
+        if (self::$iconsMemoryCache !== null) {
+            return self::$iconsMemoryCache;
+        }
+
         $raw = $this->getJsonSetting(self::ICONS_KEY) ?: ['customer' => [], 'provider' => []];
         $out = ['customer' => [], 'provider' => []];
 
@@ -1217,7 +1223,7 @@ class MobileAppManagementService
             }
         }
 
-        return $out;
+        return self::$iconsMemoryCache = $out;
     }
 
     /**
@@ -1234,6 +1240,7 @@ class MobileAppManagementService
         }
 
         $this->persistJsonSetting(self::ICONS_KEY, $normalized);
+        self::$iconsMemoryCache = null;
         CustomerApiResponseCache::forgetConfigCaches();
     }
 
@@ -1350,21 +1357,7 @@ class MobileAppManagementService
             return null;
         }
 
-        $imagePath = 'mobile-app/'.$filename;
-
-        try {
-            if (Storage::disk('s3')->exists($imagePath)) {
-                return Storage::disk('s3')->url($imagePath);
-            }
-        } catch (\Throwable) {
-            //
-        }
-
-        if (Storage::disk('public')->exists($imagePath)) {
-            return mobile_app_icon_public_url($imagePath);
-        }
-
-        return null;
+        return resolve_media_storage_url($filename, 'mobile-app/');
     }
 
     /**
@@ -1377,21 +1370,50 @@ class MobileAppManagementService
             return null;
         }
 
-        $imagePath = 'mobile-app/'.$filename;
+        $url = resolve_media_storage_url($filename, 'mobile-app/');
+        if (!$url) {
+            return null;
+        }
 
-        try {
-            if (Storage::disk('s3')->exists($imagePath)) {
-                return Storage::disk('s3')->url($imagePath);
+        if (str_starts_with($url, '/storage/') || str_starts_with($url, '/assets/')) {
+            return $url;
+        }
+
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            $path = parse_url($url, PHP_URL_PATH);
+            if (is_string($path) && (str_starts_with($path, '/storage/') || str_starts_with($path, '/assets/'))) {
+                return $path;
             }
-        } catch (\Throwable) {
-            //
+
+            return $url;
         }
 
-        if (Storage::disk('public')->exists($imagePath)) {
-            return '/storage/'.$imagePath;
+        return '/storage/'.ltrim($url, '/');
+    }
+
+    /**
+     * @param  list<array{appKey: string, def: array{key: string, label: string}}>  $items
+     * @return array{customer: array<string, array{light: ?string, dark: ?string}>, provider: array<string, array{light: ?string, dark: ?string}>}
+     */
+    public function buildIconPreviewsForItems(array $items): array
+    {
+        $icons = $this->getIcons();
+        $previews = ['customer' => [], 'provider' => []];
+
+        foreach ($items as $item) {
+            $app = $item['appKey'];
+            $key = $item['def']['key'];
+            if (isset($previews[$app][$key])) {
+                continue;
+            }
+
+            $previews[$app][$key] = [
+                'light' => $this->resolveIconFullPathFromIcons($icons, $app, $key, 'light'),
+                'dark' => $this->resolveIconFullPathFromIcons($icons, $app, $key, 'dark'),
+            ];
         }
 
-        return null;
+        return $previews;
     }
 
     /**
@@ -1434,7 +1456,14 @@ class MobileAppManagementService
 
     public function resolveIconFullPath(string $app, string $key, string $variant): ?string
     {
-        $icons = $this->getIcons();
+        return $this->resolveIconFullPathFromIcons($this->getIcons(), $app, $key, $variant);
+    }
+
+    /**
+     * @param  array<string, array<string, array{light: ?string, dark: ?string}>>  $icons
+     */
+    private function resolveIconFullPathFromIcons(array $icons, string $app, string $key, string $variant): ?string
+    {
         $stored = $icons[$app][$key][$variant] ?? null;
         $custom = $this->iconFullPath($stored);
         if ($custom) {
