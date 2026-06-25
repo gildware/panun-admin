@@ -113,10 +113,37 @@ if (!function_exists('apply_push_notification_sound')) {
     }
 }
 
+if (!function_exists('resolve_push_notification_booking_status')) {
+    function resolve_push_notification_booking_status($booking_id, ?string $type): string
+    {
+        if ($type !== 'booking' || empty($booking_id)) {
+            return '';
+        }
+
+        $bookingStatus = \Modules\BookingModule\Entities\Booking::query()
+            ->where('id', $booking_id)
+            ->value('booking_status');
+        if ($bookingStatus) {
+            return (string) $bookingStatus;
+        }
+
+        $repeatStatus = \Modules\BookingModule\Entities\BookingRepeat::query()
+            ->where('id', $booking_id)
+            ->value('booking_status');
+
+        return $repeatStatus ? (string) $repeatStatus : '';
+    }
+}
+
 if (!function_exists('apply_push_notification_urgent_delivery')) {
     function apply_push_notification_urgent_delivery(array &$postData, ?string $type): void
     {
         if ($type !== 'booking') {
+            return;
+        }
+
+        $bookingStatus = strtolower((string) ($postData['message']['data']['booking_status'] ?? ''));
+        if ($bookingStatus !== 'pending') {
             return;
         }
 
@@ -145,12 +172,15 @@ if (!function_exists('device_notification')) {
     {
         $title = text_variable_data_format($title, $booking_id, $type, $data, $bookingType);
         $body = format_push_notification_body($description, $booking_id, $type, $data, $bookingType);
+        $bookingStatus = resolve_push_notification_booking_status($booking_id, $type);
         $postData = [
             'message' => [
                 "token" => $fcm_token,
                 "data" => [
                     "title" => (string)$title,
+                    "body" => (string)$body,
                     "booking_id" => (string)$booking_id,
+                    "booking_status" => $bookingStatus,
                     "channel_id" => (string)$channel_id,
                     "user_id" => (string)$user_id,
                     "type" => (string)$type,

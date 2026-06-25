@@ -70,7 +70,11 @@ class CategoryController extends Controller
 
         $category = $this->category;
         $category->name = $request->name;
-        $category->image = file_uploader('category/', APPLICATION_IMAGE_FORMAT, $request->file('image'));
+        $category->image = media_file_uploader(
+            \App\Support\MediaStoragePath::categoryDirFromName($category->name, false),
+            APPLICATION_IMAGE_FORMAT,
+            $request->file('image')
+        );
         $category->parent_id = 0;
         $category->position = 1;
         $category->description = null;
@@ -123,7 +127,12 @@ class CategoryController extends Controller
         }
         $category->name = $request->name;
         if ($request->has('image')) {
-            $category->image = file_uploader('category/', APPLICATION_IMAGE_FORMAT, $request->file('image'), $category->image);
+            $category->image = media_file_uploader(
+                \App\Support\MediaStoragePath::categoryDir($category),
+                APPLICATION_IMAGE_FORMAT,
+                $request->file('image'),
+                $category->image
+            );
         }
         $category->parent_id = 0;
         $category->position = 1;

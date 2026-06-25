@@ -116,7 +116,11 @@ class SubCategoryController extends Controller
 
         $category = $this->category;
         $category->name = $request->name[array_search('default', $request->lang)];
-        $category->image = file_uploader('category/', APPLICATION_IMAGE_FORMAT, $request->file('image'));
+        $category->image = media_file_uploader(
+            \App\Support\MediaStoragePath::categoryDirFromName($category->name, true),
+            APPLICATION_IMAGE_FORMAT,
+            $request->file('image')
+        );
         $category->parent_id = $request['parent_id'];
         $category->position = 2;
         $category->description = $request->short_description[array_search('default', $request->lang)];
@@ -259,7 +263,12 @@ class SubCategoryController extends Controller
 
         $category->name = $request->name[array_search('default', $request->lang)];
         if ($request->hasFile('image')) {
-            $category->image = file_uploader('category/', APPLICATION_IMAGE_FORMAT, $request->file('image'), $category->image);
+            $category->image = media_file_uploader(
+                \App\Support\MediaStoragePath::categoryDir($category),
+                APPLICATION_IMAGE_FORMAT,
+                $request->file('image'),
+                $category->image
+            );
         }
         $category->parent_id = $request['parent_id'];
         $category->position = 2;

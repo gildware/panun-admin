@@ -16,6 +16,7 @@ use function response_formatter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Modules\WhatsAppModule\Support\WhatsAppAdminUnread;
 use Modules\TransactionModule\Entities\LedgerTransaction;
 use Illuminate\Contracts\View\View;
@@ -453,55 +454,60 @@ class AdminController extends Controller
     {
         $userId = $request->user()->id;
 
-        $message = $this->channelList->wherehas('channelUsers', function ($query) use ($userId) {
-            $query->where('user_id', $userId)->where('is_read', 0);
-        })->count();
+        $counts = Cache::remember("admin_header_counts:{$userId}", 15, function () use ($userId, $request) {
+            $message = $this->channelList->wherehas('channelUsers', function ($query) use ($userId) {
+                $query->where('user_id', $userId)->where('is_read', 0);
+            })->count();
 
-        $staffUnreadChannelIds = $this->channelList
-            ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
-            ->whereHas('channelUsers', function ($query) use ($userId) {
-                $query->where('user_id', '!=', $userId)
-                    ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', ADMIN_USER_TYPES));
-            })
-            ->pluck('id');
+            $staffUnreadChannelIds = $this->channelList
+                ->whereHas('channelUsers', fn ($query) => $query->where('user_id', $userId)->where('is_read', 0))
+                ->whereHas('channelUsers', function ($query) use ($userId) {
+                    $query->where('user_id', '!=', $userId)
+                        ->whereHas('user', fn ($uq) => $uq->whereIn('user_type', ADMIN_USER_TYPES));
+                })
+                ->pluck('id');
 
-        $staffMessage = $staffUnreadChannelIds->count();
+            $staffMessage = $staffUnreadChannelIds->count();
 
-        $staffUnreadMessages = ChannelConversation::whereIn('channel_id', $staffUnreadChannelIds)
-            ->where('user_id', '!=', $userId)
-            ->whereExists(function ($query) use ($userId) {
-                $query->selectRaw('1')
-                    ->from('channel_users')
-                    ->whereColumn('channel_users.channel_id', 'channel_conversations.channel_id')
-                    ->where('channel_users.user_id', $userId)
-                    ->whereNull('channel_users.deleted_at')
-                    ->where(function ($inner) {
-                        $inner->whereNull('channel_users.read_at')
-                            ->orWhereColumn('channel_conversations.created_at', '>', 'channel_users.read_at');
-                    });
-            })
-            ->count();
+            $staffUnreadMessages = ChannelConversation::whereIn('channel_id', $staffUnreadChannelIds)
+                ->where('user_id', '!=', $userId)
+                ->whereExists(function ($query) use ($userId) {
+                    $query->selectRaw('1')
+                        ->from('channel_users')
+                        ->whereColumn('channel_users.channel_id', 'channel_conversations.channel_id')
+                        ->where('channel_users.user_id', $userId)
+                        ->whereNull('channel_users.deleted_at')
+                        ->where(function ($inner) {
+                            $inner->whereNull('channel_users.read_at')
+                                ->orWhereColumn('channel_conversations.created_at', '>', 'channel_users.read_at');
+                        });
+                })
+                ->count();
 
-        $whatsappUnreadChats = 0;
-        $whatsappUnreadMessages = 0;
-        if ($request->user()->can('whatsapp_chat_view')) {
-            [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
-        }
+            $whatsappUnreadChats = 0;
+            $whatsappUnreadMessages = 0;
+            if ($request->user()->can('whatsapp_chat_view')) {
+                [$whatsappUnreadChats, $whatsappUnreadMessages] = WhatsAppAdminUnread::counts();
+            }
+
+            return [
+                'message' => $message,
+                'staff_message' => $staffMessage,
+                'staff_unread_messages' => $staffUnreadMessages,
+                'whatsapp_unread_chats' => $whatsappUnreadChats,
+                'whatsapp_unread_messages' => $whatsappUnreadMessages,
+            ];
+        });
 
         $presenceStatus = $staffPresenceService->resolveDisplayStatus($request->user());
         $presenceLabel = $staffPresenceService->statusLabel($presenceStatus);
 
         return response()->json([
             'status' => 1,
-            'data' => [
-                'message' => $message,
-                'staff_message' => $staffMessage,
-                'staff_unread_messages' => $staffUnreadMessages,
-                'whatsapp_unread_chats' => $whatsappUnreadChats,
-                'whatsapp_unread_messages' => $whatsappUnreadMessages,
+            'data' => array_merge($counts, [
                 'presence_status' => $presenceStatus,
                 'presence_label' => $presenceLabel,
-            ]
+            ]),
         ]);
     }
 

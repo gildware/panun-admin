@@ -217,8 +217,7 @@ class Service extends Model
         }
 
         $s3Storage = $this->storage_thumbnail;
-        $path = 'service/';
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key($image, \App\Support\MediaStoragePath::legacyPrefixForService());
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }
@@ -239,8 +238,7 @@ class Service extends Model
         }
 
         $s3Storage = $this->storage_cover_image;
-        $path = 'service/';
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key($image, \App\Support\MediaStoragePath::legacyPrefixForService());
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }

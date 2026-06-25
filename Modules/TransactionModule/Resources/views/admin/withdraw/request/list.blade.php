@@ -10,38 +10,54 @@
                     <div
                         class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                         <h2 class="page-title">{{translate('withdraw_request_list')}}</h2>
+                        @if(!empty($filteredProvider))
+                            <span class="badge badge-primary text-capitalize">
+                                {{ $filteredProvider->company_name }}
+                            </span>
+                        @endif
                     </div>
+
+                    @if(!empty($filteredProvider))
+                        <div class="alert alert-info py-2 mb-3">
+                            {{ translate('Showing_withdraw_requests_for_provider') }}:
+                            <strong>{{ $filteredProvider->company_name }}</strong>
+                            <a href="{{ route('admin.withdraw.request.list', ['status' => $status]) }}" class="ms-2 text-decoration-underline">
+                                {{ translate('clear_filter') }}
+                            </a>
+                        </div>
+                    @endif
 
                     <div
                         class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
                         <ul class="nav nav--tabs">
+                            @php($tabQuery = $queryParam ?? [])
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='all'?'active':''}}"
-                                   href="{{url()->current()}}?status=all">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'all'])) }}">
                                     {{translate('All')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='pending'?'active':''}}"
-                                   href="{{url()->current()}}?status=pending">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'pending'])) }}">
                                     {{translate('Pending')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='approved'?'active':''}}"
-                                   href="{{url()->current()}}?status=approved">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'approved'])) }}">
                                     {{translate('Approved')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='denied'?'active':''}}"
-                                   href="{{url()->current()}}?status=denied">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'denied'])) }}">
                                     {{translate('Denied')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='settled'?'active':''}}"
-                                   href="{{url()->current()}}?status=settled">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'settled'])) }}">
                                     {{translate('Settled')}}
                                 </a>
                             </li>
@@ -58,10 +74,13 @@
                             <div class="card">
                                 <div class="card-body">
                                     <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                        <form action="{{url()->current()}}?status={{$status}}"
+                                        <form action="{{ url()->current() }}?{{ http_build_query(array_filter(['status' => $status, 'provider_id' => $providerId ?? null])) }}"
                                               class="search-form search-form_style-two"
                                               method="POST">
                                             @csrf
+                                            @if(!empty($providerId))
+                                                <input type="hidden" name="provider_id" value="{{ $providerId }}">
+                                            @endif
                                             <div class="input-group search-form__input_group">
                                             <span class="search-form__icon">
                                                 <span class="material-icons">search</span>
@@ -90,7 +109,7 @@
                                                     <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
                                                         <li>
                                                             <a class="dropdown-item"
-                                                               href="{{route('admin.withdraw.request.download', ['status'=>$status])}}">
+                                                               href="{{ route('admin.withdraw.request.download', array_filter(['status' => $status, 'provider_id' => $providerId ?? null, 'search' => $search ?: null])) }}">
                                                                 {{translate('excel')}}
                                                             </a>
                                                         </li>
@@ -117,7 +136,6 @@
                                                         <option selected disabled>{{translate('Update_status')}}</option>
                                                         <option value="denied">{{translate('Deny')}}</option>
                                                         <option value="approved">{{translate('Approve')}}</option>
-                                                        <option value="settled">{{translate('Settle')}}</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -135,6 +153,7 @@
                                                     <th>{{translate('Amount')}}</th>
                                                     <th>{{translate('Provider_Note')}}</th>
                                                     <th>{{translate('Admin_Note')}}</th>
+                                                    <th>{{translate('Transaction_ID')}}</th>
                                                     <th>{{translate('Request_Time')}}</th>
                                                     <th class="text-center">{{translate('Status')}}</th>
                                                     @can('withdraw_manage_status')
@@ -186,6 +205,13 @@
                                                                         class="badge badge-primary">{{ translate('Not provided yet') }}</span>
                                                                 @endif
                                                             </div>
+                                                        </td>
+                                                        <td>
+                                                            @if($withdrawRequest->transaction_id)
+                                                                <span class="text-break">{{$withdrawRequest->transaction_id}}</span>
+                                                            @else
+                                                                <span class="badge badge-primary">{{ translate('Not provided yet') }}</span>
+                                                            @endif
                                                         </td>
                                                         <td>
                                                             <div>
@@ -270,26 +296,23 @@
 
                                                                                                 <div
                                                                                                     class="c1-light-bg radius-10 py-3 px-4 flex-grow-1">
-                                                                                                    <h4 class="mb-2">{{translate('Withdraw_Method_Information')}}</h4>
+                                                                                                    <h4 class="mb-2">{{translate('Request_Details')}}</h4>
                                                                                                     <ul class="list-info gap-1">
-                                                                                                        @forelse($withdrawRequest->withdrawal_method_fields as $key=>$value)
-                                                                                                            <li>
-                                                                                                            <span
-                                                                                                                class="font-weight-bold"><b>{{translate($key)}}</b>: </span>
-                                                                                                                <span>{{$value}}</span>
-                                                                                                            </li>
-                                                                                                        @empty
-                                                                                                            <li>
-                                                                                                                <span>{{translate('Information_unavailable')}}</span>
-                                                                                                            </li>
-                                                                                                        @endforelse
+                                                                                                        <li>
+                                                                                                            <span class="font-weight-bold"><b>{{translate('Amount')}}</b>: </span>
+                                                                                                            <span>{{with_currency_symbol($withdrawRequest->amount)}}</span>
+                                                                                                        </li>
+                                                                                                        <li>
+                                                                                                            <span class="font-weight-bold"><b>{{translate('Provider_Note')}}</b>: </span>
+                                                                                                            <span>{{$withdrawRequest->note ?: translate('Not provided yet')}}</span>
+                                                                                                        </li>
                                                                                                     </ul>
                                                                                                 </div>
                                                                                             </div>
 
                                                                                             <textarea
                                                                                                 class="form-control h-140 resize-none"
-                                                                                                placeholder="{{translate('Note')}}"
+                                                                                                placeholder="{{translate('Note visible to provider')}}"
                                                                                                 name="note"></textarea>
 
                                                                                             <div
@@ -363,26 +386,23 @@
 
                                                                                                 <div
                                                                                                     class="c1-light-bg radius-10 py-3 px-4 flex-grow-1">
-                                                                                                    <h4 class="mb-2">{{translate('Withdraw_Method_Information')}}</h4>
+                                                                                                    <h4 class="mb-2">{{translate('Request_Details')}}</h4>
                                                                                                     <ul class="list-info gap-1">
-                                                                                                        @forelse($withdrawRequest->withdrawal_method_fields as $key=>$value)
-                                                                                                            <li>
-                                                                                                            <span
-                                                                                                                class="font-weight-bold"><b>{{translate($key)}}</b>: </span>
-                                                                                                                <span>{{$value}}</span>
-                                                                                                            </li>
-                                                                                                        @empty
-                                                                                                            <li>
-                                                                                                                <span>{{translate('Information_unavailable')}}</span>
-                                                                                                            </li>
-                                                                                                        @endforelse
+                                                                                                        <li>
+                                                                                                            <span class="font-weight-bold"><b>{{translate('Amount')}}</b>: </span>
+                                                                                                            <span>{{with_currency_symbol($withdrawRequest->amount)}}</span>
+                                                                                                        </li>
+                                                                                                        <li>
+                                                                                                            <span class="font-weight-bold"><b>{{translate('Provider_Note')}}</b>: </span>
+                                                                                                            <span>{{$withdrawRequest->note ?: translate('Not provided yet')}}</span>
+                                                                                                        </li>
                                                                                                     </ul>
                                                                                                 </div>
                                                                                             </div>
 
                                                                                             <textarea
                                                                                                 class="form-control h-140 resize-none"
-                                                                                                placeholder="{{translate('Note')}}"
+                                                                                                placeholder="{{translate('Note visible to provider')}}"
                                                                                                 name="note"></textarea>
 
                                                                                             <div
@@ -454,26 +474,28 @@
 
                                                                                                 <div
                                                                                                     class="c1-light-bg radius-10 py-3 px-4 flex-grow-1">
-                                                                                                    <h4 class="mb-2">{{translate('Withdraw_Method_Information')}}</h4>
+                                                                                                    <h4 class="mb-2">{{translate('Request_Details')}}</h4>
                                                                                                     <ul class="list-info gap-1">
-                                                                                                        @forelse($withdrawRequest->withdrawal_method_fields as $key=>$value)
-                                                                                                            <li>
-                                                                                                            <span
-                                                                                                                class="font-weight-bold"><b>{{translate($key)}}</b>: </span>
-                                                                                                                <span>{{$value}}</span>
-                                                                                                            </li>
-                                                                                                        @empty
-                                                                                                            <li>
-                                                                                                                <span>{{translate('Information_unavailable')}}</span>
-                                                                                                            </li>
-                                                                                                        @endforelse
+                                                                                                        <li>
+                                                                                                            <span class="font-weight-bold"><b>{{translate('Amount')}}</b>: </span>
+                                                                                                            <span>{{with_currency_symbol($withdrawRequest->amount)}}</span>
+                                                                                                        </li>
+                                                                                                        <li>
+                                                                                                            <span class="font-weight-bold"><b>{{translate('Provider_Note')}}</b>: </span>
+                                                                                                            <span>{{$withdrawRequest->note ?: translate('Not provided yet')}}</span>
+                                                                                                        </li>
                                                                                                     </ul>
                                                                                                 </div>
                                                                                             </div>
 
+                                                                                            <div class="form-group mb-3">
+                                                                                                <label class="form-label">{{translate('Transaction_ID')}} <span class="text-danger">*</span></label>
+                                                                                                <input type="text" class="form-control" name="transaction_id" maxlength="100" required placeholder="{{translate('Gateway or manual reference')}}">
+                                                                                            </div>
+
                                                                                             <textarea
                                                                                                 class="form-control h-140 resize-none"
-                                                                                                placeholder="{{translate('Note')}}"
+                                                                                                placeholder="{{translate('Note visible to provider')}}"
                                                                                                 name="note"></textarea>
 
                                                                                             <div

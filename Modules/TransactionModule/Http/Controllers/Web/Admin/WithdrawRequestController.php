@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\WithdrawRequest;
 use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\Transaction;
@@ -51,30 +52,34 @@ class WithdrawRequestController extends Controller
         $this->authorize('withdraw_view');
         Validator::make($request->all(), [
             'status' => 'required|in:pending,approved,denied,settled,all',
-            'search' => 'max:255'
+            'search' => 'nullable|max:255',
+            'provider_id' => 'nullable|uuid',
         ])->validate();
 
-        $search = $request['search']??"";
-        $status = $request['status']??'all';
-        $queryParam = ['search' => $request['search'], 'status' => $status];
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $providerId = $request->input('provider_id');
+        $queryParam = $this->withdrawRequestListQueryParams($request, $status, $search, $providerId);
+        $filteredProvider = $providerId ? Provider::query()->find($providerId) : null;
 
-        $withdrawRequests = $this->withdraw_request
-            ->with(['provider.bank_detail'])
-            ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                return $query->where('request_status', $request->status);
-            })
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->whereHas('provider', function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->where('company_name', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
+        $withdrawRequests = $this->applyWithdrawRequestListFilters(
+            $this->withdraw_request->newQuery()->with(['provider.bank_detail']),
+            $request,
+            $status,
+            $search,
+            $providerId
+        )
             ->latest()
             ->paginate(pagination_limit())->appends($queryParam);
 
-        return View('transactionmodule::admin.withdraw.request.list', compact('withdrawRequests', 'status', 'search'));
+        return View('transactionmodule::admin.withdraw.request.list', compact(
+            'withdrawRequests',
+            'status',
+            'search',
+            'providerId',
+            'filteredProvider',
+            'queryParam'
+        ));
     }
 
     /**
@@ -86,23 +91,21 @@ class WithdrawRequestController extends Controller
         $this->authorize('withdraw_export');
         Validator::make($request->all(), [
             'status' => 'required|in:pending,approved,denied,settled,all',
+            'search' => 'nullable|max:255',
+            'provider_id' => 'nullable|uuid',
         ])->validate();
 
-        $withdrawRequests = $this->withdraw_request
-            ->with(['provider.bank_detail', 'withdraw_method'])
-            ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                return $query->where('request_status', $request->status);
-            })
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('amount', 'LIKE', '%' . $key . '%')
-                            ->orWhere('note', 'LIKE', '%' . $key . '%')
-                            ->orWhere('request_status', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $providerId = $request->input('provider_id');
+
+        $withdrawRequests = $this->applyWithdrawRequestListFilters(
+            $this->withdraw_request->newQuery()->with(['provider.bank_detail', 'withdraw_method']),
+            $request,
+            $status,
+            $search,
+            $providerId
+        )
             ->latest()
             ->get();
 
@@ -114,7 +117,7 @@ class WithdrawRequestController extends Controller
 
             $query->withdraw_id = $query->id;
             $query->withdrawal_amount = $query->amount;
-            $query->payment_status = $query->is_paid ? 'paid' : 'unpaid';
+            $query->payment_status = $query->request_status === 'settled' ? 'paid' : 'unpaid';
             $query->optional_note = $query->admin_note;
 
             $query->withdraw_method_name = isset($query->withdraw_method) ? $query->withdraw_method->method_name : '';
@@ -172,22 +175,29 @@ class WithdrawRequestController extends Controller
             $withdrawRequest = $this->withdraw_request->find($collection['withdraw_id']);
 
             if ($collection['request_status'] == 'approved' && $withdrawRequest && $withdrawRequest->request_status == 'pending') {
-                withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
-
                 $withdrawRequest->request_status = 'approved';
                 $withdrawRequest->request_updated_by = $request->user()->id;
                 $withdrawRequest->admin_note = $collection['optional_note'];
-                $withdrawRequest->is_paid = 1;
+                $withdrawRequest->is_paid = 0;
                 $withdrawRequest->save();
             }
             elseif($collection['request_status'] == 'settled' && $withdrawRequest && $withdrawRequest->request_status == 'approved') {
+                $txnId = trim((string) ($collection['transaction_id'] ?? $collection['optional_note'] ?? ''));
+                if ($txnId === '') {
+                    continue;
+                }
+
+                settleWithdrawRequestPayout($withdrawRequest, $txnId);
+
                 $withdrawRequest->request_status = 'settled';
                 $withdrawRequest->request_updated_by = $request->user()->id;
-                $withdrawRequest->admin_note = $collection['optional_note'];
+                $withdrawRequest->admin_note = $collection['optional_note'] ?? null;
+                $withdrawRequest->transaction_id = $txnId;
+                $withdrawRequest->is_paid = 1;
                 $withdrawRequest->save();
             }
             elseif ($collection['request_status'] == 'denied' && $withdrawRequest && $withdrawRequest->request_status == 'pending') {
-                withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+                withdrawRequestDenyTransaction($withdrawRequest['user_id'], $withdrawRequest['amount']);
 
                 $withdrawRequest->request_status = 'denied';
                 $withdrawRequest->request_updated_by = $request->user()->id;
@@ -211,20 +221,35 @@ class WithdrawRequestController extends Controller
     public function updateStatus(Request $request, string $id): RedirectResponse
     {
         $this->authorize('withdraw_manage_status');
-        Validator::make($request->all(), [
+
+        $rules = [
             'status' => 'required|in:approved,denied,settled',
-            'note' => 'max:255',
-        ])->validate();
+            'note' => 'nullable|max:255',
+        ];
+
+        if ($request['status'] === 'settled') {
+            $rules['transaction_id'] = 'required|string|max:100';
+        }
+
+        Validator::make($request->all(), $rules)->validate();
 
         $withdrawRequest = $this->withdraw_request::find($id);
 
+        if (!$withdrawRequest) {
+            Toastr::error(translate(DEFAULT_404['message']));
+            return back();
+        }
+
         if ($request['status'] == 'approved') {
-            withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+            if ($withdrawRequest->request_status !== 'pending') {
+                Toastr::error(translate(DEFAULT_400['message']));
+                return back();
+            }
 
             $withdrawRequest->request_status = 'approved';
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->admin_note = $request->note;
-            $withdrawRequest->is_paid = 1;
+            $withdrawRequest->is_paid = 0;
             $withdrawRequest->save();
 
 
@@ -242,13 +267,26 @@ class WithdrawRequestController extends Controller
             }
 
         } else if ($request['status'] == 'settled') {
+            if ($withdrawRequest->request_status !== 'approved') {
+                Toastr::error(translate(DEFAULT_400['message']));
+                return back();
+            }
+
+            settleWithdrawRequestPayout($withdrawRequest, $request->transaction_id);
+
             $withdrawRequest->request_status = 'settled';
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->admin_note = $request->note;
+            $withdrawRequest->transaction_id = $request->transaction_id;
+            $withdrawRequest->is_paid = 1;
             $withdrawRequest->save();
 
         } else if ($request['status'] == 'denied') {
-            withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+            if ($withdrawRequest->request_status !== 'pending') {
+                Toastr::error(translate(DEFAULT_400['message']));
+                return back();
+            }
+            withdrawRequestDenyTransaction($withdrawRequest['user_id'], $withdrawRequest['amount']);
 
             $withdrawRequest->request_status = 'denied';
             $withdrawRequest->request_updated_by = $request->user()->id;
@@ -284,10 +322,10 @@ class WithdrawRequestController extends Controller
     {
         $this->authorize('withdraw_manage_status');
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:approved,denied,settled',
+            'status' => 'required|in:approved,denied',
             'request_ids' => 'required|array',
             'request_ids.*' => 'uuid',
-            'note' => 'max:255',
+            'note' => 'nullable|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -299,22 +337,10 @@ class WithdrawRequestController extends Controller
         if ($request['status'] == 'approved') {
             foreach ($withdrawRequests as $withdrawRequest) {
                 if($withdrawRequest->request_status == 'pending') {
-                    withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
-
                     $withdrawRequest->request_status = 'approved';
                     $withdrawRequest->request_updated_by = $request->user()->id;
                     $withdrawRequest->admin_note = $request->note;
-                    $withdrawRequest->is_paid = 1;
-                    $withdrawRequest->save();
-                }
-            }
-
-        } else if ($request['status'] == 'settled') {
-            foreach ($withdrawRequests as $withdrawRequest) {
-                if($withdrawRequest->request_status == 'approved') {
-                    $withdrawRequest->request_status = 'settled';
-                    $withdrawRequest->request_updated_by = $request->user()->id;
-                    $withdrawRequest->admin_note = $request->note;
+                    $withdrawRequest->is_paid = 0;
                     $withdrawRequest->save();
                 }
             }
@@ -322,7 +348,7 @@ class WithdrawRequestController extends Controller
         } else if ($request['status'] == 'denied') {
             foreach ($withdrawRequests as $withdrawRequest) {
                 if($withdrawRequest->request_status == 'pending') {
-                    withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+                    withdrawRequestDenyTransaction($withdrawRequest['user_id'], $withdrawRequest['amount']);
 
                     $withdrawRequest->request_status = 'denied';
                     $withdrawRequest->request_updated_by = $request->user()->id;
@@ -335,6 +361,54 @@ class WithdrawRequestController extends Controller
         }
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function withdrawRequestListQueryParams(Request $request, string $status, string $search, ?string $providerId): array
+    {
+        return array_filter([
+            'status' => $status,
+            'search' => $search !== '' ? $search : null,
+            'provider_id' => $providerId,
+        ], fn ($value) => $value !== null && $value !== '');
+    }
+
+    private function applyWithdrawRequestListFilters(
+        $query,
+        Request $request,
+        string $status,
+        string $search,
+        ?string $providerId
+    ) {
+        return $query
+            ->when($providerId, function ($providerQuery) use ($providerId) {
+                $providerQuery->whereHas('provider', function ($q) use ($providerId) {
+                    $q->where('id', $providerId);
+                });
+            })
+            ->when($status !== 'all', function ($statusQuery) use ($status) {
+                $statusQuery->where('request_status', $status);
+            })
+            ->when($search !== '', function ($searchQuery) use ($search, $providerId) {
+                $keys = array_values(array_filter(explode(' ', $search)));
+                if ($providerId) {
+                    $searchQuery->where(function ($q) use ($keys) {
+                        foreach ($keys as $key) {
+                            $q->orWhere('amount', 'LIKE', '%' . $key . '%')
+                                ->orWhere('note', 'LIKE', '%' . $key . '%')
+                                ->orWhere('request_status', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                } else {
+                    $searchQuery->whereHas('provider', function ($q) use ($keys) {
+                        foreach ($keys as $key) {
+                            $q->where('company_name', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                }
+            });
     }
 
 }

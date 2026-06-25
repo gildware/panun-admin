@@ -92,9 +92,12 @@ class ProviderShowcaseController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($mediaValidator)), 400);
         }
 
+        $provider = auth('api')->user()?->provider;
         $file = $request->file('media');
         $extension = $file->getClientOriginalExtension();
-        $fileName = file_uploader('provider/showcase/', $extension, $file);
+        $fileName = $provider
+            ? media_file_uploader(\App\Support\MediaStoragePath::providerSectionDir($provider, 'showcase'), $extension, $file)
+            : file_uploader('provider/showcase/', $extension, $file);
 
         $item = $this->showcaseItem->create([
             'provider_id' => $providerId,
@@ -121,6 +124,8 @@ class ProviderShowcaseController extends Controller
         if (!$item) {
             return response()->json(response_formatter(DEFAULT_404), 404);
         }
+
+        $provider = auth('api')->user()?->provider;
 
         if ($request->hasFile('media')) {
             $fileType = $request->input('media_type', $item->media_type) === 'video' ? 'file' : 'image';
@@ -163,7 +168,14 @@ class ProviderShowcaseController extends Controller
                 $mediaType = $request->input('media_type', $item->media_type);
                 $file = $request->file('media');
                 $extension = $file->getClientOriginalExtension();
-                $item->file_name = file_uploader('provider/showcase/', $extension, $file, $item->file_name);
+                $item->file_name = $provider
+                    ? media_file_uploader(
+                        \App\Support\MediaStoragePath::providerSectionDir($provider, 'showcase'),
+                        $extension,
+                        $file,
+                        $item->file_name
+                    )
+                    : file_uploader('provider/showcase/', $extension, $file, $item->file_name);
                 $item->media_type = $mediaType;
             }
 

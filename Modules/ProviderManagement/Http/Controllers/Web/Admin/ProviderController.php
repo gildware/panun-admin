@@ -1801,6 +1801,14 @@ class ProviderController extends Controller
                 ->where('to_party', \Modules\BookingModule\Entities\BookingCompensation::PARTY_PROVIDER)
                 ->sum('amount');
 
+            $paymentNetBalance = provider_payment_net_balance_context(
+                (string) $providerId,
+                (string) $provider->user_id,
+                $bookingSettlementNet,
+                (float) ($provider->owner->account->account_receivable ?? 0),
+                (float) ($provider->owner->account->account_payable ?? 0),
+            );
+
             return view('providermanagement::admin.provider.detail.payment', compact(
                 'provider',
                 'webPage',
@@ -1828,7 +1836,8 @@ class ProviderController extends Controller
                 'disputedBookingsPaginated',
                 'disputedBookingsTotals',
                 'providerCompensatedToCustomersTotal',
-                'companyCompensatedToProviderTotal'
+                'companyCompensatedToProviderTotal',
+                'paymentNetBalance'
             ));
         }
         return back();

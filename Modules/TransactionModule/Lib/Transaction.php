@@ -1999,16 +1999,26 @@ if (!function_exists('withdrawRequestTransaction')) {
 }
 
 if (!function_exists('withdrawRequestAcceptTransaction')) {
-    function withdrawRequestAcceptTransaction($provider_user_id, $withdrawal_amount) {
+    function withdrawRequestAcceptTransaction($provider_user_id, $withdrawal_amount, ?string $transaction_id = null, ?string $withdraw_request_id = null) {
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
         $provider_id = Provider::where('user_id', $provider_user_id)->value('id');
 
-        DB::transaction(function () use ($admin_user_id, $withdrawal_amount, $provider_user_id, $provider_id) {
+        DB::transaction(function () use ($admin_user_id, $withdrawal_amount, $provider_user_id, $provider_id, $transaction_id, $withdraw_request_id) {
+            $ledgerTxn = $transaction_id !== null && trim($transaction_id) !== ''
+                ? \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField($transaction_id)
+                : null;
+
+            $referenceNote = 'Provider withdrawal';
+            if ($withdraw_request_id) {
+                $referenceNote .= ' request '.$withdraw_request_id;
+            }
+
             ledger_record_out([
                 'amount' => $withdrawal_amount,
+                'transaction_id' => $ledgerTxn !== '' ? $ledgerTxn : null,
                 'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT,
                 'date' => now()->toDateString(),
-                'reference_note' => 'Provider withdrawal',
+                'reference_note' => $referenceNote,
                 'provider_id' => $provider_id,
             ]);
 
@@ -2066,6 +2076,62 @@ if (!function_exists('withdrawRequestAcceptTransaction')) {
                 'to_user_account' => ACCOUNT_STATES[2]['value']
             ]);
         });
+    }
+}
+
+if (!function_exists('withdraw_request_payout_ledger_query')) {
+    function withdraw_request_payout_ledger_query(\Modules\ProviderManagement\Entities\WithdrawRequest $withdrawRequest)
+    {
+        $providerId = Provider::where('user_id', $withdrawRequest->user_id)->value('id');
+
+        return \Modules\TransactionModule\Entities\LedgerTransaction::query()
+            ->where('provider_id', $providerId)
+            ->where('type', \Modules\TransactionModule\Entities\LedgerTransaction::TYPE_OUT)
+            ->where('reason', \Modules\TransactionModule\Entities\LedgerTransaction::REASON_PROVIDER_PAYOUT)
+            ->where('amount', $withdrawRequest->amount)
+            ->where('created_at', '>=', $withdrawRequest->created_at)
+            ->orderByDesc('created_at');
+    }
+}
+
+if (!function_exists('withdraw_request_payout_already_recorded')) {
+    function withdraw_request_payout_already_recorded(\Modules\ProviderManagement\Entities\WithdrawRequest $withdrawRequest): bool
+    {
+        return withdraw_request_payout_ledger_query($withdrawRequest)->exists();
+    }
+}
+
+if (!function_exists('settleWithdrawRequestPayout')) {
+    /**
+     * Record provider payout on settle (or attach transaction id to legacy approve-time ledger rows).
+     */
+    function settleWithdrawRequestPayout(\Modules\ProviderManagement\Entities\WithdrawRequest $withdrawRequest, string $transactionId): void
+    {
+        $ledgerTxn = \Modules\BookingModule\Services\AdminCompanyInflowPaymentService::truncateLedgerTransactionIdField($transactionId);
+        $referenceNote = 'Provider withdrawal request '.$withdrawRequest->id;
+
+        $ledger = withdraw_request_payout_ledger_query($withdrawRequest)
+            ->where(function ($query) {
+                $query->whereNull('transaction_id')->orWhere('transaction_id', '');
+            })
+            ->first();
+
+        if ($ledger) {
+            $ledger->transaction_id = $ledgerTxn !== '' ? $ledgerTxn : null;
+            $ledger->reference_note = $referenceNote;
+            $ledger->save();
+
+            return;
+        }
+
+        if (! withdraw_request_payout_already_recorded($withdrawRequest)) {
+            withdrawRequestAcceptTransaction(
+                $withdrawRequest->user_id,
+                $withdrawRequest->amount,
+                $transactionId,
+                $withdrawRequest->id
+            );
+        }
     }
 }
 

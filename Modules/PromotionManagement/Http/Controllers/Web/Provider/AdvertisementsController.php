@@ -152,7 +152,7 @@ class AdvertisementsController extends Controller
                 $this->advertisementAttachment->create([
                     'advertisement_id' => $advertisement->id,
                     'file_extension_type' => $extension,
-                    'file_name' => file_uploader('advertisement/', $extension, $file),
+                    'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                     'type' => 'promotional_video'
                 ]);
             }
@@ -166,7 +166,7 @@ class AdvertisementsController extends Controller
                     $this->advertisementAttachment->create([
                         'advertisement_id' => $advertisement->id,
                         'file_extension_type' => $extension,
-                        'file_name' => file_uploader('advertisement/', $extension, $file),
+                        'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                         'type' => 'provider_profile_image'
                     ]);
                 }
@@ -178,7 +178,7 @@ class AdvertisementsController extends Controller
                     $this->advertisementAttachment->create([
                         'advertisement_id' => $advertisement->id,
                         'file_extension_type' => $extension,
-                        'file_name' => file_uploader('advertisement/', $extension, $file),
+                        'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                         'type' => 'provider_cover_image'
                     ]);
                 }
@@ -394,7 +394,7 @@ class AdvertisementsController extends Controller
                     $this->advertisementAttachment->create([
                         'advertisement_id' => $advertisement->id,
                         'file_extension_type' => $extension,
-                        'file_name' => file_uploader('advertisement/', $extension, $file),
+                        'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                         'type' => 'promotional_video'
                     ]);
                 } else {
@@ -420,7 +420,7 @@ class AdvertisementsController extends Controller
                     $this->advertisementAttachment->create([
                         'advertisement_id' => $advertisement->id,
                         'file_extension_type' => $extension,
-                        'file_name' => file_uploader('advertisement/', $extension, $file),
+                        'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                         'type' => 'provider_profile_image'
                     ]);
                 } else {
@@ -444,7 +444,7 @@ class AdvertisementsController extends Controller
                     $this->advertisementAttachment->create([
                         'advertisement_id' => $advertisement->id,
                         'file_extension_type' => $extension,
-                        'file_name' => file_uploader('advertisement/', $extension, $file),
+                        'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                         'type' => 'provider_cover_image'
                     ]);
                 } else {
@@ -659,7 +659,7 @@ class AdvertisementsController extends Controller
                 $this->advertisementAttachment->create([
                     'advertisement_id' => $advertisement->id,
                     'file_extension_type' => $extension,
-                    'file_name' => file_uploader('advertisement/', $extension, $file),
+                    'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                     'type' => 'promotional_video'
                 ]);
             }
@@ -672,7 +672,7 @@ class AdvertisementsController extends Controller
                     $this->advertisementAttachment->create([
                         'advertisement_id' => $advertisement->id,
                         'file_extension_type' => $extension,
-                        'file_name' => file_uploader('advertisement/', $extension, $file),
+                        'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                         'type' => 'provider_profile_image'
                     ]);
                 }
@@ -684,7 +684,7 @@ class AdvertisementsController extends Controller
                     $this->advertisementAttachment->create([
                         'advertisement_id' => $advertisement->id,
                         'file_extension_type' => $extension,
-                        'file_name' => file_uploader('advertisement/', $extension, $file),
+                        'file_name' => advertisement_media_uploader($file, auth()->user()?->provider ?? $advertisement),
                         'type' => 'provider_cover_image'
                     ]);
                 }

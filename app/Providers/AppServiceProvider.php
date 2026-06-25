@@ -39,8 +39,8 @@ class AppServiceProvider extends ServiceProvider
             \URL::forceScheme('https');
         }
 
-        Config::set('addon_admin_routes',$this->get_addon_admin_routes());
-        Config::set('get_payment_publish_status',$this->get_payment_publish_status());
+        Config::set('addon_admin_routes', Cache::remember('addon_admin_routes', 3600, fn () => $this->get_addon_admin_routes()));
+        Config::set('get_payment_publish_status', Cache::remember('get_payment_publish_status', 3600, fn () => $this->get_payment_publish_status()));
 
         try {
             Config::set('default_pagination', 25);

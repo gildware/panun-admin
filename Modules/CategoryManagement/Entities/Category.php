@@ -198,8 +198,10 @@ class Category extends Model
 
         $s3Storage = $this->storage;
 
-        $path = 'category/';
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key(
+            $image,
+            \App\Support\MediaStoragePath::legacyPrefixForCategory($this)
+        );
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }

@@ -62,18 +62,24 @@ if (!function_exists('api_user')) {
 if (!function_exists('translate')) {
     function translate($key)
     {
+        static $langArrays = [];
+
         try {
             $local = app()->getLocale();
-            $lang_array = include(base_path('resources/lang/' . $local . '/lang.php'));
+            if (! isset($langArrays[$local])) {
+                $langArrays[$local] = include base_path('resources/lang/'.$local.'/lang.php');
+            }
+            $lang_array = &$langArrays[$local];
             $processed_key = ucfirst(str_replace('_', ' ', str_ireplace(['\'', '"', ';', '<', '>', '?'], ' ', $key)));
-            if (!array_key_exists($key, $lang_array)) {
+            if (! array_key_exists($key, $lang_array)) {
                 $lang_array[$key] = $processed_key;
-                $str = "<?php return " . var_export($lang_array, true) . ";";
-                file_put_contents(base_path('resources/lang/' . $local . '/lang.php'), $str);
+                $str = "<?php return ".var_export($lang_array, true).';';
+                file_put_contents(base_path('resources/lang/'.$local.'/lang.php'), $str);
                 $result = $processed_key;
             } else {
-                $result = __('lang.' . $key);
+                $result = $lang_array[$key];
             }
+
             return $result;
         } catch (\Exception $exception) {
             return $key;
@@ -156,8 +162,20 @@ if (!function_exists('response_formatter')) {
 if (!function_exists('getDisk')) {
     function getDisk()
     {
+        static $resolved = null;
+        static $cacheKey = null;
+
         $storageType = business_config('storage_connection_type', 'storage_settings');
-        return isset($storageType) ? ($storageType->live_values == 's3' ? 's3' : 'public') : 'public';
+        $key = (string) ($storageType->live_values ?? 'local');
+
+        if ($resolved !== null && $cacheKey === $key) {
+            return $resolved;
+        }
+
+        $cacheKey = $key;
+        $resolved = isset($storageType) ? ($storageType->live_values == 's3' ? 's3' : 'public') : 'public';
+
+        return $resolved;
     }
 }
 
@@ -191,7 +209,7 @@ if (!function_exists('file_uploader')) {
         }
 
         $disk = getDisk();
-        $dir  = rtrim($dir, '/') . '/';
+        $dir  = \App\Support\StoragePathPrefix::apply(rtrim($dir, '/') . '/');
 
         // Do not delete $old_image until a new file is stored successfully; otherwise a failed
         // resize, S3 put, or non-image upload leaves the DB filename pointing at a removed file.
@@ -216,7 +234,13 @@ if (!function_exists('file_uploader')) {
             }
 
             if ($old_image) {
-                Storage::disk($disk)->delete($dir . $old_image);
+                foreach (\App\Support\StoragePathPrefix::keyVariants($dir.$old_image) as $deleteKey) {
+                    try {
+                        Storage::disk($disk)->delete($deleteKey);
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
             }
 
             return $imageName; // RETURN HERE ✔
@@ -243,10 +267,10 @@ if (!function_exists('file_uploader')) {
         };
 
         $imageName = now()->toDateString() . "-" . uniqid() . "." . $format;
-        $savePath  = storage_path("app/{$disk}/{$dir}{$imageName}");
+        $savePath = upload_processing_temp_path($disk, $dir, $imageName);
 
-        // Ensure folder exists
-        if (!Storage::disk($disk)->exists($dir)) {
+        // Ensure folder exists on the target disk (no-op for S3/R2).
+        if (! Storage::disk($disk)->exists($dir)) {
             Storage::disk($disk)->makeDirectory($dir);
         }
 
@@ -254,12 +278,28 @@ if (!function_exists('file_uploader')) {
          *  GIF & already-WEBP → copy only (no convert)
          */
         if ($mime === 'image/gif' || ($mime === 'image/webp' && $format === 'webp')) {
-            if (!copy($sourcePath, $savePath)) {
+            if (! copy($sourcePath, $savePath)) {
                 return $old_image ?? 'def.png';
             }
-            Storage::disk($disk)->put($dir . $imageName, file_get_contents($savePath));
+            try {
+                Storage::disk($disk)->put($dir . $imageName, file_get_contents($savePath));
+            } catch (\Exception $exception) {
+                if ($disk == 's3') {
+                    Toastr::error(translate('Image upload failed. Please check S3 credentials.'));
+                }
+
+                return $old_image ?? 'def.png';
+            } finally {
+                upload_processing_temp_cleanup($savePath, $disk);
+            }
             if ($old_image) {
-                Storage::disk($disk)->delete($dir . $old_image);
+                foreach (\App\Support\StoragePathPrefix::keyVariants($dir.$old_image) as $deleteKey) {
+                    try {
+                        Storage::disk($disk)->delete($deleteKey);
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
             }
 
             return $imageName;
@@ -316,17 +356,35 @@ if (!function_exists('file_uploader')) {
 
         imagedestroy($gdImage);
 
-        if (!$saved) {
+        if (! $saved) {
+            upload_processing_temp_cleanup($savePath, $disk);
             if ($disk == 's3') {
                 Toastr::error(translate('Image upload failed. Please check S3 credentials.'));
             }
+
             return $old_image ?? 'def.png';
         }
 
-        Storage::disk($disk)->put($dir . $imageName, file_get_contents($savePath));
+        try {
+            Storage::disk($disk)->put($dir . $imageName, file_get_contents($savePath));
+        } catch (\Exception $exception) {
+            if ($disk == 's3') {
+                Toastr::error(translate('Image upload failed. Please check S3 credentials.'));
+            }
+
+            return $old_image ?? 'def.png';
+        } finally {
+            upload_processing_temp_cleanup($savePath, $disk);
+        }
 
         if ($old_image) {
-            Storage::disk($disk)->delete($dir . $old_image);
+            foreach (\App\Support\StoragePathPrefix::keyVariants($dir.$old_image) as $deleteKey) {
+                try {
+                    Storage::disk($disk)->delete($deleteKey);
+                } catch (\Throwable $e) {
+                    //
+                }
+            }
         }
 
         return $imageName; // FINAL RETURN ✔
@@ -334,22 +392,158 @@ if (!function_exists('file_uploader')) {
 
 }
 
+if (!function_exists('upload_processing_temp_path')) {
+    /**
+     * Local path used while resizing/converting before put() to public or S3/R2 disk.
+     */
+    function upload_processing_temp_path(string $disk, string $dir, string $imageName): string
+    {
+        if ($disk === 's3') {
+            $tempDir = storage_path('app/temp/uploads');
+            if (! is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+
+            return $tempDir.'/'.$imageName;
+        }
+
+        $localDir = storage_path('app/public/'.rtrim($dir, '/').'/');
+        if (! is_dir($localDir)) {
+            mkdir($localDir, 0755, true);
+        }
+
+        return $localDir.$imageName;
+    }
+}
+
+if (!function_exists('upload_processing_temp_cleanup')) {
+    function upload_processing_temp_cleanup(string $savePath, string $disk): void
+    {
+        if ($disk !== 's3' || ! is_file($savePath)) {
+            return;
+        }
+
+        @unlink($savePath);
+    }
+}
+
+if (!function_exists('resolve_stored_media_key')) {
+    /**
+     * DB may store a full key (category/home-appliances/file.webp) or legacy filename only.
+     */
+    function resolve_stored_media_key(?string $stored, string $legacyPrefix): string
+    {
+        if ($stored === null || $stored === '') {
+            return '';
+        }
+
+        $stored = ltrim($stored, '/');
+
+        if (str_contains($stored, '/')) {
+            return $stored;
+        }
+
+        return rtrim($legacyPrefix, '/').'/'.$stored;
+    }
+}
+
+if (!function_exists('media_storage_delete')) {
+    function media_storage_delete(?string $stored): void
+    {
+        if ($stored === null || $stored === '') {
+            return;
+        }
+
+        $stored = ltrim($stored, '/');
+        $primaryDisk = function_exists('getDisk') ? getDisk() : 'public';
+
+        foreach (\App\Support\StoragePathPrefix::keyVariants($stored) as $key) {
+            foreach (array_unique([$primaryDisk, 'public', 's3']) as $disk) {
+                try {
+                    if (\Illuminate\Support\Facades\Storage::disk($disk)->exists($key)) {
+                        \Illuminate\Support\Facades\Storage::disk($disk)->delete($key);
+                    }
+                } catch (\Throwable $e) {
+                    //
+                }
+            }
+        }
+    }
+}
+
+if (!function_exists('media_file_uploader')) {
+    /**
+     * Upload to $dir and return the full storage key (dir + filename).
+     */
+    function media_file_uploader(string $dir, string $format, array|object|null $image = null, ?string $stored = null): string
+    {
+        $dir = rtrim($dir, '/').'/';
+        $oldFilename = null;
+
+        if ($stored) {
+            if (str_contains($stored, '/')) {
+                media_storage_delete($stored);
+            } else {
+                $oldFilename = $stored;
+            }
+        }
+
+        $filename = file_uploader($dir, $format, $image, $oldFilename);
+
+        return $dir.$filename;
+    }
+}
+
+if (!function_exists('advertisement_media_uploader')) {
+    function advertisement_media_uploader($file, mixed $providerOrAdvertisement = null, ?string $stored = null): string
+    {
+        $provider = null;
+        if ($providerOrAdvertisement instanceof \Modules\ProviderManagement\Entities\Provider) {
+            $provider = $providerOrAdvertisement;
+        } elseif (is_object($providerOrAdvertisement) && ! empty($providerOrAdvertisement->provider_id)) {
+            $provider = \Modules\ProviderManagement\Entities\Provider::find($providerOrAdvertisement->provider_id);
+        }
+
+        return media_file_uploader(
+            \App\Support\MediaStoragePath::advertisementDir($provider),
+            $file->getClientOriginalExtension(),
+            $file,
+            $stored
+        );
+    }
+}
+
 if (!function_exists('file_remover')) {
     function file_remover(string $dir, $image): bool
     {
-        if (!isset($image)) return true;
+        if (! isset($image)) {
+            return true;
+        }
 
         if (is_array($image)) {
             foreach ($image as $img) {
                 file_remover($dir, $img);
             }
-        } else {
-            if (Storage::disk('public')->exists($dir . $image)) Storage::disk('public')->delete($dir . $image);
 
-            try {
-                if (Storage::disk('s3')->exists($dir . $image)) Storage::disk('s3')->delete($dir . $image);
-            } catch (Exception $e) {
+            return true;
+        }
 
+        $dir = rtrim($dir, '/').'/';
+        $primaryDisk = function_exists('getDisk') ? getDisk() : 'public';
+
+        $key = str_contains((string) $image, '/')
+            ? ltrim((string) $image, '/')
+            : $dir.$image;
+
+        foreach (\App\Support\StoragePathPrefix::keyVariants($key) as $variant) {
+            foreach (array_unique([$primaryDisk, 'public', 's3']) as $disk) {
+                try {
+                    if (Storage::disk($disk)->exists($variant)) {
+                        Storage::disk($disk)->delete($variant);
+                    }
+                } catch (\Throwable $e) {
+                    //
+                }
             }
         }
 
@@ -1049,27 +1243,73 @@ if (!function_exists('normalize_identity_image_entries')) {
     }
 }
 
+if (!function_exists('cloud_storage_public_url')) {
+    /**
+     * Public URL for a file on the configured S3-compatible disk (Cloudflare R2, AWS S3).
+     */
+    function cloud_storage_public_url(string $relativePath): string
+    {
+        $relativePath = ltrim(str_replace(['storage/', '/storage/'], '', $relativePath), '/');
+        // DB stores logical paths without env folder; R2 objects use local/dev/prod prefix.
+        $relativePath = \App\Support\StoragePathPrefix::apply(
+            \App\Support\StoragePathPrefix::strip($relativePath)
+        );
+        $baseUrl = \App\Support\CloudStorageConfigurator::publicBaseUrl();
+
+        if ($baseUrl !== null && $baseUrl !== '') {
+            return $baseUrl.'/'.$relativePath;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('s3')->url($relativePath);
+    }
+}
+
 if (!function_exists('resolve_media_storage_url')) {
     /**
      * Resolve a public URL for a file stored on public or S3 disk.
      *
      * @param  string  $image  Filename or relative path (e.g. provider/logo/file.png)
      * @param  string  $basePath  Directory prefix when $image is only a filename
+     * @param  bool  $checkExistence  When false, build the URL from the configured disk without remote exists() checks (much faster for admin lists).
      */
     function resolve_media_storage_url(
         string $image,
         string $basePath = '',
         ?string $preferredStorage = null,
-        ?string $defaultPath = null
+        ?string $defaultPath = null,
+        bool $checkExistence = true
     ): ?string {
         $image = ltrim($image, '/');
         if ($image === '') {
             return $defaultPath;
         }
 
-        $candidates = str_contains($image, '/')
+        $baseKeys = str_contains($image, '/')
             ? [$image]
             : [rtrim($basePath, '/') . '/' . $image];
+
+        if (! $checkExistence) {
+            $logicalPath = $baseKeys[0];
+            $disk = $preferredStorage ?? (function_exists('getDisk') ? getDisk() : 'public');
+
+            if ($disk === 's3') {
+                return cloud_storage_public_url($logicalPath);
+            }
+
+            $storageKey = \App\Support\StoragePathPrefix::apply(
+                \App\Support\StoragePathPrefix::strip($logicalPath)
+            );
+
+            return public_storage_asset_url($storageKey);
+        }
+
+        $candidates = [];
+        foreach ($baseKeys as $baseKey) {
+            foreach (\App\Support\StoragePathPrefix::keyVariants($baseKey) as $variant) {
+                $candidates[] = $variant;
+            }
+        }
+        $candidates = array_values(array_unique($candidates));
 
         $disks = array_values(array_unique(array_filter([
             $preferredStorage,
@@ -1079,24 +1319,28 @@ if (!function_exists('resolve_media_storage_url')) {
         ])));
 
         foreach ($candidates as $candidate) {
-            foreach ($disks as $disk) {
+            if (in_array('public', $disks, true)) {
                 try {
-                    if (! $disk || ! \Illuminate\Support\Facades\Storage::disk($disk)->exists($candidate)) {
-                        continue;
-                    }
-
-                    if ($disk === 'public') {
+                    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($candidate)) {
                         return public_storage_asset_url($candidate);
                     }
-
-                    return \Illuminate\Support\Facades\Storage::disk($disk)->url($candidate);
                 } catch (\Throwable $e) {
                     //
                 }
             }
 
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($candidate)) {
-                return public_storage_asset_url($candidate);
+            foreach ($disks as $disk) {
+                if ($disk === 'public') {
+                    continue;
+                }
+
+                try {
+                    if ($disk && \Illuminate\Support\Facades\Storage::disk($disk)->exists($candidate)) {
+                        return cloud_storage_public_url($candidate);
+                    }
+                } catch (\Throwable $e) {
+                    //
+                }
             }
 
             if (str_starts_with($candidate, 'provider/')) {
@@ -1112,7 +1356,13 @@ if (!function_exists('getSingleImageFullPath')) {
     function getSingleImageFullPath($imagePath, array|object|null $s3Storage = null, ?string $defaultPath = null, ?bool $page = null)
     {
         $preferred = ($s3Storage && ($s3Storage->storage_type ?? null) === 's3') ? 's3' : null;
-        $resolved = resolve_media_storage_url((string) $imagePath, '', $preferred, $defaultPath);
+        $resolved = resolve_media_storage_url(
+            (string) $imagePath,
+            '',
+            $preferred,
+            $defaultPath,
+            false
+        );
 
         if ($resolved !== null && ($defaultPath === null || $resolved !== $defaultPath)) {
             return $resolved;
@@ -1186,28 +1436,24 @@ if (!function_exists('getBusinessSettingsImageFullPath')) {
             return asset($defaultPath);
         }
 
-        $imagePath = $path . $image->live_values;
-        $s3Storage = $image->storage;
+        $preferred = ($image->storage && $image->storage->storage_type == 's3') ? 's3' : null;
+        $resolved = resolve_media_storage_url(
+            $path.$image->live_values,
+            '',
+            $preferred,
+            $defaultPath ? asset($defaultPath) : null,
+            false
+        );
 
-        try {
-            if ($s3Storage && $s3Storage->storage_type == 's3' && \Illuminate\Support\Facades\Storage::disk('s3')->exists($imagePath)) {
-                return Storage::disk('s3')->url($imagePath);
-//                $awsUrl = rtrim(config('filesystems.disks.s3.url'), '/');
-//                $awsBucket = config('filesystems.disks.s3.bucket');
-//                return $awsUrl . '/' . $awsBucket . '/' . $imagePath;
-            }
-        }catch(\Exception $exception){
-            //
+        if ($resolved !== null) {
+            return $resolved;
         }
 
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($imagePath)) {
-            return Storage::disk('public')->url($imagePath);
-        } else {
-            if (request()->is('api/*')) {
-                return null;
-            }
-            return asset($defaultPath);
+        if (request()->is('api/*')) {
+            return null;
         }
+
+        return asset($defaultPath);
     }
 }
 if (!function_exists('getDataSettingsImageFullPath')) {

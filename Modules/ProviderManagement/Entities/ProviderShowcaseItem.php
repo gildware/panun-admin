@@ -65,8 +65,8 @@ class ProviderShowcaseItem extends Model
         }
 
         $resolved = resolve_media_storage_url(
-            (string) $this->file_name,
-            'provider/showcase/',
+            resolve_stored_media_key((string) $this->file_name, \App\Support\MediaStoragePath::legacyPrefixForProviderShowcase()),
+            '',
             $this->relationLoaded('storage') ? ($this->storage?->storage_type) : null,
             request()->is('api/*') ? null : $defaultPath
         );

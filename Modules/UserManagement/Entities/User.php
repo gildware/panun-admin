@@ -53,6 +53,10 @@ class User extends Authenticatable
 
     protected $appends = ['profile_image_full_path', 'identification_image_full_path'];
 
+    private ?string $resolvedProfileImageFullPath = null;
+
+    private bool $hasResolvedProfileImageFullPath = false;
+
     protected $fillable = [
         'uuid', 'first_name', 'last_name', 'email', 'phone', 'identification_number', 'identification_type', 'identification_image', 'date_of_birth', 'gender',
         'profile_image', 'fcm_token', 'is_phone_verified', 'is_email_verified', 'phone_verified_at', 'email_verified_at', 'password', 'is_active', 'provider_id', 'user_type', 'customer_app_access',
@@ -348,6 +352,10 @@ class User extends Authenticatable
 
     public function getProfileImageFullPathAttribute()
     {
+        if ($this->hasResolvedProfileImageFullPath) {
+            return $this->resolvedProfileImageFullPath;
+        }
+
         $image = $this->profile_image;
         $defaultPath = $this->user_type == 'customer' ? asset('assets/admin-module/img/customer.png') : asset('assets/provider-module/img/user2x.png');
 
@@ -355,7 +363,10 @@ class User extends Authenticatable
             if (request()->is('api/*')) {
                 $defaultPath = null;
             }
-            return $defaultPath;
+
+            $this->hasResolvedProfileImageFullPath = true;
+
+            return $this->resolvedProfileImageFullPath = $defaultPath;
         }
 
         $s3Storage = $this->storage;
@@ -369,9 +380,11 @@ class User extends Authenticatable
             $path = 'serviceman/profile/';
         }
 
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key($image, $path);
 
-        return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
+        $this->hasResolvedProfileImageFullPath = true;
+
+        return $this->resolvedProfileImageFullPath = getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }
 
     public function getIdentificationImageFullPathAttribute()

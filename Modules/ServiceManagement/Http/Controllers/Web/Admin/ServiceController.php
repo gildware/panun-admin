@@ -187,8 +187,16 @@ class ServiceController extends Controller
         $service->sub_category_id = $request->sub_category_id;
         $service->short_description = $request->short_description[array_search('default', $request->lang)];
         $service->description = $request->description[array_search('default', $request->lang)];
-        $service->cover_image = file_uploader('service/', 'png', $request->file('cover_image'));
-        $service->thumbnail = file_uploader('service/', 'png', $request->file('thumbnail'));
+        $service->cover_image = media_file_uploader(
+            \App\Support\MediaStoragePath::serviceDir($service->name ?? 'service'),
+            'png',
+            $request->file('cover_image')
+        );
+        $service->thumbnail = media_file_uploader(
+            \App\Support\MediaStoragePath::serviceDir($service->name ?? 'service'),
+            'png',
+            $request->file('thumbnail')
+        );
         $this->applyServiceTaxFieldsFromRequest($request, $service);
         $service->min_bidding_price = $request->min_bidding_price;
         $service->save();
@@ -475,11 +483,21 @@ class ServiceController extends Controller
         $service->description = $request->description[array_search('default', $request->lang)];
 
         if ($request->hasFile('cover_image')) {
-            $service->cover_image = file_uploader('service/', 'png', $request->file('cover_image'));
+            $service->cover_image = media_file_uploader(
+                \App\Support\MediaStoragePath::serviceDir($service),
+                'png',
+                $request->file('cover_image'),
+                $service->cover_image
+            );
         }
 
         if ($request->hasFile('thumbnail')) {
-            $service->thumbnail = file_uploader('service/', 'png', $request->file('thumbnail'));
+            $service->thumbnail = media_file_uploader(
+                \App\Support\MediaStoragePath::serviceDir($service),
+                'png',
+                $request->file('thumbnail'),
+                $service->thumbnail
+            );
         }
 
         $service->min_bidding_price = $request->min_bidding_price;

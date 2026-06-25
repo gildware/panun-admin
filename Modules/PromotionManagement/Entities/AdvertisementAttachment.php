@@ -47,8 +47,7 @@ class AdvertisementAttachment extends Model
         }
 
         $s3Storage = $this->cover_image_storage;
-        $path = 'advertisement/';
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key($image, \App\Support\MediaStoragePath::legacyPrefixForAdvertisement());
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }
@@ -65,8 +64,7 @@ class AdvertisementAttachment extends Model
         }
 
         $s3Storage = $this->profile_image_storage;
-        $path = 'advertisement/';
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key($image, \App\Support\MediaStoragePath::legacyPrefixForAdvertisement());
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }
@@ -83,8 +81,7 @@ class AdvertisementAttachment extends Model
         }
 
         $s3Storage = $this->promotional_video_storage;
-        $path = 'advertisement/';
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key($image, \App\Support\MediaStoragePath::legacyPrefixForAdvertisement());
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }

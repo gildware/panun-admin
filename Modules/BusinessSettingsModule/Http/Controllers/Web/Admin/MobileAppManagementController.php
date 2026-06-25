@@ -311,28 +311,25 @@ class MobileAppManagementController extends Controller
         $tab = $this->normalizeIconTab($request->query('tab'));
         $groups = MobileAppManagementService::iconGroupDefinitions();
         $icons = $this->managementService->getIcons();
-        $groups = MobileAppManagementService::iconGroupDefinitions();
+        $tabs = [
+            ['id' => 'logos', 'label' => translate('Logos')],
+            ['id' => 'customer', 'label' => translate('Customer_icons')],
+            ['id' => 'provider', 'label' => translate('Provider_icons')],
+        ];
+        $tabIconItemsByTab = [];
+        $iconPreviewsByTab = [];
 
-        $iconPreviews = ['customer' => [], 'provider' => []];
-        foreach (['customer', 'provider'] as $app) {
-            foreach (MobileAppManagementService::allIconKeysForApp($app) as $key) {
-                $iconPreviews[$app][$key] = [
-                    'light' => $this->managementService->resolveIconFullPath($app, $key, 'light'),
-                    'dark' => $this->managementService->resolveIconFullPath($app, $key, 'dark'),
-                ];
-            }
+        foreach ($tabs as $tabDef) {
+            $tabIconItemsByTab[$tabDef['id']] = $this->iconItemsForTab($tabDef['id'], $groups);
+            $iconPreviewsByTab[$tabDef['id']] = $this->managementService->buildIconPreviewsForItems($tabIconItemsByTab[$tabDef['id']]);
         }
 
         return view('businesssettingsmodule::admin.mobile-app-management.icons', [
             'tab' => $tab,
-            'tabs' => [
-                ['id' => 'logos', 'label' => translate('Logos')],
-                ['id' => 'customer', 'label' => translate('Customer_icons')],
-                ['id' => 'provider', 'label' => translate('Provider_icons')],
-            ],
-            'tabIconItems' => $this->iconItemsForTab($tab, $groups),
+            'tabs' => $tabs,
+            'tabIconItemsByTab' => $tabIconItemsByTab,
             'icons' => $icons,
-            'iconPreviews' => $iconPreviews,
+            'iconPreviewsByTab' => $iconPreviewsByTab,
             'iconVariants' => MobileAppManagementService::ICON_VARIANTS,
         ]);
     }

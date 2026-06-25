@@ -221,7 +221,13 @@ class CustomerController extends Controller
         $user->last_name = $request->last_name;
         $user->email = $request->email;
         $user->phone = $request->phone;
-        $user->profile_image = $request->has('profile_image') ? file_uploader('user/profile_image/', APPLICATION_IMAGE_FORMAT, $request->profile_image) : 'default.png';
+        $user->profile_image = $request->has('profile_image')
+            ? media_file_uploader(
+                \App\Support\MediaStoragePath::customerProfileDirFromName(trim($request->first_name.' '.$request->last_name)),
+                APPLICATION_IMAGE_FORMAT,
+                $request->profile_image
+            )
+            : 'default.png';
         $user->date_of_birth = $request->date_of_birth;
         $user->gender = $request->gender ?? 'male';
         $user->password = bcrypt($request->password);
@@ -590,7 +596,14 @@ class CustomerController extends Controller
         $customer->last_name = $request->last_name;
         $customer->email = $request->email;
         $customer->phone = $request->phone;
-        $customer->profile_image = $request->has('profile_image') ? file_uploader('user/profile_image/', APPLICATION_IMAGE_FORMAT, $request->profile_image) : $customer->profile_image;
+        $customer->profile_image = $request->has('profile_image')
+            ? media_file_uploader(
+                \App\Support\MediaStoragePath::customerProfileDir($customer),
+                APPLICATION_IMAGE_FORMAT,
+                $request->profile_image,
+                $customer->profile_image
+            )
+            : $customer->profile_image;
         $customer->date_of_birth = $request->date_of_birth;
         $customer->gender = $request->has('gender') ? $request->gender : $customer->gender;
         $customer->save();
