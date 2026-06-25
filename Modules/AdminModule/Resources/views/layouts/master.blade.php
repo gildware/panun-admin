@@ -379,10 +379,10 @@
     });
 
     (function () {
-        var adminHeaderPollMs = 1000;
+        var adminHeaderPollMs = 30000;
         try {
-            if (/\/admin\/whatsapp\/conversations/i.test(window.location.pathname || '')) {
-                adminHeaderPollMs = 15000;
+            if (/\/admin\/(whatsapp|social-inbox)\//i.test(window.location.pathname || '')) {
+                adminHeaderPollMs = 60000;
             }
         } catch (e) {}
         setInterval(function () {

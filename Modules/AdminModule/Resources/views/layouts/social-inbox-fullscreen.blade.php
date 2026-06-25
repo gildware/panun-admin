@@ -231,7 +231,7 @@
     });
 
     (function () {
-        var adminHeaderPollMs = 15000;
+        var adminHeaderPollMs = 60000;
         setInterval(function () {
             $.get({
                 url: '{{ route('admin.get_updated_data') }}',

@@ -96,8 +96,16 @@ class ServiceController extends Controller
         $service->sub_category_id = $request->sub_category_id;
         $service->short_description = $request->short_description;
         $service->description = $request->description;
-        $service->cover_image = file_uploader('service/', APPLICATION_IMAGE_FORMAT, $request->file('cover_image'));
-        $service->thumbnail = file_uploader('service/', APPLICATION_IMAGE_FORMAT, $request->file('thumbnail'));
+        $service->cover_image = media_file_uploader(
+            \App\Support\MediaStoragePath::serviceDir($service->name ?? 'service'),
+            APPLICATION_IMAGE_FORMAT,
+            $request->file('cover_image')
+        );
+        $service->thumbnail = media_file_uploader(
+            \App\Support\MediaStoragePath::serviceDir($service->name ?? 'service'),
+            APPLICATION_IMAGE_FORMAT,
+            $request->file('thumbnail')
+        );
         if ($request->filled('tax') && $request->input('tax') !== '') {
             $service->tax = (float) $request->input('tax');
             $service->tax_label = $request->filled('tax_label') ? $request->input('tax_label') : null;
@@ -232,11 +240,21 @@ class ServiceController extends Controller
         $service->description = $request->description;
 
         if ($request->has('cover_image')) {
-            $service->cover_image = file_uploader('service/', APPLICATION_IMAGE_FORMAT, $request->file('cover_image'));
+            $service->cover_image = media_file_uploader(
+                \App\Support\MediaStoragePath::serviceDir($service),
+                APPLICATION_IMAGE_FORMAT,
+                $request->file('cover_image'),
+                $service->cover_image
+            );
         }
 
         if ($request->has('thumbnail')) {
-            $service->thumbnail = file_uploader('service/', APPLICATION_IMAGE_FORMAT, $request->file('thumbnail'));
+            $service->thumbnail = media_file_uploader(
+                \App\Support\MediaStoragePath::serviceDir($service),
+                APPLICATION_IMAGE_FORMAT,
+                $request->file('thumbnail'),
+                $service->thumbnail
+            );
         }
 
         if ($request->filled('tax') && $request->input('tax') !== '') {

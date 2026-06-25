@@ -86,7 +86,7 @@ class WithdrawController extends Controller
             $withdrawRequest->request_status = 'approved';
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->note = $request->note;
-            $withdrawRequest->is_paid = 1;
+            $withdrawRequest->is_paid = 0;
             $withdrawRequest->save();
 
         } else {

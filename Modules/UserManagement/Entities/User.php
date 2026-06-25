@@ -369,7 +369,7 @@ class User extends Authenticatable
             $path = 'serviceman/profile/';
         }
 
-        $imagePath = $path . $image;
+        $imagePath = resolve_stored_media_key($image, $path);
 
         return getSingleImageFullPath(imagePath: $imagePath, s3Storage: $s3Storage, defaultPath: $defaultPath);
     }

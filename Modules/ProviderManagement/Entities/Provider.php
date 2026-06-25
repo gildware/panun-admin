@@ -220,8 +220,8 @@ class Provider extends Model
         }
 
         $resolved = resolve_media_storage_url(
-            (string) $image,
-            'provider/logo/',
+            resolve_stored_media_key((string) $image, \App\Support\MediaStoragePath::legacyPrefixForProviderLogo()),
+            '',
             $this->storage?->storage_type,
             request()->is('api/*') ? null : $defaultPath
         );
@@ -243,8 +243,8 @@ class Provider extends Model
         }
 
         $resolved = resolve_media_storage_url(
-            (string) $image,
-            'provider/logo/',
+            resolve_stored_media_key((string) $image, \App\Support\MediaStoragePath::legacyPrefixForProviderCover()),
+            '',
             $this->storage?->storage_type,
             request()->is('api/*') ? null : $defaultPath
         );
@@ -266,8 +266,8 @@ class Provider extends Model
         }
 
         $resolved = resolve_media_storage_url(
-            (string) $photo,
-            'provider/contact_person_photo/',
+            resolve_stored_media_key((string) $photo, 'provider/contact_person_photo/'),
+            '',
             null,
             request()->is('api/*') ? null : $defaultPath
         );

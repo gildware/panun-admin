@@ -1,17 +1,13 @@
 <?php
+$menuCounts = \App\Support\AdminMenuCounts::all();
 $max_booking_amount = (business_config('max_booking_amount', 'booking_setup'))->live_values ?? 0;
-$all_bookings_menu_count = \Modules\BookingModule\Entities\Booking::count();
-$pending_booking_reviews_count = \Modules\ReviewModule\Entities\Review::where('is_active', 0)->count()
-    + \Modules\ReviewModule\Entities\ProviderCustomerReview::where('is_active', 0)->count();
-$special_scenarios_menu_count = \Modules\BookingModule\Entities\Booking::query()
-    ->where('is_repeated', 0)
-    ->whereNotNull('settlement_outcome')
-    ->where('settlement_outcome', '!=', '')
-    ->count();
-$pending_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(2)->count();
-$pending_showcase_items = \Modules\ProviderManagement\Entities\ProviderShowcaseItem::where('is_approved', 2)->count();
-$pending_profile_changes = \Modules\ProviderManagement\Entities\ProviderChangeRequest::where('status', 2)->count();
-$denied_providers = \Modules\ProviderManagement\Entities\Provider::ofApproval(0)->count();
+$all_bookings_menu_count = $menuCounts['all_bookings'];
+$pending_booking_reviews_count = $menuCounts['pending_booking_reviews'];
+$special_scenarios_menu_count = $menuCounts['special_scenarios'];
+$pending_providers = $menuCounts['pending_providers'];
+$pending_showcase_items = $menuCounts['pending_showcase_items'];
+$pending_profile_changes = $menuCounts['pending_profile_changes'];
+$denied_providers = $menuCounts['denied_providers'];
 $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'business_information', path: 'business/', defaultPath: 'assets/placeholder.png');
 ?>
 

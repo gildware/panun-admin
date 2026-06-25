@@ -114,7 +114,7 @@ class WithdrawRequestController extends Controller
 
             $query->withdraw_id = $query->id;
             $query->withdrawal_amount = $query->amount;
-            $query->payment_status = $query->is_paid ? 'paid' : 'unpaid';
+            $query->payment_status = $query->request_status === 'settled' ? 'paid' : 'unpaid';
             $query->optional_note = $query->admin_note;
 
             $query->withdraw_method_name = isset($query->withdraw_method) ? $query->withdraw_method->method_name : '';
@@ -177,13 +177,14 @@ class WithdrawRequestController extends Controller
                 $withdrawRequest->request_status = 'approved';
                 $withdrawRequest->request_updated_by = $request->user()->id;
                 $withdrawRequest->admin_note = $collection['optional_note'];
-                $withdrawRequest->is_paid = 1;
+                $withdrawRequest->is_paid = 0;
                 $withdrawRequest->save();
             }
             elseif($collection['request_status'] == 'settled' && $withdrawRequest && $withdrawRequest->request_status == 'approved') {
                 $withdrawRequest->request_status = 'settled';
                 $withdrawRequest->request_updated_by = $request->user()->id;
                 $withdrawRequest->admin_note = $collection['optional_note'];
+                $withdrawRequest->is_paid = 1;
                 $withdrawRequest->save();
             }
             elseif ($collection['request_status'] == 'denied' && $withdrawRequest && $withdrawRequest->request_status == 'pending') {
@@ -240,7 +241,7 @@ class WithdrawRequestController extends Controller
             $withdrawRequest->request_status = 'approved';
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->admin_note = $request->note;
-            $withdrawRequest->is_paid = 1;
+            $withdrawRequest->is_paid = 0;
             $withdrawRequest->save();
 
 
@@ -267,6 +268,7 @@ class WithdrawRequestController extends Controller
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->admin_note = $request->note;
             $withdrawRequest->transaction_id = $request->transaction_id;
+            $withdrawRequest->is_paid = 1;
             $withdrawRequest->save();
 
         } else if ($request['status'] == 'denied') {
@@ -330,7 +332,7 @@ class WithdrawRequestController extends Controller
                     $withdrawRequest->request_status = 'approved';
                     $withdrawRequest->request_updated_by = $request->user()->id;
                     $withdrawRequest->admin_note = $request->note;
-                    $withdrawRequest->is_paid = 1;
+                    $withdrawRequest->is_paid = 0;
                     $withdrawRequest->save();
                 }
             }

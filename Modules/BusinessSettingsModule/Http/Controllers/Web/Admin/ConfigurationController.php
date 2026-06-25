@@ -686,38 +686,69 @@ class ConfigurationController extends Controller
     {
         $this->authorize('configuration_update');
         $request->validate([
-            'key' => 'required',
-            'secret' => 'required',
-            'region' => 'required',
-            'bucket' => 'required',
-            'url' => 'required',
-            'endpoint' => 'required',
+            'key' => 'required|string',
+            'secret' => 'required|string',
+            'bucket' => 'required|string',
+            'account_id' => 'required|string',
+            'url' => 'required|url',
+            'storage_path_prefix' => 'nullable|string|max:32',
         ]);
+
+        $accountId = strtolower(preg_replace('/[^a-f0-9]/', '', (string) $request->input('account_id', '')));
+        if ($accountId === '') {
+            return back()->withErrors(['account_id' => translate('Enter a valid Cloudflare Account ID.')]);
+        }
+
+        $endpoint = 'https://'.$accountId.'.r2.cloudflarestorage.com';
+
+        $existing = $this->businessSetting->where('key_name', 's3_storage_credentials')
+            ->where('settings_type', 'storage_settings')
+            ->first();
+        $existingValues = json_decode($existing?->live_values ?? '{}', true) ?: [];
 
         $this->businessSetting->updateOrCreate(['key_name' => 's3_storage_credentials', 'settings_type' => 'storage_settings'], [
             'key_name' => 's3_storage_credentials',
             'live_values' => json_encode([
                 'key' => $request['key'],
                 'secret' => $request['secret'],
-                'region' => $request['region'],
+                'region' => 'auto',
                 'bucket' => $request['bucket'],
-                'url' => $request['url'],
-                'endpoint' => $request['endpoint'],
-                'path' => $request['path'],
+                'url' => rtrim((string) $request['url'], '/'),
+                'endpoint' => $endpoint,
+                'account_id' => $accountId,
+                'path' => $existingValues['path'] ?? '',
+                'use_path_style_endpoint' => '1',
             ]),
             'test_values' => json_encode([
                 'key' => $request['key'],
-                'secret_credential' => $request['secret_credential'],
-                'region' => $request['region'],
+                'secret_credential' => $request['secret'],
+                'region' => 'auto',
                 'bucket' => $request['bucket'],
-                'url' => $request['url'],
-                'endpoint' => $request['endpoint'],
-                'path' => $request['path'],
+                'url' => rtrim((string) $request['url'], '/'),
+                'endpoint' => $endpoint,
+                'account_id' => $accountId,
+                'path' => $existingValues['path'] ?? '',
+                'use_path_style_endpoint' => '1',
             ]),
             'settings_type' => 'storage_settings',
             'mode' => 'live',
             'is_active' => 1,
         ]);
+
+        $prefix = trim((string) $request->input('storage_path_prefix', ''));
+        $this->businessSetting->updateOrCreate(
+            ['key_name' => 'storage_path_prefix', 'settings_type' => 'storage_settings'],
+            [
+                'key_name' => 'storage_path_prefix',
+                'live_values' => $prefix,
+                'test_values' => $prefix,
+                'settings_type' => 'storage_settings',
+                'mode' => 'live',
+                'is_active' => 1,
+            ]
+        );
+
+        \App\Support\StoragePathPrefix::resetCache();
 
         Toastr::success(translate(DEFAULT_UPDATE_200['message']));
         return back();
@@ -981,7 +1012,11 @@ class ConfigurationController extends Controller
                     'withdrawalMethods' => $withdrawalMethods,
                     'search' => $search
                 ],
-            'storage_connection' => $data = array_merge(['storage_connection_type' => $this->getThirdPartyData(webPage: 'storage_connection_type')], ['s3_storage_credentials' => $this->getThirdPartyData(webPage: 's3_storage_credentials')]) ,
+            'storage_connection' => $data = array_merge(
+                ['storage_connection_type' => $this->getThirdPartyData(webPage: 'storage_connection_type')],
+                ['s3_storage_credentials' => $this->getThirdPartyData(webPage: 's3_storage_credentials')],
+                ['storage_path_prefix' => $this->getThirdPartyData(webPage: 'storage_path_prefix')],
+            ),
             'app_settings' => $data = array_merge(
                 [
                     'customer_app_settings' => is_string($this->getThirdPartyData(webPage: 'customer_app_settings'))
