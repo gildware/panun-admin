@@ -12,7 +12,6 @@ use Modules\TransactionModule\Entities\Transaction;
 use Modules\UserManagement\Entities\User;
 use function response;
 use function response_formatter;
-use function withdrawRequestAcceptTransaction;
 use function withdrawRequestDenyTransaction;
 
 class WithdrawController extends Controller
@@ -81,8 +80,6 @@ class WithdrawController extends Controller
         }
 
         if ($request['request_status'] == 'approved') {
-            withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
-
             $withdrawRequest->request_status = 'approved';
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->note = $request->note;
@@ -90,7 +87,7 @@ class WithdrawController extends Controller
             $withdrawRequest->save();
 
         } else {
-            withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+            withdrawRequestDenyTransaction($withdrawRequest['user_id'], $withdrawRequest['amount']);
 
             $withdrawRequest->request_status = 'denied';
             $withdrawRequest->request_updated_by = $request->user()->id;

@@ -36,7 +36,7 @@
                     <div class="mai-current-preview {{ $bgClass }} rounded-10 p-3 mb-2 d-flex align-items-center justify-content-center position-relative"
                          style="min-height:88px;">
                         @if($previewUrl)
-                            <img src="{{ $previewUrl }}" alt="" class="mai-preview-img" style="max-height:56px;max-width:56px;object-fit:contain;"
+                            <img src="{{ $previewUrl }}" alt="" class="mai-preview-img" loading="lazy" style="max-height:56px;max-width:56px;object-fit:contain;"
                                  onerror="this.style.display='none';this.nextElementSibling?.classList.remove('d-none');">
                             <div class="text-center d-none">
                                 <span class="material-icons fz-28 opacity-50">broken_image</span>

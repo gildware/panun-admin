@@ -76,7 +76,9 @@ class MobileAppHomeController extends Controller
 
         $orderSql = 'FIELD(id,'.implode(',', array_map(fn ($id) => "'".addslashes($id)."'", $pageIds)).')';
 
+        // Admin-picked service IDs must resolve regardless of customer zone (same as banners/categories).
         $services = $this->service
+            ->withoutGlobalScope('zone_wise_data')
             ->with(['category.zonesBasicInfo', 'variations', 'service_discount', 'category.category_discount'])
             ->whereIn('id', $pageIds)
             ->where(function ($query) {

@@ -9248,4 +9248,5 @@ _Message' => 'Customer notification for provider bid offer
   'Account ID' => 'Account ID',
   'Secret Access Key' => 'Secret Access Key',
   'Shown once when you create the R2 API token' => 'Shown once when you create the R2 API token',
+  'Campaigns' => 'Campaigns',
 );

@@ -76,8 +76,6 @@ class WithdrawController extends Controller
         }
 
         if($request['request_status'] == 'approved') {
-            withdrawRequestAcceptTransaction($withdraw_request['request_updated_by'], $withdraw_request['amount']);
-
             $withdraw_request->request_status = 'approved';
             $withdraw_request->request_updated_by = $request->user()->id;
             $withdraw_request->note = $request->note;
@@ -85,7 +83,7 @@ class WithdrawController extends Controller
             $withdraw_request->save();
 
         } else {
-            withdrawRequestDenyTransaction($withdraw_request['request_updated_by'], $withdraw_request['amount']);
+            withdrawRequestDenyTransaction($withdraw_request['user_id'], $withdraw_request['amount']);
 
             $withdraw_request->request_status = 'denied';
             $withdraw_request->request_updated_by = $request->user()->id;

@@ -27,11 +27,25 @@ class ProviderPaymentTabDataService
 
         $providerPayable = (float) ($provider->owner->account->account_payable ?? 0);
         $providerReceivable = (float) ($provider->owner->account->account_receivable ?? 0);
+        $withdrawableBalance = provider_withdrawable_balance($providerReceivable, $providerPayable);
+        $activeWithdrawTotal = provider_active_withdraw_request_total((string) $provider->user_id);
         $netPayableAmount = (float) $ctx['booking_settlement_net'];
         $companyPaysProvider = $netPayableAmount > 0.009;
         $providerPaysCompany = $netPayableAmount < -0.009;
-        $addPaymentFormMax = $companyPaysProvider ? max(0.0, $netPayableAmount) : 0.0;
         $collectFormMax = $providerPaysCompany ? min($providerPayable, max(0.0, -$netPayableAmount)) : 0.0;
+        $effectiveWithdrawable = provider_effective_withdrawable_balance(
+            (string) $provider->id,
+            (string) $provider->user_id,
+            $providerReceivable,
+            $providerPayable
+        );
+        $displayNetBalance = provider_net_balance_amount_after_active_withdraws(
+            $netPayableAmount,
+            $activeWithdrawTotal,
+            $companyPaysProvider
+        );
+        $requestMaxAmount = $effectiveWithdrawable;
+        $canRequestAmount = $effectiveWithdrawable > 0.009;
 
         $ppLedger = provider_payment_ledger_context([
             'collect_in_total' => (float) ($ctx['ledger_manual_totals']['collect_in_total'] ?? 0),
@@ -44,12 +58,14 @@ class ProviderPaymentTabDataService
 
         return [
             'net_balance' => [
-                'amount' => round(abs($netPayableAmount), 2),
+                'amount' => $displayNetBalance,
                 'direction' => $companyPaysProvider ? 'company_pays_provider' : ($providerPaysCompany ? 'provider_pays_company' : 'settled'),
-                'can_request_amount' => $companyPaysProvider && $addPaymentFormMax > 0.009,
-                'request_max_amount' => round($addPaymentFormMax, 2),
+                'can_request_amount' => $canRequestAmount,
+                'request_max_amount' => $requestMaxAmount,
                 'can_pay' => $providerPaysCompany && $collectFormMax > 0.009,
                 'pay_max_amount' => round($collectFormMax, 2),
+                'withdrawable_balance' => $withdrawableBalance,
+                'active_withdraw_total' => $activeWithdrawTotal,
             ],
             'total_revenue' => round((float) $ctx['total_revenue'], 2),
             'provider_net_earning' => round((float) $ctx['provider_net_earning'], 2),
@@ -75,6 +91,9 @@ class ProviderPaymentTabDataService
             'account' => [
                 'account_payable' => $providerPayable,
                 'account_receivable' => $providerReceivable,
+                'withdrawable_balance' => $withdrawableBalance,
+                'balance_pending' => (float) ($provider->owner->account->balance_pending ?? 0),
+                'active_withdraw_total' => $activeWithdrawTotal,
             ],
         ];
     }

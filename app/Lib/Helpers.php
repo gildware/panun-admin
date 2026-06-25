@@ -62,18 +62,24 @@ if (!function_exists('api_user')) {
 if (!function_exists('translate')) {
     function translate($key)
     {
+        static $langArrays = [];
+
         try {
             $local = app()->getLocale();
-            $lang_array = include(base_path('resources/lang/' . $local . '/lang.php'));
+            if (! isset($langArrays[$local])) {
+                $langArrays[$local] = include base_path('resources/lang/'.$local.'/lang.php');
+            }
+            $lang_array = &$langArrays[$local];
             $processed_key = ucfirst(str_replace('_', ' ', str_ireplace(['\'', '"', ';', '<', '>', '?'], ' ', $key)));
-            if (!array_key_exists($key, $lang_array)) {
+            if (! array_key_exists($key, $lang_array)) {
                 $lang_array[$key] = $processed_key;
-                $str = "<?php return " . var_export($lang_array, true) . ";";
-                file_put_contents(base_path('resources/lang/' . $local . '/lang.php'), $str);
+                $str = "<?php return ".var_export($lang_array, true).';';
+                file_put_contents(base_path('resources/lang/'.$local.'/lang.php'), $str);
                 $result = $processed_key;
             } else {
-                $result = __('lang.' . $key);
+                $result = $lang_array[$key];
             }
+
             return $result;
         } catch (\Exception $exception) {
             return $key;
@@ -1264,12 +1270,14 @@ if (!function_exists('resolve_media_storage_url')) {
      *
      * @param  string  $image  Filename or relative path (e.g. provider/logo/file.png)
      * @param  string  $basePath  Directory prefix when $image is only a filename
+     * @param  bool  $checkExistence  When false, build the URL from the configured disk without remote exists() checks (much faster for admin lists).
      */
     function resolve_media_storage_url(
         string $image,
         string $basePath = '',
         ?string $preferredStorage = null,
-        ?string $defaultPath = null
+        ?string $defaultPath = null,
+        bool $checkExistence = true
     ): ?string {
         $image = ltrim($image, '/');
         if ($image === '') {
@@ -1279,6 +1287,21 @@ if (!function_exists('resolve_media_storage_url')) {
         $baseKeys = str_contains($image, '/')
             ? [$image]
             : [rtrim($basePath, '/') . '/' . $image];
+
+        if (! $checkExistence) {
+            $logicalPath = $baseKeys[0];
+            $disk = $preferredStorage ?? (function_exists('getDisk') ? getDisk() : 'public');
+
+            if ($disk === 's3') {
+                return cloud_storage_public_url($logicalPath);
+            }
+
+            $storageKey = \App\Support\StoragePathPrefix::apply(
+                \App\Support\StoragePathPrefix::strip($logicalPath)
+            );
+
+            return public_storage_asset_url($storageKey);
+        }
 
         $candidates = [];
         foreach ($baseKeys as $baseKey) {
@@ -1295,8 +1318,6 @@ if (!function_exists('resolve_media_storage_url')) {
             's3',
         ])));
 
-        $r2PublicBase = \App\Support\CloudStorageConfigurator::publicBaseUrl();
-
         foreach ($candidates as $candidate) {
             if (in_array('public', $disks, true)) {
                 try {
@@ -1306,11 +1327,6 @@ if (!function_exists('resolve_media_storage_url')) {
                 } catch (\Throwable $e) {
                     //
                 }
-            }
-
-            // Avoid slow R2/S3 HEAD requests when a public URL is configured.
-            if ($r2PublicBase && in_array('s3', $disks, true)) {
-                return cloud_storage_public_url($candidate);
             }
 
             foreach ($disks as $disk) {
@@ -1340,7 +1356,13 @@ if (!function_exists('getSingleImageFullPath')) {
     function getSingleImageFullPath($imagePath, array|object|null $s3Storage = null, ?string $defaultPath = null, ?bool $page = null)
     {
         $preferred = ($s3Storage && ($s3Storage->storage_type ?? null) === 's3') ? 's3' : null;
-        $resolved = resolve_media_storage_url((string) $imagePath, '', $preferred, $defaultPath);
+        $resolved = resolve_media_storage_url(
+            (string) $imagePath,
+            '',
+            $preferred,
+            $defaultPath,
+            false
+        );
 
         if ($resolved !== null && ($defaultPath === null || $resolved !== $defaultPath)) {
             return $resolved;
@@ -1419,7 +1441,8 @@ if (!function_exists('getBusinessSettingsImageFullPath')) {
             $path.$image->live_values,
             '',
             $preferred,
-            $defaultPath ? asset($defaultPath) : null
+            $defaultPath ? asset($defaultPath) : null,
+            false
         );
 
         if ($resolved !== null) {

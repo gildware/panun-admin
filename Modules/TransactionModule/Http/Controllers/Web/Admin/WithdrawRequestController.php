@@ -172,8 +172,6 @@ class WithdrawRequestController extends Controller
             $withdrawRequest = $this->withdraw_request->find($collection['withdraw_id']);
 
             if ($collection['request_status'] == 'approved' && $withdrawRequest && $withdrawRequest->request_status == 'pending') {
-                withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
-
                 $withdrawRequest->request_status = 'approved';
                 $withdrawRequest->request_updated_by = $request->user()->id;
                 $withdrawRequest->admin_note = $collection['optional_note'];
@@ -181,14 +179,22 @@ class WithdrawRequestController extends Controller
                 $withdrawRequest->save();
             }
             elseif($collection['request_status'] == 'settled' && $withdrawRequest && $withdrawRequest->request_status == 'approved') {
+                $txnId = trim((string) ($collection['transaction_id'] ?? $collection['optional_note'] ?? ''));
+                if ($txnId === '') {
+                    continue;
+                }
+
+                settleWithdrawRequestPayout($withdrawRequest, $txnId);
+
                 $withdrawRequest->request_status = 'settled';
                 $withdrawRequest->request_updated_by = $request->user()->id;
-                $withdrawRequest->admin_note = $collection['optional_note'];
+                $withdrawRequest->admin_note = $collection['optional_note'] ?? null;
+                $withdrawRequest->transaction_id = $txnId;
                 $withdrawRequest->is_paid = 1;
                 $withdrawRequest->save();
             }
             elseif ($collection['request_status'] == 'denied' && $withdrawRequest && $withdrawRequest->request_status == 'pending') {
-                withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+                withdrawRequestDenyTransaction($withdrawRequest['user_id'], $withdrawRequest['amount']);
 
                 $withdrawRequest->request_status = 'denied';
                 $withdrawRequest->request_updated_by = $request->user()->id;
@@ -236,7 +242,6 @@ class WithdrawRequestController extends Controller
                 Toastr::error(translate(DEFAULT_400['message']));
                 return back();
             }
-            withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
 
             $withdrawRequest->request_status = 'approved';
             $withdrawRequest->request_updated_by = $request->user()->id;
@@ -264,6 +269,8 @@ class WithdrawRequestController extends Controller
                 return back();
             }
 
+            settleWithdrawRequestPayout($withdrawRequest, $request->transaction_id);
+
             $withdrawRequest->request_status = 'settled';
             $withdrawRequest->request_updated_by = $request->user()->id;
             $withdrawRequest->admin_note = $request->note;
@@ -276,7 +283,7 @@ class WithdrawRequestController extends Controller
                 Toastr::error(translate(DEFAULT_400['message']));
                 return back();
             }
-            withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+            withdrawRequestDenyTransaction($withdrawRequest['user_id'], $withdrawRequest['amount']);
 
             $withdrawRequest->request_status = 'denied';
             $withdrawRequest->request_updated_by = $request->user()->id;
@@ -327,8 +334,6 @@ class WithdrawRequestController extends Controller
         if ($request['status'] == 'approved') {
             foreach ($withdrawRequests as $withdrawRequest) {
                 if($withdrawRequest->request_status == 'pending') {
-                    withdrawRequestAcceptTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
-
                     $withdrawRequest->request_status = 'approved';
                     $withdrawRequest->request_updated_by = $request->user()->id;
                     $withdrawRequest->admin_note = $request->note;
@@ -340,7 +345,7 @@ class WithdrawRequestController extends Controller
         } else if ($request['status'] == 'denied') {
             foreach ($withdrawRequests as $withdrawRequest) {
                 if($withdrawRequest->request_status == 'pending') {
-                    withdrawRequestDenyTransaction($withdrawRequest['request_updated_by'], $withdrawRequest['amount']);
+                    withdrawRequestDenyTransaction($withdrawRequest['user_id'], $withdrawRequest['amount']);
 
                     $withdrawRequest->request_status = 'denied';
                     $withdrawRequest->request_updated_by = $request->user()->id;

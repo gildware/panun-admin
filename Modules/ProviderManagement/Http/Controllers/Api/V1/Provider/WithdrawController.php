@@ -81,35 +81,25 @@ class WithdrawController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $providerUser = $this->user->with(['account'])->find($request->user()->id);
+        $providerUser = $this->user->with(['account', 'provider'])->find($request->user()->id);
         $account = $providerUser->account;
-        $receivable = $account->account_receivable;
-        $payable = $account->account_payable;
+        $receivable = (float) $account->account_receivable;
+        $payable = (float) $account->account_payable;
         $providerInfo = $providerUser->provider;
+        $withdrawable = provider_effective_withdrawable_balance(
+            (string) $providerInfo->id,
+            (string) $request->user()->id,
+            $receivable,
+            $payable
+        );
 
-        if ($receivable > $payable && $payable != 0) {
+        if ($request['amount'] > $withdrawable) {
+            return response()->json(response_formatter(DEFAULT_400), 200);
+        }
 
-            $totalReceivable = $receivable - $payable ?? 0;
-
-            if ($request['amount'] > $totalReceivable) {
-                return response()->json(response_formatter(DEFAULT_400), 200);
-            }
-
-
-            if($providerInfo){
-                $providerInfo->is_suspended = 0;
-                $providerInfo->save();
-            }
-
-
-        } elseif ($receivable > $payable && $payable == 0) {
-
-            $totalReceivable = $receivable - $payable ?? 0;
-
-            if ($request['amount'] > $totalReceivable) {
-                return response()->json(response_formatter(DEFAULT_400), 200);
-            }
-
+        if ($payable > 0 && $receivable > $payable && $providerInfo) {
+            $providerInfo->is_suspended = 0;
+            $providerInfo->save();
         }
 
         //min max check
@@ -118,7 +108,7 @@ class WithdrawController extends Controller
             'maximum' => (float)(business_config('maximum_withdraw_amount', 'business_information'))->live_values ?? null,
         ];
 
-        if($account->account_receivable < $request['amount'] || $request['amount'] < $withdrawRequestAmount['minimum'] || $request['amount'] > $withdrawRequestAmount['maximum']) {
+        if ($withdrawable < $request['amount'] || $request['amount'] < $withdrawRequestAmount['minimum'] || $request['amount'] > $withdrawRequestAmount['maximum']) {
             return response()->json(response_formatter(DEFAULT_400), 200);
         }
 

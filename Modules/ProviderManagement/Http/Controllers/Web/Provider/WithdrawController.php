@@ -130,41 +130,27 @@ class WithdrawController extends Controller
             'note' => 'nullable|max:255'
         ]);
 
-        $provider_user = $this->user->with(['account'])->find($request->user()->id);
+        $provider_user = $this->user->with(['account', 'provider'])->find($request->user()->id);
         $account = $provider_user->account;
 
-        $receivable = $account->account_receivable;
-        $payable = $account->account_payable;
-
+        $receivable = (float) $account->account_receivable;
+        $payable = (float) $account->account_payable;
         $providerinfo = $provider_user->provider;
+        $withdrawable = provider_effective_withdrawable_balance(
+            (string) $providerinfo->id,
+            (string) $request->user()->id,
+            $receivable,
+            $payable
+        );
 
-        if ($receivable > $payable && $payable != 0) {
+        if ($request['amount'] > $withdrawable) {
+            Toastr::error(translate(DEFAULT_400['message']));
+            return back();
+        }
 
-            $totalReceivable = $receivable - $payable ?? 0;
-
-            if ($request['amount'] > $totalReceivable) {
-                Toastr::error(translate(DEFAULT_400['message']));
-                return back();
-            }
-
-            //Adjust
-            //$account->account_receivable -= $payable;
-
-            if($providerinfo){
-                $providerinfo->is_suspended = 0;
-                $providerinfo->save();
-            }
-
-
-        } elseif ($receivable > $payable && $payable == 0) {
-
-            $totalReceivable = $receivable - $payable ?? 0;
-
-            if ($request['amount'] > $totalReceivable) {
-                Toastr::error(translate(DEFAULT_400['message']));
-                return back();
-            }
-
+        if ($payable > 0 && $receivable > $payable && $providerinfo) {
+            $providerinfo->is_suspended = 0;
+            $providerinfo->save();
         }
 
         //min max check
@@ -173,7 +159,7 @@ class WithdrawController extends Controller
             'maximum' => (float)(business_config('maximum_withdraw_amount', 'business_information'))->live_values ?? null,
         ];
 
-        if($account->account_receivable < $request['amount'] || $request['amount'] < $withdrawRequestAmount['minimum'] || $request['amount'] > $withdrawRequestAmount['maximum']) {
+        if ($withdrawable < $request['amount'] || $request['amount'] < $withdrawRequestAmount['minimum'] || $request['amount'] > $withdrawRequestAmount['maximum']) {
             Toastr::error(translate(DEFAULT_400['message']));
             return back();
         }

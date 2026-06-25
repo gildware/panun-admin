@@ -4239,6 +4239,74 @@ if (!function_exists('provider_payment_ledger_context')) {
     }
 }
 
+if (!function_exists('provider_withdrawable_balance')) {
+    /**
+     * Amount the provider can still request to withdraw (account receivable minus payable).
+     * Pending/approved withdraw requests already reduce account_receivable when created.
+     */
+    function provider_withdrawable_balance(float $accountReceivable, float $accountPayable): float
+    {
+        if ($accountPayable > $accountReceivable) {
+            return 0.0;
+        }
+
+        return round(max(0.0, $accountReceivable - $accountPayable), 2);
+    }
+}
+
+if (!function_exists('provider_active_withdraw_request_total')) {
+    /** Sum of withdraw requests awaiting payout (pending admin action or transfer). */
+    function provider_active_withdraw_request_total(string $userId): float
+    {
+        return round((float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+            ->where('user_id', $userId)
+            ->whereIn('request_status', ['pending', 'approved'])
+            ->sum('amount'), 2);
+    }
+}
+
+if (!function_exists('provider_net_balance_amount_after_active_withdraws')) {
+    /**
+     * Net balance shown to the provider: booking settlement obligation minus pending/approved withdraws.
+     */
+    function provider_net_balance_amount_after_active_withdraws(
+        float $netPayableAmount,
+        float $activeWithdrawTotal,
+        bool $companyPaysProvider
+    ): float {
+        if ($companyPaysProvider) {
+            return max(0.0, round($netPayableAmount - $activeWithdrawTotal, 2));
+        }
+
+        return round(abs($netPayableAmount), 2);
+    }
+}
+
+if (!function_exists('provider_effective_withdrawable_balance')) {
+    /**
+     * Max amount a provider can request now (account balance capped by settlement net minus active withdraws).
+     */
+    function provider_effective_withdrawable_balance(
+        string $providerId,
+        string $userId,
+        float $accountReceivable,
+        float $accountPayable
+    ): float {
+        $fromAccount = provider_withdrawable_balance($accountReceivable, $accountPayable);
+        $activeWithdrawTotal = provider_active_withdraw_request_total($userId);
+        $settlement = booking_settlement_net_with_provider_ledger_for_provider_id($providerId);
+        $bookingNet = (float) ($settlement['settlement_net'] ?? 0);
+
+        if ($bookingNet <= 0.009) {
+            return $fromAccount;
+        }
+
+        $fromBooking = max(0.0, round($bookingNet - $activeWithdrawTotal, 2));
+
+        return round(min($fromAccount, $fromBooking), 2);
+    }
+}
+
 if (!function_exists('booking_settlement_net_with_provider_ledger_for_provider_id')) {
     /**
      * Booking-derived settlement net adjusted by this provider’s ledger: remaining company↔provider obligation

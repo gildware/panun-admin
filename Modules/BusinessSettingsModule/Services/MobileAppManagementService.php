@@ -1357,7 +1357,7 @@ class MobileAppManagementService
             return null;
         }
 
-        return resolve_media_storage_url($filename, 'mobile-app/');
+        return resolve_media_storage_url($filename, 'mobile-app/', null, null, false);
     }
 
     /**
@@ -1370,7 +1370,7 @@ class MobileAppManagementService
             return null;
         }
 
-        $url = resolve_media_storage_url($filename, 'mobile-app/');
+        $url = resolve_media_storage_url($filename, 'mobile-app/', null, null, false);
         if (!$url) {
             return null;
         }
