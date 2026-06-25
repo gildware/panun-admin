@@ -82,19 +82,31 @@ class WithdrawController extends Controller
         }
 
         $providerUser = $this->user->with(['account', 'provider'])->find($request->user()->id);
+        if (!$providerUser?->account || !$providerUser?->provider) {
+            return response()->json(
+                response_formatter(DEFAULT_404, null, [['message' => translate(DEFAULT_404['message'])]]),
+                404
+            );
+        }
+
         $account = $providerUser->account;
         $receivable = (float) $account->account_receivable;
         $payable = (float) $account->account_payable;
         $providerInfo = $providerUser->provider;
+        $amount = (float) $request['amount'];
         $withdrawable = provider_effective_withdrawable_balance(
             (string) $providerInfo->id,
             (string) $request->user()->id,
             $receivable,
             $payable
         );
+        $limits = provider_withdraw_amount_limits();
 
-        if ($request['amount'] > $withdrawable) {
-            return response()->json(response_formatter(DEFAULT_400), 200);
+        if ($amount > $withdrawable) {
+            return response()->json(
+                response_formatter(DEFAULT_400, null, [['message' => translate('insufficient_balance')]]),
+                400
+            );
         }
 
         if ($payable > 0 && $receivable > $payable && $providerInfo) {
@@ -102,19 +114,27 @@ class WithdrawController extends Controller
             $providerInfo->save();
         }
 
-        //min max check
-        $withdrawRequestAmount = [
-            'minimum' => (float)(business_config('minimum_withdraw_amount', 'business_information'))->live_values ?? null,
-            'maximum' => (float)(business_config('maximum_withdraw_amount', 'business_information'))->live_values ?? null,
-        ];
+        if ($amount < $limits['minimum']) {
+            return response()->json(
+                response_formatter(DEFAULT_400, null, [[
+                    'message' => translate('minimum_withdraw_amount') . ' ' . with_currency_symbol($limits['minimum']),
+                ]]),
+                400
+            );
+        }
 
-        if ($withdrawable < $request['amount'] || $request['amount'] < $withdrawRequestAmount['minimum'] || $request['amount'] > $withdrawRequestAmount['maximum']) {
-            return response()->json(response_formatter(DEFAULT_400), 200);
+        if ($limits['maximum'] !== null && $amount > $limits['maximum']) {
+            return response()->json(
+                response_formatter(DEFAULT_400, null, [[
+                    'message' => translate('maximum_withdraw_amount') . ' ' . with_currency_symbol($limits['maximum']),
+                ]]),
+                400
+            );
         }
 
 
-        DB::transaction(function () use ($account, $request, $payable) {
-            withdrawRequestTransaction($request->user()->id, $request['amount']);
+        DB::transaction(function () use ($account, $request, $payable, $amount) {
+            withdrawRequestTransaction($request->user()->id, $amount);
 
             //admin payment transaction
             if ($payable > 0){
@@ -128,7 +148,7 @@ class WithdrawController extends Controller
             $this->withdraw_request->create([
                 'user_id' => $request->user()->id,
                 'request_updated_by' => $request->user()->id,
-                'amount' => $request['amount'],
+                'amount' => $amount,
                 'request_status' => 'pending',
                 'is_paid' => 0,
                 'note' => $request['note'],

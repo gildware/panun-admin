@@ -27,23 +27,21 @@ class ProviderPaymentTabDataService
 
         $providerPayable = (float) ($provider->owner->account->account_payable ?? 0);
         $providerReceivable = (float) ($provider->owner->account->account_receivable ?? 0);
-        $withdrawableBalance = provider_withdrawable_balance($providerReceivable, $providerPayable);
-        $activeWithdrawTotal = provider_active_withdraw_request_total((string) $provider->user_id);
         $netPayableAmount = (float) $ctx['booking_settlement_net'];
-        $companyPaysProvider = $netPayableAmount > 0.009;
-        $providerPaysCompany = $netPayableAmount < -0.009;
-        $collectFormMax = $providerPaysCompany ? min($providerPayable, max(0.0, -$netPayableAmount)) : 0.0;
-        $effectiveWithdrawable = provider_effective_withdrawable_balance(
+        $netBalanceContext = provider_payment_net_balance_context(
             (string) $provider->id,
             (string) $provider->user_id,
+            $netPayableAmount,
             $providerReceivable,
             $providerPayable
         );
-        $displayNetBalance = provider_net_balance_amount_after_active_withdraws(
-            $netPayableAmount,
-            $activeWithdrawTotal,
-            $companyPaysProvider
-        );
+        $companyPaysProvider = $netBalanceContext['company_pays_provider'];
+        $providerPaysCompany = $netBalanceContext['provider_pays_company'];
+        $activeWithdrawTotal = $netBalanceContext['active_withdraw_total'];
+        $displayNetBalance = $netBalanceContext['display_amount'];
+        $withdrawableBalance = $netBalanceContext['withdrawable_balance'];
+        $effectiveWithdrawable = $netBalanceContext['effective_withdrawable'];
+        $collectFormMax = $providerPaysCompany ? min($providerPayable, max(0.0, -$netPayableAmount)) : 0.0;
         $requestMaxAmount = $effectiveWithdrawable;
         $canRequestAmount = $effectiveWithdrawable > 0.009;
 

@@ -4307,6 +4307,74 @@ if (!function_exists('provider_effective_withdrawable_balance')) {
     }
 }
 
+if (!function_exists('provider_payment_net_balance_context')) {
+    /**
+     * Shared net-balance figures for admin payment tab and provider app overview API.
+     *
+     * @return array{
+     *     booking_settlement_net: float,
+     *     company_pays_provider: bool,
+     *     provider_pays_company: bool,
+     *     active_withdraw_total: float,
+     *     display_amount: float,
+     *     withdrawable_balance: float,
+     *     effective_withdrawable: float
+     * }
+     */
+    function provider_payment_net_balance_context(
+        string $providerId,
+        string $userId,
+        float $bookingSettlementNet,
+        float $accountReceivable,
+        float $accountPayable
+    ): array {
+        $companyPaysProvider = $bookingSettlementNet > 0.009;
+        $providerPaysCompany = $bookingSettlementNet < -0.009;
+        $activeWithdrawTotal = provider_active_withdraw_request_total($userId);
+        $displayAmount = provider_net_balance_amount_after_active_withdraws(
+            $bookingSettlementNet,
+            $activeWithdrawTotal,
+            $companyPaysProvider
+        );
+
+        return [
+            'booking_settlement_net' => round($bookingSettlementNet, 2),
+            'company_pays_provider' => $companyPaysProvider,
+            'provider_pays_company' => $providerPaysCompany,
+            'active_withdraw_total' => $activeWithdrawTotal,
+            'display_amount' => $displayAmount,
+            'withdrawable_balance' => provider_withdrawable_balance($accountReceivable, $accountPayable),
+            'effective_withdrawable' => provider_effective_withdrawable_balance(
+                $providerId,
+                $userId,
+                $accountReceivable,
+                $accountPayable
+            ),
+        ];
+    }
+}
+
+if (!function_exists('provider_withdraw_amount_limits')) {
+    /**
+     * @return array{minimum: float, maximum: float|null}
+     */
+    function provider_withdraw_amount_limits(): array
+    {
+        $minConfig = business_config('minimum_withdraw_amount', 'business_information');
+        $maxConfig = business_config('maximum_withdraw_amount', 'business_information');
+
+        $minimum = ($minConfig && $minConfig->live_values !== null && $minConfig->live_values !== '')
+            ? (float) $minConfig->live_values
+            : 0.0;
+
+        $maximum = ($maxConfig && $maxConfig->live_values !== null && $maxConfig->live_values !== '')
+            ? (float) $maxConfig->live_values
+            : null;
+
+        return ['minimum' => $minimum, 'maximum' => $maximum];
+    }
+}
+
 if (!function_exists('booking_settlement_net_with_provider_ledger_for_provider_id')) {
     /**
      * Booking-derived settlement net adjusted by this provider’s ledger: remaining company↔provider obligation

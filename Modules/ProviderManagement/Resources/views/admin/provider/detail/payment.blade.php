@@ -117,8 +117,17 @@
                         $ledgerNetPayable = $providerReceivable - $providerPayable;
                         $bookingSettlementNet = (float) ($bookingSettlementNet ?? 0);
                         $netPayableAmount = $bookingSettlementNet;
-                        $companyPaysProvider = $netPayableAmount > 0.009;
-                        $providerPaysCompany = $netPayableAmount < -0.009;
+                        $paymentNetBalance = $paymentNetBalance ?? provider_payment_net_balance_context(
+                            (string) $provider->id,
+                            (string) $provider->user_id,
+                            $bookingSettlementNet,
+                            $providerReceivable,
+                            $providerPayable
+                        );
+                        $displayNetBalance = (float) ($paymentNetBalance['display_amount'] ?? abs($netPayableAmount));
+                        $activeWithdrawTotal = (float) ($paymentNetBalance['active_withdraw_total'] ?? 0);
+                        $companyPaysProvider = (bool) ($paymentNetBalance['company_pays_provider'] ?? ($netPayableAmount > 0.009));
+                        $providerPaysCompany = (bool) ($paymentNetBalance['provider_pays_company'] ?? ($netPayableAmount < -0.009));
                         $customerRefundDueTotal = (float) ($customerRefundDueTotal ?? 0);
                         $payoutCapWhenCompanyOwes = $companyPaysProvider
                             ? max($providerReceivable, max(0.0, $bookingSettlementNet))
@@ -150,7 +159,7 @@
                     <div class="row g-3 mb-30">
                         <div class="col-12 col-md-6 col-lg">
                             @php
-                                $netBalanceIsZero = abs($netPayableAmount) <= 0.009;
+                                $netBalanceIsZero = abs($displayNetBalance) <= 0.009;
                                 $netPayableInfoWarn = \Illuminate\Support\Facades\Gate::check('provider_update')
                                     && (($companyPaysProvider && $addPaymentModalMaxLedger <= 0.009) || ($providerPaysCompany && $collectFormMax <= 0.009));
                             @endphp
@@ -159,7 +168,13 @@
                                     <i class="material-icons" style="font-size:20px;">info_outline</i>
                                 </button>
                                 <h3 class="pe-4">{{ translate('Net_Balance') }}</h3>
-                                <h2 @class(['text-danger' => $companyPaysProvider && ! $netBalanceIsZero, 'text-success' => $providerPaysCompany && ! $netBalanceIsZero])>{{ with_currency_symbol(abs($netPayableAmount)) }}</h2>
+                                <h2 @class(['text-danger' => $companyPaysProvider && ! $netBalanceIsZero, 'text-success' => $providerPaysCompany && ! $netBalanceIsZero])>{{ with_currency_symbol(abs($displayNetBalance)) }}</h2>
+                                @if($activeWithdrawTotal > 0.009)
+                                    <p class="small mb-0 mt-1 text-muted">
+                                        {{ translate('Payment_widget_hint_pending_withdrawn') }}
+                                        {{ with_currency_symbol($activeWithdrawTotal) }}
+                                    </p>
+                                @endif
                                 @if($companyPaysProvider && ! $netBalanceIsZero)
                                     <p class="small mb-0 mt-1 text-danger">{{ translate('Company_has_to_pay_to_provider') }}</p>
                                 @elseif($providerPaysCompany && ! $netBalanceIsZero)
@@ -295,7 +310,12 @@
                             @if($customerRefundDueTotal > 0.009)
                                 <p class="mb-2">{{ translate('Customer_refunds_due_total') }}: {{ with_currency_symbol($customerRefundDueTotal) }}</p>
                             @endif
-                            <p class="mb-2">{{ translate('Net_Payable_booking_settlement_explanation') }}</p>
+                            @if($activeWithdrawTotal > 0.009)
+                                <p class="mb-2">{{ translate('Payment_widget_hint_pending_withdrawn') }} {{ with_currency_symbol($activeWithdrawTotal) }}</p>
+                                <p class="mb-2">{{ translate('Net_Payable_booking_settlement_explanation') }}: {{ with_currency_symbol(abs($netPayableAmount)) }}</p>
+                            @else
+                                <p class="mb-2">{{ translate('Net_Payable_booking_settlement_explanation') }}</p>
+                            @endif
                             @php
                                 $ledgerPayoutOut = (float) ($ppLedger['amount_paid_to_provider'] ?? 0);
                                 $ledgerCollectIn = (float) ($ppLedger['amount_collected_from_provider'] ?? 0);
