@@ -10,38 +10,54 @@
                     <div
                         class="page-title-wrap d-flex justify-content-between flex-wrap align-items-center gap-3 mb-3">
                         <h2 class="page-title">{{translate('withdraw_request_list')}}</h2>
+                        @if(!empty($filteredProvider))
+                            <span class="badge badge-primary text-capitalize">
+                                {{ $filteredProvider->company_name }}
+                            </span>
+                        @endif
                     </div>
+
+                    @if(!empty($filteredProvider))
+                        <div class="alert alert-info py-2 mb-3">
+                            {{ translate('Showing_withdraw_requests_for_provider') }}:
+                            <strong>{{ $filteredProvider->company_name }}</strong>
+                            <a href="{{ route('admin.withdraw.request.list', ['status' => $status]) }}" class="ms-2 text-decoration-underline">
+                                {{ translate('clear_filter') }}
+                            </a>
+                        </div>
+                    @endif
 
                     <div
                         class="d-flex flex-wrap justify-content-between align-items-center border-bottom mx-lg-4 mb-10 gap-3">
                         <ul class="nav nav--tabs">
+                            @php($tabQuery = $queryParam ?? [])
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='all'?'active':''}}"
-                                   href="{{url()->current()}}?status=all">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'all'])) }}">
                                     {{translate('All')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='pending'?'active':''}}"
-                                   href="{{url()->current()}}?status=pending">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'pending'])) }}">
                                     {{translate('Pending')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='approved'?'active':''}}"
-                                   href="{{url()->current()}}?status=approved">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'approved'])) }}">
                                     {{translate('Approved')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='denied'?'active':''}}"
-                                   href="{{url()->current()}}?status=denied">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'denied'])) }}">
                                     {{translate('Denied')}}
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {{$status=='settled'?'active':''}}"
-                                   href="{{url()->current()}}?status=settled">
+                                   href="{{ url()->current() }}?{{ http_build_query(array_merge($tabQuery, ['status' => 'settled'])) }}">
                                     {{translate('Settled')}}
                                 </a>
                             </li>
@@ -58,10 +74,13 @@
                             <div class="card">
                                 <div class="card-body">
                                     <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
-                                        <form action="{{url()->current()}}?status={{$status}}"
+                                        <form action="{{ url()->current() }}?{{ http_build_query(array_filter(['status' => $status, 'provider_id' => $providerId ?? null])) }}"
                                               class="search-form search-form_style-two"
                                               method="POST">
                                             @csrf
+                                            @if(!empty($providerId))
+                                                <input type="hidden" name="provider_id" value="{{ $providerId }}">
+                                            @endif
                                             <div class="input-group search-form__input_group">
                                             <span class="search-form__icon">
                                                 <span class="material-icons">search</span>
@@ -90,7 +109,7 @@
                                                     <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
                                                         <li>
                                                             <a class="dropdown-item"
-                                                               href="{{route('admin.withdraw.request.download', ['status'=>$status])}}">
+                                                               href="{{ route('admin.withdraw.request.download', array_filter(['status' => $status, 'provider_id' => $providerId ?? null, 'search' => $search ?: null])) }}">
                                                                 {{translate('excel')}}
                                                             </a>
                                                         </li>

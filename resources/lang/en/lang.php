@@ -9249,4 +9249,8 @@ _Message' => 'Customer notification for provider bid offer
   'Secret Access Key' => 'Secret Access Key',
   'Shown once when you create the R2 API token' => 'Shown once when you create the R2 API token',
   'Campaigns' => 'Campaigns',
+  'Withdrawal_requests' => 'Withdrawal requests',
+  'Withdraw_requests_awaiting_admin_review' => 'Withdraw requests awaiting admin review',
+  'Withdraw_requests_approved_awaiting_payout' => 'Withdraw requests approved awaiting payout',
+  'Withdraw_requests_settled_paid_out' => 'Withdraw requests settled paid out',
 );

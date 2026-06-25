@@ -126,6 +126,9 @@
                         );
                         $displayNetBalance = (float) ($paymentNetBalance['display_amount'] ?? abs($netPayableAmount));
                         $activeWithdrawTotal = (float) ($paymentNetBalance['active_withdraw_total'] ?? 0);
+                        $pendingWithdrawTotal = (float) ($paymentNetBalance['pending_withdraw_total'] ?? 0);
+                        $approvedWithdrawTotal = (float) ($paymentNetBalance['approved_withdraw_total'] ?? 0);
+                        $settledWithdrawTotal = (float) ($paymentNetBalance['settled_withdraw_total'] ?? 0);
                         $companyPaysProvider = (bool) ($paymentNetBalance['company_pays_provider'] ?? ($netPayableAmount > 0.009));
                         $providerPaysCompany = (bool) ($paymentNetBalance['provider_pays_company'] ?? ($netPayableAmount < -0.009));
                         $customerRefundDueTotal = (float) ($customerRefundDueTotal ?? 0);
@@ -169,12 +172,6 @@
                                 </button>
                                 <h3 class="pe-4">{{ translate('Net_Balance') }}</h3>
                                 <h2 @class(['text-danger' => $companyPaysProvider && ! $netBalanceIsZero, 'text-success' => $providerPaysCompany && ! $netBalanceIsZero])>{{ with_currency_symbol(abs($displayNetBalance)) }}</h2>
-                                @if($activeWithdrawTotal > 0.009)
-                                    <p class="small mb-0 mt-1 text-muted">
-                                        {{ translate('Payment_widget_hint_pending_withdrawn') }}
-                                        {{ with_currency_symbol($activeWithdrawTotal) }}
-                                    </p>
-                                @endif
                                 @if($companyPaysProvider && ! $netBalanceIsZero)
                                     <p class="small mb-0 mt-1 text-danger">{{ translate('Company_has_to_pay_to_provider') }}</p>
                                 @elseif($providerPaysCompany && ! $netBalanceIsZero)
@@ -244,6 +241,44 @@
                         </div>
                     </div>
 
+                    {{-- Withdraw summary --}}
+                    <div class="row g-3 mb-30">
+                        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <h4 class="mb-0">{{ translate('Withdraw_Requests') }}</h4>
+                                <button type="button" class="btn btn-link p-0 text-muted" data-pk-popover-src="pk-pop-body-withdraw-requests" data-pk-popover-title="{{ translate('Withdrawal_requests') }}" aria-label="{{ translate('Payment_widget_info_aria') }}">
+                                    <i class="material-icons" style="font-size:20px;">info_outline</i>
+                                </button>
+                            </div>
+                            @can('withdraw_view')
+                                <a href="{{ route('admin.withdraw.request.list', ['status' => 'all', 'provider_id' => $provider->id]) }}" class="btn btn-outline--primary btn-sm text-capitalize">
+                                    {{ translate('view_all') }}
+                                </a>
+                            @endcan
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-warning">
+                                <h3 class="pe-4">{{ translate('pending') }}</h3>
+                                <h2 class="text-warning mb-0">{{ with_currency_symbol($pendingWithdrawTotal) }}</h2>
+                                <p class="small mb-0 mt-2 text-body">{{ translate('Withdraw_requests_awaiting_admin_review') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-info">
+                                <h3 class="pe-4">{{ translate('approved') }}</h3>
+                                <h2 class="text-info mb-0">{{ with_currency_symbol($approvedWithdrawTotal) }}</h2>
+                                <p class="small mb-0 mt-2 text-body">{{ translate('Withdraw_requests_approved_awaiting_payout') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="statistics-card statistics-card__style2 h-100 pk-payment-widget-card border border-success">
+                                <h3 class="pe-4">{{ translate('settled') }}</h3>
+                                <h2 class="text-success mb-0">{{ with_currency_symbol($settledWithdrawTotal) }}</h2>
+                                <p class="small mb-0 mt-2 text-body">{{ translate('Withdraw_requests_settled_paid_out') }}</p>
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- Compensation summary --}}
                     <div class="row g-3 mb-30">
                         <div class="col-12">
@@ -298,6 +333,14 @@
                     </div>
 
                     {{-- Hidden HTML sources for widget popovers (Bootstrap reads innerHTML once at init) --}}
+                    <div id="pk-pop-body-withdraw-requests" class="d-none" aria-hidden="true">
+                        <div class="small text-body">
+                            <p class="mb-2">{{ translate('Payment_widget_hint_pending_withdrawn') }}</p>
+                            <p class="mb-2"><strong>{{ translate('pending') }}:</strong> {{ translate('Withdraw_requests_awaiting_admin_review') }}</p>
+                            <p class="mb-2"><strong>{{ translate('approved') }}:</strong> {{ translate('Withdraw_requests_approved_awaiting_payout') }}</p>
+                            <p class="mb-0"><strong>{{ translate('settled') }}:</strong> {{ translate('Withdraw_requests_settled_paid_out') }}</p>
+                        </div>
+                    </div>
                     <div id="pk-pop-body-net-payable" class="d-none" aria-hidden="true">
                         <div class="small text-body">
                             @if($companyPaysProvider)

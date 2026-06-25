@@ -4258,10 +4258,37 @@ if (!function_exists('provider_active_withdraw_request_total')) {
     /** Sum of withdraw requests awaiting payout (pending admin action or transfer). */
     function provider_active_withdraw_request_total(string $userId): float
     {
-        return round((float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+        $totals = provider_withdraw_request_totals_by_status($userId);
+
+        return $totals['active_total'];
+    }
+}
+
+if (!function_exists('provider_withdraw_request_totals_by_status')) {
+    /**
+     * @return array{pending_total: float, approved_total: float, settled_total: float, active_total: float}
+     */
+    function provider_withdraw_request_totals_by_status(string $userId): array
+    {
+        $pending = (float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
             ->where('user_id', $userId)
-            ->whereIn('request_status', ['pending', 'approved'])
-            ->sum('amount'), 2);
+            ->where('request_status', 'pending')
+            ->sum('amount');
+        $approved = (float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+            ->where('user_id', $userId)
+            ->where('request_status', 'approved')
+            ->sum('amount');
+        $settled = (float) \Modules\ProviderManagement\Entities\WithdrawRequest::query()
+            ->where('user_id', $userId)
+            ->where('request_status', 'settled')
+            ->sum('amount');
+
+        return [
+            'pending_total' => round($pending, 2),
+            'approved_total' => round($approved, 2),
+            'settled_total' => round($settled, 2),
+            'active_total' => round($pending + $approved, 2),
+        ];
     }
 }
 
@@ -4316,6 +4343,9 @@ if (!function_exists('provider_payment_net_balance_context')) {
      *     company_pays_provider: bool,
      *     provider_pays_company: bool,
      *     active_withdraw_total: float,
+     *     pending_withdraw_total: float,
+     *     approved_withdraw_total: float,
+     *     settled_withdraw_total: float,
      *     display_amount: float,
      *     withdrawable_balance: float,
      *     effective_withdrawable: float
@@ -4330,7 +4360,8 @@ if (!function_exists('provider_payment_net_balance_context')) {
     ): array {
         $companyPaysProvider = $bookingSettlementNet > 0.009;
         $providerPaysCompany = $bookingSettlementNet < -0.009;
-        $activeWithdrawTotal = provider_active_withdraw_request_total($userId);
+        $withdrawTotals = provider_withdraw_request_totals_by_status($userId);
+        $activeWithdrawTotal = $withdrawTotals['active_total'];
         $displayAmount = provider_net_balance_amount_after_active_withdraws(
             $bookingSettlementNet,
             $activeWithdrawTotal,
@@ -4342,6 +4373,9 @@ if (!function_exists('provider_payment_net_balance_context')) {
             'company_pays_provider' => $companyPaysProvider,
             'provider_pays_company' => $providerPaysCompany,
             'active_withdraw_total' => $activeWithdrawTotal,
+            'pending_withdraw_total' => $withdrawTotals['pending_total'],
+            'approved_withdraw_total' => $withdrawTotals['approved_total'],
+            'settled_withdraw_total' => $withdrawTotals['settled_total'],
             'display_amount' => $displayAmount,
             'withdrawable_balance' => provider_withdrawable_balance($accountReceivable, $accountPayable),
             'effective_withdrawable' => provider_effective_withdrawable_balance(

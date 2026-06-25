@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\WithdrawRequest;
 use Modules\TransactionModule\Entities\Account;
 use Modules\TransactionModule\Entities\Transaction;
@@ -51,30 +52,34 @@ class WithdrawRequestController extends Controller
         $this->authorize('withdraw_view');
         Validator::make($request->all(), [
             'status' => 'required|in:pending,approved,denied,settled,all',
-            'search' => 'max:255'
+            'search' => 'nullable|max:255',
+            'provider_id' => 'nullable|uuid',
         ])->validate();
 
-        $search = $request['search']??"";
-        $status = $request['status']??'all';
-        $queryParam = ['search' => $request['search'], 'status' => $status];
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $providerId = $request->input('provider_id');
+        $queryParam = $this->withdrawRequestListQueryParams($request, $status, $search, $providerId);
+        $filteredProvider = $providerId ? Provider::query()->find($providerId) : null;
 
-        $withdrawRequests = $this->withdraw_request
-            ->with(['provider.bank_detail'])
-            ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                return $query->where('request_status', $request->status);
-            })
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->whereHas('provider', function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->where('company_name', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
+        $withdrawRequests = $this->applyWithdrawRequestListFilters(
+            $this->withdraw_request->newQuery()->with(['provider.bank_detail']),
+            $request,
+            $status,
+            $search,
+            $providerId
+        )
             ->latest()
             ->paginate(pagination_limit())->appends($queryParam);
 
-        return View('transactionmodule::admin.withdraw.request.list', compact('withdrawRequests', 'status', 'search'));
+        return View('transactionmodule::admin.withdraw.request.list', compact(
+            'withdrawRequests',
+            'status',
+            'search',
+            'providerId',
+            'filteredProvider',
+            'queryParam'
+        ));
     }
 
     /**
@@ -86,23 +91,21 @@ class WithdrawRequestController extends Controller
         $this->authorize('withdraw_export');
         Validator::make($request->all(), [
             'status' => 'required|in:pending,approved,denied,settled,all',
+            'search' => 'nullable|max:255',
+            'provider_id' => 'nullable|uuid',
         ])->validate();
 
-        $withdrawRequests = $this->withdraw_request
-            ->with(['provider.bank_detail', 'withdraw_method'])
-            ->when($request->has('status') && $request['status'] != 'all', function ($query) use ($request) {
-                return $query->where('request_status', $request->status);
-            })
-            ->when($request->has('search'), function ($query) use ($request) {
-                $keys = explode(' ', $request['search']);
-                return $query->where(function ($query) use ($keys) {
-                    foreach ($keys as $key) {
-                        $query->orWhere('amount', 'LIKE', '%' . $key . '%')
-                            ->orWhere('note', 'LIKE', '%' . $key . '%')
-                            ->orWhere('request_status', 'LIKE', '%' . $key . '%');
-                    }
-                });
-            })
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $providerId = $request->input('provider_id');
+
+        $withdrawRequests = $this->applyWithdrawRequestListFilters(
+            $this->withdraw_request->newQuery()->with(['provider.bank_detail', 'withdraw_method']),
+            $request,
+            $status,
+            $search,
+            $providerId
+        )
             ->latest()
             ->get();
 
@@ -358,6 +361,54 @@ class WithdrawRequestController extends Controller
         }
 
         return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function withdrawRequestListQueryParams(Request $request, string $status, string $search, ?string $providerId): array
+    {
+        return array_filter([
+            'status' => $status,
+            'search' => $search !== '' ? $search : null,
+            'provider_id' => $providerId,
+        ], fn ($value) => $value !== null && $value !== '');
+    }
+
+    private function applyWithdrawRequestListFilters(
+        $query,
+        Request $request,
+        string $status,
+        string $search,
+        ?string $providerId
+    ) {
+        return $query
+            ->when($providerId, function ($providerQuery) use ($providerId) {
+                $providerQuery->whereHas('provider', function ($q) use ($providerId) {
+                    $q->where('id', $providerId);
+                });
+            })
+            ->when($status !== 'all', function ($statusQuery) use ($status) {
+                $statusQuery->where('request_status', $status);
+            })
+            ->when($search !== '', function ($searchQuery) use ($search, $providerId) {
+                $keys = array_values(array_filter(explode(' ', $search)));
+                if ($providerId) {
+                    $searchQuery->where(function ($q) use ($keys) {
+                        foreach ($keys as $key) {
+                            $q->orWhere('amount', 'LIKE', '%' . $key . '%')
+                                ->orWhere('note', 'LIKE', '%' . $key . '%')
+                                ->orWhere('request_status', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                } else {
+                    $searchQuery->whereHas('provider', function ($q) use ($keys) {
+                        foreach ($keys as $key) {
+                            $q->where('company_name', 'LIKE', '%' . $key . '%');
+                        }
+                    });
+                }
+            });
     }
 
 }
