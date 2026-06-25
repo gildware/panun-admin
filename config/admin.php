@@ -13,7 +13,7 @@ return [
     | Rollback: set ADMIN_TOP_NAV=false in .env and run php artisan config:clear
     |
     */
-    'top_nav' => env('ADMIN_TOP_NAV', false),
+    'top_nav' => env('ADMIN_TOP_NAV', true),
 
     /*
     |--------------------------------------------------------------------------
