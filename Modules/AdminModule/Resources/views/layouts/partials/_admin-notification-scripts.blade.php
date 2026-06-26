@@ -25,35 +25,15 @@
         function alertConfigForType(type) {
             switch (type) {
                 case 'booking':
-                    return {
-                        icon: 'info',
-                        confirmText: '{{ translate('Show_Bookings') }}',
-                        fallbackUrl: '{{ route('admin.booking.list', ['booking_status' => 'pending', 'type' => 'pending']) }}',
-                    };
+                    return { icon: 'info' };
                 case 'chat_message':
-                    return {
-                        icon: 'info',
-                        confirmText: '{{ translate('Open_Chat') }}',
-                        fallbackUrl: '{{ route('admin.chat.index', ['user_type' => 'customer']) }}',
-                    };
+                    return { icon: 'info' };
                 case 'provider_request':
-                    return {
-                        icon: 'info',
-                        confirmText: '{{ translate('View_Provider') }}',
-                        fallbackUrl: '{{ route('admin.provider.onboarding_request', ['status' => 'onboarding']) }}',
-                    };
+                    return { icon: 'info' };
                 case 'withdraw_request':
-                    return {
-                        icon: 'warning',
-                        confirmText: '{{ translate('View_Requests') }}',
-                        fallbackUrl: '{{ route('admin.withdraw.request.list', ['status' => 'pending']) }}',
-                    };
+                    return { icon: 'warning' };
                 default:
-                    return {
-                        icon: 'info',
-                        confirmText: '{{ translate('View') }}',
-                        fallbackUrl: '{{ route('admin.dashboard') }}',
-                    };
+                    return { icon: 'info' };
             }
         }
 
@@ -109,37 +89,33 @@
                     showCloseButton: true,
                     showCancelButton: false,
                     focusConfirm: false,
-                    confirmButtonText: cfg.confirmText,
+                    confirmButtonText: '{{ translate('View_Details') }}',
                 }).then(function (result) {
-                    if (result.value) {
-                        var url = alert.action_url || cfg.fallbackUrl;
-                        if (url) {
-                            window.location.href = url;
-                        }
+                    if (result.value && alert.id) {
+                        window.location.href = '{{ url('admin/notifications') }}/' + alert.id;
                     }
                 });
             });
         };
 
-        $(document).on('click', '.js-admin-notification-item', function (e) {
-            e.preventDefault();
-            var $item = $(this);
-            var notificationId = $item.data('notification-id');
-            var actionUrl = $item.data('action-url');
+        $(document).on('click', '.js-admin-notification-item', function () {
+            var dropdown = this.closest('.dropdown');
+            if (dropdown) {
+                var toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
+                if (toggle && typeof bootstrap !== 'undefined') {
+                    bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
+                }
+            }
+        });
 
-            $.ajax({
-                url: '{{ url('admin/notifications') }}/' + notificationId + '/read',
-                type: 'POST',
-                dataType: 'json',
-                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-                complete: function () {
-                    if (actionUrl) {
-                        window.location.href = actionUrl;
-                    } else if (typeof window.pkAdminRefreshWhatsAppUnread === 'function') {
-                        window.pkAdminRefreshWhatsAppUnread({ skipSound: true });
-                    }
-                },
-            });
+        $(document).on('click', '.js-view-all-notifications', function () {
+            var dropdown = this.closest('.dropdown');
+            if (dropdown) {
+                var toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
+                if (toggle && typeof bootstrap !== 'undefined') {
+                    bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
+                }
+            }
         });
 
         $(document).on('click', '.js-mark-all-notifications-read', function (e) {

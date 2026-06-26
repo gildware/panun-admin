@@ -9,7 +9,10 @@ class BookingIgnore extends Model
 {
     use HasFactory;
 
-    protected $fillable = [];
+    protected $fillable = [
+        'booking_id',
+        'provider_id',
+    ];
     
     protected static function newFactory()
     {

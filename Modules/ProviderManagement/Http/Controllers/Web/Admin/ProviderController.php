@@ -3508,6 +3508,8 @@ class ProviderController extends Controller
             'provider_id' => $providerId,
             'serviceman_id' => null,
             'booking_status' => 'accepted',
+            'provider_cancelled_at' => null,
+            'provider_cancelled_by_provider_id' => null,
         ]);
 
         $this->bookingStatusHistory->create([

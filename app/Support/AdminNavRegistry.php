@@ -330,6 +330,7 @@ class AdminNavRegistry
                 'admin/booking/list', 'admin/booking/details*', 'admin/booking/repeat*', 'admin/booking/rebooking*',
                 'admin/booking/todays-followups*', 'admin/booking/success*',
             ], [], 'booking.requests'),
+            self::entry('operations', $group, translate('booking_management'), translate('Cancelled_by_provider'), route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']), ['admin/booking/list/cancelled-by-provider*'], [], 'booking.cancelled_by_provider'),
             self::entry('operations', $group, translate('booking_management'), translate('Special_scenario_bookings'), route('admin.booking.list.special_scenarios', ['scenario' => 'all']), ['admin/booking/list/special-scenarios*']),
             self::entry('operations', $group, translate('booking_management'), translate('Booking_Review'), route('admin.booking.reviews.list'), ['admin/booking/reviews/list*']),
             self::entry('operations', $group, null, translate('Talk_With_AI'), route('admin.business-ai.index'), ['admin/business-ai*']),

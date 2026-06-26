@@ -517,7 +517,7 @@ class AdminController extends Controller
 
             $notificationUnreadCount = $inboxNotificationService->unreadCount((string) $userId);
             $notificationReadCount = $inboxNotificationService->readCount((string) $userId);
-            $notifications = $inboxNotificationService->recent((string) $userId, 50);
+            $notifications = $inboxNotificationService->recent((string) $userId, 10);
             $notificationTemplate = view('adminmodule::admin.partials._notifications', [
                 'notifications' => $notifications,
                 'unreadCount' => $notificationUnreadCount,

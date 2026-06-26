@@ -4,6 +4,7 @@ $max_booking_amount = (business_config('max_booking_amount', 'booking_setup'))->
 $all_bookings_menu_count = $menuCounts['all_bookings'];
 $pending_booking_reviews_count = $menuCounts['pending_booking_reviews'];
 $special_scenarios_menu_count = $menuCounts['special_scenarios'];
+$cancelled_by_provider_menu_count = $menuCounts['cancelled_by_provider'];
 $pending_providers = $menuCounts['pending_providers'];
 $pending_showcase_items = $menuCounts['pending_showcase_items'];
 $pending_profile_changes = $menuCounts['pending_profile_changes'];
@@ -239,9 +240,17 @@ $logo = getBusinessSettingsImageFullPath(key: 'business_logo', settingType: 'bus
                         </li>
                         <li>
                             <a href="{{ route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']) }}"
-                               class="{{ (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') && ! request()->is('admin/booking/reviews/list') ? 'active-menu' : '' }}">
+                               class="{{ (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && ! request()->is('admin/booking/list/verification') && ! request()->is('admin/booking/list/offline-payment') && ! request()->is('admin/booking/list/special-scenarios') && ! request()->is('admin/booking/list/cancelled-by-provider') && ! request()->is('admin/booking/reviews/list') ? 'active-menu' : '' }}">
                                 <span class="link-title">{{ translate('Booking_Requests') }}
                                     <span class="count">{{ $all_bookings_menu_count }}</span>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']) }}"
+                               class="{{ request()->is('admin/booking/list/cancelled-by-provider') ? 'active-menu' : '' }}">
+                                <span class="link-title">{{ translate('Cancelled_by_provider') }}
+                                    <span class="count">{{ $cancelled_by_provider_menu_count }}</span>
                                 </span>
                             </a>
                         </li>

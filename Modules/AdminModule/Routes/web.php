@@ -16,6 +16,7 @@ use Modules\AdminModule\Http\Controllers\Web\Admin\SystemMaintenanceController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\SystemLogsController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminBusinessAiController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\AdminPinnedNavController;
+use Modules\AdminModule\Http\Controllers\Web\Admin\NotificationController;
 use Modules\AdminModule\Http\Controllers\Web\Admin\StaffPresenceController;
 
 
@@ -46,8 +47,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
     Route::get('profile-update', [AdminController::class, 'profileInfo'])->name('profile_update');
     Route::post('profile-update', [AdminController::class, 'updateProfile']);
     Route::get('get-updated-data', [AdminController::class, 'getUpdatedData'])->name('get_updated_data');
-    Route::post('notifications/{id}/read', [AdminController::class, 'markNotificationRead'])->name('notifications.read');
+    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/{id}', [NotificationController::class, 'show'])->name('notifications.show');
     Route::post('notifications/mark-all-read', [AdminController::class, 'markAllNotificationsRead'])->name('notifications.mark_all_read');
+    Route::post('notifications/mark-all-read-page', [NotificationController::class, 'markAllRead'])->name('notifications.mark_all_read_page');
+    Route::post('notifications/{id}/read', [AdminController::class, 'markNotificationRead'])->name('notifications.read');
 
     Route::group(['prefix' => 'staff-presence', 'as' => 'staff-presence.'], function () {
         Route::post('heartbeat', [StaffPresenceController::class, 'heartbeat'])->name('heartbeat');

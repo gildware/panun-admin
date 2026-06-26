@@ -27,6 +27,7 @@ final class AdminMenuCounts
                     ->whereNotNull('settlement_outcome')
                     ->where('settlement_outcome', '!=', '')
                     ->count(),
+                'cancelled_by_provider' => Booking::query()->cancelledByProvider()->count(),
                 'pending_providers' => Provider::ofApproval(2)->count(),
                 'pending_showcase_items' => ProviderShowcaseItem::where('is_approved', 2)->count(),
                 'pending_profile_changes' => ProviderChangeRequest::where('status', 2)->count(),

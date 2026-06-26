@@ -105,13 +105,28 @@ trait BookingScopes
     }
 
     /**
-     * Active bookings where the assigned provider withdrew (pending reassignment by admin).
+     * Active bookings awaiting admin reassignment after a provider withdrew.
+     * Must have no provider on the parent booking and a provider-withdrawal marker.
      */
     public function scopeCancelledByProvider($query): void
     {
         $table = $query->getModel()->getTable();
-        $query->whereNotNull($table . '.provider_cancelled_at')
-            ->whereNotIn($table . '.booking_status', ['canceled', 'cancelled', 'refunded', 'completed']);
+        $query->whereNull($table . '.provider_id')
+            ->whereIn($table . '.booking_status', ['pending', 'accepted'])
+            ->where(function ($q) use ($table) {
+                $q->whereNotNull($table . '.provider_cancelled_at')
+                    ->orWhereHas('status_histories', function ($historyQuery) {
+                        $historyQuery->whereNull('booking_repeat_id')
+                            ->whereNotNull('booking_provider_cancellation_reason_id');
+                    });
+            })
+            ->where(function ($q) {
+                $q->where('is_repeated', 0)
+                    ->orWhereDoesntHave('repeat', function ($repeatQuery) {
+                        $repeatQuery->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold'])
+                            ->whereNotNull('provider_id');
+                    });
+            });
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Modules\AdminModule\Services;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Modules\AdminModule\Entities\UserNotification;
@@ -96,6 +97,29 @@ class AdminInboxNotificationService
             ->latest()
             ->take($limit)
             ->get();
+    }
+
+    public function paginated(string $userId, ?string $filter = null, int $perPage = 20): LengthAwarePaginator
+    {
+        $query = UserNotification::query()
+            ->where('user_id', $userId)
+            ->latest();
+
+        if ($filter === 'unread') {
+            $query->whereNull('read_at');
+        } elseif ($filter === 'read') {
+            $query->whereNotNull('read_at');
+        }
+
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    public function findForUser(string $notificationId, string $userId): ?UserNotification
+    {
+        return UserNotification::query()
+            ->where('id', $notificationId)
+            ->where('user_id', $userId)
+            ->first();
     }
 
     public function unreadSince(string $userId, ?string $sinceId = null): Collection

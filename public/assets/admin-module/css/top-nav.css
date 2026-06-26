@@ -43,7 +43,8 @@ body.nav-top.open-aside-folded .main-area {
     flex-wrap: nowrap;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     position: relative;
-    z-index: 6;
+    /* Above .top-nav-bar (10) so utility dropdowns (notifications, profile) aren't covered by nav items */
+    z-index: 12;
     overflow: visible;
 }
 
@@ -96,7 +97,8 @@ body.nav-top.open-aside-folded .main-area {
     z-index: 1;
 }
 
-.top-utility-item.is-open {
+.top-utility-item.is-open,
+.top-utility-item.show {
     z-index: 1050;
 }
 
@@ -194,9 +196,18 @@ body.nav-top.open-aside-folded .main-area {
     border-color: #fff;
 }
 
+.top-utility-item .dropdown-menu {
+    z-index: 1085;
+    box-shadow: 0 8px 24px rgba(37, 39, 77, 0.18);
+}
+
+.top-utility-item .dropdown-menu .show-notification-list + .border-top,
+.top-utility-item .dropdown-menu > .border-top {
+    background: var(--bs-white, #fff);
+}
+
 .top-utility-user-wrap .dropdown-menu {
     margin-top: 0.35rem;
-    z-index: 1060;
 }
 
 .top-utility-presence .staff-presence-menu {

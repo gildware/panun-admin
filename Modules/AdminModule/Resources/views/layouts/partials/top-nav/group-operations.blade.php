@@ -131,8 +131,14 @@
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.booking.list', ['booking_status' => 'all', 'service_type' => 'all']),
                     'label' => translate('Booking_Requests'),
-                    'active' => (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && !request()->is('admin/booking/list/verification') && !request()->is('admin/booking/list/offline-payment') && !request()->is('admin/booking/list/special-scenarios') && !request()->is('admin/booking/reviews/list'),
+                    'active' => (request()->is('admin/booking/list') || request()->is('admin/booking/details*') || request()->is('admin/booking/repeat*') || request()->is('admin/booking/rebooking*') || request()->is('admin/booking/todays-followups*') || request()->is('admin/booking/success*')) && !request()->is('admin/booking/list/verification') && !request()->is('admin/booking/list/offline-payment') && !request()->is('admin/booking/list/special-scenarios') && !request()->is('admin/booking/list/cancelled-by-provider') && !request()->is('admin/booking/reviews/list'),
                     'count' => $all_bookings_menu_count,
+                ])
+                @include('adminmodule::layouts.partials.top-nav._link', [
+                    'href' => route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']),
+                    'label' => translate('Cancelled_by_provider'),
+                    'active' => request()->is('admin/booking/list/cancelled-by-provider'),
+                    'count' => $menuCounts['cancelled_by_provider'] ?? 0,
                 ])
                 @include('adminmodule::layouts.partials.top-nav._link', [
                     'href' => route('admin.booking.list.special_scenarios', ['scenario' => 'all']),

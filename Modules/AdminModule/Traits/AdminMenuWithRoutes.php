@@ -47,6 +47,16 @@ trait AdminMenuWithRoutes
                 "sorting" => 3,
             ],
             [
+                'route_name' => 'Cancelled_by_provider',
+                'uri' => 'admin/booking/list/cancelled-by-provider?service_type=all',
+                'full_route' => url('admin/booking/list/cancelled-by-provider?service_type=all'),
+                'page_title' => 'Cancelled_by_provider',
+                'keywords' => 'Bookings, provider cancelled, provider withdrew, reassignment',
+                'type' => 'menu',
+                'module' => 'bookings',
+                'sorting' => 3.4,
+            ],
+            [
                 'route_name' => 'Special_scenario_bookings',
                 'uri' => 'admin/booking/list/special-scenarios?scenario=all',
                 'full_route' => url('admin/booking/list/special-scenarios?scenario=all'),

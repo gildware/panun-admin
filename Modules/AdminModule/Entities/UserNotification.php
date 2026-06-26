@@ -40,4 +40,26 @@ class UserNotification extends Model
     {
         return $this->read_at === null;
     }
+
+    public function iconName(): string
+    {
+        return match ($this->type) {
+            self::TYPE_BOOKING => 'event_available',
+            self::TYPE_CHAT_MESSAGE => 'chat',
+            self::TYPE_PROVIDER_REQUEST => 'person_add',
+            self::TYPE_WITHDRAW_REQUEST => 'payments',
+            default => 'notifications',
+        };
+    }
+
+    public function typeLabel(): string
+    {
+        return match ($this->type) {
+            self::TYPE_BOOKING => translate('Booking'),
+            self::TYPE_CHAT_MESSAGE => translate('Message'),
+            self::TYPE_PROVIDER_REQUEST => translate('Provider_Request'),
+            self::TYPE_WITHDRAW_REQUEST => translate('Withdraw_Request'),
+            default => translate('Notification'),
+        };
+    }
 }

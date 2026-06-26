@@ -27,33 +27,12 @@
     </div>
 @else
     @foreach($notifications as $notification)
-        @php
-            $to_time = strtotime($notification->created_at);
-            $from_time = strtotime(now());
-            $diff = round(abs($to_time - $from_time) / 60, 2);
-            $time = $diff . ' ' . translate('min');
-            if ($diff > 60) {
-                $diff = round($diff / 60);
-                $time = $diff . ' ' . translate('hr');
-                if ($diff > 24) {
-                    $diff = round($diff / 24);
-                    $time = $diff . ' ' . translate('day');
-                }
-            }
-            $icon = match ($notification->type) {
-                'booking' => 'event_available',
-                'chat_message' => 'chat',
-                'provider_request' => 'person_add',
-                'withdraw_request' => 'payments',
-                default => 'notifications',
-            };
-        @endphp
-        <a href="{{ $notification->action_url ?? '#' }}"
+        <a href="{{ route('admin.notifications.show', $notification->id) }}"
            class="dropdown-item-text media gap-3 js-admin-notification-item {{ $notification->isUnread() ? 'bg-light' : '' }}"
            data-notification-id="{{ $notification->id }}"
-           data-action-url="{{ $notification->action_url ?? '' }}">
+           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
             <div class="avatar title-color hover-color-c2 flex-shrink-0">
-                <span class="material-symbols-outlined">{{ $icon }}</span>
+                <span class="material-symbols-outlined">{{ $notification->iconName() }}</span>
             </div>
             <div class="media-body">
                 <h5 class="card-title mb-1 {{ $notification->isUnread() ? 'fw-bold' : '' }}">
@@ -65,7 +44,7 @@
                 @if($notification->body)
                     <p class="card-text fz-14 mb-1">{{ Str::limit($notification->body, 120) }}</p>
                 @endif
-                <span class="card-text fz-12 text-opacity-75">{{ $time }} {{ translate('ago') }}</span>
+                @include('adminmodule::admin.partials._notification-time', ['notification' => $notification])
             </div>
         </a>
         <div class="dropdown-divider mb-0"></div>

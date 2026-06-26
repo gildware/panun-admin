@@ -912,6 +912,8 @@ class BookingController extends Controller
 
             $booking->provider_id = $request->user()->provider->id;
             $booking->booking_status = 'accepted';
+            $booking->provider_cancelled_at = null;
+            $booking->provider_cancelled_by_provider_id = null;
 
             $bookingStatusHistory = $this->bookingStatusHistory;
             $bookingStatusHistory->booking_id = $bookingId;

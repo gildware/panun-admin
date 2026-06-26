@@ -211,6 +211,11 @@ class BookingController extends Controller
     public function index(Request $request): Renderable
     {
         $this->authorize('booking_view');
+
+        if ($request->routeIs('admin.booking.list') && ($request->input('booking_status') ?: '') === 'cancelled_by_provider') {
+            return redirect()->route('admin.booking.list.cancelled_by_provider', $request->except(['booking_status']));
+        }
+
         $allowedBookingStatuses = array_merge(array_column(BOOKING_STATUSES, 'key'), [
             'all',
             'reopened',
@@ -311,7 +316,11 @@ class BookingController extends Controller
             ->filterByCategoryIds($request['category_ids'])
             ->filterByDateRange($request['start_date'], $request['end_date'])
             ->filterByAssigneeIds($queryParams['assignee_ids'])
-            ->latest()
+            ->when($bookingStatus === 'cancelled_by_provider', function ($query) {
+                $query->orderByDesc('provider_cancelled_at')->orderByDesc('updated_at');
+            }, function ($query) {
+                $query->latest();
+            })
             ->paginate(pagination_limit())
             ->appends($queryParams);
 
@@ -350,6 +359,20 @@ class BookingController extends Controller
         $bookingTabCounts = $this->adminBookingListStatusTabCounts();
 
         return view('bookingmodule::admin.booking.list', compact('bookings', 'zones', 'categories', 'subCategories', 'assigneeUsers', 'queryParams', 'filterCounter', 'bookingTabCounts'));
+    }
+
+    /**
+     * Bookings where a provider withdrew after accepting (awaiting admin reassignment).
+     */
+    public function cancelledByProviderList(Request $request): Renderable
+    {
+        $request->merge([
+            'booking_status' => 'cancelled_by_provider',
+            'service_type' => $request->input('service_type', 'all'),
+            'provider_assigned' => 'unassigned',
+        ]);
+
+        return $this->index($request);
     }
 
     /**
@@ -449,7 +472,6 @@ class BookingController extends Controller
             'loss_making_pending' => $this->booking->newQuery()->lossMakingPending()->count(),
             'loss_recovered' => $this->booking->newQuery()->lossRecovered()->count(),
             'loss_settled' => $this->booking->newQuery()->lossSettled()->count(),
-            'cancelled_by_provider' => $this->booking->newQuery()->cancelledByProvider()->count(),
         ];
     }
 
@@ -4484,7 +4506,7 @@ class BookingController extends Controller
             $booking->provider_cancelled_at = null;
             $booking->provider_cancelled_by_provider_id = null;
 
-            if ($booking->isDirty('provider_id')) {
+            if ($booking->isDirty('provider_id') || $booking->isDirty('provider_cancelled_at')) {
                 $booking->booking_status = 'accepted';
                 $booking->serviceman_id = null;
                 $booking->assigned_by = 'admin';

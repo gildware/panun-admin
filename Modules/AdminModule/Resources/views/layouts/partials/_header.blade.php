@@ -190,6 +190,13 @@
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-right p-0" style="min-width:22rem;max-width:26rem;">
                                     <div class="show-notification-list" id="show-notification-list" style="max-height:24rem;overflow-y:auto;"></div>
+                                    <div class="border-top py-2 px-3 text-center bg-white">
+                                        <a href="{{ route('admin.notifications.index') }}"
+                                           class="btn btn-sm btn-link text-decoration-none fw-semibold js-view-all-notifications"
+                                           @if(admin_uses_partial_nav()) data-turbo-frame="admin-main" data-turbo-action="advance" @endif>
+                                            {{ translate('view_all') }}
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </li>

@@ -20,6 +20,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('whatsapp-automation-prompt/skip-row', [BookingWhatsAppAdminPromptController::class, 'skipRow'])->name('whatsapp_automation_prompt.skip_row');
         Route::get('success/{id}', [BookingController::class, 'success'])->name('success');
         Route::any('list/special-scenarios', [BookingController::class, 'specialScenarioBookings'])->name('list.special_scenarios');
+        Route::any('list/cancelled-by-provider', [BookingController::class, 'cancelledByProviderList'])->name('list.cancelled_by_provider');
         Route::any('reviews/list', [BookingReviewController::class, 'index'])->name('reviews.list');
         Route::any('list', [BookingController::class, 'index'])->name('list');
         Route::any('list/verification', [BookingController::class, 'bookingVerificationList'])->name('list.verification');

@@ -52,6 +52,7 @@ class AdminModuleServiceProvider extends ServiceProvider
                 'all_bookings_menu_count' => $menuCounts['all_bookings'],
                 'pending_booking_reviews_count' => $menuCounts['pending_booking_reviews'],
                 'special_scenarios_menu_count' => $menuCounts['special_scenarios'],
+                'cancelled_by_provider_menu_count' => $menuCounts['cancelled_by_provider'],
                 'pending_providers' => $menuCounts['pending_providers'],
                 'pending_showcase_items' => $menuCounts['pending_showcase_items'],
                 'pending_profile_changes' => $menuCounts['pending_profile_changes'],

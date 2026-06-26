@@ -3,6 +3,7 @@
 namespace Modules\BookingModule\Services;
 
 use Illuminate\Support\Facades\DB;
+use App\Support\AdminMenuCounts;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingIgnore;
 use Modules\BookingModule\Entities\BookingRepeat;
@@ -43,6 +44,8 @@ class ProviderBookingWithdrawalService
             );
 
             $this->notifyCustomerProviderWithdrew($booking);
+
+            AdminMenuCounts::forget();
 
             return $booking->fresh();
         });
@@ -86,6 +89,8 @@ class ProviderBookingWithdrawalService
             if ($parent) {
                 $this->notifyCustomerProviderWithdrew($parent->fresh());
             }
+
+            AdminMenuCounts::forget();
 
             return $repeat;
         });

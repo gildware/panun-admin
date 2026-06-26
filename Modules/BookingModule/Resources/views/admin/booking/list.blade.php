@@ -3,12 +3,23 @@
 @section('title', translate('Booking_List'))
 
 @section('content')
+    @php
+        $isCancelledByProviderList = request()->routeIs('admin.booking.list.cancelled_by_provider');
+        $bookingListFilterAction = $isCancelledByProviderList
+            ? route('admin.booking.list.cancelled_by_provider', ['service_type' => $queryParams['service_type'] ?? 'all'])
+            : route('admin.booking.list', [
+                'booking_status' => $queryParams['booking_status'],
+                'service_type' => $queryParams['service_type'],
+                'booking_type' => $queryParams['booking_type'],
+                'provider_assigned' => $queryParams['provider_assigned'],
+            ]);
+    @endphp
     <div class="filter-aside">
         <div class="filter-aside__header d-flex justify-content-between align-items-center">
             <h3 class="filter-aside__title">{{ translate('Filter_your_Booking') }}</h3>
             <button type="button" class="btn-close p-2 btn-close-white"></button>
         </div>
-        <form action="{{ route('admin.booking.list', ['booking_status' => $queryParams['booking_status'], 'service_type' => $queryParams['service_type'], 'booking_type' => $queryParams['booking_type'], 'provider_assigned' => $queryParams['provider_assigned']]) }}" method="POST"
+        <form action="{{ $bookingListFilterAction }}" method="POST"
             enctype="multipart/form-data" id="filter-form">
             @csrf
             <div class="filter-aside__body d-flex flex-column">
@@ -119,7 +130,7 @@
                             <h2 class="page-title">{{ translate('On_hold_bookings') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'disputed_cancelled')
                             <h2 class="page-title">{{ translate('Disputed_and_Cancelled') }}</h2>
-                        @elseif(($queryParams['booking_status'] ?? '') === 'cancelled_by_provider')
+                        @elseif($isCancelledByProviderList)
                             <h2 class="page-title">{{ translate('Cancelled_by_provider') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'disputed_completed')
                             <h2 class="page-title">{{ translate('Disputed_and_Completed') }}</h2>
@@ -142,12 +153,16 @@
                             <span class="title-color">{{ $bookings->total() }}</span>
                         </div>
                     </div>
+                    @if($isCancelledByProviderList)
+                        <p class="text-muted mb-3">{{ translate('Cancelled_by_provider_list_help') }}</p>
+                    @endif
                     @php
                         $bookingListTabStatus = $queryParams['booking_status'] ?? 'all';
                         if ($bookingListTabStatus === '') {
                             $bookingListTabStatus = 'all';
                         }
                     @endphp
+                    @unless($isCancelledByProviderList)
                     <div class="mt-30 mb-30">
                         <ul class="nav nav--tabs nav--tabs__style2 nav--tabs__booking-tally flex-wrap gap-2">
                             <li class="nav-item">
@@ -176,13 +191,6 @@
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'canceled'])) }}">
                                     {{ translate('Cancelled') }}
                                     <span class="count">{{ $bookingTabCounts['canceled'] }}</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link {{ $bookingListTabStatus === 'cancelled_by_provider' ? 'active' : '' }}"
-                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'cancelled_by_provider'])) }}">
-                                    {{ translate('Cancelled_by_provider') }}
-                                    <span class="count">{{ $bookingTabCounts['cancelled_by_provider'] ?? 0 }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
@@ -278,13 +286,14 @@
                             </li>
                         </ul>
                     </div>
+                    @endunless
 
                     <div class="card">
                         <div class="card-body">
                             <div class="data-table-top d-flex flex-wrap gap-10 justify-content-between">
 
                                 <form
-                                    action="{{ url()->current() }}?booking_status={{ $queryParams['booking_status'] }}&service_type={{ $queryParams['service_type'] }}"
+                                    action="{{ $isCancelledByProviderList ? route('admin.booking.list.cancelled_by_provider', ['service_type' => $queryParams['service_type'] ?? 'all']) : url()->current() . '?booking_status=' . ($queryParams['booking_status'] ?? 'all') . '&service_type=' . ($queryParams['service_type'] ?? 'all') }}"
                                     class="search-form search-form_style-two" method="POST">
                                     @csrf
                                     <div class="input-group search-form__input_group">
@@ -299,7 +308,7 @@
                                         class="btn btn--primary">{{ translate('search') }}</button>
                                 </form>
                                 <div class="d-flex flex-wrap align-items-center gap-3">
-                                    @if(request()->booking_status != 'ongoing' && request()->booking_status != 'on_hold' && request()->booking_status != 'accepted' && request()->booking_status != 'completed')
+                                    @if(!$isCancelledByProviderList && request()->booking_status != 'ongoing' && request()->booking_status != 'on_hold' && request()->booking_status != 'accepted' && request()->booking_status != 'completed')
                                         <div class="">
                                             <select class="custom-select form-select min-w-120" name="provider_assigned" id="providerAssigned">
                                                 <option value="all" {{ request('provider_assigned') == 'all' ? 'selected' : '' }}>{{ translate('All Booking') }}</option>
@@ -344,10 +353,13 @@
                                             <th>{{ translate('Provider_Info') }}</th>
                                             <th>{{ translate('Total_Amount') }}</th>
                                             <th>{{ translate('Payment_Status') }}</th>
+                                            @if($isCancelledByProviderList)
+                                                <th>{{ translate('Provider_withdrew_at') }}</th>
+                                            @endif
                                             @php $bookingListReasonTab = $queryParams['booking_status'] ?? ''; @endphp
                                             @if($bookingListReasonTab === 'canceled')
                                                 <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
-                                            @elseif($bookingListReasonTab === 'cancelled_by_provider')
+                                            @elseif($isCancelledByProviderList)
                                                 <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
                                             @elseif($bookingListReasonTab === 'on_hold')
                                                 <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
@@ -486,8 +498,8 @@
                                                             <a href="{{route('admin.provider.details',[$booking->provider_id, 'web_page'=>'overview'])}}">{{ $booking->provider->company_name }}</a>
                                                         </div>
                                                         <span class="text-light-gray">{{ $booking->provider->company_phone }}</span>
-                                                    @elseif($bookingListReasonTab === 'cancelled_by_provider' && $booking->providerCancelledByProvider)
-                                                        <div class="text-muted small mb-1">{{ translate('Cancelled_by_provider') }}</div>
+                                                    @elseif($isCancelledByProviderList && $booking->providerCancelledByProvider)
+                                                        <div class="text-muted small mb-1">{{ translate('Withdrawn_provider') }}</div>
                                                         <div>
                                                             <a href="{{route('admin.provider.details',[$booking->provider_cancelled_by_provider_id, 'web_page'=>'overview'])}}">{{ $booking->providerCancelledByProvider->company_name }}</a>
                                                         </div>
@@ -522,6 +534,15 @@
                                                         {{ $booking->is_paid ? translate('paid') : translate('unpaid') }}
                                                     </span>
                                                 </td>
+                                                @if($isCancelledByProviderList)
+                                                    <td class="small text-nowrap">
+                                                        @if($booking->provider_cancelled_at)
+                                                            {{ \Carbon\Carbon::parse($booking->provider_cancelled_at)->format('d-M-Y h:i A') }}
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                @endif
                                                 @if($bookingListReasonTab === 'canceled')
                                                     @php $__lc = $booking->latestParentCancellationStatusHistory; @endphp
                                                     <td class="small text-break">
@@ -536,7 +557,7 @@
                                                             —
                                                         @endif
                                                     </td>
-                                                @elseif($bookingListReasonTab === 'cancelled_by_provider')
+                                                @elseif($isCancelledByProviderList)
                                                     @php $__lpc = $booking->latestParentProviderCancellationStatusHistory; @endphp
                                                     <td class="small text-break">
                                                         @if($__lpc && ($__lpc->providerCancellationReason || filled($__lpc->status_change_remarks)))
@@ -707,6 +728,15 @@
                                                                 style="--size: 30px">
                                                                 <span class="material-icons">visibility</span>
                                                             </a>
+                                                            @if($isCancelledByProviderList && booking_admin_can_reassign_provider($booking))
+                                                                <a href="{{ route('admin.booking.details', [$booking->id, 'web_page' => 'details']) }}"
+                                                                   type="button"
+                                                                   class="action-btn tooltip-hide btn--primary fw-medium text-capitalize fz-14"
+                                                                   style="--size: 30px"
+                                                                   title="{{ translate('assign provider') }}">
+                                                                    <span class="material-icons">person_add</span>
+                                                                </a>
+                                                            @endif
                                                             <a href="{{ route('admin.booking.invoice', [$booking->id]) }}"
                                                                 type="button" target="_blank"
                                                                 class="action-btn tooltip-hide btn--light-primary fw-medium text-capitalize fz-14"
@@ -729,7 +759,13 @@
                                             </tr>
                                         @empty
                                             <tr class="text-center">
-                                                <td colspan="99">{{translate('no data available')}}</td>
+                                                <td colspan="99">
+                                                    @if($isCancelledByProviderList)
+                                                        {{ translate('Cancelled_by_provider_list_empty') }}
+                                                    @else
+                                                        {{ translate('no data available') }}
+                                                    @endif
+                                                </td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -806,7 +842,7 @@
             });
 
             $('#providerAssigned').change(function() {
-                var bookingStatus = '{{$queryParams['booking_status']}}';
+                var bookingStatus = '{{ $isCancelledByProviderList ? 'all' : ($queryParams['booking_status'] ?? 'all') }}';
                 var serviceType = 'all';
 
                 @if(isset($queryParams['search']))
@@ -815,16 +851,19 @@
 
                 var providerAssigned = $(this).val();
 
-                var baseUrl = '{{ route('admin.booking.list') }}';
+                var baseUrl = '{{ $isCancelledByProviderList ? route('admin.booking.list.cancelled_by_provider') : route('admin.booking.list') }}';
 
                 var params = new URLSearchParams({
                     provider_assigned: providerAssigned,
-                    booking_status: bookingStatus,
                     service_type: serviceType,
                     @if(isset($queryParams['search']))
                     search: search,
                     @endif
                 });
+
+                if (!{{ $isCancelledByProviderList ? 'true' : 'false' }}) {
+                    params.set('booking_status', bookingStatus);
+                }
 
                 var urlWithParams = baseUrl + '?' + params.toString();
                 window.location.href = urlWithParams;
@@ -868,9 +907,12 @@
             // });
 
             $('#reset-btn').on('click', function() {
+                @if($isCancelledByProviderList)
+                window.location.href = '{{ route('admin.booking.list.cancelled_by_provider', ['service_type' => 'all']) }}';
+                @else
                 let bookingStatus = '{{ $queryParams['booking_status'] ?? 'all' }}';
-
                 window.location.href = `{{ route('admin.booking.list') }}?booking_status=${bookingStatus}&service_type=all`;
+                @endif
             });
         });
     </script>
