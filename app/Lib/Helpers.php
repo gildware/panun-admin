@@ -102,6 +102,44 @@ if (!function_exists('api_user')) {
     }
 }
 
+if (!function_exists('format_relative_time_ago')) {
+    /**
+     * Human-readable relative time without decimals.
+     * e.g. "6 minutes ago", "1 hour 30 minutes ago", "2 days ago"
+     */
+    function format_relative_time_ago($datetime): string
+    {
+        $createdAt = $datetime instanceof Carbon ? $datetime : Carbon::parse($datetime);
+        $totalMinutes = (int) round(abs($createdAt->diffInMinutes(Carbon::now())));
+
+        if ($totalMinutes < 1) {
+            $totalMinutes = 1;
+        }
+
+        $totalDays = intdiv($totalMinutes, 1440);
+        $remainingMinutes = $totalMinutes % 1440;
+        $hours = intdiv($remainingMinutes, 60);
+        $minutes = $remainingMinutes % 60;
+
+        if ($totalDays > 0) {
+            $unit = translate($totalDays === 1 ? 'day' : 'days');
+
+            return $totalDays.' '.$unit.' '.translate('ago');
+        }
+
+        if ($hours > 0) {
+            $time = $hours.' '.translate('hours');
+            if ($minutes > 0) {
+                $time .= ' '.$minutes.' '.translate('minutes');
+            }
+
+            return $time.' '.translate('ago');
+        }
+
+        return $totalMinutes.' '.translate('minutes').' '.translate('ago');
+    }
+}
+
 if (!function_exists('translate')) {
     function translate($key)
     {
