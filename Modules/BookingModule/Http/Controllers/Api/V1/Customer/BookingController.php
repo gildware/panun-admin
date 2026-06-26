@@ -911,9 +911,27 @@ class BookingController extends Controller
 
         $booking = null;
         $booking_id = null;
+        $bookingIds = [];
+        $readableIds = [];
         if (isset($payment_info) && $payment_info->attribute_id != null) {
             $booking = Booking::where('readable_id', $payment_info->attribute_id)->first();
             $booking_id = $booking ? $booking->id : null;
+        }
+
+        $transactionBookings = Booking::query()
+            ->where('transaction_id', $payment_info->transaction_id)
+            ->orderBy('created_at')
+            ->get(['id', 'readable_id']);
+
+        if ($transactionBookings->isNotEmpty()) {
+            $bookingIds = $transactionBookings->pluck('id')->filter()->values()->all();
+            $readableIds = $transactionBookings->pluck('readable_id')->filter()->values()->all();
+            $booking_id = $booking_id ?? ($bookingIds[0] ?? null);
+        } elseif ($booking_id) {
+            $bookingIds = [$booking_id];
+            if (! empty($booking?->readable_id)) {
+                $readableIds = [$booking->readable_id];
+            }
         }
 
         $loginToken = null;
@@ -950,6 +968,8 @@ class BookingController extends Controller
 
         $response = [
             'booking_id' => $booking_id,
+            'booking_ids' => $bookingIds,
+            'readable_ids' => $readableIds,
             'booking_repeat_id' => $booking_repeat_id,
             'new_user_phone' => $new_user_phone,
             'login_token' => $loginToken,

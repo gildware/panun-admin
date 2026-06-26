@@ -5,6 +5,7 @@
         (int) @filemtime(public_path('assets/admin-module/css/style.css')),
         (int) @filemtime(public_path('assets/admin-module/css/dev.css')),
         (int) @filemtime(public_path('assets/admin-module/js/custom.js')),
+        (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $site_direction }}">
@@ -59,7 +60,10 @@
     @stack('css_or_js')
 </head>
 
-<body class="wa-social-inbox-fullscreen-body">
+<body class="wa-social-inbox-fullscreen-body"
+      data-admin-img-placeholder="{{ admin_nav_placeholder() }}"
+      data-admin-profile-placeholder="{{ admin_nav_placeholder('profile') }}"
+      data-admin-logo-placeholder="{{ admin_nav_placeholder('logo') }}">
 <script>
     localStorage.theme && document.querySelector('body').setAttribute("data-bs-theme", localStorage.theme);
 </script>
@@ -79,6 +83,7 @@
 <script src="{{ asset('assets/admin-module') }}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/main.js"></script>
 <script src="{{ asset('assets/admin-module') }}/js/custom.js?v={{ $adminAssetVersion }}"></script>
+<script src="{{ asset('assets/admin-module') }}/js/admin-image-fallback.js?v={{ $adminAssetVersion }}"></script>
 <script src="{{ asset('assets/admin-module') }}/js/helper.js"></script>
 <script src="{{ asset('assets/common') }}/js/common.js"></script>
 <script src="{{ asset('assets/common') }}/js/form-submit-once.js"></script>

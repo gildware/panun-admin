@@ -36,7 +36,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
 Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::post('/', [ProviderBookingController::class, 'index']);
-        Route::get('single/{id}', [ProviderBookingController::class, 'singleDetails']);
+        Route::get('single/{id}', [ProviderBookingController::class, 'singleDetails'])->whereUuid('id');
         Route::get('provider-cancellation-reasons', [ProviderBookingController::class, 'providerCancellationReasons']);
         Route::get('data/download', [ProviderBookingController::class, 'download']);
         Route::get('opt/notification-send', [ProviderBookingController::class, 'notificationSend']);
@@ -54,8 +54,8 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
         Route::put('repeat/service/edit/update-booking', [ProviderBookingController::class, 'updateBookingRepeat']);
         Route::put('service/edit/remove-service', [ProviderBookingController::class, 'removeService']);
         Route::post('change-service-location', [ProviderBookingController::class, 'changeServiceLocation']);
-        Route::get('{id}/invoice-url', [ProviderBookingController::class, 'invoiceUrl']);
-        Route::get('{id}', [ProviderBookingController::class, 'show']);
+        Route::get('{id}/invoice-url', [ProviderBookingController::class, 'invoiceUrl'])->whereUuid('id');
+        Route::get('{id}', [ProviderBookingController::class, 'show'])->whereUuid('id');
 
     });
 });
