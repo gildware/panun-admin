@@ -2,6 +2,7 @@
 
 namespace Modules\BookingModule\Http\Controllers\Web\Admin;
 
+use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,7 +59,9 @@ class BookingConfigurationController extends Controller
         }
         $modelClass::create($payload);
 
-        return back()->with('success', translate('Configuration_saved_successfully'));
+        Toastr::success(translate('Configuration_saved_successfully'));
+
+        return back();
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -81,7 +84,9 @@ class BookingConfigurationController extends Controller
             $item->is_active = (bool) $request->input('is_active');
             $item->save();
 
-            return back()->with('success', translate('Configuration_status_updated_successfully'));
+            Toastr::success(translate('Configuration_status_updated_successfully'));
+
+            return back();
         }
 
         $rules = [
@@ -102,7 +107,9 @@ class BookingConfigurationController extends Controller
         }
         $item->save();
 
-        return back()->with('success', translate('Configuration_updated_successfully'));
+        Toastr::success(translate('Configuration_updated_successfully'));
+
+        return back();
     }
 
     public function destroy(Request $request, int $id): RedirectResponse
@@ -117,7 +124,9 @@ class BookingConfigurationController extends Controller
         }
         $item->delete();
 
-        return back()->with('success', translate('Configuration_deleted_successfully'));
+        Toastr::success(translate('Configuration_deleted_successfully'));
+
+        return back();
     }
 
     /**

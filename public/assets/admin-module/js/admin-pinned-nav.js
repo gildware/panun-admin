@@ -80,6 +80,10 @@
         return button;
     }
 
+    function usesLightPinnedStyle(mount) {
+        return !!(mount && mount.closest('.top-group-subnav'));
+    }
+
     function renderPinnedBar() {
         var mount = getMount();
         if (!mount) {
@@ -88,6 +92,9 @@
 
         mount.innerHTML = '';
         var keys = getActiveKeys();
+        var lightStyle = usesLightPinnedStyle(mount);
+        var linkClass = lightStyle ? 'top-group-subnav-link' : 'top-sub-nav-link';
+        var emptyClass = lightStyle ? 'top-group-subnav-empty' : 'top-sub-nav-empty';
 
         keys.forEach(function (pinKey) {
             var item = findCatalogItem(pinKey);
@@ -100,7 +107,7 @@
 
             if (isEditing) {
                 var pill = document.createElement('div');
-                pill.className = 'top-sub-nav-link top-sub-nav-link--editable' + (isLinkActive(item) ? ' active-menu' : '');
+                pill.className = linkClass + ' top-sub-nav-link--editable' + (isLinkActive(item) ? ' active-menu' : '');
 
                 var link = document.createElement('a');
                 link.href = item.url;
@@ -125,7 +132,7 @@
             } else {
                 var link = document.createElement('a');
                 link.href = item.url;
-                link.className = 'top-sub-nav-link' + (isLinkActive(item) ? ' active-menu' : '');
+                link.className = linkClass + (isLinkActive(item) ? ' active-menu' : '');
                 link.textContent = item.label;
 
                 if (document.body.classList.contains('nav-top') && window.Turbo) {
@@ -148,7 +155,7 @@
 
         if (keys.length === 0) {
             var empty = document.createElement('span');
-            empty.className = 'top-sub-nav-empty';
+            empty.className = emptyClass;
             empty.textContent = mount.getAttribute('data-empty-hint') || 'Pin links from the menu using the pushpin icon';
             mount.appendChild(empty);
         }

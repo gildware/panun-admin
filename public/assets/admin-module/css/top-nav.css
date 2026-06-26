@@ -325,7 +325,7 @@ body.nav-top.open-aside-folded .main-area {
     overflow-x: auto;
     overflow-y: visible;
     position: relative;
-    z-index: 2;
+    z-index: 10;
     scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
 }
@@ -356,7 +356,7 @@ body.nav-top.open-aside-folded .main-area {
 }
 
 .top-nav-item.is-open {
-    z-index: 1050;
+    z-index: 1080;
 }
 
 .top-nav-trigger {
@@ -374,6 +374,13 @@ body.nav-top.open-aside-folded .main-area {
     white-space: nowrap;
     text-decoration: none;
     flex-shrink: 0;
+    transition: font-size 0.2s ease, background 0.15s ease, color 0.15s ease, transform 0.2s ease;
+    transform-origin: center center;
+}
+
+.top-nav-trigger:hover {
+    font-size: 0.875rem;
+    transform: scale(1.03);
 }
 
 .top-nav-trigger:hover,
@@ -405,7 +412,7 @@ body.nav-top.open-aside-folded .main-area {
     border: 1px solid var(--border-color, #E5E7EB);
     border-radius: 0.5rem;
     padding: 0.35rem;
-    z-index: 1050;
+    z-index: 1080;
     box-shadow: 0 8px 24px rgba(37, 39, 77, 0.12);
 }
 
@@ -421,6 +428,7 @@ body.nav-top.open-aside-folded .main-area {
 
 .top-nav-dropdown.is-positioned {
     position: fixed;
+    z-index: 1080;
 }
 
 .top-nav-dropdown a,
@@ -440,6 +448,15 @@ body.nav-top.open-aside-folded .main-area {
     background: transparent;
     text-align: left;
     cursor: pointer;
+    transition: font-size 0.2s ease, background 0.15s ease, color 0.15s ease, transform 0.2s ease;
+    transform-origin: left center;
+}
+
+.top-nav-dropdown a:hover,
+.top-nav-dropdown .top-nav-link-row:hover > a,
+.quick-action-row:hover {
+    font-size: 0.875rem;
+    transform: scale(1.02);
 }
 
 .top-nav-dropdown .top-nav-link-row {
@@ -599,7 +616,7 @@ body.admin-pins-editing .top-group-subnav .top-nav-pin-btn.is-pinned:focus-visib
     margin: 0.25rem 0.5rem;
 }
 
-/* Active group sub-menu row — between main menu and pinned bar */
+/* Active group sub-menu row — below pinned bar */
 .top-group-subnav {
     display: flex;
     align-items: center;
@@ -669,11 +686,15 @@ body.admin-pins-editing .top-group-subnav .top-nav-pin-btn.is-pinned:focus-visib
     background: #fff;
     border: 1px solid var(--border-color, #E5E7EB);
     white-space: nowrap;
+    transition: font-size 0.2s ease, border-color 0.15s ease, color 0.15s ease, transform 0.2s ease;
+    transform-origin: center center;
 }
 
 .top-group-subnav-link:hover {
     border-color: var(--bs-primary);
     color: var(--bs-primary);
+    font-size: 0.8125rem;
+    transform: scale(1.04);
 }
 
 .top-group-subnav-link.active-menu {
@@ -856,12 +877,16 @@ body.nav-top.admin-pins-editing .top-nav-pin-btn {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.12);
     flex-shrink: 0;
+    transition: font-size 0.2s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease, transform 0.2s ease;
+    transform-origin: center center;
 }
 
 .top-sub-nav-link:hover {
     border-color: rgba(255, 255, 255, 0.35);
     color: #fff;
     background: rgba(255, 255, 255, 0.16);
+    font-size: 0.8125rem;
+    transform: scale(1.04);
 }
 
 .top-sub-nav-link.active-menu {

@@ -11,11 +11,13 @@
         if (!dropdown) {
             return;
         }
+        dropdown.classList.remove('is-positioned');
         dropdown.style.position = '';
         dropdown.style.top = '';
         dropdown.style.left = '';
         dropdown.style.right = '';
         dropdown.style.minWidth = '';
+        dropdown.style.zIndex = '';
     }
 
     function positionDropdown(item) {
@@ -26,10 +28,11 @@
         }
 
         var rect = trigger.getBoundingClientRect();
+        dropdown.classList.add('is-positioned');
         dropdown.style.position = 'fixed';
         dropdown.style.top = (rect.bottom + 6) + 'px';
         dropdown.style.minWidth = '240px';
-        dropdown.style.zIndex = '1060';
+        dropdown.style.zIndex = '1080';
 
         if (dropdown.classList.contains('top-nav-dropdown--align-end')) {
             dropdown.style.left = 'auto';

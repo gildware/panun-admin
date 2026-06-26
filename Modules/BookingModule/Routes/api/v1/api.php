@@ -36,26 +36,26 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Api\V1\Admi
 Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V1\Provider', 'middleware' => ['auth:api']], function () {
     Route::group(['prefix' => 'booking', 'as' => 'booking.'], function () {
         Route::post('/', [ProviderBookingController::class, 'index']);
-        Route::get('{id}/invoice-url', [ProviderBookingController::class, 'invoiceUrl']);
-        Route::get('{id}', [ProviderBookingController::class, 'show']);
         Route::get('single/{id}', [ProviderBookingController::class, 'singleDetails']);
+        Route::get('provider-cancellation-reasons', [ProviderBookingController::class, 'providerCancellationReasons']);
+        Route::get('data/download', [ProviderBookingController::class, 'download']);
+        Route::get('opt/notification-send', [ProviderBookingController::class, 'notificationSend']);
+        Route::get('service/info', [ProviderBookingController::class, 'getServiceInfo']);
+        Route::get('calendar/view', [ProviderBookingController::class, 'bookingCalendar']);
         Route::put('request-accept/{booking_id}', [ProviderBookingController::class, 'requestAccept']);
         Route::post('request-ignore/{booking_id}', [ProviderBookingController::class, 'requestIgnore']);
         Route::post('single-repeat-cancel/{repeat_id}', [ProviderBookingController::class, 'singleBookingCancel']);
         Route::put('single-repeat-status-update/{repeat_id}', [ProviderBookingController::class, 'singleBookingStatusUpdate']);
-        Route::get('provider-cancellation-reasons', [ProviderBookingController::class, 'providerCancellationReasons']);
         Route::put('status-update/{booking_id}', [ProviderBookingController::class, 'statusUpdate']);
         Route::post('record-payment/{booking_id}', [ProviderBookingController::class, 'recordPayment']);
         Route::put('schedule-update/{booking_id}', [ProviderBookingController::class, 'scheduleUpdate']);
         Route::put('assign-serviceman/{booking_id}', [ProviderBookingController::class, 'assignServiceman']);
-        Route::get('data/download', [ProviderBookingController::class, 'download']);
-        Route::get('opt/notification-send', [ProviderBookingController::class, 'notificationSend']);
-        Route::get('service/info', [ProviderBookingController::class, 'getServiceInfo']);
         Route::put('service/edit/update-booking', [ProviderBookingController::class, 'updateBooking']);
         Route::put('repeat/service/edit/update-booking', [ProviderBookingController::class, 'updateBookingRepeat']);
         Route::put('service/edit/remove-service', [ProviderBookingController::class, 'removeService']);
         Route::post('change-service-location', [ProviderBookingController::class, 'changeServiceLocation']);
-        Route::get('calendar/view', [ProviderBookingController::class, 'bookingCalendar']);
+        Route::get('{id}/invoice-url', [ProviderBookingController::class, 'invoiceUrl']);
+        Route::get('{id}', [ProviderBookingController::class, 'show']);
 
     });
 });

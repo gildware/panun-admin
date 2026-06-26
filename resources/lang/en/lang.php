@@ -9311,4 +9311,5 @@ _Message' => 'Customer notification for provider bid offer
   'read' => 'Read',
   'No_notification_found' => 'No notification found',
   'View_Requests' => 'View Requests',
+  'Push Notification Settings' => 'Push Notification Settings',
 );

@@ -83,31 +83,35 @@ class LoginController extends Controller
         }
 
 
-        $user = $this->user->where(['phone' => $request['email_or_phone']])
-            ->orWhere('email', $request['email_or_phone'])
-            ->ofType(ADMIN_USER_TYPES)->first();
+        $user = $this->user->where(function ($query) use ($request) {
+            $query->where('phone', $request['email_or_phone'])
+                ->orWhere('email', $request['email_or_phone']);
+        })->ofType(ADMIN_USER_TYPES)->first();
 
         if (isset($user) && Hash::check($request['password'], $user['password'])) {
-            if ($user->is_active && $user->roles->count() > 0 && $user->roles[0]->is_active || $user->user_type == 'super-admin') {
+            $canLogin = $user->is_active
+                && ($user->user_type === 'super-admin'
+                    || ($user->roles->count() > 0 && $user->roles[0]->is_active));
+
+            if ($canLogin) {
                 $remember = $request->has('remember');
-                if (auth()->attempt(['email' => $request->email_or_phone, 'password' => $request->password], $remember)) {
-                    if ($remember) {
-                        cookie()->queue('remember_email', $request->email_or_phone, 43200);
-                        cookie()->queue('remember_password', $request->password, 43200);
-                        cookie()->queue('remember_checked', true, 43200);
-                        setcookie('admin_logged_in', 'true', time() + (86400 * 30), "/");
-                    } else {
-                        cookie()->queue(cookie()->forget('remember_email'));
-                        cookie()->queue(cookie()->forget('remember_password'));
-                        cookie()->queue(cookie()->forget('remember_checked'));
-                    }
-                    if (!adminSetupGuideWelcomeAcknowledged($user->id)) {
-                        session(['admin_show_setup_welcome' => true]);
-                    }
-                    app(StaffPresenceService::class)->markOnlineOnLogin(auth()->user());
-                    app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser(auth()->user());
-                    return redirect()->route('admin.dashboard');
+                auth()->login($user, $remember);
+                if ($remember) {
+                    cookie()->queue('remember_email', $request->email_or_phone, 43200);
+                    cookie()->queue('remember_password', $request->password, 43200);
+                    cookie()->queue('remember_checked', true, 43200);
+                    setcookie('admin_logged_in', 'true', time() + (86400 * 30), "/");
+                } else {
+                    cookie()->queue(cookie()->forget('remember_email'));
+                    cookie()->queue(cookie()->forget('remember_password'));
+                    cookie()->queue(cookie()->forget('remember_checked'));
                 }
+                if (!adminSetupGuideWelcomeAcknowledged($user->id)) {
+                    session(['admin_show_setup_welcome' => true]);
+                }
+                app(StaffPresenceService::class)->markOnlineOnLogin(auth()->user());
+                app(\Modules\ChattingModule\Services\StaffGroupChannelService::class)->ensureGroupForUser(auth()->user());
+                return redirect()->route('admin.dashboard');
             }
 
             Toastr::error(translate(ACCOUNT_DISABLED['message']));
@@ -160,8 +164,10 @@ class LoginController extends Controller
 
         $user = $this->user
             ->with(['provider'])
-            ->where(['phone' => $request['email_or_phone']])
-            ->orWhere('email', $request['email_or_phone'])
+            ->where(function ($query) use ($request) {
+                $query->where('phone', $request['email_or_phone'])
+                    ->orWhere('email', $request['email_or_phone']);
+            })
             ->ofType(PROVIDER_USER_TYPES)
             ->first();
 
@@ -237,21 +243,18 @@ class LoginController extends Controller
 
         $remember = $request->has('remember_me');
 
-        if (auth()->attempt(['email' => $request->email_or_phone, 'password' => $request->password], $remember)) {
-            if ($remember) {
-                cookie()->queue('provider_remember_email', $request->email_or_phone, 43200);
-                cookie()->queue('provider_remember_password', $request->password, 43200);
-                cookie()->queue('provider_remember_checked', true, 43200);
-            } else {
-                cookie()->queue(cookie()->forget('provider_remember_email'));
-                cookie()->queue(cookie()->forget('provider_remember_password'));
-                cookie()->queue(cookie()->forget('provider_remember_checked'));
-            }
-            return redirect()->route('provider.dashboard');
+        auth()->login($user, $remember);
+        if ($remember) {
+            cookie()->queue('provider_remember_email', $request->email_or_phone, 43200);
+            cookie()->queue('provider_remember_password', $request->password, 43200);
+            cookie()->queue('provider_remember_checked', true, 43200);
         } else {
-            Toastr::error(translate(ACCESS_DENIED['message']));
-            return back();
+            cookie()->queue(cookie()->forget('provider_remember_email'));
+            cookie()->queue(cookie()->forget('provider_remember_password'));
+            cookie()->queue(cookie()->forget('provider_remember_checked'));
         }
+
+        return redirect()->route('provider.dashboard');
     }
 
     public function update_user_hit_count($user): void

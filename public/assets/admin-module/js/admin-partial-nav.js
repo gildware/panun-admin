@@ -35,6 +35,49 @@
         }
     }
 
+    function cleanupModalBackdrops() {
+        if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+            document.querySelectorAll('.modal.show').forEach(function (modalEl) {
+                var instance = window.bootstrap.Modal.getInstance(modalEl);
+                if (instance) {
+                    instance.hide();
+                    instance.dispose();
+                }
+            });
+        }
+
+        document.querySelectorAll('.modal-backdrop, .offcanvas-backdrop')
+            .forEach(function (el) {
+                el.remove();
+            });
+
+        document.body.classList.remove('modal-open', 'offcanvas-backdrop');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+
+    async function runFlashToastsFromResponse(fetchResponse) {
+        if (!fetchResponse || !fetchResponse.response || typeof window.toastr === 'undefined') {
+            return;
+        }
+
+        var html = await fetchResponse.response.clone().text();
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var scripts = doc.querySelectorAll('script');
+
+        scripts.forEach(function (script) {
+            var content = (script.textContent || '').trim();
+            if (!content || content.indexOf('toastr.') === -1) {
+                return;
+            }
+
+            var runner = document.createElement('script');
+            runner.textContent = content;
+            document.body.appendChild(runner);
+            runner.remove();
+        });
+    }
+
     function initPageWidgets(root) {
         root = root || document.getElementById(FRAME_ID);
         if (!root) {
@@ -145,6 +188,7 @@
         }
 
         hideProgress();
+        cleanupModalBackdrops();
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         var frame = document.getElementById(FRAME_ID);
@@ -160,13 +204,17 @@
             return;
         }
 
+        cleanupModalBackdrops();
+
         var fetchResponse = event.detail.fetchResponse;
         syncChromeFromResponse(fetchResponse);
+        runFlashToastsFromResponse(fetchResponse);
     });
 
     document.addEventListener('turbo:fetch-request-error', function (event) {
         if (event.target && event.target.id === FRAME_ID) {
             hideProgress();
+            cleanupModalBackdrops();
         }
     });
 

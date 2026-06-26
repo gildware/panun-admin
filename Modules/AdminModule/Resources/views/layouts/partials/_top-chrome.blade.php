@@ -165,9 +165,9 @@
         </div>
     </nav>
 
-    @include('adminmodule::layouts.partials._top-group-subnav')
-
     @include('adminmodule::layouts.partials._top-pinned')
+
+    @include('adminmodule::layouts.partials._top-group-subnav')
 </div>
 
 @include('adminmodule::layouts.partials._search-modal')
