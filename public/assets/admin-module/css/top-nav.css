@@ -1059,11 +1059,17 @@ html.admin-skip-preloader .preloader {
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
+    height: 6px;
     z-index: 2000;
     pointer-events: none;
     opacity: 0;
-    background: linear-gradient(90deg, var(--bs-primary, #0d6efd) 0%, rgba(13, 110, 253, 0.35) 100%);
+    background: linear-gradient(
+        90deg,
+        var(--bs-success, #04BB7B) 0%,
+        var(--bs-success-dark, #019463) 55%,
+        rgba(4, 187, 123, 0.35) 100%
+    );
+    box-shadow: 0 1px 4px rgba(4, 187, 123, 0.45);
     transform: scaleX(0);
     transform-origin: left center;
     transition: opacity 0.2s ease;
