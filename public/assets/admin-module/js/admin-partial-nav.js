@@ -8,6 +8,9 @@
     var FRAME_ID = 'admin-main';
     var progressEl = null;
     var activeController = null;
+    var progressShownAt = 0;
+    var progressHideTimer = null;
+    var MIN_PROGRESS_MS = 320;
 
     function getProgressEl() {
         if (!progressEl) {
@@ -17,10 +20,17 @@
     }
 
     function showProgress() {
+        if (progressHideTimer) {
+            clearTimeout(progressHideTimer);
+            progressHideTimer = null;
+        }
+
+        progressShownAt = Date.now();
         var el = getProgressEl();
         if (el) {
             el.classList.add('is-active');
             el.setAttribute('aria-hidden', 'false');
+            void el.offsetWidth;
         }
         if (window.jQuery) {
             window.jQuery('.preloader').hide();
@@ -33,6 +43,24 @@
             el.classList.remove('is-active');
             el.setAttribute('aria-hidden', 'true');
         }
+    }
+
+    function showFullPageLoader() {
+        document.documentElement.classList.remove('admin-skip-preloader');
+        if (window.jQuery) {
+            window.jQuery('.preloader').show();
+        }
+    }
+
+    function hideProgressSoon() {
+        var wait = Math.max(0, MIN_PROGRESS_MS - (Date.now() - progressShownAt));
+        if (progressHideTimer) {
+            clearTimeout(progressHideTimer);
+        }
+        progressHideTimer = setTimeout(function () {
+            progressHideTimer = null;
+            hideProgress();
+        }, wait);
     }
 
     function cleanupModalBackdrops() {
@@ -233,6 +261,7 @@
             var parsed = extractFrameDocument(html);
 
             if (!parsed.frame) {
+                showFullPageLoader();
                 window.location.href = url;
                 return;
             }
@@ -247,7 +276,7 @@
                 window.history.pushState({ adminPartialNav: true }, '', url);
             }
 
-            hideProgress();
+            hideProgressSoon();
             window.scrollTo({ top: 0, behavior: 'smooth' });
             initPageWidgets(frame);
             markFullPageLinks();
@@ -257,11 +286,13 @@
             } catch (e) {}
         } catch (error) {
             if (error && error.name === 'AbortError') {
+                hideProgressSoon();
                 return;
             }
 
             hideProgress();
             cleanupModalBackdrops();
+            showFullPageLoader();
             window.location.href = url;
         } finally {
             activeController = null;
