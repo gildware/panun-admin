@@ -27,6 +27,7 @@ use Modules\BookingModule\Entities\BookingScheduleHistory;
 use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\BookingModule\Entities\BookingProviderCancellationReason;
 use Modules\BookingModule\Http\Traits\BookingTrait;
+use Modules\BookingModule\Services\ProviderBookingWithdrawalService;
 use Modules\CartModule\Entities\Cart;
 use Modules\ProviderManagement\Entities\SubscribedService;
 use Modules\ServiceManagement\Entities\Service;
@@ -1019,6 +1020,18 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
+            if ((string) $booking->booking_status === 'accepted') {
+                app(ProviderBookingWithdrawalService::class)->withdrawRepeatBooking(
+                    $booking,
+                    $request->user(),
+                    null,
+                    null,
+                    (string) $request->user()->provider->id,
+                );
+
+                return response()->json(response_formatter(PROVIDER_BOOKING_WITHDRAWN_SUCCESS_200), 200);
+            }
+
             DB::transaction(function () use ($booking) {
                 $booking->booking_status = 'canceled';
                 $booking->save();
@@ -1141,6 +1154,18 @@ class BookingController extends Controller
                 ]), 200);
             }
 
+            if ($request['booking_status'] === 'canceled' && (string) $booking->booking_status === 'accepted') {
+                $withdrawn = app(ProviderBookingWithdrawalService::class)->withdrawParentBooking(
+                    $booking,
+                    $request->user(),
+                    $request->input('booking_provider_cancellation_reason_id') ? (int) $request->input('booking_provider_cancellation_reason_id') : null,
+                    $request->input('status_change_remarks'),
+                    (string) $request->user()->provider->id,
+                );
+
+                return response()->json(response_formatter(PROVIDER_BOOKING_WITHDRAWN_SUCCESS_200, $withdrawn), 200);
+            }
+
             $booking->booking_status = $request['booking_status'];
             $booking->evidence_photos = $evidence_photos;
             if ($request['booking_status'] == 'completed' && $request->boolean('payment_received_confirmed')) {
@@ -1251,6 +1276,18 @@ class BookingController extends Controller
                     'response_code' => 'default_400',
                     'message' => translate('Change_financial_settlement_before_completing_visit_retained_is_cancel_only'),
                 ]), 200);
+            }
+
+            if ($request['booking_status'] === 'canceled' && (string) $booking->booking_status === 'accepted') {
+                $withdrawn = app(ProviderBookingWithdrawalService::class)->withdrawRepeatBooking(
+                    $booking,
+                    $request->user(),
+                    $request->input('booking_provider_cancellation_reason_id') ? (int) $request->input('booking_provider_cancellation_reason_id') : null,
+                    $request->input('status_change_remarks'),
+                    (string) $request->user()->provider->id,
+                );
+
+                return response()->json(response_formatter(PROVIDER_BOOKING_WITHDRAWN_SUCCESS_200, $withdrawn), 200);
             }
 
             $previousRepeatStatus = (string) $booking->booking_status;

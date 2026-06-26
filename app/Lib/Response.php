@@ -445,6 +445,10 @@ const BOOKING_STATUS_UPDATE_SUCCESS_200 = [
     'response_code' => 'status_update_success_200',
     'message' => 'booking status updated successfully'
 ];
+const PROVIDER_BOOKING_WITHDRAWN_SUCCESS_200 = [
+    'response_code' => 'status_update_success_200',
+    'message' => 'You have been removed from this booking. Admin will assign another provider.',
+];
 const BOOKING_IGNORE_SUCCESS_200 = [
     'response_code' => 'booking_ignore_success_200',
     'message' => 'booking ignore successfully'

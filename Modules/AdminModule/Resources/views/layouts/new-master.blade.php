@@ -64,6 +64,8 @@
         </script>
     @endif
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/common.css"/>
+    <link rel="stylesheet" href="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.css"/>
+    <link rel="stylesheet" href="{{asset('assets/common')}}/css/image-crop-upload.css"/>
 
     @unless($adminUsesPartialNav)
         @stack('css_or_js')
@@ -134,6 +136,8 @@
 
 <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/bootstrap.bundle.min.js"></script>
+<script src="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.js"></script>
+<script src="{{asset('assets/common')}}/js/image-crop-upload.js"></script>
 <script src="{{asset('assets/admin-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/main.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/custom.js?v={{$adminAssetVersion}}"></script>

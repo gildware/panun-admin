@@ -81,6 +81,7 @@ class Booking extends Model
         'reopen_completion_allowed' => 'boolean',
         'reopen_disputed_snapshot' => 'array',
         'admin_commission_override' => 'float',
+        'provider_cancelled_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -139,6 +140,8 @@ class Booking extends Model
         'reopen_completion_allowed',
         'reopen_disputed_snapshot',
         'admin_commission_override',
+        'provider_cancelled_at',
+        'provider_cancelled_by_provider_id',
     ];
 
     protected $appends = ['evidence_photos_full_path'];
@@ -270,6 +273,22 @@ class Booking extends Model
             ->whereNull('booking_repeat_id')
             ->whereIn('booking_status', ['canceled', 'cancelled'])
             ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest parent-row history when a provider withdrew (cancellation reason on history, booking stays active).
+     */
+    public function latestParentProviderCancellationStatusHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    public function providerCancelledByProvider(): BelongsTo
+    {
+        return $this->belongsTo(Provider::class, 'provider_cancelled_by_provider_id');
     }
 
     /**

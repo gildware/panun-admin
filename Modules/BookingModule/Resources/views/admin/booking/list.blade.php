@@ -119,6 +119,8 @@
                             <h2 class="page-title">{{ translate('On_hold_bookings') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'disputed_cancelled')
                             <h2 class="page-title">{{ translate('Disputed_and_Cancelled') }}</h2>
+                        @elseif(($queryParams['booking_status'] ?? '') === 'cancelled_by_provider')
+                            <h2 class="page-title">{{ translate('Cancelled_by_provider') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'disputed_completed')
                             <h2 class="page-title">{{ translate('Disputed_and_Completed') }}</h2>
                         @elseif(($queryParams['booking_status'] ?? '') === 'loss_making_pending')
@@ -174,6 +176,13 @@
                                    href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'canceled'])) }}">
                                     {{ translate('Cancelled') }}
                                     <span class="count">{{ $bookingTabCounts['canceled'] }}</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $bookingListTabStatus === 'cancelled_by_provider' ? 'active' : '' }}"
+                                   href="{{ route('admin.booking.list', array_merge($queryParams, ['booking_status' => 'cancelled_by_provider'])) }}">
+                                    {{ translate('Cancelled_by_provider') }}
+                                    <span class="count">{{ $bookingTabCounts['cancelled_by_provider'] ?? 0 }}</span>
                                 </a>
                             </li>
                             <li class="nav-item">
@@ -338,6 +347,8 @@
                                             @php $bookingListReasonTab = $queryParams['booking_status'] ?? ''; @endphp
                                             @if($bookingListReasonTab === 'canceled')
                                                 <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
+                                            @elseif($bookingListReasonTab === 'cancelled_by_provider')
+                                                <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
                                             @elseif($bookingListReasonTab === 'on_hold')
                                                 <th>{{ translate('Booking_list_reason_remarks_column') }}</th>
                                             @elseif($bookingListReasonTab === 'reopened')
@@ -475,6 +486,12 @@
                                                             <a href="{{route('admin.provider.details',[$booking->provider_id, 'web_page'=>'overview'])}}">{{ $booking->provider->company_name }}</a>
                                                         </div>
                                                         <span class="text-light-gray">{{ $booking->provider->company_phone }}</span>
+                                                    @elseif($bookingListReasonTab === 'cancelled_by_provider' && $booking->providerCancelledByProvider)
+                                                        <div class="text-muted small mb-1">{{ translate('Cancelled_by_provider') }}</div>
+                                                        <div>
+                                                            <a href="{{route('admin.provider.details',[$booking->provider_cancelled_by_provider_id, 'web_page'=>'overview'])}}">{{ $booking->providerCancelledByProvider->company_name }}</a>
+                                                        </div>
+                                                        <span class="text-light-gray">{{ $booking->providerCancelledByProvider->company_phone }}</span>
                                                     @else
                                                         <span class="badge badge badge-danger radius-50">
                                                             {{ translate('unassigned') }}
@@ -514,6 +531,20 @@
                                                             @endif
                                                             @if(filled($__lc->status_change_remarks))
                                                                 <div class="text-muted mt-1">{{ Str::limit(strip_tags($__lc->status_change_remarks), 200) }}</div>
+                                                            @endif
+                                                        @else
+                                                            —
+                                                        @endif
+                                                    </td>
+                                                @elseif($bookingListReasonTab === 'cancelled_by_provider')
+                                                    @php $__lpc = $booking->latestParentProviderCancellationStatusHistory; @endphp
+                                                    <td class="small text-break">
+                                                        @if($__lpc && ($__lpc->providerCancellationReason || filled($__lpc->status_change_remarks)))
+                                                            @if($__lpc->providerCancellationReason)
+                                                                <div class="fw-semibold">{{ $__lpc->providerCancellationReason->name }}</div>
+                                                            @endif
+                                                            @if(filled($__lpc->status_change_remarks))
+                                                                <div class="text-muted mt-1">{{ Str::limit(strip_tags($__lpc->status_change_remarks), 200) }}</div>
                                                             @endif
                                                         @else
                                                             —

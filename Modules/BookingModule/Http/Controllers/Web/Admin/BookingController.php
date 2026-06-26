@@ -224,6 +224,7 @@ class BookingController extends Controller
             'loss_making_pending',
             'loss_recovered',
             'loss_settled',
+            'cancelled_by_provider',
         ]);
         $request->validate([
             'booking_status' => 'nullable|in:' . implode(',', $allowedBookingStatuses),
@@ -255,6 +256,10 @@ class BookingController extends Controller
                 ] : [],
                 $bookingStatus === 'canceled' ? ['latestParentCancellationStatusHistory.cancellationReason'] : [],
                 $bookingStatus === 'on_hold' ? ['latestParentHoldStatusHistory.holdReopenReason'] : [],
+                $bookingStatus === 'cancelled_by_provider' ? [
+                    'latestParentProviderCancellationStatusHistory.providerCancellationReason',
+                    'providerCancelledByProvider',
+                ] : [],
             ))
             ->search($request['search'], ['readable_id'])
             ->when($bookingStatus != 'all', function ($query) use ($bookingStatus, $maxBookingAmount, $request) {
@@ -278,6 +283,8 @@ class BookingController extends Controller
                     $query->lossRecovered();
                 } elseif ($bookingStatus === 'loss_settled') {
                     $query->lossSettled();
+                } elseif ($bookingStatus === 'cancelled_by_provider') {
+                    $query->cancelledByProvider();
                 } else {
                     $query->when($bookingStatus == 'pending', function ($query) use ($maxBookingAmount) {
                         $query->adminPendingBookings($maxBookingAmount);
@@ -442,6 +449,7 @@ class BookingController extends Controller
             'loss_making_pending' => $this->booking->newQuery()->lossMakingPending()->count(),
             'loss_recovered' => $this->booking->newQuery()->lossRecovered()->count(),
             'loss_settled' => $this->booking->newQuery()->lossSettled()->count(),
+            'cancelled_by_provider' => $this->booking->newQuery()->cancelledByProvider()->count(),
         ];
     }
 
@@ -4473,6 +4481,8 @@ class BookingController extends Controller
 
             $oldProviderId = $booking->provider_id;
             $booking->provider_id = $request->provider_id;
+            $booking->provider_cancelled_at = null;
+            $booking->provider_cancelled_by_provider_id = null;
 
             if ($booking->isDirty('provider_id')) {
                 $booking->booking_status = 'accepted';

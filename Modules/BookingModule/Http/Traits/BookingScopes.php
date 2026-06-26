@@ -105,6 +105,16 @@ trait BookingScopes
     }
 
     /**
+     * Active bookings where the assigned provider withdrew (pending reassignment by admin).
+     */
+    public function scopeCancelledByProvider($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->whereNotNull($table . '.provider_cancelled_at')
+            ->whereNotIn($table . '.booking_status', ['canceled', 'cancelled', 'refunded', 'completed']);
+    }
+
+    /**
      * Completed with little / no real service (visit fee split).
      */
     public function scopeCompletedNoOrLittle($query): void
@@ -270,6 +280,11 @@ trait BookingScopes
         }
         if ($bookingStatus === 'loss_settled') {
             $query->lossSettled();
+
+            return;
+        }
+        if ($bookingStatus === 'cancelled_by_provider') {
+            $query->cancelledByProvider();
 
             return;
         }

@@ -1,0 +1,25 @@
+.image-crop-modal .modal-body {
+    background: #111;
+}
+
+.image-crop-modal__canvas-wrap {
+    width: 100%;
+    max-height: min(70vh, 560px);
+    overflow: hidden;
+    background: #111;
+}
+
+.image-crop-modal__image {
+    display: block;
+    max-width: 100%;
+}
+
+.image-crop-modal .cropper-view-box,
+.image-crop-modal .cropper-face {
+    border-radius: 0;
+}
+
+.image-crop-modal__ratio-hint {
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
