@@ -1039,6 +1039,10 @@ body.nav-top.admin-pins-editing .top-nav-pin-btn {
 }
 
 /* Partial navigation — thin progress bar under chrome */
+html.admin-skip-preloader .preloader {
+    display: none !important;
+}
+
 .admin-partial-progress {
     position: fixed;
     top: 0;

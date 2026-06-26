@@ -306,6 +306,9 @@ We may release future updates so it will overwrite this file. it's better and sa
   ====================================*/
     $(window).on("load", function () {
         $(".preloader").fadeOut(200);
+        try {
+            sessionStorage.setItem('admin_shell_ready', '1');
+        } catch (e) {}
     });
 
     /*==================================

@@ -80,6 +80,11 @@
         return button;
     }
 
+    function usesPartialNav() {
+        return document.body.classList.contains('nav-top')
+            && document.body.getAttribute('data-partial-nav') === '1';
+    }
+
     function usesLightPinnedStyle(mount) {
         return !!(mount && mount.closest('.top-group-subnav'));
     }
@@ -114,7 +119,7 @@
                 link.className = 'top-pinned-link-text';
                 link.textContent = item.label;
 
-                if (document.body.classList.contains('nav-top') && window.Turbo) {
+                if (usesPartialNav()) {
                     link.setAttribute('data-turbo-frame', 'admin-main');
                     link.setAttribute('data-turbo-action', 'advance');
                 }
@@ -135,7 +140,7 @@
                 link.className = linkClass + (isLinkActive(item) ? ' active-menu' : '');
                 link.textContent = item.label;
 
-                if (document.body.classList.contains('nav-top') && window.Turbo) {
+                if (usesPartialNav()) {
                     link.setAttribute('data-turbo-frame', 'admin-main');
                     link.setAttribute('data-turbo-action', 'advance');
                 }

@@ -56,7 +56,11 @@
         <link rel="stylesheet" href="{{asset('assets/admin-module')}}/css/top-nav.css?v={{$adminAssetVersion}}"/>
     @endif
     @if($adminUsesPartialNav)
-        <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.13/dist/turbo.es2017-umd.min.js" data-turbo-suppress-warning></script>
+        <script>
+            if (sessionStorage.getItem('admin_shell_ready') === '1') {
+                document.documentElement.classList.add('admin-skip-preloader');
+            }
+        </script>
     @endif
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/common.css"/>
 
@@ -65,7 +69,7 @@
     @endunless
 </head>
 
-<body class="{{ $adminUsesTopNav ? 'nav-top' : '' }}">
+<body class="{{ $adminUsesTopNav ? 'nav-top' : '' }}"@if($adminUsesPartialNav) data-partial-nav="1"@endif>
 <script>
     localStorage.theme && document.querySelector('body').setAttribute("data-bs-theme", localStorage.theme);
 </script>
