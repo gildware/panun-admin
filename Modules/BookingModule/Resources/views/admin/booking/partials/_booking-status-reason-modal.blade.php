@@ -2,6 +2,8 @@
 @php
     use Carbon\Carbon;
     $bsrHoldByResp = ($bookingHoldReasons ?? collect())->groupBy('responsible')->map(fn ($rows) => $rows->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])->values())->toArray();
+    $bsrHoldReasonsFlat = ($bookingHoldReasons ?? collect())->map(fn ($r) => ['id' => $r->id, 'name' => $r->name, 'responsible' => $r->responsible])->values()->toArray();
+    $bsrHoldReasonResponsible = ($bookingHoldReasons ?? collect())->mapWithKeys(fn ($r) => [(string) $r->id => (string) $r->responsible])->toArray();
     $bsrCancelByResp = ($bookingCancellationReasons ?? collect())->groupBy('responsible')->map(fn ($rows) => $rows->map(fn ($r) => ['id' => $r->id, 'name' => $r->name])->values())->toArray();
     $bsrRespOptions = \Modules\BookingModule\Entities\BookingCancellationReason::responsibleOptions();
     $bsrRespLabels = ['customer' => translate('Customer'), 'provider' => translate('Provider'), 'staff' => translate('Staff'), 'no_one' => translate('No_one')];
@@ -24,7 +26,8 @@
             <div class="modal-body pt-0">
                 <input type="hidden" id="bsr-target-status" value="">
                 <input type="hidden" id="bsr-previous-status" value="">
-                <div class="mb-3">
+                <input type="hidden" id="bsr-hold-reason-responsible" value="">
+                <div id="bsr-group-responsible" class="mb-3">
                     <label class="form-label">{{ translate('Who_is_responsible') }} <span class="text-danger">*</span></label>
                     <select id="bsr-responsible" class="form-select" autocomplete="off">
                         <option value="">{{ translate('Select') }}</option>
@@ -36,9 +39,10 @@
                 </div>
                 <div id="bsr-group-hold" class="d-none mb-3">
                     <label class="form-label">{{ translate('Booking_hold_reasons') }} <span class="text-danger">*</span></label>
-                    <select id="bsr-hold-reason-id" class="form-select" disabled>
-                        <option value="">{{ translate('Select_responsible_first') }}</option>
+                    <select id="bsr-hold-reason-id" class="form-select">
+                        <option value="">{{ translate('Select') }}</option>
                     </select>
+                    <div id="bsr-hold-no-reasons" class="form-text small text-danger d-none">{{ translate('No_hold_reasons_configured') }}</div>
                 </div>
                 <div id="bsr-group-hold-schedule" class="d-none mb-3">
                     <label class="form-label" for="bsr-hold-estimated-schedule">{{ translate('Hold_estimated_service_schedule') }} <span class="text-danger">*</span></label>
@@ -70,6 +74,8 @@
             const bsrStatusUpdateUrl = @json(route('admin.booking.status_update', [$booking->id]));
             const bsrCsrf = $('meta[name="csrf-token"]').attr('content');
             const bsrHoldByResp = @json($bsrHoldByResp);
+            const bsrHoldReasonsFlat = @json($bsrHoldReasonsFlat);
+            const bsrHoldReasonResponsible = @json($bsrHoldReasonResponsible);
             const bsrCancelByResp = @json($bsrCancelByResp);
             const bsrTitles = {
                 on_hold: @json(translate('Put_on_hold')),
@@ -92,35 +98,45 @@
 
             function bsrResetGroups() {
                 $('#bsr-responsible').val('');
+                $('#bsr-hold-reason-responsible').val('');
+                $('#bsr-group-responsible').removeClass('d-none');
                 $('#bsr-group-hold').addClass('d-none');
                 $('#bsr-group-hold-schedule').addClass('d-none');
                 $('#bsr-group-cancel').addClass('d-none');
-                $('#bsr-hold-reason-id').prop('disabled', true).val('');
+                $('#bsr-hold-reason-id').prop('disabled', false).val('');
                 $('#bsr-cancel-reason-id').prop('disabled', true).val('');
-                bsrFillReasonSelect($('#bsr-hold-reason-id'), [], '{{ translate('Select_responsible_first') }}');
+                bsrFillReasonSelect($('#bsr-hold-reason-id'), [], '{{ translate('Select') }}');
+                $('#bsr-hold-no-reasons').addClass('d-none');
                 bsrFillReasonSelect($('#bsr-cancel-reason-id'), [], '{{ translate('Select_responsible_first') }}');
                 $('#bsr-hold-estimated-schedule').val(bsrDefaultHoldSchedule || '');
                 $('#bsr-remarks').val('');
             }
 
-            $('#bsr-responsible').on('change', function () {
+            function bsrPopulateHoldReasons() {
+                const rows = bsrHoldReasonsFlat || [];
+                $('#bsr-hold-reason-id').prop('disabled', rows.length === 0);
+                bsrFillReasonSelect($('#bsr-hold-reason-id'), rows, rows.length ? '{{ translate('Select') }}' : '{{ translate('No_hold_reasons_configured') }}');
+                $('#bsr-hold-no-reasons').toggleClass('d-none', rows.length > 0);
+            }
+
+            $('#bsr-hold-reason-id').off('change.bsrHoldReason').on('change.bsrHoldReason', function () {
+                const reasonId = String($(this).val() || '');
+                const resp = reasonId ? (bsrHoldReasonResponsible[reasonId] || '') : '';
+                $('#bsr-hold-reason-responsible').val(resp);
+            });
+
+            $('#bsr-responsible').off('change.bsrResponsible').on('change.bsrResponsible', function () {
                 const resp = String($(this).val() || '');
                 const to = String($('#bsr-target-status').val() || '');
+                if (to === 'on_hold') {
+                    return;
+                }
                 if (!resp) {
-                    if (to === 'on_hold') {
-                        $('#bsr-hold-reason-id').prop('disabled', true).val('');
-                        bsrFillReasonSelect($('#bsr-hold-reason-id'), [], '{{ translate('Select_responsible_first') }}');
-                    }
                     if (to === 'canceled') {
                         $('#bsr-cancel-reason-id').prop('disabled', true).val('');
                         bsrFillReasonSelect($('#bsr-cancel-reason-id'), [], '{{ translate('Select_responsible_first') }}');
                     }
                     return;
-                }
-                if (to === 'on_hold') {
-                    const rows = bsrHoldByResp[resp] || [];
-                    $('#bsr-hold-reason-id').prop('disabled', rows.length === 0);
-                    bsrFillReasonSelect($('#bsr-hold-reason-id'), rows, rows.length ? '{{ translate('Select') }}' : '{{ translate('No_reasons_for_this_party') }}');
                 }
                 if (to === 'canceled') {
                     const rows = bsrCancelByResp[resp] || [];
@@ -140,8 +156,10 @@
                 }
                 $('#bsr-modal-title').text(bsrTitle);
                 if (to === 'on_hold') {
+                    $('#bsr-group-responsible').addClass('d-none');
                     $('#bsr-group-hold').removeClass('d-none');
                     $('#bsr-group-hold-schedule').removeClass('d-none');
+                    bsrPopulateHoldReasons();
                 }
                 if (to === 'canceled') {
                     $('#bsr-group-cancel').removeClass('d-none');
@@ -152,12 +170,19 @@
                 }
             };
 
-            $('#bsr-confirm-btn').on('click', function () {
+            $('#bsr-confirm-btn').off('click.bsrConfirm').on('click.bsrConfirm', function () {
                 const to = $('#bsr-target-status').val();
                 const from = $('#bsr-previous-status').val();
-                const resp = String($('#bsr-responsible').val() || '');
+                let resp = String($('#bsr-responsible').val() || '');
+                if (to === 'on_hold') {
+                    const reasonId = String($('#bsr-hold-reason-id').val() || '');
+                    resp = reasonId ? (bsrHoldReasonResponsible[reasonId] || '') : '';
+                    $('#bsr-hold-reason-responsible').val(resp);
+                }
                 if (!resp) {
-                    toastr.error('{{ translate('Who_is_responsible') }} {{ translate('is_required') }}');
+                    toastr.error(to === 'on_hold'
+                        ? '{{ translate('Booking_hold_reasons') }} {{ translate('is_required') }}'
+                        : '{{ translate('Who_is_responsible') }} {{ translate('is_required') }}');
                     return;
                 }
                 const data = {

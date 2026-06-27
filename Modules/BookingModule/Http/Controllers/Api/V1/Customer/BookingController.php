@@ -17,10 +17,13 @@ use Modules\BookingModule\Entities\BookingRepeat;
 use Modules\PaymentModule\Entities\PaymentRequest;
 use Modules\UserManagement\Entities\User;
 use Modules\BookingModule\Entities\Booking;
+use Modules\BookingModule\Entities\BookingStatusHistory;
 use Modules\PaymentModule\Entities\OfflinePayment;
 use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\CustomerModule\Traits\CustomerAddressTrait;
-use Modules\BookingModule\Entities\BookingStatusHistory;
+use Illuminate\Validation\Rule;
+use Modules\BookingModule\Entities\BookingCustomerCancellationReason;
+use Modules\BookingModule\Services\CustomerBookingCancellationService;
 use Modules\BidModule\Http\Controllers\APi\V1\Customer\PostBidController;
 use App\Lib\BookingInvoiceUrl;
 use App\Lib\BookingTrackToken;
@@ -587,6 +590,19 @@ class BookingController extends Controller
     }
 
     /**
+     * Active cancellation reasons for customer-initiated booking cancellations.
+     */
+    public function customerCancellationReasons(Request $request): JsonResponse
+    {
+        $reasons = BookingCustomerCancellationReason::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'description']);
+
+        return response()->json(response_formatter(DEFAULT_200, $reasons), 200);
+    }
+
+    /**
      * Show the specified resource.
      * @param Request $request
      * @param string $booking_id
@@ -594,61 +610,79 @@ class BookingController extends Controller
      */
     public function statusUpdate(Request $request, string $booking_id): JsonResponse
     {
+        $booking = $this->booking->where('id', $booking_id)->where('customer_id', $request->user()->id)->first();
+
+        $refundBreakdown = $booking instanceof Booking
+            ? get_booking_customer_refund_channel_breakdown($booking)
+            : [
+                'wallet_paid' => 0.0,
+                'digital_paid' => 0.0,
+                'requires_digital_refund_choice' => false,
+            ];
+        $requiresRefundMethod = (float) ($refundBreakdown['digital_paid'] ?? 0) > 0.009;
+
         $validator = Validator::make($request->all(), [
             'booking_status' => 'required|in:canceled',
+            'booking_customer_cancellation_reason_id' => [
+                'required',
+                'integer',
+                Rule::exists('booking_customer_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
+            ],
+            'status_change_remarks' => 'nullable|string|max:2000',
+            'refund_method' => $requiresRefundMethod
+                ? 'required|in:wallet,transfer'
+                : 'nullable|in:wallet,transfer',
         ]);
 
         if ($validator->fails()) {
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $booking = $this->booking->where('id', $booking_id)->where('customer_id', $request->user()->id)->first();
+        if ($booking === null) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
 
-        if (isset($booking)) {
+        if ($booking->booking_status == 'accepted' && $request['booking_status'] == 'canceled') {
+            return response()->json(response_formatter(BOOKING_ALREADY_ACCEPTED), 200);
+        }
 
-            if($booking->booking_status == 'accepted' && $request['booking_status'] == 'canceled'){
+        if ($booking->booking_status == 'ongoing' && $request['booking_status'] == 'canceled') {
+            return response()->json(response_formatter(BOOKING_ALREADY_ONGOING), 200);
+        }
+
+        if ($booking->booking_status == 'completed' && $request['booking_status'] == 'canceled') {
+            return response()->json(response_formatter(BOOKING_ALREADY_COMPLETED), 200);
+        }
+
+        try {
+            $booking = app(CustomerBookingCancellationService::class)->cancelParentBooking(
+                $booking,
+                $request->user(),
+                (int) $request->input('booking_customer_cancellation_reason_id'),
+                $request->input('status_change_remarks'),
+                $request->input('refund_method'),
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(response_formatter(DEFAULT_400, null, ['refund_method' => [$e->getMessage()]]), 400);
+        } catch (\RuntimeException $e) {
+            $message = $e->getMessage();
+            if ($message === translate('Booking_already_accepted')) {
                 return response()->json(response_formatter(BOOKING_ALREADY_ACCEPTED), 200);
             }
-
-            if($booking->booking_status == 'ongoing' && $request['booking_status'] == 'canceled'){
+            if ($message === translate('Booking_already_ongoing')) {
                 return response()->json(response_formatter(BOOKING_ALREADY_ONGOING), 200);
             }
-
-            if($booking->booking_status == 'completed' && $request['booking_status'] == 'canceled'){
+            if ($message === translate('Booking_already_completed')) {
                 return response()->json(response_formatter(BOOKING_ALREADY_COMPLETED), 200);
             }
+            if ($message === translate('Booking_already_canceled')) {
+                return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
+            }
 
-            $booking->booking_status = $request['booking_status'];
-
-            $bookingStatusHistory = $this->bookingStatusHistory;
-            $bookingStatusHistory->booking_id = $booking_id;
-            $bookingStatusHistory->changed_by = $request->user()->id;
-            $bookingStatusHistory->booking_status = $request['booking_status'];
-
-            DB::transaction(function () use ($bookingStatusHistory, $booking, $request) {
-                $booking->save();
-                $bookingStatusHistory->save();
-
-                if ($request['booking_status'] == 'canceled' && $booking->repeat->isNotEmpty()){
-                    foreach ($booking->repeat as $repeat) {
-                        $repeat->booking_status = 'canceled';
-                        $repeat->setAttribute('skipNotification', false);
-                        unset($repeat->skipNotification);
-                        $repeat->save();
-
-                        $repeatBookingStatusHistory = new $this->bookingStatusHistory;
-                        $repeatBookingStatusHistory->booking_id = 0;
-                        $repeatBookingStatusHistory->booking_repeat_id = $repeat->id;
-                        $repeatBookingStatusHistory->changed_by = $request->user()->id;
-                        $repeatBookingStatusHistory->booking_status = 'canceled';
-                        $repeatBookingStatusHistory->save();
-                    }
-                }
-            });
-
-            return response()->json(response_formatter(BOOKING_STATUS_UPDATE_SUCCESS_200, $booking), 200);
+            return response()->json(response_formatter(DEFAULT_400, null, ['booking_status' => [$message]]), 400);
         }
-        return response()->json(response_formatter(DEFAULT_204), 204);
+
+        return response()->json(response_formatter(BOOKING_STATUS_UPDATE_SUCCESS_200, $booking), 200);
     }
 
     /**
@@ -658,26 +692,51 @@ class BookingController extends Controller
      */
     public function singleBookingCancel(Request $request, string $repeatId): JsonResponse
     {
+        $validator = Validator::make($request->all(), [
+            'booking_customer_cancellation_reason_id' => [
+                'required',
+                'integer',
+                Rule::exists('booking_customer_cancellation_reasons', 'id')->where(fn ($q) => $q->where('is_active', 1)),
+            ],
+            'status_change_remarks' => 'nullable|string|max:2000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
+        }
+
         $customerId = $request->user()->id;
         $repeat = $this->bookingRepeat->where('id', $repeatId)->first();
-        $bookingId = $repeat->booking_id;
-        $booking = $this->booking->where('id', $bookingId)->where('customer_id', $customerId)->first();
+        if ($repeat === null) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
 
-        if ($booking && $repeat)
-        {
-            $statusCheck = $repeat->booking_status == 'canceled';
-            if ($statusCheck){
+        $booking = $this->booking->where('id', $repeat->booking_id)->where('customer_id', $customerId)->first();
+        if ($booking === null) {
+            return response()->json(response_formatter(DEFAULT_204), 204);
+        }
+
+        if ((string) ($repeat->booking_status ?? '') === 'canceled') {
+            return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
+        }
+
+        try {
+            app(CustomerBookingCancellationService::class)->cancelRepeatBooking(
+                $booking,
+                $repeat,
+                $request->user(),
+                (int) $request->input('booking_customer_cancellation_reason_id'),
+                $request->input('status_change_remarks'),
+            );
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === translate('Booking_already_canceled')) {
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
-            DB::transaction(function () use ($repeat) {
-                $repeat->booking_status = 'canceled';
-                $repeat->save();
-            });
-
-            return response()->json(response_formatter(DEFAULT_200), 200);
+            return response()->json(response_formatter(DEFAULT_400, null, ['booking_status' => [$e->getMessage()]]), 400);
         }
-        return response()->json(response_formatter(DEFAULT_204), 204);
+
+        return response()->json(response_formatter(DEFAULT_200), 200);
     }
 
     /**

@@ -28,6 +28,7 @@ final class AdminMenuCounts
                     ->where('settlement_outcome', '!=', '')
                     ->count(),
                 'cancelled_by_provider' => Booking::query()->cancelledByProvider()->count(),
+                'cancelled_by_customer' => self::safeCountCancelledByCustomerPendingRefund(),
                 'pending_providers' => Provider::ofApproval(2)->count(),
                 'pending_showcase_items' => ProviderShowcaseItem::where('is_approved', 2)->count(),
                 'pending_profile_changes' => ProviderChangeRequest::where('status', 2)->count(),
@@ -39,5 +40,14 @@ final class AdminMenuCounts
     public static function forget(): void
     {
         Cache::forget('admin_sidebar_menu_counts');
+    }
+
+    private static function safeCountCancelledByCustomerPendingRefund(): int
+    {
+        try {
+            return Booking::query()->cancelledByCustomerPendingRefund()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 }

@@ -271,7 +271,7 @@
                                                 <option
                                                     value="completed" {{$booking['booking_status'] == 'completed' ? 'selected' : ''}}>{{translate('Completed')}}</option>
                                             @endif
-                                            @if((business_config('provider_can_cancel_booking', 'provider_config'))->live_values && !$booking->is_paid && $booking->payment_method == 'cash_after_service')
+                                            @if((business_config('provider_can_cancel_booking', 'provider_config'))->live_values && !$booking->is_paid && $booking->payment_method == 'cash_after_service' && in_array($booking->booking_status, ['pending', 'accepted'], true))
                                                 <option value="canceled" {{$booking['booking_status'] == 'canceled' ? 'selected' : ''}}>{{translate('Canceled')}}</option>
                                             @endif
                                         @endif

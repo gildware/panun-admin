@@ -114,10 +114,14 @@ if (!function_exists('apply_push_notification_sound')) {
 }
 
 if (!function_exists('resolve_push_notification_booking_status')) {
-    function resolve_push_notification_booking_status($booking_id, ?string $type): string
+    function resolve_push_notification_booking_status($booking_id, ?string $type, ?string $override = null): string
     {
         if ($type !== 'booking' || empty($booking_id)) {
             return '';
+        }
+
+        if ($override !== null && $override !== '') {
+            return $override;
         }
 
         $bookingStatus = \Modules\BookingModule\Entities\Booking::query()
@@ -168,11 +172,11 @@ if (!function_exists('apply_push_notification_urgent_delivery')) {
 }
 
 if (!function_exists('device_notification')) {
-    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null)
+    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null, $booking_status_override = null)
     {
         $title = text_variable_data_format($title, $booking_id, $type, $data, $bookingType);
         $body = format_push_notification_body($description, $booking_id, $type, $data, $bookingType);
-        $bookingStatus = resolve_push_notification_booking_status($booking_id, $type);
+        $bookingStatus = resolve_push_notification_booking_status($booking_id, $type, $booking_status_override);
         $postData = [
             'message' => [
                 "token" => $fcm_token,

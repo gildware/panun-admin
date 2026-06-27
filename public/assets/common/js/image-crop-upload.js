@@ -60,7 +60,15 @@
     let activeInput = null;
     let activeFile = null;
     let activeRatio = null;
+    let activeObjectUrl = null;
     let resolveCropPromise = null;
+
+    function revokeActiveObjectUrl() {
+        if (activeObjectUrl) {
+            URL.revokeObjectURL(activeObjectUrl);
+            activeObjectUrl = null;
+        }
+    }
 
     function ensureModal() {
         if (modalEl) {
@@ -100,6 +108,39 @@
         modalEl.addEventListener('hidden.bs.modal', onModalHidden);
 
         return modalEl;
+    }
+
+    function initCropperOnImage(img) {
+        if (!img || !activeFile) {
+            return;
+        }
+
+        destroyCropper();
+
+        const aspectRatio = activeRatio ? activeRatio[0] / activeRatio[1] : NaN;
+        cropper = new Cropper(img, {
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 0.92,
+            responsive: true,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: true,
+            background: true,
+            movable: true,
+            zoomable: true,
+            zoomOnWheel: true,
+            scalable: false,
+            rotatable: false,
+            checkOrientation: true,
+            aspectRatio: isNaN(aspectRatio) ? NaN : aspectRatio,
+            ready: function () {
+                if (cropper) {
+                    cropper.resize();
+                }
+            },
+        });
     }
 
     function isImageFile(file) {
@@ -202,10 +243,27 @@
         return null;
     }
 
+    function ratioFromUploadWrapper(input) {
+        const container = input.closest('.upload-file-new, .upload-file, .global-image-upload');
+        if (!container) {
+            return null;
+        }
+
+        const wrapper = container.querySelector(
+            '.upload-file-new__wrapper, .upload-file__wrapper, .global-image-upload__wrapper'
+        );
+        return ratioFromClasses(wrapper);
+    }
+
     function resolveCropRatio(input) {
         const explicit = parseRatioString(input.dataset.cropRatio);
         if (explicit) {
             return explicit;
+        }
+
+        const fromWrapper = ratioFromUploadWrapper(input);
+        if (fromWrapper) {
+            return fromWrapper;
         }
 
         let node = input;
@@ -258,9 +316,12 @@
 
     function onModalHidden() {
         destroyCropper();
+        revokeActiveObjectUrl();
         const img = modalEl.querySelector('.image-crop-modal__image');
         if (img) {
+            img.onload = null;
             img.removeAttribute('src');
+            img.removeAttribute('style');
         }
         if (resolveCropPromise) {
             resolveCropPromise(null);
@@ -273,6 +334,9 @@
 
     function onApplyCrop() {
         if (!cropper || !activeInput || !activeFile) {
+            if (typeof toastr !== 'undefined') {
+                toastr.error('Crop tool is not ready yet. Close and try again.');
+            }
             return;
         }
 
@@ -356,29 +420,12 @@
             const title = modalEl.querySelector('.image-crop-modal__title');
 
             destroyCropper();
-
-            const objectUrl = URL.createObjectURL(file);
-            img.onload = function () {
-                URL.revokeObjectURL(objectUrl);
-                const aspectRatio = activeRatio ? activeRatio[0] / activeRatio[1] : NaN;
-                cropper = new Cropper(img, {
-                    viewMode: 1,
-                    dragMode: 'move',
-                    autoCropArea: 1,
-                    responsive: true,
-                    restore: false,
-                    guides: true,
-                    center: true,
-                    highlight: true,
-                    background: true,
-                    movable: true,
-                    zoomable: true,
-                    scalable: false,
-                    rotatable: false,
-                    aspectRatio: isNaN(aspectRatio) ? NaN : aspectRatio,
-                });
-            };
-            img.src = objectUrl;
+            revokeActiveObjectUrl();
+            if (img) {
+                img.onload = null;
+                img.removeAttribute('src');
+                img.removeAttribute('style');
+            }
 
             if (title) {
                 title.textContent = 'Crop image';
@@ -389,7 +436,40 @@
             }
 
             const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            let modalIsVisible = false;
+
+            function tryInitCropper() {
+                if (!modalIsVisible || cropper || !img) {
+                    return;
+                }
+                if (!img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) {
+                    return;
+                }
+                initCropperOnImage(img);
+            }
+
+            function handleShown() {
+                modalEl.removeEventListener('shown.bs.modal', handleShown);
+                modalIsVisible = true;
+                tryInitCropper();
+            }
+
+            function handleImageReady() {
+                img.onload = null;
+                tryInitCropper();
+            }
+
+            modalEl.addEventListener('shown.bs.modal', handleShown);
             modal.show();
+
+            if (img) {
+                img.onload = handleImageReady;
+                activeObjectUrl = URL.createObjectURL(file);
+                img.src = activeObjectUrl;
+                if (img.complete && img.naturalWidth > 0) {
+                    handleImageReady();
+                }
+            }
         });
     }
 

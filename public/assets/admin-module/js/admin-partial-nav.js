@@ -110,18 +110,21 @@
         }
 
         if (window.jQuery) {
-            var $root = window.jQuery(root);
-            if (typeof window.jQuery.fn.select2 === 'function') {
+            if (typeof window.initAdminPageSelect2 === 'function') {
+                window.initAdminPageSelect2(root);
+            } else if (typeof window.jQuery.fn.select2 === 'function') {
+                var $root = window.jQuery(root);
                 $root.find('.js-select').each(function () {
                     var $el = window.jQuery(this);
-                    if ($el.data('select2')) {
-                        $el.select2('destroy');
+                    if ($el.hasClass('select2-hidden-accessible')) {
+                        return;
                     }
                     $el.select2();
                 });
             }
 
             if (typeof window.jQuery.fn.tooltip === 'function') {
+                var $root = window.jQuery(root);
                 $root.find('[data-bs-toggle="tooltip"]').each(function () {
                     var instance = bootstrap.Tooltip.getInstance(this);
                     if (instance) {

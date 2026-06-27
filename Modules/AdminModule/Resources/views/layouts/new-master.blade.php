@@ -12,6 +12,7 @@
         (int) @filemtime(public_path('assets/admin-module/js/admin-partial-nav.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-pinned-nav.js')),
         (int) @filemtime(public_path('assets/admin-module/js/admin-image-fallback.js')),
+        (int) @filemtime(public_path('assets/admin-module/js/admin-global-search.js')),
     ) ?: time();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{$site_direction}}">
@@ -65,7 +66,7 @@
     @endif
     <link rel="stylesheet" href="{{asset('assets/common')}}/css/common.css"/>
     <link rel="stylesheet" href="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.css"/>
-    <link rel="stylesheet" href="{{asset('assets/common')}}/css/image-crop-upload.css"/>
+    <link rel="stylesheet" href="{{asset('assets/common')}}/css/image-crop-upload.css?v={{ @filemtime(public_path('assets/common/css/image-crop-upload.css')) ?: time() }}"/>
 
     @unless($adminUsesPartialNav)
         @stack('css_or_js')
@@ -126,8 +127,9 @@
     @include('adminmodule::layouts.partials._delete-modal')
 
     @if($adminUsesPartialNav)
-            {{-- Page scripts in the turbo frame need jQuery; the global bundle loads after </main>. --}}
+            {{-- Page scripts in the turbo frame need jQuery and Select2; the global bundle loads after </main>. --}}
             <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
+            <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
             @stack('script')
         </turbo-frame>
     @endif
@@ -137,9 +139,10 @@
 <script src="{{asset('assets/admin-module')}}/js/jquery-3.6.0.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/bootstrap.bundle.min.js"></script>
 <script src="{{asset('assets/common')}}/plugins/cropperjs/cropper.min.js"></script>
-<script src="{{asset('assets/common')}}/js/image-crop-upload.js"></script>
+<script src="{{asset('assets/common')}}/js/image-crop-upload.js?v={{ @filemtime(public_path('assets/common/js/image-crop-upload.js')) ?: time() }}"></script>
 <script src="{{asset('assets/admin-module')}}/plugins/perfect-scrollbar/perfect-scrollbar.min.js"></script>
 <script src="{{asset('assets/admin-module')}}/js/main.js"></script>
+<script src="{{asset('assets/admin-module')}}/js/admin-global-search.js?v={{$adminAssetVersion}}"></script>
 <script src="{{asset('assets/admin-module')}}/js/custom.js?v={{$adminAssetVersion}}"></script>
 <script src="{{asset('assets/admin-module')}}/js/admin-image-fallback.js?v={{$adminAssetVersion}}"></script>
 @if($adminUsesTopNav)
@@ -154,7 +157,7 @@
 
 <script src="{{asset('assets/admin-module')}}/plugins/select2/select2.min.js"></script>
 
-<script src="{{asset('assets/common')}}/js/common-image-upload.js"></script>
+<script src="{{asset('assets/common')}}/js/common-image-upload.js?v={{ @filemtime(public_path('assets/common/js/common-image-upload.js')) ?: time() }}"></script>
 <script src="{{asset('assets/common')}}/js/common.js"></script>
 <script src="{{asset('assets/common')}}/js/form-submit-once.js"></script>
 
@@ -588,59 +591,6 @@
             isMac = false;
         }
         $('.ctrlplusk').text(shortcutText);
-    });
-    $(document).ready(function () {
-        $('#searchForm input[name="search"]').keyup(function () {
-            var searchKeyword = $(this).val().trim();
-            if (searchKeyword.length >= 2) {
-                $('#searchResults').empty().html('<div class="text-center text-muted py-5">{{translate('Searching....')}}</div>');
-                $.ajax({
-                    type: 'POST',
-                    url: $('#searchForm').attr('action'),
-                    data: {search: searchKeyword, _token: $('input[name="_token"]').val()},
-                    success: function (response) {
-                        var resultHtml = '';
-                        $('#searchResults').empty().html(response.htmlView);
-
-                    },
-                    error: function (xhr, status, error) {
-                        console.error(xhr.responseText);
-                    }
-                });
-            } else {
-                $('#searchResults').html('<div class="text-center text-muted py-5">{{translate('Write a minimum of two characters.')}}</div>');
-            }
-        });
-    });
-
-    $(document).ready(function () {
-        $("#staticBackdrop").on("shown.bs.modal", function () {
-            $(this).find("#searchForm input[type=search]").val('');
-            $('#searchResults').html('<div class="text-center text-muted py-5">{{translate('Loading recent searches')}}...</div>');
-            $(this).find("#searchForm input[type=search]").focus();
-            $.ajax({
-                type: 'GET',
-                url: '{{ route('admin.recent.search') }}',
-                success: function (response) {
-                    $('#searchResults').html(response.htmlView);
-                },
-                error: function (xhr, status, error) {
-                    console.error(xhr.responseText);
-                    $('#searchResults').html('<div class="text-center text-muted py-5">{{translate('Error loading recent searches')}}.</div>');
-                }
-            });
-        });
-    });
-
-    document.addEventListener('keydown', function(event) {
-        if (event.ctrlKey && event.key === 'k') {
-            event.preventDefault();
-            document.getElementById('modalOpener').click();
-        }
-    });
-
-    $('#searchForm').submit(function (event) {
-        event.preventDefault();
     });
 
     $(document).ready(function(){

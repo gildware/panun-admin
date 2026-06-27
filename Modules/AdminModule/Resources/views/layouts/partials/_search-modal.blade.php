@@ -1,4 +1,14 @@
-<div class="modal fade removeSlideDown" id="staticBackdrop" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+<div class="modal fade removeSlideDown"
+     id="staticBackdrop"
+     tabindex="-1"
+     aria-labelledby="staticBackdropLabel"
+     aria-hidden="true"
+     data-recent-search-url="{{ route('admin.recent.search') }}"
+     data-loading-text="{{ translate('Loading recent searches') }}..."
+     data-searching-text="{{ translate('Searching....') }}"
+     data-min-chars-text="{{ translate('Write a minimum of two characters.') }}"
+     data-empty-text="{{ translate('It appears that you have not yet searched.') }}."
+     data-error-text="{{ translate('Error loading recent searches') }}.">
     <div class="modal-dialog">
         <div class="modal-content modal-content__search border-0 {{ env('APP_ENV') == 'demo' ? 'mt-5' : '' }}">
             <div class="d-flex flex-column gap-3">
@@ -14,10 +24,7 @@
                 </div>
 
                 <div class="bg-card p-4 rounded-3 min-h-350">
-                    <div class="search-result" id="searchResults">
-                        <div id="searchLoaderOverlay" class="search-loader-overlay">
-                            <div class="loader-spinner"></div>
-                        </div>
+                    <div class="search-result position-relative" id="searchResults">
                         <div class="text-center text-muted py-5">{{ translate('It appears that you have not yet searched.') }}.</div>
                     </div>
                 </div>

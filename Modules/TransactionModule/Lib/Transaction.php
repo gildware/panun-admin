@@ -2642,64 +2642,35 @@ if (!function_exists('addFundTransactions')) {
 
 
 //*** Refund ***
-if (!function_exists('refundTransactionForCanceledBooking')) {
+if (!function_exists('processBookingWalletRefund')) {
     /**
-     * @param $booking
-     * @return void
+     * Credit customer wallet and record ledger OUT for an admin-initiated wallet refund on a canceled booking.
      */
-    function refundTransactionForCanceledBooking($booking): void
+    function processBookingWalletRefund($booking, float $refundAmount, ?string $referenceNote = null): void
     {
-        $refund_amount = 0;
-        if ($booking->booking_partial_payments->isEmpty()) {
-            //not partial
-            if ($booking->payment_method == 'offline_payment' && $booking->is_paid) {
-                $refund_amount = $booking['total_booking_amount'];
-            } elseif ($booking->payment_method != 'offline_payment' && $booking->payment_method != 'cash_after_service') {
-                $refund_amount = $booking['total_booking_amount'];
-            }
-        } else {
-            //partial
-            if ($booking->payment_method == 'offline_payment' && $booking->is_paid) {
-                $refund_amount = $booking->booking_partial_payments->sum('paid_amount');
-
-            } elseif ($booking->payment_method == 'offline_payment' && !$booking->is_paid) {
-                $refund_amount = $booking->booking_partial_payments->where('paid_with', '!=', 'offline_payment')->sum('paid_amount');
-
-            } elseif ($booking->payment_method != 'offline_payment') {
-                $refund_amount = booking_sum_partials_for_cancel_platform_auto_refund($booking->booking_partial_payments);
-            }
-        }
-
-        if ((string) ($booking->settlement_outcome ?? '') === \Modules\BookingModule\Services\BookingFinancialSettlementService::OUTCOME_VISIT_RETAINED_CANCEL) {
-            $svc = app(\Modules\BookingModule\Services\BookingFinancialSettlementService::class);
-            $main = $svc->mainBookingFor($booking);
-            $config = is_array($main->settlement_config) ? $main->settlement_config : [];
-            $retained = $svc->resolveRetainedVisitAmount($main, $config);
-            $paid = $svc->totalPaidForMainBooking($main);
-            $refund_amount = booking_cap_refund_for_visit_retained((float) $refund_amount, $paid, $retained);
-        }
-
-        if ($refund_amount == 0) return;
-
-        $alreadyOnLedger = booking_ledger_refund_out_total((string) $booking->id);
-        if (round($alreadyOnLedger, 2) >= round((float) $refund_amount, 2)) {
+        $refundAmount = round(max(0.0, $refundAmount), 2);
+        if ($refundAmount < 0.01) {
             return;
         }
 
+        $referenceNote = trim((string) ($referenceNote ?? ''));
+        if ($referenceNote === '') {
+            $referenceNote = 'wallet_refund';
+        }
+
         $admin_user_id = User::where('user_type', ADMIN_USER_TYPES[0])->first()->id;
-        DB::transaction(function () use ($booking, $admin_user_id, $refund_amount) {
-            // Ledger OUT: refund
+        DB::transaction(function () use ($booking, $admin_user_id, $refundAmount, $referenceNote) {
             ledger_record_out([
-                'amount' => $refund_amount,
+                'amount' => $refundAmount,
                 'booking_id' => $booking['id'],
                 'reason' => \Modules\TransactionModule\Entities\LedgerTransaction::REASON_REFUND,
                 'date' => now()->toDateString(),
+                'reference_note' => $referenceNote,
             ]);
 
-            //Admin transaction
             $account = Account::where('user_id', $admin_user_id)->first();
-            if ($account->balance_pending >= $refund_amount) {
-                $account->balance_pending -= $refund_amount;
+            if ($account->balance_pending >= $refundAmount) {
+                $account->balance_pending -= $refundAmount;
             }
             $account->save();
 
@@ -2707,35 +2678,35 @@ if (!function_exists('refundTransactionForCanceledBooking')) {
                 'ref_trx_id' => null,
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['booking_refund'],
-                'debit' => $refund_amount,
+                'debit' => $refundAmount,
                 'credit' => 0,
                 'balance' => $account->balance_pending,
                 'from_user_id' => $admin_user_id,
                 'to_user_id' => $admin_user_id,
                 'from_user_account' => ACCOUNT_STATES[0]['value'],
-                'to_user_account' => null
+                'to_user_account' => null,
             ]);
 
-            //customer transaction (wallet)
             $user = lock_customer_user_for_wallet((string) $booking['customer_id']);
-            $user = credit_customer_wallet($user, (float) $refund_amount);
+            $user = credit_customer_wallet($user, (float) $refundAmount);
 
             Transaction::create([
                 'ref_trx_id' => $primary_transaction->id,
                 'booking_id' => $booking['id'],
                 'trx_type' => TRX_TYPE['booking_refund'],
                 'debit' => 0,
-                'credit' => $refund_amount,
+                'credit' => $refundAmount,
                 'balance' => $user->wallet_balance,
                 'from_user_id' => $admin_user_id,
                 'to_user_id' => $booking->customer_id,
                 'from_user_account' => null,
-                'to_user_account' => 'user_wallet'
+                'to_user_account' => 'user_wallet',
             ]);
-            $title =  get_push_notification_message('refund', 'customer_notification', $booking?->customer?->current_language_key);
+
+            $title = get_push_notification_message('refund', 'customer_notification', $booking?->customer?->current_language_key);
             $description = get_push_notification_description('refund', 'customer_notification', $booking?->customer?->current_language_key);
-            if($title && $booking?->customer?->fcm_token){
-                device_notification($booking?->customer?->fcm_token, with_currency_symbol($refund_amount) . ' ' . $title, $description, null, $booking->id, 'booking');
+            if ($title && $booking?->customer?->fcm_token) {
+                device_notification($booking?->customer?->fcm_token, with_currency_symbol($refundAmount) . ' ' . $title, $description, null, $booking->id, 'booking');
             }
         });
     }

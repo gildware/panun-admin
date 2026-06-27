@@ -1,22 +1,43 @@
+.image-crop-modal {
+    z-index: 1065;
+}
+
 .image-crop-modal .modal-body {
     background: #111;
 }
 
 .image-crop-modal__canvas-wrap {
     width: 100%;
-    max-height: min(70vh, 560px);
-    overflow: hidden;
+    height: min(70vh, 560px);
+    min-height: 320px;
     background: #111;
+    position: relative;
+}
+
+.image-crop-modal__canvas-wrap .cropper-container {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .image-crop-modal__image {
     display: block;
-    max-width: 100%;
+    max-width: none;
+    max-height: none;
 }
 
 .image-crop-modal .cropper-view-box,
 .image-crop-modal .cropper-face {
     border-radius: 0;
+}
+
+.image-crop-modal .cropper-line,
+.image-crop-modal .cropper-point {
+    background-color: #39f;
+}
+
+.image-crop-modal .cropper-view-box {
+    outline: 1px solid #39f;
+    outline-color: rgba(51, 153, 255, 0.75);
 }
 
 .image-crop-modal__ratio-hint {

@@ -635,12 +635,12 @@ class BookingController extends Controller
                 return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
             }
 
-            if($booking->booking_status == 'ongoing' && $request['booking_status'] == 'canceled'){
-                return response()->json(BOOKING_ALREADY_ONGOING, 200);
+            if($booking->booking_status === 'pending_cancellation'){
+                return response()->json(response_formatter(BOOKING_PENDING_CANCELLATION_200), 200);
             }
 
-            if($booking->booking_status == 'completed' && $request['booking_status'] == 'canceled'){
-                return response()->json(BOOKING_ALREADY_COMPLETED, 200);
+            if($request['booking_status'] == 'canceled' && ! booking_provider_may_cancel_booking((string) $booking->booking_status)){
+                return response()->json(response_formatter(booking_provider_cancel_blocked_response((string) $booking->booking_status)), 200);
             }
 
             if($booking->payment_method != 'cash_after_service' && $request['booking_status'] == 'canceled' && $booking->additional_charge > 0){
@@ -694,6 +694,18 @@ class BookingController extends Controller
             return response()->json(response_formatter(NO_CHANGES_FOUND), 200);
         }
         if (isset($repeatBooking)){
+            if ($repeatBooking->booking_status == 'canceled') {
+                return response()->json(response_formatter(BOOKING_ALREADY_CANCELED_200), 200);
+            }
+
+            if ($repeatBooking->booking_status === 'pending_cancellation') {
+                return response()->json(response_formatter(BOOKING_PENDING_CANCELLATION_200), 200);
+            }
+
+            if ($request['booking_status'] == 'canceled' && ! booking_provider_may_cancel_booking((string) $repeatBooking->booking_status)) {
+                return response()->json(response_formatter(booking_provider_cancel_blocked_response((string) $repeatBooking->booking_status)), 200);
+            }
+
             if ($request['booking_status'] === 'ongoing' && ! booking_can_mark_ongoing_by_service_schedule($repeatBooking)) {
                 return response()->json(response_formatter([
                     'response_code' => 'booking_ongoing_schedule_date_200',

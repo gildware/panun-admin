@@ -912,7 +912,7 @@ class ProviderController extends Controller
     {
         $this->authorize('provider_view');
         $request->validate([
-            'web_page' => 'in:overview,subscribed_services,bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
+            'web_page' => 'in:overview,subscribed_services,bookings,withdrawn_bookings,special_bookings,serviceman_list,settings,bank_information,reviews,subscription,payment,performance',
         ]);
 
         $webPage = $request->has('web_page') ? $request['web_page'] : 'overview';
@@ -989,6 +989,8 @@ class ProviderController extends Controller
                 ->orderByDesc('created_at')
                 ->get();
 
+            $withdrawnBookingsCount = (int) $this->booking->where('provider_cancelled_by_provider_id', $id)->count();
+
             return view('providermanagement::admin.provider.detail.overview', compact(
                 'provider',
                 'webPage',
@@ -1003,7 +1005,8 @@ class ProviderController extends Controller
                 'scaledLossCompanyShareTotal',
                 'additionalDocuments',
                 'additionalDocumentFiles',
-                'pendingShowcaseItems'
+                'pendingShowcaseItems',
+                'withdrawnBookingsCount',
             ));
 
         } //subscribed_services
@@ -1231,6 +1234,35 @@ class ProviderController extends Controller
                 ->paginate(pagination_limit())->appends($queryParam);
 
             return view('providermanagement::admin.provider.detail.bookings', compact('bookings', 'webPage', 'search', 'provider'));
+
+        } elseif ($request->web_page == 'withdrawn_bookings') {
+            $webPage = $request->web_page;
+            $search = $request->has('search') ? $request['search'] : '';
+            $queryParam = ['web_page' => $webPage, 'search' => $search];
+
+            $provider = $this->provider->with('owner')->find($id);
+
+            $bookings = $this->booking
+                ->where('provider_cancelled_by_provider_id', $id)
+                ->with([
+                    'customer',
+                    'latestParentProviderCancellationStatusHistory.providerCancellationReason',
+                    'latestProviderRejectionHistory.providerCancellationReason',
+                    'latestPendingCancellationRequestHistory.providerCancellationReason',
+                ])
+                ->when($search, function ($query) use ($search) {
+                    $keys = explode(' ', $search);
+                    foreach ($keys as $key) {
+                        $query->where('readable_id', 'LIKE', '%' . $key . '%');
+                    }
+                })
+                ->orderByDesc('provider_cancelled_at')
+                ->paginate(pagination_limit())
+                ->appends($queryParam);
+
+            $withdrawnCount = (int) $this->booking->where('provider_cancelled_by_provider_id', $id)->count();
+
+            return view('providermanagement::admin.provider.detail.withdrawn-bookings', compact('bookings', 'webPage', 'search', 'provider', 'withdrawnCount'));
 
         } //serviceman_list
         elseif ($request->web_page == 'serviceman_list') {

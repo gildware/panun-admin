@@ -23,6 +23,7 @@ const USER_TYPES = [
 const BOOKING_STATUSES = [
     ['key' => 'pending', 'value' => 'Pending'],
     ['key' => 'accepted', 'value' => 'Accepted'],
+    ['key' => 'pending_cancellation', 'value' => 'Pending cancellation'],
     ['key' => 'ongoing', 'value' => 'Ongoing'],
     ['key' => 'on_hold', 'value' => 'On hold'],
     ['key' => 'completed', 'value' => 'Completed'],
@@ -3724,6 +3725,7 @@ const NOTIFICATION_MESSAGE_CATEGORY_LABELS = [
 
 const NOTIFICATION_FOR_USER = [
     ['key' => 'booking_place', 'value' => 'Booking Placed', 'category' => 'booking_status'],
+    ['key' => 'admin_booking_created', 'value' => 'Admin Booking Created', 'category' => 'booking_status'],
     ['key' => 'booking_accepted', 'value' => 'Booking Accepted', 'category' => 'booking_status'],
     ['key' => 'booking_complete', 'value' => 'Booking Completed', 'category' => 'booking_status'],
     ['key' => 'booking_schedule_time_change', 'value' => 'Booking Schedule Time Change', 'category' => 'booking_status'],
@@ -3746,6 +3748,7 @@ const NOTIFICATION_FOR_USER = [
 
 const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'new_service_request_arrived', 'value' => 'New Service Request', 'category' => 'booking_status'],
+    ['key' => 'admin_booking_assigned', 'value' => 'Admin Booking Assigned', 'category' => 'booking_status'],
     ['key' => 'booking_assigned_to_provider', 'value' => 'Booking Assigned to You', 'category' => 'booking_status'],
     ['key' => 'booking_accepted', 'value' => 'Booking Accepted', 'category' => 'booking_status'],
     ['key' => 'booking_complete', 'value' => 'Booking Completed', 'category' => 'booking_status'],

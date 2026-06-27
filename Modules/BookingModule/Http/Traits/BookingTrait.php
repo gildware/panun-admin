@@ -346,9 +346,10 @@ trait BookingTrait
                         $fcmToken = $provider?->owner?->fcm_token ?? null;
                         $languageKey = $provider?->owner?->current_language_key;
                         if (!is_null($fcmToken)) {
-                            $title = get_push_notification_message('booking_accepted', 'provider_notification', $languageKey);
-                            $description = get_push_notification_description('booking_accepted', 'provider_notification', $languageKey);
-                            if ($title && $fcmToken && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($booking?->provider_id)) {
+                            $notification = isNotificationActive($provider?->id, 'booking', 'notification', 'provider');
+                            $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $languageKey);
+                            $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $languageKey);
+                            if ($title && $fcmToken && $notification && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($booking?->provider_id)) {
                                 device_notification($fcmToken, $title, $description, null, $booking->id, 'booking');
                             }
                         }
@@ -373,7 +374,7 @@ trait BookingTrait
                             $fcmToken = $provider->owner->fcm_token ?? null;
                             $title = get_push_notification_message('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
                             $description = get_push_notification_description('new_service_request_arrived', 'provider_notification', $provider?->owner?->current_language_key);
-                            if (!is_null($fcmToken) && $provider?->service_availability && $title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($booking?->provider_id)) {
+                            if (!is_null($fcmToken) && $provider?->service_availability && $title && isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking'] && sendDeviceNotificationPermission($provider->id)) {
                                 $serviceAtProviderPlace = (int)((business_config('service_at_provider_place', 'provider_config'))->live_values ?? 0);
                                 $serviceLocations = getProviderSettings(providerId: $provider->id, key: 'service_location', type: 'provider_config') ?? ['customer'];
 
@@ -1039,63 +1040,7 @@ trait BookingTrait
             $bookingDetailsAmount->coupon_discount_by_provider += $this->calculate_coupon_cost($detail['overall_coupon_discount_amount'])['provider'];
             $bookingDetailsAmount->save();
 
-            $serviceAdd = isNotificationActive(null, 'booking', 'notification', 'user');
-            $providerNotification = isNotificationActive(null, 'booking', 'notification', 'provider');
-            $servicemanNotification = isNotificationActive(null, 'booking', 'notification', 'serviceman');
-            if ($serviceAdd) {
-                $notifications[] = [
-                    'key' => 'booking_edit_service_add',
-                    'settings_type' => 'customer_notification'
-                ];
-            }
-            if ($providerNotification) {
-                $notifications[] = [
-                    'key' => 'booking_edit_service_add',
-                    'settings_type' => 'provider_notification'
-                ];
-            }
-            if ($servicemanNotification) {
-                $notifications[] = [
-                    'key' => 'booking_edit_service_add',
-                    'settings_type' => 'serviceman_notification'
-                ];
-            }
-
-            $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
-
-            if (isset($bookingNotificationStatus) && $bookingNotificationStatus['push_notification_booking']) {
-                foreach ($notifications ?? [] as $notification) {
-                    $key = $notification['key'];
-                    $settingsType = $notification['settings_type'];
-
-                    if ($settingsType == 'customer_notification') {
-                        $user = $booking?->customer;
-                        $title = get_push_notification_message($key, $settingsType, $user?->current_language_key);
-                        $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
-                        if ($user?->fcm_token && $title) {
-                            device_notification($user?->fcm_token, $title, $description, null, $booking->id, 'booking');
-                        }
-                    }
-
-                    if ($settingsType == 'provider_notification') {
-                        $provider = $booking?->provider?->owner;
-                        $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
-                        $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
-                        if ($provider?->fcm_token && $title) {
-                            device_notification($provider?->fcm_token, $title, $description, null, $booking->id, 'booking');
-                        }
-                    }
-
-                    if ($settingsType == 'serviceman_notification') {
-                        $serviceman = $booking?->serviceman?->user;
-                        $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
-                        $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
-                        if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, $description, null, $booking->id, 'booking');
-                        }
-                    }
-                }
-            }
+            send_booking_edit_service_add_notifications($booking, (string) ($service->name ?? 'service-not-found'));
 
         });
     }

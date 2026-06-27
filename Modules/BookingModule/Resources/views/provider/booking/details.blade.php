@@ -372,7 +372,7 @@
                                                     value="ongoing" {{$booking['booking_status'] == 'ongoing' ? 'selected' : ''}}>{{translate('Ongoing')}}</option>
                                                 <option
                                                     value="completed" {{$booking['booking_status'] == 'completed' ? 'selected' : ''}}>{{translate('Completed')}}</option>
-                                                @if((business_config('provider_can_cancel_booking', 'provider_config'))->live_values)
+                                                @if((business_config('provider_can_cancel_booking', 'provider_config'))->live_values && $booking->booking_status == 'accepted')
                                                     <option
                                                         value="canceled" {{$booking['booking_status'] == 'canceled' ? 'selected' : ''}}>{{translate('Canceled')}}</option>
                                                 @endif

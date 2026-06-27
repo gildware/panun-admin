@@ -170,7 +170,7 @@
                         </div>
                     </div>
 
-                    <div class="offcanvas offcanvas-end lead-filter-offcanvas" tabindex="-1" id="leadFilterDrawer" aria-labelledby="leadFilterDrawerLabel" style="width: 560px; max-width: 95vw;">
+                    <div class="offcanvas offcanvas-end lead-filter-offcanvas" tabindex="-1" id="leadFilterDrawer" aria-labelledby="leadFilterDrawerLabel" data-select-placeholder="{{ translate('All') }}" style="width: 560px; max-width: 95vw;">
                         <div class="offcanvas-header border-bottom">
                             <h5 class="offcanvas-title" id="leadFilterDrawerLabel">{{ translate('Filters') }}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ translate('Close') }}"></button>
@@ -636,15 +636,10 @@
             $('#leadCreateModal').on('shown.bs.modal', leadModalCreateApplyTypeUi);
             leadModalCreateApplyTypeUi();
 
-            $(function () {
-                $('.js-select-multi').select2({ width: '100%', placeholder: '{{ translate('All') }}' });
-            });
             $('#leadFilterDrawer').on('shown.bs.offcanvas', function () {
-                $(this).find('.js-select-multi').each(function () {
-                    if (!$(this).hasClass('select2-hidden-accessible')) {
-                        $(this).select2({ width: '100%', placeholder: '{{ translate('All') }}' });
-                    }
-                });
+                if (typeof window.initAdminPageSelect2 === 'function') {
+                    window.initAdminPageSelect2(this, { force: true, includeSingle: false });
+                }
             });
 
             function toggleOutboundEnquiryCountField() {

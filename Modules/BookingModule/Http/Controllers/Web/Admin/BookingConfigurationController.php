@@ -10,6 +10,7 @@ use Illuminate\Routing\Controller;
 use Modules\BookingModule\Entities\BookingCancellationReason;
 use Modules\BookingModule\Entities\BookingDisputeReason;
 use Modules\BookingModule\Entities\BookingHoldReopenReason;
+use Modules\BookingModule\Entities\BookingCustomerCancellationReason;
 use Modules\BookingModule\Entities\BookingProviderCancellationReason;
 
 class BookingConfigurationController extends Controller
@@ -18,6 +19,7 @@ class BookingConfigurationController extends Controller
     {
         $bookingCancellationReasons = BookingCancellationReason::orderBy('name')->get();
         $bookingProviderCancellationReasons = BookingProviderCancellationReason::orderBy('name')->get();
+        $bookingCustomerCancellationReasons = BookingCustomerCancellationReason::orderBy('name')->get();
         $bookingHoldReasons = BookingHoldReopenReason::where('kind', BookingHoldReopenReason::KIND_HOLD)->orderBy('name')->get();
         $bookingReopenReasons = BookingHoldReopenReason::where('kind', BookingHoldReopenReason::KIND_REOPEN)->orderBy('name')->get();
         $bookingDisputeReasons = BookingDisputeReason::orderBy('name')->get();
@@ -25,6 +27,7 @@ class BookingConfigurationController extends Controller
         return view('bookingmodule::admin.configuration.index', compact(
             'bookingCancellationReasons',
             'bookingProviderCancellationReasons',
+            'bookingCustomerCancellationReasons',
             'bookingHoldReasons',
             'bookingReopenReasons',
             'bookingDisputeReasons'
@@ -137,6 +140,7 @@ class BookingConfigurationController extends Controller
         return match ($type) {
             'booking_cancellation_reason' => [BookingCancellationReason::class, 'name', ['show_responsible' => true]],
             'booking_provider_cancellation_reason' => [BookingProviderCancellationReason::class, 'name', ['show_responsible' => false]],
+            'booking_customer_cancellation_reason' => [BookingCustomerCancellationReason::class, 'name', ['show_responsible' => false]],
             'booking_hold_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_HOLD, 'show_responsible' => true]],
             'booking_reopen_reason' => [BookingHoldReopenReason::class, 'name', ['kind' => BookingHoldReopenReason::KIND_REOPEN, 'show_responsible' => true]],
             'booking_dispute_reason' => [BookingDisputeReason::class, 'name', ['show_responsible' => true]],

@@ -15,6 +15,7 @@ class UserNotification extends Model
     public const TYPE_CHAT_MESSAGE = 'chat_message';
     public const TYPE_PROVIDER_REQUEST = 'provider_request';
     public const TYPE_WITHDRAW_REQUEST = 'withdraw_request';
+    public const TYPE_PROVIDER_WITHDRAWAL = 'provider_withdrawal';
 
     protected $fillable = [
         'user_id',
@@ -48,6 +49,7 @@ class UserNotification extends Model
             self::TYPE_CHAT_MESSAGE => 'chat',
             self::TYPE_PROVIDER_REQUEST => 'person_add',
             self::TYPE_WITHDRAW_REQUEST => 'payments',
+            self::TYPE_PROVIDER_WITHDRAWAL => 'person_off',
             default => 'notifications',
         };
     }
@@ -59,6 +61,7 @@ class UserNotification extends Model
             self::TYPE_CHAT_MESSAGE => translate('Message'),
             self::TYPE_PROVIDER_REQUEST => translate('Provider_Request'),
             self::TYPE_WITHDRAW_REQUEST => translate('Withdraw_Request'),
+            self::TYPE_PROVIDER_WITHDRAWAL => translate('Provider_withdrawal'),
             default => translate('Notification'),
         };
     }

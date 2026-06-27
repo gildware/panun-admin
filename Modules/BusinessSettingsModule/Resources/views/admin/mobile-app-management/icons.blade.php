@@ -4,10 +4,36 @@
 
 @push('css_or_js')
     <style>
-        .mai-preview-light { background: #f4f6f8; border: 1px solid #e2e8f0; }
-        .mai-preview-dark { background: #1a1d21; border: 1px solid #2d3339; color: #fff; }
-        .mai-preview-dark .opacity-75, .mai-preview-dark .opacity-50 { color: #cbd5e1; }
-        .mai-icon-upload .upload-file-new__wrapper { max-width: 120px; margin: 0 auto; }
+        .mai-preview-light {
+            background: #f4f6f8;
+            border: 1px solid #e2e8f0;
+            min-height: 148px;
+        }
+        .mai-preview-dark {
+            background: #1a1d21;
+            border: 1px solid #2d3339;
+            min-height: 148px;
+        }
+        .mai-icon-upload .upload-file-new__wrapper {
+            max-width: 120px;
+            margin: 0 auto;
+            background: transparent;
+            border-color: rgba(0, 0, 0, 0.18);
+        }
+        .mai-preview-dark .mai-icon-upload .upload-file-new__wrapper {
+            background: transparent;
+            border-color: rgba(255, 255, 255, 0.28);
+        }
+        .mai-preview-dark .upload-file-new-textbox {
+            color: #cbd5e1;
+        }
+        .mai-preview-dark .upload-file-new-textbox .text-primary {
+            color: #93c5fd !important;
+        }
+        .mai-icon-upload .upload-file-new__wrapper .upload-file-new-img {
+            object-fit: contain;
+            background: transparent;
+        }
         .mai-icon-field .badge { font-weight: 500; }
         .mai-icons-tab-panel { display: none; }
         .mai-icons-tab-panel.is-active { display: block; }
@@ -103,7 +129,6 @@
 @endsection
 
 @push('script')
-    <script src="{{ asset('assets/common/js/single-image-upload.js') }}"></script>
     <script>
         "use strict";
 
@@ -140,6 +165,11 @@
 
             const initialTab = activeTabInput ? activeTabInput.value : 'logos';
             activateTab(initialTab, false);
+
+            const pageRoot = document.getElementById('admin-main') || document;
+            if (typeof window.bootCommonImageUpload === 'function') {
+                window.bootCommonImageUpload(pageRoot);
+            }
         })();
     </script>
 @endpush

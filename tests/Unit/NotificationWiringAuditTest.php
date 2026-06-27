@@ -89,6 +89,7 @@ class NotificationWiringAuditTest extends TestCase
 
     public function test_new_notification_helpers_exist(): void
     {
+        $this->assertTrue(function_exists('send_admin_booking_created_notifications'));
         $this->assertTrue(function_exists('send_provider_settlement_received_notification'));
         $this->assertTrue(function_exists('send_booking_reminder_notification'));
         $this->assertTrue(function_exists('send_chat_message_push_notification'));

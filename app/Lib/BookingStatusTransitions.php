@@ -6,6 +6,43 @@
  * @see BOOKING_STATUSES in Constant.php
  */
 
+if (! function_exists('booking_provider_cancel_allowed_statuses')) {
+    /**
+     * Booking statuses from which a provider may initiate cancellation.
+     *
+     * @return list<string>
+     */
+    function booking_provider_cancel_allowed_statuses(): array
+    {
+        return ['pending', 'accepted'];
+    }
+}
+
+if (! function_exists('booking_provider_may_cancel_booking')) {
+    function booking_provider_may_cancel_booking(?string $currentStatus): bool
+    {
+        return in_array(strtolower(trim((string) $currentStatus)), booking_provider_cancel_allowed_statuses(), true);
+    }
+}
+
+if (! function_exists('booking_provider_cancel_blocked_response')) {
+    /**
+     * @return array{response_code: string, message: string}
+     */
+    function booking_provider_cancel_blocked_response(?string $currentStatus): array
+    {
+        $current = strtolower(trim((string) $currentStatus));
+
+        return match ($current) {
+            'ongoing' => BOOKING_ALREADY_ONGOING,
+            'completed' => BOOKING_ALREADY_COMPLETED,
+            'pending_cancellation' => BOOKING_PENDING_CANCELLATION_200,
+            'canceled', 'cancelled' => BOOKING_ALREADY_CANCELED_200,
+            default => PROVIDER_CANNOT_CANCEL_BOOKING_STATUS_200,
+        };
+    }
+}
+
 if (! function_exists('booking_admin_allowed_next_statuses')) {
     /**
      * Target statuses the admin may set from the current status (empty = no dropdown / no pills except reopen flows).
@@ -19,6 +56,7 @@ if (! function_exists('booking_admin_allowed_next_statuses')) {
         return match ($current) {
             'pending' => ['accepted', 'canceled'],
             'accepted' => ['ongoing', 'on_hold', 'canceled'],
+            'pending_cancellation' => [],
             // Ongoing: hold is "after visit" (same on_hold status); no direct cancel — use complete / hold / special settlement first.
             'ongoing' => ['on_hold', 'completed'],
             'on_hold' => ['accepted', 'ongoing', 'canceled'],
@@ -95,7 +133,7 @@ if (! function_exists('booking_has_assigned_provider')) {
 if (! function_exists('booking_status_requires_assigned_provider')) {
     function booking_status_requires_assigned_provider(string $status): bool
     {
-        return in_array(strtolower(trim($status)), ['accepted', 'ongoing'], true);
+        return in_array(strtolower(trim($status)), ['accepted', 'ongoing', 'pending_cancellation'], true);
     }
 }
 

@@ -16,7 +16,7 @@ class NotificationMessageConfigTest extends TestCase
         $this->assertArrayHasKey('wallet_and_loyalty', $grouped);
         $this->assertArrayNotHasKey('bidding', $grouped);
 
-        $this->assertCount(9, $grouped['booking_status']);
+        $this->assertCount(10, $grouped['booking_status']);
         $this->assertCount(2, $grouped['service_updates']);
         $this->assertCount(4, $grouped['payments']);
         $this->assertCount(4, $grouped['wallet_and_loyalty']);

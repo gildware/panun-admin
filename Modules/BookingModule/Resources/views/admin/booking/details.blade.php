@@ -432,6 +432,7 @@
                 $__overviewStatusCashBlock = $booking['payment_method'] == 'cash_after_service' && $booking->is_verified == '2' && (float) $booking->total_booking_amount >= $__overviewMaxBa;
                 $__overviewSt = $booking->booking_status ?? '';
                 $__cancelHist = $booking->latestParentCancellationStatusHistory;
+                $__customerCancelHist = $booking->latestParentCustomerCancellationStatusHistory;
                 $__holdHist = $booking->latestParentHoldStatusHistory;
                 $__disputeHist = $booking->latestParentDisputeStatusHistory;
                 $__reopenEv = $booking->reopenFromCompletedDisplayEvent();
@@ -448,6 +449,8 @@
                     $__overviewBadge = 'danger';
                 } elseif ($__overviewSt === 'refunded') {
                     $__overviewBadge = 'success';
+                } elseif ($__overviewSt === 'pending_cancellation') {
+                    $__overviewBadge = 'warning';
                 }
                 $__adminNextStatuses = booking_admin_allowed_next_statuses_for_booking($booking, $__overviewSt);
                 $__headerRefundRemaining = isset($maxRefundAmount) ? round((float) $maxRefundAmount, 2) : 0.0;
@@ -458,6 +461,7 @@
                     'completed' => 'success',
                     'canceled', 'cancelled' => 'danger',
                     'refunded' => 'success',
+                    'pending_cancellation' => 'warning',
                     default => 'info',
                 };
                 $__headerHasDisputedSnapshot = !empty($booking->reopen_disputed_snapshot) && is_array($booking->reopen_disputed_snapshot);
@@ -513,6 +517,17 @@
                         $needProviderAdminFb = $terminalBooking && !empty($booking->provider_id) && !$bookingFeedbackSvc->providerFeedbackResolved($booking);
                         $needCustomerAdminFb = $terminalBooking && !empty($booking->customer_id) && !$bookingFeedbackSvc->customerFeedbackResolved($booking);
                     @endphp
+                    @if($booking->isProviderCancellationReplacement() && $booking->originatedFromBooking)
+                        <div class="alert alert-info mb-0 w-100" role="alert" style="max-width: 720px;">
+                            <div class="fw-semibold mb-1">{{ translate('Provider_cancellation_replacement_booking') }}</div>
+                            <p class="mb-0 small">
+                                {{ translate('Cloned_from_booking_after_provider_cancellation') }}:
+                                <a href="{{ route('admin.booking.details', [$booking->originated_from_booking_id, 'web_page' => 'details']) }}">
+                                    #{{ $booking->originatedFromBooking->readable_id ?? $booking->originated_from_booking_id }}
+                                </a>
+                            </p>
+                        </div>
+                    @endif
                     @if($needProviderAdminFb || $needCustomerAdminFb)
                         <div class="alert alert-warning mb-0 w-100" role="alert" style="max-width: 640px;">
                             <div class="fw-semibold mb-2">{{ translate('Internal_booking_feedback') }}</div>
@@ -689,13 +704,24 @@
                                     @endif
                                 </div>
                             </div>
-                        @elseif(in_array($__overviewSt, ['canceled', 'cancelled', 'refunded'], true) && $__cancelHist && ($__cancelHist->cancellationReason || filled($__cancelHist->status_change_remarks)))
+                        @elseif(in_array($__overviewSt, ['canceled', 'cancelled', 'refunded'], true) && (($__customerCancelHist && $__customerCancelHist->customerCancellationReason) || ($__cancelHist && ($__cancelHist->cancellationReason || filled($__cancelHist->status_change_remarks)))))
                             <div class="booking-status-detail-box fz-12 w-100 align-self-stretch" style="max-width: min(100%, 36rem);">
                                 <div class="booking-status-detail-box__head">
                                     <span class="title-color fw-semibold text-uppercase fz-11">{{ translate('Booking_cancellation_reasons') }}</span>
                                 </div>
                                 <div class="booking-overview-kv-rows">
-                                    @if($__cancelHist->cancellationReason)
+                                    @if($__customerCancelHist && $__customerCancelHist->customerCancellationReason)
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Reason') }}:</span>
+                                            <span class="fz-12 text-break text-end fw-semibold min-w-0">{{ $__customerCancelHist->customerCancellationReason->name }}</span>
+                                        </div>
+                                        @if($__customerCancelHist->customerCancellationReason->description)
+                                            <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                                <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Description') }}:</span>
+                                                <span class="fz-12 text-muted text-break text-end min-w-0">{{ $__customerCancelHist->customerCancellationReason->description }}</span>
+                                            </div>
+                                        @endif
+                                    @elseif($__cancelHist && $__cancelHist->cancellationReason)
                                         <div class="booking-overview-kv-row d-flex justify-content-between align-items-baseline gap-2">
                                             <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Reason') }}:</span>
                                             <span class="fz-12 text-break text-end fw-semibold min-w-0">{{ $__cancelHist->cancellationReason->name }}</span>
@@ -711,7 +737,12 @@
                                             <span class="fz-12 text-break text-end min-w-0">{{ $__respLabels[$__cancelHist->cancellationReason->responsible] ?? $__cancelHist->cancellationReason->responsible }}</span>
                                         </div>
                                     @endif
-                                    @if(filled($__cancelHist->status_change_remarks))
+                                    @if(filled(($__customerCancelHist ?? null)?->status_change_remarks))
+                                        <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
+                                            <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Status_change_remarks') }}:</span>
+                                            <div class="fz-12 text-break text-end min-w-0">{!! nl2br(e($__customerCancelHist->status_change_remarks)) !!}</div>
+                                        </div>
+                                    @elseif(filled($__cancelHist?->status_change_remarks))
                                         <div class="booking-overview-kv-row d-flex justify-content-between align-items-start gap-2">
                                             <span class="title-color fz-12 fw-semibold flex-shrink-0">{{ translate('Status_change_remarks') }}:</span>
                                             <div class="fz-12 text-break text-end min-w-0">{!! nl2br(e($__cancelHist->status_change_remarks)) !!}</div>
@@ -855,7 +886,7 @@
                 </div>
             @endif
 
-            @if($booking->reopenEvents->isNotEmpty() || !empty($booking->originated_from_booking_id) || $booking->spawnedFollowupBookings->isNotEmpty())
+            @if($booking->reopenEvents->isNotEmpty() || $booking->isReopenOriginatedFollowup() || $booking->reopenLinkedSpawnedFollowupBookings->isNotEmpty())
                 <div class="card mb-3 border-warning">
                     <div class="card-header bg-soft-warning border-warning">
                         <h5 class="mb-0">{{ translate('Reopen_and_complaint_history') }}</h5>
@@ -914,7 +945,7 @@
                                 @endif
                             </p>
                         @endif
-                        @if(!empty($booking->originated_from_booking_id) && $booking->originatedFromBooking)
+                        @if($booking->isReopenOriginatedFollowup() && $booking->originatedFromBooking)
                             <p class="mb-2">
                                 <span class="fw-semibold">{{ translate('Originated_from_booking') }}:</span>
                                 <a href="{{ route('admin.booking.details', [$booking->originated_from_booking_id, 'web_page' => 'details']) }}">
@@ -922,10 +953,10 @@
                                 </a>
                             </p>
                         @endif
-                        @if($booking->spawnedFollowupBookings->isNotEmpty())
+                        @if($booking->reopenLinkedSpawnedFollowupBookings->isNotEmpty())
                             <p class="fw-semibold mb-2">{{ translate('Follow_up_bookings') }}:</p>
                             <ul class="mb-3">
-                                @foreach($booking->spawnedFollowupBookings as $child)
+                                @foreach($booking->reopenLinkedSpawnedFollowupBookings as $child)
                                     <li>
                                         <a href="{{ route('admin.booking.details', [$child->id, 'web_page' => 'details']) }}">
                                             #{{ $child->readable_id }}</a>
@@ -1280,6 +1311,8 @@
                 @endif
 
             </div>
+
+            @include('bookingmodule::admin.booking.partials._provider-change-history', ['booking' => $booking])
 
             <div class="row mb-3 g-3 align-items-stretch">
                 <div class="col-xl-4 col-md-6 d-flex">
@@ -1641,7 +1674,7 @@
                                                     </button>
                                                 @endif
                                             @endcan
-                                            @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold']))
+                                            @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold']) && ! $booking->isProviderWithdrawnAwaitingAdmin())
                                                 @can('booking_can_manage_status')
                                                     <span class="cursor-pointer d-inline-flex align-items-center" role="button" tabindex="0" data-bs-target="#providerModal" data-bs-toggle="modal" title="{{ translate('change_Provider') }}">
                                                         <span class="material-symbols-outlined fz-18">manage_history</span>
@@ -1651,22 +1684,22 @@
                                         </div>
                                     @endif
                                 </div>
-                                <div class="d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
-                                    @if (isset($booking->provider))
-                                        <div class="d-flex align-items-center gap-2 flex-grow-1">
-                                            <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover align-self-start" src="{{ $booking?->provider?->logo_full_path }}" alt="">
-                                            <div class="min-w-0 flex-grow-1 small">
-                                                <a href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}" class="c1 d-block text-break fw-semibold fz-12">{{ Str::limit($booking->provider->company_name ?? '', 48) }}</a>
-                                                <a href="tel:{{ $booking->provider->contact_person_phone ?? '' }}" class="d-block text-break fz-12 text-muted">{{ $booking->provider->contact_person_phone ?? '' }}</a>
-                                                <span class="d-block text-break fz-12 text-muted mt-1" title="{{ $booking->provider->company_address }}"><span class="material-icons fz-12 align-middle">map</span> {{ Str::limit($booking->provider->company_address ?? '', 180) }}</span>
-                                            </div>
+                                @if (isset($booking->provider))
+                                    <div class="d-flex align-items-start gap-2 flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
+                                        <img width="42" height="42" class="rounded-circle border border-white flex-shrink-0 object-fit-cover" src="{{ $booking?->provider?->logo_full_path }}" alt="">
+                                        <div class="min-w-0 flex-grow-1 small">
+                                            <a href="{{ route('admin.provider.details', [$booking?->provider?->id, 'web_page' => 'overview']) }}" class="c1 d-block text-break fw-semibold fz-12">{{ Str::limit($booking->provider->company_name ?? '', 48) }}</a>
+                                            <a href="tel:{{ $booking->provider->contact_person_phone ?? '' }}" class="d-block text-break fz-12 text-muted">{{ $booking->provider->contact_person_phone ?? '' }}</a>
+                                            <span class="d-block text-break fz-12 text-muted mt-1" title="{{ $booking->provider->company_address }}"><span class="material-icons fz-12 align-middle">map</span> {{ Str::limit($booking->provider->company_address ?? '', 180) }}</span>
                                         </div>
-                                    @else
+                                    </div>
+                                @else
+                                    <div class="d-flex flex-column flex-grow-1 booking-overview-min-h-0 overflow-y-auto">
                                         <div class="d-flex flex-column gap-2 align-items-center py-2 flex-grow-1 justify-content-center">
                                             <span class="material-icons text-muted fs-2">account_circle</span>
                                             <p class="text-muted text-center fw-medium mb-2 fz-12">{{ translate('No Provider Information') }}</p>
                                         </div>
-                                        @if($booking->is_verified != 2)
+                                        @if($booking->is_verified != 2 && ! $booking->isProviderWithdrawnAwaitingAdmin())
                                             <div class="text-center pb-1">
                                                 <button type="button" class="btn btn--primary" data-bs-target="#providerModal" data-bs-toggle="modal"
                                                     @if(in_array($booking['booking_status'], ['completed', 'canceled'], true)) disabled @endif>
@@ -1674,8 +1707,8 @@
                                                 </button>
                                             </div>
                                         @endif
-                                    @endif
-                                </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -2930,26 +2963,59 @@
                                 @if(in_array($booking->booking_status, ['canceled', 'cancelled', 'refunded'], true) && isset($maxRefundAmount) && $maxRefundAmount > 0)
                                     <div class="card mb-3">
                                         <div class="card-body">
+                                    <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 mb-3">
+                                        <span class="material-icons fz-18 flex-shrink-0">info</span>
+                                        <span class="fz-12">{{ translate('Refund_of') }} <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong> {{ translate('is_pending') }}</span>
+                                    </div>
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 form-control py-2 px-3 w-100">
-                                        <span class="title-color flex-shrink-0">{{ translate('Refund') }}</span>
+                                        <span class="title-color flex-shrink-0">{{ translate('Process_refund') }}</span>
                                         <div class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto min-w-0">
-                                            <span class="text-muted text-break">{{ translate('Remaining_refundable') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
-                                            <button type="button" class="btn btn--danger btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#refundModal-{{ $booking->id }}">{{ translate('Refund customer') }}</button>
+                                            <span class="text-muted text-break fz-12">{{ translate('Remaining_refundable') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
+                                            <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#refundWalletModal-{{ $booking->id }}">{{ translate('Refund_to_wallet') }}</button>
+                                            <button type="button" class="btn btn--danger btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#refundTransferModal-{{ $booking->id }}">{{ translate('Transfer_to_customer') }}</button>
                                         </div>
                                     </div>
-                                    <div class="modal fade" id="refundModal-{{ $booking->id }}" tabindex="-1">
+                                    <div class="modal fade" id="refundWalletModal-{{ $booking->id }}" tabindex="-1">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
-                                                <form method="post" action="{{ route('admin.booking.refund', $booking->id) }}" class="refund-form" data-max-amount="{{ $maxRefundAmount }}">
+                                                <form method="post" action="{{ route('admin.booking.refund_to_wallet', $booking->id) }}" class="refund-form" data-max-amount="{{ $maxRefundAmount }}">
                                                     @csrf
                                                     <div class="modal-header">
-                                                        <h5 class="modal-title">{{ translate('Refund customer') }}</h5>
+                                                        <h5 class="modal-title">{{ translate('Refund_to_wallet') }}</h5>
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                                     </div>
                                                     <div class="modal-body">
                                                         <div class="mb-3">
                                                             <label class="form-label">{{ translate('Refund amount') }} <span class="text-danger">*</span> <small class="text-muted">({{ translate('Max') }}: {{ with_currency_symbol($maxRefundAmount) }})</small></label>
-                                                            <input type="number" step="0.01" min="0.01" max="{{ $maxRefundAmount }}" name="amount" class="form-control refund-amount" required placeholder="{{ translate('Max') }} {{ with_currency_symbol($maxRefundAmount) }}">
+                                                            <input type="number" step="0.01" min="0.01" max="{{ $maxRefundAmount }}" name="amount" class="form-control refund-amount" required value="{{ $maxRefundAmount }}" placeholder="{{ translate('Max') }} {{ with_currency_symbol($maxRefundAmount) }}">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">{{ translate('Reference_Note') }} <span class="text-muted small">({{ translate('Optional') }})</span></label>
+                                                            <textarea name="reference_note" class="form-control" rows="2" maxlength="2000" placeholder="{{ translate('Optional_note') }}"></textarea>
+                                                        </div>
+                                                        <p class="small text-muted mb-0">{{ translate('Refund_to_wallet_modal_hint') }}</p>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
+                                                        <button type="submit" class="btn btn--primary">{{ translate('Refund_to_wallet') }}</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal fade" id="refundTransferModal-{{ $booking->id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <form method="post" action="{{ route('admin.booking.refund', $booking->id) }}" class="refund-form" data-max-amount="{{ $maxRefundAmount }}">
+                                                    @csrf
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">{{ translate('Transfer_to_customer') }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">{{ translate('Refund amount') }} <span class="text-danger">*</span> <small class="text-muted">({{ translate('Max') }}: {{ with_currency_symbol($maxRefundAmount) }})</small></label>
+                                                            <input type="number" step="0.01" min="0.01" max="{{ $maxRefundAmount }}" name="amount" class="form-control refund-amount" required value="{{ $maxRefundAmount }}" placeholder="{{ translate('Max') }} {{ with_currency_symbol($maxRefundAmount) }}">
                                                         </div>
                                                         <div class="mb-3">
                                                             <label class="form-label">{{ translate('Transaction_ID') }} <span class="text-danger">*</span></label>
@@ -2963,11 +3029,11 @@
                                                             <label class="form-label">{{ translate('Date') }}</label>
                                                             <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}">
                                                         </div>
-                                                        <p class="small text-muted">{{ translate('Refund_modal_ledger_hint') }}</p>
+                                                        <p class="small text-muted mb-0">{{ translate('Transfer_to_customer_modal_hint') }}</p>
                                                     </div>
                                                     <div class="modal-footer">
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
-                                                        <button type="submit" class="btn btn--danger">{{ translate('Refund') }}</button>
+                                                        <button type="submit" class="btn btn--danger">{{ translate('Transfer_to_customer') }}</button>
                                                     </div>
                                                 </form>
                                             </div>
@@ -3638,6 +3704,8 @@
                     }
                     if (typeof bookingAdminOpenStatusReasonModal === 'function') {
                         bookingAdminOpenStatusReasonModal(booking_status, previous_status);
+                    } else {
+                        toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
                     }
                     return;
                 }
@@ -3651,10 +3719,11 @@
             }
         });
 
-        $(document).on('click', '.booking-status-overview-btn:not(:disabled)', function() {
+        $(document).off('click.bookingOverviewStatus').on('click.bookingOverviewStatus', '.booking-status-overview-btn:not(:disabled)', function() {
             var status = $(this).data('status');
             var $select = $('#booking_status');
             if (!$select.length) {
+                toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
                 return;
             }
             var previous_status = $select.data('current');
@@ -3667,6 +3736,14 @@
             }
             if ((status === 'accepted' || status === 'ongoing') && !bookingCurrentProviderId) {
                 toastr.error('{{ translate('Assign_provider_before_accept_or_ongoing') }}', { CloseButton: true, ProgressBar: true });
+                return;
+            }
+            if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(status, previous_status)) {
+                if (typeof bookingAdminOpenStatusReasonModal === 'function') {
+                    bookingAdminOpenStatusReasonModal(status, previous_status);
+                } else {
+                    toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
+                }
                 return;
             }
             $select.val(status);

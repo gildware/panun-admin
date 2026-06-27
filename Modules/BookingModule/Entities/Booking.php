@@ -286,6 +286,85 @@ class Booking extends Model
             ->latestOfMany(['created_at', 'id']);
     }
 
+    /**
+     * Latest parent-row history when the customer canceled via the app.
+     */
+    public function latestParentCustomerCancellationStatusHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereNotNull('booking_customer_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest parent-row history for a provider cancellation request awaiting admin approval.
+     */
+    public function latestPendingCancellationRequestHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->where('booking_status', 'pending_cancellation')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    /**
+     * Latest parent-row history when a provider rejected a pending booking request.
+     */
+    public function latestProviderRejectionHistory(): HasOne
+    {
+        return $this->hasOne(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->where('booking_status', 'pending')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->latestOfMany(['created_at', 'id']);
+    }
+
+    public function isProviderRejectedPendingBooking(): bool
+    {
+        if ((string) ($this->booking_status ?? '') !== 'pending') {
+            return false;
+        }
+        if ($this->provider_cancelled_at === null || $this->provider_cancelled_by_provider_id === null) {
+            return false;
+        }
+
+        if ($this->relationLoaded('status_histories')) {
+            return ! $this->status_histories
+                ->whereNull('booking_repeat_id')
+                ->contains(fn ($h) => (string) ($h->booking_status ?? '') === 'pending_cancellation');
+        }
+
+        return ! $this->status_histories()
+            ->whereNull('booking_repeat_id')
+            ->where('booking_status', 'pending_cancellation')
+            ->exists();
+    }
+
+    /**
+     * Provider rejected or withdrew; booking is pending with no provider and awaits admin action.
+     */
+    public function isProviderWithdrawnAwaitingAdmin(): bool
+    {
+        if ((string) ($this->booking_status ?? '') === 'pending_cancellation') {
+            return true;
+        }
+
+        return $this->isProviderRejectedPendingBooking();
+    }
+
+    /**
+     * Parent-row histories where a provider rejected/withdrew from the booking.
+     */
+    public function providerWithdrawalStatusHistories(): HasMany
+    {
+        return $this->hasMany(BookingStatusHistory::class)
+            ->whereNull('booking_repeat_id')
+            ->whereNotNull('booking_provider_cancellation_reason_id')
+            ->orderByDesc('created_at');
+    }
+
     public function providerCancelledByProvider(): BelongsTo
     {
         return $this->belongsTo(Provider::class, 'provider_cancelled_by_provider_id');
@@ -389,8 +468,60 @@ class Booking extends Model
 
     public function isReopenedTagged(): bool
     {
-        return $this->originated_from_booking_id !== null
-            || $this->last_reopen_event_at !== null;
+        return $this->last_reopen_event_at !== null
+            || $this->isReopenOriginatedFollowup();
+    }
+
+    /**
+     * Follow-up booking created through the reopen workflow (not provider-cancellation clone).
+     */
+    public function isReopenOriginatedFollowup(): bool
+    {
+        if (empty($this->originated_from_booking_id)) {
+            return false;
+        }
+
+        return BookingReopenEvent::query()
+            ->where('source_booking_id', $this->originated_from_booking_id)
+            ->where('child_booking_id', $this->id)
+            ->exists();
+    }
+
+    /**
+     * Replacement booking created after admin approved a provider cancellation request.
+     */
+    public function isProviderCancellationReplacement(): bool
+    {
+        return ! empty($this->originated_from_booking_id)
+            && ! $this->isReopenOriginatedFollowup();
+    }
+
+    /**
+     * Child bookings linked only via provider-cancellation clone (exclude from reopen UI).
+     */
+    public function providerCancellationReplacementBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'originated_from_booking_id')
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('booking_reopen_events')
+                    ->whereColumn('booking_reopen_events.child_booking_id', 'bookings.id')
+                    ->whereColumn('booking_reopen_events.source_booking_id', 'bookings.originated_from_booking_id');
+            });
+    }
+
+    /**
+     * Child bookings created through the reopen workflow.
+     */
+    public function reopenLinkedSpawnedFollowupBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'originated_from_booking_id')
+            ->whereExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('booking_reopen_events')
+                    ->whereColumn('booking_reopen_events.child_booking_id', 'bookings.id')
+                    ->whereColumn('booking_reopen_events.source_booking_id', 'bookings.originated_from_booking_id');
+            });
     }
 
     /**
@@ -516,7 +647,7 @@ class Booking extends Model
             return false;
         }
 
-        $hasOriginated = $this->originated_from_booking_id !== null;
+        $hasOriginated = $this->isReopenOriginatedFollowup();
         $hasInPlaceEvent = $this->reopenEvents()
             ->where('resolution', BookingReopenEvent::RESOLUTION_REOPEN_IN_PLACE)
             ->exists();
@@ -562,7 +693,7 @@ class Booking extends Model
         if ($model->last_reopen_event_at !== null) {
             return true;
         }
-        if ($model->originated_from_booking_id !== null) {
+        if ($model->isReopenOriginatedFollowup()) {
             return true;
         }
 
@@ -756,7 +887,7 @@ class Booking extends Model
                         'settings_type' => 'customer_notification'
                     ];
                 }
-                if ($providerPermission && $model->is_repeated == 0) {
+                if ($providerPermission) {
                     $notifications[] = [
                         'key' => 'booking_accepted',
                         'settings_type' => 'provider_notification'
@@ -925,9 +1056,7 @@ class Booking extends Model
                         ->syncDetailsAmounts($model, $details);
                 }
 
-                if ($model?->customer) {
-                    refundTransactionForCanceledBooking($model);
-                }
+                // Refunds are processed manually by admin (wallet or bank transfer) after cancel.
 
             } elseif ($model->booking_status == 'refund_request') {
                 if ($permission) {
@@ -959,6 +1088,10 @@ class Booking extends Model
 
 
             if (isset($booking_notification_status) && $booking_notification_status['push_notification_booking']) {
+                $pushBookingStatus = $model->isDirty('booking_status')
+                    ? (string) $model->booking_status
+                    : null;
+
                 foreach ($notifications ?? [] as $notification) {
                     $key = $notification['key'];
                     $settingsType = $notification['settings_type'];
@@ -970,7 +1103,7 @@ class Booking extends Model
                         $description = get_push_notification_description($key, $settingsType, $user?->current_language_key);
                         $permission = isNotificationActive(null, 'booking', 'notification', 'user');
                         if ($user?->fcm_token && $user?->is_active && $title && $permission) {
-                            device_notification($user?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                            device_notification($user?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, null, null, null, $pushBookingStatus);
                         }
                     }
 
@@ -982,7 +1115,7 @@ class Booking extends Model
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                             if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($model?->provider_id)) {
-                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, null, null, null, $pushBookingStatus);
                             }
                         } else {
                             $provider = $model?->provider?->owner;
@@ -990,7 +1123,7 @@ class Booking extends Model
                             $title = get_push_notification_message($key, $settingsType, $provider?->current_language_key);
                             $description = get_push_notification_description($key, $settingsType, $provider?->current_language_key);
                             if ($provider?->fcm_token && $title  && sendDeviceNotificationPermission($model?->provider_id)) {
-                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular);
+                                device_notification($provider?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, $repeatOrRegular, null, null, null, $pushBookingStatus);
                             }
                         }
                     }
@@ -1000,7 +1133,7 @@ class Booking extends Model
                         $title = get_push_notification_message($key, $settingsType, $serviceman?->current_language_key);
                         $description = get_push_notification_description($key, $settingsType, $serviceman?->current_language_key);
                         if ($serviceman?->fcm_token && $title) {
-                            device_notification($serviceman?->fcm_token, $title, $description, null, $model->id, 'booking');
+                            device_notification($serviceman?->fcm_token, $title, $description, null, $model->id, 'booking', null, null, null, null, null, null, null, null, $pushBookingStatus);
                         }
                     }
                 }
@@ -1077,7 +1210,7 @@ class Booking extends Model
             $notifications = [];
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
 
-            if ($model->isDirty('provider_id') && $model->provider_id && !$model->is_repeted) {
+            if ($model->isDirty('provider_id') && $model->provider_id && ! $model->is_repeted && (string) ($model->assigned_by ?? '') === 'admin') {
                 if ($bookingScheduleTimeChange) {
                     $notifications[] = [
                         'key' => 'provider_assign',

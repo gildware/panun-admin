@@ -21,6 +21,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::get('success/{id}', [BookingController::class, 'success'])->name('success');
         Route::any('list/special-scenarios', [BookingController::class, 'specialScenarioBookings'])->name('list.special_scenarios');
         Route::any('list/cancelled-by-provider', [BookingController::class, 'cancelledByProviderList'])->name('list.cancelled_by_provider');
+        Route::any('list/cancelled-by-customer', [BookingController::class, 'cancelledByCustomerList'])->name('list.cancelled_by_customer');
         Route::any('reviews/list', [BookingReviewController::class, 'index'])->name('reviews.list');
         Route::any('list', [BookingController::class, 'index'])->name('list');
         Route::any('list/verification', [BookingController::class, 'bookingVerificationList'])->name('list.verification');
@@ -46,6 +47,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::delete('configuration/{id}', [BookingConfigurationController::class, 'destroy'])->middleware(['can:booking_configuration_delete'])->name('configuration.destroy');
         Route::get('verification-status-update/{id}', [BookingController::class, 'verificationUpdate'])->name('verification_status_update');
         Route::post('verification-status/{id}', [BookingController::class, 'verificationStatus'])->name('verification-status');
+        Route::post('provider-cancellation-request/{id}', [BookingController::class, 'providerCancellationRequestReview'])->name('provider_cancellation_request.review');
         Route::get('payment-update/{id}', [BookingController::class, 'paymentUpdate'])->name('payment_update');
         Route::any('schedule-update/{id}', [BookingController::class, 'scheduleUpdate'])->name('schedule_update');
         Route::any('up-coming-booking-schedule-update/{id}', [BookingController::class, 'upComingBookingScheduleUpdate'])->name('up_coming_booking_schedule_update');
@@ -76,6 +78,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'namespace' => 'Web\Admin',
         Route::post('loss-writeoff/{id}', [BookingController::class, 'writeOffScaledLoss'])->name('loss_writeoff');
         Route::post('loss-writeoff/{id}/revert', [BookingController::class, 'revertWriteOffScaledLoss'])->name('loss_writeoff.revert');
         Route::post('refund/{id}', [BookingController::class, 'refund'])->name('refund');
+        Route::post('refund-to-wallet/{id}', [BookingController::class, 'refundToWallet'])->name('refund_to_wallet');
         Route::post('compensation/{id}', [BookingController::class, 'addCompensation'])->name('compensation');
         Route::post('reopen/{id}', [BookingController::class, 'reopenFromCompleted'])->name('reopen');
         Route::post('reopen-resolve/{id}', [BookingController::class, 'resolveReopenTicket'])->name('reopen-resolve');

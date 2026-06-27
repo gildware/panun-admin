@@ -1,12 +1,11 @@
-document.addEventListener("DOMContentLoaded", function () {
-  if (document.querySelectorAll(".upload_wrapper").length) {
-    initFileUpload();
-    checkPreExistingImages();
-  }
+let fileUploadEventsBound = false;
+let viewImageEventsBound = false;
 
-  document.querySelectorAll(".upload_wrapper_container").forEach(container => {
-    initSliderNavigation(container);
-  });
+function bindViewImageEvents() {
+  if (viewImageEventsBound) {
+    return;
+  }
+  viewImageEventsBound = true;
 
   document.addEventListener("click", function (e) {
     const viewBtn = e.target.closest(".view_btn");
@@ -33,6 +32,26 @@ document.addEventListener("DOMContentLoaded", function () {
     const modal = new bootstrap.Modal(modalEl);
     modal.show();
   });
+}
+
+function bootCommonImageUpload(root) {
+  root = root || document;
+  bindViewImageEvents();
+  initFileUpload();
+  checkPreExistingImages(root);
+  root.querySelectorAll(".upload_wrapper_container").forEach(function (container) {
+    initSliderNavigation(container);
+  });
+}
+
+window.bootCommonImageUpload = bootCommonImageUpload;
+
+document.addEventListener("DOMContentLoaded", function () {
+  bootCommonImageUpload(document);
+});
+
+document.addEventListener("admin:page-loaded", function (event) {
+  bootCommonImageUpload(event.detail?.root || document);
 });
 
 function setupCard(card) {
@@ -126,138 +145,147 @@ function updateLastSlot(wrapper) {
   }
 }
 
-function initFileUpload() {
-  document.querySelectorAll(".upload_wrapper").forEach(wrapper => {
+function debugWrapperFiles(wrapper) {
+  const inputs = wrapper.querySelectorAll("input[type='file']");
+  const debugData = [];
 
-    const debugWrapperFiles = () => {
-      const inputs = wrapper.querySelectorAll("input[type='file']");
-      const debugData = [];
+  inputs.forEach((input, idx) => {
+    const name = input.getAttribute("name") || "(no name)";
+    const fileList = input.files;
 
-      inputs.forEach((input, idx) => {
-        const name = input.getAttribute("name") || "(no name)";
-        const fileList = input.files;
-
-        if (fileList && fileList.length > 0) {
-          [...fileList].forEach((file, i) => {
-            debugData.push({
-              inputIndex: idx,
-              inputName: name,
-              fileIndex: i,
-              fileName: file.name,
-              fileSize: `${file.size} B`,
-              fileType: file.type
-            });
-          });
-        } else {
-          debugData.push({
-            inputIndex: idx,
-            inputName: name,
-            fileIndex: "-",
-            fileName: "(no file)",
-            fileSize: "-",
-            fileType: "-"
-          });
-        }
+    if (fileList && fileList.length > 0) {
+      [...fileList].forEach((file, i) => {
+        debugData.push({
+          inputIndex: idx,
+          inputName: name,
+          fileIndex: i,
+          fileName: file.name,
+          fileSize: `${file.size} B`,
+          fileType: file.type
+        });
       });
+    } else {
+      debugData.push({
+        inputIndex: idx,
+        inputName: name,
+        fileIndex: "-",
+        fileName: "(no file)",
+        fileSize: "-",
+        fileType: "-"
+      });
+    }
+  });
 
-      console.log("Input file values---");
-      console.table(debugData);
-    };
+  console.log("Input file values---");
+  console.table(debugData);
+}
 
+function initFileUpload() {
+  if (fileUploadEventsBound) {
+    return;
+  }
+  fileUploadEventsBound = true;
 
-    wrapper.addEventListener("change", function (e) {
-      const input = e.target;
-      if (!input.classList.contains("single_file_input")) return;
+  document.addEventListener("change", function (e) {
+    const input = e.target;
+    if (!input.classList || !input.classList.contains("single_file_input")) return;
 
-      const files = input.files;
-      if (!files.length) return;
+    const wrapper = input.closest(".upload_wrapper");
+    if (!wrapper) return;
 
-      const currentCard = input.closest(".upload-file-new");
-      const container = currentCard.closest(".upload_wrapper_container");
-      const maxLimit = parseInt(wrapper.dataset.maxLimit) || 5;
+    const files = input.files;
+    if (!files.length) return;
+
+    const currentCard = input.closest(".upload-file-new");
+    if (!currentCard) return;
+
+    const container = currentCard.closest(".upload_wrapper_container");
+    const maxLimit = parseInt(wrapper.dataset.maxLimit) || 5;
+    const isMultiple = wrapper.dataset.multiple === "true";
+
+    if (isMultiple && files.length > 1) {
+      fillCardWithFile(currentCard, files[0]);
+
+      for (let i = 1; i < files.length; i++) {
+        const currentCount = wrapper.querySelectorAll(".upload-file-new.input-disabled").length;
+        if (currentCount >= maxLimit) break;
+
+        const newCard = createNewCard(wrapper);
+        if (!newCard) break;
+
+        wrapper.insertBefore(newCard, wrapper.children[1]);
+        fillCardWithFile(newCard, files[i]);
+      }
+      updateLastSlot(wrapper);
+    } else {
+      fillCardWithFile(currentCard, files[0]);
+
+      if (isMultiple) {
+        currentCard.classList.add("input-disabled");
+
+        const currentCount = wrapper.querySelectorAll(".upload-file-new.input-disabled").length;
+        if (currentCount < maxLimit) {
+          updateLastSlot(wrapper);
+        }
+      }
+    }
+
+    if (container) {
+      setTimeout(() => {
+        container.dataset.sliderInit = "false";
+        initSliderNavigation(container);
+      }, 100);
+    }
+
+    console.log("Uploaded files:");
+    debugWrapperFiles(wrapper);
+  });
+
+  document.addEventListener("click", function (e) {
+    const removeBtn = e.target.closest(".remove_btn");
+    const editBtn = e.target.closest(".edit_btn");
+    if (!removeBtn && !editBtn) return;
+
+    const card = (removeBtn || editBtn).closest(".upload-file-new");
+    if (!card) return;
+
+    const wrapper = card.closest(".upload_wrapper");
+    if (!wrapper) return;
+
+    if (removeBtn) {
+      const container = card.closest(".upload_wrapper_container");
       const isMultiple = wrapper.dataset.multiple === "true";
 
-      if (isMultiple && files.length > 1) {
-        fillCardWithFile(currentCard, files[0]);
-
-        for (let i = 1; i < files.length; i++) {
-          const currentCount = wrapper.querySelectorAll(".upload-file-new.input-disabled").length;
-          if (currentCount >= maxLimit) break;
-
-          const newCard = createNewCard(wrapper);
-          if (!newCard) break;
-
-          wrapper.insertBefore(newCard, wrapper.children[1]);
-          fillCardWithFile(newCard, files[i]);
-        }
+      if (isMultiple) {
+        card.remove();
         updateLastSlot(wrapper);
       } else {
-        fillCardWithFile(currentCard, files[0]);
-
-        if (isMultiple) {
-          currentCard.classList.add("input-disabled");
-
-          const currentCount = wrapper.querySelectorAll(".upload-file-new.input-disabled").length;
-          if (currentCount < maxLimit) {
-            updateLastSlot(wrapper);
-          }
-        }
+        setupCard(card);
       }
 
       if (container) {
-        setTimeout(() => {
-          container.dataset.sliderInit = "false";
-          initSliderNavigation(container);
-        }, 100);
+        setTimeout(() => initSliderNavigation(container), 100);
       }
 
-      console.log("Uploaded files:");
-      debugWrapperFiles();
-    });
+      console.log("Files after removal---");
+      debugWrapperFiles(wrapper);
+      return;
+    }
 
-    wrapper.addEventListener("click", function (e) {
-      const removeBtn = e.target.closest(".remove_btn");
-      const editBtn = e.target.closest(".edit_btn");
-
-      if (removeBtn) {
-        const card = removeBtn.closest(".upload-file-new");
-        const container = card.closest(".upload_wrapper_container");
-        const isMultiple = wrapper.dataset.multiple === "true";
-
-        if (isMultiple) {
-          card.remove();
-          updateLastSlot(wrapper);
-        } else {
-          setupCard(card);
-        }
-
-        if (container) {
-          setTimeout(() => initSliderNavigation(container), 100);
-        }
-
-        console.log("Files after removal---");
-        debugWrapperFiles();
-        return;
-      }
-
-      if (editBtn) {
-        debugWrapperFiles();
-        e.stopImmediatePropagation();
-        const card = editBtn.closest(".upload-file-new");
-        if (card) {
-          card.classList.remove("input-disabled");
-          const input = card.querySelector(".single_file_input");
-          if (input) input.click();
-        }
-      }
-    });
+    if (editBtn) {
+      debugWrapperFiles(wrapper);
+      e.stopImmediatePropagation();
+      card.classList.remove("input-disabled");
+      const input = card.querySelector(".single_file_input");
+      if (input) input.click();
+    }
   });
 }
 
 
 
-function checkPreExistingImages() {
-  document.querySelectorAll(".upload-file-new").forEach(card => {
+function checkPreExistingImages(root) {
+  (root || document).querySelectorAll(".upload-file-new").forEach(card => {
     const textbox = card.querySelector(".upload-file-new-textbox");
     const imgElement = card.querySelector(".upload-file-new-img");
     const removeBtn = card.querySelector(".remove_btn");

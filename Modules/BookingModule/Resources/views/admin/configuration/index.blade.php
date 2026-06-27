@@ -30,6 +30,14 @@
                         </div>
                         <div class="col-lg-6">
                             @include('bookingmodule::admin.configuration.partials._booking-config-card', [
+                                'title' => translate('Booking_customer_cancellation_reasons'),
+                                'type' => 'booking_customer_cancellation_reason',
+                                'items' => $bookingCustomerCancellationReasons,
+                                'showResponsible' => false,
+                            ])
+                        </div>
+                        <div class="col-lg-6">
+                            @include('bookingmodule::admin.configuration.partials._booking-config-card', [
                                 'title' => translate('Booking_dispute_reasons'),
                                 'type' => 'booking_dispute_reason',
                                 'items' => $bookingDisputeReasons,

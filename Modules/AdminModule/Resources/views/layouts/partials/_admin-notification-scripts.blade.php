@@ -26,6 +26,8 @@
             switch (type) {
                 case 'booking':
                     return { icon: 'info' };
+                case 'provider_withdrawal':
+                    return { icon: 'warning' };
                 case 'chat_message':
                     return { icon: 'info' };
                 case 'provider_request':
@@ -35,6 +37,18 @@
                 default:
                     return { icon: 'info' };
             }
+        }
+
+        function markNotificationRead(notificationId) {
+            if (!notificationId) {
+                return;
+            }
+            $.ajax({
+                url: '{{ url('admin/notifications') }}/' + notificationId + '/read',
+                type: 'POST',
+                dataType: 'json',
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            });
         }
 
         window.pkHandleAdminInboxNotifications = function (data, opts) {
@@ -87,12 +101,20 @@
                     text: alert.body || '',
                     icon: cfg.icon,
                     showCloseButton: true,
-                    showCancelButton: false,
+                    showCancelButton: !!alert.action_url,
+                    cancelButtonText: '{{ translate('Dismiss') }}',
                     focusConfirm: false,
-                    confirmButtonText: '{{ translate('View_Details') }}',
+                    confirmButtonText: alert.action_url
+                        ? '{{ translate('Go_to_booking') }}'
+                        : '{{ translate('View_Details') }}',
                 }).then(function (result) {
-                    if (result.value && alert.id) {
-                        window.location.href = '{{ url('admin/notifications') }}/' + alert.id;
+                    if (result.value) {
+                        if (alert.action_url) {
+                            markNotificationRead(alert.id);
+                            window.location.href = alert.action_url;
+                        } else if (alert.id) {
+                            window.location.href = '{{ url('admin/notifications') }}/' + alert.id;
+                        }
                     }
                 });
             });

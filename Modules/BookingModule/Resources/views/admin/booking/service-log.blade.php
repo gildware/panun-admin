@@ -356,9 +356,10 @@
                                     <div class="modal fade" id="upcomingHoldModal-{{ $upComing['id'] }}" tabindex="-1" aria-hidden="true">
                                         <div class="modal-dialog modal-dialog-centered">
                                             <div class="modal-content">
-                                                <form method="post" action="{{ route('admin.booking.up_coming_booking_cancel', [$upComing['id']]) }}">
+                                                <form method="post" action="{{ route('admin.booking.up_coming_booking_cancel', [$upComing['id']]) }}" class="upcoming-hold-form">
                                                     @csrf
                                                     <input type="hidden" name="booking_status" value="on_hold">
+                                                    <input type="hidden" name="reason_responsible" value="" class="upcoming-hold-responsible">
                                                     <div class="modal-header border-0">
                                                         <h5 class="modal-title">{{ translate('Put_on_hold') }}</h5>
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ translate('Close') }}"></button>
@@ -367,12 +368,27 @@
                                                         <p class="small text-muted mb-3">{{ translate('want_to_update_status') }}</p>
                                                         <div class="mb-3">
                                                             <label class="form-label">{{ translate('Hold_reason') }} <span class="text-danger">*</span></label>
-                                                            <select name="booking_hold_reopen_reason_id" class="form-select" required>
+                                                            <select name="booking_hold_reopen_reason_id" class="form-select upcoming-hold-reason" required>
                                                                 <option value="">{{ translate('Select') }}</option>
                                                                 @foreach($bookingHoldReasons ?? [] as $r)
-                                                                    <option value="{{ $r->id }}">{{ $r->name }}</option>
+                                                                    <option value="{{ $r->id }}" data-responsible="{{ $r->responsible }}">{{ $r->name }}</option>
                                                                 @endforeach
                                                             </select>
+                                                            @if(($bookingHoldReasons ?? collect())->isEmpty())
+                                                                <div class="form-text small text-danger">{{ translate('No_hold_reasons_configured') }}</div>
+                                                            @endif
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">{{ translate('Hold_estimated_service_schedule') }} <span class="text-danger">*</span></label>
+                                                            @php
+                                                                $__upcomingHoldSchedule = '';
+                                                                try {
+                                                                    $__upcomingHoldSchedule = \Carbon\Carbon::parse($upComing['service_schedule'] ?? null)->format('Y-m-d\TH:i');
+                                                                } catch (\Throwable $e) {
+                                                                    $__upcomingHoldSchedule = '';
+                                                                }
+                                                            @endphp
+                                                            <input type="datetime-local" name="hold_estimated_service_schedule" class="form-control" value="{{ $__upcomingHoldSchedule }}" required>
                                                         </div>
                                                         <div class="mb-0">
                                                             <label class="form-label">{{ translate('Status_change_remarks') }}</label>
@@ -381,7 +397,7 @@
                                                     </div>
                                                     <div class="modal-footer border-0">
                                                         <button type="button" class="btn btn--secondary" data-bs-dismiss="modal">{{ translate('Cancel') }}</button>
-                                                        <button type="submit" class="btn btn--primary">{{ translate('Confirm') }}</button>
+                                                        <button type="submit" class="btn btn--primary" @if(($bookingHoldReasons ?? collect())->isEmpty()) disabled @endif>{{ translate('Confirm') }}</button>
                                                     </div>
                                                 </form>
                                             </div>
@@ -909,6 +925,32 @@
             route_alert_reload(route, '{{ translate('Want to verify the payment') }}', true);
         })
 
+        $(document).on('change', '.upcoming-hold-reason', function () {
+            const resp = String($(this).find('option:selected').data('responsible') || '');
+            $(this).closest('form.upcoming-hold-form').find('.upcoming-hold-responsible').val(resp);
+        });
+
+        $(document).on('submit', '.upcoming-hold-form', function (e) {
+            const $form = $(this);
+            const $reason = $form.find('.upcoming-hold-reason');
+            const resp = String($reason.find('option:selected').data('responsible') || '');
+            $form.find('.upcoming-hold-responsible').val(resp);
+            if (!$reason.val()) {
+                e.preventDefault();
+                toastr.error('{{ translate('Booking_hold_reasons') }} {{ translate('is_required') }}');
+                return;
+            }
+            if (!resp) {
+                e.preventDefault();
+                toastr.error('{{ translate('Invalid_reasons') }}');
+                return;
+            }
+            if (!$form.find('[name="hold_estimated_service_schedule"]').val()) {
+                e.preventDefault();
+                toastr.error('{{ translate('Hold_estimated_service_schedule') }} {{ translate('is_required') }}');
+            }
+        });
+
         @if ($booking->booking_status == 'pending')
         $(document).ready(function() {
             selectElementVisibility('serviceman_assign', false);
@@ -928,6 +970,8 @@
                     }
                     if (typeof bookingAdminOpenStatusReasonModal === 'function') {
                         bookingAdminOpenStatusReasonModal(booking_status, previous_status);
+                    } else {
+                        toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
                     }
                     return;
                 }

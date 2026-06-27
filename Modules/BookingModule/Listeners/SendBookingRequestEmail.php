@@ -46,7 +46,23 @@ class SendBookingRequestEmail
             $title = get_push_notification_message('booking_place', 'customer_notification', $event->booking?->customer?->current_language_key);
             $description = get_push_notification_description('booking_place', 'customer_notification', $event->booking?->customer?->current_language_key);
             if (isset($event->booking->customer->fcm_token) && $title && $notification) {
-                device_notification($event->booking->customer->fcm_token, $title, $description, null, $event->booking->id, 'booking', '', '', '', '', $repeatOrRegular);
+                device_notification(
+                    $event->booking->customer->fcm_token,
+                    $title,
+                    $description,
+                    null,
+                    $event->booking->id,
+                    'booking',
+                    '',
+                    '',
+                    '',
+                    '',
+                    $repeatOrRegular,
+                    null,
+                    null,
+                    null,
+                    'pending'
+                );
             }
         }
     }

@@ -12,7 +12,7 @@ if (! function_exists('notification_message_variables_for_key')) {
         $bookingExtras = ['{{bookingStatus}}', '{{serviceManName}}'];
 
         return match ($key) {
-            'booking_place', 'booking_accepted', 'booking_complete', 'booking_schedule_time_change',
+            'booking_place', 'admin_booking_created', 'booking_accepted', 'booking_complete', 'booking_schedule_time_change',
             'provider_assign', 'booking_status_change', 'booking_reminder' => array_merge($common, $bookingExtras),
             'chat_message' => array_merge($common, ['{{senderName}}']),
             'otp' => array_merge($common, ['{{otp}}']),
@@ -20,7 +20,7 @@ if (! function_exists('notification_message_variables_for_key')) {
             'payment_collected_company', 'payment_collected_provider', 'refund', 'payment_failed' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
             'add_fund_wallet', 'referral_earning', 'wallet_deducted' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'loyalty_point' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
-            'new_service_request_arrived', 'booking_assigned_to_provider' => array_merge($common, $bookingExtras),
+            'new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider' => array_merge($common, $bookingExtras),
             'service_request_approve', 'service_request_deny' => ['{{serviceName}}', '{{providerName}}'],
             'widthdraw_request_approve', 'widthdraw_request_deny', 'admin_payable', 'settlement_received' => ['{{amount}}', '{{providerName}}'],
             default => $common,
@@ -106,8 +106,18 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'summary' => 'Sent when a new booking is created for the customer.',
                 'scenarios' => [
                     'Customer places a booking from the mobile app.',
-                    'Admin creates a booking on behalf of the customer.',
                     'Repeat booking series is initiated (first occurrence).',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'Bookings',
+                'wired' => true,
+            ] : null,
+
+            'admin_booking_created' => $isCustomer ? [
+                'summary' => 'Sent when admin creates a booking on behalf of the customer (already accepted).',
+                'scenarios' => [
+                    'Admin uses Add New Booking with a provider assigned.',
+                    'Admin creates a follow-up booking from a completed visit.',
                 ],
                 'recipient' => 'Customer',
                 'module' => 'Bookings',
@@ -189,8 +199,18 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'summary' => 'Sent when a new pending booking is available for the provider.',
                 'scenarios' => [
                     'Customer places a new booking in the provider’s zone.',
-                    'Admin creates a booking and broadcasts to subscribed providers.',
                     'Booking is verified and providers in zone are notified.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Bookings',
+                'wired' => true,
+            ] : null,
+
+            'admin_booking_assigned' => ! $isCustomer ? [
+                'summary' => 'Sent when admin creates a booking already assigned and accepted for this provider.',
+                'scenarios' => [
+                    'Admin uses Add New Booking and selects this provider.',
+                    'Admin creates a follow-up booking assigned to this provider.',
                 ],
                 'recipient' => 'Provider',
                 'module' => 'Bookings',
@@ -289,8 +309,8 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
             'refund' => $isCustomer ? [
                 'summary' => 'Sent when a refund is credited to the customer.',
                 'scenarios' => [
-                    'Booking is canceled and refund is processed to wallet.',
-                    'Admin/system triggers refund transaction for the booking.',
+                    'Admin refunds a canceled booking to the customer wallet.',
+                    'Admin/system triggers wallet refund transaction for the booking.',
                 ],
                 'recipient' => 'Customer',
                 'module' => 'Payments',
@@ -425,6 +445,93 @@ if (! function_exists('notification_trigger_recommendations')) {
     }
 }
 
+if (! function_exists('send_admin_booking_created_notifications')) {
+    function send_admin_booking_created_notifications(Booking $booking): void
+    {
+        $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
+        if (! ($bookingNotificationStatus['push_notification_booking'] ?? false)) {
+            return;
+        }
+
+        $booking->loadMissing(['customer', 'provider.owner', 'zone']);
+
+        $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
+        $data = [
+            'booking_id' => $booking->readable_id ?? $booking->id,
+            'user_name' => trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? '')),
+            'zone_name' => $booking->zone?->name ?? '',
+            'provider_name' => $booking->provider?->company_name ?? $booking->provider?->contact_person_name ?? '',
+            'schedule_time' => $booking->service_schedule
+                ? \Carbon\Carbon::parse($booking->service_schedule)->format('Y-m-d H:i')
+                : '',
+            'booking_status' => ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? ''))),
+        ];
+
+        if (isNotificationActive(null, 'booking', 'notification', 'user')) {
+            $key = 'admin_booking_created';
+            $user = $booking->customer;
+            $title = get_push_notification_message($key, 'customer_notification', $user?->current_language_key);
+            $description = get_push_notification_description($key, 'customer_notification', $user?->current_language_key);
+            if ($user?->fcm_token && $user->is_active && $title) {
+                device_notification($user->fcm_token, $title, $description, null, $booking->id, 'booking', null, $user->id, $data, null, $repeatOrRegular);
+            }
+        }
+
+        if (isNotificationActive(null, 'booking', 'notification', 'provider') && $booking->provider_id) {
+            $key = 'admin_booking_assigned';
+            $provider = $booking->provider?->owner;
+            $title = get_push_notification_message($key, 'provider_notification', $provider?->current_language_key);
+            $description = get_push_notification_description($key, 'provider_notification', $provider?->current_language_key);
+            if ($provider?->fcm_token && $title && sendDeviceNotificationPermission($booking->provider_id)) {
+                device_notification($provider->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, $data, null, $repeatOrRegular);
+            }
+        }
+    }
+}
+
+if (! function_exists('send_booking_edit_service_add_notifications')) {
+    function send_booking_edit_service_add_notifications(Booking $booking, string $serviceName): void
+    {
+        $bookingNotificationStatus = business_config('booking', 'notification_settings')->live_values;
+        if (! ($bookingNotificationStatus['push_notification_booking'] ?? false)) {
+            return;
+        }
+
+        $booking->loadMissing(['customer', 'provider.owner', 'serviceman.user']);
+
+        $key = 'booking_edit_service_add';
+        $data = ['service_name' => $serviceName];
+        $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
+
+        if (isNotificationActive(null, 'booking', 'notification', 'user')) {
+            $user = $booking->customer;
+            $title = get_push_notification_message($key, 'customer_notification', $user?->current_language_key);
+            $description = get_push_notification_description($key, 'customer_notification', $user?->current_language_key);
+            if ($user?->fcm_token && $title) {
+                device_notification($user->fcm_token, $title, $description, null, $booking->id, 'booking', null, $user->id, $data, null, $repeatOrRegular);
+            }
+        }
+
+        if (isNotificationActive(null, 'booking', 'notification', 'provider')) {
+            $provider = $booking->provider?->owner;
+            $title = get_push_notification_message($key, 'provider_notification', $provider?->current_language_key);
+            $description = get_push_notification_description($key, 'provider_notification', $provider?->current_language_key);
+            if ($provider?->fcm_token && $title) {
+                device_notification($provider->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, $data, null, $repeatOrRegular);
+            }
+        }
+
+        if (isNotificationActive(null, 'booking', 'notification', 'serviceman')) {
+            $serviceman = $booking->serviceman?->user;
+            $title = get_push_notification_message($key, 'serviceman_notification', $serviceman?->current_language_key);
+            $description = get_push_notification_description($key, 'serviceman_notification', $serviceman?->current_language_key);
+            if ($serviceman?->fcm_token && $title) {
+                device_notification($serviceman->fcm_token, $title, $description, null, $booking->id, 'booking', null, null, $data, null, $repeatOrRegular);
+            }
+        }
+    }
+}
+
 if (! function_exists('send_booking_payment_collected_notifications')) {
     function send_booking_payment_collected_notifications(Booking $booking, float $amount, string $receivedBy): void
     {
@@ -532,6 +639,11 @@ if (! function_exists('send_customer_wallet_deducted_notification')) {
         ?string $bookingId = null
     ): void {
         if (! $user->fcm_token || ! $user->is_active || $amount <= 0) {
+            return;
+        }
+
+        // Booking checkout already sends booking_place; skip a second wallet push.
+        if ($bookingId) {
             return;
         }
 

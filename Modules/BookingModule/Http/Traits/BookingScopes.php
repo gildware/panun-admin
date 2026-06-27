@@ -13,6 +13,9 @@ trait BookingScopes
     /** @var array<string, bool> */
     private static array $hasReopenResolvedAtColumn = [];
 
+    /** @var bool|null */
+    private static ?bool $hasCustomerCancellationReasonColumn = null;
+
     private static function bookingsTableHasReopenResolvedAt(string $table): bool
     {
         if (! array_key_exists($table, self::$hasReopenResolvedAtColumn)) {
@@ -20,6 +23,18 @@ trait BookingScopes
         }
 
         return self::$hasReopenResolvedAtColumn[$table];
+    }
+
+    private static function statusHistoriesHaveCustomerCancellationReason(): bool
+    {
+        if (self::$hasCustomerCancellationReasonColumn === null) {
+            self::$hasCustomerCancellationReasonColumn = Schema::hasColumn(
+                'booking_status_histories',
+                'booking_customer_cancellation_reason_id'
+            );
+        }
+
+        return self::$hasCustomerCancellationReasonColumn;
     }
 
 
@@ -54,7 +69,12 @@ trait BookingScopes
             $query->whereNull($table . '.reopen_resolved_at');
         }
         $query->where(function ($q) {
-                $q->whereNotNull('originated_from_booking_id')
+                $q->whereExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('booking_reopen_events')
+                        ->whereColumn('booking_reopen_events.child_booking_id', 'bookings.id')
+                        ->where('booking_reopen_events.resolution', BookingReopenEvent::RESOLUTION_NEW_BOOKING);
+                })
                     ->orWhereExists(function ($sub) {
                         $sub->selectRaw('1')
                             ->from('booking_reopen_events')
@@ -64,7 +84,12 @@ trait BookingScopes
             })
             ->where(function ($q) {
                 $q->where('booking_status', '!=', 'completed')
-                    ->orWhereNotNull('originated_from_booking_id')
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('booking_reopen_events')
+                            ->whereColumn('booking_reopen_events.child_booking_id', 'bookings.id')
+                            ->where('booking_reopen_events.resolution', BookingReopenEvent::RESOLUTION_NEW_BOOKING);
+                    })
                     ->orWhereExists(function ($sub) {
                         $sub->selectRaw('1')
                             ->from('booking_reopen_events')
@@ -105,28 +130,58 @@ trait BookingScopes
     }
 
     /**
-     * Active bookings awaiting admin reassignment after a provider withdrew.
-     * Must have no provider on the parent booking and a provider-withdrawal marker.
+     * Provider cancellation requests awaiting admin action, or pending bookings rejected by the provider.
      */
     public function scopeCancelledByProvider($query): void
     {
         $table = $query->getModel()->getTable();
-        $query->whereNull($table . '.provider_id')
-            ->whereIn($table . '.booking_status', ['pending', 'accepted'])
-            ->where(function ($q) use ($table) {
-                $q->whereNotNull($table . '.provider_cancelled_at')
-                    ->orWhereHas('status_histories', function ($historyQuery) {
-                        $historyQuery->whereNull('booking_repeat_id')
-                            ->whereNotNull('booking_provider_cancellation_reason_id');
-                    });
-            })
-            ->where(function ($q) {
-                $q->where('is_repeated', 0)
-                    ->orWhereDoesntHave('repeat', function ($repeatQuery) {
-                        $repeatQuery->whereIn('booking_status', ['pending', 'accepted', 'ongoing', 'on_hold'])
-                            ->whereNotNull('provider_id');
-                    });
+        $query->where(function ($q) use ($table) {
+            $q->where($table . '.booking_status', 'pending_cancellation')
+                ->orWhere(function ($q2) use ($table) {
+                    $q2->where($table . '.booking_status', 'pending')
+                        ->whereNotNull($table . '.provider_cancelled_at')
+                        ->whereNotNull($table . '.provider_cancelled_by_provider_id')
+                        ->whereHas('status_histories', function ($h) {
+                            $h->whereNull('booking_repeat_id')
+                                ->where('booking_status', 'pending')
+                                ->whereNotNull('booking_provider_cancellation_reason_id');
+                        })
+                        ->whereDoesntHave('status_histories', function ($h) {
+                            $h->whereNull('booking_repeat_id')
+                                ->where('booking_status', 'pending_cancellation');
+                        });
+                });
+        });
+    }
+
+    /**
+     * Bookings canceled by the customer (via app) with a configured cancellation reason.
+     */
+    public function scopeCancelledByCustomer($query): void
+    {
+        if (! self::statusHistoriesHaveCustomerCancellationReason()) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $table = $query->getModel()->getTable();
+        $query->whereIn($table . '.booking_status', ['canceled', 'cancelled', 'refunded'])
+            ->whereHas('status_histories', function ($h) {
+                $h->whereNull('booking_repeat_id')
+                    ->whereIn('booking_status', ['canceled', 'cancelled', 'refunded'])
+                    ->whereNotNull('booking_customer_cancellation_reason_id');
             });
+    }
+
+    /**
+     * Customer cancellations awaiting admin bank transfer refund (canceled, not yet fully refunded).
+     */
+    public function scopeCancelledByCustomerPendingRefund($query): void
+    {
+        $table = $query->getModel()->getTable();
+        $query->cancelledByCustomer()
+            ->whereIn($table . '.booking_status', ['canceled', 'cancelled']);
     }
 
     /**
@@ -300,6 +355,16 @@ trait BookingScopes
         }
         if ($bookingStatus === 'cancelled_by_provider') {
             $query->cancelledByProvider();
+
+            return;
+        }
+        if ($bookingStatus === 'cancelled_by_customer') {
+            $query->cancelledByCustomer();
+
+            return;
+        }
+        if ($bookingStatus === 'cancelled_by_customer_pending_refund') {
+            $query->cancelledByCustomerPendingRefund();
 
             return;
         }
