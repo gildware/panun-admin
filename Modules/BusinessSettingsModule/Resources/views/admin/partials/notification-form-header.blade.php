@@ -28,6 +28,7 @@
                        id="{{$notificationKey}}_status"
                        {{$notificationRow?->live_values[$notificationKey.'_status']?'checked':''}}
                        data-key="{{$notificationKey}}"
+                       data-message-type="{{ ($settingsType ?? '') === 'provider_notification' ? 'providers' : 'customers' }}"
                        type="checkbox"
                        value="1">
                 <span class="switcher_control"></span>

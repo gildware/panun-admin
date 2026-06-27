@@ -27,6 +27,7 @@ use Modules\UserManagement\Entities\User;
 use Modules\BookingModule\Entities\Booking;
 use Modules\BookingModule\Entities\BookingFollowup;
 use Illuminate\Contracts\Support\Renderable;
+use Modules\AdminModule\Services\AdminDashboardCache;
 use Modules\AdminModule\Services\AdvanceSearch;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\LeadManagement\Entities\Lead;
@@ -99,26 +100,13 @@ class AdminController extends Controller
 
         $our_earning = $admin_commission - $discount_by_admin - $coupon_discount_by_admin - $campaign_discount_by_admin;
 
-        $allCompletedRepeats = BookingRepeat::ofBookingStatus('completed')->with('booking.extra_services')->get();
-        $repeatLineTotalByParentId = provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id($allCompletedRepeats);
-
-        $total_revenue = 0.0;
-        $spare_parts_total = 0.0;
-        foreach ($this->booking->forRevenueReporting()->with('extra_services')->get() as $b) {
-            $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($b);
-            $total_revenue += $slice['reported_total'];
-            $spare_parts_total += $slice['spare_parts'];
-        }
-        foreach ($allCompletedRepeats as $r) {
-            $parentKey = (string) $r->booking_id;
-            $den = (float) ($repeatLineTotalByParentId[$parentKey] ?? get_booking_total_amount($r));
-            $slice = get_admin_dashboard_reporting_total_and_spare_for_repeat($r, $den);
-            $total_revenue += $slice['reported_total'];
-            $spare_parts_total += $slice['spare_parts'];
-        }
-        $total_revenue = round($total_revenue, 2);
-        $spare_parts_total = round($spare_parts_total, 2);
-        $service_charges_total = round($total_revenue - $spare_parts_total, 2);
+        $revenueTotals = AdminDashboardCache::rememberMetrics('revenue_totals:v1', fn () => $this->buildRevenueTotalsPayload());
+        $total_revenue = (float) ($revenueTotals['total_revenue'] ?? 0);
+        $spare_parts_total = (float) ($revenueTotals['spare_parts_total'] ?? 0);
+        $service_charges_total = (float) ($revenueTotals['service_charges_total'] ?? 0);
+        $repeatLineTotalByParentId = is_array($revenueTotals['repeatLineTotalByParentId'] ?? null)
+            ? $revenueTotals['repeatLineTotalByParentId']
+            : [];
 
         $financialSummary = admin_dashboard_financial_summary_metrics();
 
@@ -186,9 +174,9 @@ class AdminController extends Controller
             ->get();
         $data[] = ['bookings' => $bookings];
 
-        $data[] = ['top_providers' => $this->topProvidersByPerformanceScore(5)];
+        $data[] = ['top_providers' => AdminDashboardCache::rememberMetrics('top_providers:v1', fn () => $this->topProvidersByPerformanceScore(5))];
 
-        $data[] = ['top_customers' => $this->topCustomersByPerformanceScore(5)];
+        $data[] = ['top_customers' => AdminDashboardCache::rememberMetrics('top_customers:v1', fn () => $this->topCustomersByPerformanceScore(5))];
 
         $todaysPendingFollowupsBase = BookingFollowup::query()
             ->where('status', 'scheduled')
@@ -352,9 +340,7 @@ class AdminController extends Controller
             $adminEarningByMonth[$m] = ($adminEarningByMonth[$m] ?? 0) + (float) (($scaledCommissionAdjYear['by_month'] ?? [])[$m] ?? 0);
         }
 
-        $repeatLineTotalByParentId = provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id(
-            BookingRepeat::ofBookingStatus('completed')->with('booking.extra_services')->get()
-        );
+        $repeatLineTotalByParentId = $this->cachedRepeatLineTotalByParentId();
         $revenueByMonth = $this->dashboardReportedRevenueByMonth((int) $year, $repeatLineTotalByParentId);
 
         $months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -771,12 +757,66 @@ class AdminController extends Controller
     }
 
     /**
+     * @return array<string, float|array<string, float>>
+     */
+    private function buildRevenueTotalsPayload(): array
+    {
+        $allCompletedRepeats = BookingRepeat::ofBookingStatus('completed')->with('booking.extra_services')->get();
+        $repeatLineTotalByParentId = provider_payment_tab_sum_repeat_line_totals_by_parent_booking_id($allCompletedRepeats);
+
+        $total_revenue = 0.0;
+        $spare_parts_total = 0.0;
+        foreach (Booking::query()->forRevenueReporting()->with('extra_services')->get() as $b) {
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_booking($b);
+            $total_revenue += $slice['reported_total'];
+            $spare_parts_total += $slice['spare_parts'];
+        }
+        foreach ($allCompletedRepeats as $r) {
+            $parentKey = (string) $r->booking_id;
+            $den = (float) ($repeatLineTotalByParentId[$parentKey] ?? get_booking_total_amount($r));
+            $slice = get_admin_dashboard_reporting_total_and_spare_for_repeat($r, $den);
+            $total_revenue += $slice['reported_total'];
+            $spare_parts_total += $slice['spare_parts'];
+        }
+
+        return [
+            'total_revenue' => round($total_revenue, 2),
+            'spare_parts_total' => round($spare_parts_total, 2),
+            'service_charges_total' => round($total_revenue - $spare_parts_total, 2),
+            'repeatLineTotalByParentId' => $repeatLineTotalByParentId,
+        ];
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function cachedRepeatLineTotalByParentId(): array
+    {
+        $revenueTotals = AdminDashboardCache::rememberMetrics('revenue_totals:v1', fn () => $this->buildRevenueTotalsPayload());
+
+        return is_array($revenueTotals['repeatLineTotalByParentId'] ?? null)
+            ? $revenueTotals['repeatLineTotalByParentId']
+            : [];
+    }
+
+    /**
      * Per-month reported revenue for the admin earning chart (matches top-card basis: special settlements, after-visit cancels via forRevenueReporting).
      *
      * @param  array<string, float>  $repeatLineTotalByParentId  Sum of completed repeat line totals per parent booking_id (global, for correct non-standard weights).
      * @return array<int, float> month => revenue
      */
     private function dashboardReportedRevenueByMonth(int $year, array $repeatLineTotalByParentId): array
+    {
+        return AdminDashboardCache::rememberMetrics("revenue_by_month:{$year}", function () use ($year, $repeatLineTotalByParentId) {
+            return $this->computeDashboardReportedRevenueByMonth($year, $repeatLineTotalByParentId);
+        });
+    }
+
+    /**
+     * @param  array<string, float>  $repeatLineTotalByParentId
+     * @return array<int, float>
+     */
+    private function computeDashboardReportedRevenueByMonth(int $year, array $repeatLineTotalByParentId): array
     {
         $byMonth = array_fill(1, 12, 0.0);
 

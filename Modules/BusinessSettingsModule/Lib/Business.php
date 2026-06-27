@@ -4,45 +4,28 @@ use Illuminate\Support\Str;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Modules\BusinessSettingsModule\Entities\DataSetting;
 use Modules\BusinessSettingsModule\Entities\LoginSetup;
+use Modules\BusinessSettingsModule\Services\BusinessConfigCache;
 use Modules\ProviderManagement\Entities\ProviderSetting;
 use Modules\UserManagement\Entities\User;
 
 if (!function_exists('business_config')) {
     function business_config($key, $settings_type)
     {
-        try {
-            $config = BusinessSettings::where('key_name', $key)->where('settings_type', $settings_type)->first();
-        } catch (Exception $exception) {
-            return null;
-        }
-
-        return (isset($config)) ? $config : null;
+        return BusinessConfigCache::businessConfig((string) $key, (string) $settings_type);
     }
 }
 
 if (!function_exists('login_setup')) {
     function login_setup($key)
     {
-        try {
-            $config = LoginSetup::where('key', $key)->first();
-        } catch (Exception $exception) {
-            return null;
-        }
-
-        return (isset($config)) ? $config : null;
+        return BusinessConfigCache::loginSetup((string) $key);
     }
 }
 
 if (!function_exists('data_config')) {
     function data_config($key, $settings_type)
     {
-        try {
-            $config = DataSetting::where('key', $key)->where('type', $settings_type)->first();
-        } catch (Exception $exception) {
-            return null;
-        }
-
-        return (isset($config)) ? $config : null;
+        return BusinessConfigCache::dataConfig((string) $key, (string) $settings_type);
     }
 }
 

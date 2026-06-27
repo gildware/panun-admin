@@ -3483,11 +3483,11 @@ class ProviderController extends Controller
                 $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
                 $booking->refresh();
                 $booking->loadMissing(['customer', 'provider.owner', 'service_address', 'detail', 'booking_partial_payments']);
+                send_booking_provider_reassignment_notifications($booking, $oldProviderId ? (string) $oldProviderId : null, (string) $providerId);
                 app(\Modules\WhatsAppModule\Services\BookingWhatsAppNotificationService::class)
                     ->sendBookingProviderChange($booking, $previousProvider);
             }
 
-            $this->sendProviderNotification($providerId, $booking->id, 'booking');
             $providers = $this->fetchProviders($request, $booking);
 
             return response()->json([
@@ -3518,7 +3518,6 @@ class ProviderController extends Controller
                 }
             }
 
-            $this->sendProviderNotification($providerId, $bookingRepeat->id, 'repeat');
             $providers = $this->fetchProviders($request, $bookingRepeat->booking);
 
             return response()->json([
@@ -3542,6 +3541,7 @@ class ProviderController extends Controller
             'booking_status' => 'accepted',
             'provider_cancelled_at' => null,
             'provider_cancelled_by_provider_id' => null,
+            'assigned_by' => 'admin',
         ]);
 
         $this->bookingStatusHistory->create([

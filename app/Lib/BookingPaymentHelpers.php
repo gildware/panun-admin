@@ -1211,9 +1211,6 @@ if (! function_exists('booking_admin_can_reassign_provider')) {
         if ($currentSt === 'ongoing') {
             return false;
         }
-        if ($main instanceof Booking && $main->isProviderWithdrawnAwaitingAdmin()) {
-            return false;
-        }
 
         return ! BookingStatusHistory::query()
             ->where('booking_id', $main->id)
@@ -3037,6 +3034,71 @@ if (! function_exists('booking_refund_ledger_row_payload')) {
     }
 }
 
+if (! function_exists('get_booking_customer_refund_delivered_breakdown')) {
+    /**
+     * Refunds already delivered to the customer, split by wallet credit vs bank/gateway transfer.
+     * Excludes internal disputed-refund ledger legs (company/provider pool rows).
+     *
+     * @return array{
+     *     wallet_refunded: float,
+     *     transfer_refunded: float,
+     *     total_refunded: float,
+     *     has_any: bool
+     * }
+     */
+    function get_booking_customer_refund_delivered_breakdown(Booking $booking): array
+    {
+        $bid = (string) ($booking->id ?? '');
+        if ($bid === '') {
+            return [
+                'wallet_refunded' => 0.0,
+                'transfer_refunded' => 0.0,
+                'total_refunded' => 0.0,
+                'has_any' => false,
+            ];
+        }
+
+        $walletRefunded = 0.0;
+        $transferRefunded = 0.0;
+
+        $entries = LedgerTransaction::query()
+            ->where('booking_id', $bid)
+            ->where('reason', LedgerTransaction::REASON_REFUND)
+            ->where('type', LedgerTransaction::TYPE_OUT)
+            ->where(function ($query) {
+                $query->whereNull('received_by')
+                    ->orWhereNotIn('received_by', [
+                        LedgerTransaction::RECEIVED_BY_COMPANY,
+                        LedgerTransaction::RECEIVED_BY_PROVIDER,
+                    ]);
+            })
+            ->get();
+
+        foreach ($entries as $entry) {
+            $amount = round((float) ($entry->amount ?? 0), 2);
+            if ($amount <= 0.009) {
+                continue;
+            }
+
+            if (booking_refund_ledger_method_key($entry) === 'transfer') {
+                $transferRefunded += $amount;
+            } else {
+                $walletRefunded += $amount;
+            }
+        }
+
+        $walletRefunded = round($walletRefunded, 2);
+        $transferRefunded = round($transferRefunded, 2);
+
+        return [
+            'wallet_refunded' => $walletRefunded,
+            'transfer_refunded' => $transferRefunded,
+            'total_refunded' => round($walletRefunded + $transferRefunded, 2),
+            'has_any' => $walletRefunded > 0.009 || $transferRefunded > 0.009,
+        ];
+    }
+}
+
 if (! function_exists('booking_append_customer_api_financial_fields')) {
     /**
      * Additional charges breakdown, payable total, payment summary, and customer payment ledger for customer API.
@@ -4509,6 +4571,31 @@ if (!function_exists('admin_dashboard_financial_summary_metrics')) {
      */
     function admin_dashboard_financial_summary_metrics(): array
     {
+        return \Modules\AdminModule\Services\AdminDashboardCache::rememberMetrics(
+            'financial_summary:v1',
+            function (): array {
+                return admin_dashboard_financial_summary_metrics_uncached();
+            }
+        );
+    }
+}
+
+if (!function_exists('admin_dashboard_financial_summary_metrics_uncached')) {
+    /**
+     * @return array{
+     *     payable_to_providers: float,
+     *     payable_to_customers: float,
+     *     balance_with_providers: float,
+     *     settlement_net: float,
+     *     total_amount_received_by_company: float,
+     *     total_loss_in_all_bookings: float,
+     *     total_bad_debt_with_customers: float,
+     *     total_write_off_company: float,
+     *     total_write_off_provider: float
+     * }
+     */
+    function admin_dashboard_financial_summary_metrics_uncached(): array
+    {
         $bookingIdsWithRepeats = BookingRepeat::query()
             ->whereNotNull('booking_id')
             ->distinct()
@@ -5745,13 +5832,67 @@ if (!function_exists('placeBookingTransactionForAdvanceDeposit')) {
     }
 }
 
+if (!function_exists('distribute_checkout_amount_equally')) {
+    /**
+     * Split a cart-level amount equally across multiple booking lines (remainder cents go to first lines).
+     */
+    function distribute_checkout_amount_equally(float $totalAmount, int $totalUnits, int $unitIndex): float
+    {
+        $totalUnits = max(1, $totalUnits);
+        $unitIndex = max(0, min($unitIndex, $totalUnits - 1));
+        $totalCents = (int) round(max(0.0, $totalAmount) * 100);
+        $quotientCents = intdiv($totalCents, $totalUnits);
+        $remainderCents = $totalCents % $totalUnits;
+        $unitCents = $quotientCents + ($unitIndex < $remainderCents ? 1 : 0);
+
+        return round($unitCents / 100, 2);
+    }
+}
+
 if (!function_exists('resolve_checkout_wallet_digital_split')) {
     /**
+     * Split checkout payment between wallet and digital for one booking line.
+     * When $multiBookingSplit is set (multi-booking cart checkout), cart-level wallet and digital
+     * totals are divided equally across each service line.
+     *
+     * @param  array{wallet_total: float, digital_total: float, total_bookings: int, booking_index: int}|null  $multiBookingSplit
      * @return array{wallet_paid: float, digital_paid: float, checkout_paid: float}
      */
-    function resolve_checkout_wallet_digital_split($request, float $checkoutPayable, float $customerWalletBalance): array
-    {
+    function resolve_checkout_wallet_digital_split(
+        $request,
+        float $checkoutPayable,
+        float $customerWalletBalance,
+        ?array $multiBookingSplit = null
+    ): array {
         $checkoutPayable = round(max(0.0, $checkoutPayable), 2);
+
+        if (is_array($multiBookingSplit)) {
+            $totalBookings = max(1, (int) ($multiBookingSplit['total_bookings'] ?? 1));
+            $bookingIndex = max(0, min((int) ($multiBookingSplit['booking_index'] ?? 0), $totalBookings - 1));
+            $walletShare = distribute_checkout_amount_equally(
+                (float) ($multiBookingSplit['wallet_total'] ?? 0),
+                $totalBookings,
+                $bookingIndex
+            );
+            $digitalShare = distribute_checkout_amount_equally(
+                (float) ($multiBookingSplit['digital_total'] ?? 0),
+                $totalBookings,
+                $bookingIndex
+            );
+
+            $walletPaid = round(min($checkoutPayable, max(0.0, $walletShare)), 2);
+            $digitalPaid = round(min(
+                max(0.0, $checkoutPayable - $walletPaid),
+                max(0.0, $digitalShare)
+            ), 2);
+
+            return [
+                'wallet_paid' => $walletPaid,
+                'digital_paid' => $digitalPaid,
+                'checkout_paid' => round($walletPaid + $digitalPaid, 2),
+            ];
+        }
+
         $walletPaid = round((float) ($request['wallet_paid_amount'] ?? 0), 2);
         $digitalPaid = round((float) ($request['digitally_paid_amount'] ?? ($request['verified_checkout_amount'] ?? 0)), 2);
 
@@ -5787,9 +5928,15 @@ if (!function_exists('record_checkout_wallet_digital_partial_payments')) {
         $request,
         float $totalBookingAmount,
         float $checkoutPayable,
-        float $customerWalletBalance
+        float $customerWalletBalance,
+        ?array $multiBookingSplit = null
     ): void {
-        $split = resolve_checkout_wallet_digital_split($request, $checkoutPayable, $customerWalletBalance);
+        $split = resolve_checkout_wallet_digital_split(
+            $request,
+            $checkoutPayable,
+            $customerWalletBalance,
+            $multiBookingSplit
+        );
         $walletPaid = $split['wallet_paid'];
         $digitalPaid = $split['digital_paid'];
         $checkoutPaid = $split['checkout_paid'];

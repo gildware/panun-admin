@@ -746,10 +746,53 @@ class ProviderController extends Controller
             return response()->json(response_formatter(DEFAULT_400, null, error_processor($validator)), 400);
         }
 
-        $createdAt = $request->user()->created_at ?? null;
+        $providerUserId = (string) $request->user()->id;
+        $pushNotification = $this->providerInboxQuery($request)
+            ->latest()
+            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
 
+        mobile_inbox_enrich_paginator($pushNotification, $providerUserId);
+
+        return response()->json(response_formatter(DEFAULT_200, $pushNotification), 200);
+    }
+
+    public function notificationUnreadCount(Request $request): JsonResponse
+    {
+        $providerUserId = (string) $request->user()->id;
+        $count = mobile_inbox_unread_count($this->providerInboxQuery($request), $providerUserId);
+
+        return response()->json(response_formatter(DEFAULT_200, ['unread_count' => $count]), 200);
+    }
+
+    public function markNotificationRead(Request $request, string $id): JsonResponse
+    {
+        $providerUserId = (string) $request->user()->id;
+
+        $visible = $this->providerInboxQuery($request)->where('id', $id)->exists();
+        if (! $visible) {
+            return response()->json(response_formatter(DEFAULT_404), 404);
+        }
+
+        mobile_inbox_mark_read($id, $providerUserId);
+
+        return response()->json(response_formatter(DEFAULT_UPDATE_200), 200);
+    }
+
+    public function markAllNotificationsRead(Request $request): JsonResponse
+    {
+        $providerUserId = (string) $request->user()->id;
+        $marked = mobile_inbox_mark_all_read($this->providerInboxQuery($request), $providerUserId);
+
+        return response()->json(response_formatter(DEFAULT_200, ['marked' => $marked]), 200);
+    }
+
+    private function providerInboxQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    {
+        $createdAt = $request->user()->created_at ?? null;
+        $providerUserId = $request->user()->id;
         $nZoneIds = $request->user()->provider->coveredLeafZoneIds();
-        $pushNotification = $this->pushNotification->ofStatus(1)
+
+        return $this->pushNotification->ofStatus(1)
             ->whereJsonContains('to_users', 'provider-admin')
             ->when($nZoneIds !== [], function ($query) use ($nZoneIds) {
                 $query->where(function ($q) use ($nZoneIds) {
@@ -761,13 +804,15 @@ class ProviderController extends Controller
             ->when($nZoneIds === [], function ($query) {
                 $query->whereRaw('1 = 0');
             })
+            ->where(function ($query) use ($providerUserId) {
+                $query->whereDoesntHave('pushNotificationUser')
+                    ->orWhereHas('pushNotificationUser', function ($q) use ($providerUserId) {
+                        $q->where('user_id', $providerUserId);
+                    });
+            })
             ->when($createdAt, function ($query) use ($createdAt) {
                 $query->where('created_at', '>=', $createdAt);
-            })
-            ->latest()
-            ->paginate($request['limit'], ['*'], 'offset', $request['offset'])->withPath('');
-
-        return response()->json(response_formatter(DEFAULT_200, $pushNotification), 200);
+            });
     }
 
     /**

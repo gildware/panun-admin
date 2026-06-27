@@ -257,24 +257,74 @@
 
 @push('script')
     <script>
-        "use strict";
-        let pendingCustomerStatusForm = null;
-        const customerStatusModalEl = document.getElementById('customerStatusConfirmModal');
-        const customerStatusModal = bootstrap.Modal.getOrCreateInstance(customerStatusModalEl);
+        (function () {
+            "use strict";
 
-        document.querySelectorAll('.confirm-status-change-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                pendingCustomerStatusForm = btn.closest('form');
-                const statusLabel = btn.dataset.statusLabel || '';
-                document.getElementById('customerStatusConfirmText').textContent = `Are you sure you want to set status to "${statusLabel}"?`;
-                customerStatusModal.show();
-            });
-        });
+            let pendingCustomerStatusForm = null;
+            let customerStatusModal = null;
 
-        document.getElementById('customerStatusConfirmSubmit').addEventListener('click', function () {
-            if (pendingCustomerStatusForm) {
-                pendingCustomerStatusForm.submit();
+            function initCustomerPerformanceStatusActions(root) {
+                root = root || document.getElementById('admin-main') || document;
+
+                const modalEl = root.querySelector
+                    ? root.querySelector('#customerStatusConfirmModal')
+                    : document.getElementById('customerStatusConfirmModal');
+
+                if (!modalEl || !window.bootstrap || typeof window.bootstrap.Modal !== 'function') {
+                    return false;
+                }
+
+                customerStatusModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+                root.querySelectorAll('.confirm-status-change-btn').forEach(function (btn) {
+                    if (btn.dataset.customerStatusBound === '1') {
+                        return;
+                    }
+                    btn.dataset.customerStatusBound = '1';
+                    btn.addEventListener('click', function () {
+                        pendingCustomerStatusForm = btn.closest('form');
+                        const statusLabel = btn.dataset.statusLabel || '';
+                        const textEl = document.getElementById('customerStatusConfirmText');
+                        if (textEl) {
+                            textEl.textContent = `Are you sure you want to set status to "${statusLabel}"?`;
+                        }
+                        customerStatusModal.show();
+                    });
+                });
+
+                const submitBtn = document.getElementById('customerStatusConfirmSubmit');
+                if (submitBtn && submitBtn.dataset.customerStatusBound !== '1') {
+                    submitBtn.dataset.customerStatusBound = '1';
+                    submitBtn.addEventListener('click', function () {
+                        if (pendingCustomerStatusForm) {
+                            pendingCustomerStatusForm.submit();
+                        }
+                    });
+                }
+
+                return true;
             }
-        });
+
+            function bootCustomerPerformanceStatusActions() {
+                if (initCustomerPerformanceStatusActions(document.getElementById('admin-main') || document)) {
+                    return;
+                }
+
+                window.addEventListener('load', function () {
+                    initCustomerPerformanceStatusActions(document.getElementById('admin-main') || document);
+                }, { once: true });
+            }
+
+            if (!window.__customerPerformanceStatusBound) {
+                window.__customerPerformanceStatusBound = true;
+                document.addEventListener('admin:page-loaded', function (event) {
+                    initCustomerPerformanceStatusActions(
+                        event.detail && event.detail.root ? event.detail.root : document
+                    );
+                });
+            }
+
+            bootCustomerPerformanceStatusActions();
+        })();
     </script>
 @endpush

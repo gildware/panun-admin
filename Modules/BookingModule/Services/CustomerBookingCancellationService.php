@@ -91,7 +91,10 @@ class CustomerBookingCancellationService
                 }
             }
 
-            return $booking->fresh();
+            $freshBooking = $booking->fresh();
+            $this->notifyAdminCustomerCanceled($freshBooking);
+
+            return $freshBooking;
         });
     }
 
@@ -122,6 +125,13 @@ class CustomerBookingCancellationService
             $history->status_change_remarks = $statusChangeRemarks;
             $history->save();
         });
+    }
+
+    private function notifyAdminCustomerCanceled(Booking $booking): void
+    {
+        if (function_exists('admin_inbox_notify_booking_customer_canceled')) {
+            admin_inbox_notify_booking_customer_canceled($booking);
+        }
     }
 
     private function assertCustomerCanCancel(Booking $booking, User $customer): void

@@ -45,6 +45,28 @@ class NotificationMessageConfigTest extends TestCase
         $this->assertSame('refund', resolve_booking_status_notification_key('refund_request', 'customer'));
     }
 
+    public function test_booking_placed_notification_skipped_after_provider_withdrawal(): void
+    {
+        $this->assertFalse(should_notify_customer_booking_placed_on_status_change(
+            'pending',
+            true,
+            'accepted',
+            true,
+            '2026-06-27 12:00:00',
+        ));
+    }
+
+    public function test_booking_placed_notification_sent_for_new_pending_booking(): void
+    {
+        $this->assertTrue(should_notify_customer_booking_placed_on_status_change(
+            'pending',
+            true,
+            '',
+            false,
+            null,
+        ));
+    }
+
     public function test_preview_notification_message_replaces_variables(): void
     {
         $text = 'Hello {{userName}}, booking {{bookingId}} is {{bookingStatus}}.';

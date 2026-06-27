@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cache;
 use Modules\BusinessSettingsModule\Entities\BusinessSettings;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -36,16 +37,22 @@ class Localization
         $defaultLocale = 'en';
         $defaultDirection = 'ltr';
         if (isset($connected) && $connected) {
-            $systemLanguage = BusinessSettings::where('key_name', 'system_language')->first();
-            if ($systemLanguage && isset($systemLanguage->live_values)) {
-                foreach ($systemLanguage->live_values as $key => $data) {
-                    if ($data['default']) {
-                        $defaultLocale = $data['code'];
-                        $defaultDirection = $data['direction'] ?? 'ltr';
-                        break;
+            [$defaultLocale, $defaultDirection] = Cache::remember('system_language_defaults:v1', 600, function () {
+                $locale = 'en';
+                $direction = 'ltr';
+                $systemLanguage = BusinessSettings::where('key_name', 'system_language')->first();
+                if ($systemLanguage && isset($systemLanguage->live_values)) {
+                    foreach ($systemLanguage->live_values as $data) {
+                        if (! empty($data['default'])) {
+                            $locale = $data['code'];
+                            $direction = $data['direction'] ?? 'ltr';
+                            break;
+                        }
                     }
                 }
-            }
+
+                return [$locale, $direction];
+            });
         }
 
         if ($request->is('provider*')) {

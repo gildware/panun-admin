@@ -40,6 +40,9 @@ Route::group(['prefix' => 'provider', 'as' => 'provider.', 'namespace' => 'Api\V
     Route::get('info', [ProviderProviderController::class, 'index']);
     Route::get('adjust', [ProviderProviderController::class, 'adjust']);
     Route::get('notifications', [ProviderProviderController::class, 'notifications']);
+    Route::get('notifications/unread-count', [ProviderProviderController::class, 'notificationUnreadCount']);
+    Route::put('notifications/mark-all-read', [ProviderProviderController::class, 'markAllNotificationsRead']);
+    Route::put('notifications/{id}/read', [ProviderProviderController::class, 'markNotificationRead']);
     Route::put('update/fcm-token', [ProviderProviderController::class, 'updateFcmToken']);
     Route::put('update/profile', [ProviderProviderController::class, 'updateProfile']);
     Route::put('update/branding', [ProviderProviderController::class, 'updateBranding']);

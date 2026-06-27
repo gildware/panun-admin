@@ -24,6 +24,7 @@ class ProviderBookingCancellationAdminService
         return DB::transaction(function () use ($booking, $admin, $adminNote, $notifyCustomer) {
             $requestHistory = $this->resolveWithdrawalHistory($booking);
             $withdrawingProviderId = $this->resolveWithdrawingProviderId($booking);
+            $removedProviderId = (string) ($booking->provider_id ?? '');
 
             if ($withdrawingProviderId !== '') {
                 BookingIgnore::query()->firstOrCreate([
@@ -54,6 +55,10 @@ class ProviderBookingCancellationAdminService
 
             if ($notifyCustomer) {
                 $this->notifyCustomerProviderCancellationConfirmed($booking->fresh());
+            }
+
+            if ($removedProviderId !== '') {
+                send_provider_removed_from_booking_notification($booking->fresh(), $removedProviderId);
             }
 
             AdminMenuCounts::forget();

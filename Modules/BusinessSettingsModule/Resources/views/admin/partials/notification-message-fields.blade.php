@@ -56,13 +56,36 @@
 
 @if($language ?? null)
     <div class="mb-30 lang-form default-form notification-message-form" data-notification-key="{{ $notificationKey }}">
-        @include('businesssettingsmodule::admin.partials.notification-form-header', [
-            'notification' => $notification,
-            'notificationKey' => $notificationKey,
-            'notificationRow' => $notificationRow,
-            'settingsType' => $settingsType,
-            'fieldSuffix' => 'default',
-        ])
+        @include('businesssettingsmodule::admin.partials.notification-scenario-context', ['scenarioContext' => $scenarioContext ?? null])
+        @if(empty($hideFormHeader))
+            @include('businesssettingsmodule::admin.partials.notification-form-header', [
+                'notification' => $notification,
+                'notificationKey' => $notificationKey,
+                'notificationRow' => $notificationRow,
+                'settingsType' => $settingsType,
+                'fieldSuffix' => 'default',
+            ])
+        @else
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <div class="fz-12 fw-semibold text-dark mb-0">{{ translate($notification['value'] . '_Message') }}</div>
+                    <code class="fz-11 text-muted">{{ $notificationKey }}</code>
+                </div>
+                @can('notification_message_manage_status')
+                    <label class="switcher flex-shrink-0">
+                <input class="switcher_input update-message"
+                       name="status"
+                       id="{{$notificationKey}}_status"
+                       {{$notificationRow?->live_values[$notificationKey.'_status']?'checked':''}}
+                       data-key="{{$notificationKey}}"
+                       data-message-type="{{ ($settingsType ?? '') === 'provider_notification' ? 'providers' : 'customers' }}"
+                       type="checkbox"
+                       value="1">
+                        <span class="switcher_control"></span>
+                    </label>
+                @endcan
+            </div>
+        @endif
         <input type="hidden" name="id" value="{{ $notificationKey }}">
         <div class="message-textarea mb-3">
             <div class="mb-2 text-dark">{{ translate('Title') }}</div>
@@ -118,14 +141,16 @@
             $langDescription = $translateDescription[$lang['code']][$notificationRow?->key_name . '_description'] ?? '';
         @endphp
         <div class="mb-30 d-none lang-form {{$lang['code']}}-form notification-message-form" data-notification-key="{{ $notificationKey }}">
-            @include('businesssettingsmodule::admin.partials.notification-form-header', [
-                'notification' => $notification,
-                'notificationKey' => $notificationKey,
-                'notificationRow' => $notificationRow,
-                'settingsType' => $settingsType,
-                'fieldSuffix' => $lang['code'],
-                'langLabel' => $lang['code'],
-            ])
+            @if(empty($hideFormHeader))
+                @include('businesssettingsmodule::admin.partials.notification-form-header', [
+                    'notification' => $notification,
+                    'notificationKey' => $notificationKey,
+                    'notificationRow' => $notificationRow,
+                    'settingsType' => $settingsType,
+                    'fieldSuffix' => $lang['code'],
+                    'langLabel' => $lang['code'],
+                ])
+            @endif
             <input type="hidden" name="id" value="{{ $notificationKey }}">
             <div class="message-textarea mb-3">
                 <div class="mb-2 text-dark">{{ translate('Title') }}</div>
@@ -165,13 +190,36 @@
     @endforeach
 @else
     <div class="mb-30 lang-form notification-message-form" data-notification-key="{{ $notificationKey }}">
-        @include('businesssettingsmodule::admin.partials.notification-form-header', [
-            'notification' => $notification,
-            'notificationKey' => $notificationKey,
-            'notificationRow' => $notificationRow,
-            'settingsType' => $settingsType,
-            'fieldSuffix' => 'default',
-        ])
+        @include('businesssettingsmodule::admin.partials.notification-scenario-context', ['scenarioContext' => $scenarioContext ?? null])
+        @if(empty($hideFormHeader))
+            @include('businesssettingsmodule::admin.partials.notification-form-header', [
+                'notification' => $notification,
+                'notificationKey' => $notificationKey,
+                'notificationRow' => $notificationRow,
+                'settingsType' => $settingsType,
+                'fieldSuffix' => 'default',
+            ])
+        @else
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <div class="fz-12 fw-semibold text-dark mb-0">{{ translate($notification['value'] . '_Message') }}</div>
+                    <code class="fz-11 text-muted">{{ $notificationKey }}</code>
+                </div>
+                @can('notification_message_manage_status')
+                    <label class="switcher flex-shrink-0">
+                        <input class="switcher_input update-message"
+                               name="status"
+                               id="{{$notificationKey}}_status"
+                               {{$notificationRow?->live_values[$notificationKey.'_status']?'checked':''}}
+                               data-key="{{$notificationKey}}"
+                               data-message-type="{{ ($settingsType ?? '') === 'provider_notification' ? 'providers' : 'customers' }}"
+                               type="checkbox"
+                               value="1">
+                        <span class="switcher_control"></span>
+                    </label>
+                @endcan
+            </div>
+        @endif
         <input type="hidden" name="id" value="{{ $notificationKey }}">
         <div class="message-textarea mb-3">
             <div class="mb-2 text-dark">{{ translate('Title') }}</div>

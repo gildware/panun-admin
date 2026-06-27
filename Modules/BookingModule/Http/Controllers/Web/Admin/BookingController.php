@@ -4609,6 +4609,7 @@ class BookingController extends Controller
 
                 $payload = response_formatter(DEFAULT_STATUS_UPDATE_200);
                 if ((string) $oldProviderId !== (string) $request->provider_id) {
+                    send_booking_provider_reassignment_notifications($booking->fresh(), $oldProviderId ? (string) $oldProviderId : null, (string) $request->provider_id);
                     try {
                         $previousProvider = $oldProviderId ? $this->provider->with('owner')->find($oldProviderId) : null;
                         $booking->refresh();
@@ -7586,6 +7587,8 @@ class BookingController extends Controller
         } catch (\Throwable $e) {
             Log::warning('WhatsApp booking refund prompt failed', ['booking_id' => $booking->id ?? null, 'message' => $e->getMessage()]);
         }
+
+        send_customer_refund_notification($booking->fresh(['customer']), $amount, 'refund_bank_transfer');
 
         if ($request->wantsJson()) {
             $payload = $this->attachWhatsAppAdminPrompt($waRefundPrompt, response_formatter(DEFAULT_UPDATE_200, null));

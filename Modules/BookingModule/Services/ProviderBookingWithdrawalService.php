@@ -187,6 +187,8 @@ class ProviderBookingWithdrawalService
 
             $this->notifyCustomerProviderWithdrew($booking);
 
+            send_provider_removed_from_booking_notification($booking->fresh(), $providerId);
+
             event(new ProviderWithdrewFromBooking($booking->fresh(), $providerId));
 
             AdminMenuCounts::forget();

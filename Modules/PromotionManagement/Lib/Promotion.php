@@ -91,11 +91,11 @@ if (!function_exists('push_notification_android_channel_for_type')) {
     function push_notification_android_channel_for_type(?string $type): string
     {
         return match ($type) {
-            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking',
-            'chatting' => 'demandium_chat',
-            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet',
-            'bidding', 'bid-withdraw' => 'demandium_bidding',
-            default => 'demandium',
+            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking_v2',
+            'chatting' => 'demandium_chat_v2',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet_v2',
+            'bidding', 'bid-withdraw' => 'demandium_bidding_v2',
+            default => 'demandium_v2',
         };
     }
 }
@@ -108,8 +108,39 @@ if (!function_exists('apply_push_notification_sound')) {
 
         $postData['message']['data']['notification_sound'] = $sound;
         $postData['message']['data']['android_channel_id'] = $channelId;
+
+        if (isset($postData['message']['apns']['payload']['aps'])) {
+            $postData['message']['apns']['payload']['aps']['sound'] = $sound;
+        }
+    }
+}
+
+if (!function_exists('finalize_fcm_push_payload')) {
+    /**
+     * Android: send data-only FCM so the Flutter app shows local notifications
+     * with custom res/raw sounds. iOS: APNS alert + custom sound.
+     */
+    function finalize_fcm_push_payload(array &$postData, string $title, string $body, ?string $type): void
+    {
+        unset($postData['message']['notification']);
+
+        apply_push_notification_sound($postData, $type);
+
+        $postData['message']['android'] = ['priority' => 'HIGH'];
+
+        $sound = push_notification_sound_for_type($type);
+        $postData['message']['apns']['headers'] = array_merge(
+            $postData['message']['apns']['headers'] ?? [],
+            ['apns-priority' => '10']
+        );
+        $postData['message']['apns']['payload']['aps']['alert'] = [
+            'title' => $title,
+            'body' => $body,
+        ];
         $postData['message']['apns']['payload']['aps']['sound'] = $sound;
-        $postData['message']['android']['notification']['channelId'] = $channelId;
+        if (! isset($postData['message']['apns']['payload']['aps']['badge'])) {
+            $postData['message']['apns']['payload']['aps']['badge'] = 1;
+        }
     }
 }
 
@@ -210,7 +241,7 @@ if (!function_exists('device_notification')) {
         ];
 
         apply_push_notification_body($postData, $body);
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $body, $type);
         apply_push_notification_urgent_delivery($postData, $type);
 
         return sendNotificationToHttp($postData);
@@ -250,7 +281,7 @@ if (!function_exists('topic_notification')) {
         ];
 
         apply_push_notification_body($postData, $body);
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $body, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -290,7 +321,7 @@ if (!function_exists('device_notification_for_bidding')) {
         ];
 
         apply_push_notification_body($postData, $body);
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $body, $type);
 
         return sendNotificationToHttp($postData);
     }
@@ -332,7 +363,7 @@ if (!function_exists('device_notification_for_chatting')) {
             ]
         ];
 
-        apply_push_notification_sound($postData, $type);
+        finalize_fcm_push_payload($postData, (string) $title, (string) $description, $type);
 
         return sendNotificationToHttp($postData);
     }

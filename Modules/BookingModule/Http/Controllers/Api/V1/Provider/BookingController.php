@@ -31,6 +31,7 @@ use Modules\BookingModule\Http\Traits\BookingTrait;
 use Modules\BookingModule\Services\ProviderBookingWithdrawalService;
 use Modules\CartModule\Entities\Cart;
 use Modules\ProviderManagement\Entities\SubscribedService;
+use Modules\ProviderManagement\Services\ProviderBookingTabCountCache;
 use Modules\ServiceManagement\Entities\Service;
 use Modules\UserManagement\Entities\UserAddress;
 use App\Lib\BookingInvoiceUrl;
@@ -109,7 +110,7 @@ class BookingController extends Controller
             'provider_id' => $providerId,
         ];
 
-        $bookings_count = $this->providerBookingListTabCounts(
+        $bookings_count = $this->resolveProviderBookingTabCounts(
             $request,
             $provider,
             $providerId,
@@ -120,7 +121,7 @@ class BookingController extends Controller
 
         //bookings list
         $bookings = $this->booking
-            ->with(['customer', 'subCategory:id,name', 'repeat', 'extra_services', 'booking_offline_payments' => function ($query) {
+            ->with(['customer.storage', 'subCategory:id,name', 'repeat', 'extra_services', 'booking_offline_payments' => function ($query) {
                     $query->first() ?? [];
             }])
             ->withCount('compensations')
@@ -169,6 +170,8 @@ class BookingController extends Controller
                 });
                 $booking->repeats = $sortedRepeats->values()->toArray();
             }
+            booking_prepare_mobile_api_user_for_json($booking->customer, true);
+            $booking->setAppends([]);
             booking_append_provider_api_ui_fields($booking);
             $listDisplayTotal = get_customer_booking_list_display_total($booking);
             $originalGrandTotal = round((float) get_booking_total_amount($booking), 2);
@@ -197,6 +200,40 @@ class BookingController extends Controller
             'bookings_count' => $bookingsCount,
             'bookings' => $bookings,
         ]), 200);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function resolveProviderBookingTabCounts(
+        Request $request,
+        $provider,
+        string $providerId,
+        $maxBookingAmount,
+        int $serviceAtProviderPlace,
+        array $serviceLocations,
+    ): array {
+        $includeTabCounts = filter_var($request->input('include_tab_counts', true), FILTER_VALIDATE_BOOL);
+        if (! $includeTabCounts) {
+            return array_fill_keys(booking_api_list_filter_tab_order(), 0);
+        }
+
+        $filtersKey = md5(json_encode([
+            'service_type' => (string) ($request['service_type'] ?? 'all'),
+        ]));
+
+        return ProviderBookingTabCountCache::remember(
+            $providerId,
+            $filtersKey,
+            fn () => $this->providerBookingListTabCounts(
+                $request,
+                $provider,
+                $providerId,
+                $maxBookingAmount,
+                $serviceAtProviderPlace,
+                $serviceLocations,
+            )
+        );
     }
 
     /**

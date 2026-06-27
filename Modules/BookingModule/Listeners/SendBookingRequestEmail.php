@@ -45,25 +45,26 @@ class SendBookingRequestEmail
             $repeatOrRegular = $event->booking?->is_repeated ? 'repeat' : 'regular';
             $title = get_push_notification_message('booking_place', 'customer_notification', $event->booking?->customer?->current_language_key);
             $description = get_push_notification_description('booking_place', 'customer_notification', $event->booking?->customer?->current_language_key);
-            if (isset($event->booking->customer->fcm_token) && $title && $notification) {
-                device_notification(
-                    $event->booking->customer->fcm_token,
+            $customer = $event->booking->customer;
+            if ($customer && $title && $notification && $customer->is_active) {
+                scenario_push_notification(
+                    $customer->fcm_token,
                     $title,
                     $description,
-                    null,
                     $event->booking->id,
                     'booking',
-                    '',
-                    '',
-                    '',
-                    '',
+                    $customer->id,
+                    null,
                     $repeatOrRegular,
-                    null,
-                    null,
-                    null,
-                    'pending'
+                    'pending',
+                    'customer',
+                    $event->booking->zone_id
                 );
             }
+        }
+
+        if ($event->booking->provider_id && function_exists('send_booking_new_service_request_to_assigned_provider')) {
+            send_booking_new_service_request_to_assigned_provider($event->booking);
         }
     }
 }

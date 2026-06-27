@@ -52,4 +52,20 @@ class CancelAutoRefundPartialsTest extends TestCase
         $this->assertTrue($breakdown['has_mixed_payments']);
         $this->assertTrue($breakdown['requires_digital_refund_choice']);
     }
+
+    public function test_refund_ledger_method_key_distinguishes_wallet_and_transfer(): void
+    {
+        if (! function_exists('booking_refund_ledger_method_key')) {
+            $this->markTestSkipped('Helper not loaded');
+        }
+
+        $walletEntry = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $walletEntry->transaction_id = null;
+
+        $transferEntry = new \Modules\TransactionModule\Entities\LedgerTransaction;
+        $transferEntry->transaction_id = 'TXN-12345';
+
+        $this->assertSame('wallet', booking_refund_ledger_method_key($walletEntry));
+        $this->assertSame('transfer', booking_refund_ledger_method_key($transferEntry));
+    }
 }

@@ -367,7 +367,7 @@ class BookingRepeat extends Model
             $notifications = [];
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
 
-            if ($model->isDirty('provider_id') && $model->provider_id) {
+            if ($model->wasChanged('provider_id') && $model->provider_id) {
                 if ($bookingScheduleTimeChange) {
                     $notifications[] = [
                         'key' => 'provider_assign',

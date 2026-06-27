@@ -160,6 +160,10 @@ class WithdrawController extends Controller
             admin_inbox_notify_withdraw_request($createdWithdrawRequest->loadMissing('user.provider'));
         }
 
+        if ($createdWithdrawRequest && function_exists('send_provider_withdraw_request_submitted_notification')) {
+            send_provider_withdraw_request_submitted_notification($createdWithdrawRequest->loadMissing('user.provider'));
+        }
+
         return response()->json(response_formatter(DEFAULT_200), 200);
     }
 

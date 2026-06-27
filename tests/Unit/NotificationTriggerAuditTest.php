@@ -28,7 +28,7 @@ class NotificationTriggerAuditTest extends TestCase
 
     public function test_customer_only_keys_return_null_for_provider(): void
     {
-        $customerOnly = ['booking_place', 'admin_booking_created', 'otp', 'provider_assign', 'refund', 'payment_failed', 'add_fund_wallet', 'wallet_deducted', 'referral_earning', 'loyalty_point', 'booking_reminder'];
+        $customerOnly = ['booking_place', 'admin_booking_created', 'otp', 'provider_assign', 'refund', 'refund_bank_transfer', 'payment_failed', 'add_fund_wallet', 'wallet_deducted', 'referral_earning', 'loyalty_point', 'loyalty_point_convert', 'customer_review_approved', 'booking_reminder'];
         foreach ($customerOnly as $key) {
             $this->assertNull(notification_trigger_scenarios_for_key($key, 'provider_notification'));
         }
@@ -36,7 +36,7 @@ class NotificationTriggerAuditTest extends TestCase
 
     public function test_provider_only_keys_return_null_for_customer(): void
     {
-        $providerOnly = ['new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider', 'service_request_approve', 'service_request_deny', 'widthdraw_request_approve', 'widthdraw_request_deny', 'admin_payable', 'settlement_received'];
+        $providerOnly = ['new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider', 'service_request_approve', 'service_request_deny', 'widthdraw_request_approve', 'widthdraw_request_deny', 'withdraw_request_submitted', 'admin_payable', 'settlement_received', 'review_approved', 'provider_removed_from_booking'];
         foreach ($providerOnly as $key) {
             $this->assertNull(notification_trigger_scenarios_for_key($key, 'customer_notification'));
         }

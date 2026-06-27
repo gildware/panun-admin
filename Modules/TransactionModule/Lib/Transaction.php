@@ -2553,7 +2553,7 @@ if (!function_exists('loyaltyPointWalletTransferTransaction')) {
 }
 
 if (!function_exists('loyaltyPointTransaction')) {
-    function loyaltyPointTransaction($user_id, $point) {
+    function loyaltyPointTransaction($user_id, $point, ?string $bookingId = null) {
 
         DB::transaction(function () use ($user_id, $point) {
 
@@ -2572,6 +2572,11 @@ if (!function_exists('loyaltyPointTransaction')) {
                 'transaction_type' => null,
             ]);
         });
+
+        $user = User::find($user_id);
+        if ($user) {
+            send_customer_loyalty_point_notification($user, (float) $point, 'loyalty_point', $bookingId);
+        }
     }
 }
 
@@ -2703,11 +2708,7 @@ if (!function_exists('processBookingWalletRefund')) {
                 'to_user_account' => 'user_wallet',
             ]);
 
-            $title = get_push_notification_message('refund', 'customer_notification', $booking?->customer?->current_language_key);
-            $description = get_push_notification_description('refund', 'customer_notification', $booking?->customer?->current_language_key);
-            if ($title && $booking?->customer?->fcm_token) {
-                device_notification($booking?->customer?->fcm_token, with_currency_symbol($refundAmount) . ' ' . $title, $description, null, $booking->id, 'booking');
-            }
+            send_customer_refund_notification($booking->fresh(['customer']), $refundAmount, 'refund');
         });
     }
 }

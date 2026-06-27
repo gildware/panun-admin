@@ -3714,6 +3714,7 @@ const NOTIFICATION_MESSAGE_CATEGORIES = [
     'service_updates',
     'payments',
     'wallet_and_loyalty',
+    'review',
 ];
 
 const NOTIFICATION_MESSAGE_CATEGORY_LABELS = [
@@ -3721,6 +3722,35 @@ const NOTIFICATION_MESSAGE_CATEGORY_LABELS = [
     'service_updates' => 'Service Updates',
     'payments' => 'Payments',
     'wallet_and_loyalty' => 'Wallet and Loyalty',
+    'review' => 'Review',
+];
+
+const NOTIFICATION_SCENARIO_MODULE_LABELS = [
+    'booking_creation' => 'Booking Creation',
+    'booking_update' => 'Booking Update',
+    'payments' => 'Payments',
+    'provider_payments' => 'Provider Payments',
+    'review' => 'Review',
+    'loyalty_points' => 'Loyalty Points',
+    'refund' => 'Refund',
+];
+
+const NOTIFICATION_SCENARIO_ACTOR_LABELS = [
+    'customer' => 'Customer',
+    'provider' => 'Provider',
+    'admin' => 'Admin',
+    'system' => 'System',
+];
+
+const NOTIFICATION_SCENARIO_AUDIENCE_LABELS = [
+    'customer' => 'Customer',
+    'provider' => 'Provider',
+    'admin' => 'Admin',
+];
+
+const NOTIFICATION_SCENARIO_CHANNEL_LABELS = [
+    'push' => 'Push (mobile app)',
+    'inbox' => 'Admin inbox',
 ];
 
 const NOTIFICATION_FOR_USER = [
@@ -3744,6 +3774,9 @@ const NOTIFICATION_FOR_USER = [
     ['key' => 'wallet_deducted', 'value' => 'Wallet Deducted', 'category' => 'wallet_and_loyalty'],
     ['key' => 'referral_earning', 'value' => 'Referral Earning', 'category' => 'wallet_and_loyalty'],
     ['key' => 'loyalty_point', 'value' => 'Loyalty Point', 'category' => 'wallet_and_loyalty'],
+    ['key' => 'loyalty_point_convert', 'value' => 'Loyalty Point Converted', 'category' => 'wallet_and_loyalty'],
+    ['key' => 'refund_bank_transfer', 'value' => 'Bank Transfer Refund', 'category' => 'payments'],
+    ['key' => 'customer_review_approved', 'value' => 'Customer Review Approved', 'category' => 'review'],
 ];
 
 const NOTIFICATION_FOR_PROVIDER = [
@@ -3765,6 +3798,9 @@ const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'widthdraw_request_deny', 'value' => 'Withdraw Request Deny', 'category' => 'payments'],
     ['key' => 'settlement_received', 'value' => 'Settlement Received', 'category' => 'payments'],
     ['key' => 'admin_payable', 'value' => 'Admin Payable', 'category' => 'payments'],
+    ['key' => 'withdraw_request_submitted', 'value' => 'Withdraw Request Submitted', 'category' => 'payments'],
+    ['key' => 'provider_removed_from_booking', 'value' => 'Removed From Booking', 'category' => 'booking_status'],
+    ['key' => 'review_approved', 'value' => 'Review Approved', 'category' => 'review'],
 ];
 
 const NOTIFICATION_FOR_SERVICEMAN = [

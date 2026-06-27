@@ -93,5 +93,20 @@ class NotificationWiringAuditTest extends TestCase
         $this->assertTrue(function_exists('send_provider_settlement_received_notification'));
         $this->assertTrue(function_exists('send_booking_reminder_notification'));
         $this->assertTrue(function_exists('send_chat_message_push_notification'));
+        $this->assertTrue(function_exists('send_review_approved_to_provider_notification'));
+        $this->assertTrue(function_exists('send_customer_refund_notification'));
+        $this->assertTrue(function_exists('admin_inbox_notify_booking_payment'));
+    }
+
+    public function test_scenario_registry_has_no_unwired_audiences(): void
+    {
+        foreach (notification_scenario_registry() as $scenario) {
+            foreach ($scenario['audiences'] as $audience) {
+                $this->assertTrue(
+                    (bool) ($audience['wired'] ?? false),
+                    "Scenario {$scenario['id']} audience {$audience['audience']} is not wired."
+                );
+            }
+        }
     }
 }

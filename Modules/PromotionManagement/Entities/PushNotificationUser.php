@@ -10,7 +10,11 @@ class PushNotificationUser extends Model
 {
     use HasFactory, HasUuid;
 
-    protected $fillable = ['push_notification_id', 'user_id'];
+    protected $fillable = ['push_notification_id', 'user_id', 'read_at'];
+
+    protected $casts = [
+        'read_at' => 'datetime',
+    ];
 
     protected static function newFactory()
     {

@@ -210,6 +210,8 @@ class CustomerController extends Controller
         try {
             $loyaltyAmount = round($point / $pointValuePerCurrencyUnit, 2);
             loyaltyPointWalletTransferTransaction($user->id, $point, $loyaltyAmount);
+            $user->refresh();
+            send_customer_loyalty_point_notification($user, $point, 'loyalty_point_convert');
         } catch (\RuntimeException $e) {
             if (in_array($e->getMessage(), ['insufficient_loyalty_points', 'customer_not_found'], true)) {
                 return response()->json(response_formatter(DEFAULT_400, null, null), 400);

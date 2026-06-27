@@ -53,7 +53,6 @@ class ConfigurationController extends Controller
     public function notificationSettingsGet(Request $request): Factory|View|Application
     {
         $this->authorize('notification_message_view');
-        $queryParams = $request->get('type', 'customers');
         $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_USER, 'customer_notification', 'serviceman_assign', 'provider_assign');
         $this->migrateNotificationMessageFromLegacyKeys('customer_notification', [
             'booking_ongoing' => 'booking_status_change',
@@ -73,17 +72,12 @@ class ConfigurationController extends Controller
         $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_PROVIDER, 'provider_notification');
         $dataSettingsValue = $this->businessSetting->whereIn('settings_type', ['notification_settings'])->get();
         $dataValues = $this->businessSetting->whereIn('settings_type', ['customer_notification', 'provider_notification', 'serviceman_notification'])->with('translations')->get();
-        $groupedCustomerNotifications = group_notification_messages_by_category(NOTIFICATION_FOR_USER);
-        $groupedProviderNotifications = group_notification_messages_by_category(NOTIFICATION_FOR_PROVIDER);
-        $notificationCategoryLabels = NOTIFICATION_MESSAGE_CATEGORY_LABELS;
+        $groupedScenarios = group_notification_scenarios_by_module();
 
         return view('businesssettingsmodule::admin.notification', compact(
             'dataValues',
-            'queryParams',
             'dataSettingsValue',
-            'groupedCustomerNotifications',
-            'groupedProviderNotifications',
-            'notificationCategoryLabels'
+            'groupedScenarios'
         ));
     }
 

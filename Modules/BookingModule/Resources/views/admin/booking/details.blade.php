@@ -1674,7 +1674,7 @@
                                                     </button>
                                                 @endif
                                             @endcan
-                                            @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold']) && ! $booking->isProviderWithdrawnAwaitingAdmin())
+                                            @if (booking_admin_can_reassign_provider($booking) && in_array($booking->booking_status, ['accepted', 'pending', 'on_hold', 'pending_cancellation'], true))
                                                 @can('booking_can_manage_status')
                                                     <span class="cursor-pointer d-inline-flex align-items-center" role="button" tabindex="0" data-bs-target="#providerModal" data-bs-toggle="modal" title="{{ translate('change_Provider') }}">
                                                         <span class="material-symbols-outlined fz-18">manage_history</span>
@@ -1699,10 +1699,12 @@
                                             <span class="material-icons text-muted fs-2">account_circle</span>
                                             <p class="text-muted text-center fw-medium mb-2 fz-12">{{ translate('No Provider Information') }}</p>
                                         </div>
-                                        @if($booking->is_verified != 2 && ! $booking->isProviderWithdrawnAwaitingAdmin())
+                                        @if(booking_admin_can_reassign_provider($booking) && ($booking->is_verified != 2 || $booking->isProviderWithdrawnAwaitingAdmin()))
+                                            @if($booking->isProviderWithdrawnAwaitingAdmin())
+                                                <p class="text-warning text-center fz-12 mb-2 px-2">{{ translate('Provider_rejected_request_hint') }}</p>
+                                            @endif
                                             <div class="text-center pb-1">
-                                                <button type="button" class="btn btn--primary" data-bs-target="#providerModal" data-bs-toggle="modal"
-                                                    @if(in_array($booking['booking_status'], ['completed', 'canceled'], true)) disabled @endif>
+                                                <button type="button" class="btn btn--primary" data-bs-target="#providerModal" data-bs-toggle="modal">
                                                     {{ translate('assign provider') }}
                                                 </button>
                                             </div>
@@ -2961,18 +2963,66 @@
 
                     @can('booking_can_manage_status')
                                 @if(in_array($booking->booking_status, ['canceled', 'cancelled', 'refunded'], true) && isset($maxRefundAmount) && $maxRefundAmount > 0)
+                                    @php
+                                        $__adminRefundChannelBreakdown = get_booking_customer_refund_channel_breakdown($booking);
+                                        $__adminRefundWalletPaid = round((float) ($__adminRefundChannelBreakdown['wallet_paid'] ?? 0), 2);
+                                        $__adminRefundDigitalPaid = round((float) ($__adminRefundChannelBreakdown['digital_paid'] ?? 0), 2);
+                                        $__adminRefundShowChannelBreakdown = $__adminRefundWalletPaid > 0.009 || $__adminRefundDigitalPaid > 0.009;
+                                        $__adminRefundDeliveredBreakdown = get_booking_customer_refund_delivered_breakdown($booking);
+                                        $__adminRefundWalletRefunded = round((float) ($__adminRefundDeliveredBreakdown['wallet_refunded'] ?? 0), 2);
+                                        $__adminRefundTransferRefunded = round((float) ($__adminRefundDeliveredBreakdown['transfer_refunded'] ?? 0), 2);
+                                        $__adminRefundShowDeliveredBreakdown = ($__adminRefundDeliveredBreakdown['has_any'] ?? false)
+                                            || $__adminRefundWalletRefunded > 0.009
+                                            || $__adminRefundTransferRefunded > 0.009;
+                                    @endphp
                                     <div class="card mb-3">
                                         <div class="card-body">
                                     <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 mb-3">
                                         <span class="material-icons fz-18 flex-shrink-0">info</span>
                                         <span class="fz-12">{{ translate('Refund_of') }} <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong> {{ translate('is_pending') }}</span>
                                     </div>
-                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 form-control py-2 px-3 w-100">
+                                    <div class="form-control py-2 px-3 w-100">
+                                        @if($__adminRefundShowChannelBreakdown)
+                                            <div class="border-bottom pb-2 mb-2">
+                                                <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Customer_paid') }}</p>
+                                                @if($__adminRefundWalletPaid > 0.009)
+                                                    <div class="d-flex justify-content-between align-items-baseline gap-2 fz-12 mb-1">
+                                                        <span class="title-color">{{ translate('Paid_via_wallet') }}</span>
+                                                        <strong class="text-break">{{ with_currency_symbol($__adminRefundWalletPaid) }}</strong>
+                                                    </div>
+                                                @endif
+                                                @if($__adminRefundDigitalPaid > 0.009)
+                                                    <div class="d-flex justify-content-between align-items-baseline gap-2 fz-12">
+                                                        <span class="title-color">{{ translate('Paid_via_digital') }}</span>
+                                                        <strong class="text-break">{{ with_currency_symbol($__adminRefundDigitalPaid) }}</strong>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
+                                        @if($__adminRefundShowDeliveredBreakdown)
+                                            <div class="border-bottom pb-2 mb-2">
+                                                <p class="text-uppercase text-muted fz-11 mb-2 fw-semibold">{{ translate('Refunds_already_processed') }}</p>
+                                                @if($__adminRefundWalletRefunded > 0.009)
+                                                    <div class="d-flex justify-content-between align-items-baseline gap-2 fz-12 mb-1">
+                                                        <span class="title-color">{{ translate('Refunded_to_wallet') }}</span>
+                                                        <strong class="text-break text-success">-{{ with_currency_symbol($__adminRefundWalletRefunded) }}</strong>
+                                                    </div>
+                                                @endif
+                                                @if($__adminRefundTransferRefunded > 0.009)
+                                                    <div class="d-flex justify-content-between align-items-baseline gap-2 fz-12">
+                                                        <span class="title-color">{{ translate('Refunded_via_transfer') }}</span>
+                                                        <strong class="text-break text-success">-{{ with_currency_symbol($__adminRefundTransferRefunded) }}</strong>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                                         <span class="title-color flex-shrink-0">{{ translate('Process_refund') }}</span>
                                         <div class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto min-w-0">
                                             <span class="text-muted text-break fz-12">{{ translate('Remaining_refundable') }}: <strong>{{ with_currency_symbol($maxRefundAmount) }}</strong></span>
                                             <button type="button" class="btn btn--primary btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#refundWalletModal-{{ $booking->id }}">{{ translate('Refund_to_wallet') }}</button>
                                             <button type="button" class="btn btn--danger btn-sm flex-shrink-0" data-bs-toggle="modal" data-bs-target="#refundTransferModal-{{ $booking->id }}">{{ translate('Transfer_to_customer') }}</button>
+                                        </div>
                                         </div>
                                     </div>
                                     <div class="modal fade" id="refundWalletModal-{{ $booking->id }}" tabindex="-1">

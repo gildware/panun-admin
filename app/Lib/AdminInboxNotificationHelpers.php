@@ -2,6 +2,7 @@
 
 use Modules\AdminModule\Entities\UserNotification;
 use Modules\AdminModule\Services\AdminInboxNotificationService;
+use Modules\BookingModule\Entities\Booking;
 use Modules\ChattingModule\Entities\ChannelConversation;
 use Modules\ProviderManagement\Entities\Provider;
 use Modules\ProviderManagement\Entities\WithdrawRequest;
@@ -109,6 +110,63 @@ if (! function_exists('admin_inbox_notify_withdraw_request')) {
             route('admin.withdraw.request.list', ['status' => 'pending']),
             'withdraw_request',
             (string) $withdrawRequest->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_booking_payment')) {
+    function admin_inbox_notify_booking_payment(Booking $booking, float $amount, string $receivedBy): void
+    {
+        $booking->loadMissing('customer');
+        $readableId = $booking->readable_id ?? $booking->id;
+        $customerName = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''));
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_BOOKING,
+            translate('Booking_payment_received') . ' #' . $readableId,
+            with_currency_symbol($amount) . ' — ' . ucfirst(str_replace('_', ' ', strtolower(trim($receivedBy))))
+                . ($customerName !== '' ? ' · ' . $customerName : ''),
+            route('admin.booking.details', ['id' => $booking->id]),
+            'booking_payment',
+            (string) $booking->id . ':' . round($amount, 2) . ':' . strtolower(trim($receivedBy)),
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_booking_ongoing')) {
+    function admin_inbox_notify_booking_ongoing(Booking $booking): void
+    {
+        $booking->loadMissing(['customer', 'provider']);
+        $readableId = $booking->readable_id ?? $booking->id;
+        $providerName = $booking->provider?->company_name ?? translate('Provider');
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_BOOKING,
+            translate('Booking_ongoing') . ' #' . $readableId,
+            $providerName . ' ' . translate('marked_booking_as_ongoing'),
+            route('admin.booking.details', ['id' => $booking->id]),
+            'booking_ongoing',
+            (string) $booking->id,
+        );
+    }
+}
+
+if (! function_exists('admin_inbox_notify_booking_customer_canceled')) {
+    function admin_inbox_notify_booking_customer_canceled(Booking $booking): void
+    {
+        $booking->loadMissing('customer');
+        $readableId = $booking->readable_id ?? $booking->id;
+        $customerName = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''));
+
+        admin_inbox_notify_all(
+            UserNotification::TYPE_BOOKING,
+            translate('Booking_canceled_by_customer') . ' #' . $readableId,
+            $customerName !== ''
+                ? $customerName . ' ' . translate('canceled_the_booking')
+                : translate('A_customer_canceled_a_booking'),
+            route('admin.booking.details', ['id' => $booking->id]),
+            'booking_customer_cancel',
+            (string) $booking->id,
         );
     }
 }

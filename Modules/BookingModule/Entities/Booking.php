@@ -855,7 +855,7 @@ class Booking extends Model
             if ($model->isDirty('booking_status')) {
                 $key = null;
                 if ($model->booking_status == 'pending') {
-                    if ($permission) {
+                    if ($permission && should_notify_customer_booking_placed_on_pending_status($model)) {
                         $notifications[] = [
                             'key' => 'booking_place',
                             'settings_type' => 'customer_notification'
@@ -880,16 +880,19 @@ class Booking extends Model
                             'settings_type' => 'serviceman_notification'
                         ];
                     }
+                    if (function_exists('admin_inbox_notify_booking_ongoing')) {
+                        admin_inbox_notify_booking_ongoing($model);
+                    }
             } elseif ($model->booking_status == 'accepted') {
                 if ($permission) {
                     $notifications[] = [
-                        'key' => 'booking_accepted',
+                        'key' => booking_customer_notification_key_for_accepted_status($model),
                         'settings_type' => 'customer_notification'
                     ];
                 }
                 if ($providerPermission) {
                     $notifications[] = [
-                        'key' => 'booking_accepted',
+                        'key' => booking_provider_notification_key_for_accepted_status($model),
                         'settings_type' => 'provider_notification'
                     ];
                 }
@@ -1210,7 +1213,7 @@ class Booking extends Model
             $notifications = [];
             $booking_notification_status = business_config('booking', 'notification_settings')->live_values;
 
-            if ($model->isDirty('provider_id') && $model->provider_id && ! $model->is_repeted && (string) ($model->assigned_by ?? '') === 'admin') {
+            if (booking_provider_assignment_changed($model, true) && $model->provider_id && ! $model->is_repeted && ! booking_skip_provider_assignment_notification_in_updated($model)) {
                 if ($bookingScheduleTimeChange) {
                     $notifications[] = [
                         'key' => 'provider_assign',

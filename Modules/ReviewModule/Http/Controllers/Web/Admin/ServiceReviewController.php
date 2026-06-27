@@ -26,6 +26,8 @@ class ServiceReviewController extends Controller
         if (!$review->is_active) {
             $this->review->where('id', $id)->update(['is_active' => 1]);
             $this->providerReviewRatingService->syncForReviewTargets($review->service_id, $review->provider_id);
+            $review->refresh();
+            send_review_approved_to_provider_notification($review);
         }
 
         return response()->json(response_formatter(DEFAULT_STATUS_UPDATE_200), 200);
