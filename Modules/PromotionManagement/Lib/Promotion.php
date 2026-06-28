@@ -203,7 +203,7 @@ if (!function_exists('apply_push_notification_urgent_delivery')) {
 }
 
 if (!function_exists('device_notification')) {
-    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null, $booking_status_override = null)
+    function device_notification($fcm_token, $title, $description, $image, $booking_id, $type='status', $channel_id = null, $user_id = null, $data=null, $advertisement_id=null, $bookingType=null, $repeat_type=null, $service_slug=null, $service_id=null, $booking_status_override = null, $push_notification_id = null)
     {
         $title = text_variable_data_format($title, $booking_id, $type, $data, $bookingType);
         $body = format_push_notification_body($description, $booking_id, $type, $data, $bookingType);
@@ -225,6 +225,7 @@ if (!function_exists('device_notification')) {
                     "repeat_type" => (string)$repeat_type,
                     "service_slug" => (string)($service_slug ?? ''),
                     "service_id" => (string)($service_id ?? ''),
+                    "push_notification_id" => (string)($push_notification_id ?? ''),
                 ],
                 "notification" => [
                     'title' => (string)$title,

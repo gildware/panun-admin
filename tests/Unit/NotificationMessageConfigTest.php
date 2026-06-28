@@ -14,12 +14,14 @@ class NotificationMessageConfigTest extends TestCase
         $this->assertArrayHasKey('service_updates', $grouped);
         $this->assertArrayHasKey('payments', $grouped);
         $this->assertArrayHasKey('wallet_and_loyalty', $grouped);
+        $this->assertArrayHasKey('review', $grouped);
         $this->assertArrayNotHasKey('bidding', $grouped);
 
-        $this->assertCount(10, $grouped['booking_status']);
+        $this->assertCount(12, $grouped['booking_status']);
         $this->assertCount(2, $grouped['service_updates']);
-        $this->assertCount(4, $grouped['payments']);
-        $this->assertCount(4, $grouped['wallet_and_loyalty']);
+        $this->assertCount(5, $grouped['payments']);
+        $this->assertCount(6, $grouped['wallet_and_loyalty']);
+        $this->assertCount(1, $grouped['review']);
     }
 
     public function test_provider_notifications_exclude_bidding(): void

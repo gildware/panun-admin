@@ -75,6 +75,36 @@ if (! function_exists('mobile_inbox_mark_all_read')) {
     }
 }
 
+if (! function_exists('mobile_inbox_matches_zone_ids')) {
+    /**
+     * Notifications with empty zone_ids are treated as global and visible to all zones.
+     */
+    function mobile_inbox_matches_zone_ids(Builder $query, array $zoneIds): Builder
+    {
+        if ($zoneIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $query) use ($zoneIds) {
+            foreach ($zoneIds as $zoneId) {
+                $query->orWhereJsonContains('zone_ids', $zoneId);
+            }
+            $query->orWhere('zone_ids', '[]')->orWhereNull('zone_ids');
+        });
+    }
+}
+
+if (! function_exists('mobile_inbox_matches_zone_id')) {
+    function mobile_inbox_matches_zone_id(Builder $query, string $zoneId): Builder
+    {
+        return $query->where(function (Builder $query) use ($zoneId) {
+            $query->whereJsonContains('zone_ids', $zoneId)
+                ->orWhere('zone_ids', '[]')
+                ->orWhereNull('zone_ids');
+        });
+    }
+}
+
 if (! function_exists('mobile_inbox_enrich_paginator')) {
     function mobile_inbox_enrich_paginator(LengthAwarePaginator $paginator, string $userId): LengthAwarePaginator
     {

@@ -35,12 +35,7 @@ if (!function_exists('pay_to_admin_success')) {
             $user->is_suspended = 0;
             $user->save();
 
-            $title = get_push_notification_message('provider_suspension_remove', 'provider_notification', $user?->owner?->current_language_key);
-
-            $description = get_push_notification_description('provider_suspension_remove', 'provider_notification', $user?->owner?->current_language_key);
-            if ($user?->owner?->fcm_token && $title){
-                device_notification($user?->owner?->fcm_token, $title, $description, null, $user->id, 'suspend');
-            }
+            send_provider_suspension_removed_notification($user);
         }
         $data_info = [
             'provider_name' => $user?->company_name

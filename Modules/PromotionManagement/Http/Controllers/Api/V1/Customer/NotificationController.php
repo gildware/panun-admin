@@ -98,7 +98,7 @@ class NotificationController extends Controller
 
         return $this->pushNotification->ofStatus(1)
             ->when(! is_null(Config::get('zone_id')), function ($query) {
-                $query->whereJsonContains('zone_ids', Config::get('zone_id'));
+                mobile_inbox_matches_zone_id($query, (string) Config::get('zone_id'));
             })
             ->where(function ($query) {
                 $query->whereDoesntHave('pushNotificationUser')

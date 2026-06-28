@@ -110,25 +110,9 @@ class RegisterController extends Controller
                 referralEarningTransactionDuringRegistration($userWhoRerreded, $amount);
 
                 $userRefund  = isNotificationActive(null, 'refer_earn', 'notification', 'user');
-                $title = get_push_notification_message('referral_code_used', 'customer_notification', $user?->current_language_key);
-                $description = get_push_notification_description('referral_code_used', 'customer_notification', $user?->current_language_key);
-                if ($title && $userWhoRerreded->fcm_token && $userRefund) {
-                    device_notification($userWhoRerreded->fcm_token, $title, $description, null, null, 'general', null, $userWhoRerreded->id);
+                if ($userRefund) {
+                    send_referral_code_used_notification($userWhoRerreded);
                 }
-
-                $pushNotification = new PushNotification();
-                $pushNotification->title = translate('Your Referral Code Has Been Used!');
-                $pushNotification->description = translate("Congratulations! Your referral code was used by a new user. Get ready to earn rewards when they complete their first booking.");
-                $pushNotification->to_users = ['customer'];
-                $pushNotification->zone_ids = [config('zone_id') == null ? $request['zone_id'] : config('zone_id')];
-                $pushNotification->is_active = 1;
-                $pushNotification->cover_image = asset('/assets/admin/img/referral_2.png');
-                $pushNotification->save();
-
-                $pushNotificationUser = new PushNotificationUser();
-                $pushNotificationUser->push_notification_id = $pushNotification->id;
-                $pushNotificationUser->user_id = $userWhoRerreded->id;
-                $pushNotificationUser->save();
             }
         }
 

@@ -53,6 +53,7 @@ class ConfigurationController extends Controller
     public function notificationSettingsGet(Request $request): Factory|View|Application
     {
         $this->authorize('notification_message_view');
+        ensure_notification_channel_setups();
         $this->ensureNotificationMessageSettings(NOTIFICATION_FOR_USER, 'customer_notification', 'serviceman_assign', 'provider_assign');
         $this->migrateNotificationMessageFromLegacyKeys('customer_notification', [
             'booking_ongoing' => 'booking_status_change',
@@ -1301,6 +1302,9 @@ class ConfigurationController extends Controller
         foreach ($notifications as $notification) {
             $keyName = $notification['key'];
             $value = $notification['value'];
+            $defaultTemplate = get_notification_default_message($keyName, $settingsType);
+            $defaultTitle = $defaultTemplate['title'] ?? $value;
+            $defaultDescription = $defaultTemplate['description'] ?? '';
 
             if ($this->businessSetting->where(['key_name' => $keyName, 'settings_type' => $settingsType])->exists()) {
                 continue;
@@ -1308,8 +1312,8 @@ class ConfigurationController extends Controller
 
             $liveValues = [
                 $keyName . '_status' => '1',
-                $keyName . '_message' => $value,
-                $keyName . '_description' => '',
+                $keyName . '_message' => $defaultTitle,
+                $keyName . '_description' => $defaultDescription,
             ];
 
             if ($migrateFromKey && $migrateToKey === $keyName) {

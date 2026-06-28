@@ -251,11 +251,7 @@ class BookingRepeat extends Model
                             $provider->save();
 
                             $notification = isNotificationActive($provider?->id, 'transaction', 'notification', 'provider');
-                            $title = get_push_notification_message('provider_suspend', 'provider_notification', $provider?->owner?->current_language_key);
-                            $description = get_push_notification_description('provider_suspend', 'provider_notification', $provider?->owner?->current_language_key);
-                            if ($provider?->owner?->fcm_token && $title && $notification) {
-                                device_notification($provider?->owner?->fcm_token, $title, $description, null, $model->id, 'suspend', null, $provider->id);
-                            }
+                            send_provider_suspended_notification($provider, true);
 
                             $emailStatus = business_config('email_config_status', 'email_config')->live_values;
 

@@ -9467,4 +9467,10 @@ _Message' => 'Customer notification for provider bid offer
   'marked_booking_as_ongoing' => 'Marked booking as ongoing',
   'Booking_payment_received' => 'Booking payment received',
   'The fcm token field is required.' => 'The fcm token field is required.',
+  'Communication' => 'Communication',
+  'New_Provider_Registration' => 'New Provider Registration',
+  'A_new_provider_has_registered' => 'A new provider has registered',
+  'New_Withdraw_Request' => 'New Withdraw Request',
+  'Booking_canceled_by_customer' => 'Booking canceled by customer',
+  'canceled_the_booking' => 'Canceled the booking',
 );

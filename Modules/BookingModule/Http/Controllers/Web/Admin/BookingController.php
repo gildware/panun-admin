@@ -8237,7 +8237,7 @@ class BookingController extends Controller
         $repeatOrRegular = $booking?->is_repeated ? 'repeat' : 'regular';
         if (isset($user) && $user?->fcm_token && $user?->is_active) {
             try {
-                device_notification($user?->fcm_token, translate('service location updated'), null, null, $booking->id, 'booking', null, null, null, null, $repeatOrRegular);
+                send_booking_service_location_updated_notification($booking);
             }catch (\Exception $exception) {
                 //
             }

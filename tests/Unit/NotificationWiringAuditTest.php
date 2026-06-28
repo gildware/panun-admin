@@ -95,6 +95,11 @@ class NotificationWiringAuditTest extends TestCase
         $this->assertTrue(function_exists('send_chat_message_push_notification'));
         $this->assertTrue(function_exists('send_review_approved_to_provider_notification'));
         $this->assertTrue(function_exists('send_customer_refund_notification'));
+        $this->assertTrue(function_exists('send_booking_ignored_by_provider_notification'));
+        $this->assertTrue(function_exists('send_booking_service_location_updated_notification'));
+        $this->assertTrue(function_exists('send_provider_suspended_notification'));
+        $this->assertTrue(function_exists('send_referral_code_used_notification'));
+        $this->assertTrue(function_exists('send_advertisement_push_notification'));
         $this->assertTrue(function_exists('admin_inbox_notify_booking_payment'));
     }
 

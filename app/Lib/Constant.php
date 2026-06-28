@@ -3732,7 +3732,13 @@ const NOTIFICATION_SCENARIO_MODULE_LABELS = [
     'provider_payments' => 'Provider Payments',
     'review' => 'Review',
     'loyalty_points' => 'Loyalty Points',
+    'wallet' => 'Wallet',
     'refund' => 'Refund',
+    'communication' => 'Communication',
+    'service_requests' => 'Service Requests',
+    'provider_account' => 'Provider Account',
+    'advertisement' => 'Advertisement',
+    'admin_alerts' => 'Admin Alerts',
 ];
 
 const NOTIFICATION_SCENARIO_ACTOR_LABELS = [
@@ -3763,6 +3769,8 @@ const NOTIFICATION_FOR_USER = [
     ['key' => 'provider_assign', 'value' => 'Provider Assigned', 'category' => 'booking_status'],
     ['key' => 'booking_status_change', 'value' => 'Other Status Change', 'category' => 'booking_status'],
     ['key' => 'booking_reminder', 'value' => 'Booking Reminder', 'category' => 'booking_status'],
+    ['key' => 'booking_ignored_by_provider', 'value' => 'Booking Ignored by Provider', 'category' => 'booking_status'],
+    ['key' => 'service_location_updated', 'value' => 'Service Location Updated', 'category' => 'booking_status'],
     ['key' => 'chat_message', 'value' => 'New Chat Message', 'category' => 'booking_status'],
     ['key' => 'booking_edit_service_add', 'value' => 'Service Added', 'category' => 'service_updates'],
     ['key' => 'booking_edit_service_update', 'value' => 'Service Updated', 'category' => 'service_updates'],
@@ -3773,6 +3781,7 @@ const NOTIFICATION_FOR_USER = [
     ['key' => 'add_fund_wallet', 'value' => 'Add Fund Wallet', 'category' => 'wallet_and_loyalty'],
     ['key' => 'wallet_deducted', 'value' => 'Wallet Deducted', 'category' => 'wallet_and_loyalty'],
     ['key' => 'referral_earning', 'value' => 'Referral Earning', 'category' => 'wallet_and_loyalty'],
+    ['key' => 'referral_code_used', 'value' => 'Referral Code Used', 'category' => 'wallet_and_loyalty'],
     ['key' => 'loyalty_point', 'value' => 'Loyalty Point', 'category' => 'wallet_and_loyalty'],
     ['key' => 'loyalty_point_convert', 'value' => 'Loyalty Point Converted', 'category' => 'wallet_and_loyalty'],
     ['key' => 'refund_bank_transfer', 'value' => 'Bank Transfer Refund', 'category' => 'payments'],
@@ -3800,6 +3809,13 @@ const NOTIFICATION_FOR_PROVIDER = [
     ['key' => 'admin_payable', 'value' => 'Admin Payable', 'category' => 'payments'],
     ['key' => 'withdraw_request_submitted', 'value' => 'Withdraw Request Submitted', 'category' => 'payments'],
     ['key' => 'provider_removed_from_booking', 'value' => 'Removed From Booking', 'category' => 'booking_status'],
+    ['key' => 'provider_suspend', 'value' => 'Provider Suspended', 'category' => 'payments'],
+    ['key' => 'provider_suspension_remove', 'value' => 'Provider Suspension Removed', 'category' => 'payments'],
+    ['key' => 'advertisement_created_by_admin', 'value' => 'Advertisement Created by Admin', 'category' => 'service_updates'],
+    ['key' => 'advertisement_approved', 'value' => 'Advertisement Approved', 'category' => 'service_updates'],
+    ['key' => 'advertisement_denied', 'value' => 'Advertisement Denied', 'category' => 'service_updates'],
+    ['key' => 'advertisement_paused', 'value' => 'Advertisement Paused', 'category' => 'service_updates'],
+    ['key' => 'advertisement_resumed', 'value' => 'Advertisement Resumed', 'category' => 'service_updates'],
     ['key' => 'review_approved', 'value' => 'Review Approved', 'category' => 'review'],
 ];
 

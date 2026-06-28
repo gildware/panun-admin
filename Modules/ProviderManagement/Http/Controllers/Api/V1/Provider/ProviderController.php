@@ -795,11 +795,7 @@ class ProviderController extends Controller
         return $this->pushNotification->ofStatus(1)
             ->whereJsonContains('to_users', 'provider-admin')
             ->when($nZoneIds !== [], function ($query) use ($nZoneIds) {
-                $query->where(function ($q) use ($nZoneIds) {
-                    foreach ($nZoneIds as $zid) {
-                        $q->orWhereJsonContains('zone_ids', $zid);
-                    }
-                });
+                mobile_inbox_matches_zone_ids($query, $nZoneIds);
             })
             ->when($nZoneIds === [], function ($query) {
                 $query->whereRaw('1 = 0');

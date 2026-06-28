@@ -13,12 +13,12 @@ if (! function_exists('notification_message_variables_for_key')) {
 
         return match ($key) {
             'booking_place', 'admin_booking_created', 'booking_accepted', 'booking_complete', 'booking_schedule_time_change',
-            'provider_assign', 'booking_status_change', 'booking_reminder' => array_merge($common, $bookingExtras),
+            'provider_assign', 'booking_status_change', 'booking_reminder', 'booking_ignored_by_provider', 'service_location_updated' => array_merge($common, $bookingExtras),
             'chat_message' => array_merge($common, ['{{senderName}}']),
             'otp' => array_merge($common, ['{{otp}}']),
             'booking_edit_service_add', 'booking_edit_service_update' => array_merge($common, ['{{serviceName}}']),
             'payment_collected_company', 'payment_collected_provider', 'refund', 'payment_failed' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
-            'add_fund_wallet', 'referral_earning', 'wallet_deducted' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
+            'add_fund_wallet', 'referral_earning', 'referral_code_used', 'wallet_deducted' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'loyalty_point', 'loyalty_point_convert' => ['{{amount}}', '{{userName}}', '{{bookingId}}'],
             'refund_bank_transfer' => array_merge($common, ['{{amount}}', '{{bookingStatus}}']),
             'customer_review_approved' => ['{{userName}}', '{{providerName}}', '{{bookingId}}'],
@@ -27,7 +27,8 @@ if (! function_exists('notification_message_variables_for_key')) {
             'provider_removed_from_booking' => array_merge($common, $bookingExtras),
             'new_service_request_arrived', 'admin_booking_assigned', 'booking_assigned_to_provider' => array_merge($common, $bookingExtras),
             'service_request_approve', 'service_request_deny' => ['{{serviceName}}', '{{providerName}}'],
-            'widthdraw_request_approve', 'widthdraw_request_deny', 'admin_payable', 'settlement_received' => ['{{amount}}', '{{providerName}}'],
+            'widthdraw_request_approve', 'widthdraw_request_deny', 'admin_payable', 'settlement_received', 'provider_suspend', 'provider_suspension_remove' => ['{{amount}}', '{{providerName}}'],
+            'advertisement_created_by_admin', 'advertisement_approved', 'advertisement_denied', 'advertisement_paused', 'advertisement_resumed' => ['{{providerName}}'],
             default => $common,
         };
     }
@@ -79,6 +80,955 @@ if (! function_exists('preview_notification_message_text')) {
         }
 
         return str_replace(array_keys($replaceMap), array_values($replaceMap), $text);
+    }
+}
+
+if (! function_exists('notification_default_message_templates')) {
+    /**
+     * Canonical push notification title + description for each message key.
+     *
+     * @return array<string, array<string, array{title: string, description: string}>>
+     */
+    function notification_default_message_templates(): array
+    {
+        return [
+            'customer_notification' => [
+                'booking_place' => [
+                    'title' => 'Booking Placed – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, your booking {{bookingId}} is submitted in {{zoneName}}. Scheduled for {{scheduleTime}}.',
+                ],
+                'admin_booking_created' => [
+                    'title' => 'Booking Created – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, an admin created booking {{bookingId}} for you with {{providerName}} on {{scheduleTime}}.',
+                ],
+                'booking_accepted' => [
+                    'title' => 'Booking Confirmed – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{providerName}} accepted booking {{bookingId}}. Scheduled for {{scheduleTime}}.',
+                ],
+                'booking_complete' => [
+                    'title' => 'Service Completed – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, booking {{bookingId}} with {{providerName}} is completed. Thank you for choosing us.',
+                ],
+                'booking_schedule_time_change' => [
+                    'title' => 'Schedule Updated – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, booking {{bookingId}} with {{providerName}} is rescheduled to {{scheduleTime}}.',
+                ],
+                'otp' => [
+                    'title' => 'Verification OTP – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, your OTP for booking {{bookingId}} is {{otp}}. Share it with the provider when service starts.',
+                ],
+                'provider_assign' => [
+                    'title' => 'Provider Assigned – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{providerName}} is assigned to booking {{bookingId}} on {{scheduleTime}}.',
+                ],
+                'booking_status_change' => [
+                    'title' => 'Booking {{bookingStatus}} – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, booking {{bookingId}} status is now {{bookingStatus}}. Provider: {{providerName}}.',
+                ],
+                'booking_reminder' => [
+                    'title' => 'Upcoming Booking – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, reminder: booking {{bookingId}} with {{providerName}} is scheduled for {{scheduleTime}}.',
+                ],
+                'booking_ignored_by_provider' => [
+                    'title' => 'Provider Unavailable – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, the provider could not take booking {{bookingId}}. We are finding another provider for you.',
+                ],
+                'service_location_updated' => [
+                    'title' => 'Service Location Updated – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, the service location for booking {{bookingId}} with {{providerName}} has been updated.',
+                ],
+                'chat_message' => [
+                    'title' => 'New Message from {{senderName}}',
+                    'description' => 'Hi {{userName}}, you have a new chat message about booking {{bookingId}}.',
+                ],
+                'booking_edit_service_add' => [
+                    'title' => 'Service Added – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{serviceName}} was added to booking {{bookingId}} with {{providerName}}.',
+                ],
+                'booking_edit_service_update' => [
+                    'title' => 'Service Updated – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, services on booking {{bookingId}} with {{providerName}} were updated.',
+                ],
+                'payment_collected_company' => [
+                    'title' => 'Payment Received – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{amount}} was received for booking {{bookingId}}. Status: {{bookingStatus}}.',
+                ],
+                'payment_collected_provider' => [
+                    'title' => 'Payment Recorded – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{providerName}} recorded {{amount}} for booking {{bookingId}}.',
+                ],
+                'payment_failed' => [
+                    'title' => 'Payment Failed – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, payment of {{amount}} for booking {{bookingId}} could not be completed. Please try again.',
+                ],
+                'refund' => [
+                    'title' => 'Refund Processed – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{amount}} has been refunded to your wallet for booking {{bookingId}}.',
+                ],
+                'refund_bank_transfer' => [
+                    'title' => 'Bank Refund Initiated – {{bookingId}}',
+                    'description' => 'Hi {{userName}}, {{amount}} refund for booking {{bookingId}} will be sent to your bank account.',
+                ],
+                'add_fund_wallet' => [
+                    'title' => 'Wallet Credited',
+                    'description' => 'Hi {{userName}}, {{amount}} has been added to your wallet.',
+                ],
+                'wallet_deducted' => [
+                    'title' => 'Wallet Debited',
+                    'description' => 'Hi {{userName}}, {{amount}} was deducted from your wallet for booking {{bookingId}}.',
+                ],
+                'referral_earning' => [
+                    'title' => 'Referral Reward Earned',
+                    'description' => 'Hi {{userName}}, you earned {{amount}} referral reward. Booking: {{bookingId}}.',
+                ],
+                'referral_code_used' => [
+                    'title' => 'Your Referral Code Was Used',
+                    'description' => 'Hi {{userName}}, someone signed up using your referral code. You will earn rewards when they complete their first booking.',
+                ],
+                'loyalty_point' => [
+                    'title' => 'Loyalty Points Earned',
+                    'description' => 'Hi {{userName}}, you earned {{amount}} loyalty points. Booking: {{bookingId}}.',
+                ],
+                'loyalty_point_convert' => [
+                    'title' => 'Points Converted to Wallet',
+                    'description' => 'Hi {{userName}}, {{amount}} loyalty points were converted to your wallet balance.',
+                ],
+                'customer_review_approved' => [
+                    'title' => 'Your Review Is Live',
+                    'description' => 'Hi {{userName}}, your review for {{providerName}} on booking {{bookingId}} is now published.',
+                ],
+            ],
+            'provider_notification' => [
+                'new_service_request_arrived' => [
+                    'title' => 'New Booking Request – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, you received booking {{bookingId}} in {{zoneName}} from {{userName}}. Scheduled: {{scheduleTime}}.',
+                ],
+                'admin_booking_assigned' => [
+                    'title' => 'Admin Assigned Booking – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, admin assigned booking {{bookingId}} to you for {{userName}} on {{scheduleTime}}.',
+                ],
+                'booking_assigned_to_provider' => [
+                    'title' => 'Booking Assigned to You – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, booking {{bookingId}} is assigned to you. Customer: {{userName}}. Scheduled: {{scheduleTime}}.',
+                ],
+                'booking_accepted' => [
+                    'title' => 'Booking Accepted – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, you accepted booking {{bookingId}} for {{userName}} on {{scheduleTime}}.',
+                ],
+                'booking_complete' => [
+                    'title' => 'Booking Completed – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, booking {{bookingId}} with {{userName}} is marked completed.',
+                ],
+                'booking_schedule_time_change' => [
+                    'title' => 'Booking Rescheduled – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, booking {{bookingId}} is rescheduled to {{scheduleTime}}.',
+                ],
+                'booking_status_change' => [
+                    'title' => 'Booking {{bookingStatus}} – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, booking {{bookingId}} status is now {{bookingStatus}}. Customer: {{userName}}.',
+                ],
+                'chat_message' => [
+                    'title' => 'New Chat Message',
+                    'description' => 'Hi {{providerName}}, you have a new chat message about booking {{bookingId}} from {{userName}}.',
+                ],
+                'booking_edit_service_add' => [
+                    'title' => 'Service Added – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, {{serviceName}} was added to booking {{bookingId}}.',
+                ],
+                'booking_edit_service_update' => [
+                    'title' => 'Service Updated – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, services on booking {{bookingId}} were updated.',
+                ],
+                'service_request_approve' => [
+                    'title' => 'Service Request Approved',
+                    'description' => 'Hi {{providerName}}, your service request for {{serviceName}} has been approved.',
+                ],
+                'service_request_deny' => [
+                    'title' => 'Service Request Denied',
+                    'description' => 'Hi {{providerName}}, your service request for {{serviceName}} was not approved.',
+                ],
+                'payment_collected_company' => [
+                    'title' => 'Payment Received – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, {{amount}} was received for booking {{bookingId}}.',
+                ],
+                'payment_collected_provider' => [
+                    'title' => 'Payment Recorded – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, {{amount}} was recorded for booking {{bookingId}}.',
+                ],
+                'widthdraw_request_approve' => [
+                    'title' => 'Withdrawal Approved',
+                    'description' => 'Hi {{providerName}}, your withdrawal request of {{amount}} has been approved.',
+                ],
+                'widthdraw_request_deny' => [
+                    'title' => 'Withdrawal Denied',
+                    'description' => 'Hi {{providerName}}, your withdrawal request of {{amount}} was denied.',
+                ],
+                'settlement_received' => [
+                    'title' => 'Settlement Received',
+                    'description' => 'Hi {{providerName}}, {{amount}} settlement has been credited to your account.',
+                ],
+                'admin_payable' => [
+                    'title' => 'Amount Payable to Admin',
+                    'description' => 'Hi {{providerName}}, {{amount}} is recorded as payable to admin.',
+                ],
+                'withdraw_request_submitted' => [
+                    'title' => 'Withdrawal Request Submitted',
+                    'description' => 'Hi {{providerName}}, your withdrawal request of {{amount}} has been submitted.',
+                ],
+                'provider_removed_from_booking' => [
+                    'title' => 'Removed From Booking – {{bookingId}}',
+                    'description' => 'Hi {{providerName}}, you have been removed from booking {{bookingId}}. Admin may assign another provider.',
+                ],
+                'review_approved' => [
+                    'title' => 'Review Approved',
+                    'description' => 'Hi {{providerName}}, a customer review for booking {{bookingId}} is now published.',
+                ],
+                'provider_suspend' => [
+                    'title' => 'Account Suspended',
+                    'description' => 'Hi {{providerName}}, your provider account has been suspended. Contact admin for assistance.',
+                ],
+                'provider_suspension_remove' => [
+                    'title' => 'Suspension Lifted',
+                    'description' => 'Hi {{providerName}}, your provider account suspension has been removed. You can resume operations.',
+                ],
+                'advertisement_created_by_admin' => [
+                    'title' => 'New Advertisement Created',
+                    'description' => 'Hi {{providerName}}, admin created a new advertisement for your profile.',
+                ],
+                'advertisement_approved' => [
+                    'title' => 'Advertisement Approved',
+                    'description' => 'Hi {{providerName}}, your advertisement has been approved and is now active.',
+                ],
+                'advertisement_denied' => [
+                    'title' => 'Advertisement Denied',
+                    'description' => 'Hi {{providerName}}, your advertisement request was not approved.',
+                ],
+                'advertisement_paused' => [
+                    'title' => 'Advertisement Paused',
+                    'description' => 'Hi {{providerName}}, your advertisement has been paused.',
+                ],
+                'advertisement_resumed' => [
+                    'title' => 'Advertisement Resumed',
+                    'description' => 'Hi {{providerName}}, your advertisement is active again.',
+                ],
+            ],
+        ];
+    }
+}
+
+if (! function_exists('get_notification_default_message')) {
+    /**
+     * @return array{title: string, description: string}|null
+     */
+    function get_notification_default_message(string $key, string $settingsType): ?array
+    {
+        return notification_default_message_templates()[$settingsType][$key] ?? null;
+    }
+}
+
+if (! function_exists('sync_notification_default_messages')) {
+    /**
+     * Update business_settings notification message rows to canonical templates.
+     *
+     * @return array{updated: int, skipped: int}
+     */
+    function sync_notification_default_messages(bool $force = true): array
+    {
+        $updated = 0;
+        $skipped = 0;
+        $templates = notification_default_message_templates();
+
+        $pairs = [];
+        foreach (NOTIFICATION_FOR_USER as $notification) {
+            $pairs[] = ['key' => $notification['key'], 'settings_type' => 'customer_notification'];
+        }
+        foreach (NOTIFICATION_FOR_PROVIDER as $notification) {
+            $pairs[] = ['key' => $notification['key'], 'settings_type' => 'provider_notification'];
+        }
+
+        foreach ($pairs as $pair) {
+            $keyName = $pair['key'];
+            $settingsType = $pair['settings_type'];
+            $template = $templates[$settingsType][$keyName] ?? null;
+
+            if (! $template) {
+                $skipped++;
+
+                continue;
+            }
+
+            $record = \Modules\BusinessSettingsModule\Entities\BusinessSettings::query()
+                ->where(['key_name' => $keyName, 'settings_type' => $settingsType])
+                ->first();
+
+            if (! $record && ! $force) {
+                $skipped++;
+
+                continue;
+            }
+
+            $liveValues = [
+                $keyName . '_status' => '1',
+                $keyName . '_message' => $template['title'],
+                $keyName . '_description' => $template['description'],
+            ];
+
+            if ($record) {
+                $existing = is_array($record->live_values)
+                    ? $record->live_values
+                    : (array) json_decode((string) $record->live_values, true);
+                $liveValues[$keyName . '_status'] = $existing[$keyName . '_status'] ?? '1';
+            }
+
+            \Modules\BusinessSettingsModule\Entities\BusinessSettings::updateOrCreate(
+                ['key_name' => $keyName, 'settings_type' => $settingsType],
+                [
+                    'key_name' => $keyName,
+                    'live_values' => $liveValues,
+                    'test_values' => $liveValues,
+                    'settings_type' => $settingsType,
+                    'mode' => 'live',
+                    'is_active' => 1,
+                ]
+            );
+
+            $updated++;
+        }
+
+        return ['updated' => $updated, 'skipped' => $skipped];
+    }
+}
+
+if (! function_exists('notification_scenario_message_keys')) {
+    /**
+     * Unique message keys referenced by the scenario registry (push audiences only).
+     *
+     * @return list<array{key: string, settings_type: string}>
+     */
+    function notification_scenario_message_keys(): array
+    {
+        $keys = [];
+        $seen = [];
+
+        foreach (notification_scenario_registry() as $scenario) {
+            foreach ($scenario['audiences'] as $audience) {
+                $key = $audience['key'] ?? null;
+                $settingsType = $audience['settings_type'] ?? null;
+
+                if (! $key || ! $settingsType) {
+                    continue;
+                }
+
+                $signature = $settingsType . ':' . $key;
+                if (isset($seen[$signature])) {
+                    continue;
+                }
+
+                $seen[$signature] = true;
+                $keys[] = ['key' => $key, 'settings_type' => $settingsType];
+            }
+        }
+
+        return $keys;
+    }
+}
+
+if (! function_exists('validate_notification_scenario_messages')) {
+    /**
+     * @return list<array{key: string, settings_type: string, issues: list<string>}>
+     */
+    function validate_notification_scenario_messages(): array
+    {
+        $issues = [];
+
+        foreach (notification_scenario_message_keys() as $entry) {
+            $key = $entry['key'];
+            $settingsType = $entry['settings_type'];
+            $template = get_notification_default_message($key, $settingsType);
+            $entryIssues = [];
+
+            if (! $template) {
+                $entryIssues[] = 'Missing default template';
+            } else {
+                foreach (['title', 'description'] as $field) {
+                    if (trim($template[$field]) === '') {
+                        $entryIssues[] = "Empty default {$field}";
+                    }
+                }
+            }
+
+            $record = \Modules\BusinessSettingsModule\Entities\BusinessSettings::query()
+                ->where(['key_name' => $key, 'settings_type' => $settingsType])
+                ->first();
+
+            if (! $record) {
+                $entryIssues[] = 'Not seeded in business_settings';
+            } else {
+                $values = is_array($record->live_values)
+                    ? $record->live_values
+                    : (array) json_decode((string) $record->live_values, true);
+
+                $title = trim((string) ($values[$key . '_message'] ?? ''));
+                $description = trim((string) ($values[$key . '_description'] ?? ''));
+
+                if ($title === '') {
+                    $entryIssues[] = 'Empty title in database';
+                }
+                if ($description === '') {
+                    $entryIssues[] = 'Empty description in database';
+                }
+                if ($title !== '' && ! str_contains($title, '{{') && strlen($title) < 10) {
+                    $entryIssues[] = 'Title looks like a legacy label without variables';
+                }
+            }
+
+            if ($entryIssues !== []) {
+                $issues[] = [
+                    'key' => $key,
+                    'settings_type' => $settingsType,
+                    'issues' => $entryIssues,
+                ];
+            }
+        }
+
+        return $issues;
+    }
+}
+
+if (! function_exists('notification_config_keys_missing_from_scenarios')) {
+    /**
+     * Returns notification keys from NOTIFICATION_FOR_* that have no scenario registry row.
+     *
+     * @return list<array{key: string, settings_type: string}>
+     */
+    function notification_config_keys_missing_from_scenarios(): array
+    {
+        $covered = [];
+        foreach (notification_scenario_message_keys() as $entry) {
+            $covered[$entry['settings_type'] . ':' . $entry['key']] = true;
+        }
+
+        $missing = [];
+        foreach (NOTIFICATION_FOR_USER as $notification) {
+            $signature = 'customer_notification:' . $notification['key'];
+            if (! isset($covered[$signature])) {
+                $missing[] = ['key' => $notification['key'], 'settings_type' => 'customer_notification'];
+            }
+        }
+        foreach (NOTIFICATION_FOR_PROVIDER as $notification) {
+            $signature = 'provider_notification:' . $notification['key'];
+            if (! isset($covered[$signature])) {
+                $missing[] = ['key' => $notification['key'], 'settings_type' => 'provider_notification'];
+            }
+        }
+
+        return $missing;
+    }
+}
+
+if (! function_exists('ensure_notification_channel_setups')) {
+    /**
+     * Ensure notification channel toggles exist for wallet/review scenarios.
+     */
+    function ensure_notification_channel_setups(): void
+    {
+        $defaults = [
+            [
+                'user_type' => 'provider',
+                'key' => 'wallet',
+                'title' => 'Wallet',
+                'sub_title' => 'Choose how the provider will get notified of withdraw requests, settlements, and wallet updates',
+                'value' => ['email' => null, 'notification' => 1, 'sms' => null],
+            ],
+            [
+                'user_type' => 'provider',
+                'key' => 'rating_review',
+                'title' => 'Review',
+                'sub_title' => 'Choose how the provider will get notified when a customer review is approved',
+                'value' => ['email' => null, 'notification' => 1, 'sms' => null],
+            ],
+            [
+                'user_type' => 'user',
+                'key' => 'rating_review',
+                'title' => 'Review',
+                'sub_title' => 'Choose how the customer will get notified when a provider review is approved',
+                'value' => ['email' => null, 'notification' => 1, 'sms' => null],
+            ],
+            [
+                'user_type' => 'provider',
+                'key' => 'advertisement',
+                'title' => 'Advertisement',
+                'sub_title' => 'Choose how the provider will get notified about advertisement updates',
+                'value' => ['email' => null, 'notification' => 1, 'sms' => null],
+            ],
+        ];
+
+        foreach ($defaults as $row) {
+            \Modules\BusinessSettingsModule\Entities\NotificationSetup::query()->firstOrCreate(
+                ['user_type' => $row['user_type'], 'key' => $row['key']],
+                [
+                    'title' => $row['title'],
+                    'sub_title' => $row['sub_title'],
+                    'value' => json_encode($row['value']),
+                ]
+            );
+        }
+    }
+}
+
+if (! function_exists('notification_scenario_trigger_map')) {
+    /**
+     * Code-path verification map: each scenario → needles that must exist in app/ or Modules/.
+     *
+     * @return array<string, array{module: string, checks: list<array{label: string, needles: list<string>}>}>
+     */
+    function notification_scenario_trigger_map(): array
+    {
+        return [
+            // Booking Creation (3)
+            'booking_create_customer_with_provider' => [
+                'module' => 'booking_creation',
+                'checks' => [
+                    ['label' => 'Customer booking placed push', 'needles' => ["get_push_notification_message('booking_place'", 'SendBookingRequestEmail']],
+                    ['label' => 'Provider new request push', 'needles' => ['send_booking_new_service_request_to_assigned_provider', "get_push_notification_message('new_service_request_arrived'"]],
+                    ['label' => 'Admin new booking inbox', 'needles' => ['CreateAdminBookingNotification']],
+                ],
+            ],
+            'booking_create_customer_auto_provider' => [
+                'module' => 'booking_creation',
+                'checks' => [
+                    ['label' => 'Customer booking placed push', 'needles' => ["get_push_notification_message('booking_place'", 'SendBookingRequestEmail']],
+                    ['label' => 'Admin new booking inbox', 'needles' => ['CreateAdminBookingNotification']],
+                ],
+            ],
+            'booking_create_admin' => [
+                'module' => 'booking_creation',
+                'checks' => [
+                    ['label' => 'Admin-created booking notifications', 'needles' => ['send_admin_booking_created_notifications', "get_push_notification_message('admin_booking_created'", "get_push_notification_message('admin_booking_assigned'"]],
+                ],
+            ],
+
+            // Booking Update (13)
+            'booking_admin_assign_provider' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Customer provider assigned', 'needles' => ["'provider_assign'", 'booking_assigned_to_provider']],
+                    ['label' => 'Provider assignment on save', 'needles' => ['send_booking_provider_reassignment_notifications', 'booking_assigned_to_provider']],
+                ],
+            ],
+            'booking_provider_accept' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Accepted status notification keys', 'needles' => ['booking_customer_notification_key_for_accepted_status', 'booking_provider_notification_key_for_accepted_status', "'booking_accepted'"]],
+                    ['label' => 'Provider accept API', 'needles' => ['requestAccept', "booking_status = 'accepted'"]],
+                ],
+            ],
+            'booking_provider_cancel' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Provider withdrawal push', 'needles' => ['send_provider_removed_from_booking_notification', "'provider_removed_from_booking'"]],
+                    ['label' => 'Admin withdrawal inbox', 'needles' => ['CreateAdminProviderWithdrawalNotification', 'ProviderWithdrewFromBooking']],
+                ],
+            ],
+            'booking_provider_ongoing' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Ongoing status push', 'needles' => ["booking_status == 'ongoing'", "'booking_status_change'"]],
+                    ['label' => 'Admin ongoing inbox', 'needles' => ['admin_inbox_notify_booking_ongoing']],
+                ],
+            ],
+            'booking_admin_remove_provider' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Provider removed notification', 'needles' => ['send_provider_removed_from_booking_notification']],
+                ],
+            ],
+            'booking_customer_cancel' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Cancel status push', 'needles' => ["booking_status == 'canceled'", "'booking_status_change'"]],
+                    ['label' => 'Admin cancel inbox', 'needles' => ['admin_inbox_notify_booking_customer_canceled', 'CustomerBookingCancellationService']],
+                ],
+            ],
+            'booking_admin_edit' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Service add notification', 'needles' => ['send_booking_edit_service_add_notifications', "'booking_edit_service_add'"]],
+                ],
+            ],
+            'booking_edit_service_update' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Service update notification', 'needles' => ["'booking_edit_service_update'", 'BookingTrait.php']],
+                ],
+            ],
+            'booking_complete' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Completed status push', 'needles' => ["booking_status == 'completed'", "'booking_complete'"]],
+                ],
+            ],
+            'booking_otp_sent' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'OTP push to customer', 'needles' => ["get_push_notification_message('otp'", 'notificationSend']],
+                ],
+            ],
+            'booking_reminder' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Reminder command + sender', 'needles' => ['SendBookingReminderNotifications', 'send_booking_reminder_notification', "'booking_reminder'"]],
+                ],
+            ],
+            'booking_admin_cancel' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Admin cancel status push', 'needles' => ["booking_status == 'canceled'", "'booking_status_change'"]],
+                ],
+            ],
+            'booking_schedule_change' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Schedule change push', 'needles' => ["'booking_schedule_time_change'", 'service_schedule']],
+                ],
+            ],
+            'booking_on_hold' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'On hold status push', 'needles' => ["booking_status == 'on_hold'", "'booking_status_change'"]],
+                ],
+            ],
+            'booking_pending_cancellation' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Pending cancellation push', 'needles' => ["booking_status == 'pending_cancellation'", "'booking_status_change'"]],
+                ],
+            ],
+            'booking_refund_request_status' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Refund request status push', 'needles' => ["booking_status == 'refund_request'", "'refund'"]],
+                ],
+            ],
+            'booking_ignored_by_provider' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Booking ignored sender', 'needles' => ['send_booking_ignored_by_provider_notification', "'booking_ignored_by_provider'"]],
+                ],
+            ],
+            'booking_service_location_updated' => [
+                'module' => 'booking_update',
+                'checks' => [
+                    ['label' => 'Service location sender', 'needles' => ['send_booking_service_location_updated_notification', "'service_location_updated'"]],
+                ],
+            ],
+
+            // Payments (4)
+            'payment_provider_records' => [
+                'module' => 'payments',
+                'checks' => [
+                    ['label' => 'Payment collected sender', 'needles' => ['send_booking_payment_collected_notifications', "'payment_collected_provider'"]],
+                    ['label' => 'Admin payment inbox', 'needles' => ['admin_inbox_notify_booking_payment']],
+                ],
+            ],
+            'payment_customer_app_company' => [
+                'module' => 'payments',
+                'checks' => [
+                    ['label' => 'Company payment sender', 'needles' => ['send_booking_payment_collected_notifications', "'payment_collected_company'"]],
+                ],
+            ],
+            'payment_admin_records' => [
+                'module' => 'payments',
+                'checks' => [
+                    ['label' => 'Admin payment recording', 'needles' => ['send_booking_payment_collected_notifications']],
+                ],
+            ],
+            'payment_failed' => [
+                'module' => 'payments',
+                'checks' => [
+                    ['label' => 'Payment failed sender', 'needles' => ['send_customer_payment_failed_notification', "'payment_failed'"]],
+                ],
+            ],
+
+            // Provider Payments (6)
+            'provider_withdraw_request' => [
+                'module' => 'provider_payments',
+                'checks' => [
+                    ['label' => 'Withdraw submitted push', 'needles' => ['send_provider_withdraw_request_submitted_notification', "'withdraw_request_submitted'"]],
+                    ['label' => 'Admin withdraw inbox', 'needles' => ['admin_inbox_notify_withdraw_request']],
+                ],
+            ],
+            'provider_withdraw_approved' => [
+                'module' => 'provider_payments',
+                'checks' => [
+                    ['label' => 'Withdraw approved push', 'needles' => ["get_push_notification_message('widthdraw_request_approve'"]],
+                ],
+            ],
+            'provider_withdraw_denied' => [
+                'module' => 'provider_payments',
+                'checks' => [
+                    ['label' => 'Withdraw denied push', 'needles' => ["get_push_notification_message('widthdraw_request_deny'"]],
+                ],
+            ],
+            'provider_withdraw_settled' => [
+                'module' => 'provider_payments',
+                'checks' => [
+                    ['label' => 'Settlement received push', 'needles' => ['send_provider_settlement_received_notification', "'settlement_received'"]],
+                ],
+            ],
+            'admin_collect_from_provider' => [
+                'module' => 'provider_payments',
+                'checks' => [
+                    ['label' => 'Admin payable push', 'needles' => ["get_push_notification_message('admin_payable'", 'PayToAdminHook']],
+                ],
+            ],
+            'admin_pay_provider' => [
+                'module' => 'provider_payments',
+                'checks' => [
+                    ['label' => 'Provider settlement payout', 'needles' => ['send_provider_settlement_received_notification']],
+                ],
+            ],
+
+            // Review (2)
+            'review_customer_to_provider_approved' => [
+                'module' => 'review',
+                'checks' => [
+                    ['label' => 'Provider review approved', 'needles' => ['send_review_approved_to_provider_notification', "'review_approved'"]],
+                ],
+            ],
+            'review_provider_to_customer_approved' => [
+                'module' => 'review',
+                'checks' => [
+                    ['label' => 'Customer review approved', 'needles' => ['send_review_approved_to_customer_notification', "'customer_review_approved'"]],
+                ],
+            ],
+
+            // Loyalty Points (4)
+            'loyalty_booking_completed' => [
+                'module' => 'loyalty_points',
+                'checks' => [
+                    ['label' => 'Loyalty after completion', 'needles' => ['send_customer_loyalty_point_notification', "'loyalty_point'"]],
+                ],
+            ],
+            'loyalty_convert_to_wallet' => [
+                'module' => 'loyalty_points',
+                'checks' => [
+                    ['label' => 'Points convert push', 'needles' => ["send_customer_loyalty_point_notification", "'loyalty_point_convert'"]],
+                ],
+            ],
+            'loyalty_admin_adds' => [
+                'module' => 'loyalty_points',
+                'checks' => [
+                    ['label' => 'Admin loyalty credit', 'needles' => ['send_customer_loyalty_point_notification']],
+                ],
+            ],
+            'loyalty_referral_earned' => [
+                'module' => 'loyalty_points',
+                'checks' => [
+                    ['label' => 'Referral earning push', 'needles' => ["get_push_notification_message('referral_earning'", 'BookingTrait.php']],
+                ],
+            ],
+            'referral_code_used' => [
+                'module' => 'loyalty_points',
+                'checks' => [
+                    ['label' => 'Referral code used sender', 'needles' => ['send_referral_code_used_notification', "'referral_code_used'"]],
+                ],
+            ],
+
+            // Wallet (2)
+            'wallet_customer_topup' => [
+                'module' => 'wallet',
+                'checks' => [
+                    ['label' => 'Wallet top-up push', 'needles' => ["get_push_notification_message('add_fund_wallet'", 'AddFundHook.php']],
+                ],
+            ],
+            'wallet_customer_deducted' => [
+                'module' => 'wallet',
+                'checks' => [
+                    ['label' => 'Wallet deduct sender', 'needles' => ['send_customer_wallet_deducted_notification', "'wallet_deducted'"]],
+                ],
+            ],
+
+            // Refund (2)
+            'refund_wallet' => [
+                'module' => 'refund',
+                'checks' => [
+                    ['label' => 'Wallet refund sender', 'needles' => ['send_customer_refund_notification', "'refund'"]],
+                ],
+            ],
+            'refund_bank_transfer' => [
+                'module' => 'refund',
+                'checks' => [
+                    ['label' => 'Bank refund sender', 'needles' => ['send_customer_refund_notification', "'refund_bank_transfer'"]],
+                ],
+            ],
+
+            // Communication (1)
+            'chat_new_message' => [
+                'module' => 'communication',
+                'checks' => [
+                    ['label' => 'Chat push sender', 'needles' => ['send_chat_message_push_notification', "'chat_message'"]],
+                ],
+            ],
+
+            // Service Requests (2)
+            'service_request_approved' => [
+                'module' => 'service_requests',
+                'checks' => [
+                    ['label' => 'Service approved push', 'needles' => ["get_push_notification_message('service_request_approve'", 'ServiceRequestController.php']],
+                ],
+            ],
+            'service_request_denied' => [
+                'module' => 'service_requests',
+                'checks' => [
+                    ['label' => 'Service denied push', 'needles' => ["get_push_notification_message('service_request_deny'", 'ServiceRequestController.php']],
+                ],
+            ],
+
+            // Provider Account (2)
+            'provider_suspended' => [
+                'module' => 'provider_account',
+                'checks' => [
+                    ['label' => 'Provider suspend sender', 'needles' => ['send_provider_suspended_notification', "'provider_suspend'"]],
+                ],
+            ],
+            'provider_suspension_removed' => [
+                'module' => 'provider_account',
+                'checks' => [
+                    ['label' => 'Suspension removed sender', 'needles' => ['send_provider_suspension_removed_notification', "'provider_suspension_remove'"]],
+                ],
+            ],
+
+            // Advertisement (5)
+            'advertisement_created_by_admin' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Ad created push', 'needles' => ['send_advertisement_push_notification', "'advertisement_created_by_admin'"]],
+                ],
+            ],
+            'advertisement_approved' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Ad approved push', 'needles' => ['send_advertisement_push_notification', "'advertisement_approved'"]],
+                ],
+            ],
+            'advertisement_denied' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Ad denied push', 'needles' => ['send_advertisement_push_notification', "'advertisement_denied'"]],
+                ],
+            ],
+            'advertisement_paused' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Ad paused push', 'needles' => ['send_advertisement_push_notification', "'advertisement_paused'"]],
+                ],
+            ],
+            'advertisement_resumed' => [
+                'module' => 'advertisement',
+                'checks' => [
+                    ['label' => 'Ad resumed push', 'needles' => ['send_advertisement_push_notification', "'advertisement_resumed'"]],
+                ],
+            ],
+
+            // Admin Alerts (5)
+            'admin_alert_provider_registration' => [
+                'module' => 'admin_alerts',
+                'checks' => [
+                    ['label' => 'Provider registration inbox', 'needles' => ['admin_inbox_notify_provider_request']],
+                ],
+            ],
+            'admin_alert_withdraw_request' => [
+                'module' => 'admin_alerts',
+                'checks' => [
+                    ['label' => 'Withdraw request inbox', 'needles' => ['admin_inbox_notify_withdraw_request']],
+                ],
+            ],
+            'admin_alert_booking_payment' => [
+                'module' => 'admin_alerts',
+                'checks' => [
+                    ['label' => 'Booking payment inbox', 'needles' => ['admin_inbox_notify_booking_payment']],
+                ],
+            ],
+            'admin_alert_booking_ongoing' => [
+                'module' => 'admin_alerts',
+                'checks' => [
+                    ['label' => 'Booking ongoing inbox', 'needles' => ['admin_inbox_notify_booking_ongoing']],
+                ],
+            ],
+            'admin_alert_customer_cancel' => [
+                'module' => 'admin_alerts',
+                'checks' => [
+                    ['label' => 'Customer cancel inbox', 'needles' => ['admin_inbox_notify_booking_customer_canceled']],
+                ],
+            ],
+        ];
+    }
+}
+
+if (! function_exists('audit_notification_scenario_triggers')) {
+    /**
+     * @return array{passed: int, failed: int, results: list<array{scenario_id: string, module: string, label: string, ok: bool, missing: list<string>}>}
+     */
+    function audit_notification_scenario_triggers(?string $codebase = null): array
+    {
+        if ($codebase === null) {
+            $root = dirname(__DIR__, 2);
+            $dirs = [$root . '/app', $root . '/Modules'];
+            $chunks = [];
+            foreach ($dirs as $dir) {
+                if (! is_dir($dir)) {
+                    continue;
+                }
+                $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
+                $php = new RegexIterator($iterator, '/\.php$/');
+                foreach ($php as $file) {
+                    $chunks[] = (string) file_get_contents($file->getPathname());
+                }
+            }
+            $codebase = implode("\n", $chunks);
+        }
+
+        $map = notification_scenario_trigger_map();
+        $registryIds = array_column(notification_scenario_registry(), 'id');
+        $results = [];
+        $passed = 0;
+        $failed = 0;
+
+        foreach ($registryIds as $scenarioId) {
+            if (! isset($map[$scenarioId])) {
+                $results[] = [
+                    'scenario_id' => $scenarioId,
+                    'module' => 'unknown',
+                    'label' => 'Trigger map entry',
+                    'ok' => false,
+                    'missing' => ['No trigger map defined for scenario'],
+                ];
+                $failed++;
+
+                continue;
+            }
+
+            foreach ($map[$scenarioId]['checks'] as $check) {
+                $missing = [];
+                foreach ($check['needles'] as $needle) {
+                    if (! str_contains($codebase, $needle)) {
+                        $missing[] = $needle;
+                    }
+                }
+                $ok = $missing === [];
+                $results[] = [
+                    'scenario_id' => $scenarioId,
+                    'module' => $map[$scenarioId]['module'],
+                    'label' => $check['label'],
+                    'ok' => $ok,
+                    'missing' => $missing,
+                ];
+                $ok ? $passed++ : $failed++;
+            }
+        }
+
+        return ['passed' => $passed, 'failed' => $failed, 'results' => $results];
     }
 }
 
@@ -586,6 +1536,109 @@ if (! function_exists('notification_trigger_scenarios_for_key')) {
                 'wired' => true,
             ],
 
+            'booking_ignored_by_provider' => $isCustomer ? [
+                'summary' => 'Sent when the assigned provider ignores the booking request.',
+                'scenarios' => [
+                    'Provider ignores booking from the provider panel.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'Bookings',
+                'wired' => true,
+            ] : null,
+
+            'service_location_updated' => $isCustomer ? [
+                'summary' => 'Sent when the service address is updated on a booking.',
+                'scenarios' => [
+                    'Provider updates service location from the app.',
+                    'Admin updates service location on booking details.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'Bookings',
+                'wired' => true,
+            ] : null,
+
+            'referral_code_used' => $isCustomer ? [
+                'summary' => 'Sent when a new customer registers using the referrer\'s code.',
+                'scenarios' => [
+                    'New customer signs up with a valid referral code.',
+                ],
+                'recipient' => 'Customer',
+                'module' => 'Wallet and Loyalty',
+                'wired' => true,
+            ] : null,
+
+            'provider_suspend' => ! $isCustomer ? [
+                'summary' => 'Sent when the provider account is suspended.',
+                'scenarios' => [
+                    'Admin suspends provider from the admin panel.',
+                    'Cash-in-hand limit triggers automatic suspension.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Payments',
+                'wired' => true,
+            ] : null,
+
+            'provider_suspension_remove' => ! $isCustomer ? [
+                'summary' => 'Sent when provider suspension is lifted.',
+                'scenarios' => [
+                    'Admin unsuspends provider from the admin panel.',
+                    'Provider settles payable balance and suspension clears.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Payments',
+                'wired' => true,
+            ] : null,
+
+            'advertisement_created_by_admin' => ! $isCustomer ? [
+                'summary' => 'Sent when admin creates an approved advertisement for the provider.',
+                'scenarios' => [
+                    'Admin creates advertisement with auto-approved status.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
+            'advertisement_approved' => ! $isCustomer ? [
+                'summary' => 'Sent when an advertisement request is approved.',
+                'scenarios' => [
+                    'Admin approves pending provider advertisement.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
+            'advertisement_denied' => ! $isCustomer ? [
+                'summary' => 'Sent when an advertisement request is denied.',
+                'scenarios' => [
+                    'Admin denies pending provider advertisement.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
+            'advertisement_paused' => ! $isCustomer ? [
+                'summary' => 'Sent when an active advertisement is paused.',
+                'scenarios' => [
+                    'Admin pauses provider advertisement.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
+            'advertisement_resumed' => ! $isCustomer ? [
+                'summary' => 'Sent when a paused advertisement is resumed.',
+                'scenarios' => [
+                    'Admin resumes provider advertisement.',
+                ],
+                'recipient' => 'Provider',
+                'module' => 'Service Updates',
+                'wired' => true,
+            ] : null,
+
             default => null,
         };
 
@@ -691,6 +1744,17 @@ if (! function_exists('notification_scenario_registry')) {
                 ],
             ],
             [
+                'id' => 'booking_provider_accept',
+                'module' => 'booking_update',
+                'title' => 'Provider accepts a booking from the app',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Accepts pending booking from the provider app',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_accepted', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_accepted', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
                 'id' => 'booking_provider_cancel',
                 'module' => 'booking_update',
                 'title' => 'Provider rejects or cancels a booking',
@@ -734,18 +1798,60 @@ if (! function_exists('notification_scenario_registry')) {
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_status_change', 'settings_type' => 'customer_notification', 'wired' => true],
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_status_change', 'settings_type' => 'provider_notification', 'wired' => true],
-                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when booking goes ongoing'],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when customer cancels'],
                 ],
             ],
             [
                 'id' => 'booking_admin_edit',
                 'module' => 'booking_update',
-                'title' => 'Admin makes changes to a booking',
+                'title' => 'Admin or provider adds a service to a booking',
                 'trigger_actor' => 'admin',
-                'trigger_action' => 'Edits booking details, services, or line items',
+                'trigger_action' => 'Adds a service, extra, or spare part to the booking',
                 'audiences' => [
-                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_edit_service_add', 'settings_type' => 'customer_notification', 'wired' => true, 'note' => 'Service add/update keys'],
-                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_edit_service_add', 'settings_type' => 'provider_notification', 'wired' => true, 'note' => 'Service add/update keys'],
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_edit_service_add', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_edit_service_add', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_edit_service_update',
+                'module' => 'booking_update',
+                'title' => 'Admin or provider updates or removes a booking service',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Changes service quantity, updates a line item, or removes a service',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_edit_service_update', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_edit_service_update', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_complete',
+                'module' => 'booking_update',
+                'title' => 'Booking is marked completed',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider or admin marks the booking as completed',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_complete', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_complete', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_otp_sent',
+                'module' => 'booking_update',
+                'title' => 'Provider sends booking OTP to customer',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Shares verification OTP from the provider app during visit',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'otp', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_reminder',
+                'module' => 'booking_update',
+                'title' => 'Upcoming booking reminder',
+                'trigger_actor' => 'system',
+                'trigger_action' => 'Scheduled reminder before the booking service time',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_reminder', 'settings_type' => 'customer_notification', 'wired' => true],
                 ],
             ],
             [
@@ -770,6 +1876,58 @@ if (! function_exists('notification_scenario_registry')) {
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_schedule_time_change', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
+            [
+                'id' => 'booking_on_hold',
+                'module' => 'booking_update',
+                'title' => 'Booking is put on hold after visit',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Marks booking as on hold from ongoing or accepted visit',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_status_change', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_status_change', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_pending_cancellation',
+                'module' => 'booking_update',
+                'title' => 'Customer requests booking cancellation',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Submits a pending cancellation request on an active booking',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_status_change', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'booking_status_change', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_refund_request_status',
+                'module' => 'booking_update',
+                'title' => 'Booking moves to refund request status',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Customer or system sets booking status to refund request',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'refund', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_ignored_by_provider',
+                'module' => 'booking_update',
+                'title' => 'Provider ignores a booking request',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider ignores assigned booking from the provider panel',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'booking_ignored_by_provider', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'booking_service_location_updated',
+                'module' => 'booking_update',
+                'title' => 'Service location is updated on a booking',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider or admin updates the customer service address on the booking',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'service_location_updated', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
 
             // --- Payments ---
             [
@@ -781,7 +1939,7 @@ if (! function_exists('notification_scenario_registry')) {
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'payment_collected_provider', 'settings_type' => 'customer_notification', 'wired' => true],
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'payment_collected_provider', 'settings_type' => 'provider_notification', 'wired' => true],
-                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when booking goes ongoing'],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when provider records payment'],
                 ],
             ],
             [
@@ -793,7 +1951,7 @@ if (! function_exists('notification_scenario_registry')) {
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'payment_collected_company', 'settings_type' => 'customer_notification', 'wired' => true],
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'payment_collected_company', 'settings_type' => 'provider_notification', 'wired' => true],
-                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when booking goes ongoing'],
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true, 'note' => 'Admin inbox when customer pays company'],
                 ],
             ],
             [
@@ -805,6 +1963,16 @@ if (! function_exists('notification_scenario_registry')) {
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'payment_collected_company', 'settings_type' => 'customer_notification', 'wired' => true, 'note' => 'Company or provider key based on receiver'],
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'payment_collected_provider', 'settings_type' => 'provider_notification', 'wired' => true, 'note' => 'Company or provider key based on receiver'],
+                ],
+            ],
+            [
+                'id' => 'payment_failed',
+                'module' => 'payments',
+                'title' => 'Customer payment attempt fails',
+                'trigger_actor' => 'system',
+                'trigger_action' => 'Digital payment or wallet top-up fails at checkout',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'payment_failed', 'settings_type' => 'customer_notification', 'wired' => true],
                 ],
             ],
 
@@ -828,6 +1996,16 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_action' => 'Approves provider withdrawal request',
                 'audiences' => [
                     ['audience' => 'provider', 'channel' => 'push', 'key' => 'widthdraw_request_approve', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'provider_withdraw_denied',
+                'module' => 'provider_payments',
+                'title' => 'Admin denies a withdraw request',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Rejects provider withdrawal request',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'widthdraw_request_deny', 'settings_type' => 'provider_notification', 'wired' => true],
                 ],
             ],
             [
@@ -924,6 +2102,16 @@ if (! function_exists('notification_scenario_registry')) {
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'referral_earning', 'settings_type' => 'customer_notification', 'wired' => true],
                 ],
             ],
+            [
+                'id' => 'referral_code_used',
+                'module' => 'loyalty_points',
+                'title' => 'Referral code used on new signup',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'New customer registers with an existing referral code',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'referral_code_used', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
 
             // --- Refund ---
             [
@@ -944,6 +2132,189 @@ if (! function_exists('notification_scenario_registry')) {
                 'trigger_action' => 'Records bank transfer refund on canceled booking',
                 'audiences' => [
                     ['audience' => 'customer', 'channel' => 'push', 'key' => 'refund_bank_transfer', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+
+            // --- Wallet ---
+            [
+                'id' => 'wallet_customer_topup',
+                'module' => 'wallet',
+                'title' => 'Customer wallet is credited',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Tops up wallet via payment gateway or admin adds funds',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'add_fund_wallet', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'wallet_customer_deducted',
+                'module' => 'wallet',
+                'title' => 'Customer wallet is debited for a booking',
+                'trigger_actor' => 'system',
+                'trigger_action' => 'Booking checkout or due payment uses wallet balance',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'wallet_deducted', 'settings_type' => 'customer_notification', 'wired' => true],
+                ],
+            ],
+
+            // --- Communication ---
+            [
+                'id' => 'chat_new_message',
+                'module' => 'communication',
+                'title' => 'New chat message on a booking',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Customer or provider sends a chat message in the booking conversation',
+                'audiences' => [
+                    ['audience' => 'customer', 'channel' => 'push', 'key' => 'chat_message', 'settings_type' => 'customer_notification', 'wired' => true],
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'chat_message', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+
+            // --- Service Requests ---
+            [
+                'id' => 'service_request_approved',
+                'module' => 'service_requests',
+                'title' => 'Admin approves provider service request',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Approves a new service submitted by the provider',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'service_request_approve', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'service_request_denied',
+                'module' => 'service_requests',
+                'title' => 'Admin denies provider service request',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Rejects a new service submitted by the provider',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'service_request_deny', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+
+            // --- Provider Account ---
+            [
+                'id' => 'provider_suspended',
+                'module' => 'provider_account',
+                'title' => 'Provider account is suspended',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin suspends provider or cash limit auto-suspension triggers',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'provider_suspend', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'provider_suspension_removed',
+                'module' => 'provider_account',
+                'title' => 'Provider suspension is lifted',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Admin unsuspends provider or provider settles payable balance',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'provider_suspension_remove', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+
+            // --- Advertisement ---
+            [
+                'id' => 'advertisement_created_by_admin',
+                'module' => 'advertisement',
+                'title' => 'Admin creates advertisement for provider',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Creates and auto-approves provider advertisement',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_created_by_admin', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'advertisement_approved',
+                'module' => 'advertisement',
+                'title' => 'Advertisement is approved',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Approves provider advertisement request',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_approved', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'advertisement_denied',
+                'module' => 'advertisement',
+                'title' => 'Advertisement is denied',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Denies provider advertisement request',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_denied', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'advertisement_paused',
+                'module' => 'advertisement',
+                'title' => 'Advertisement is paused',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Pauses an active provider advertisement',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_paused', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'advertisement_resumed',
+                'module' => 'advertisement',
+                'title' => 'Advertisement is resumed',
+                'trigger_actor' => 'admin',
+                'trigger_action' => 'Resumes a paused provider advertisement',
+                'audiences' => [
+                    ['audience' => 'provider', 'channel' => 'push', 'key' => 'advertisement_resumed', 'settings_type' => 'provider_notification', 'wired' => true],
+                ],
+            ],
+
+            // --- Admin Alerts ---
+            [
+                'id' => 'admin_alert_provider_registration',
+                'module' => 'admin_alerts',
+                'title' => 'New provider registration request',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider completes registration and awaits admin approval',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'admin_alert_withdraw_request',
+                'module' => 'admin_alerts',
+                'title' => 'Provider withdraw request submitted',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider submits withdraw request for admin review',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'admin_alert_booking_payment',
+                'module' => 'admin_alerts',
+                'title' => 'Booking payment recorded',
+                'trigger_actor' => 'system',
+                'trigger_action' => 'Customer or provider payment is recorded on a booking',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'admin_alert_booking_ongoing',
+                'module' => 'admin_alerts',
+                'title' => 'Booking marked ongoing',
+                'trigger_actor' => 'provider',
+                'trigger_action' => 'Provider marks booking as ongoing',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
+                ],
+            ],
+            [
+                'id' => 'admin_alert_customer_cancel',
+                'module' => 'admin_alerts',
+                'title' => 'Customer cancelled booking',
+                'trigger_actor' => 'customer',
+                'trigger_action' => 'Customer cancels booking from the app',
+                'audiences' => [
+                    ['audience' => 'admin', 'channel' => 'inbox', 'key' => null, 'settings_type' => null, 'wired' => true],
                 ],
             ],
         ];
@@ -1019,7 +2390,7 @@ if (! function_exists('persist_transactional_push_notification')) {
         mixed $bookingId = null,
         ?string $bookingType = null,
         ?string $repeatType = null,
-    ): void {
+    ): ?string {
         try {
             $pushNotification = new \Modules\PromotionManagement\Entities\PushNotification();
             $pushNotification->title = $title;
@@ -1038,6 +2409,8 @@ if (! function_exists('persist_transactional_push_notification')) {
             $pushNotificationUser->user_id = $userId;
             $pushNotificationUser->read_at = null;
             $pushNotificationUser->save();
+
+            return (string) $pushNotification->id;
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Failed to persist transactional push notification', [
                 'audience' => $audience,
@@ -1045,6 +2418,8 @@ if (! function_exists('persist_transactional_push_notification')) {
                 'error' => $e->getMessage(),
             ]);
         }
+
+        return null;
     }
 }
 
@@ -1079,8 +2454,9 @@ if (! function_exists('scenario_push_notification')) {
         }
         $formattedBody = format_push_notification_body($description, $bookingId, $type, $data, $bookingType);
 
+        $pushNotificationId = null;
         if ($userId && $inboxAudience) {
-            persist_transactional_push_notification(
+            $pushNotificationId = persist_transactional_push_notification(
                 (string) $formattedTitle,
                 (string) $formattedBody,
                 $inboxAudience,
@@ -1109,7 +2485,8 @@ if (! function_exists('scenario_push_notification')) {
                 null,
                 null,
                 null,
-                $bookingStatusOverride
+                $bookingStatusOverride,
+                $pushNotificationId
             );
         }
     }
@@ -1960,5 +3337,227 @@ if (! function_exists('send_booking_provider_reassignment_notifications')) {
                 );
             }
         }
+    }
+}
+
+if (! function_exists('send_booking_ignored_by_provider_notification')) {
+    function send_booking_ignored_by_provider_notification(Booking $booking): void
+    {
+        if (! booking_push_notifications_enabled()) {
+            return;
+        }
+
+        $booking->loadMissing(['customer', 'provider', 'zone']);
+        $user = $booking->customer;
+        if (! $user || ! $user->is_active || ! isNotificationActive(null, 'booking', 'notification', 'user')) {
+            return;
+        }
+
+        $key = 'booking_ignored_by_provider';
+        $title = get_push_notification_message($key, 'customer_notification', $user->current_language_key);
+        $description = get_push_notification_description($key, 'customer_notification', $user->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
+        $data = [
+            'booking_id' => $booking->readable_id ?? $booking->id,
+            'user_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+            'provider_name' => $booking->provider?->company_name ?? '',
+            'booking_status' => ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? ''))),
+        ];
+
+        scenario_push_notification(
+            $user->fcm_token,
+            $title,
+            $description,
+            $booking->id,
+            'booking',
+            $user->id,
+            $data,
+            $repeatOrRegular,
+            null,
+            'customer',
+            $booking->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_booking_service_location_updated_notification')) {
+    function send_booking_service_location_updated_notification(Booking $booking): void
+    {
+        if (! booking_push_notifications_enabled()) {
+            return;
+        }
+
+        $booking->loadMissing(['customer', 'provider', 'zone']);
+        $user = $booking->customer;
+        if (! $user || ! $user->is_active || ! isNotificationActive(null, 'booking', 'notification', 'user')) {
+            return;
+        }
+
+        $key = 'service_location_updated';
+        $title = get_push_notification_message($key, 'customer_notification', $user->current_language_key);
+        $description = get_push_notification_description($key, 'customer_notification', $user->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        $repeatOrRegular = (int) ($booking->is_repeated ?? 0) ? 'repeat' : 'regular';
+        $data = [
+            'booking_id' => $booking->readable_id ?? $booking->id,
+            'user_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+            'provider_name' => $booking->provider?->company_name ?? '',
+        ];
+
+        scenario_push_notification(
+            $user->fcm_token,
+            $title,
+            $description,
+            $booking->id,
+            'booking',
+            $user->id,
+            $data,
+            $repeatOrRegular,
+            null,
+            'customer',
+            $booking->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_provider_suspended_notification')) {
+    function send_provider_suspended_notification(
+        \Modules\ProviderManagement\Entities\Provider $provider,
+        bool $requireTransactionToggle = false
+    ): void {
+        $provider->loadMissing('owner');
+        $owner = $provider->owner;
+        if (! $owner || ! $owner->is_active) {
+            return;
+        }
+
+        if ($requireTransactionToggle && ! isNotificationActive($provider->id, 'transaction', 'notification', 'provider')) {
+            return;
+        }
+
+        $title = get_push_notification_message('provider_suspend', 'provider_notification', $owner->current_language_key);
+        $description = get_push_notification_description('provider_suspend', 'provider_notification', $owner->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        scenario_push_notification(
+            $owner->fcm_token,
+            $title,
+            $description,
+            $provider->id,
+            'suspend',
+            $owner->id,
+            ['provider_name' => $provider->company_name ?? ''],
+            null,
+            null,
+            'provider-admin',
+            $provider->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_provider_suspension_removed_notification')) {
+    function send_provider_suspension_removed_notification(\Modules\ProviderManagement\Entities\Provider $provider): void
+    {
+        $provider->loadMissing('owner');
+        $owner = $provider->owner;
+        if (! $owner || ! $owner->is_active) {
+            return;
+        }
+
+        $title = get_push_notification_message('provider_suspension_remove', 'provider_notification', $owner->current_language_key);
+        $description = get_push_notification_description('provider_suspension_remove', 'provider_notification', $owner->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        scenario_push_notification(
+            $owner->fcm_token,
+            $title,
+            $description,
+            $provider->id,
+            'suspend',
+            $owner->id,
+            ['provider_name' => $provider->company_name ?? ''],
+            null,
+            null,
+            'provider-admin',
+            $provider->zone_id
+        );
+    }
+}
+
+if (! function_exists('send_referral_code_used_notification')) {
+    function send_referral_code_used_notification(\Modules\UserManagement\Entities\User $referrer): void
+    {
+        if (! $referrer->is_active || ! isNotificationActive(null, 'refer_earn', 'notification', 'user')) {
+            return;
+        }
+
+        $title = get_push_notification_message('referral_code_used', 'customer_notification', $referrer->current_language_key);
+        $description = get_push_notification_description('referral_code_used', 'customer_notification', $referrer->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        scenario_push_notification(
+            $referrer->fcm_token,
+            $title,
+            $description,
+            null,
+            'general',
+            $referrer->id,
+            ['user_name' => trim(($referrer->first_name ?? '') . ' ' . ($referrer->last_name ?? ''))],
+            null,
+            null,
+            'customer',
+            config('zone_id')
+        );
+    }
+}
+
+if (! function_exists('send_advertisement_push_notification')) {
+    function send_advertisement_push_notification(
+        string $messageKey,
+        \Modules\PromotionManagement\Entities\Advertisement $advertisement
+    ): void {
+        $advertisement->loadMissing('provider.owner');
+        $provider = $advertisement->provider;
+        $owner = $provider?->owner;
+        if (! $owner || ! $owner->is_active) {
+            return;
+        }
+
+        if (! isNotificationActive($provider?->id, 'advertisement', 'notification', 'provider')) {
+            return;
+        }
+
+        $title = get_push_notification_message($messageKey, 'provider_notification', $owner->current_language_key);
+        $description = get_push_notification_description($messageKey, 'provider_notification', $owner->current_language_key);
+        if (! $title) {
+            return;
+        }
+
+        scenario_push_notification(
+            $owner->fcm_token,
+            $title,
+            $description,
+            null,
+            'advertisement',
+            $owner->id,
+            ['provider_name' => $provider?->company_name ?? ''],
+            null,
+            null,
+            'provider-admin',
+            $provider?->zone_id
+        );
     }
 }
