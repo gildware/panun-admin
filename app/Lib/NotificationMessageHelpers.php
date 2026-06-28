@@ -992,6 +992,19 @@ if (! function_exists('notification_scenario_audience_message_label')) {
     }
 }
 
+if (! function_exists('normalize_notification_booking_id')) {
+    function normalize_notification_booking_id(mixed $bookingId): ?string
+    {
+        if ($bookingId === null || $bookingId === '') {
+            return null;
+        }
+
+        $normalized = trim((string) $bookingId);
+
+        return $normalized !== '' ? $normalized : null;
+    }
+}
+
 if (! function_exists('persist_transactional_push_notification')) {
     /**
      * Save a transactional push to the inbox tables mobile apps read (push_notifications + push_notification_users).
@@ -1015,7 +1028,7 @@ if (! function_exists('persist_transactional_push_notification')) {
             $pushNotification->zone_ids = $zoneId ? [$zoneId] : [];
             $pushNotification->is_active = 1;
             $pushNotification->notification_type = $notificationType;
-            $pushNotification->booking_id = is_string($bookingId) && $bookingId !== '' ? $bookingId : null;
+            $pushNotification->booking_id = normalize_notification_booking_id($bookingId);
             $pushNotification->booking_type = $bookingType;
             $pushNotification->repeat_type = $repeatType;
             $pushNotification->save();
@@ -1042,7 +1055,7 @@ if (! function_exists('scenario_push_notification')) {
     function scenario_push_notification(
         ?string $fcmToken,
         string $title,
-        string $description,
+        ?string $description = '',
         mixed $bookingId = null,
         string $type = 'booking',
         ?string $userId = null,
@@ -1058,6 +1071,8 @@ if (! function_exists('scenario_push_notification')) {
             return;
         }
 
+        $description = (string) ($description ?? '');
+
         $formattedTitle = text_variable_data_format($title, $bookingId, $type, $data, $bookingType);
         if (is_array($formattedTitle)) {
             $formattedTitle = $title;
@@ -1072,7 +1087,7 @@ if (! function_exists('scenario_push_notification')) {
                 $userId,
                 $zoneId,
                 $type,
-                is_string($bookingId) || is_numeric($bookingId) ? (string) $bookingId : null,
+                normalize_notification_booking_id($bookingId),
                 $bookingType,
                 null
             );

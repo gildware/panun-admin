@@ -91,11 +91,11 @@ if (!function_exists('push_notification_android_channel_for_type')) {
     function push_notification_android_channel_for_type(?string $type): string
     {
         return match ($type) {
-            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking_v2',
-            'chatting' => 'demandium_chat_v2',
-            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet_v2',
-            'bidding', 'bid-withdraw' => 'demandium_bidding_v2',
-            default => 'demandium_v2',
+            'booking', 'booking_ignored', 'offline-payment' => 'demandium_booking_v3',
+            'chatting' => 'demandium_chat_v3',
+            'wallet', 'loyalty_point', 'admin_pay', 'withdraw', 'refund' => 'demandium_wallet_v3',
+            'bidding', 'bid-withdraw' => 'demandium_bidding_v3',
+            default => 'demandium_v3',
         };
     }
 }

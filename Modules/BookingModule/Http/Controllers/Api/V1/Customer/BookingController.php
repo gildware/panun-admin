@@ -399,7 +399,9 @@ class BookingController extends Controller
                 'repeat.scheduleHistories',
                 'repeat.repeatHistories'
             ])
-            ->where(['id' => $id])
+            ->where(function ($query) use ($id) {
+                $query->where('id', $id)->orWhere('readable_id', $id);
+            })
             ->first();
 
         if (isset($booking)) {

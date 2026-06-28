@@ -3726,86 +3726,119 @@
             });
         @endif
 
-        $("#booking_status").change(function() {
-            var $select = $("#booking_status");
-            var booking_status = $select.val();
-            var previous_status = $select.data('current');
-            if (booking_status && booking_status !== '0') {
-                if (booking_status === 'completed' && $select.data('can-complete') === '0') {
+        function bookingDetailsStatusUpdateMessage(status) {
+            return status === 'canceled'
+                ? '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}'
+                : '{{ translate('want_to_update_status') }}';
+        }
+
+        function bookingDetailsRevertStatusSelect($select, previousStatus) {
+            $select.val(previousStatus);
+            if ($select.next('.select2-container').length) {
+                $select.next('.select2-container').find('.select2-selection__rendered').text($select.find('option:selected').text());
+            }
+        }
+
+        function bookingDetailsPromptStatusUpdate(bookingStatus, previousStatus) {
+            var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + bookingStatus;
+            update_booking_details(route, bookingDetailsStatusUpdateMessage(bookingStatus), 'booking_status', bookingStatus, previousStatus);
+        }
+
+        function initBookingDetailsStatusHandlers(root) {
+            var $ = window.jQuery;
+            if (!$ || typeof $.fn !== 'object') {
+                return;
+            }
+
+            root = root || document;
+            var $root = $(root);
+            var $select = $root.find('#booking_status');
+            if (!$select.length) {
+                return;
+            }
+
+            $select.off('change.bookingDetailsStatus').on('change.bookingDetailsStatus', function () {
+                var booking_status = $select.val();
+                var previous_status = $select.data('current');
+                if (booking_status && booking_status !== '0') {
+                    if (booking_status === 'completed' && $select.data('can-complete') === '0') {
+                        toastr.error('{{ translate('Booking cannot be completed until full payment is received.') }}', { CloseButton: true, ProgressBar: true });
+                        bookingDetailsRevertStatusSelect($select, previous_status);
+                        return;
+                    }
+                    if ((booking_status === 'accepted' || booking_status === 'ongoing') && !bookingCurrentProviderId) {
+                        toastr.error('{{ translate('Assign_provider_before_accept_or_ongoing') }}', { CloseButton: true, ProgressBar: true });
+                        bookingDetailsRevertStatusSelect($select, previous_status);
+                        return;
+                    }
+                    if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(booking_status, previous_status)) {
+                        bookingDetailsRevertStatusSelect($select, previous_status);
+                        if (typeof bookingAdminOpenStatusReasonModal === 'function') {
+                            bookingAdminOpenStatusReasonModal(booking_status, previous_status);
+                        } else {
+                            toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
+                        }
+                        return;
+                    }
+                    bookingDetailsPromptStatusUpdate(booking_status, previous_status);
+                } else {
+                    toastr.error('{{ translate('choose_proper_status') }}');
+                }
+            });
+        }
+
+        function initBookingDetailsOverviewStatusHandlers() {
+            var $ = window.jQuery;
+            if (!$ || typeof $.fn !== 'object') {
+                return;
+            }
+
+            $(document).off('click.bookingOverviewStatus').on('click.bookingOverviewStatus', '.booking-status-overview-btn:not(:disabled)', function () {
+                var status = $(this).data('status');
+                var $select = $('#booking_status');
+                if (!$select.length) {
+                    toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
+                    return;
+                }
+                var previous_status = $select.data('current');
+                if (String(status) === String(previous_status)) {
+                    return;
+                }
+                if (status === 'completed' && $select.data('can-complete') === '0') {
                     toastr.error('{{ translate('Booking cannot be completed until full payment is received.') }}', { CloseButton: true, ProgressBar: true });
-                    $select.val(previous_status).trigger('change');
-                    if ($select.next(".select2-container").length) {
-                        $select.next(".select2-container").find(".select2-selection__rendered").text($select.find("option:selected").text());
-                    }
                     return;
                 }
-                if ((booking_status === 'accepted' || booking_status === 'ongoing') && !bookingCurrentProviderId) {
+                if ((status === 'accepted' || status === 'ongoing') && !bookingCurrentProviderId) {
                     toastr.error('{{ translate('Assign_provider_before_accept_or_ongoing') }}', { CloseButton: true, ProgressBar: true });
-                    $select.val(previous_status).trigger('change');
-                    if ($select.next(".select2-container").length) {
-                        $select.next(".select2-container").find(".select2-selection__rendered").text($select.find("option:selected").text());
-                    }
                     return;
                 }
-                if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(booking_status, previous_status)) {
-                    $select.val(previous_status);
-                    if ($select.next(".select2-container").length) {
-                        $select.next(".select2-container").find(".select2-selection__rendered").text($select.find("option:selected").text());
-                    }
+                if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(status, previous_status)) {
                     if (typeof bookingAdminOpenStatusReasonModal === 'function') {
-                        bookingAdminOpenStatusReasonModal(booking_status, previous_status);
+                        bookingAdminOpenStatusReasonModal(status, previous_status);
                     } else {
                         toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
                     }
                     return;
                 }
-                var route = '{{ route('admin.booking.status_update', [$booking->id]) }}' + '?booking_status=' + booking_status;
-                var message = booking_status === 'canceled'
-                    ? '{{ translate('Please contact the customer before proceeding with the cancellation process.') }}'
-                    : '{{ translate('want_to_update_status') }}';
-                update_booking_details(route, message, 'booking_status', booking_status, previous_status);
-            } else {
-                toastr.error('{{ translate('choose_proper_status') }}');
-            }
-        });
+                bookingDetailsPromptStatusUpdate(status, previous_status);
+            });
+        }
 
-        $(document).off('click.bookingOverviewStatus').on('click.bookingOverviewStatus', '.booking-status-overview-btn:not(:disabled)', function() {
-            var status = $(this).data('status');
-            var $select = $('#booking_status');
-            if (!$select.length) {
-                toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
-                return;
-            }
-            var previous_status = $select.data('current');
-            if (String(status) === String(previous_status)) {
-                return;
-            }
-            if (status === 'completed' && $select.data('can-complete') === '0') {
-                toastr.error('{{ translate('Booking cannot be completed until full payment is received.') }}', { CloseButton: true, ProgressBar: true });
-                return;
-            }
-            if ((status === 'accepted' || status === 'ongoing') && !bookingCurrentProviderId) {
-                toastr.error('{{ translate('Assign_provider_before_accept_or_ongoing') }}', { CloseButton: true, ProgressBar: true });
-                return;
-            }
-            if (typeof bookingAdminStatusNeedsReason === 'function' && bookingAdminStatusNeedsReason(status, previous_status)) {
-                if (typeof bookingAdminOpenStatusReasonModal === 'function') {
-                    bookingAdminOpenStatusReasonModal(status, previous_status);
-                } else {
-                    toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
-                }
-                return;
-            }
-            $select.val(status);
-            if ($select.val() !== String(status)) {
-                toastr.error('{{ translate('Something went wrong. Please try again.') }}', { CloseButton: true, ProgressBar: true });
-                return;
-            }
-            if ($select.next('.select2-container').length) {
-                $select.next('.select2-container').find('.select2-selection__rendered').text($select.find('option:selected').text());
-            }
-            $select.trigger('change');
-        });
+        function bootBookingDetailsStatusHandlers(root) {
+            initBookingDetailsStatusHandlers(root);
+            initBookingDetailsOverviewStatusHandlers();
+        }
+
+        if (!window.__bookingDetailsStatusHandlersBound) {
+            window.__bookingDetailsStatusHandlersBound = true;
+            document.addEventListener('admin:page-loaded', function (event) {
+                bootBookingDetailsStatusHandlers(event.detail && event.detail.root ? event.detail.root : document);
+            });
+        }
+
+        window.addEventListener('load', function () {
+            bootBookingDetailsStatusHandlers(document.getElementById('admin-main') || document);
+        }, { once: true });
 
         $('#booking-schedule-edit-toggle').on('click', function () {
             $('#booking-schedule-view-mode').addClass('d-none');

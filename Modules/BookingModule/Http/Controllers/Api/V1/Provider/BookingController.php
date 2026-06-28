@@ -813,7 +813,9 @@ class BookingController extends Controller
                 ->orWhereHas('repeat', function ($subQuery) use ($provider_id) {
                     $subQuery->where('provider_id', $provider_id);
                 });
-        })->where(['id' => $id])->first();
+        })->where(function ($query) use ($id) {
+            $query->where('id', $id)->orWhere('readable_id', $id);
+        })->first();
 
         if (isset($booking)) {
             $booking->loadCount('compensations');

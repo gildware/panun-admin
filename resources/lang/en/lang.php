@@ -9465,4 +9465,6 @@ _Message' => 'Customer notification for provider bid offer
   'New_message_from_provider' => 'New message from provider',
   'Booking_ongoing' => 'Booking ongoing',
   'marked_booking_as_ongoing' => 'Marked booking as ongoing',
+  'Booking_payment_received' => 'Booking payment received',
+  'The fcm token field is required.' => 'The fcm token field is required.',
 );
