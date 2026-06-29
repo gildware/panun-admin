@@ -931,28 +931,48 @@ if (!function_exists('text_variable_data_format')) {
                 return str_replace(array_keys($replaceMap), array_values($replaceMap), $title);
             }
 
-            $replaceMap['{{providerName}}'] = $booking?->provider?->company_name ?? $replaceMap['{{providerName}}'];
-            $replaceMap['{{bookingId}}'] = $booking->readable_id ?? $replaceMap['{{bookingId}}'];
-            $replaceMap['{{scheduleTime}}'] = (string) ($booking->service_schedule ?? $replaceMap['{{scheduleTime}}']);
+            $fillTemplateValue = static function (string $placeholder, string $value) use (&$replaceMap): void {
+                if (trim($replaceMap[$placeholder] ?? '') === '' && trim($value) !== '') {
+                    $replaceMap[$placeholder] = $value;
+                }
+            };
+
+            $fillTemplateValue('{{providerName}}', (string) ($booking?->provider?->company_name ?? ''));
+            $fillTemplateValue('{{bookingId}}', (string) ($booking->readable_id ?? $booking->id ?? ''));
+            $fillTemplateValue('{{scheduleTime}}', (string) ($booking->service_schedule ?? ''));
             if ($bookingStatusFromData === '') {
                 $replaceMap['{{bookingStatus}}'] = ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? '')));
             }
-            $replaceMap['{{otp}}'] = (string) ($booking->booking_otp ?? $replaceMap['{{otp}}']);
+            $fillTemplateValue('{{otp}}', (string) ($booking->booking_otp ?? ''));
 
             if ($bookingType == 'repeat') {
                 if ($booking->booking) {
-                    $replaceMap['{{userName}}'] = $booking->booking->customer ? $booking->booking->customer->first_name . ' ' . $booking->booking->customer->last_name : $replaceMap['{{userName}}'];
-                    $replaceMap['{{zoneName}}'] = $booking->booking->zone?->name ?? $replaceMap['{{zoneName}}'];
+                    $fillTemplateValue(
+                        '{{userName}}',
+                        $booking->booking->customer
+                            ? trim($booking->booking->customer->first_name . ' ' . $booking->booking->customer->last_name)
+                            : ''
+                    );
+                    $fillTemplateValue('{{zoneName}}', (string) ($booking->booking->zone?->name ?? ''));
                 } else {
-                    $replaceMap['{{userName}}'] = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? '')) ?: $replaceMap['{{userName}}'];
-                    $replaceMap['{{zoneName}}'] = $booking->zone?->name ?? $replaceMap['{{zoneName}}'];
+                    $fillTemplateValue(
+                        '{{userName}}',
+                        trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''))
+                    );
+                    $fillTemplateValue('{{zoneName}}', (string) ($booking->zone?->name ?? ''));
                 }
             } else {
-                $replaceMap['{{userName}}'] = trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? '')) ?: $replaceMap['{{userName}}'];
-                $replaceMap['{{zoneName}}'] = $booking->zone?->name ?? $replaceMap['{{zoneName}}'];
+                $fillTemplateValue(
+                    '{{userName}}',
+                    trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? ''))
+                );
+                $fillTemplateValue('{{zoneName}}', (string) ($booking->zone?->name ?? ''));
             }
 
-            $replaceMap['{{serviceManName}}'] = trim(($booking?->serviceman?->user?->first_name ?? '') . ' ' . ($booking?->serviceman?->user?->last_name ?? '')) ?: $replaceMap['{{serviceManName}}'];
+            $fillTemplateValue(
+                '{{serviceManName}}',
+                trim(($booking?->serviceman?->user?->first_name ?? '') . ' ' . ($booking?->serviceman?->user?->last_name ?? ''))
+            );
 
         }
 

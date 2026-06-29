@@ -89,6 +89,26 @@ class NotificationMessageConfigTest extends TestCase
         $this->assertStringContainsString('Acme Services', $preview);
     }
 
+    public function test_text_variable_data_format_prefers_explicit_template_data(): void
+    {
+        $result = text_variable_data_format(
+            'Hi {{userName}}, status {{bookingStatus}}, at {{scheduleTime}}, from {{senderName}}',
+            null,
+            'chatting',
+            [
+                'user_name' => 'Jane Doe',
+                'booking_status' => 'On hold',
+                'schedule_time' => '2026-06-30 10:00',
+                'sender_name' => 'Acme Services',
+            ]
+        );
+
+        $this->assertSame(
+            'Hi Jane Doe, status On hold, at 2026-06-30 10:00, from Acme Services',
+            $result
+        );
+    }
+
     public function test_notification_variables_per_key(): void
     {
         $otpVars = notification_message_variables_for_key('otp');

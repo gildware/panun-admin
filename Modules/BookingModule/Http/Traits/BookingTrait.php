@@ -1996,7 +1996,7 @@ trait BookingTrait
      * @param $zoneId
      * @return false|void
      */
-    private function referral_earning_calculation($userId, $zoneId)
+    private function referral_earning_calculation($userId, $zoneId, ?string $bookingId = null)
     {
         $isFirstBooking = Booking::where('customer_id', $userId)->count('id');
         if ($isFirstBooking > 1) return false;
@@ -2013,7 +2013,12 @@ trait BookingTrait
             $title = with_currency_symbol($amount) . ' ' . get_push_notification_message('referral_earning', 'customer_notification', $referredByUser?->current_language_key);
             $description = get_push_notification_description('referral_earning', 'customer_notification', $referredByUser?->current_language_key);
             if ($title && $referredByUser?->fcm_token && $userRefund) {
-                device_notification($referredByUser?->fcm_token, $title, $description, null, null, 'general', null, $referredByUser?->id);
+                $data = [
+                    'amount' => with_currency_symbol($amount),
+                    'user_name' => trim(($referredByUser->first_name ?? '') . ' ' . ($referredByUser->last_name ?? '')),
+                    'booking_id' => notification_readable_booking_id($bookingId),
+                ];
+                device_notification($referredByUser?->fcm_token, $title, $description, null, $bookingId, 'general', null, $referredByUser?->id, $data);
             }
 
             $pushNotification = new PushNotification();

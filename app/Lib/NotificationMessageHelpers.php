@@ -2376,6 +2376,20 @@ if (! function_exists('normalize_notification_booking_id')) {
     }
 }
 
+if (! function_exists('notification_readable_booking_id')) {
+    function notification_readable_booking_id(?string $bookingId): string
+    {
+        if (! filled($bookingId)) {
+            return '';
+        }
+
+        $booking = Booking::query()->find($bookingId)
+            ?? \Modules\BookingModule\Entities\BookingRepeat::query()->find($bookingId);
+
+        return (string) ($booking?->readable_id ?? $bookingId);
+    }
+}
+
 if (! function_exists('persist_transactional_push_notification')) {
     /**
      * Save a transactional push to the inbox tables mobile apps read (push_notifications + push_notification_users).
@@ -2423,6 +2437,76 @@ if (! function_exists('persist_transactional_push_notification')) {
     }
 }
 
+if (! function_exists('merge_notification_template_data')) {
+    /**
+     * @param  array<string, mixed>|object|null  $data
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    function merge_notification_template_data(mixed $data, array $overrides = []): array
+    {
+        $merged = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
+
+        foreach ($overrides as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $merged[$key] = $value;
+        }
+
+        return $merged;
+    }
+}
+
+if (! function_exists('booking_notification_template_data')) {
+    /**
+     * @param  array<string, mixed>  $extras
+     * @return array<string, mixed>
+     */
+    function booking_notification_template_data(Booking $booking, array $extras = []): array
+    {
+        $booking->loadMissing(['customer', 'provider', 'zone', 'serviceman.user']);
+
+        return merge_notification_template_data([
+            'booking_id' => $booking->readable_id ?? $booking->id,
+            'user_name' => trim(($booking->customer?->first_name ?? '') . ' ' . ($booking->customer?->last_name ?? '')),
+            'zone_name' => $booking->zone?->name ?? '',
+            'provider_name' => $booking->provider?->company_name ?? $booking->provider?->contact_person_name ?? '',
+            'schedule_time' => $booking->service_schedule
+                ? \Carbon\Carbon::parse($booking->service_schedule)->format('Y-m-d H:i')
+                : '',
+            'booking_status' => ucfirst(str_replace('_', ' ', (string) ($booking->booking_status ?? ''))),
+            'service_man_name' => trim(($booking->serviceman?->user?->first_name ?? '') . ' ' . ($booking->serviceman?->user?->last_name ?? '')),
+        ], $extras);
+    }
+}
+
+if (! function_exists('booking_repeat_notification_template_data')) {
+    /**
+     * @param  array<string, mixed>  $extras
+     * @return array<string, mixed>
+     */
+    function booking_repeat_notification_template_data(\Modules\BookingModule\Entities\BookingRepeat $repeat, array $extras = []): array
+    {
+        $repeat->loadMissing(['booking.customer', 'booking.zone', 'provider', 'serviceman.user']);
+
+        $parent = $repeat->booking;
+
+        return merge_notification_template_data([
+            'booking_id' => (string) ($repeat->readable_id ?? $parent?->readable_id ?? $repeat->id),
+            'user_name' => trim(($parent?->customer?->first_name ?? '') . ' ' . ($parent?->customer?->last_name ?? '')),
+            'zone_name' => $parent?->zone?->name ?? '',
+            'provider_name' => $repeat->provider?->company_name ?? $repeat->provider?->contact_person_name ?? '',
+            'schedule_time' => $repeat->service_schedule
+                ? \Carbon\Carbon::parse($repeat->service_schedule)->format('Y-m-d H:i')
+                : '',
+            'booking_status' => ucfirst(str_replace('_', ' ', (string) ($repeat->booking_status ?? ''))),
+            'service_man_name' => trim(($repeat->serviceman?->user?->first_name ?? '') . ' ' . ($repeat->serviceman?->user?->last_name ?? '')),
+        ], $extras);
+    }
+}
+
 if (! function_exists('scenario_push_notification')) {
     /**
      * Send FCM push and persist to the in-app notification inbox for the recipient.
@@ -2448,10 +2532,9 @@ if (! function_exists('scenario_push_notification')) {
 
         $description = (string) ($description ?? '');
 
-        if ($bookingStatusOverride !== null && $bookingStatusOverride !== '') {
-            $data = is_object($data) ? (array) $data : (is_array($data) ? $data : []);
-            $data['booking_status'] = ucfirst(str_replace('_', ' ', $bookingStatusOverride));
-        }
+        $data = merge_notification_template_data($data, $bookingStatusOverride !== null && $bookingStatusOverride !== ''
+            ? ['booking_status' => ucfirst(str_replace('_', ' ', $bookingStatusOverride))]
+            : []);
 
         $formattedTitle = text_variable_data_format($title, $bookingId, $type, $data, $bookingType);
         if (is_array($formattedTitle)) {
@@ -2785,7 +2868,7 @@ if (! function_exists('send_customer_payment_failed_notification')) {
         $data = [
             'amount' => $amount !== null ? with_currency_symbol($amount) : '',
             'user_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
-            'booking_id' => $bookingId ?? '',
+            'booking_id' => notification_readable_booking_id($bookingId),
         ];
 
         scenario_push_notification(
@@ -2830,7 +2913,7 @@ if (! function_exists('send_customer_wallet_deducted_notification')) {
         $data = [
             'amount' => with_currency_symbol($amount),
             'user_name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
-            'booking_id' => $booking?->readable_id ?? '',
+            'booking_id' => notification_readable_booking_id($bookingId),
         ];
 
         scenario_push_notification(
@@ -2992,8 +3075,7 @@ if (! function_exists('send_chat_message_push_notification')) {
 
         $bookingReadableId = '';
         if ($bookingUuid) {
-            $booking = Booking::query()->find($bookingUuid);
-            $bookingReadableId = (string) ($booking?->readable_id ?? $bookingUuid);
+            $bookingReadableId = notification_readable_booking_id($bookingUuid);
         }
 
         $templateData = [
@@ -3059,11 +3141,7 @@ if (! function_exists('send_customer_loyalty_point_notification')) {
             return;
         }
 
-        $bookingReadableId = '';
-        if (filled($bookingId)) {
-            $booking = Booking::query()->find($bookingId);
-            $bookingReadableId = (string) ($booking?->readable_id ?? $bookingId);
-        }
+        $bookingReadableId = notification_readable_booking_id($bookingId);
 
         $data = [
             'amount' => with_decimal_point($points),
