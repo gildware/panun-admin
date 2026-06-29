@@ -483,7 +483,7 @@ class InAppCallService
             'call_id' => $call->id,
             'channel_id' => $call->channel_id,
             'status' => $call->status,
-            'is_caller' => $call->caller_user_id === $viewer->id,
+            'is_caller' => (string) $call->caller_user_id === (string) $viewer->id,
             'ice_servers' => config('inappcallmodule.ice_servers', []),
             'reference_id' => $call->reference_id,
             'reference_type' => $call->reference_type,
@@ -519,7 +519,7 @@ class InAppCallService
      */
     protected function serializeHistoryItem(InAppCall $call, User $viewer): array
     {
-        $isOutbound = $call->caller_user_id === $viewer->id;
+        $isOutbound = (string) $call->caller_user_id === (string) $viewer->id;
         $peer = $isOutbound ? $call->callee : $call->caller;
 
         return [
@@ -527,6 +527,7 @@ class InAppCallService
             'channel_id' => $call->channel_id,
             'status' => $call->status,
             'direction' => $isOutbound ? 'outbound' : 'inbound',
+            'is_caller' => $isOutbound,
             'duration_seconds' => $call->duration_seconds,
             'started_at' => optional($call->started_at)?->toIso8601String(),
             'answered_at' => optional($call->answered_at)?->toIso8601String(),
